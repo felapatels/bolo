@@ -1,35 +1,57 @@
-# Gujarati Coach
+# Bolo!
 
-A mobile-friendly web app that helps the family's kids learn Gujarati by ear:
-the app speaks a Gujarati word or phrase aloud, the child repeats it, and the app
-transcribes the attempt and gives friendly pronunciation feedback with a score.
-Every phrase is shown in both Gujarati script and romanized English plus the
-English meaning. Multiple kids each have their own profile, so progress is
-tracked per child.
+A mobile-friendly web app for learning to speak the languages of India by ear:
+the app speaks a word or phrase aloud, the learner repeats it, and the app
+transcribes the attempt and gives friendly, kid-ready pronunciation feedback with
+a score. Every phrase is shown in native script plus romanized and English.
+Each learner has a real email account (Clerk), and progress is tracked per user.
+This is the monetization foundation for a multi-language product (payments
+deferred; the `users` table carries a `tier` column defaulting to `'free'`).
+
+> Content today is Gujarati; the roadmap (Task #2) expands to the 22 Eighth
+> Schedule Indian languages via AI-generated lessons cached per (language, topic).
+> The frontend artifact dir is still named `gujarati-coach` for historical
+> reasons — the product/brand is **Bolo!**.
 
 ## Architecture
 
 Monorepo (pnpm) with path-routed artifacts:
 
 - **`artifacts/gujarati-coach`** — React + Vite frontend (root preview path `/`).
-  Pages: a "Who's practicing?" profile picker (shown until a kid is selected),
-  Home dashboard, category detail (`/learn/:id`), core practice session
-  (`/practice/:id`), and progress (`/progress`). Uses generated API hooks from
-  `@workspace/api-client-react` and the voice recorder from
-  `@workspace/integrations-openai-ai-react`. The active kid is held in a
-  `ProfileProvider` (`src/lib/profile.tsx`) and persisted in localStorage.
+  Routes: public **Landing** at `/` (signed-out) which redirects signed-in users
+  to `/app`; Clerk `/sign-in/*` and `/sign-up/*`; and signed-in-guarded `/app`
+  (Home dashboard), `/learn/:id` (category detail), `/practice/:id` (practice
+  session) and `/progress`. Guards redirect signed-out users to `/`. Uses
+  generated API hooks from `@workspace/api-client-react` and the voice recorder
+  from `@workspace/integrations-openai-ai-react`.
 - **`artifacts/api-server`** — Express 5 API (mounted at `/api`). Routes:
-  `profiles.ts` (list/create profiles, verify PIN), `learning.ts` (categories,
-  phrases, attempts, progress) and `openai.ts` (TTS, pronunciation evaluation,
-  AI phrase generation).
-- **`lib/db`** — Drizzle schema: `profiles`, `categories`, `phrases`, `attempts`
-  (`attempts.profileId` FK → `profiles.id`). Seed data in `lib/db/src/seed.ts`
-  (6 kid profiles + hand-authored Gujarati across 6 categories).
+  `health.ts` (`/healthz`, public), `learning.ts` (categories, phrases, attempts,
+  progress) and `openai.ts` (TTS, pronunciation evaluation, AI phrase
+  generation). Everything except `/healthz` is behind `requireAuth`.
+- **`lib/db`** — Drizzle schema: `users` (id = Clerk userId text PK, email,
+  displayName, `tier` default `'free'`), `categories`, `phrases`, `attempts`
+  (`attempts.userId` text FK → `users.id`). Seed data in `lib/db/src/seed.ts`
+  (categories + hand-authored Gujarati phrases; no user seeding).
 - **`lib/api-spec`** — OpenAPI spec; `pnpm --filter @workspace/api-spec run codegen`
   regenerates the typed client (`lib/api-client-react`) and zod (`lib/api-zod`).
 - **`lib/integrations-openai-ai-server` / `-react`** — Replit-managed OpenAI
   integration (no user API key). Server audio helpers: `textToSpeech`,
   `speechToText`, `ensureCompatibleFormat`.
+
+## Authentication
+
+- **Replit-managed Clerk.** Frontend and API share the same domain, so Clerk
+  session **cookies** flow automatically — web calls use relative `/api/...` and
+  need NO `getToken`/Bearer handling.
+- Identity is derived **server-side**: `requireAuth` reads the Clerk session,
+  sets `req.userId`, and JIT-provisions a local `users` row
+  (`onConflictDoNothing`) so `attempts` can FK to it. The client never sends a
+  user/profile id — this closed the prior cross-user leak from a client-supplied
+  `profileId` query param. All attempt-derived stats are scoped by `req.userId`.
+- Frontend Clerk setup lives in `src/App.tsx` (ClerkProvider with host-derived
+  publishable key, proxy URL, branded `appearance`/`localization`, and wouter
+  `routerPush/Replace` with base-path stripping). A dev `pk_test` key and the
+  "development keys" console warning are EXPECTED — do not "fix" them.
 
 ## Audio flow
 
@@ -37,25 +59,17 @@ Monorepo (pnpm) with path-routed artifacts:
   `new Audio("data:audio/mp3;base64,...")`.
 - Pronunciation: frontend records with `useVoiceRecorder`, sends base64 audio to
   `POST /api/openai/pronunciation`, which transcribes (gpt-4o-mini-transcribe)
-  and scores with an LLM (gpt-5.4-mini). Attempts are persisted via
-  `POST /api/attempts`.
+  and scores with an LLM. Attempts are persisted via `POST /api/attempts`.
 - All audio endpoints are plain JSON (base64 in/out) so codegen produces full
   typed hooks. Express body limit raised to 25mb for audio payloads.
 
 ## Notes / decisions
 
-- Single-family app — lightweight **profiles**, not real auth. The selected kid
-  is passed to the API as `profileId` (query param on GETs, body field on POST
-  attempts). All attempt-derived stats are scoped by `profileId`; endpoints
-  return empty stats (never all kids' data) when no valid `profileId` is given.
-- PINs are optional per profile, stored hashed as `salt:hash` (node:crypto
-  scrypt, timing-safe compare). The API only ever exposes a `hasPin` boolean.
-  `verify-pin` has a small in-memory per-profile throttle against brute force.
 - **Verbal feedback**: after each practice attempt the coach speaks a random
   English cheer (chosen by score band) via the TTS endpoint, played on a
   separate audio ref with a cancelled-guard so it doesn't bleed across phrases.
 - `/api/openai/*` endpoints have a lightweight in-memory rate limiter to cap
-  OpenAI cost abuse once published (single learner, so no login needed).
+  OpenAI cost abuse.
 - Mastery = a phrase with a best attempt score >= 80. Streak = consecutive UTC
   days with at least one attempt (anchors on today or yesterday).
 - AI-generated bonus phrases are not stored in `phrases`; their attempts are

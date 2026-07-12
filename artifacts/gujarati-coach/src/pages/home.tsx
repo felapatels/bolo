@@ -1,10 +1,12 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useListCategories, useListRecentAttempts } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/lib/profile";
+import { useUser, useClerk } from "@clerk/react";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const iconMap: Record<string, React.ElementType> = {
   "book-open": BookOpen,
@@ -14,11 +16,12 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export default function Home() {
-  const { profile, clearProfile } = useProfile();
-  const profileId = profile?.id;
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ profileId });
-  const { data: categories, isLoading: loadingCats } = useListCategories({ profileId });
-  const { data: attempts } = useListRecentAttempts({ limit: 3, profileId });
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const firstName = user?.firstName;
+  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary();
+  const { data: categories, isLoading: loadingCats } = useListCategories();
+  const { data: attempts } = useListRecentAttempts({ limit: 3 });
 
   if (loadingSummary || loadingCats) {
     return (
@@ -35,20 +38,17 @@ export default function Home() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-foreground mb-1">
-              Kem chho{profile ? `, ${profile.name}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
+              Kem chho{firstName ? `, ${firstName}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
             </h1>
             <p className="text-muted-foreground text-lg font-medium">Ready to speak some Gujarati?</p>
           </div>
-          {profile && (
-            <button
-              onClick={clearProfile}
-              title="Switch kid"
-              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-[0_4px_0_rgba(0,0,0,0.15)] active:translate-y-1 active:shadow-none transition-all"
-              style={{ backgroundColor: profile.color }}
-            >
-              {profile.avatar}
-            </button>
-          )}
+          <button
+            onClick={() => signOut({ redirectUrl: basePath || "/" })}
+            title="Sign out"
+            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </motion.div>
 
         {/* Stats Row */}

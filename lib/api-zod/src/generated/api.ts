@@ -18,68 +18,8 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary List all kid profiles
- */
-export const ListProfilesResponseItem = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "color": zod.string(),
-  "avatar": zod.string(),
-  "hasPin": zod.boolean()
-})
-export const ListProfilesResponse = zod.array(ListProfilesResponseItem)
-
-
-/**
- * @summary Create a new kid profile
- */
-export const createProfileBodyNameMax = 20;
-
-
-export const createProfileBodyAvatarMax = 2;
-
-export const createProfileBodyPinRegExp = new RegExp('^[0-9]{4}$');
-
-
-export const CreateProfileBody = zod.object({
-  "name": zod.string().min(1).max(createProfileBodyNameMax),
-  "color": zod.string().min(1),
-  "avatar": zod.string().min(1).max(createProfileBodyAvatarMax),
-  "pin": zod.string().regex(createProfileBodyPinRegExp).nullish()
-})
-
-export const CreateProfileResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "color": zod.string(),
-  "avatar": zod.string(),
-  "hasPin": zod.boolean()
-})
-
-
-/**
- * @summary Verify a profile's PIN
- */
-export const VerifyPinParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const VerifyPinBody = zod.object({
-  "pin": zod.string()
-})
-
-export const VerifyPinResponse = zod.object({
-  "valid": zod.boolean()
-})
-
-
-/**
  * @summary List all lesson categories with progress
  */
-export const ListCategoriesQueryParams = zod.object({
-  "profileId": zod.coerce.number().optional()
-})
-
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.number(),
   "slug": zod.string(),
@@ -100,10 +40,6 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
  */
 export const ListCategoryPhrasesParams = zod.object({
   "id": zod.coerce.number()
-})
-
-export const ListCategoryPhrasesQueryParams = zod.object({
-  "profileId": zod.coerce.number().optional()
 })
 
 export const ListCategoryPhrasesResponseItem = zod.object({
@@ -127,10 +63,6 @@ export const ListCategoryPhrasesResponse = zod.array(ListCategoryPhrasesResponse
  */
 export const GetPhraseParams = zod.object({
   "id": zod.coerce.number()
-})
-
-export const GetPhraseQueryParams = zod.object({
-  "profileId": zod.coerce.number().optional()
 })
 
 export const GetPhraseResponse = zod.object({
@@ -157,7 +89,6 @@ export const createAttemptBodyScoreMax = 100;
 
 
 export const CreateAttemptBody = zod.object({
-  "profileId": zod.number(),
   "phraseId": zod.number().nullish(),
   "gujaratiScript": zod.string(),
   "romanized": zod.string(),
@@ -188,8 +119,7 @@ export const CreateAttemptResponse = zod.object({
 export const listRecentAttemptsQueryLimitDefault = 12;
 
 export const ListRecentAttemptsQueryParams = zod.object({
-  "limit": zod.coerce.number().default(listRecentAttemptsQueryLimitDefault),
-  "profileId": zod.coerce.number().optional()
+  "limit": zod.coerce.number().default(listRecentAttemptsQueryLimitDefault)
 })
 
 export const ListRecentAttemptsResponseItem = zod.object({
@@ -210,10 +140,6 @@ export const ListRecentAttemptsResponse = zod.array(ListRecentAttemptsResponseIt
 /**
  * @summary Overall learning progress summary
  */
-export const GetProgressSummaryQueryParams = zod.object({
-  "profileId": zod.coerce.number().optional()
-})
-
 export const GetProgressSummaryResponse = zod.object({
   "totalAttempts": zod.number(),
   "phrasesPracticed": zod.number(),

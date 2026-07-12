@@ -8,5 +8,4 @@
 
 export type ListRecentAttemptsParams = {
 limit?: number;
-profileId?: number;
 };

@@ -8,11 +8,13 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { profilesTable } from "./profiles";
+import { usersTable } from "./users";
 
 export const attemptsTable = pgTable("attempts", {
   id: serial("id").primaryKey(),
-  profileId: integer("profile_id").references(() => profilesTable.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.id),
   phraseId: integer("phrase_id"),
   gujaratiScript: text("gujarati_script").notNull(),
   romanized: text("romanized").notNull(),

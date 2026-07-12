@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bolo">
+  <path d="M12 10h40a6 6 0 0 1 6 6v24a6 6 0 0 1-6 6H30l-12 10V46h-6a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z" fill="#F5871F"/>
+  <circle cx="24" cy="28" r="4" fill="#FFFFFF"/>
+  <circle cx="34" cy="28" r="4" fill="#FFFFFF"/>
+  <circle cx="44" cy="28" r="4" fill="#0FA6A0"/>
+</svg>

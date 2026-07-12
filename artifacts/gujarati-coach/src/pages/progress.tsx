@@ -4,13 +4,10 @@ import { Trophy, Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-re
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { useProfile } from "@/lib/profile";
 
 export default function Progress() {
-  const { profile } = useProfile();
-  const profileId = profile?.id;
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ profileId });
-  const { data: attempts, isLoading: loadingAttempts } = useListRecentAttempts({ limit: 50, profileId });
+  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary();
+  const { data: attempts, isLoading: loadingAttempts } = useListRecentAttempts({ limit: 50 });
 
   if (loadingSummary || loadingAttempts) {
     return (

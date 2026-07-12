@@ -7,7 +7,6 @@
  */
 
 export interface AttemptInput {
-  profileId: number;
   /** @nullable */
   phraseId?: number | null;
   gujaratiScript: string;

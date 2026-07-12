@@ -15,7 +15,6 @@ import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, Refresh
 import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/lib/profile";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
@@ -39,10 +38,8 @@ export default function Practice() {
   const search = useSearch();
   const startPhraseId = new URLSearchParams(search).get("phrase");
   const queryClient = useQueryClient();
-  const { profile } = useProfile();
-  const profileId = profile?.id;
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, { profileId });
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -171,27 +168,24 @@ export default function Practice() {
         });
         setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
 
-        // Save attempt for the active kid
-        if (profileId != null) {
-          await createAttempt.mutateAsync({
-            data: {
-              profileId,
-              phraseId: phrase!.id,
-              gujaratiScript: phrase!.gujaratiScript,
-              romanized: phrase!.romanized,
-              english: phrase!.english,
-              transcript: evalRes.transcript,
-              score: evalRes.score,
-              passed: evalRes.passed,
-              feedback: evalRes.feedback
-            }
-          });
+        // Save the attempt for the signed-in user (derived server-side).
+        await createAttempt.mutateAsync({
+          data: {
+            phraseId: phrase!.id,
+            gujaratiScript: phrase!.gujaratiScript,
+            romanized: phrase!.romanized,
+            english: phrase!.english,
+            transcript: evalRes.transcript,
+            score: evalRes.score,
+            passed: evalRes.passed,
+            feedback: evalRes.feedback
+          }
+        });
 
-          // Invalidate queries so progress updates
-          queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ profileId }) });
-          queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12, profileId }) });
-          queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, { profileId }) });
-        }
+        // Invalidate queries so progress updates
+        queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12 }) });
+        queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id) });
 
         setState("result");
         

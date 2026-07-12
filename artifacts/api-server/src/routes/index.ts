@@ -1,13 +1,16 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
-import profilesRouter from "./profiles";
 import learningRouter from "./learning";
 import openaiRouter from "./openai";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
+// Public
 router.use(healthRouter);
-router.use(profilesRouter);
+
+// Everything below requires an authenticated user.
+router.use(requireAuth);
 router.use(learningRouter);
 router.use(openaiRouter);
 

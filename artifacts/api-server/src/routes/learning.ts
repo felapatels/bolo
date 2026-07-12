@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, categoriesTable, phrasesTable, attemptsTable } from "@workspace/db";
 import { asc, desc, eq } from "drizzle-orm";
 import { CreateAttemptBody } from "@workspace/api-zod";
+import type { AuthedRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -13,11 +14,10 @@ type PhraseStats = {
   mastered: boolean;
 };
 
-// Reads the ?profileId query param; returns null when absent/invalid so callers
-// can fall back to "no stats" rather than leaking another kid's progress.
-function parseProfileId(req: Request): number | null {
-  const v = Number(req.query.profileId);
-  return Number.isInteger(v) && v > 0 ? v : null;
+// The user id is derived server-side from the verified Clerk session by the
+// requireAuth middleware — never from client-supplied input.
+function getUserId(req: Request): string {
+  return (req as AuthedRequest).userId;
 }
 
 function buildPhraseStats(
@@ -42,24 +42,23 @@ function buildPhraseStats(
   return map;
 }
 
-// Fetches phraseId+score for a single profile, or [] when no profile is given.
-async function fetchProfileAttempts(
-  profileId: number | null,
+// Fetches phraseId+score for the authenticated user.
+async function fetchUserAttempts(
+  userId: string,
 ): Promise<{ phraseId: number | null; score: number }[]> {
-  if (profileId == null) return [];
   return db
     .select({ phraseId: attemptsTable.phraseId, score: attemptsTable.score })
     .from(attemptsTable)
-    .where(eq(attemptsTable.profileId, profileId));
+    .where(eq(attemptsTable.userId, userId));
 }
 
 // GET /categories
 router.get("/categories", async (req: Request, res: Response): Promise<void> => {
-  const profileId = parseProfileId(req);
+  const userId = getUserId(req);
   const [categories, phrases, attempts] = await Promise.all([
     db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
     db.select().from(phrasesTable),
-    fetchProfileAttempts(profileId),
+    fetchUserAttempts(userId),
   ]);
 
   const stats = buildPhraseStats(attempts);
@@ -102,7 +101,7 @@ router.get(
       res.status(400).json({ error: "Invalid category id" });
       return;
     }
-    const profileId = parseProfileId(req);
+    const userId = getUserId(req);
 
     const category = await db.query.categoriesTable.findFirst({
       where: (t, { eq: eqFn }) => eqFn(t.id, id),
@@ -117,7 +116,7 @@ router.get(
         where: (t, { eq: eqFn }) => eqFn(t.categoryId, id),
         orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
       }),
-      fetchProfileAttempts(profileId),
+      fetchUserAttempts(userId),
     ]);
 
     const stats = buildPhraseStats(attempts);
@@ -152,7 +151,7 @@ router.get(
       res.status(400).json({ error: "Invalid phrase id" });
       return;
     }
-    const profileId = parseProfileId(req);
+    const userId = getUserId(req);
 
     const phrase = await db.query.phrasesTable.findFirst({
       where: (t, { eq: eqFn }) => eqFn(t.id, id),
@@ -162,7 +161,7 @@ router.get(
       return;
     }
 
-    const attempts = await fetchProfileAttempts(profileId);
+    const attempts = await fetchUserAttempts(userId);
     const stats = buildPhraseStats(attempts);
     const s = stats.get(phrase.id);
 
@@ -190,11 +189,12 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     return;
   }
   const body = parsed.data;
+  const userId = getUserId(req);
 
   const [row] = await db
     .insert(attemptsTable)
     .values({
-      profileId: body.profileId,
+      userId,
       phraseId: body.phraseId ?? null,
       gujaratiScript: body.gujaratiScript,
       romanized: body.romanized,
@@ -229,18 +229,12 @@ router.get(
       Number.isInteger(limitRaw) && limitRaw > 0 && limitRaw <= 100
         ? limitRaw
         : 12;
-    const profileId = parseProfileId(req);
-
-    // Never fall back to unfiltered attempts — that would leak other kids' data.
-    if (profileId == null) {
-      res.json([]);
-      return;
-    }
+    const userId = getUserId(req);
 
     const rows = await db
       .select()
       .from(attemptsTable)
-      .where(eq(attemptsTable.profileId, profileId))
+      .where(eq(attemptsTable.userId, userId))
       .orderBy(desc(attemptsTable.createdAt))
       .limit(limit);
 
@@ -265,15 +259,10 @@ router.get(
 router.get(
   "/progress/summary",
   async (req: Request, res: Response): Promise<void> => {
-    const profileId = parseProfileId(req);
+    const userId = getUserId(req);
 
     const [attempts, phrases] = await Promise.all([
-      profileId == null
-        ? Promise.resolve([] as (typeof attemptsTable.$inferSelect)[])
-        : db
-            .select()
-            .from(attemptsTable)
-            .where(eq(attemptsTable.profileId, profileId)),
+      db.select().from(attemptsTable).where(eq(attemptsTable.userId, userId)),
       db.select({ id: phrasesTable.id }).from(phrasesTable),
     ]);
 

@@ -3,16 +3,13 @@ import { useListCategoryPhrases, useListCategories } from "@workspace/api-client
 import { ArrowLeft, Play, CheckCircle2, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/lib/profile";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
-  const { profile } = useProfile();
-  const profileId = profile?.id;
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, { profileId });
-  const { data: categories } = useListCategories({ profileId });
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
+  const { data: categories } = useListCategories();
   
   const category = categories?.find(c => c.id === id);
 
@@ -29,7 +26,7 @@ export default function CategoryDetail() {
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors button-spring">
+        <Link href="/app" className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors button-spring">
           <ArrowLeft className="w-6 h-6" />
         </Link>
         <div className="text-center">

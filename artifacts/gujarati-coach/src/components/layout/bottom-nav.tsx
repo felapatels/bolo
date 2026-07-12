@@ -9,13 +9,13 @@ export function BottomNav() {
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-safe">
       <div className="flex h-16 items-center justify-around px-6 max-w-md mx-auto">
         <Link 
-          href="/" 
+          href="/app" 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors button-spring",
-            location === "/" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            location === "/app" ? "text-primary" : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <Home className="w-6 h-6" strokeWidth={location === "/" ? 2.5 : 2} />
+          <Home className="w-6 h-6" strokeWidth={location === "/app" ? 2.5 : 2} />
           <span className="text-[10px] font-bold tracking-wide">Home</span>
         </Link>
         <Link 
