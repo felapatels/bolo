@@ -1,0 +1,51 @@
+import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { useAuth } from '@clerk/expo';
+import { Redirect, Stack } from 'expo-router';
+import { setAuthTokenGetter } from '@workspace/api-client-react';
+import { LanguageProvider } from '@/contexts/LanguageContext';
+import { useColors } from '@/hooks/useColors';
+
+export default function AppLayout() {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const colors = useColors();
+
+  // Attach the Clerk bearer token to every API request. Set during render (not
+  // only in an effect) so it's in place before child screens fire their first
+  // queries — mobile has no cookie jar, so a missing token means a 401.
+  setAuthTokenGetter(() => getToken());
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+  }, [getToken]);
+
+  if (!isLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
+
+  return (
+    <LanguageProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="category/[id]" />
+        <Stack.Screen name="practice/[id]" />
+        <Stack.Screen
+          name="language"
+          options={{ presentation: 'modal' }}
+        />
+      </Stack>
+    </LanguageProvider>
+  );
+}
