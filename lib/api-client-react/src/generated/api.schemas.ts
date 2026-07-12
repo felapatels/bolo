@@ -143,6 +143,15 @@ export interface GeneratedPhrase {
   english: string;
 }
 
+export interface AddPhrasesInput {
+  /**
+     * How many new phrases to generate and append.
+     * @minimum 1
+     * @maximum 5
+     */
+  count?: number;
+}
+
 export type ListCategoriesParams = {
 lang: string;
 };

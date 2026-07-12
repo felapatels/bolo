@@ -7,10 +7,13 @@ import {
   attemptsTable,
 } from "@workspace/db";
 import { asc, desc, eq, and } from "drizzle-orm";
-import { CreateAttemptBody } from "@workspace/api-zod";
+import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { verifyEvaluation } from "../lib/evaluationToken";
-import { generateLesson } from "../lib/lessonGenerator";
+import {
+  generateLesson,
+  generateAdditionalPhrases,
+} from "../lib/lessonGenerator";
 
 const router: IRouter = Router();
 
@@ -260,6 +263,126 @@ router.get(
     const stats = buildPhraseStats(attempts);
 
     res.json(phrases.map((p) => serializePhrase(p, stats)));
+  },
+);
+
+// Loose key for de-duplicating phrases by their native-script text.
+function phraseKey(nativeScript: string): string {
+  return nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// POST /categories/:id/phrases/:lang — generate & append fresh AI phrases to an
+// existing lesson so motivated learners can keep practicing past the original set.
+router.post(
+  "/categories/:id/phrases/:lang",
+  async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid category id" });
+      return;
+    }
+    const lang = String(req.params.lang ?? "");
+    const userId = getUserId(req);
+
+    const parsed = AddCategoryPhrasesBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
+    const count = parsed.data.count ?? 3;
+
+    const [category, language] = await Promise.all([
+      db.query.categoriesTable.findFirst({
+        where: (t, { eq: eqFn }) => eqFn(t.id, id),
+      }),
+      db.query.languagesTable.findFirst({
+        where: (t, { eq: eqFn }) => eqFn(t.code, lang),
+      }),
+    ]);
+    if (!category) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+    if (!language) {
+      res.status(404).json({ error: "Language not found" });
+      return;
+    }
+
+    let created: (typeof phrasesTable.$inferSelect)[];
+    try {
+      // Make sure the lesson (and its original phrases) exist first so the new
+      // phrases attach to the same lesson and show up alongside the originals.
+      await getOrCreateLessonPhrases(lang, id);
+      const lesson = await db.query.lessonsTable.findFirst({
+        where: (t, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(t.languageCode, lang), eqFn(t.categoryId, id)),
+      });
+      if (!lesson) {
+        res.status(502).json({ error: "Could not build this lesson" });
+        return;
+      }
+
+      const existing = await db.query.phrasesTable.findMany({
+        where: (t, { eq: eqFn }) => eqFn(t.lessonId, lesson.id),
+        orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
+      });
+
+      const generated = await generateAdditionalPhrases({
+        languageName: language.name,
+        nativeName: language.nativeName,
+        script: language.script,
+        topicTitle: category.title,
+        topicDescription: category.description,
+        existing: existing.map((p) => ({
+          nativeScript: p.nativeScript,
+          romanized: p.romanized,
+          english: p.english,
+        })),
+        count,
+      });
+
+      // Server-side guard against the model echoing existing phrases (or
+      // duplicating within its own batch) despite the prompt.
+      const seen = new Set(existing.map((p) => phraseKey(p.nativeScript)));
+      const fresh: typeof generated = [];
+      for (const g of generated) {
+        const key = phraseKey(g.nativeScript);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        fresh.push(g);
+      }
+
+      if (fresh.length === 0) {
+        res.json([]);
+        return;
+      }
+
+      const startOrder =
+        existing.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1;
+      created = await db
+        .insert(phrasesTable)
+        .values(
+          fresh.map((p, i) => ({
+            lessonId: lesson.id,
+            languageCode: lang,
+            categoryId: id,
+            nativeScript: p.nativeScript,
+            romanized: p.romanized,
+            english: p.english,
+            difficulty: p.difficulty,
+            sortOrder: startOrder + i,
+          })),
+        )
+        .returning();
+    } catch (err) {
+      req.log.error({ err }, "Adding phrases failed");
+      res.status(502).json({ error: "Could not add new phrases" });
+      return;
+    }
+
+    const attempts = await fetchUserAttempts(userId, lang);
+    const stats = buildPhraseStats(attempts);
+    res.json(created.map((p) => serializePhrase(p, stats)));
   },
 );
 

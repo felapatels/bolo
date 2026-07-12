@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './addPhrasesInput';
 export * from './attempt';
 export * from './attemptInput';
 export * from './category';

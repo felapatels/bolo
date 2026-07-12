@@ -80,6 +80,41 @@ export const ListCategoryPhrasesResponse = zod.array(ListCategoryPhrasesResponse
 
 
 /**
+ * Generates additional beginner phrases in the language's native script, avoiding phrases already in the lesson, and appends them to the existing lesson so they persist and count toward progress.
+ * @summary Generate and append fresh AI phrases to a category's lesson
+ */
+export const AddCategoryPhrasesParams = zod.object({
+  "id": zod.coerce.number(),
+  "lang": zod.coerce.string()
+})
+
+export const addCategoryPhrasesBodyCountDefault = 3;
+export const addCategoryPhrasesBodyCountMax = 5;
+
+
+
+export const AddCategoryPhrasesBody = zod.object({
+  "count": zod.number().min(1).max(addCategoryPhrasesBodyCountMax).default(addCategoryPhrasesBodyCountDefault).describe('How many new phrases to generate and append.')
+})
+
+export const AddCategoryPhrasesResponseItem = zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number()
+})
+export const AddCategoryPhrasesResponse = zod.array(AddCategoryPhrasesResponseItem)
+
+
+/**
  * @summary Get a single phrase
  */
 export const GetPhraseParams = zod.object({

@@ -96,6 +96,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    post:
+      operationId: addCategoryPhrases
+      tags: [learning]
+      summary: Generate and append fresh AI phrases to a category's lesson
+      description: >-
+        Generates additional beginner phrases in the language's native script,
+        avoiding phrases already in the lesson, and appends them to the existing
+        lesson so they persist and count toward progress.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddPhrasesInput"
+      responses:
+        "200":
+          description: The newly added phrases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phrase"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /phrases/{id}:
     get:
@@ -552,3 +592,14 @@ components:
         - nativeScript
         - romanized
         - english
+
+    AddPhrasesInput:
+      type: object
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          description: How many new phrases to generate and append.
+      required: []

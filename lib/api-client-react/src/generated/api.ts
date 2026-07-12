@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AddPhrasesInput,
   Attempt,
   AttemptInput,
   Category,
@@ -386,6 +387,81 @@ export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCat
 
 
 
+
+export const getAddCategoryPhrasesUrl = (id: number,
+    lang: string,) => {
+
+
+
+
+  return `/api/categories/${id}/phrases/${lang}`
+}
+
+/**
+ * Generates additional beginner phrases in the language's native script, avoiding phrases already in the lesson, and appends them to the existing lesson so they persist and count toward progress.
+ * @summary Generate and append fresh AI phrases to a category's lesson
+ */
+export const addCategoryPhrases = async (id: number,
+    lang: string,
+    addPhrasesInput?: AddPhrasesInput, options?: RequestInit): Promise<Phrase[]> => {
+
+  return customFetch<Phrase[]>(getAddCategoryPhrasesUrl(id,lang),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(addPhrasesInput)
+  }
+);}
+
+
+
+
+
+export const getAddCategoryPhrasesMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext> => {
+
+const mutationKey = ['addCategoryPhrases'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCategoryPhrases>>, {id: number;lang: string;data?: BodyType<AddPhrasesInput>}> = (props) => {
+          const {id,lang,data} = props ?? {};
+
+          return  addCategoryPhrases(id,lang,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCategoryPhrasesMutationResult = NonNullable<Awaited<ReturnType<typeof addCategoryPhrases>>>
+    export type AddCategoryPhrasesMutationBody = BodyType<AddPhrasesInput> | undefined
+    export type AddCategoryPhrasesMutationError = ErrorType<Error>
+
+    /**
+ * @summary Generate and append fresh AI phrases to a category's lesson
+ */
+export const useAddCategoryPhrases = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCategoryPhrases>>,
+        TError,
+        {id: number;lang: string;data?: BodyType<AddPhrasesInput>},
+        TContext
+      > => {
+      return useMutation(getAddCategoryPhrasesMutationOptions(options));
+    }
 
 export const getGetPhraseUrl = (id: number,) => {
 

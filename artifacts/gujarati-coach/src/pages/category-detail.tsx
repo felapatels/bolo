@@ -1,6 +1,13 @@
 import { useParams, Link } from "wouter";
-import { useListCategoryPhrases, useListCategories } from "@workspace/api-client-react";
-import { ArrowLeft, Play, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import {
+  useListCategoryPhrases,
+  useListCategories,
+  useAddCategoryPhrases,
+  getListCategoryPhrasesQueryKey,
+  getListCategoriesQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -10,10 +17,28 @@ export default function CategoryDetail() {
   const id = parseInt(categoryId || "0", 10);
   const { activeLang } = useLanguage();
   const native = useNativeText();
+  const queryClient = useQueryClient();
 
   const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, activeLang);
   const { data: categories } = useListCategories({ lang: activeLang });
-  
+  const addPhrases = useAddCategoryPhrases();
+
+  const handleAddPhrases = async () => {
+    try {
+      await addPhrases.mutateAsync({ id, lang: activeLang, data: { count: 3 } });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: getListCategoriesQueryKey({ lang: activeLang }),
+        }),
+      ]);
+    } catch (error) {
+      console.error("Failed to add phrases", error);
+    }
+  };
+
   const category = categories?.find(c => c.id === id);
 
   if (loadingPhrases || !category) {
@@ -104,6 +129,30 @@ export default function CategoryDetail() {
               </Link>
             </motion.div>
           ))}
+
+          <button
+            onClick={handleAddPhrases}
+            disabled={addPhrases.isPending}
+            className="w-full bg-white rounded-2xl p-4 border-2 border-dashed border-primary/40 text-primary font-bold flex items-center justify-center gap-2 transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60 button-spring"
+          >
+            {addPhrases.isPending ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Creating new phrases…</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                <span>Add more phrases</span>
+              </>
+            )}
+          </button>
+
+          {addPhrases.isError && (
+            <p className="text-sm text-destructive text-center font-medium">
+              Couldn't add new phrases. Please try again.
+            </p>
+          )}
         </div>
       </main>
     </div>
