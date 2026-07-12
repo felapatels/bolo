@@ -66,32 +66,39 @@ export default function CategoryDetail() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4"
             >
-              <div className="mt-1 shrink-0">
-                {phrase.mastered ? (
-                  <CheckCircle2 className="w-6 h-6 text-success" />
-                ) : (
-                  <Circle className="w-6 h-6 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <p className="font-gujarati text-2xl font-bold text-foreground leading-tight">{phrase.gujaratiScript}</p>
-                <p className="text-primary font-medium text-sm">{phrase.romanized}</p>
-                <p className="text-muted-foreground text-sm">{phrase.english}</p>
-              </div>
-              <div className="shrink-0 flex flex-col items-end justify-between h-full">
-                {phrase.bestScore !== null && (
-                  <div className={cn(
-                    "text-xs font-bold px-2 py-1 rounded-full",
-                    phrase.bestScore >= 80 ? "bg-success/15 text-success" : 
-                    phrase.bestScore >= 60 ? "bg-primary/15 text-primary" : 
-                    "bg-destructive/15 text-destructive"
-                  )}>
-                    {Math.round(phrase.bestScore)}
+              <Link
+                href={`/practice/${id}?phrase=${phrase.id}`}
+                className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer transition-all hover:border-primary/50 active:scale-[0.98] button-spring"
+              >
+                <div className="mt-1 shrink-0">
+                  {phrase.mastered ? (
+                    <CheckCircle2 className="w-6 h-6 text-success" />
+                  ) : (
+                    <Circle className="w-6 h-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="font-gujarati text-2xl font-bold text-foreground leading-tight">{phrase.gujaratiScript}</p>
+                  <p className="text-primary font-medium text-sm">{phrase.romanized}</p>
+                  <p className="text-muted-foreground text-sm">{phrase.english}</p>
+                </div>
+                <div className="shrink-0 flex flex-col items-end justify-between gap-2 self-stretch">
+                  {phrase.bestScore !== null ? (
+                    <div className={cn(
+                      "text-xs font-bold px-2 py-1 rounded-full",
+                      phrase.bestScore >= 80 ? "bg-success/15 text-success" : 
+                      phrase.bestScore >= 60 ? "bg-primary/15 text-primary" : 
+                      "bg-destructive/15 text-destructive"
+                    )}>
+                      {Math.round(phrase.bestScore)}
+                    </div>
+                  ) : <span />}
+                  <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Play className="w-4 h-4 fill-current" />
                   </div>
-                )}
-              </div>
+                </div>
+              </Link>
             </motion.div>
           ))}
         </div>

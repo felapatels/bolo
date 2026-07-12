@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useSearch } from "wouter";
 import { 
   useListCategoryPhrases, 
   useSynthesizeSpeech, 
@@ -36,6 +36,8 @@ function pickSpokenFeedback(score: number): string {
 export default function Practice() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
+  const search = useSearch();
+  const startPhraseId = new URLSearchParams(search).get("phrase");
   const queryClient = useQueryClient();
   const { profile } = useProfile();
   const profileId = profile?.id;
@@ -57,11 +59,16 @@ export default function Practice() {
 
   const phrase = phrases?.[currentIndex];
 
-  // Auto-start when phrases load
+  // Auto-start when phrases load (jump to a specific phrase if requested)
   useEffect(() => {
     if (phrases && phrases.length > 0 && state === "intro") {
+      if (startPhraseId != null) {
+        const idx = phrases.findIndex(p => p.id === parseInt(startPhraseId, 10));
+        if (idx >= 0) setCurrentIndex(idx);
+      }
       setState("playing_coach");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrases, state]);
 
   // Handle coach playing
