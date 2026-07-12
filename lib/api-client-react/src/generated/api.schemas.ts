@@ -77,6 +77,40 @@ export interface Attempt {
   createdAt: string;
 }
 
+export interface Badge {
+  key: string;
+  title: string;
+  description: string;
+  iconName: string;
+  earned: boolean;
+  /** @nullable */
+  earnedAt: string | null;
+}
+
+export interface EarnedBadge {
+  key: string;
+  title: string;
+  description: string;
+  iconName: string;
+  earnedAt: string;
+}
+
+export interface AttemptResult {
+  id: number;
+  /** @nullable */
+  phraseId: number | null;
+  languageCode: string;
+  nativeScript: string;
+  romanized: string;
+  english: string;
+  transcript: string;
+  score: number;
+  passed: boolean;
+  feedback: string;
+  createdAt: string;
+  newlyEarnedBadges: EarnedBadge[];
+}
+
 export interface ProgressSummary {
   totalAttempts: number;
   phrasesPracticed: number;
@@ -159,6 +193,10 @@ lang: string;
 export type ListRecentAttemptsParams = {
 lang: string;
 limit?: number;
+};
+
+export type ListBadgesParams = {
+lang: string;
 };
 
 export type GetProgressSummaryParams = {

@@ -5,6 +5,7 @@ import {
   lessonsTable,
   phrasesTable,
   attemptsTable,
+  badgesTable,
 } from "@workspace/db";
 import { asc, desc, eq, and } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
@@ -14,6 +15,11 @@ import {
   generateLesson,
   generateAdditionalPhrases,
 } from "../lib/lessonGenerator";
+import {
+  BADGE_CATALOG,
+  earnedBadgeKeys,
+  type ProgressMetrics,
+} from "../lib/badges";
 
 const router: IRouter = Router();
 
@@ -51,6 +57,45 @@ function buildPhraseStats(
     map.set(a.phraseId, existing);
   }
   return map;
+}
+
+// Number of consecutive UTC days (ending today, or anchored on yesterday if
+// nothing was practiced today) the learner has an attempt on.
+function computeStreakDays(createdAts: Date[]): number {
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+  const days = new Set(createdAts.map(dayKey));
+  let streak = 0;
+  const cursor = new Date();
+  if (!days.has(dayKey(cursor))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  while (days.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
+}
+
+// Derives the server-authoritative per-language progress metrics used by both
+// the progress summary and badge evaluation, from the learner's full set of
+// attempts for one language.
+function computeProgressMetrics(
+  attempts: { phraseId: number | null; score: number; createdAt: Date }[],
+): ProgressMetrics {
+  const stats = buildPhraseStats(attempts);
+  let phrasesMastered = 0;
+  for (const s of stats.values()) {
+    if (s.mastered) phrasesMastered += 1;
+  }
+  const scores = attempts.map((a) => a.score);
+  return {
+    totalAttempts: attempts.length,
+    phrasesPracticed: stats.size,
+    phrasesMastered,
+    bestScore: scores.length > 0 ? Math.max(...scores) : 0,
+    xp: scores.reduce((sum, s) => sum + s, 0),
+    currentStreakDays: computeStreakDays(attempts.map((a) => a.createdAt)),
+  };
 }
 
 // Fetches phraseId+score for the authenticated user, scoped to one language so
@@ -446,6 +491,65 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     })
     .returning();
 
+  // Re-evaluate the badge catalog against this user's now-current per-language
+  // progress (the attempt above is already persisted, so it's included). Any
+  // newly-satisfied badge is awarded exactly once: the unique (user, language,
+  // key) constraint + onConflictDoNothing means only rows actually inserted are
+  // returned, so re-meeting a criterion never re-awards or re-celebrates it.
+  const langAttempts = await db
+    .select({
+      phraseId: attemptsTable.phraseId,
+      score: attemptsTable.score,
+      createdAt: attemptsTable.createdAt,
+    })
+    .from(attemptsTable)
+    .where(
+      and(
+        eq(attemptsTable.userId, userId),
+        eq(attemptsTable.languageCode, claims.languageCode),
+      ),
+    );
+
+  const metrics = computeProgressMetrics(langAttempts);
+  const satisfiedKeys = earnedBadgeKeys(metrics);
+
+  let newlyEarnedBadges: {
+    key: string;
+    title: string;
+    description: string;
+    iconName: string;
+    earnedAt: string;
+  }[] = [];
+
+  if (satisfiedKeys.length > 0) {
+    const inserted = await db
+      .insert(badgesTable)
+      .values(
+        satisfiedKeys.map((badgeKey) => ({
+          userId,
+          languageCode: claims.languageCode,
+          badgeKey,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning();
+
+    const earnedAtByKey = new Map(
+      inserted.map((r) => [r.badgeKey, r.earnedAt]),
+    );
+
+    // Report in catalog order for a stable, sensible celebration sequence.
+    newlyEarnedBadges = BADGE_CATALOG.filter((def) =>
+      earnedAtByKey.has(def.key),
+    ).map((def) => ({
+      key: def.key,
+      title: def.title,
+      description: def.description,
+      iconName: def.iconName,
+      earnedAt: earnedAtByKey.get(def.key)!.toISOString(),
+    }));
+  }
+
   res.status(201).json({
     id: row.id,
     phraseId: row.phraseId,
@@ -458,7 +562,48 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     passed: row.passed,
     feedback: row.feedback,
     createdAt: row.createdAt.toISOString(),
+    newlyEarnedBadges,
   });
+});
+
+// GET /badges?lang=xx — the full catalog annotated with earned/locked status
+// and earned dates for the authenticated user in one language.
+router.get("/badges", async (req: Request, res: Response): Promise<void> => {
+  const lang = String(req.query.lang ?? "");
+  if (!lang) {
+    res.status(400).json({ error: "Missing language" });
+    return;
+  }
+  const userId = getUserId(req);
+
+  const earned = await db
+    .select({
+      badgeKey: badgesTable.badgeKey,
+      earnedAt: badgesTable.earnedAt,
+    })
+    .from(badgesTable)
+    .where(
+      and(
+        eq(badgesTable.userId, userId),
+        eq(badgesTable.languageCode, lang),
+      ),
+    );
+
+  const earnedAtByKey = new Map(earned.map((e) => [e.badgeKey, e.earnedAt]));
+
+  res.json(
+    BADGE_CATALOG.map((def) => {
+      const earnedAt = earnedAtByKey.get(def.key);
+      return {
+        key: def.key,
+        title: def.title,
+        description: def.description,
+        iconName: def.iconName,
+        earned: earnedAt != null,
+        earnedAt: earnedAt ? earnedAt.toISOString() : null,
+      };
+    }),
+  );
 });
 
 // GET /attempts/recent?lang=xx&limit=n
@@ -534,55 +679,31 @@ router.get(
         .where(eq(phrasesTable.languageCode, lang)),
     ]);
 
-    const totalAttempts = attempts.length;
     const totalPhrases = phrases.length;
-
-    const stats = buildPhraseStats(
-      attempts.map((a) => ({ phraseId: a.phraseId, score: a.score })),
-    );
-    const phrasesPracticed = stats.size;
-    let phrasesMastered = 0;
-    for (const s of stats.values()) {
-      if (s.mastered) phrasesMastered += 1;
-    }
+    const metrics = computeProgressMetrics(attempts);
 
     const scores = attempts.map((a) => a.score);
     const averageScore =
       scores.length > 0
         ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
         : 0;
-    const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
-    const xp = scores.reduce((sum, s) => sum + s, 0);
 
-    // Streak + today's attempts, using UTC day boundaries.
-    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-    const today = dayKey(new Date());
-    const days = new Set(attempts.map((a) => dayKey(a.createdAt)));
+    // Today's attempts, using the same UTC day boundary as the streak.
+    const today = new Date().toISOString().slice(0, 10);
     const attemptsToday = attempts.filter(
-      (a) => dayKey(a.createdAt) === today,
+      (a) => a.createdAt.toISOString().slice(0, 10) === today,
     ).length;
 
-    let currentStreakDays = 0;
-    const cursor = new Date();
-    if (!days.has(dayKey(cursor))) {
-      // If nothing today, allow the streak to anchor on yesterday.
-      cursor.setUTCDate(cursor.getUTCDate() - 1);
-    }
-    while (days.has(dayKey(cursor))) {
-      currentStreakDays += 1;
-      cursor.setUTCDate(cursor.getUTCDate() - 1);
-    }
-
     res.json({
-      totalAttempts,
-      phrasesPracticed,
-      phrasesMastered,
+      totalAttempts: metrics.totalAttempts,
+      phrasesPracticed: metrics.phrasesPracticed,
+      phrasesMastered: metrics.phrasesMastered,
       totalPhrases,
       averageScore,
-      bestScore,
-      currentStreakDays,
+      bestScore: metrics.bestScore,
+      currentStreakDays: metrics.currentStreakDays,
       attemptsToday,
-      xp,
+      xp: metrics.xp,
     });
   },
 );

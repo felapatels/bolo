@@ -179,7 +179,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Attempt"
+                $ref: "#/components/schemas/AttemptResult"
 
   /attempts/recent:
     get:
@@ -207,6 +207,27 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Attempt"
+
+  /badges:
+    get:
+      operationId: listBadges
+      tags: [learning]
+      summary: Badge catalog annotated with earned/locked status for a language
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of badges with earned status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Badge"
 
   /progress/summary:
     get:
@@ -455,6 +476,95 @@ components:
         - passed
         - feedback
         - createdAt
+
+    Badge:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        earned:
+          type: boolean
+        earnedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - key
+        - title
+        - description
+        - iconName
+        - earned
+        - earnedAt
+
+    EarnedBadge:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        earnedAt:
+          type: string
+          format: date-time
+      required:
+        - key
+        - title
+        - description
+        - iconName
+        - earnedAt
+
+    AttemptResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        phraseId:
+          type: ["integer", "null"]
+        languageCode:
+          type: string
+        nativeScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+        transcript:
+          type: string
+        score:
+          type: integer
+        passed:
+          type: boolean
+        feedback:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        newlyEarnedBadges:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarnedBadge"
+      required:
+        - id
+        - phraseId
+        - languageCode
+        - nativeScript
+        - romanized
+        - english
+        - transcript
+        - score
+        - passed
+        - feedback
+        - createdAt
+        - newlyEarnedBadges
 
     ProgressSummary:
       type: object

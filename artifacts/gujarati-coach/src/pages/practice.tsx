@@ -7,13 +7,16 @@ import {
   useCreateAttempt,
   getListCategoryPhrasesQueryKey,
   getGetProgressSummaryQueryKey,
-  getListRecentAttemptsQueryKey
+  getListRecentAttemptsQueryKey,
+  getListBadgesQueryKey,
+  type EarnedBadge
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
+import { BadgeUnlock } from "@/components/badge-unlock";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
@@ -46,6 +49,7 @@ export default function Practice() {
   const [result, setResult] = useState<{ score: number; feedback: string; tip: string } | null>(null);
   const [sessionResults, setSessionResults] = useState<{ phraseId: number; score: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const feedbackAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -167,8 +171,10 @@ export default function Practice() {
 
       // Save the attempt for the signed-in user. The score/feedback are
       // carried inside the server-signed evaluation token, so the server —
-      // not the client — decides what gets recorded.
-      await createAttempt.mutateAsync({
+      // not the client — decides what gets recorded. The response reports any
+      // badges newly earned by this attempt, which the server awards exactly
+      // once per (user, language) — so this celebration never replays.
+      const attemptRes = await createAttempt.mutateAsync({
         data: {
           evaluationToken: evalRes.evaluationToken
         }
@@ -178,12 +184,17 @@ export default function Practice() {
       queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
       queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
       queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
+      queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
 
       setState("result");
 
       if (evalRes.score >= 80) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
+      }
+
+      if (attemptRes.newlyEarnedBadges.length > 0) {
+        setNewBadges(attemptRes.newlyEarnedBadges);
       }
     } catch (error) {
       console.error("Evaluation failed", error);
@@ -288,6 +299,7 @@ export default function Practice() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
       <Confetti active={showConfetti} />
+      <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
       <header className="px-6 py-4 flex items-center justify-between">
         <Link href={`/learn/${id}`} className="text-muted-foreground hover:text-foreground">

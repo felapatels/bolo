@@ -158,7 +158,14 @@ export const CreateAttemptResponse = zod.object({
   "score": zod.number(),
   "passed": zod.boolean(),
   "feedback": zod.string(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "newlyEarnedBadges": zod.array(zod.object({
+  "key": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "iconName": zod.string(),
+  "earnedAt": zod.coerce.date()
+}))
 })
 
 
@@ -186,6 +193,24 @@ export const ListRecentAttemptsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 })
 export const ListRecentAttemptsResponse = zod.array(ListRecentAttemptsResponseItem)
+
+
+/**
+ * @summary Badge catalog annotated with earned/locked status for a language
+ */
+export const ListBadgesQueryParams = zod.object({
+  "lang": zod.coerce.string()
+})
+
+export const ListBadgesResponseItem = zod.object({
+  "key": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "iconName": zod.string(),
+  "earned": zod.boolean(),
+  "earnedAt": zod.coerce.date().nullable()
+})
+export const ListBadgesResponse = zod.array(ListBadgesResponseItem)
 
 
 /**

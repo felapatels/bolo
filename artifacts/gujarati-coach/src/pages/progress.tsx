@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { BadgesGallery } from "@/components/badges-gallery";
 
 export default function Progress() {
   const { activeLang, activeLanguage } = useLanguage();
@@ -61,6 +62,8 @@ export default function Progress() {
             delay={0.4}
           />
         </section>
+
+        <BadgesGallery lang={activeLang} />
 
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Practice History</h2>

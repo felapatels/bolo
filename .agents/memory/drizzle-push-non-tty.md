@@ -22,3 +22,12 @@ adding a NOT NULL column to a populated table.
 
 **Why:** Keeps migrations deterministic and non-interactive; the drizzle schema
 files stay the source of truth for types, the manual DDL just realizes them.
+
+**Drastically-drifted DB (many ambiguous diffs at once):** An isolated task env
+can hand you a DB whose schema is far behind the ORM (e.g. old single-language
+tables, missing whole tables). Rather than hand-writing a big migration, if the
+data is disposable (dev/task env, users are JIT-provisioned), `DROP TABLE ...
+CASCADE` every app table, then `push` against the now-empty DB — all-creates has
+no rename/column ambiguity, so it applies with no TTY prompt. Then repopulate
+reference data with the seed script (`lib/db/src/seed.ts`) run via the tsx
+cli.mjs path (see tsx-scripts.md). Do NOT do this against production.

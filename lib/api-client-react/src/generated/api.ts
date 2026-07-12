@@ -23,12 +23,15 @@ import type {
   AddPhrasesInput,
   Attempt,
   AttemptInput,
+  AttemptResult,
+  Badge,
   Category,
   Error,
   GeneratedPhrase,
   GetProgressSummaryParams,
   HealthStatus,
   Language,
+  ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
   Phrase,
@@ -551,9 +554,9 @@ export const getCreateAttemptUrl = () => {
 /**
  * @summary Record a pronunciation practice attempt
  */
-export const createAttempt = async (attemptInput: AttemptInput, options?: RequestInit): Promise<Attempt> => {
+export const createAttempt = async (attemptInput: AttemptInput, options?: RequestInit): Promise<AttemptResult> => {
 
-  return customFetch<Attempt>(getCreateAttemptUrl(),
+  return customFetch<AttemptResult>(getCreateAttemptUrl(),
   {
     ...options,
     method: 'POST',
@@ -683,6 +686,90 @@ export function useListRecentAttempts<TData = Awaited<ReturnType<typeof listRece
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListRecentAttemptsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListBadgesUrl = (params: ListBadgesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/badges?${stringifiedParams}` : `/api/badges`
+}
+
+/**
+ * @summary Badge catalog annotated with earned/locked status for a language
+ */
+export const listBadges = async (params: ListBadgesParams, options?: RequestInit): Promise<Badge[]> => {
+
+  return customFetch<Badge[]>(getListBadgesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBadgesQueryKey = (params?: ListBadgesParams,) => {
+    return [
+    `/api/badges`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBadgesQueryOptions = <TData = Awaited<ReturnType<typeof listBadges>>, TError = ErrorType<unknown>>(params: ListBadgesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBadgesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBadges>>> = ({ signal }) => listBadges(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBadgesQueryResult = NonNullable<Awaited<ReturnType<typeof listBadges>>>
+export type ListBadgesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Badge catalog annotated with earned/locked status for a language
+ */
+
+export function useListBadges<TData = Awaited<ReturnType<typeof listBadges>>, TError = ErrorType<unknown>>(
+ params: ListBadgesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBadgesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
