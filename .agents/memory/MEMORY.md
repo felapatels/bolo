@@ -1,0 +1,1 @@
+- [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.

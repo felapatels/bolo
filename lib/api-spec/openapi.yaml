@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: learning
+    description: Categories, phrases, attempts and progress
+  - name: openai
+    description: OpenAI AI audio and content operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,185 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [learning]
+      summary: List all lesson categories with progress
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /categories/{id}/phrases:
+    get:
+      operationId: listCategoryPhrases
+      tags: [learning]
+      summary: List all phrases in a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of phrases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phrase"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /phrases/{id}:
+    get:
+      operationId: getPhrase
+      tags: [learning]
+      summary: Get a single phrase
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The phrase
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Phrase"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attempts:
+    post:
+      operationId: createAttempt
+      tags: [learning]
+      summary: Record a pronunciation practice attempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttemptInput"
+      responses:
+        "201":
+          description: Created attempt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attempt"
+
+  /attempts/recent:
+    get:
+      operationId: listRecentAttempts
+      tags: [learning]
+      summary: Recent practice attempts feed
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 12
+      responses:
+        "200":
+          description: Recent attempts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attempt"
+
+  /progress/summary:
+    get:
+      operationId: getProgressSummary
+      tags: [learning]
+      summary: Overall learning progress summary
+      responses:
+        "200":
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressSummary"
+
+  /openai/tts:
+    post:
+      operationId: synthesizeSpeech
+      tags: [openai]
+      summary: Convert Gujarati text to spoken audio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpeechInput"
+      responses:
+        "200":
+          description: Synthesized audio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeechResult"
+
+  /openai/pronunciation:
+    post:
+      operationId: evaluatePronunciation
+      tags: [openai]
+      summary: Evaluate a spoken attempt against a target phrase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PronunciationInput"
+      responses:
+        "200":
+          description: Pronunciation evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PronunciationResult"
+
+  /openai/generate-phrase:
+    post:
+      operationId: generatePhrase
+      tags: [openai]
+      summary: Generate a fresh Gujarati practice phrase with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhraseRequest"
+      responses:
+        "200":
+          description: A generated phrase
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedPhrase"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +217,269 @@ components:
       required:
         - status
 
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        titleGujarati:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        accent:
+          type: string
+        sortOrder:
+          type: integer
+        phraseCount:
+          type: integer
+        masteredCount:
+          type: integer
+      required:
+        - id
+        - slug
+        - title
+        - titleGujarati
+        - description
+        - iconName
+        - accent
+        - sortOrder
+        - phraseCount
+        - masteredCount
+
+    Phrase:
+      type: object
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        gujaratiScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+        hint:
+          type: ["string", "null"]
+        difficulty:
+          type: integer
+        sortOrder:
+          type: integer
+        bestScore:
+          type: ["integer", "null"]
+        mastered:
+          type: boolean
+        attemptCount:
+          type: integer
+      required:
+        - id
+        - categoryId
+        - gujaratiScript
+        - romanized
+        - english
+        - hint
+        - difficulty
+        - sortOrder
+        - bestScore
+        - mastered
+        - attemptCount
+
+    AttemptInput:
+      type: object
+      properties:
+        phraseId:
+          type: ["integer", "null"]
+        gujaratiScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+        transcript:
+          type: string
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        passed:
+          type: boolean
+        feedback:
+          type: string
+      required:
+        - gujaratiScript
+        - romanized
+        - english
+        - transcript
+        - score
+        - passed
+        - feedback
+
+    Attempt:
+      type: object
+      properties:
+        id:
+          type: integer
+        phraseId:
+          type: ["integer", "null"]
+        gujaratiScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+        transcript:
+          type: string
+        score:
+          type: integer
+        passed:
+          type: boolean
+        feedback:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - phraseId
+        - gujaratiScript
+        - romanized
+        - english
+        - transcript
+        - score
+        - passed
+        - feedback
+        - createdAt
+
+    ProgressSummary:
+      type: object
+      properties:
+        totalAttempts:
+          type: integer
+        phrasesPracticed:
+          type: integer
+        phrasesMastered:
+          type: integer
+        totalPhrases:
+          type: integer
+        averageScore:
+          type: integer
+        bestScore:
+          type: integer
+        currentStreakDays:
+          type: integer
+        attemptsToday:
+          type: integer
+        xp:
+          type: integer
+      required:
+        - totalAttempts
+        - phrasesPracticed
+        - phrasesMastered
+        - totalPhrases
+        - averageScore
+        - bestScore
+        - currentStreakDays
+        - attemptsToday
+        - xp
+
+    SpeechInput:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+        voice:
+          type: string
+      required:
+        - text
+
+    SpeechResult:
+      type: object
+      properties:
+        audioBase64:
+          type: string
+        format:
+          type: string
+      required:
+        - audioBase64
+        - format
+
+    PronunciationInput:
+      type: object
+      properties:
+        targetGujarati:
+          type: string
+          minLength: 1
+        targetRomanized:
+          type: string
+        targetEnglish:
+          type: string
+        audioBase64:
+          type: string
+          minLength: 1
+        mimeType:
+          type: string
+      required:
+        - targetGujarati
+        - targetRomanized
+        - targetEnglish
+        - audioBase64
+
+    PronunciationResult:
+      type: object
+      properties:
+        transcript:
+          type: string
+        score:
+          type: integer
+        passed:
+          type: boolean
+        feedback:
+          type: string
+        tip:
+          type: string
+      required:
+        - transcript
+        - score
+        - passed
+        - feedback
+        - tip
+
+    PhraseRequest:
+      type: object
+      properties:
+        categoryTitle:
+          type: string
+        difficulty:
+          type: integer
+          minimum: 1
+          maximum: 3
+      required: []
+
+    GeneratedPhrase:
+      type: object
+      properties:
+        gujaratiScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+      required:
+        - gujaratiScript
+        - romanized
+        - english

@@ -1,0 +1,111 @@
+import { useParams, Link } from "wouter";
+import { useListCategoryPhrases, useListCategories } from "@workspace/api-client-react";
+import { ArrowLeft, Play, CheckCircle2, Circle } from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+
+export default function CategoryDetail() {
+  const { categoryId } = useParams();
+  const id = parseInt(categoryId || "0", 10);
+  
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
+  const { data: categories } = useListCategories();
+  
+  const category = categories?.find(c => c.id === id);
+
+  if (loadingPhrases || !category) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary border-r-4 border-r-transparent"></div>
+      </div>
+    );
+  }
+
+  const masteredCount = phrases?.filter(p => p.mastered).length || 0;
+
+  return (
+    <div className="min-h-[100dvh] bg-background flex flex-col">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4 flex items-center justify-between">
+        <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors button-spring">
+          <ArrowLeft className="w-6 h-6" />
+        </Link>
+        <div className="text-center">
+          <h1 className="font-bold text-lg text-foreground">{category.title}</h1>
+          <p className="text-xs text-muted-foreground font-gujarati">{category.titleGujarati}</p>
+        </div>
+        <div className="w-10" /> {/* Spacer */}
+      </header>
+
+      <main className="flex-1 p-6 space-y-6">
+        {/* Progress Header */}
+        <div className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center" style={{ borderColor: category.accent || 'var(--color-primary)' }}>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: category.accent ? `${category.accent}20` : 'var(--color-primary-100)', color: category.accent || 'var(--color-primary)' }}>
+            <TrophyIcon className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-black mb-1">{masteredCount} / {phrases?.length}</h2>
+          <p className="text-muted-foreground font-medium mb-6">Phrases Mastered</p>
+          
+          <Link 
+            href={`/practice/${id}`}
+            className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(27,100%,45%)] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+          >
+            <Play className="w-6 h-6 fill-current" />
+            <span>Practice All</span>
+          </Link>
+        </div>
+
+        {/* Phrase List */}
+        <div className="space-y-3">
+          <h3 className="font-bold text-lg text-foreground px-2">Phrases to learn</h3>
+          {phrases?.map((phrase, i) => (
+            <motion.div
+              key={phrase.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4"
+            >
+              <div className="mt-1 shrink-0">
+                {phrase.mastered ? (
+                  <CheckCircle2 className="w-6 h-6 text-success" />
+                ) : (
+                  <Circle className="w-6 h-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="font-gujarati text-2xl font-bold text-foreground leading-tight">{phrase.gujaratiScript}</p>
+                <p className="text-primary font-medium text-sm">{phrase.romanized}</p>
+                <p className="text-muted-foreground text-sm">{phrase.english}</p>
+              </div>
+              <div className="shrink-0 flex flex-col items-end justify-between h-full">
+                {phrase.bestScore !== null && (
+                  <div className={cn(
+                    "text-xs font-bold px-2 py-1 rounded-full",
+                    phrase.bestScore >= 80 ? "bg-success/15 text-success" : 
+                    phrase.bestScore >= 60 ? "bg-primary/15 text-primary" : 
+                    "bg-destructive/15 text-destructive"
+                  )}>
+                    {Math.round(phrase.bestScore)}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function TrophyIcon(props: any) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round" {...props}>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}

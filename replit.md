@@ -1,45 +1,61 @@
-# [Project name]
+# Gujarati Coach
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A mobile-friendly web app that helps an 11-year-old learn Gujarati by ear: the
+app speaks a Gujarati word or phrase aloud, the child repeats it, and the app
+transcribes the attempt and gives friendly pronunciation feedback with a score.
+Every phrase is shown in both Gujarati script and romanized English plus the
+English meaning.
 
-## Run & Operate
+## Architecture
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+Monorepo (pnpm) with path-routed artifacts:
 
-## Stack
+- **`artifacts/gujarati-coach`** — React + Vite frontend (root preview path `/`).
+  Pages: Home dashboard, category detail (`/learn/:id`), core practice session
+  (`/practice/:id`), and progress (`/progress`). Uses generated API hooks from
+  `@workspace/api-client-react` and the voice recorder from
+  `@workspace/integrations-openai-ai-react`.
+- **`artifacts/api-server`** — Express 5 API (mounted at `/api`). Routes:
+  `learning.ts` (categories, phrases, attempts, progress) and `openai.ts` (TTS,
+  pronunciation evaluation, AI phrase generation).
+- **`lib/db`** — Drizzle schema: `categories`, `phrases`, `attempts`. Seed data
+  in `lib/db/src/seed.ts` (hand-authored Gujarati across 6 categories).
+- **`lib/api-spec`** — OpenAPI spec; `pnpm --filter @workspace/api-spec run codegen`
+  regenerates the typed client (`lib/api-client-react`) and zod (`lib/api-zod`).
+- **`lib/integrations-openai-ai-server` / `-react`** — Replit-managed OpenAI
+  integration (no user API key). Server audio helpers: `textToSpeech`,
+  `speechToText`, `ensureCompatibleFormat`.
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+## Audio flow
 
-## Where things live
+- TTS: `POST /api/openai/tts` returns base64 MP3; frontend plays via
+  `new Audio("data:audio/mp3;base64,...")`.
+- Pronunciation: frontend records with `useVoiceRecorder`, sends base64 audio to
+  `POST /api/openai/pronunciation`, which transcribes (gpt-4o-mini-transcribe)
+  and scores with an LLM (gpt-5.4-mini). Attempts are persisted via
+  `POST /api/attempts`.
+- All audio endpoints are plain JSON (base64 in/out) so codegen produces full
+  typed hooks. Express body limit raised to 25mb for audio payloads.
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+## Notes / decisions
 
-## Architecture decisions
+- Single-user personal app (the user's son) — intentionally no auth/login.
+- `/api/openai/*` endpoints have a lightweight in-memory rate limiter to cap
+  OpenAI cost abuse once published (single learner, so no login needed).
+- Mastery = a phrase with a best attempt score >= 80. Streak = consecutive UTC
+  days with at least one attempt (anchors on today or yesterday).
+- AI-generated bonus phrases are not stored in `phrases`; their attempts are
+  recorded with `phraseId = null` plus a text snapshot of the phrase.
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+## Running
 
-## Product
+Workflows (auto-created per artifact):
+- `artifacts/api-server: API Server`
+- `artifacts/gujarati-coach: web`
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Seed the DB (idempotent): run `tsx lib/db/src/seed.ts` (tsx bin lives under
+`node_modules/.pnpm/node_modules/.bin/tsx`).
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- (none recorded yet)
