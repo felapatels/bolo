@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
@@ -28,7 +29,13 @@ export default function Practice() {
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, activeLang);
+  const {
+    data: phrases,
+    isLoading: loadingPhrases,
+    isError,
+    isFetching,
+    refetch,
+  } = useListCategoryPhrases(id, activeLang);
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -220,11 +227,22 @@ export default function Practice() {
     setState("playing_coach");
   };
 
+  if (isError) {
+    return (
+      <LessonErrorScreen
+        backHref={`/learn/${id}`}
+        onRetry={() => { void refetch(); }}
+        isRetrying={isFetching}
+      />
+    );
+  }
+
   if (loadingPhrases || !phrases) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-      </div>
+      <LessonBuildingScreen
+        languageName={activeLanguage?.name}
+        backHref={`/learn/${id}`}
+      />
     );
   }
 

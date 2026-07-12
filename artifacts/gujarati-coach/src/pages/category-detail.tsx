@@ -11,15 +11,22 @@ import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus } from "lucide-rea
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
   const queryClient = useQueryClient();
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, activeLang);
+  const {
+    data: phrases,
+    isLoading: loadingPhrases,
+    isError,
+    isFetching,
+    refetch,
+  } = useListCategoryPhrases(id, activeLang);
   const { data: categories } = useListCategories({ lang: activeLang });
   const addPhrases = useAddCategoryPhrases();
 
@@ -41,12 +48,22 @@ export default function CategoryDetail() {
 
   const category = categories?.find(c => c.id === id);
 
+  if (isError) {
+    return (
+      <LessonErrorScreen
+        backHref="/app"
+        onRetry={() => { void refetch(); }}
+        isRetrying={isFetching}
+      />
+    );
+  }
+
   if (loadingPhrases || !category) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-8 text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Preparing your lesson…</p>
-      </div>
+      <CategoryLessonSkeleton
+        languageName={activeLanguage?.name}
+        categoryTitle={category?.title}
+      />
     );
   }
 
