@@ -2,7 +2,14 @@ import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { Mic, Sparkles, Trophy, ArrowRight, Volume2 } from 'lucide-react';
 
-const SCRIPTS = ['બોલો', 'बोलो', 'বলো', 'బోలో', 'சொல்', 'ਬੋਲੋ'];
+const SCRIPTS = [
+  { script: 'બોલો', name: 'Gujarati' },
+  { script: 'बोलो', name: 'Hindi' },
+  { script: 'বলো', name: 'Bengali' },
+  { script: 'బోలో', name: 'Telugu' },
+  { script: 'சொல்', name: 'Tamil' },
+  { script: 'ਬੋਲੋ', name: 'Punjabi' },
+];
 
 export default function Landing() {
   return (
@@ -80,16 +87,21 @@ export default function Landing() {
           <div className="mt-14 flex flex-wrap items-center justify-center gap-3">
             {SCRIPTS.map((s, i) => (
               <motion.span
-                key={s}
+                key={s.name}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3 + i * 0.06 }}
-                className="font-gujarati text-2xl font-bold bg-white border border-card-border rounded-2xl px-5 py-3 shadow-sm"
-                style={{
-                  color: ['#F5871F', '#0FA6A0', '#E84E8A'][i % 3],
-                }}
+                className="flex items-center gap-2.5 bg-white border border-card-border rounded-2xl px-5 py-3 shadow-sm"
               >
-                {s}
+                <span
+                  className="font-gujarati text-2xl font-bold leading-none"
+                  style={{ color: ['#F5871F', '#0FA6A0', '#E84E8A'][i % 3] }}
+                >
+                  {s.script}
+                </span>
+                <span className="text-sm font-bold text-muted-foreground leading-none">
+                  {s.name}
+                </span>
               </motion.span>
             ))}
           </div>
