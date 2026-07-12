@@ -6,8 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface GeneratedPhrase {
-  nativeScript: string;
-  romanized: string;
-  english: string;
-}
+export type ListCategoriesParams = {
+lang: string;
+};

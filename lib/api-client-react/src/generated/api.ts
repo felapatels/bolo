@@ -25,7 +25,10 @@ import type {
   Category,
   Error,
   GeneratedPhrase,
+  GetProgressSummaryParams,
   HealthStatus,
+  Language,
+  ListCategoriesParams,
   ListRecentAttemptsParams,
   Phrase,
   PhraseRequest,
@@ -141,20 +144,20 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-export const getListCategoriesUrl = () => {
+export const getListLanguagesUrl = () => {
 
 
 
 
-  return `/api/categories`
+  return `/api/languages`
 }
 
 /**
- * @summary List all lesson categories with progress
+ * @summary List all supported learning languages
  */
-export const listCategories = async ( options?: RequestInit): Promise<Category[]> => {
+export const listLanguages = async ( options?: RequestInit): Promise<Language[]> => {
 
-  return customFetch<Category[]>(getListCategoriesUrl(),
+  return customFetch<Language[]>(getListLanguagesUrl(),
   {
     ...options,
     method: 'GET'
@@ -167,23 +170,107 @@ export const listCategories = async ( options?: RequestInit): Promise<Category[]
 
 
 
-export const getListCategoriesQueryKey = () => {
+export const getListLanguagesQueryKey = () => {
     return [
-    `/api/categories`
+    `/api/languages`
     ] as const;
     }
 
 
-export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListLanguagesQueryOptions = <TData = Awaited<ReturnType<typeof listLanguages>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLanguages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListLanguagesQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLanguages>>> = ({ signal }) => listLanguages({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLanguages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLanguagesQueryResult = NonNullable<Awaited<ReturnType<typeof listLanguages>>>
+export type ListLanguagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all supported learning languages
+ */
+
+export function useListLanguages<TData = Awaited<ReturnType<typeof listLanguages>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLanguages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLanguagesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCategoriesUrl = (params: ListCategoriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/categories?${stringifiedParams}` : `/api/categories`
+}
+
+/**
+ * @summary List all lesson categories with progress for a language
+ */
+export const listCategories = async (params: ListCategoriesParams, options?: RequestInit): Promise<Category[]> => {
+
+  return customFetch<Category[]>(getListCategoriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCategoriesQueryKey = (params?: ListCategoriesParams,) => {
+    return [
+    `/api/categories`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(params: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories(params, { signal, ...requestOptions });
 
 
 
@@ -197,15 +284,15 @@ export type ListCategoriesQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List all lesson categories with progress
+ * @summary List all lesson categories with progress for a language
  */
 
 export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCategoriesQueryOptions(options)
+  const queryOptions = getListCategoriesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -218,20 +305,22 @@ export function useListCategories<TData = Awaited<ReturnType<typeof listCategori
 
 
 
-export const getListCategoryPhrasesUrl = (id: number,) => {
+export const getListCategoryPhrasesUrl = (id: number,
+    lang: string,) => {
 
 
 
 
-  return `/api/categories/${id}/phrases`
+  return `/api/categories/${id}/phrases/${lang}`
 }
 
 /**
- * @summary List all phrases in a category
+ * @summary List phrases in a category for a language (generated + cached on first request)
  */
-export const listCategoryPhrases = async (id: number, options?: RequestInit): Promise<Phrase[]> => {
+export const listCategoryPhrases = async (id: number,
+    lang: string, options?: RequestInit): Promise<Phrase[]> => {
 
-  return customFetch<Phrase[]>(getListCategoryPhrasesUrl(id),
+  return customFetch<Phrase[]>(getListCategoryPhrasesUrl(id,lang),
   {
     ...options,
     method: 'GET'
@@ -244,29 +333,31 @@ export const listCategoryPhrases = async (id: number, options?: RequestInit): Pr
 
 
 
-export const getListCategoryPhrasesQueryKey = (id: number,) => {
+export const getListCategoryPhrasesQueryKey = (id: number,
+    lang: string,) => {
     return [
-    `/api/categories/${id}/phrases`
+    `/api/categories/${id}/phrases/${lang}`
     ] as const;
     }
 
 
-export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCategoryPhrasesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getListCategoryPhrasesQueryKey(id,lang);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategoryPhrases>>> = ({ signal }) => listCategoryPhrases(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategoryPhrases>>> = ({ signal }) => listCategoryPhrases(id,lang, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && lang !== null && lang !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type ListCategoryPhrasesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategoryPhrases>>>
@@ -274,15 +365,16 @@ export type ListCategoryPhrasesQueryError = ErrorType<Error>
 
 
 /**
- * @summary List all phrases in a category
+ * @summary List phrases in a category for a language (generated + cached on first request)
  */
 
 export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCategoryPhrasesQueryOptions(id,options)
+  const queryOptions = getListCategoryPhrasesQueryOptions(id,lang,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -443,7 +535,7 @@ export const useCreateAttempt = <TError = ErrorType<unknown>,
       return useMutation(getCreateAttemptMutationOptions(options));
     }
 
-export const getListRecentAttemptsUrl = (params?: ListRecentAttemptsParams,) => {
+export const getListRecentAttemptsUrl = (params: ListRecentAttemptsParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -459,9 +551,9 @@ export const getListRecentAttemptsUrl = (params?: ListRecentAttemptsParams,) => 
 }
 
 /**
- * @summary Recent practice attempts feed
+ * @summary Recent practice attempts feed for a language
  */
-export const listRecentAttempts = async (params?: ListRecentAttemptsParams, options?: RequestInit): Promise<Attempt[]> => {
+export const listRecentAttempts = async (params: ListRecentAttemptsParams, options?: RequestInit): Promise<Attempt[]> => {
 
   return customFetch<Attempt[]>(getListRecentAttemptsUrl(params),
   {
@@ -483,7 +575,7 @@ export const getListRecentAttemptsQueryKey = (params?: ListRecentAttemptsParams,
     }
 
 
-export const getListRecentAttemptsQueryOptions = <TData = Awaited<ReturnType<typeof listRecentAttempts>>, TError = ErrorType<unknown>>(params?: ListRecentAttemptsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRecentAttempts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListRecentAttemptsQueryOptions = <TData = Awaited<ReturnType<typeof listRecentAttempts>>, TError = ErrorType<unknown>>(params: ListRecentAttemptsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRecentAttempts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -506,11 +598,11 @@ export type ListRecentAttemptsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Recent practice attempts feed
+ * @summary Recent practice attempts feed for a language
  */
 
 export function useListRecentAttempts<TData = Awaited<ReturnType<typeof listRecentAttempts>>, TError = ErrorType<unknown>>(
- params?: ListRecentAttemptsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRecentAttempts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params: ListRecentAttemptsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRecentAttempts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -527,20 +619,27 @@ export function useListRecentAttempts<TData = Awaited<ReturnType<typeof listRece
 
 
 
-export const getGetProgressSummaryUrl = () => {
+export const getGetProgressSummaryUrl = (params: GetProgressSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/progress/summary`
+  return stringifiedParams.length > 0 ? `/api/progress/summary?${stringifiedParams}` : `/api/progress/summary`
 }
 
 /**
- * @summary Overall learning progress summary
+ * @summary Overall learning progress summary for a language
  */
-export const getProgressSummary = async ( options?: RequestInit): Promise<ProgressSummary> => {
+export const getProgressSummary = async (params: GetProgressSummaryParams, options?: RequestInit): Promise<ProgressSummary> => {
 
-  return customFetch<ProgressSummary>(getGetProgressSummaryUrl(),
+  return customFetch<ProgressSummary>(getGetProgressSummaryUrl(params),
   {
     ...options,
     method: 'GET'
@@ -553,23 +652,23 @@ export const getProgressSummary = async ( options?: RequestInit): Promise<Progre
 
 
 
-export const getGetProgressSummaryQueryKey = () => {
+export const getGetProgressSummaryQueryKey = (params?: GetProgressSummaryParams,) => {
     return [
-    `/api/progress/summary`
+    `/api/progress/summary`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetProgressSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetProgressSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>(params: GetProgressSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetProgressSummaryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetProgressSummaryQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgressSummary>>> = ({ signal }) => getProgressSummary({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgressSummary>>> = ({ signal }) => getProgressSummary(params, { signal, ...requestOptions });
 
 
 
@@ -583,15 +682,15 @@ export type GetProgressSummaryQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Overall learning progress summary
+ * @summary Overall learning progress summary for a language
  */
 
 export function useGetProgressSummary<TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params: GetProgressSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetProgressSummaryQueryOptions(options)
+  const queryOptions = getGetProgressSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -613,7 +712,7 @@ export const getSynthesizeSpeechUrl = () => {
 }
 
 /**
- * @summary Convert Gujarati text to spoken audio
+ * @summary Convert text to spoken audio
  */
 export const synthesizeSpeech = async (speechInput: SpeechInput, options?: RequestInit): Promise<SpeechResult> => {
 
@@ -662,7 +761,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SynthesizeSpeechMutationError = ErrorType<unknown>
 
     /**
- * @summary Convert Gujarati text to spoken audio
+ * @summary Convert text to spoken audio
  */
 export const useSynthesizeSpeech = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof synthesizeSpeech>>, TError,{data: BodyType<SpeechInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -755,7 +854,7 @@ export const getGeneratePhraseUrl = () => {
 }
 
 /**
- * @summary Generate a fresh Gujarati practice phrase with AI
+ * @summary Generate a fresh practice phrase with AI
  */
 export const generatePhrase = async (phraseRequest: PhraseRequest, options?: RequestInit): Promise<GeneratedPhrase> => {
 
@@ -804,7 +903,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type GeneratePhraseMutationError = ErrorType<unknown>
 
     /**
- * @summary Generate a fresh Gujarati practice phrase with AI
+ * @summary Generate a fresh practice phrase with AI
  */
 export const useGeneratePhrase = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generatePhrase>>, TError,{data: BodyType<PhraseRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}

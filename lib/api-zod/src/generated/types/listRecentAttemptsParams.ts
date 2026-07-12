@@ -7,5 +7,6 @@
  */
 
 export type ListRecentAttemptsParams = {
+lang: string;
 limit?: number;
 };

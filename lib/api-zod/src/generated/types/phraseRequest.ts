@@ -7,6 +7,7 @@
  */
 
 export interface PhraseRequest {
+  languageName?: string;
   categoryTitle?: string;
   /**
      * @minimum 1

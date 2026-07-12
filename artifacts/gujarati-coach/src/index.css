@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Anek+Gujarati:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap');
+/* Native-script fonts covering every Eighth Schedule Indian language's script. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400..700&family=Noto+Nastaliq+Urdu:wght@400..700&family=Noto+Sans+Bengali:wght@400..800&family=Noto+Sans+Devanagari:wght@400..800&family=Noto+Sans+Gujarati:wght@400..800&family=Noto+Sans+Gurmukhi:wght@400..800&family=Noto+Sans+Kannada:wght@400..800&family=Noto+Sans+Malayalam:wght@400..800&family=Noto+Sans+Meetei+Mayek&family=Noto+Sans+Ol+Chiki&family=Noto+Sans+Oriya:wght@400..800&family=Noto+Sans+Tamil:wght@400..800&family=Noto+Sans+Telugu:wght@400..800&display=swap');
 
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';

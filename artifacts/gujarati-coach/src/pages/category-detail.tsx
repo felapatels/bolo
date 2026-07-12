@@ -1,22 +1,26 @@
 import { useParams, Link } from "wouter";
 import { useListCategoryPhrases, useListCategories } from "@workspace/api-client-react";
-import { ArrowLeft, Play, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useLanguage, useNativeText } from "@/lib/language-context";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
+  const { activeLang } = useLanguage();
+  const native = useNativeText();
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
-  const { data: categories } = useListCategories();
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, activeLang);
+  const { data: categories } = useListCategories({ lang: activeLang });
   
   const category = categories?.find(c => c.id === id);
 
   if (loadingPhrases || !category) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-primary border-r-4 border-r-transparent"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-8 text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-muted-foreground font-medium">Preparing your lesson…</p>
       </div>
     );
   }
@@ -31,7 +35,9 @@ export default function CategoryDetail() {
         </Link>
         <div className="text-center">
           <h1 className="font-bold text-lg text-foreground">{category.title}</h1>
-          <p className="text-xs text-muted-foreground font-gujarati">{category.titleGujarati}</p>
+          {category.titleNative && (
+            <p className="text-xs text-muted-foreground" style={native.style} dir={native.dir}>{category.titleNative}</p>
+          )}
         </div>
         <div className="w-10" /> {/* Spacer */}
       </header>
@@ -76,7 +82,7 @@ export default function CategoryDetail() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="font-gujarati text-2xl font-bold text-foreground leading-tight">{phrase.gujaratiScript}</p>
+                  <p className="text-2xl font-bold text-foreground leading-tight" style={native.style} dir={native.dir}>{phrase.nativeScript}</p>
                   <p className="text-primary font-medium text-sm">{phrase.romanized}</p>
                   <p className="text-muted-foreground text-sm">{phrase.english}</p>
                 </div>

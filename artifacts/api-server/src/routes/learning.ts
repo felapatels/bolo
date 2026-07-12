@@ -1,9 +1,16 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, categoriesTable, phrasesTable, attemptsTable } from "@workspace/db";
-import { asc, desc, eq } from "drizzle-orm";
+import {
+  db,
+  categoriesTable,
+  lessonsTable,
+  phrasesTable,
+  attemptsTable,
+} from "@workspace/db";
+import { asc, desc, eq, and } from "drizzle-orm";
 import { CreateAttemptBody } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { verifyEvaluation } from "../lib/evaluationToken";
+import { generateLesson } from "../lib/lessonGenerator";
 
 const router: IRouter = Router();
 
@@ -43,29 +50,149 @@ function buildPhraseStats(
   return map;
 }
 
-// Fetches phraseId+score for the authenticated user.
+// Fetches phraseId+score for the authenticated user, scoped to one language so
+// progress is tracked per user per language.
 async function fetchUserAttempts(
   userId: string,
+  languageCode: string,
 ): Promise<{ phraseId: number | null; score: number }[]> {
   return db
     .select({ phraseId: attemptsTable.phraseId, score: attemptsTable.score })
     .from(attemptsTable)
-    .where(eq(attemptsTable.userId, userId));
+    .where(
+      and(
+        eq(attemptsTable.userId, userId),
+        eq(attemptsTable.languageCode, languageCode),
+      ),
+    );
 }
 
-// GET /categories
+function serializePhrase(
+  p: typeof phrasesTable.$inferSelect,
+  stats: Map<number, PhraseStats>,
+) {
+  const s = stats.get(p.id);
+  return {
+    id: p.id,
+    categoryId: p.categoryId,
+    languageCode: p.languageCode,
+    nativeScript: p.nativeScript,
+    romanized: p.romanized,
+    english: p.english,
+    hint: p.hint,
+    difficulty: p.difficulty,
+    sortOrder: p.sortOrder,
+    bestScore: s?.bestScore ?? null,
+    mastered: s?.mastered ?? false,
+    attemptCount: s?.attemptCount ?? 0,
+  };
+}
+
+// Returns the cached phrases for a (language, topic), generating and persisting
+// them on the first request. Concurrency-safe via the unique (language_code,
+// category_id) constraint on lessons.
+async function getOrCreateLessonPhrases(
+  languageCode: string,
+  categoryId: number,
+): Promise<typeof phrasesTable.$inferSelect[]> {
+  const loadPhrases = (lessonId: number) =>
+    db.query.phrasesTable.findMany({
+      where: (t, { eq: eqFn }) => eqFn(t.lessonId, lessonId),
+      orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
+    });
+
+  const existing = await db.query.lessonsTable.findFirst({
+    where: (t, { eq: eqFn, and: andFn }) =>
+      andFn(eqFn(t.languageCode, languageCode), eqFn(t.categoryId, categoryId)),
+  });
+  if (existing) return loadPhrases(existing.id);
+
+  const [language, category] = await Promise.all([
+    db.query.languagesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.code, languageCode),
+    }),
+    db.query.categoriesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, categoryId),
+    }),
+  ]);
+  if (!language || !category) return [];
+
+  const generated = await generateLesson({
+    languageName: language.name,
+    nativeName: language.nativeName,
+    script: language.script,
+    topicTitle: category.title,
+    topicDescription: category.description,
+  });
+
+  const [lesson] = await db
+    .insert(lessonsTable)
+    .values({
+      languageCode,
+      categoryId,
+      titleNative: generated.titleNative,
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  // Lost the race to another concurrent request — reuse whatever it created.
+  if (!lesson) {
+    const winner = await db.query.lessonsTable.findFirst({
+      where: (t, { eq: eqFn, and: andFn }) =>
+        andFn(
+          eqFn(t.languageCode, languageCode),
+          eqFn(t.categoryId, categoryId),
+        ),
+    });
+    return winner ? loadPhrases(winner.id) : [];
+  }
+
+  await db.insert(phrasesTable).values(
+    generated.phrases.map((p, i) => ({
+      lessonId: lesson.id,
+      languageCode,
+      categoryId,
+      nativeScript: p.nativeScript,
+      romanized: p.romanized,
+      english: p.english,
+      difficulty: p.difficulty,
+      sortOrder: i,
+    })),
+  );
+
+  return loadPhrases(lesson.id);
+}
+
+// GET /categories?lang=xx
 router.get("/categories", async (req: Request, res: Response): Promise<void> => {
+  const lang = String(req.query.lang ?? "");
+  if (!lang) {
+    res.status(400).json({ error: "Missing language" });
+    return;
+  }
   const userId = getUserId(req);
-  const [categories, phrases, attempts] = await Promise.all([
+
+  const [categories, langPhrases, lessons, attempts] = await Promise.all([
     db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
-    db.select().from(phrasesTable),
-    fetchUserAttempts(userId),
+    db
+      .select({ id: phrasesTable.id, categoryId: phrasesTable.categoryId })
+      .from(phrasesTable)
+      .where(eq(phrasesTable.languageCode, lang)),
+    db
+      .select({
+        categoryId: lessonsTable.categoryId,
+        titleNative: lessonsTable.titleNative,
+      })
+      .from(lessonsTable)
+      .where(eq(lessonsTable.languageCode, lang)),
+    fetchUserAttempts(userId, lang),
   ]);
 
   const stats = buildPhraseStats(attempts);
+  const titleByCategory = new Map(lessons.map((l) => [l.categoryId, l.titleNative]));
 
   const phrasesByCategory = new Map<number, number[]>();
-  for (const p of phrases) {
+  for (const p of langPhrases) {
     const list = phrasesByCategory.get(p.categoryId) ?? [];
     list.push(p.id);
     phrasesByCategory.set(p.categoryId, list);
@@ -80,11 +207,11 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       id: c.id,
       slug: c.slug,
       title: c.title,
-      titleGujarati: c.titleGujarati,
       description: c.description,
       iconName: c.iconName,
       accent: c.accent,
       sortOrder: c.sortOrder,
+      titleNative: titleByCategory.get(c.id) ?? null,
       phraseCount: phraseIds.length,
       masteredCount,
     };
@@ -93,15 +220,16 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   res.json(data);
 });
 
-// GET /categories/:id/phrases
+// GET /categories/:id/phrases/:lang — generated + cached on first request.
 router.get(
-  "/categories/:id/phrases",
+  "/categories/:id/phrases/:lang",
   async (req: Request, res: Response): Promise<void> => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: "Invalid category id" });
       return;
     }
+    const lang = String(req.params.lang ?? "");
     const userId = getUserId(req);
 
     const category = await db.query.categoriesTable.findFirst({
@@ -111,35 +239,27 @@ router.get(
       res.status(404).json({ error: "Category not found" });
       return;
     }
+    const language = await db.query.languagesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.code, lang),
+    });
+    if (!language) {
+      res.status(404).json({ error: "Language not found" });
+      return;
+    }
 
-    const [phrases, attempts] = await Promise.all([
-      db.query.phrasesTable.findMany({
-        where: (t, { eq: eqFn }) => eqFn(t.categoryId, id),
-        orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
-      }),
-      fetchUserAttempts(userId),
-    ]);
+    let phrases: typeof phrasesTable.$inferSelect[];
+    try {
+      phrases = await getOrCreateLessonPhrases(lang, id);
+    } catch (err) {
+      req.log.error({ err }, "Lesson generation failed");
+      res.status(502).json({ error: "Could not build this lesson" });
+      return;
+    }
 
+    const attempts = await fetchUserAttempts(userId, lang);
     const stats = buildPhraseStats(attempts);
 
-    const data = phrases.map((p) => {
-      const s = stats.get(p.id);
-      return {
-        id: p.id,
-        categoryId: p.categoryId,
-        gujaratiScript: p.gujaratiScript,
-        romanized: p.romanized,
-        english: p.english,
-        hint: p.hint,
-        difficulty: p.difficulty,
-        sortOrder: p.sortOrder,
-        bestScore: s?.bestScore ?? null,
-        mastered: s?.mastered ?? false,
-        attemptCount: s?.attemptCount ?? 0,
-      };
-    });
-
-    res.json(data);
+    res.json(phrases.map((p) => serializePhrase(p, stats)));
   },
 );
 
@@ -162,23 +282,10 @@ router.get(
       return;
     }
 
-    const attempts = await fetchUserAttempts(userId);
+    const attempts = await fetchUserAttempts(userId, phrase.languageCode);
     const stats = buildPhraseStats(attempts);
-    const s = stats.get(phrase.id);
 
-    res.json({
-      id: phrase.id,
-      categoryId: phrase.categoryId,
-      gujaratiScript: phrase.gujaratiScript,
-      romanized: phrase.romanized,
-      english: phrase.english,
-      hint: phrase.hint,
-      difficulty: phrase.difficulty,
-      sortOrder: phrase.sortOrder,
-      bestScore: s?.bestScore ?? null,
-      mastered: s?.mastered ?? false,
-      attemptCount: s?.attemptCount ?? 0,
-    });
+    res.json(serializePhrase(phrase, stats));
   },
 );
 
@@ -204,8 +311,9 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     .insert(attemptsTable)
     .values({
       userId,
+      languageCode: claims.languageCode,
       phraseId: claims.phraseId,
-      gujaratiScript: claims.gujaratiScript,
+      nativeScript: claims.nativeScript,
       romanized: claims.romanized,
       english: claims.english,
       transcript: claims.transcript,
@@ -218,7 +326,8 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
   res.status(201).json({
     id: row.id,
     phraseId: row.phraseId,
-    gujaratiScript: row.gujaratiScript,
+    languageCode: row.languageCode,
+    nativeScript: row.nativeScript,
     romanized: row.romanized,
     english: row.english,
     transcript: row.transcript,
@@ -229,10 +338,15 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
   });
 });
 
-// GET /attempts/recent
+// GET /attempts/recent?lang=xx&limit=n
 router.get(
   "/attempts/recent",
   async (req: Request, res: Response): Promise<void> => {
+    const lang = String(req.query.lang ?? "");
+    if (!lang) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
     const limitRaw = Number(req.query.limit);
     const limit =
       Number.isInteger(limitRaw) && limitRaw > 0 && limitRaw <= 100
@@ -243,7 +357,12 @@ router.get(
     const rows = await db
       .select()
       .from(attemptsTable)
-      .where(eq(attemptsTable.userId, userId))
+      .where(
+        and(
+          eq(attemptsTable.userId, userId),
+          eq(attemptsTable.languageCode, lang),
+        ),
+      )
       .orderBy(desc(attemptsTable.createdAt))
       .limit(limit);
 
@@ -251,7 +370,8 @@ router.get(
       rows.map((row) => ({
         id: row.id,
         phraseId: row.phraseId,
-        gujaratiScript: row.gujaratiScript,
+        languageCode: row.languageCode,
+        nativeScript: row.nativeScript,
         romanized: row.romanized,
         english: row.english,
         transcript: row.transcript,
@@ -264,15 +384,31 @@ router.get(
   },
 );
 
-// GET /progress/summary
+// GET /progress/summary?lang=xx
 router.get(
   "/progress/summary",
   async (req: Request, res: Response): Promise<void> => {
+    const lang = String(req.query.lang ?? "");
+    if (!lang) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
     const userId = getUserId(req);
 
     const [attempts, phrases] = await Promise.all([
-      db.select().from(attemptsTable).where(eq(attemptsTable.userId, userId)),
-      db.select({ id: phrasesTable.id }).from(phrasesTable),
+      db
+        .select()
+        .from(attemptsTable)
+        .where(
+          and(
+            eq(attemptsTable.userId, userId),
+            eq(attemptsTable.languageCode, lang),
+          ),
+        ),
+      db
+        .select({ id: phrasesTable.id })
+        .from(phrasesTable)
+        .where(eq(phrasesTable.languageCode, lang)),
     ]);
 
     const totalAttempts = attempts.length;

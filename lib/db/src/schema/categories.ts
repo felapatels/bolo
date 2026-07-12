@@ -2,11 +2,13 @@ import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+// Topics are language-agnostic (greetings, family, numbers, ...). The actual
+// phrases for a topic are generated and cached per language in `lessons` +
+// `phrases`.
 export const categoriesTable = pgTable("categories", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
-  titleGujarati: text("title_gujarati").notNull(),
   description: text("description").notNull(),
   iconName: text("icon_name").notNull(),
   accent: text("accent").notNull(),

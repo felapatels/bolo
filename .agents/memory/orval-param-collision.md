@@ -1,23 +1,32 @@
 ---
 name: orval path+query param name collision
-description: Why the api-zod barrel exports only ./generated/api (values), not ./generated/types
+description: Why a GET endpoint must not have BOTH a path param and a query param in this repo
 ---
 
 When an OpenAPI GET endpoint has BOTH a path param and a query param, orval's
-zod client names the path-param schema `<Op>Params` (a value) while the TS
-`types` generator names the query-param type `<Op>Params` (a type). Re-exporting
-both `./generated/api` and `./generated/types` via `export *` from the api-zod
-barrel then trips TS2308 ("already exported a member named GetPhraseParams").
-`export type *` does NOT resolve it — a value and a type of the same name from
-two different star re-exports still conflict.
+zod client names the path-param schema `<Op>Params` (a VALUE, in
+`lib/api-zod/src/generated/api.ts`) while orval's TS `types` generator names the
+QUERY-param type `<Op>Params` (a TYPE, in `.../generated/types`). The api-zod
+workspace barrel (`lib/api-zod/src/index.ts`) re-exports both generated files
+via `export *`, so the value and the type collide → TS2308
+("already exported a member named `<Op>Params`").
 
-**Rule:** keep `lib/api-zod/src/index.ts` exporting only `./generated/api`
-(the zod value schemas). Do not re-add `export * from "./generated/types"`.
+Query-ONLY endpoints are fine: zod names them `<Op>QueryParams` (note the infix),
+types names them `<Op>Params` → different names, no clash. Path-ONLY endpoints
+are fine too: zod emits `<Op>Params`, types emits no query-params type.
 
-**Why:** nothing in the repo imports the TS param types from `@workspace/api-zod`
-— server routes import only zod value schemas (e.g. `CreateAttemptBody`), and the
-react client package (`@workspace/api-client-react`) carries its own full types.
+**Rule:** never give a single GET endpoint both a path param and a query param.
+Put the discriminator in the path (e.g. `/categories/{id}/phrases/{lang}`
+instead of `/categories/{id}/phrases?lang=`), or keep everything in the query
+with no path params.
 
-**How to apply:** if a future GET endpoint gains a query param and codegen starts
-failing typecheck:libs with TS2308 on `<Op>Params`, this is the cause — the
-values-only barrel already handles it; don't "fix" it by re-adding the types export.
+**Why:** orval runs in `workspace` output mode and REWRITES/ensures the barrel
+`export * from './generated/api'` AND `export * from './generated/types'` on
+every codegen run. So you cannot durably "fix" this by editing the barrel to
+values-only — orval re-adds the types export next codegen. Removing the
+collision at the spec level (no path+query on one op) is the only fix that
+survives regeneration.
+
+**How to apply:** if codegen fails `typecheck:libs` with TS2308 on `<Op>Params`,
+find the GET op that has both a path and query param and move the query param
+into the path.

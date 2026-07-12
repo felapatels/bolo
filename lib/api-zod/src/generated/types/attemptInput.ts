@@ -8,7 +8,7 @@
 
 export interface AttemptInput {
   /**
-     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
+     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative language, score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
      * @minLength 1
      */
   evaluationToken: string;

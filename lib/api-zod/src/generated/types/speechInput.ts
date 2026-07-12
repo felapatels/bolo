@@ -10,4 +10,5 @@ export interface SpeechInput {
   /** @minLength 1 */
   text: string;
   voice?: string;
+  languageName?: string;
 }

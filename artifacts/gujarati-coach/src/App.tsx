@@ -11,6 +11,7 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from './lib/queryClient';
+import { LanguageProvider } from './lib/language-context';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -207,10 +208,12 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AppRouter />
-          <Toaster />
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <AppRouter />
+            <Toaster />
+          </TooltipProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

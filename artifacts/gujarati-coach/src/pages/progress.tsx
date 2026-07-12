@@ -4,10 +4,13 @@ import { Trophy, Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-re
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useLanguage, useNativeText } from "@/lib/language-context";
 
 export default function Progress() {
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary();
-  const { data: attempts, isLoading: loadingAttempts } = useListRecentAttempts({ limit: 50 });
+  const { activeLang, activeLanguage } = useLanguage();
+  const native = useNativeText();
+  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
+  const { data: attempts, isLoading: loadingAttempts } = useListRecentAttempts({ lang: activeLang, limit: 50 });
 
   if (loadingSummary || loadingAttempts) {
     return (
@@ -26,7 +29,9 @@ export default function Progress() {
           <Trophy className="w-10 h-10" />
         </div>
         <h1 className="text-3xl font-extrabold text-foreground mb-1">Your Progress</h1>
-        <p className="text-muted-foreground text-lg font-medium">Keep up the great work!</p>
+        <p className="text-muted-foreground text-lg font-medium">
+          {activeLanguage ? `Your ${activeLanguage.name} journey` : "Keep up the great work!"}
+        </p>
       </header>
 
       <main className="px-6 space-y-8">
@@ -85,7 +90,7 @@ export default function Progress() {
                   </div>
                   
                   <div>
-                    <p className="font-gujarati text-xl font-bold text-foreground leading-tight">{attempt.gujaratiScript}</p>
+                    <p className="text-xl font-bold text-foreground leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
                     <p className="text-sm text-muted-foreground mt-1">{attempt.english}</p>
                   </div>
                   

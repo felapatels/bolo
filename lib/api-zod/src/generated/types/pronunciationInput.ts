@@ -13,9 +13,10 @@ export interface PronunciationInput {
      */
   phraseId?: number | null;
   /** @minLength 1 */
-  targetGujarati: string;
+  targetNative: string;
   targetRomanized: string;
   targetEnglish: string;
+  languageName?: string;
   /** @minLength 1 */
   audioBase64: string;
   mimeType?: string;

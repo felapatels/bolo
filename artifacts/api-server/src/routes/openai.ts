@@ -61,7 +61,7 @@ const VOICES = [
 ] as const;
 type Voice = (typeof VOICES)[number];
 
-// POST /openai/tts — speak a Gujarati phrase aloud.
+// POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
   const parsed = SynthesizeSpeechBody.safeParse(req.body);
   if (!parsed.success) {
@@ -92,16 +92,17 @@ router.post(
       res.status(400).json({ error: "Invalid pronunciation payload" });
       return;
     }
-    const { phraseId, audioBase64 } = parsed.data;
+    const { phraseId, audioBase64, languageName } = parsed.data;
     const userId = (req as AuthedRequest).userId;
 
     // When a catalog phrase id is supplied, the phrase's stored text — not the
     // client-provided target strings — is the authoritative content that gets
     // signed into the evaluation token. This prevents a client from scoring
     // against one phrase but recording the attempt as another.
-    let targetGujarati = parsed.data.targetGujarati;
+    let targetNative = parsed.data.targetNative;
     let targetRomanized = parsed.data.targetRomanized;
     let targetEnglish = parsed.data.targetEnglish;
+    let languageCode = "";
     let resolvedPhraseId: number | null = null;
 
     if (phraseId != null) {
@@ -113,10 +114,12 @@ router.post(
         return;
       }
       resolvedPhraseId = phrase.id;
-      targetGujarati = phrase.gujaratiScript;
+      targetNative = phrase.nativeScript;
       targetRomanized = phrase.romanized;
       targetEnglish = phrase.english;
+      languageCode = phrase.languageCode;
     }
+    const language = languageName?.trim() || "the target language";
 
     let transcript = "";
     try {
@@ -141,7 +144,8 @@ router.post(
         evaluationToken: signEvaluation({
           userId,
           phraseId: resolvedPhraseId,
-          gujaratiScript: targetGujarati,
+          languageCode,
+          nativeScript: targetNative,
           romanized: targetRomanized,
           english: targetEnglish,
           transcript: "",
@@ -161,12 +165,11 @@ router.post(
         messages: [
           {
             role: "system",
-            content:
-              "You are a warm, chatty, super-encouraging Gujarati pronunciation coach for an 11-year-old boy who is learning his family's language. He hears the target phrase, repeats it aloud, and speech-to-text gives you a rough transcript of what he said. The transcript may be imperfect or written in another script, so judge generously by SOUND, not spelling. Compare the child's attempt to the target phrase and score how close the pronunciation is from 0 to 100 (80+ means he nailed it). Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to him, so write it like you're talking to him face to face: friendly, playful, and conversational. React to how he did first (celebrate a great one, cheer on a close one), then name one specific thing he did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the child), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address him directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.",
+            content: `You are a warm, chatty, super-encouraging ${language} pronunciation coach for a learner. They hear the target phrase, repeat it aloud, and speech-to-text gives you a rough transcript of what they said. The transcript may be imperfect or written in another script, so judge generously by SOUND, not spelling. Compare the learner's attempt to the target phrase and score how close the pronunciation is from 0 to 100 (80+ means they nailed it). Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`,
           },
           {
             role: "user",
-            content: `Target Gujarati phrase: ${targetGujarati}\nRomanized: ${targetRomanized}\nEnglish meaning: ${targetEnglish}\n\nWhat the child said (transcript): ${transcript}`,
+            content: `Target ${language} phrase: ${targetNative}\nRomanized: ${targetRomanized}\nEnglish meaning: ${targetEnglish}\n\nWhat the learner said (transcript): ${transcript}`,
           },
         ],
       });
@@ -197,7 +200,8 @@ router.post(
         evaluationToken: signEvaluation({
           userId,
           phraseId: resolvedPhraseId,
-          gujaratiScript: targetGujarati,
+          languageCode,
+          nativeScript: targetNative,
           romanized: targetRomanized,
           english: targetEnglish,
           transcript,
@@ -222,7 +226,8 @@ router.post(
       res.status(400).json({ error: "Invalid phrase request" });
       return;
     }
-    const { categoryTitle, difficulty } = parsed.data;
+    const { languageName, categoryTitle, difficulty } = parsed.data;
+    const language = languageName?.trim() || "Hindi";
 
     try {
       const completion = await openai.chat.completions.create({
@@ -232,12 +237,11 @@ router.post(
         messages: [
           {
             role: "system",
-            content:
-              "You generate short, useful Gujarati practice phrases for an 11-year-old boy who already hears some Gujarati at home. Keep phrases natural, kid-appropriate, and commonly used in daily family life. Reply ONLY as JSON with keys: gujaratiScript (the phrase in Gujarati script), romanized (simple English-letter pronunciation), english (the English meaning). Do not use emojis.",
+            content: `You generate short, useful ${language} practice phrases for a beginner learner. Keep phrases natural, kid-appropriate, and commonly used in daily life. The phrase MUST be written in ${language}'s own native script, never in English letters. Reply ONLY as JSON with keys: nativeScript (the phrase in ${language}'s native script), romanized (simple English-letter pronunciation), english (the English meaning). Do not use emojis.`,
           },
           {
             role: "user",
-            content: `Give me one new Gujarati phrase to practice.${
+            content: `Give me one new ${language} phrase to practice.${
               categoryTitle ? ` Topic: ${categoryTitle}.` : ""
             }${
               difficulty
@@ -250,18 +254,18 @@ router.post(
 
       const content = completion.choices[0]?.message?.content ?? "{}";
       const result = JSON.parse(content) as {
-        gujaratiScript?: string;
+        nativeScript?: string;
         romanized?: string;
         english?: string;
       };
 
-      if (!result.gujaratiScript || !result.romanized || !result.english) {
+      if (!result.nativeScript || !result.romanized || !result.english) {
         res.status(502).json({ error: "Could not generate a phrase" });
         return;
       }
 
       res.json({
-        gujaratiScript: result.gujaratiScript,
+        nativeScript: result.nativeScript,
         romanized: result.romanized,
         english: result.english,
       });

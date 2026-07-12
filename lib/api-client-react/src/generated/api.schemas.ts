@@ -13,15 +13,26 @@ export interface Error {
   error: string;
 }
 
+export interface Language {
+  code: string;
+  name: string;
+  nativeName: string;
+  script: string;
+  fontFamily: string;
+  rtl: boolean;
+  sortOrder: number;
+}
+
 export interface Category {
   id: number;
   slug: string;
   title: string;
-  titleGujarati: string;
   description: string;
   iconName: string;
   accent: string;
   sortOrder: number;
+  /** @nullable */
+  titleNative: string | null;
   phraseCount: number;
   masteredCount: number;
 }
@@ -29,7 +40,8 @@ export interface Category {
 export interface Phrase {
   id: number;
   categoryId: number;
-  gujaratiScript: string;
+  languageCode: string;
+  nativeScript: string;
   romanized: string;
   english: string;
   /** @nullable */
@@ -44,7 +56,7 @@ export interface Phrase {
 
 export interface AttemptInput {
   /**
-     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
+     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative language, score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
      * @minLength 1
      */
   evaluationToken: string;
@@ -54,7 +66,8 @@ export interface Attempt {
   id: number;
   /** @nullable */
   phraseId: number | null;
-  gujaratiScript: string;
+  languageCode: string;
+  nativeScript: string;
   romanized: string;
   english: string;
   transcript: string;
@@ -80,6 +93,7 @@ export interface SpeechInput {
   /** @minLength 1 */
   text: string;
   voice?: string;
+  languageName?: string;
 }
 
 export interface SpeechResult {
@@ -94,9 +108,10 @@ export interface PronunciationInput {
      */
   phraseId?: number | null;
   /** @minLength 1 */
-  targetGujarati: string;
+  targetNative: string;
   targetRomanized: string;
   targetEnglish: string;
+  languageName?: string;
   /** @minLength 1 */
   audioBase64: string;
   mimeType?: string;
@@ -113,6 +128,7 @@ export interface PronunciationResult {
 }
 
 export interface PhraseRequest {
+  languageName?: string;
   categoryTitle?: string;
   /**
      * @minimum 1
@@ -122,12 +138,21 @@ export interface PhraseRequest {
 }
 
 export interface GeneratedPhrase {
-  gujaratiScript: string;
+  nativeScript: string;
   romanized: string;
   english: string;
 }
 
+export type ListCategoriesParams = {
+lang: string;
+};
+
 export type ListRecentAttemptsParams = {
+lang: string;
 limit?: number;
+};
+
+export type GetProgressSummaryParams = {
+lang: string;
 };
 

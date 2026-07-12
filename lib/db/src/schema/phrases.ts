@@ -1,11 +1,25 @@
 import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { lessonsTable } from "./lessons";
+import { languagesTable } from "./languages";
+import { categoriesTable } from "./categories";
 
+// A single phrase belonging to a lesson. `nativeScript` holds the phrase in the
+// language's own script; `languageCode` and `categoryId` are denormalized from
+// the parent lesson for simpler querying.
 export const phrasesTable = pgTable("phrases", {
   id: serial("id").primaryKey(),
-  categoryId: integer("category_id").notNull(),
-  gujaratiScript: text("gujarati_script").notNull(),
+  lessonId: integer("lesson_id")
+    .notNull()
+    .references(() => lessonsTable.id),
+  languageCode: text("language_code")
+    .notNull()
+    .references(() => languagesTable.code),
+  categoryId: integer("category_id")
+    .notNull()
+    .references(() => categoriesTable.id),
+  nativeScript: text("native_script").notNull(),
   romanized: text("romanized").notNull(),
   english: text("english").notNull(),
   hint: text("hint"),

@@ -1,7 +1,9 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useListCategories, useListRecentAttempts } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { LanguagePicker } from "@/components/language-picker";
+import { useLanguage, useNativeText } from "@/lib/language-context";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
@@ -9,19 +11,27 @@ import { useUser, useClerk } from "@clerk/react";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const iconMap: Record<string, React.ElementType> = {
-  "book-open": BookOpen,
-  "star": Star,
-  "sparkles": Sparkles,
-  "flame": Flame,
+  HandHeart,
+  Users,
+  Hash,
+  Utensils,
+  Sun,
+  Smile,
+  BookOpen,
+  Star,
+  Sparkles,
+  Flame,
 };
 
 export default function Home() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const firstName = user?.firstName;
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary();
-  const { data: categories, isLoading: loadingCats } = useListCategories();
-  const { data: attempts } = useListRecentAttempts({ limit: 3 });
+  const { activeLang, activeLanguage } = useLanguage();
+  const native = useNativeText();
+  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
+  const { data: categories, isLoading: loadingCats } = useListCategories({ lang: activeLang });
+  const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
 
   if (loadingSummary || loadingCats) {
     return (
@@ -36,11 +46,13 @@ export default function Home() {
       {/* Header / Greeting */}
       <header className="pt-12 px-6 pb-6 bg-gradient-to-b from-primary/10 to-transparent">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-3xl font-extrabold text-foreground mb-1">
-              Kem chho{firstName ? `, ${firstName}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
+              Hello{firstName ? `, ${firstName}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
             </h1>
-            <p className="text-muted-foreground text-lg font-medium">Ready to speak some Gujarati?</p>
+            <p className="text-muted-foreground text-lg font-medium">
+              Ready to speak some {activeLanguage?.name ?? "..."}?
+            </p>
           </div>
           <button
             onClick={() => signOut({ redirectUrl: basePath || "/" })}
@@ -50,6 +62,10 @@ export default function Home() {
             <LogOut className="w-5 h-5" />
           </button>
         </motion.div>
+
+        <div className="mt-5">
+          <LanguagePicker />
+        </div>
 
         {/* Stats Row */}
         {summary && (
@@ -106,7 +122,9 @@ export default function Home() {
                       
                       <div className="flex-1">
                         <h3 className="font-bold text-lg text-foreground leading-tight">{cat.title}</h3>
-                        <p className="text-sm font-gujarati text-muted-foreground mt-0.5">{cat.titleGujarati}</p>
+                        {cat.titleNative && (
+                          <p className="text-sm text-muted-foreground mt-0.5" style={native.style} dir={native.dir}>{cat.titleNative}</p>
+                        )}
                         
                         <div className="mt-3 flex items-center gap-2">
                           <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
@@ -154,7 +172,7 @@ export default function Home() {
                     {Math.round(attempt.score)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-gujarati text-lg leading-tight truncate">{attempt.gujaratiScript}</p>
+                    <p className="text-lg leading-tight truncate" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
                     <p className="text-sm text-muted-foreground truncate mt-0.5">{attempt.english}</p>
                   </div>
                 </div>

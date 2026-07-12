@@ -15,6 +15,7 @@ import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, Refresh
 import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
+import { useLanguage, useNativeText } from "@/lib/language-context";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
@@ -24,8 +25,10 @@ export default function Practice() {
   const search = useSearch();
   const startPhraseId = new URLSearchParams(search).get("phrase");
   const queryClient = useQueryClient();
+  const { activeLang, activeLanguage } = useLanguage();
+  const native = useNativeText();
 
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, activeLang);
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -60,7 +63,7 @@ export default function Practice() {
       let cancelled = false;
       const playCoach = async () => {
         try {
-          const res = await synthesize.mutateAsync({ data: { text: phrase.gujaratiScript } });
+          const res = await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } });
           if (cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           audioRef.current = audio;
@@ -139,9 +142,10 @@ export default function Practice() {
       const evalRes = await evaluate.mutateAsync({
         data: {
           phraseId: phrase!.id,
-          targetGujarati: phrase!.gujaratiScript,
+          targetNative: phrase!.nativeScript,
           targetRomanized: phrase!.romanized,
           targetEnglish: phrase!.english,
+          languageName: activeLanguage?.name,
           audioBase64,
           mimeType: blob.type
         }
@@ -164,9 +168,9 @@ export default function Practice() {
       });
 
       // Invalidate queries so progress updates
-      queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12 }) });
-      queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+      queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
+      queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
 
       setState("result");
 
@@ -181,7 +185,7 @@ export default function Practice() {
       finishingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorder, evaluate, createAttempt, queryClient, phrase, id]);
+  }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage]);
 
   const startRecording = async () => {
     try {
@@ -304,8 +308,8 @@ export default function Practice() {
               </button>
               
               <div className="pt-6 space-y-6">
-                <h2 className="font-gujarati text-6xl font-extrabold text-foreground leading-tight tracking-tight">
-                  {phrase?.gujaratiScript}
+                <h2 className="text-6xl font-extrabold text-foreground leading-tight tracking-tight" style={native.style} dir={native.dir}>
+                  {phrase?.nativeScript}
                 </h2>
                 <div className="space-y-2">
                   <p className="text-primary font-bold text-2xl tracking-wide">{phrase?.romanized}</p>

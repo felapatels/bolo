@@ -18,17 +18,36 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary List all lesson categories with progress
+ * @summary List all supported learning languages
  */
+export const ListLanguagesResponseItem = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "nativeName": zod.string(),
+  "script": zod.string(),
+  "fontFamily": zod.string(),
+  "rtl": zod.boolean(),
+  "sortOrder": zod.number()
+})
+export const ListLanguagesResponse = zod.array(ListLanguagesResponseItem)
+
+
+/**
+ * @summary List all lesson categories with progress for a language
+ */
+export const ListCategoriesQueryParams = zod.object({
+  "lang": zod.coerce.string()
+})
+
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.number(),
   "slug": zod.string(),
   "title": zod.string(),
-  "titleGujarati": zod.string(),
   "description": zod.string(),
   "iconName": zod.string(),
   "accent": zod.string(),
   "sortOrder": zod.number(),
+  "titleNative": zod.string().nullable(),
   "phraseCount": zod.number(),
   "masteredCount": zod.number()
 })
@@ -36,16 +55,18 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
 
 /**
- * @summary List all phrases in a category
+ * @summary List phrases in a category for a language (generated + cached on first request)
  */
 export const ListCategoryPhrasesParams = zod.object({
-  "id": zod.coerce.number()
+  "id": zod.coerce.number(),
+  "lang": zod.coerce.string()
 })
 
 export const ListCategoryPhrasesResponseItem = zod.object({
   "id": zod.number(),
   "categoryId": zod.number(),
-  "gujaratiScript": zod.string(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string(),
   "hint": zod.string().nullable(),
@@ -68,7 +89,8 @@ export const GetPhraseParams = zod.object({
 export const GetPhraseResponse = zod.object({
   "id": zod.number(),
   "categoryId": zod.number(),
-  "gujaratiScript": zod.string(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string(),
   "hint": zod.string().nullable(),
@@ -87,13 +109,14 @@ export const GetPhraseResponse = zod.object({
 
 
 export const CreateAttemptBody = zod.object({
-  "evaluationToken": zod.string().min(1).describe('Opaque, server-signed token returned by \/openai\/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.')
+  "evaluationToken": zod.string().min(1).describe('Opaque, server-signed token returned by \/openai\/pronunciation. It carries the authoritative language, score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.')
 })
 
 export const CreateAttemptResponse = zod.object({
   "id": zod.number(),
   "phraseId": zod.number().nullable(),
-  "gujaratiScript": zod.string(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string(),
   "transcript": zod.string(),
@@ -105,18 +128,20 @@ export const CreateAttemptResponse = zod.object({
 
 
 /**
- * @summary Recent practice attempts feed
+ * @summary Recent practice attempts feed for a language
  */
 export const listRecentAttemptsQueryLimitDefault = 12;
 
 export const ListRecentAttemptsQueryParams = zod.object({
+  "lang": zod.coerce.string(),
   "limit": zod.coerce.number().default(listRecentAttemptsQueryLimitDefault)
 })
 
 export const ListRecentAttemptsResponseItem = zod.object({
   "id": zod.number(),
   "phraseId": zod.number().nullable(),
-  "gujaratiScript": zod.string(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string(),
   "transcript": zod.string(),
@@ -129,8 +154,12 @@ export const ListRecentAttemptsResponse = zod.array(ListRecentAttemptsResponseIt
 
 
 /**
- * @summary Overall learning progress summary
+ * @summary Overall learning progress summary for a language
  */
+export const GetProgressSummaryQueryParams = zod.object({
+  "lang": zod.coerce.string()
+})
+
 export const GetProgressSummaryResponse = zod.object({
   "totalAttempts": zod.number(),
   "phrasesPracticed": zod.number(),
@@ -145,14 +174,15 @@ export const GetProgressSummaryResponse = zod.object({
 
 
 /**
- * @summary Convert Gujarati text to spoken audio
+ * @summary Convert text to spoken audio
  */
 
 
 
 export const SynthesizeSpeechBody = zod.object({
   "text": zod.string().min(1),
-  "voice": zod.string().optional()
+  "voice": zod.string().optional(),
+  "languageName": zod.string().optional()
 })
 
 export const SynthesizeSpeechResponse = zod.object({
@@ -170,9 +200,10 @@ export const SynthesizeSpeechResponse = zod.object({
 
 export const EvaluatePronunciationBody = zod.object({
   "phraseId": zod.number().nullish().describe('Optional id of the catalog phrase being practiced. When supplied the server uses the phrase\'s stored text as the authoritative target.'),
-  "targetGujarati": zod.string().min(1),
+  "targetNative": zod.string().min(1),
   "targetRomanized": zod.string(),
   "targetEnglish": zod.string(),
+  "languageName": zod.string().optional(),
   "audioBase64": zod.string().min(1),
   "mimeType": zod.string().optional()
 })
@@ -188,19 +219,20 @@ export const EvaluatePronunciationResponse = zod.object({
 
 
 /**
- * @summary Generate a fresh Gujarati practice phrase with AI
+ * @summary Generate a fresh practice phrase with AI
  */
 export const generatePhraseBodyDifficultyMax = 3;
 
 
 
 export const GeneratePhraseBody = zod.object({
+  "languageName": zod.string().optional(),
   "categoryTitle": zod.string().optional(),
   "difficulty": zod.number().min(1).max(generatePhraseBodyDifficultyMax).optional()
 })
 
 export const GeneratePhraseResponse = zod.object({
-  "gujaratiScript": zod.string(),
+  "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string()
 })

@@ -11,7 +11,7 @@ tags:
   - name: health
     description: Health operations
   - name: learning
-    description: Categories, phrases, attempts and progress
+    description: Languages, categories, phrases, attempts and progress
   - name: openai
     description: OpenAI AI audio and content operations
 paths:
@@ -29,11 +29,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /languages:
+    get:
+      operationId: listLanguages
+      tags: [learning]
+      summary: List all supported learning languages
+      responses:
+        "200":
+          description: List of languages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Language"
+
   /categories:
     get:
       operationId: listCategories
       tags: [learning]
-      summary: List all lesson categories with progress
+      summary: List all lesson categories with progress for a language
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: List of categories
@@ -44,17 +65,22 @@ paths:
                 items:
                   $ref: "#/components/schemas/Category"
 
-  /categories/{id}/phrases:
+  /categories/{id}/phrases/{lang}:
     get:
       operationId: listCategoryPhrases
       tags: [learning]
-      summary: List all phrases in a category
+      summary: List phrases in a category for a language (generated + cached on first request)
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: List of phrases
@@ -119,8 +145,13 @@ paths:
     get:
       operationId: listRecentAttempts
       tags: [learning]
-      summary: Recent practice attempts feed
+      summary: Recent practice attempts feed for a language
       parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
         - name: limit
           in: query
           required: false
@@ -141,7 +172,13 @@ paths:
     get:
       operationId: getProgressSummary
       tags: [learning]
-      summary: Overall learning progress summary
+      summary: Overall learning progress summary for a language
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: Progress summary
@@ -154,7 +191,7 @@ paths:
     post:
       operationId: synthesizeSpeech
       tags: [openai]
-      summary: Convert Gujarati text to spoken audio
+      summary: Convert text to spoken audio
       requestBody:
         required: true
         content:
@@ -192,7 +229,7 @@ paths:
     post:
       operationId: generatePhrase
       tags: [openai]
-      summary: Generate a fresh Gujarati practice phrase with AI
+      summary: Generate a fresh practice phrase with AI
       requestBody:
         required: true
         content:
@@ -225,6 +262,32 @@ components:
       required:
         - error
 
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        nativeName:
+          type: string
+        script:
+          type: string
+        fontFamily:
+          type: string
+        rtl:
+          type: boolean
+        sortOrder:
+          type: integer
+      required:
+        - code
+        - name
+        - nativeName
+        - script
+        - fontFamily
+        - rtl
+        - sortOrder
+
     Category:
       type: object
       properties:
@@ -234,8 +297,6 @@ components:
           type: string
         title:
           type: string
-        titleGujarati:
-          type: string
         description:
           type: string
         iconName:
@@ -244,6 +305,8 @@ components:
           type: string
         sortOrder:
           type: integer
+        titleNative:
+          type: ["string", "null"]
         phraseCount:
           type: integer
         masteredCount:
@@ -252,11 +315,11 @@ components:
         - id
         - slug
         - title
-        - titleGujarati
         - description
         - iconName
         - accent
         - sortOrder
+        - titleNative
         - phraseCount
         - masteredCount
 
@@ -267,7 +330,9 @@ components:
           type: integer
         categoryId:
           type: integer
-        gujaratiScript:
+        languageCode:
+          type: string
+        nativeScript:
           type: string
         romanized:
           type: string
@@ -288,7 +353,8 @@ components:
       required:
         - id
         - categoryId
-        - gujaratiScript
+        - languageCode
+        - nativeScript
         - romanized
         - english
         - hint
@@ -306,8 +372,8 @@ components:
           minLength: 1
           description: >-
             Opaque, server-signed token returned by /openai/pronunciation. It
-            carries the authoritative score, feedback, transcript and target
-            phrase, so clients cannot forge or inflate their own progress.
+            carries the authoritative language, score, feedback, transcript and
+            target phrase, so clients cannot forge or inflate their own progress.
       required:
         - evaluationToken
 
@@ -318,7 +384,9 @@ components:
           type: integer
         phraseId:
           type: ["integer", "null"]
-        gujaratiScript:
+        languageCode:
+          type: string
+        nativeScript:
           type: string
         romanized:
           type: string
@@ -338,7 +406,8 @@ components:
       required:
         - id
         - phraseId
-        - gujaratiScript
+        - languageCode
+        - nativeScript
         - romanized
         - english
         - transcript
@@ -387,6 +456,8 @@ components:
           minLength: 1
         voice:
           type: string
+        languageName:
+          type: string
       required:
         - text
 
@@ -409,12 +480,14 @@ components:
           description: >-
             Optional id of the catalog phrase being practiced. When supplied the
             server uses the phrase's stored text as the authoritative target.
-        targetGujarati:
+        targetNative:
           type: string
           minLength: 1
         targetRomanized:
           type: string
         targetEnglish:
+          type: string
+        languageName:
           type: string
         audioBase64:
           type: string
@@ -422,7 +495,7 @@ components:
         mimeType:
           type: string
       required:
-        - targetGujarati
+        - targetNative
         - targetRomanized
         - targetEnglish
         - audioBase64
@@ -456,6 +529,8 @@ components:
     PhraseRequest:
       type: object
       properties:
+        languageName:
+          type: string
         categoryTitle:
           type: string
         difficulty:
@@ -467,13 +542,13 @@ components:
     GeneratedPhrase:
       type: object
       properties:
-        gujaratiScript:
+        nativeScript:
           type: string
         romanized:
           type: string
         english:
           type: string
       required:
-        - gujaratiScript
+        - nativeScript
         - romanized
         - english

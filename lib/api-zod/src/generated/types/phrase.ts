@@ -9,7 +9,8 @@
 export interface Phrase {
   id: number;
   categoryId: number;
-  gujaratiScript: string;
+  languageCode: string;
+  nativeScript: string;
   romanized: string;
   english: string;
   /** @nullable */

@@ -10,11 +10,12 @@ export interface Category {
   id: number;
   slug: string;
   title: string;
-  titleGujarati: string;
   description: string;
   iconName: string;
   accent: string;
   sortOrder: number;
+  /** @nullable */
+  titleNative: string | null;
   phraseCount: number;
   masteredCount: number;
 }

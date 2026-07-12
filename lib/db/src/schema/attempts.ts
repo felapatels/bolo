@@ -9,14 +9,18 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { languagesTable } from "./languages";
 
 export const attemptsTable = pgTable("attempts", {
   id: serial("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => usersTable.id),
+  languageCode: text("language_code")
+    .notNull()
+    .references(() => languagesTable.code),
   phraseId: integer("phrase_id"),
-  gujaratiScript: text("gujarati_script").notNull(),
+  nativeScript: text("native_script").notNull(),
   romanized: text("romanized").notNull(),
   english: text("english").notNull(),
   transcript: text("transcript").notNull(),

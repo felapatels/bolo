@@ -7,7 +7,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export interface EvaluationClaims {
   userId: string;
   phraseId: number | null;
-  gujaratiScript: string;
+  languageCode: string;
+  nativeScript: string;
   romanized: string;
   english: string;
   transcript: string;
