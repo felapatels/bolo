@@ -208,7 +208,9 @@ export const ListBadgesResponseItem = zod.object({
   "description": zod.string(),
   "iconName": zod.string(),
   "earned": zod.boolean(),
-  "earnedAt": zod.coerce.date().nullable()
+  "earnedAt": zod.coerce.date().nullable(),
+  "progressCurrent": zod.number().describe('Current value of the metric this badge tracks, capped at the target.'),
+  "progressTarget": zod.number().describe('The metric value that unlocks this badge.')
 })
 export const ListBadgesResponse = zod.array(ListBadgesResponseItem)
 

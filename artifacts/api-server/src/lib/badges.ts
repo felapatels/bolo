@@ -23,8 +23,11 @@ export interface BadgeDefinition {
   description: string;
   // A lucide-react icon name the client maps to a component.
   iconName: string;
-  // True when the learner's current metrics satisfy this badge.
-  isEarned: (m: ProgressMetrics) => boolean;
+  // The progress metric this badge tracks, and the value that unlocks it. Every
+  // badge unlocks when its metric reaches `target` (metric >= target), so a
+  // learner's progress toward it is simply `min(metric, target) / target`.
+  metric: keyof ProgressMetrics;
+  target: number;
 }
 
 export const BADGE_CATALOG: BadgeDefinition[] = [
@@ -34,7 +37,8 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "First Words",
     description: "Complete your very first practice attempt.",
     iconName: "Sparkles",
-    isEarned: (m) => m.totalAttempts >= 1,
+    metric: "totalAttempts",
+    target: 1,
   },
   // Phrases practiced
   {
@@ -42,14 +46,16 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "Explorer",
     description: "Practice 10 different phrases.",
     iconName: "Compass",
-    isEarned: (m) => m.phrasesPracticed >= 10,
+    metric: "phrasesPracticed",
+    target: 10,
   },
   {
     key: "phrases_50",
     title: "Globetrotter",
     description: "Practice 50 different phrases.",
     iconName: "Globe",
-    isEarned: (m) => m.phrasesPracticed >= 50,
+    metric: "phrasesPracticed",
+    target: 50,
   },
   // Mastery counts
   {
@@ -57,21 +63,24 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "First Mastery",
     description: "Master your first phrase (score 80+).",
     iconName: "Target",
-    isEarned: (m) => m.phrasesMastered >= 1,
+    metric: "phrasesMastered",
+    target: 1,
   },
   {
     key: "mastery_10",
     title: "Master of Ten",
     description: "Master 10 phrases.",
     iconName: "Award",
-    isEarned: (m) => m.phrasesMastered >= 10,
+    metric: "phrasesMastered",
+    target: 10,
   },
   {
     key: "mastery_25",
     title: "Phrase Master",
     description: "Master 25 phrases.",
     iconName: "Crown",
-    isEarned: (m) => m.phrasesMastered >= 25,
+    metric: "phrasesMastered",
+    target: 25,
   },
   // Streaks
   {
@@ -79,21 +88,24 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "On a Roll",
     description: "Practice 3 days in a row.",
     iconName: "Flame",
-    isEarned: (m) => m.currentStreakDays >= 3,
+    metric: "currentStreakDays",
+    target: 3,
   },
   {
     key: "streak_7",
     title: "Week Warrior",
     description: "Practice 7 days in a row.",
     iconName: "CalendarCheck",
-    isEarned: (m) => m.currentStreakDays >= 7,
+    metric: "currentStreakDays",
+    target: 7,
   },
   {
     key: "streak_30",
     title: "Unstoppable",
     description: "Practice 30 days in a row.",
     iconName: "Zap",
-    isEarned: (m) => m.currentStreakDays >= 30,
+    metric: "currentStreakDays",
+    target: 30,
   },
   // XP milestones
   {
@@ -101,21 +113,24 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "Rising Star",
     description: "Earn 500 XP.",
     iconName: "Star",
-    isEarned: (m) => m.xp >= 500,
+    metric: "xp",
+    target: 500,
   },
   {
     key: "xp_2000",
     title: "XP Champion",
     description: "Earn 2,000 XP.",
     iconName: "Rocket",
-    isEarned: (m) => m.xp >= 2000,
+    metric: "xp",
+    target: 2000,
   },
   {
     key: "xp_5000",
     title: "XP Legend",
     description: "Earn 5,000 XP.",
     iconName: "Trophy",
-    isEarned: (m) => m.xp >= 5000,
+    metric: "xp",
+    target: 5000,
   },
   // Perfect score
   {
@@ -123,11 +138,34 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     title: "Flawless",
     description: "Get a perfect score of 100 on any phrase.",
     iconName: "Medal",
-    isEarned: (m) => m.bestScore >= 100,
+    metric: "bestScore",
+    target: 100,
   },
 ];
 
+// True when the learner's current metrics satisfy a badge.
+export function isBadgeEarned(
+  def: BadgeDefinition,
+  metrics: ProgressMetrics,
+): boolean {
+  return metrics[def.metric] >= def.target;
+}
+
+// The learner's progress toward a badge: the current metric value (capped at the
+// target so already-earned badges read as complete) alongside the target.
+export function badgeProgress(
+  def: BadgeDefinition,
+  metrics: ProgressMetrics,
+): { current: number; target: number } {
+  return {
+    current: Math.min(metrics[def.metric], def.target),
+    target: def.target,
+  };
+}
+
 // Returns the keys of every badge the metrics currently satisfy.
 export function earnedBadgeKeys(metrics: ProgressMetrics): string[] {
-  return BADGE_CATALOG.filter((b) => b.isEarned(metrics)).map((b) => b.key);
+  return BADGE_CATALOG.filter((b) => isBadgeEarned(b, metrics)).map(
+    (b) => b.key,
+  );
 }

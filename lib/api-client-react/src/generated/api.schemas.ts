@@ -85,6 +85,10 @@ export interface Badge {
   earned: boolean;
   /** @nullable */
   earnedAt: string | null;
+  /** Current value of the metric this badge tracks, capped at the target. */
+  progressCurrent: number;
+  /** The metric value that unlocks this badge. */
+  progressTarget: number;
 }
 
 export interface EarnedBadge {

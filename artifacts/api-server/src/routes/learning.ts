@@ -18,6 +18,7 @@ import {
 import {
   BADGE_CATALOG,
   earnedBadgeKeys,
+  badgeProgress,
   type ProgressMetrics,
 } from "../lib/badges";
 
@@ -576,24 +577,40 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
   }
   const userId = getUserId(req);
 
-  const earned = await db
-    .select({
-      badgeKey: badgesTable.badgeKey,
-      earnedAt: badgesTable.earnedAt,
-    })
-    .from(badgesTable)
-    .where(
-      and(
-        eq(badgesTable.userId, userId),
-        eq(badgesTable.languageCode, lang),
+  const [earned, attempts] = await Promise.all([
+    db
+      .select({
+        badgeKey: badgesTable.badgeKey,
+        earnedAt: badgesTable.earnedAt,
+      })
+      .from(badgesTable)
+      .where(
+        and(eq(badgesTable.userId, userId), eq(badgesTable.languageCode, lang)),
       ),
-    );
+    db
+      .select({
+        phraseId: attemptsTable.phraseId,
+        score: attemptsTable.score,
+        createdAt: attemptsTable.createdAt,
+      })
+      .from(attemptsTable)
+      .where(
+        and(
+          eq(attemptsTable.userId, userId),
+          eq(attemptsTable.languageCode, lang),
+        ),
+      ),
+  ]);
 
   const earnedAtByKey = new Map(earned.map((e) => [e.badgeKey, e.earnedAt]));
+  // The same server-authoritative per-language metrics used for awarding badges,
+  // so the progress a learner sees always matches what actually unlocks them.
+  const metrics = computeProgressMetrics(attempts);
 
   res.json(
     BADGE_CATALOG.map((def) => {
       const earnedAt = earnedAtByKey.get(def.key);
+      const { current, target } = badgeProgress(def, metrics);
       return {
         key: def.key,
         title: def.title,
@@ -601,6 +618,8 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
         iconName: def.iconName,
         earned: earnedAt != null,
         earnedAt: earnedAt ? earnedAt.toISOString() : null,
+        progressCurrent: current,
+        progressTarget: target,
       };
     }),
   );

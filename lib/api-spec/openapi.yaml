@@ -493,6 +493,12 @@ components:
         earnedAt:
           type: ["string", "null"]
           format: date-time
+        progressCurrent:
+          type: integer
+          description: Current value of the metric this badge tracks, capped at the target.
+        progressTarget:
+          type: integer
+          description: The metric value that unlocks this badge.
       required:
         - key
         - title
@@ -500,6 +506,8 @@ components:
         - iconName
         - earned
         - earnedAt
+        - progressCurrent
+        - progressTarget
 
     EarnedBadge:
       type: object
