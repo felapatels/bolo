@@ -17,10 +17,10 @@ import {
 } from "../lib/lessonGenerator";
 import {
   BADGE_CATALOG,
-  earnedBadgeKeys,
   badgeProgress,
   type ProgressMetrics,
 } from "../lib/badges";
+import { awardNewlyEarnedBadges } from "../lib/badgeAward";
 
 const router: IRouter = Router();
 
@@ -493,10 +493,9 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     .returning();
 
   // Re-evaluate the badge catalog against this user's now-current per-language
-  // progress (the attempt above is already persisted, so it's included). Any
-  // newly-satisfied badge is awarded exactly once: the unique (user, language,
-  // key) constraint + onConflictDoNothing means only rows actually inserted are
-  // returned, so re-meeting a criterion never re-awards or re-celebrates it.
+  // progress (the attempt above is already persisted, so it's included) and
+  // award any newly-satisfied badges. The award path guarantees each badge is
+  // granted at most once per (user, language) and never leaks across languages.
   const langAttempts = await db
     .select({
       phraseId: attemptsTable.phraseId,
@@ -512,44 +511,11 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     );
 
   const metrics = computeProgressMetrics(langAttempts);
-  const satisfiedKeys = earnedBadgeKeys(metrics);
-
-  let newlyEarnedBadges: {
-    key: string;
-    title: string;
-    description: string;
-    iconName: string;
-    earnedAt: string;
-  }[] = [];
-
-  if (satisfiedKeys.length > 0) {
-    const inserted = await db
-      .insert(badgesTable)
-      .values(
-        satisfiedKeys.map((badgeKey) => ({
-          userId,
-          languageCode: claims.languageCode,
-          badgeKey,
-        })),
-      )
-      .onConflictDoNothing()
-      .returning();
-
-    const earnedAtByKey = new Map(
-      inserted.map((r) => [r.badgeKey, r.earnedAt]),
-    );
-
-    // Report in catalog order for a stable, sensible celebration sequence.
-    newlyEarnedBadges = BADGE_CATALOG.filter((def) =>
-      earnedAtByKey.has(def.key),
-    ).map((def) => ({
-      key: def.key,
-      title: def.title,
-      description: def.description,
-      iconName: def.iconName,
-      earnedAt: earnedAtByKey.get(def.key)!.toISOString(),
-    }));
-  }
+  const newlyEarnedBadges = await awardNewlyEarnedBadges(
+    userId,
+    claims.languageCode,
+    metrics,
+  );
 
   res.status(201).json({
     id: row.id,
