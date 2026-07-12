@@ -1,4 +1,5 @@
 import { useParams, Link } from "wouter";
+import { useState } from "react";
 import {
   useListCategoryPhrases,
   useListCategories,
@@ -7,7 +8,7 @@ import {
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -29,10 +30,22 @@ export default function CategoryDetail() {
   } = useListCategoryPhrases(id, activeLang);
   const { data: categories } = useListCategories({ lang: activeLang });
   const addPhrases = useAddCategoryPhrases();
+  const [noNewPhrases, setNoNewPhrases] = useState(false);
 
   const handleAddPhrases = async () => {
+    setNoNewPhrases(false);
     try {
-      await addPhrases.mutateAsync({ id, lang: activeLang, data: { count: 3 } });
+      const created = await addPhrases.mutateAsync({
+        id,
+        lang: activeLang,
+        data: { count: 3 },
+      });
+      if (!created || created.length === 0) {
+        // Request succeeded but the AI only came back with duplicates, so
+        // nothing new was added — let the learner know instead of appearing idle.
+        setNoNewPhrases(true);
+        return;
+      }
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
@@ -169,6 +182,15 @@ export default function CategoryDetail() {
             <p className="text-sm text-destructive text-center font-medium">
               Couldn't add new phrases. Please try again.
             </p>
+          )}
+
+          {noNewPhrases && !addPhrases.isPending && (
+            <div className="flex items-start gap-3 rounded-2xl bg-success/10 border border-success/20 p-4 text-left">
+              <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
+              <p className="text-sm text-success font-medium">
+                You've mastered every phrase we could think of for this topic! Check back later for more.
+              </p>
+            </div>
           )}
         </div>
       </main>
