@@ -1,17 +1,27 @@
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { Mic, Sparkles, Trophy, ArrowRight, Volume2 } from 'lucide-react';
+import { useListLanguages, type Language } from '@workspace/api-client-react';
+import { nativeTextProps } from '@/lib/language-context';
 
-const SCRIPTS = [
-  { script: 'બોલો', name: 'Gujarati' },
-  { script: 'बोलो', name: 'Hindi' },
-  { script: 'বলো', name: 'Bengali' },
-  { script: 'బోలో', name: 'Telugu' },
-  { script: 'சொல்', name: 'Tamil' },
-  { script: 'ਬੋਲੋ', name: 'Punjabi' },
-];
+const CHIP_COLORS = ['#F5871F', '#0FA6A0', '#E84E8A'];
+
+// Shown instantly on first paint (and if the languages API is slow/empty) so the
+// hero never renders an empty chip row. Replaced by the full list once loaded.
+const FALLBACK_LANGS = [
+  { code: 'gu', nativeName: 'ગુજરાતી', name: 'Gujarati', fontFamily: 'Noto Sans Gujarati', rtl: false },
+  { code: 'hi', nativeName: 'हिन्दी', name: 'Hindi', fontFamily: 'Noto Sans Devanagari', rtl: false },
+  { code: 'bn', nativeName: 'বাংলা', name: 'Bengali', fontFamily: 'Noto Sans Bengali', rtl: false },
+  { code: 'te', nativeName: 'తెలుగు', name: 'Telugu', fontFamily: 'Noto Sans Telugu', rtl: false },
+  { code: 'ta', nativeName: 'தமிழ்', name: 'Tamil', fontFamily: 'Noto Sans Tamil', rtl: false },
+  { code: 'pa', nativeName: 'ਪੰਜਾਬੀ', name: 'Punjabi', fontFamily: 'Noto Sans Gurmukhi', rtl: false },
+] as Language[];
 
 export default function Landing() {
+  const { data: languages } = useListLanguages();
+  const langs = languages ?? [];
+  const displayLangs = langs.length > 0 ? langs : FALLBACK_LANGS;
+
   return (
     <div className="min-h-[100dvh] bg-background overflow-x-hidden">
       {/* Nav */}
@@ -83,27 +93,31 @@ export default function Landing() {
             </Link>
           </motion.div>
 
-          {/* Floating script chips */}
-          <div className="mt-14 flex flex-wrap items-center justify-center gap-3">
-            {SCRIPTS.map((s, i) => (
-              <motion.span
-                key={s.name}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 + i * 0.06 }}
-                className="flex items-center gap-2.5 bg-white border border-card-border rounded-2xl px-5 py-3 shadow-sm"
-              >
-                <span
-                  className="font-gujarati text-2xl font-bold leading-none"
-                  style={{ color: ['#F5871F', '#0FA6A0', '#E84E8A'][i % 3] }}
+          {/* Floating language chips — every language Bolo! supports */}
+          <div className="mt-14 flex flex-wrap items-center justify-center gap-3 max-w-4xl mx-auto">
+            {displayLangs.map((lang, i) => {
+              const native = nativeTextProps(lang);
+              return (
+                <motion.span
+                  key={lang.code}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 + Math.min(i, 12) * 0.04 }}
+                  className="flex items-center gap-2.5 bg-white border border-card-border rounded-2xl px-4 py-2.5 shadow-sm"
                 >
-                  {s.script}
-                </span>
-                <span className="text-sm font-bold text-muted-foreground leading-none">
-                  {s.name}
-                </span>
-              </motion.span>
-            ))}
+                  <span
+                    className="text-xl font-bold leading-none"
+                    style={{ ...native.style, color: CHIP_COLORS[i % 3] }}
+                    dir={native.dir}
+                  >
+                    {lang.nativeName}
+                  </span>
+                  <span className="text-sm font-bold text-muted-foreground leading-none">
+                    {lang.name}
+                  </span>
+                </motion.span>
+              );
+            })}
           </div>
         </section>
 
