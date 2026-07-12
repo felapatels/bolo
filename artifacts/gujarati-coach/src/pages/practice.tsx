@@ -18,20 +18,6 @@ import { cn } from "@/lib/utils";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
-// Fun spoken cheers the coach says out loud after each attempt, by score band.
-const SPOKEN_FEEDBACK: Record<"great" | "good" | "close" | "again", string[]> = {
-  great: ["Wow! You totally nailed it!", "Amazing! That was perfect!", "Superstar! You nailed it!"],
-  good: ["Awesome job! You've got it!", "Yes! That sounded great!", "Brilliant! Really well done!"],
-  close: ["Good try! So close, give it one more go!", "Nice effort! Almost there, try again!", "Good job! A little more practice and you've got it!"],
-  again: ["Nice try! Let's give that one another go!", "Keep going! Try it one more time!", "Good effort! Practice makes perfect, try again!"],
-};
-
-function pickSpokenFeedback(score: number): string {
-  const band = score >= 90 ? "great" : score >= 80 ? "good" : score >= 60 ? "close" : "again";
-  const options = SPOKEN_FEEDBACK[band];
-  return options[Math.floor(Math.random() * options.length)];
-}
-
 export default function Practice() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
@@ -47,7 +33,7 @@ export default function Practice() {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<SessionState>("intro");
-  const [result, setResult] = useState<{ score: number; feedback: string; tip: string; spoken: string } | null>(null);
+  const [result, setResult] = useState<{ score: number; feedback: string; tip: string } | null>(null);
   const [sessionResults, setSessionResults] = useState<{ phraseId: number; score: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -101,19 +87,22 @@ export default function Practice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, phrase?.id]);
 
-  // Speak a fun cheer out loud whenever a result appears.
+  // Read the coach's full feedback out loud whenever a result appears.
   useEffect(() => {
-    if (state === "result" && result?.spoken) {
+    const spokenText = result
+      ? [result.feedback, result.tip].filter(Boolean).join(" ")
+      : "";
+    if (state === "result" && spokenText) {
       let cancelled = false;
       const speak = async () => {
         try {
-          const res = await synthesize.mutateAsync({ data: { text: result.spoken } });
+          const res = await synthesize.mutateAsync({ data: { text: spokenText } });
           if (cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           feedbackAudioRef.current = audio;
           await audio.play();
         } catch {
-          // A missed cheer shouldn't interrupt practice; stay silent.
+          // A missed read-aloud shouldn't interrupt practice; stay silent.
         }
       };
       speak();
@@ -128,72 +117,81 @@ export default function Practice() {
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, result?.spoken]);
+  }, [state, result?.feedback, result?.tip]);
 
-  const toggleRecording = async () => {
-    if (state === "idle") {
-      try {
-        await recorder.startRecording();
-        setState("recording");
-      } catch (err) {
-        alert("Microphone access is needed to practice.");
-      }
-    } else if (state === "recording") {
-      setState("evaluating");
-      try {
-        const blob = await recorder.stopRecording();
-        
-        // Blob to base64
-        const buf = await blob.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        const audioBase64 = btoa(binary);
+  // Prevents a manual stop and an auto-stop from both firing.
+  const finishingRef = useRef(false);
 
-        const evalRes = await evaluate.mutateAsync({
-          data: {
-            phraseId: phrase!.id,
-            targetGujarati: phrase!.gujaratiScript,
-            targetRomanized: phrase!.romanized,
-            targetEnglish: phrase!.english,
-            audioBase64,
-            mimeType: blob.type
-          }
-        });
+  const finishRecording = useCallback(async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    setState("evaluating");
+    try {
+      const blob = await recorder.stopRecording();
 
-        setResult({
-          score: evalRes.score,
-          feedback: evalRes.feedback,
-          tip: evalRes.tip,
-          spoken: pickSpokenFeedback(evalRes.score),
-        });
-        setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
+      // Blob to base64
+      const buf = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const audioBase64 = btoa(binary);
 
-        // Save the attempt for the signed-in user. The score/feedback are
-        // carried inside the server-signed evaluation token, so the server —
-        // not the client — decides what gets recorded.
-        await createAttempt.mutateAsync({
-          data: {
-            evaluationToken: evalRes.evaluationToken
-          }
-        });
-
-        // Invalidate queries so progress updates
-        queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12 }) });
-        queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id) });
-
-        setState("result");
-        
-        if (evalRes.score >= 80) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 3000);
+      const evalRes = await evaluate.mutateAsync({
+        data: {
+          phraseId: phrase!.id,
+          targetGujarati: phrase!.gujaratiScript,
+          targetRomanized: phrase!.romanized,
+          targetEnglish: phrase!.english,
+          audioBase64,
+          mimeType: blob.type
         }
+      });
 
-      } catch (error) {
-        console.error("Evaluation failed", error);
-        setState("idle");
+      setResult({
+        score: evalRes.score,
+        feedback: evalRes.feedback,
+        tip: evalRes.tip,
+      });
+      setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
+
+      // Save the attempt for the signed-in user. The score/feedback are
+      // carried inside the server-signed evaluation token, so the server —
+      // not the client — decides what gets recorded.
+      await createAttempt.mutateAsync({
+        data: {
+          evaluationToken: evalRes.evaluationToken
+        }
+      });
+
+      // Invalidate queries so progress updates
+      queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12 }) });
+      queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id) });
+
+      setState("result");
+
+      if (evalRes.score >= 80) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
       }
+    } catch (error) {
+      console.error("Evaluation failed", error);
+      setState("idle");
+    } finally {
+      finishingRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorder, evaluate, createAttempt, queryClient, phrase, id]);
+
+  const startRecording = async () => {
+    try {
+      await recorder.startRecording({
+        onSilence: () => { void finishRecording(); },
+        silenceDurationMs: 1600,
+      });
+      setState("recording");
+    } catch {
+      alert("Microphone access is needed to practice.");
     }
   };
 
@@ -364,7 +362,7 @@ export default function Practice() {
               )}
               
               <button 
-                onClick={toggleRecording}
+                onClick={state === "recording" ? finishRecording : startRecording}
                 disabled={state === "playing_coach" || state === "evaluating"}
                 className={cn(
                   "w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 disabled:opacity-50",
@@ -382,12 +380,12 @@ export default function Practice() {
               
               {state === "idle" && (
                 <p className="text-center text-muted-foreground font-bold mt-6 uppercase tracking-widest text-sm">
-                  Tap to speak
+                  Tap, then speak
                 </p>
               )}
               {state === "recording" && (
                 <p className="text-center text-accent font-bold mt-6 uppercase tracking-widest text-sm animate-pulse">
-                  Recording...
+                  Listening... stops on its own
                 </p>
               )}
             </div>
