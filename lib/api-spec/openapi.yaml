@@ -301,32 +301,15 @@ components:
     AttemptInput:
       type: object
       properties:
-        phraseId:
-          type: ["integer", "null"]
-        gujaratiScript:
+        evaluationToken:
           type: string
-        romanized:
-          type: string
-        english:
-          type: string
-        transcript:
-          type: string
-        score:
-          type: integer
-          minimum: 0
-          maximum: 100
-        passed:
-          type: boolean
-        feedback:
-          type: string
+          minLength: 1
+          description: >-
+            Opaque, server-signed token returned by /openai/pronunciation. It
+            carries the authoritative score, feedback, transcript and target
+            phrase, so clients cannot forge or inflate their own progress.
       required:
-        - gujaratiScript
-        - romanized
-        - english
-        - transcript
-        - score
-        - passed
-        - feedback
+        - evaluationToken
 
     Attempt:
       type: object
@@ -421,6 +404,11 @@ components:
     PronunciationInput:
       type: object
       properties:
+        phraseId:
+          type: ["integer", "null"]
+          description: >-
+            Optional id of the catalog phrase being practiced. When supplied the
+            server uses the phrase's stored text as the authoritative target.
         targetGujarati:
           type: string
           minLength: 1
@@ -452,12 +440,18 @@ components:
           type: string
         tip:
           type: string
+        evaluationToken:
+          type: string
+          description: >-
+            Server-signed token capturing this evaluation. Pass it to /attempts
+            to record the attempt with the authoritative score and feedback.
       required:
         - transcript
         - score
         - passed
         - feedback
         - tip
+        - evaluationToken
 
     PhraseRequest:
       type: object

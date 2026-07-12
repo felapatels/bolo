@@ -7,17 +7,9 @@
  */
 
 export interface AttemptInput {
-  /** @nullable */
-  phraseId?: number | null;
-  gujaratiScript: string;
-  romanized: string;
-  english: string;
-  transcript: string;
   /**
-     * @minimum 0
-     * @maximum 100
+     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
+     * @minLength 1
      */
-  score: number;
-  passed: boolean;
-  feedback: string;
+  evaluationToken: string;
 }

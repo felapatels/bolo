@@ -12,4 +12,6 @@ export interface PronunciationResult {
   passed: boolean;
   feedback: string;
   tip: string;
+  /** Server-signed token capturing this evaluation. Pass it to /attempts to record the attempt with the authoritative score and feedback. */
+  evaluationToken: string;
 }

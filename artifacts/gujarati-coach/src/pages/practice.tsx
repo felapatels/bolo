@@ -152,6 +152,7 @@ export default function Practice() {
 
         const evalRes = await evaluate.mutateAsync({
           data: {
+            phraseId: phrase!.id,
             targetGujarati: phrase!.gujaratiScript,
             targetRomanized: phrase!.romanized,
             targetEnglish: phrase!.english,
@@ -168,17 +169,12 @@ export default function Practice() {
         });
         setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
 
-        // Save the attempt for the signed-in user (derived server-side).
+        // Save the attempt for the signed-in user. The score/feedback are
+        // carried inside the server-signed evaluation token, so the server —
+        // not the client — decides what gets recorded.
         await createAttempt.mutateAsync({
           data: {
-            phraseId: phrase!.id,
-            gujaratiScript: phrase!.gujaratiScript,
-            romanized: phrase!.romanized,
-            english: phrase!.english,
-            transcript: evalRes.transcript,
-            score: evalRes.score,
-            passed: evalRes.passed,
-            feedback: evalRes.feedback
+            evaluationToken: evalRes.evaluationToken
           }
         });
 

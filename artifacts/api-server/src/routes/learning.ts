@@ -3,6 +3,7 @@ import { db, categoriesTable, phrasesTable, attemptsTable } from "@workspace/db"
 import { asc, desc, eq } from "drizzle-orm";
 import { CreateAttemptBody } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
+import { verifyEvaluation } from "../lib/evaluationToken";
 
 const router: IRouter = Router();
 
@@ -188,21 +189,29 @@ router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ error: "Invalid attempt payload" });
     return;
   }
-  const body = parsed.data;
   const userId = getUserId(req);
+
+  // The score/feedback/transcript are taken from the server-signed evaluation
+  // token issued by /openai/pronunciation — never from client-asserted values —
+  // so a client cannot fabricate or inflate its own progress.
+  const claims = verifyEvaluation(parsed.data.evaluationToken);
+  if (!claims || claims.userId !== userId) {
+    res.status(400).json({ error: "Invalid or expired evaluation" });
+    return;
+  }
 
   const [row] = await db
     .insert(attemptsTable)
     .values({
       userId,
-      phraseId: body.phraseId ?? null,
-      gujaratiScript: body.gujaratiScript,
-      romanized: body.romanized,
-      english: body.english,
-      transcript: body.transcript,
-      score: body.score,
-      passed: body.passed,
-      feedback: body.feedback,
+      phraseId: claims.phraseId,
+      gujaratiScript: claims.gujaratiScript,
+      romanized: claims.romanized,
+      english: claims.english,
+      transcript: claims.transcript,
+      score: claims.score,
+      passed: claims.passed,
+      feedback: claims.feedback,
     })
     .returning();
 

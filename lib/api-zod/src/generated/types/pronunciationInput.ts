@@ -7,6 +7,11 @@
  */
 
 export interface PronunciationInput {
+  /**
+     * Optional id of the catalog phrase being practiced. When supplied the server uses the phrase's stored text as the authoritative target.
+     * @nullable
+     */
+  phraseId?: number | null;
   /** @minLength 1 */
   targetGujarati: string;
   targetRomanized: string;

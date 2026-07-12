@@ -2,3 +2,4 @@
 - [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.
 - [Clerk web auth (same-domain)](clerk-web-auth.md) — cookies flow on relative /api, NO Bearer on web; identity server-side; dev pk_test + "development keys" warning are expected.
 - [drizzle-kit push non-TTY](drizzle-push-non-tty.md) — push aborts on ambiguous diffs (rename vs drop+create) with no TTY; apply the DDL via SQL instead.
+- [Progress evaluation tokens](progress-evaluation-token.md) — attempts/progress must come from the server-signed pronunciation token, never client-asserted score/passed.

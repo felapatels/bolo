@@ -83,20 +83,11 @@ export const GetPhraseResponse = zod.object({
 /**
  * @summary Record a pronunciation practice attempt
  */
-export const createAttemptBodyScoreMin = 0;
-export const createAttemptBodyScoreMax = 100;
 
 
 
 export const CreateAttemptBody = zod.object({
-  "phraseId": zod.number().nullish(),
-  "gujaratiScript": zod.string(),
-  "romanized": zod.string(),
-  "english": zod.string(),
-  "transcript": zod.string(),
-  "score": zod.number().min(createAttemptBodyScoreMin).max(createAttemptBodyScoreMax),
-  "passed": zod.boolean(),
-  "feedback": zod.string()
+  "evaluationToken": zod.string().min(1).describe('Opaque, server-signed token returned by \/openai\/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.')
 })
 
 export const CreateAttemptResponse = zod.object({
@@ -178,6 +169,7 @@ export const SynthesizeSpeechResponse = zod.object({
 
 
 export const EvaluatePronunciationBody = zod.object({
+  "phraseId": zod.number().nullish().describe('Optional id of the catalog phrase being practiced. When supplied the server uses the phrase\'s stored text as the authoritative target.'),
   "targetGujarati": zod.string().min(1),
   "targetRomanized": zod.string(),
   "targetEnglish": zod.string(),
@@ -190,7 +182,8 @@ export const EvaluatePronunciationResponse = zod.object({
   "score": zod.number(),
   "passed": zod.boolean(),
   "feedback": zod.string(),
-  "tip": zod.string()
+  "tip": zod.string(),
+  "evaluationToken": zod.string().describe('Server-signed token capturing this evaluation. Pass it to \/attempts to record the attempt with the authoritative score and feedback.')
 })
 
 

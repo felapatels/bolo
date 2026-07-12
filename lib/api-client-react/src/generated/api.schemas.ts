@@ -43,19 +43,11 @@ export interface Phrase {
 }
 
 export interface AttemptInput {
-  /** @nullable */
-  phraseId?: number | null;
-  gujaratiScript: string;
-  romanized: string;
-  english: string;
-  transcript: string;
   /**
-     * @minimum 0
-     * @maximum 100
+     * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
+     * @minLength 1
      */
-  score: number;
-  passed: boolean;
-  feedback: string;
+  evaluationToken: string;
 }
 
 export interface Attempt {
@@ -96,6 +88,11 @@ export interface SpeechResult {
 }
 
 export interface PronunciationInput {
+  /**
+     * Optional id of the catalog phrase being practiced. When supplied the server uses the phrase's stored text as the authoritative target.
+     * @nullable
+     */
+  phraseId?: number | null;
   /** @minLength 1 */
   targetGujarati: string;
   targetRomanized: string;
@@ -111,6 +108,8 @@ export interface PronunciationResult {
   passed: boolean;
   feedback: string;
   tip: string;
+  /** Server-signed token capturing this evaluation. Pass it to /attempts to record the attempt with the authoritative score and feedback. */
+  evaluationToken: string;
 }
 
 export interface PhraseRequest {

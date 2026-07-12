@@ -1,4 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { db, phrasesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   openai,
   textToSpeech,
@@ -10,6 +12,8 @@ import {
   EvaluatePronunciationBody,
   GeneratePhraseBody,
 } from "@workspace/api-zod";
+import type { AuthedRequest } from "../middlewares/requireAuth";
+import { signEvaluation } from "../lib/evaluationToken";
 
 const router: IRouter = Router();
 
@@ -22,7 +26,10 @@ const RATE_LIMIT_MAX = 60;
 const hits = new Map<string, number[]>();
 
 function rateLimit(req: Request, res: Response, next: () => void): void {
-  const key = req.ip ?? "unknown";
+  // Key on the authenticated user (this router runs after requireAuth) so one
+  // learner cannot exhaust a shared bucket and lock everyone else out. Fall
+  // back to the client IP only if the user id is somehow unavailable.
+  const key = (req as AuthedRequest).userId ?? req.ip ?? "unknown";
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter(
     (t) => now - t < RATE_LIMIT_WINDOW_MS,
@@ -85,8 +92,31 @@ router.post(
       res.status(400).json({ error: "Invalid pronunciation payload" });
       return;
     }
-    const { targetGujarati, targetRomanized, targetEnglish, audioBase64 } =
-      parsed.data;
+    const { phraseId, audioBase64 } = parsed.data;
+    const userId = (req as AuthedRequest).userId;
+
+    // When a catalog phrase id is supplied, the phrase's stored text — not the
+    // client-provided target strings — is the authoritative content that gets
+    // signed into the evaluation token. This prevents a client from scoring
+    // against one phrase but recording the attempt as another.
+    let targetGujarati = parsed.data.targetGujarati;
+    let targetRomanized = parsed.data.targetRomanized;
+    let targetEnglish = parsed.data.targetEnglish;
+    let resolvedPhraseId: number | null = null;
+
+    if (phraseId != null) {
+      const phrase = await db.query.phrasesTable.findFirst({
+        where: eq(phrasesTable.id, phraseId),
+      });
+      if (!phrase) {
+        res.status(400).json({ error: "Unknown phrase" });
+        return;
+      }
+      resolvedPhraseId = phrase.id;
+      targetGujarati = phrase.gujaratiScript;
+      targetRomanized = phrase.romanized;
+      targetEnglish = phrase.english;
+    }
 
     let transcript = "";
     try {
@@ -100,13 +130,25 @@ router.post(
     }
 
     if (!transcript) {
+      const feedback =
+        "I couldn't hear anything that time! Tap the button and say it nice and clear.";
       res.json({
         transcript: "",
         score: 0,
         passed: false,
-        feedback:
-          "I couldn't hear anything that time! Tap the button and say it nice and clear.",
+        feedback,
         tip: "Hold your phone a little closer and speak up.",
+        evaluationToken: signEvaluation({
+          userId,
+          phraseId: resolvedPhraseId,
+          gujaratiScript: targetGujarati,
+          romanized: targetRomanized,
+          english: targetEnglish,
+          transcript: "",
+          score: 0,
+          passed: false,
+          feedback,
+        }),
       });
       return;
     }
@@ -141,14 +183,28 @@ router.post(
         0,
         Math.min(100, Math.round(Number(result.score ?? 0))),
       );
+      const passed =
+        typeof result.passed === "boolean" ? result.passed : score >= 80;
+      const feedback =
+        result.feedback ??
+        "Nice effort! Keep practicing and you'll get it even better.";
       res.json({
         transcript,
         score,
-        passed: typeof result.passed === "boolean" ? result.passed : score >= 80,
-        feedback:
-          result.feedback ??
-          "Nice effort! Keep practicing and you'll get it even better.",
+        passed,
+        feedback,
         tip: result.tip ?? "Try to say each syllable slowly and clearly.",
+        evaluationToken: signEvaluation({
+          userId,
+          phraseId: resolvedPhraseId,
+          gujaratiScript: targetGujarati,
+          romanized: targetRomanized,
+          english: targetEnglish,
+          transcript,
+          score,
+          passed,
+          feedback,
+        }),
       });
     } catch (err) {
       req.log.error({ err }, "Pronunciation scoring failed");
