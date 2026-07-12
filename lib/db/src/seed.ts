@@ -1,4 +1,30 @@
-import { db, categoriesTable, phrasesTable } from "./index";
+import { db, categoriesTable, phrasesTable, profilesTable } from "./index";
+
+const PROFILES: { name: string; color: string; avatar: string }[] = [
+  { name: "Liam", color: "#F5871F", avatar: "L" },
+  { name: "Rylan", color: "#2A9D8F", avatar: "R" },
+  { name: "Anya", color: "#E63946", avatar: "A" },
+  { name: "Reina", color: "#9B5DE5", avatar: "R" },
+  { name: "Jai", color: "#3A86FF", avatar: "J" },
+  { name: "Gia", color: "#F15BB5", avatar: "G" },
+];
+
+async function seedProfiles() {
+  const existing = await db.select({ id: profilesTable.id }).from(profilesTable);
+  if (existing.length > 0) {
+    console.log(`Profile seed skipped: ${existing.length} profiles already exist.`);
+    return;
+  }
+  await db.insert(profilesTable).values(
+    PROFILES.map((p) => ({
+      name: p.name,
+      color: p.color,
+      avatar: p.avatar,
+      pinHash: null,
+    })),
+  );
+  console.log(`Seeded ${PROFILES.length} kid profiles.`);
+}
 
 type SeedPhrase = {
   gujaratiScript: string;
@@ -131,6 +157,8 @@ const CATEGORIES: SeedCategory[] = [
 ];
 
 async function seed() {
+  await seedProfiles();
+
   const existing = await db.select({ id: categoriesTable.id }).from(categoriesTable);
   if (existing.length > 0) {
     console.log(

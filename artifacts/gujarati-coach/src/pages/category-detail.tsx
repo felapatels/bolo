@@ -3,13 +3,16 @@ import { useListCategoryPhrases, useListCategories } from "@workspace/api-client
 import { ArrowLeft, Play, CheckCircle2, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/lib/profile";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
-  
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
-  const { data: categories } = useListCategories();
+  const { profile } = useProfile();
+  const profileId = profile?.id;
+
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, { profileId });
+  const { data: categories } = useListCategories({ profileId });
   
   const category = categories?.find(c => c.id === id);
 

@@ -25,10 +25,18 @@ import type {
   Category,
   Error,
   GeneratedPhrase,
+  GetPhraseParams,
+  GetProgressSummaryParams,
   HealthStatus,
+  ListCategoriesParams,
+  ListCategoryPhrasesParams,
   ListRecentAttemptsParams,
   Phrase,
   PhraseRequest,
+  PinInput,
+  PinResult,
+  Profile,
+  ProfileInput,
   ProgressSummary,
   PronunciationInput,
   PronunciationResult,
@@ -141,20 +149,20 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-export const getListCategoriesUrl = () => {
+export const getListProfilesUrl = () => {
 
 
 
 
-  return `/api/categories`
+  return `/api/profiles`
 }
 
 /**
- * @summary List all lesson categories with progress
+ * @summary List all kid profiles
  */
-export const listCategories = async ( options?: RequestInit): Promise<Category[]> => {
+export const listProfiles = async ( options?: RequestInit): Promise<Profile[]> => {
 
-  return customFetch<Category[]>(getListCategoriesUrl(),
+  return customFetch<Profile[]>(getListProfilesUrl(),
   {
     ...options,
     method: 'GET'
@@ -167,23 +175,250 @@ export const listCategories = async ( options?: RequestInit): Promise<Category[]
 
 
 
-export const getListCategoriesQueryKey = () => {
+export const getListProfilesQueryKey = () => {
     return [
-    `/api/categories`
+    `/api/profiles`
     ] as const;
     }
 
 
-export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListProfilesQueryOptions = <TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListProfilesQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProfiles>>> = ({ signal }) => listProfiles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProfilesQueryResult = NonNullable<Awaited<ReturnType<typeof listProfiles>>>
+export type ListProfilesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all kid profiles
+ */
+
+export function useListProfiles<TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProfilesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProfileUrl = () => {
+
+
+
+
+  return `/api/profiles`
+}
+
+/**
+ * @summary Create a new kid profile
+ */
+export const createProfile = async (profileInput: ProfileInput, options?: RequestInit): Promise<Profile> => {
+
+  return customFetch<Profile>(getCreateProfileUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(profileInput)
+  }
+);}
+
+
+
+
+
+export const getCreateProfileMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,{data: BodyType<ProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,{data: BodyType<ProfileInput>}, TContext> => {
+
+const mutationKey = ['createProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProfile>>, {data: BodyType<ProfileInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof createProfile>>>
+    export type CreateProfileMutationBody = BodyType<ProfileInput>
+    export type CreateProfileMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a new kid profile
+ */
+export const useCreateProfile = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,{data: BodyType<ProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProfile>>,
+        TError,
+        {data: BodyType<ProfileInput>},
+        TContext
+      > => {
+      return useMutation(getCreateProfileMutationOptions(options));
+    }
+
+export const getVerifyPinUrl = (id: number,) => {
+
+
+
+
+  return `/api/profiles/${id}/verify-pin`
+}
+
+/**
+ * @summary Verify a profile's PIN
+ */
+export const verifyPin = async (id: number,
+    pinInput: PinInput, options?: RequestInit): Promise<PinResult> => {
+
+  return customFetch<PinResult>(getVerifyPinUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pinInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyPinMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPin>>, TError,{id: number;data: BodyType<PinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyPin>>, TError,{id: number;data: BodyType<PinInput>}, TContext> => {
+
+const mutationKey = ['verifyPin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyPin>>, {id: number;data: BodyType<PinInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyPin(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyPinMutationResult = NonNullable<Awaited<ReturnType<typeof verifyPin>>>
+    export type VerifyPinMutationBody = BodyType<PinInput>
+    export type VerifyPinMutationError = ErrorType<Error>
+
+    /**
+ * @summary Verify a profile's PIN
+ */
+export const useVerifyPin = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPin>>, TError,{id: number;data: BodyType<PinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyPin>>,
+        TError,
+        {id: number;data: BodyType<PinInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyPinMutationOptions(options));
+    }
+
+export const getListCategoriesUrl = (params?: ListCategoriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/categories?${stringifiedParams}` : `/api/categories`
+}
+
+/**
+ * @summary List all lesson categories with progress
+ */
+export const listCategories = async (params?: ListCategoriesParams, options?: RequestInit): Promise<Category[]> => {
+
+  return customFetch<Category[]>(getListCategoriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCategoriesQueryKey = (params?: ListCategoriesParams,) => {
+    return [
+    `/api/categories`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories(params, { signal, ...requestOptions });
 
 
 
@@ -201,11 +436,11 @@ export type ListCategoriesQueryError = ErrorType<unknown>
  */
 
 export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCategoriesQueryOptions(options)
+  const queryOptions = getListCategoriesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -218,20 +453,29 @@ export function useListCategories<TData = Awaited<ReturnType<typeof listCategori
 
 
 
-export const getListCategoryPhrasesUrl = (id: number,) => {
+export const getListCategoryPhrasesUrl = (id: number,
+    params?: ListCategoryPhrasesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/categories/${id}/phrases`
+  return stringifiedParams.length > 0 ? `/api/categories/${id}/phrases?${stringifiedParams}` : `/api/categories/${id}/phrases`
 }
 
 /**
  * @summary List all phrases in a category
  */
-export const listCategoryPhrases = async (id: number, options?: RequestInit): Promise<Phrase[]> => {
+export const listCategoryPhrases = async (id: number,
+    params?: ListCategoryPhrasesParams, options?: RequestInit): Promise<Phrase[]> => {
 
-  return customFetch<Phrase[]>(getListCategoryPhrasesUrl(id),
+  return customFetch<Phrase[]>(getListCategoryPhrasesUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -244,23 +488,25 @@ export const listCategoryPhrases = async (id: number, options?: RequestInit): Pr
 
 
 
-export const getListCategoryPhrasesQueryKey = (id: number,) => {
+export const getListCategoryPhrasesQueryKey = (id: number,
+    params?: ListCategoryPhrasesParams,) => {
     return [
-    `/api/categories/${id}/phrases`
+    `/api/categories/${id}/phrases`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(id: number,
+    params?: ListCategoryPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCategoryPhrasesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getListCategoryPhrasesQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategoryPhrases>>> = ({ signal }) => listCategoryPhrases(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategoryPhrases>>> = ({ signal }) => listCategoryPhrases(id,params, { signal, ...requestOptions });
 
 
 
@@ -278,11 +524,12 @@ export type ListCategoryPhrasesQueryError = ErrorType<Error>
  */
 
 export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params?: ListCategoryPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCategoryPhrasesQueryOptions(id,options)
+  const queryOptions = getListCategoryPhrasesQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -295,20 +542,29 @@ export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCat
 
 
 
-export const getGetPhraseUrl = (id: number,) => {
+export const getGetPhraseUrl = (id: number,
+    params?: GetPhraseParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/phrases/${id}`
+  return stringifiedParams.length > 0 ? `/api/phrases/${id}?${stringifiedParams}` : `/api/phrases/${id}`
 }
 
 /**
  * @summary Get a single phrase
  */
-export const getPhrase = async (id: number, options?: RequestInit): Promise<Phrase> => {
+export const getPhrase = async (id: number,
+    params?: GetPhraseParams, options?: RequestInit): Promise<Phrase> => {
 
-  return customFetch<Phrase>(getGetPhraseUrl(id),
+  return customFetch<Phrase>(getGetPhraseUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -321,23 +577,25 @@ export const getPhrase = async (id: number, options?: RequestInit): Promise<Phra
 
 
 
-export const getGetPhraseQueryKey = (id: number,) => {
+export const getGetPhraseQueryKey = (id: number,
+    params?: GetPhraseParams,) => {
     return [
-    `/api/phrases/${id}`
+    `/api/phrases/${id}`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetPhraseQueryOptions = <TData = Awaited<ReturnType<typeof getPhrase>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhrase>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetPhraseQueryOptions = <TData = Awaited<ReturnType<typeof getPhrase>>, TError = ErrorType<Error>>(id: number,
+    params?: GetPhraseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhrase>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPhraseQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetPhraseQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhrase>>> = ({ signal }) => getPhrase(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhrase>>> = ({ signal }) => getPhrase(id,params, { signal, ...requestOptions });
 
 
 
@@ -355,11 +613,12 @@ export type GetPhraseQueryError = ErrorType<Error>
  */
 
 export function useGetPhrase<TData = Awaited<ReturnType<typeof getPhrase>>, TError = ErrorType<Error>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhrase>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params?: GetPhraseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhrase>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetPhraseQueryOptions(id,options)
+  const queryOptions = getGetPhraseQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -527,20 +786,27 @@ export function useListRecentAttempts<TData = Awaited<ReturnType<typeof listRece
 
 
 
-export const getGetProgressSummaryUrl = () => {
+export const getGetProgressSummaryUrl = (params?: GetProgressSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/progress/summary`
+  return stringifiedParams.length > 0 ? `/api/progress/summary?${stringifiedParams}` : `/api/progress/summary`
 }
 
 /**
  * @summary Overall learning progress summary
  */
-export const getProgressSummary = async ( options?: RequestInit): Promise<ProgressSummary> => {
+export const getProgressSummary = async (params?: GetProgressSummaryParams, options?: RequestInit): Promise<ProgressSummary> => {
 
-  return customFetch<ProgressSummary>(getGetProgressSummaryUrl(),
+  return customFetch<ProgressSummary>(getGetProgressSummaryUrl(params),
   {
     ...options,
     method: 'GET'
@@ -553,23 +819,23 @@ export const getProgressSummary = async ( options?: RequestInit): Promise<Progre
 
 
 
-export const getGetProgressSummaryQueryKey = () => {
+export const getGetProgressSummaryQueryKey = (params?: GetProgressSummaryParams,) => {
     return [
-    `/api/progress/summary`
+    `/api/progress/summary`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetProgressSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetProgressSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>(params?: GetProgressSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetProgressSummaryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetProgressSummaryQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgressSummary>>> = ({ signal }) => getProgressSummary({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgressSummary>>> = ({ signal }) => getProgressSummary(params, { signal, ...requestOptions });
 
 
 
@@ -587,11 +853,11 @@ export type GetProgressSummaryQueryError = ErrorType<unknown>
  */
 
 export function useGetProgressSummary<TData = Awaited<ReturnType<typeof getProgressSummary>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetProgressSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetProgressSummaryQueryOptions(options)
+  const queryOptions = getGetProgressSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

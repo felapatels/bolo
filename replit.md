@@ -1,25 +1,30 @@
 # Gujarati Coach
 
-A mobile-friendly web app that helps an 11-year-old learn Gujarati by ear: the
-app speaks a Gujarati word or phrase aloud, the child repeats it, and the app
+A mobile-friendly web app that helps the family's kids learn Gujarati by ear:
+the app speaks a Gujarati word or phrase aloud, the child repeats it, and the app
 transcribes the attempt and gives friendly pronunciation feedback with a score.
 Every phrase is shown in both Gujarati script and romanized English plus the
-English meaning.
+English meaning. Multiple kids each have their own profile, so progress is
+tracked per child.
 
 ## Architecture
 
 Monorepo (pnpm) with path-routed artifacts:
 
 - **`artifacts/gujarati-coach`** — React + Vite frontend (root preview path `/`).
-  Pages: Home dashboard, category detail (`/learn/:id`), core practice session
+  Pages: a "Who's practicing?" profile picker (shown until a kid is selected),
+  Home dashboard, category detail (`/learn/:id`), core practice session
   (`/practice/:id`), and progress (`/progress`). Uses generated API hooks from
   `@workspace/api-client-react` and the voice recorder from
-  `@workspace/integrations-openai-ai-react`.
+  `@workspace/integrations-openai-ai-react`. The active kid is held in a
+  `ProfileProvider` (`src/lib/profile.tsx`) and persisted in localStorage.
 - **`artifacts/api-server`** — Express 5 API (mounted at `/api`). Routes:
-  `learning.ts` (categories, phrases, attempts, progress) and `openai.ts` (TTS,
-  pronunciation evaluation, AI phrase generation).
-- **`lib/db`** — Drizzle schema: `categories`, `phrases`, `attempts`. Seed data
-  in `lib/db/src/seed.ts` (hand-authored Gujarati across 6 categories).
+  `profiles.ts` (list/create profiles, verify PIN), `learning.ts` (categories,
+  phrases, attempts, progress) and `openai.ts` (TTS, pronunciation evaluation,
+  AI phrase generation).
+- **`lib/db`** — Drizzle schema: `profiles`, `categories`, `phrases`, `attempts`
+  (`attempts.profileId` FK → `profiles.id`). Seed data in `lib/db/src/seed.ts`
+  (6 kid profiles + hand-authored Gujarati across 6 categories).
 - **`lib/api-spec`** — OpenAPI spec; `pnpm --filter @workspace/api-spec run codegen`
   regenerates the typed client (`lib/api-client-react`) and zod (`lib/api-zod`).
 - **`lib/integrations-openai-ai-server` / `-react`** — Replit-managed OpenAI
@@ -39,7 +44,16 @@ Monorepo (pnpm) with path-routed artifacts:
 
 ## Notes / decisions
 
-- Single-user personal app (the user's son) — intentionally no auth/login.
+- Single-family app — lightweight **profiles**, not real auth. The selected kid
+  is passed to the API as `profileId` (query param on GETs, body field on POST
+  attempts). All attempt-derived stats are scoped by `profileId`; endpoints
+  return empty stats (never all kids' data) when no valid `profileId` is given.
+- PINs are optional per profile, stored hashed as `salt:hash` (node:crypto
+  scrypt, timing-safe compare). The API only ever exposes a `hasPin` boolean.
+  `verify-pin` has a small in-memory per-profile throttle against brute force.
+- **Verbal feedback**: after each practice attempt the coach speaks a random
+  English cheer (chosen by score band) via the TTS endpoint, played on a
+  separate audio ref with a cancelled-guard so it doesn't bleed across phrases.
 - `/api/openai/*` endpoints have a lightweight in-memory rate limiter to cap
   OpenAI cost abuse once published (single learner, so no login needed).
 - Mastery = a phrase with a best attempt score >= 80. Streak = consecutive UTC

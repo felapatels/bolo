@@ -4,6 +4,7 @@ import { useGetProgressSummary, useListCategories, useListRecentAttempts } from 
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/lib/profile";
 
 const iconMap: Record<string, React.ElementType> = {
   "book-open": BookOpen,
@@ -13,9 +14,11 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export default function Home() {
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary();
-  const { data: categories, isLoading: loadingCats } = useListCategories();
-  const { data: attempts } = useListRecentAttempts({ limit: 3 });
+  const { profile, clearProfile } = useProfile();
+  const profileId = profile?.id;
+  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ profileId });
+  const { data: categories, isLoading: loadingCats } = useListCategories({ profileId });
+  const { data: attempts } = useListRecentAttempts({ limit: 3, profileId });
 
   if (loadingSummary || loadingCats) {
     return (
@@ -29,11 +32,23 @@ export default function Home() {
     <div className="min-h-[100dvh] pb-24 bg-background">
       {/* Header / Greeting */}
       <header className="pt-12 px-6 pb-6 bg-gradient-to-b from-primary/10 to-transparent">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-3xl font-extrabold text-foreground mb-1">
-            Kem chho! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
-          </h1>
-          <p className="text-muted-foreground text-lg font-medium">Ready to speak some Gujarati?</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-foreground mb-1">
+              Kem chho{profile ? `, ${profile.name}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
+            </h1>
+            <p className="text-muted-foreground text-lg font-medium">Ready to speak some Gujarati?</p>
+          </div>
+          {profile && (
+            <button
+              onClick={clearProfile}
+              title="Switch kid"
+              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-[0_4px_0_rgba(0,0,0,0.15)] active:translate-y-1 active:shadow-none transition-all"
+              style={{ backgroundColor: profile.color }}
+            >
+              {profile.avatar}
+            </button>
+          )}
         </motion.div>
 
         {/* Stats Row */}

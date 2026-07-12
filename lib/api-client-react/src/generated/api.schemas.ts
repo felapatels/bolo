@@ -43,6 +43,7 @@ export interface Phrase {
 }
 
 export interface AttemptInput {
+  profileId: number;
   /** @nullable */
   phraseId?: number | null;
   gujaratiScript: string;
@@ -56,6 +57,42 @@ export interface AttemptInput {
   score: number;
   passed: boolean;
   feedback: string;
+}
+
+export interface Profile {
+  id: number;
+  name: string;
+  color: string;
+  avatar: string;
+  hasPin: boolean;
+}
+
+export interface ProfileInput {
+  /**
+     * @minLength 1
+     * @maxLength 20
+     */
+  name: string;
+  /** @minLength 1 */
+  color: string;
+  /**
+     * @minLength 1
+     * @maxLength 2
+     */
+  avatar: string;
+  /**
+     * @nullable
+     * @pattern ^[0-9]{4}$
+     */
+  pin?: string | null;
+}
+
+export interface PinInput {
+  pin: string;
+}
+
+export interface PinResult {
+  valid: boolean;
 }
 
 export interface Attempt {
@@ -128,7 +165,24 @@ export interface GeneratedPhrase {
   english: string;
 }
 
+export type ListCategoriesParams = {
+profileId?: number;
+};
+
+export type ListCategoryPhrasesParams = {
+profileId?: number;
+};
+
+export type GetPhraseParams = {
+profileId?: number;
+};
+
 export type ListRecentAttemptsParams = {
 limit?: number;
+profileId?: number;
+};
+
+export type GetProgressSummaryParams = {
+profileId?: number;
 };
 

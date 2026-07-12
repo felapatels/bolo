@@ -1,1 +1,2 @@
 - [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.
+- [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.

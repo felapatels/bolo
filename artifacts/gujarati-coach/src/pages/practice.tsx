@@ -11,19 +11,36 @@ import {
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, RefreshCcw, ThumbsUp } from "lucide-react";
+import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/lib/profile";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
+
+// Fun spoken cheers the coach says out loud after each attempt, by score band.
+const SPOKEN_FEEDBACK: Record<"great" | "good" | "close" | "again", string[]> = {
+  great: ["Wow! You totally nailed it!", "Amazing! That was perfect!", "Superstar! You nailed it!"],
+  good: ["Awesome job! You've got it!", "Yes! That sounded great!", "Brilliant! Really well done!"],
+  close: ["Good try! So close, give it one more go!", "Nice effort! Almost there, try again!", "Good job! A little more practice and you've got it!"],
+  again: ["Nice try! Let's give that one another go!", "Keep going! Try it one more time!", "Good effort! Practice makes perfect, try again!"],
+};
+
+function pickSpokenFeedback(score: number): string {
+  const band = score >= 90 ? "great" : score >= 80 ? "good" : score >= 60 ? "close" : "again";
+  const options = SPOKEN_FEEDBACK[band];
+  return options[Math.floor(Math.random() * options.length)];
+}
 
 export default function Practice() {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
   const queryClient = useQueryClient();
-  
-  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id);
+  const { profile } = useProfile();
+  const profileId = profile?.id;
+
+  const { data: phrases, isLoading: loadingPhrases } = useListCategoryPhrases(id, { profileId });
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -31,11 +48,12 @@ export default function Practice() {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<SessionState>("intro");
-  const [result, setResult] = useState<{ score: number; feedback: string; tip: string } | null>(null);
+  const [result, setResult] = useState<{ score: number; feedback: string; tip: string; spoken: string } | null>(null);
   const [sessionResults, setSessionResults] = useState<{ phraseId: number; score: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const feedbackAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const phrase = phrases?.[currentIndex];
 
@@ -79,6 +97,35 @@ export default function Practice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, phrase?.id]);
 
+  // Speak a fun cheer out loud whenever a result appears.
+  useEffect(() => {
+    if (state === "result" && result?.spoken) {
+      let cancelled = false;
+      const speak = async () => {
+        try {
+          const res = await synthesize.mutateAsync({ data: { text: result.spoken } });
+          if (cancelled) return;
+          const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          feedbackAudioRef.current = audio;
+          await audio.play();
+        } catch {
+          // A missed cheer shouldn't interrupt practice; stay silent.
+        }
+      };
+      speak();
+
+      return () => {
+        cancelled = true;
+        if (feedbackAudioRef.current) {
+          feedbackAudioRef.current.pause();
+          feedbackAudioRef.current = null;
+        }
+      };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, result?.spoken]);
+
   const toggleRecording = async () => {
     if (state === "idle") {
       try {
@@ -109,27 +156,35 @@ export default function Practice() {
           }
         });
 
-        setResult(evalRes);
-        setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
-        
-        // Save attempt
-        await createAttempt.mutateAsync({
-          data: {
-            phraseId: phrase!.id,
-            gujaratiScript: phrase!.gujaratiScript,
-            romanized: phrase!.romanized,
-            english: phrase!.english,
-            transcript: evalRes.transcript,
-            score: evalRes.score,
-            passed: evalRes.passed,
-            feedback: evalRes.feedback
-          }
+        setResult({
+          score: evalRes.score,
+          feedback: evalRes.feedback,
+          tip: evalRes.tip,
+          spoken: pickSpokenFeedback(evalRes.score),
         });
+        setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
 
-        // Invalidate queries so progress updates
-        queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12 }) });
-        queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id) });
+        // Save attempt for the active kid
+        if (profileId != null) {
+          await createAttempt.mutateAsync({
+            data: {
+              profileId,
+              phraseId: phrase!.id,
+              gujaratiScript: phrase!.gujaratiScript,
+              romanized: phrase!.romanized,
+              english: phrase!.english,
+              transcript: evalRes.transcript,
+              score: evalRes.score,
+              passed: evalRes.passed,
+              feedback: evalRes.feedback
+            }
+          });
+
+          // Invalidate queries so progress updates
+          queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ profileId }) });
+          queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ limit: 12, profileId }) });
+          queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, { profileId }) });
+        }
 
         setState("result");
         

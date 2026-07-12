@@ -7,7 +7,9 @@ import Home from '@/pages/home';
 import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
+import ProfileSelect from '@/pages/profile-select';
 import NotFound from '@/pages/not-found';
+import { ProfileProvider, useProfile } from '@/lib/profile';
 
 const queryClient = new QueryClient();
 
@@ -23,13 +25,21 @@ function Router() {
   );
 }
 
+function Gate() {
+  const { profile } = useProfile();
+  if (!profile) return <ProfileSelect />;
+  return <Router />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
+        <ProfileProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Gate />
+          </WouterRouter>
+        </ProfileProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListRecentAttemptsParams = {
-limit?: number;
+export type GetProgressSummaryParams = {
 profileId?: number;
 };

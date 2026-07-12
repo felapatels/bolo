@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListRecentAttemptsParams = {
-limit?: number;
-profileId?: number;
-};
+export interface Profile {
+  id: number;
+  name: string;
+  color: string;
+  avatar: string;
+  hasPin: boolean;
+}
