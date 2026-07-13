@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
-import { Mic, Sparkles, Trophy, ArrowRight, Volume2 } from 'lucide-react';
+import { Mic, Sparkles, Trophy, ArrowRight, Volume2, Hand, MessageCircle, Check, X } from 'lucide-react';
 import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
 
@@ -48,7 +48,7 @@ export default function Landing() {
             className="inline-flex items-center gap-2 bg-secondary/10 text-secondary font-bold text-sm px-4 py-2 rounded-full mb-6"
           >
             <Sparkles className="w-4 h-4" />
-            Speak the languages of India
+            Talk, don't tap — it hits different
           </motion.div>
 
           <motion.h1
@@ -57,9 +57,9 @@ export default function Landing() {
             transition={{ duration: 0.5, delay: 0.05 }}
             className="text-5xl sm:text-6xl font-black text-foreground leading-[1.05] tracking-tight max-w-3xl mx-auto"
           >
-            One app.
+            Actually speak all 22
             <br />
-            All 22 official Indian languages.
+            official Indian languages.
           </motion.h1>
 
           <motion.p
@@ -68,9 +68,9 @@ export default function Landing() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-lg sm:text-xl text-muted-foreground font-medium mt-6 max-w-xl mx-auto"
           >
-            Learn to speak, one word at a time. Bolo! listens as you say each
-            phrase out loud, then coaches your pronunciation with friendly,
-            kid-ready feedback.
+            One app, all 22 languages. No matching tiles, no silent tapping — you
+            say each phrase out loud and Bolo! coaches your pronunciation on the
+            spot. Friendly enough for kids, real enough to actually stick.
           </motion.p>
 
           <motion.div
@@ -128,20 +128,20 @@ export default function Landing() {
             {
               icon: Volume2,
               color: '#0FA6A0',
-              title: 'Listen',
-              body: 'Hear each phrase spoken clearly in native script.',
+              title: 'Hear it',
+              body: 'Every phrase spoken clearly in native script, so you catch the vibe before you try.',
             },
             {
               icon: Mic,
               color: '#F5871F',
               title: 'Say it out loud',
-              body: 'Tap the mic and repeat. Bolo! transcribes what you said.',
+              body: 'Tap the mic and go for it. Bolo! actually listens and shows you exactly what it heard.',
             },
             {
               icon: Trophy,
               color: '#E84E8A',
-              title: 'Get better',
-              body: 'Instant scoring, gentle tips, streaks and mastery to chase.',
+              title: 'Level up',
+              body: 'Instant scoring, gentle tips, streaks and mastery to chase. Watch yourself get good.',
             },
           ].map((step, i) => (
             <motion.div
@@ -164,6 +164,81 @@ export default function Landing() {
           ))}
         </section>
 
+        {/* Why Bolo! is different */}
+        <section className="py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center max-w-2xl mx-auto mb-9"
+          >
+            <h2 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
+              Why Bolo! hits different
+            </h2>
+            <p className="text-muted-foreground font-medium text-lg mt-3">
+              Most apps have you tap the matching tile and call it a day. You can
+              recognize words — but can you actually say them? Big difference.
+            </p>
+          </motion.div>
+
+          <div className="grid gap-5 sm:grid-cols-2 max-w-3xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-white rounded-3xl p-7 border border-card-border shadow-sm"
+            >
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-muted text-muted-foreground">
+                <Hand className="w-7 h-7" />
+              </div>
+              <h3 className="text-xl font-black text-muted-foreground mb-3">
+                Other apps
+              </h3>
+              <ul className="space-y-2.5">
+                {[
+                  'Tap the tile that matches. Silent the whole time.',
+                  'You can point at words but freeze up out loud.',
+                  'Feels like a quiz, not a conversation.',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-muted-foreground font-medium">
+                    <X className="w-5 h-5 shrink-0 mt-0.5 text-destructive" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.08 }}
+              className="bg-white rounded-3xl p-7 border-2 border-primary shadow-sm relative"
+            >
+              <span className="absolute -top-3 right-6 bg-primary text-primary-foreground text-xs font-black uppercase tracking-wide px-3 py-1 rounded-full">
+                The Bolo! way
+              </span>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-primary/15 text-primary">
+                <MessageCircle className="w-7 h-7" />
+              </div>
+              <h3 className="text-xl font-black text-foreground mb-3">With Bolo!</h3>
+              <ul className="space-y-2.5">
+                {[
+                  'You open your mouth and actually speak — every time.',
+                  'Real coaching on your pronunciation, phrase by phrase.',
+                  'You leave able to say things, not just recognize them.',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-foreground font-medium">
+                    <Check className="w-5 h-5 shrink-0 mt-0.5 text-success" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </section>
+
         {/* Bottom CTA */}
         <section className="py-12">
           <div className="bg-foreground text-background rounded-[2.5rem] p-10 text-center relative overflow-hidden">
@@ -171,10 +246,10 @@ export default function Landing() {
             <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-secondary/20" />
             <div className="relative">
               <h2 className="text-3xl sm:text-4xl font-black mb-3">
-                Ready to say your first word?
+                Ready to actually say something?
               </h2>
               <p className="text-background/70 font-medium text-lg mb-7 max-w-md mx-auto">
-                Create a free account and start practicing in under a minute.
+                Make a free account and speak your first phrase in under a minute. No cap.
               </p>
               <Link
                 href="/sign-up"
@@ -189,7 +264,7 @@ export default function Landing() {
       </main>
 
       <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
-        Bolo! — say it, hear it, own it.
+        Bolo! — stop tapping, start talking.
       </footer>
     </div>
   );
