@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export function Confetti({ active }: { active: boolean }) {
+  const reduceMotion = useReducedMotion();
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; rotation: number; scale: number }>>([]);
 
   useEffect(() => {
-    if (active) {
+    if (active && !reduceMotion) {
       // Calm & Modern celebration palette: indigo + teal, with light tints and
       // a warm amber pop to keep wins feeling joyful, not clashing.
       const colors = ['#4F46E5', '#0D9488', '#818CF8', '#2DD4BF', '#FBBF24'];
@@ -21,9 +22,11 @@ export function Confetti({ active }: { active: boolean }) {
     } else {
       setParticles([]);
     }
-  }, [active]);
+  }, [active, reduceMotion]);
 
-  if (!active) return null;
+  // Learners who opt out of motion get the win without particles flying across
+  // the screen; the surrounding celebration still names the badge and score.
+  if (!active || reduceMotion) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden">

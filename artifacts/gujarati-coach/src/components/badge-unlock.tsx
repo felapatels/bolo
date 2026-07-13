@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { EarnedBadge } from "@workspace/api-client-react";
 import { Confetti } from "@/components/ui/confetti";
 import { Mascot } from "@/components/mascot";
@@ -14,6 +14,7 @@ export function BadgeUnlock({
   badges: EarnedBadge[];
   onDismiss: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const active = badges.length > 0;
 
   return (
@@ -44,14 +45,26 @@ export function BadgeUnlock({
               return (
                 <motion.div
                   key={badge.key}
-                  initial={{ opacity: 0, scale: 0.6, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{
-                    delay: 0.15 + i * 0.18,
-                    type: "spring",
-                    stiffness: 220,
-                    damping: 16,
-                  }}
+                  initial={
+                    reduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, scale: 0.6, y: 20 }
+                  }
+                  animate={
+                    reduceMotion
+                      ? { opacity: 1 }
+                      : { opacity: 1, scale: 1, y: 0 }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.2 }
+                      : {
+                          delay: 0.15 + i * 0.18,
+                          type: "spring",
+                          stiffness: 220,
+                          damping: 16,
+                        }
+                  }
                   className="flex flex-col items-center text-center bg-white rounded-3xl px-6 py-6 w-full border border-card-border shadow-lg"
                 >
                   <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-white shadow-lg shadow-secondary/40">
@@ -71,7 +84,7 @@ export function BadgeUnlock({
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 + badges.length * 0.18 }}
+            transition={{ delay: reduceMotion ? 0 : 0.4 + badges.length * 0.18 }}
             onClick={onDismiss}
             className="mt-8 bg-primary text-primary-foreground font-black text-lg px-10 py-4 rounded-2xl shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
           >

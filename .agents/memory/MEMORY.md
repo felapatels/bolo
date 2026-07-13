@@ -18,6 +18,7 @@
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade has no real provider endpoint; drives dev-override then refetches entitlements; swap only beginCheckout when payments land.
 - [Expo Router typed routes lag](expo-router-typed-routes.md) — a just-created route file fails typecheck until the expo dev workflow regenerates .expo/types; restart the workflow before tsc, don't cast the href.
 - [Reduced-motion spinners](reduced-motion-spinners.md) — gujarati-coach's global prefers-reduced-motion reset must exclude .animate-spin (and other functional motion) or loaders freeze.
+- [framer-motion vs reduced-motion CSS](framer-motion-reduced-motion.md) — the global CSS reduce-motion reset only stops CSS anims; framer-motion (confetti, spring pops) keeps playing unless gated with useReducedMotion.
 - [gujarati-coach vitest setup](gujarati-coach-vitest.md) — web tests need a separate vitest.config (vite.config throws w/o PORT/BASE_PATH), jsdom polyfills for Radix, and mock data-sources to drive real useEntitlements.
 - [Subscription pause & retention](subscription-pause-retention.md) — paused=suspended-not-expired (resolves free until pauseUntil); pause branch runs before tier branch; loadEntitlements must pass pauseUntil.
 - [bolo-mobile jest/RNTL setup](bolo-mobile-jest-setup.md) — jest-expo + RNTL v13 (not v14); hand-roll reanimated mock, stub @expo/vector-icons/haptics, define ApiError inside jest.mock factory, exclude __tests__ from typecheck.
