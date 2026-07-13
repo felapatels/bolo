@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
+import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { signEvaluation } from "../lib/evaluationToken";
 
 // This exercises the real POST /attempts route handler end to end — token
@@ -230,6 +231,13 @@ before(async () => {
     .insert(usersTable)
     .values({ id: TEST_USER_ID, email: null, displayName: "Attempts Test" })
     .onConflictDoNothing();
+  // This suite exercises review ordering + attempt recording, not entitlements.
+  // Make the test user Bolo! Plus so the Free-tier gates don't interfere: review
+  // is Plus-only and the test language isn't the free (Hindi) language.
+  await db
+    .update(usersTable)
+    .set({ tier: "plus", subscriptionStatus: "active" })
+    .where(eq(usersTable.id, TEST_USER_ID));
   await db
     .insert(languagesTable)
     .values({
@@ -289,6 +297,7 @@ before(async () => {
     (req as unknown as { userId: string }).userId = TEST_USER_ID;
     next();
   });
+  app.use(loadEntitlements);
   app.use(learningRouter);
 
   await new Promise<void>((resolve) => {

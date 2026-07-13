@@ -190,6 +190,79 @@ export interface AddPhrasesInput {
   count?: number;
 }
 
+/**
+ * Returned with HTTP 402 when a Free action needs Bolo! Plus (a locked language, the daily new-lesson cap, or a Plus-only feature). A single shape across every gate so clients render the paywall uniformly.
+ */
+export interface UpgradeRequired {
+  /** Always "upgrade_required". */
+  error: string;
+  /** Always true. */
+  upgradeRequired: boolean;
+  /** language_locked | daily_lesson_limit | feature_locked */
+  reason: string;
+  message: string;
+  /** The related feature flag, when applicable (e.g. "allLanguages"). */
+  feature: string | null;
+  /** The plan that unlocks the action (e.g. "plus"). */
+  requiredPlan: string;
+}
+
+export interface PlanFeatures {
+  allLanguages: boolean;
+  unlimitedLessons: boolean;
+  review: boolean;
+  advancedAnalytics: boolean;
+}
+
+export interface DailyLessonAllowance {
+  /** Daily new-lesson ceiling; null means unlimited (Plus). */
+  limit: number | null;
+  used: number;
+  /** Remaining today; null means unlimited (Plus). */
+  remaining: number | null;
+}
+
+export interface EntitlementLimits {
+  dailyNewLessons: DailyLessonAllowance;
+}
+
+export interface Entitlements {
+  /** The effective plan ("free" or "plus"). */
+  plan: string;
+  /** none | trialing | active | expired | canceled */
+  status: string;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  /** The concrete language codes the caller may access. */
+  allowedLanguages: string[];
+  features: PlanFeatures;
+  limits: EntitlementLimits;
+}
+
+export interface CategoryAnalytics {
+  categoryId: number;
+  title: string;
+  phraseCount: number;
+  practicedCount: number;
+  masteredCount: number;
+  averageScore: number;
+}
+
+export interface DailyActivity {
+  /** UTC day (YYYY-MM-DD). */
+  date: string;
+  attempts: number;
+  averageScore: number;
+}
+
+export interface ProgressAnalytics {
+  languageCode: string;
+  totalXp: number;
+  reviewDueCount: number;
+  categories: CategoryAnalytics[];
+  daily: DailyActivity[];
+}
+
 export type ListCategoriesParams = {
 lang: string;
 };
@@ -208,6 +281,10 @@ lang: string;
 };
 
 export type GetProgressSummaryParams = {
+lang: string;
+};
+
+export type GetProgressAnalyticsParams = {
 lang: string;
 };
 

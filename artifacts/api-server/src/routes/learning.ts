@@ -30,6 +30,17 @@ import {
   computeProgressMetrics,
   type PhraseStats,
 } from "../lib/progressMetrics";
+import {
+  denyLockedFeature,
+  denyLockedLanguage,
+  sendUpgradeRequired,
+} from "../lib/gating";
+import {
+  dailyLessonCapDenial,
+  recordLessonGeneration,
+} from "../lib/lessonLimits";
+import { UpgradeRequiredError } from "../lib/entitlements";
+import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
 
@@ -82,10 +93,20 @@ function serializePhrase(
 // category_id) constraint on lessons. The generator is injectable so the
 // resilience behavior (fail = nothing cached, empty cache = regenerate) can be
 // tested without calling OpenAI; production always uses the real generateLesson.
+// Hooks let a caller observe/gate the moment a REAL AI generation happens (a
+// cache miss), without duplicating the cache-lookup logic in the route. Used to
+// enforce the Free daily new-lesson cap: `beforeGenerate` may throw to abort
+// before any cost is incurred, and `afterGenerate` records the incurred cost.
+export interface LessonGenerationHooks {
+  beforeGenerate?: () => Promise<void> | void;
+  afterGenerate?: () => Promise<void> | void;
+}
+
 export async function getOrCreateLessonPhrases(
   languageCode: string,
   categoryId: number,
   generate: (req: LessonRequest) => Promise<GeneratedLesson> = generateLesson,
+  hooks: LessonGenerationHooks = {},
 ): Promise<typeof phrasesTable.$inferSelect[]> {
   const loadPhrases = (lessonId: number) =>
     db.query.phrasesTable.findMany({
@@ -116,6 +137,10 @@ export async function getOrCreateLessonPhrases(
   ]);
   if (!language || !category) return [];
 
+  // Gate the impending generation (e.g. the Free daily cap). Runs only on a
+  // real cache miss and BEFORE any cost is incurred; it may throw to abort.
+  await hooks.beforeGenerate?.();
+
   // If this throws, the AI call failed. It happens BEFORE any DB write below, so
   // nothing is cached — the caller surfaces a retry-able error and a later open
   // can succeed. generateLesson also guarantees at least one usable phrase, so a
@@ -127,6 +152,10 @@ export async function getOrCreateLessonPhrases(
     topicTitle: category.title,
     topicDescription: category.description,
   });
+
+  // The AI call succeeded (a cost was incurred) — record it against the caller's
+  // allowance before persisting.
+  await hooks.afterGenerate?.();
 
   // Persist the lesson and its phrases atomically. Doing both in one transaction
   // means a failure can never leave a lesson row cached with zero phrases (which
@@ -207,6 +236,9 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   }
   const userId = getUserId(req);
 
+  // Free is limited to Hindi; other languages require Bolo! Plus.
+  if (denyLockedLanguage(req, res, lang)) return;
+
   const [categories, langPhrases, lessons, attempts] = await Promise.all([
     db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
     db
@@ -282,10 +314,30 @@ router.get(
       return;
     }
 
+    // Free is limited to Hindi; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, lang)) return;
+
+    const { resolvedPlan } = req as EntitledRequest;
+
     let phrases: typeof phrasesTable.$inferSelect[];
     try {
-      phrases = await getOrCreateLessonPhrases(lang, id);
+      // Enforce the Free daily new-lesson cap only when a real generation is
+      // about to happen (a cache miss) — opening an already-cached lesson is
+      // always free and costs nothing.
+      phrases = await getOrCreateLessonPhrases(lang, id, generateLesson, {
+        beforeGenerate: async () => {
+          const denial = await dailyLessonCapDenial(resolvedPlan, userId);
+          if (denial) throw new UpgradeRequiredError(denial);
+        },
+        afterGenerate: async () => {
+          await recordLessonGeneration(userId, lang, id);
+        },
+      });
     } catch (err) {
+      if (err instanceof UpgradeRequiredError) {
+        sendUpgradeRequired(res, err.payload);
+        return;
+      }
       req.log.error({ err }, "Lesson generation failed");
       res.status(502).json({ error: "Could not build this lesson" });
       return;
@@ -340,6 +392,16 @@ router.post(
       return;
     }
 
+    // Free is limited to Hindi, and appending fresh AI phrases is a real
+    // generation, so it counts against the Free daily new-lesson cap.
+    if (denyLockedLanguage(req, res, lang)) return;
+    const { resolvedPlan } = req as EntitledRequest;
+    const capDenial = await dailyLessonCapDenial(resolvedPlan, userId);
+    if (capDenial) {
+      sendUpgradeRequired(res, capDenial);
+      return;
+    }
+
     let created: (typeof phrasesTable.$inferSelect)[];
     try {
       // Make sure the lesson (and its original phrases) exist first so the new
@@ -372,6 +434,10 @@ router.post(
         })),
         count,
       });
+
+      // The AI generation happened (a cost was incurred) — record it against the
+      // caller's daily allowance regardless of how many survive de-duplication.
+      await recordLessonGeneration(userId, lang, id);
 
       // Server-side guard against the model echoing existing phrases (or
       // duplicating within its own batch) despite the prompt.
@@ -439,6 +505,17 @@ router.get(
       return;
     }
     const userId = getUserId(req);
+
+    // Review / weakest-phrase sessions are a Bolo! Plus feature.
+    if (
+      denyLockedFeature(
+        req,
+        res,
+        "review",
+        "Review sessions are a Bolo! Plus feature. Upgrade to drill your weakest phrases.",
+      )
+    )
+      return;
 
     // Scheduling needs each attempt's timestamp, so pull createdAt alongside the
     // score/phrase used for the weakest-first stats.
@@ -520,6 +597,9 @@ router.get(
       return;
     }
 
+    // Free may only read Hindi phrases; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, phrase.languageCode)) return;
+
     const attempts = await fetchUserAttempts(userId, phrase.languageCode);
     const stats = buildPhraseStats(attempts);
 
@@ -550,6 +630,9 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     res.status(400).json({ error: "Invalid or expired evaluation" });
     return;
   }
+
+  // Free records progress for Hindi only; other languages require Bolo! Plus.
+  if (denyLockedLanguage(req, res, claims.languageCode)) return;
 
   const [row] = await db
     .insert(attemptsTable)
@@ -618,6 +701,10 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
   }
   const userId = getUserId(req);
 
+  // Streaks, badges, and basic progress stay available for Hindi on Free; other
+  // languages require Bolo! Plus.
+  if (denyLockedLanguage(req, res, lang)) return;
+
   const [earned, attempts] = await Promise.all([
     db
       .select({
@@ -682,6 +769,9 @@ router.get(
         : 12;
     const userId = getUserId(req);
 
+    // Free may only read Hindi activity; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, lang)) return;
+
     const rows = await db
       .select()
       .from(attemptsTable)
@@ -722,6 +812,10 @@ router.get(
       return;
     }
     const userId = getUserId(req);
+
+    // Basic progress stays available for Hindi on Free; other languages require
+    // Bolo! Plus. (Advanced analytics live at /progress/analytics.)
+    if (denyLockedLanguage(req, res, lang)) return;
 
     const [attempts, phrases] = await Promise.all([
       db
@@ -764,6 +858,156 @@ router.get(
       currentStreakDays: metrics.currentStreakDays,
       attemptsToday,
       xp: metrics.xp,
+    });
+  },
+);
+
+// GET /progress/analytics?lang=xx — the deeper, Bolo! Plus-only progress view:
+// a per-category mastery breakdown, a recent daily-activity trend, and how many
+// phrases are due for review. The basic /progress/summary above stays available
+// on Free (for Hindi); this richer analytics surface is Plus-only.
+router.get(
+  "/progress/analytics",
+  async (req: Request, res: Response): Promise<void> => {
+    const lang = String(req.query.lang ?? "");
+    if (!lang) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
+
+    if (
+      denyLockedFeature(
+        req,
+        res,
+        "advancedAnalytics",
+        "Advanced analytics are a Bolo! Plus feature. Upgrade to see your full progress breakdown.",
+      )
+    )
+      return;
+    const userId = getUserId(req);
+
+    const [attempts, phrases, categories] = await Promise.all([
+      db
+        .select({
+          phraseId: attemptsTable.phraseId,
+          score: attemptsTable.score,
+          createdAt: attemptsTable.createdAt,
+        })
+        .from(attemptsTable)
+        .where(
+          and(
+            eq(attemptsTable.userId, userId),
+            eq(attemptsTable.languageCode, lang),
+          ),
+        ),
+      db
+        .select({ id: phrasesTable.id, categoryId: phrasesTable.categoryId })
+        .from(phrasesTable)
+        .where(eq(phrasesTable.languageCode, lang)),
+      db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
+    ]);
+
+    const stats = buildPhraseStats(attempts);
+    const schedule = buildReviewSchedule(attempts);
+    const metrics = computeProgressMetrics(attempts);
+
+    // Map each phrase to its category so attempts roll up per topic.
+    const categoryByPhrase = new Map(phrases.map((p) => [p.id, p.categoryId]));
+
+    interface Bucket {
+      phraseCount: number;
+      practiced: Set<number>;
+      mastered: Set<number>;
+      scoreSum: number;
+      scoreCount: number;
+    }
+    const buckets = new Map<number, Bucket>();
+    const bucketFor = (categoryId: number): Bucket => {
+      let b = buckets.get(categoryId);
+      if (!b) {
+        b = {
+          phraseCount: 0,
+          practiced: new Set(),
+          mastered: new Set(),
+          scoreSum: 0,
+          scoreCount: 0,
+        };
+        buckets.set(categoryId, b);
+      }
+      return b;
+    };
+
+    for (const p of phrases) {
+      bucketFor(p.categoryId).phraseCount += 1;
+    }
+    for (const a of attempts) {
+      if (a.phraseId == null) continue;
+      const categoryId = categoryByPhrase.get(a.phraseId);
+      if (categoryId == null) continue;
+      const b = bucketFor(categoryId);
+      b.practiced.add(a.phraseId);
+      b.scoreSum += a.score;
+      b.scoreCount += 1;
+      if (stats.get(a.phraseId)?.mastered) b.mastered.add(a.phraseId);
+    }
+
+    const categoryBreakdown = categories.map((c) => {
+      const b = buckets.get(c.id);
+      return {
+        categoryId: c.id,
+        title: c.title,
+        phraseCount: b?.phraseCount ?? 0,
+        practicedCount: b ? b.practiced.size : 0,
+        masteredCount: b ? b.mastered.size : 0,
+        averageScore:
+          b && b.scoreCount > 0 ? Math.round(b.scoreSum / b.scoreCount) : 0,
+      };
+    });
+
+    // Daily activity for the last 14 UTC days (oldest first).
+    const DAILY_WINDOW = 14;
+    const dayKey = (d: Date): string => d.toISOString().slice(0, 10);
+    const dailyMap = new Map<string, { attempts: number; scoreSum: number }>();
+    for (const a of attempts) {
+      const key = dayKey(a.createdAt);
+      const entry = dailyMap.get(key) ?? { attempts: 0, scoreSum: 0 };
+      entry.attempts += 1;
+      entry.scoreSum += a.score;
+      dailyMap.set(key, entry);
+    }
+    const now = new Date();
+    const daily: { date: string; attempts: number; averageScore: number }[] = [];
+    for (let i = DAILY_WINDOW - 1; i >= 0; i--) {
+      const d = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i),
+      );
+      const key = dayKey(d);
+      const entry = dailyMap.get(key);
+      daily.push({
+        date: key,
+        attempts: entry?.attempts ?? 0,
+        averageScore:
+          entry && entry.attempts > 0
+            ? Math.round(entry.scoreSum / entry.attempts)
+            : 0,
+      });
+    }
+
+    // How many practiced-but-unmastered phrases are due for review right now.
+    const nowMs = now.getTime();
+    let reviewDueCount = 0;
+    for (const [phraseId, s] of stats.entries()) {
+      if (s.mastered) continue;
+      const dueAt = schedule.get(phraseId)?.dueAt.getTime() ?? nowMs;
+      if (dueAt <= nowMs) reviewDueCount += 1;
+    }
+
+    res.json({
+      languageCode: lang,
+      totalXp: metrics.xp,
+      reviewDueCount,
+      categories: categoryBreakdown,
+      daily,
     });
   },
 );

@@ -1,0 +1,239 @@
+// Plan & entitlement configuration — the single source of truth for what the
+// Free tier vs Bolo! Plus can access. This module is pure (no database, no
+// Express) so it can be unit-tested in isolation and imported anywhere. The
+// live, per-user daily-lesson counts are layered on by the DB-touching
+// lessonLimits helpers; everything here is deterministic given its inputs.
+
+export type Plan = "free" | "plus";
+
+export type SubscriptionStatus =
+  | "none"
+  | "trialing"
+  | "active"
+  | "expired"
+  | "canceled";
+
+// ---------------------------------------------------------------------------
+// Tier policy (see task brief) — change these to change the policy everywhere.
+// ---------------------------------------------------------------------------
+
+// Free is limited to a single language: Hindi.
+export const FREE_LANGUAGE = "hi";
+
+// Free's modest daily ceiling on brand-new AI lesson generations (to cap AI
+// cost). Plus is unlimited.
+export const FREE_DAILY_NEW_LESSON_CAP = 3;
+
+// The feature flags a plan unlocks. These are the flags every gate reads.
+export interface PlanFeatures {
+  // Access to every language (Free is capped to FREE_LANGUAGE).
+  allLanguages: boolean;
+  // No daily ceiling on new lesson generation.
+  unlimitedLessons: boolean;
+  // Review / weakest-phrase practice sessions.
+  review: boolean;
+  // Advanced progress analytics.
+  advancedAnalytics: boolean;
+}
+
+// The subscription-shaped fields we persist on the user row, in the shape the
+// resolver needs. Kept structural so callers can pass a raw user row.
+export interface SubscriptionState {
+  tier: string;
+  subscriptionStatus: string | null;
+  trialEndsAt: Date | null;
+  currentPeriodEnd: Date | null;
+}
+
+// The effective plan the server acts on, after applying trial/expiry rules.
+export interface ResolvedPlan {
+  plan: Plan;
+  status: SubscriptionStatus;
+  trialEndsAt: Date | null;
+  currentPeriodEnd: Date | null;
+}
+
+// Resolves the user's *effective* plan from their stored subscription fields.
+// Rules, in order:
+//   - An active trial (status "trialing" and trialEndsAt still in the future)
+//     always counts as Plus.
+//   - A "plus" tier counts as Plus unless its paid period has lapsed
+//     (currentPeriodEnd in the past), in which case it reads as expired/Free.
+//   - Otherwise Free — a trial that has since lapsed surfaces as "expired".
+export function resolvePlan(
+  state: SubscriptionState,
+  now: Date = new Date(),
+): ResolvedPlan {
+  const t = now.getTime();
+  const status = (state.subscriptionStatus ?? "none") as SubscriptionStatus;
+  const trialActive =
+    status === "trialing" &&
+    state.trialEndsAt != null &&
+    state.trialEndsAt.getTime() > t;
+
+  if (trialActive) {
+    return {
+      plan: "plus",
+      status: "trialing",
+      trialEndsAt: state.trialEndsAt,
+      currentPeriodEnd: state.currentPeriodEnd,
+    };
+  }
+
+  if (state.tier === "plus") {
+    const periodLapsed =
+      state.currentPeriodEnd != null && state.currentPeriodEnd.getTime() <= t;
+    if (!periodLapsed) {
+      return {
+        plan: "plus",
+        status: status === "none" ? "active" : status,
+        trialEndsAt: state.trialEndsAt,
+        currentPeriodEnd: state.currentPeriodEnd,
+      };
+    }
+    return {
+      plan: "free",
+      status: "expired",
+      trialEndsAt: state.trialEndsAt,
+      currentPeriodEnd: state.currentPeriodEnd,
+    };
+  }
+
+  return {
+    plan: "free",
+    status: status === "trialing" ? "expired" : status,
+    trialEndsAt: state.trialEndsAt,
+    currentPeriodEnd: state.currentPeriodEnd,
+  };
+}
+
+export function featuresForPlan(plan: Plan): PlanFeatures {
+  if (plan === "plus") {
+    return {
+      allLanguages: true,
+      unlimitedLessons: true,
+      review: true,
+      advancedAnalytics: true,
+    };
+  }
+  return {
+    allLanguages: false,
+    unlimitedLessons: false,
+    review: false,
+    advancedAnalytics: false,
+  };
+}
+
+// The languages a plan may access. `null` means "every language"; Free is
+// restricted to the single free language.
+export function allowedLanguagesForPlan(plan: Plan): string[] | null {
+  return plan === "plus" ? null : [FREE_LANGUAGE];
+}
+
+// The daily new-lesson ceiling for a plan. `null` means unlimited.
+export function dailyNewLessonLimit(plan: Plan): number | null {
+  return plan === "plus" ? null : FREE_DAILY_NEW_LESSON_CAP;
+}
+
+export function isLanguageAllowed(plan: Plan, lang: string): boolean {
+  const allowed = allowedLanguagesForPlan(plan);
+  return allowed === null || allowed.includes(lang);
+}
+
+// ---------------------------------------------------------------------------
+// The structured "upgrade required" response returned for denied Free actions.
+// A single shape across every gate so clients handle the paywall uniformly.
+// ---------------------------------------------------------------------------
+
+export type UpgradeReason =
+  | "language_locked"
+  | "daily_lesson_limit"
+  | "feature_locked";
+
+export interface UpgradeRequiredPayload {
+  error: "upgrade_required";
+  upgradeRequired: true;
+  reason: UpgradeReason;
+  message: string;
+  // The PlanFeatures key involved, when applicable (e.g. "allLanguages").
+  feature: string | null;
+  requiredPlan: Plan;
+}
+
+export function upgradeRequired(
+  reason: UpgradeReason,
+  message: string,
+  feature: string | null = null,
+): UpgradeRequiredPayload {
+  return {
+    error: "upgrade_required",
+    upgradeRequired: true,
+    reason,
+    message,
+    feature,
+    requiredPlan: "plus",
+  };
+}
+
+// Thrown from deep in the generation path (a beforeGenerate hook) to abort a
+// gated action; route handlers catch it and emit the 402 payload.
+export class UpgradeRequiredError extends Error {
+  constructor(public readonly payload: UpgradeRequiredPayload) {
+    super(payload.message);
+    this.name = "UpgradeRequiredError";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The entitlements snapshot returned by GET /entitlements. Assembled from the
+// resolved plan plus the live daily-lesson usage and the full language list.
+// ---------------------------------------------------------------------------
+
+export interface DailyLessonAllowance {
+  // null = unlimited (Plus).
+  limit: number | null;
+  used: number;
+  // null = unlimited (Plus).
+  remaining: number | null;
+}
+
+export interface Entitlements {
+  plan: Plan;
+  status: SubscriptionStatus;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  // The concrete list of language codes the caller may access.
+  allowedLanguages: string[];
+  features: PlanFeatures;
+  limits: {
+    dailyNewLessons: DailyLessonAllowance;
+  };
+}
+
+export function buildEntitlements(
+  resolved: ResolvedPlan,
+  usedToday: number,
+  allLanguageCodes: string[],
+): Entitlements {
+  const { plan } = resolved;
+  const limit = dailyNewLessonLimit(plan);
+  const remaining = limit === null ? null : Math.max(0, limit - usedToday);
+  const allowed = allowedLanguagesForPlan(plan);
+  return {
+    plan,
+    status: resolved.status,
+    trialEndsAt: resolved.trialEndsAt
+      ? resolved.trialEndsAt.toISOString()
+      : null,
+    currentPeriodEnd: resolved.currentPeriodEnd
+      ? resolved.currentPeriodEnd.toISOString()
+      : null,
+    // For Plus (allowed === null) return every seeded language so clients never
+    // hardcode the list.
+    allowedLanguages: allowed === null ? allLanguageCodes : allowed,
+    features: featuresForPlan(plan),
+    limits: {
+      dailyNewLessons: { limit, used: usedToday, remaining },
+    },
+  };
+}

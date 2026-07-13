@@ -26,8 +26,10 @@ import type {
   AttemptResult,
   Badge,
   Category,
+  Entitlements,
   Error,
   GeneratedPhrase,
+  GetProgressAnalyticsParams,
   GetProgressSummaryParams,
   HealthStatus,
   Language,
@@ -37,11 +39,13 @@ import type {
   ListReviewPhrasesParams,
   Phrase,
   PhraseRequest,
+  ProgressAnalytics,
   ProgressSummary,
   PronunciationInput,
   PronunciationResult,
   SpeechInput,
-  SpeechResult
+  SpeechResult,
+  UpgradeRequired
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -266,7 +270,7 @@ export const getListCategoriesQueryKey = (params?: ListCategoriesParams,) => {
     }
 
 
-export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(params: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<UpgradeRequired>>(params: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -285,14 +289,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategories>>>
-export type ListCategoriesQueryError = ErrorType<unknown>
+export type ListCategoriesQueryError = ErrorType<UpgradeRequired>
 
 
 /**
  * @summary List all lesson categories with progress for a language
  */
 
-export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
+export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<UpgradeRequired>>(
  params: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -346,7 +350,7 @@ export const getListCategoryPhrasesQueryKey = (id: number,
     }
 
 
-export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(id: number,
+export const getListCategoryPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<UpgradeRequired | Error>>(id: number,
     lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
@@ -366,14 +370,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListCategoryPhrasesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategoryPhrases>>>
-export type ListCategoryPhrasesQueryError = ErrorType<Error>
+export type ListCategoryPhrasesQueryError = ErrorType<UpgradeRequired | Error>
 
 
 /**
  * @summary List phrases in a category for a language (generated + cached on first request)
  */
 
-export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<Error>>(
+export function useListCategoryPhrases<TData = Awaited<ReturnType<typeof listCategoryPhrases>>, TError = ErrorType<UpgradeRequired | Error>>(
  id: number,
     lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -422,7 +426,7 @@ export const addCategoryPhrases = async (id: number,
 
 
 
-export const getAddCategoryPhrasesMutationOptions = <TError = ErrorType<Error>,
+export const getAddCategoryPhrasesMutationOptions = <TError = ErrorType<UpgradeRequired | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext> => {
 
@@ -451,12 +455,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type AddCategoryPhrasesMutationResult = NonNullable<Awaited<ReturnType<typeof addCategoryPhrases>>>
     export type AddCategoryPhrasesMutationBody = BodyType<AddPhrasesInput> | undefined
-    export type AddCategoryPhrasesMutationError = ErrorType<Error>
+    export type AddCategoryPhrasesMutationError = ErrorType<UpgradeRequired | Error>
 
     /**
  * @summary Generate and append fresh AI phrases to a category's lesson
  */
-export const useAddCategoryPhrases = <TError = ErrorType<Error>,
+export const useAddCategoryPhrases = <TError = ErrorType<UpgradeRequired | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof addCategoryPhrases>>,
@@ -483,8 +487,8 @@ export const getListReviewPhrasesUrl = (params: ListReviewPhrasesParams,) => {
 }
 
 /**
- * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered weakest-first, to power a targeted review session. Returns an empty array when there is nothing to review.
- * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered by a spaced-repetition schedule so phrases that are due (or overdue) to be reviewed surface first, with the weakest best score breaking ties. Each phrase climbs a Leitner-style spacing ladder on passing attempts (widening the gap before it resurfaces) and resets on a miss. Returns an empty array when there is nothing to review.
+ * @summary The learner's not-yet-mastered phrases for a language, spaced-repetition ordered (due first)
  */
 export const listReviewPhrases = async (params: ListReviewPhrasesParams, options?: RequestInit): Promise<Phrase[]> => {
 
@@ -508,7 +512,7 @@ export const getListReviewPhrasesQueryKey = (params?: ListReviewPhrasesParams,) 
     }
 
 
-export const getListReviewPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<unknown>>(params: ListReviewPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListReviewPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<UpgradeRequired>>(params: ListReviewPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -527,14 +531,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListReviewPhrasesQueryResult = NonNullable<Awaited<ReturnType<typeof listReviewPhrases>>>
-export type ListReviewPhrasesQueryError = ErrorType<unknown>
+export type ListReviewPhrasesQueryError = ErrorType<UpgradeRequired>
 
 
 /**
- * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ * @summary The learner's not-yet-mastered phrases for a language, spaced-repetition ordered (due first)
  */
 
-export function useListReviewPhrases<TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<unknown>>(
+export function useListReviewPhrases<TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<UpgradeRequired>>(
  params: ListReviewPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -940,6 +944,169 @@ export function useGetProgressSummary<TData = Awaited<ReturnType<typeof getProgr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetProgressSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetProgressAnalyticsUrl = (params: GetProgressAnalyticsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/progress/analytics?${stringifiedParams}` : `/api/progress/analytics`
+}
+
+/**
+ * A deeper progress breakdown than the basic summary: per-category mastery, a recent daily-activity trend, and how many phrases are due for review. Advanced analytics are a Bolo! Plus feature.
+ * @summary Advanced progress analytics for a language (Bolo! Plus only)
+ */
+export const getProgressAnalytics = async (params: GetProgressAnalyticsParams, options?: RequestInit): Promise<ProgressAnalytics> => {
+
+  return customFetch<ProgressAnalytics>(getGetProgressAnalyticsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProgressAnalyticsQueryKey = (params?: GetProgressAnalyticsParams,) => {
+    return [
+    `/api/progress/analytics`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetProgressAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getProgressAnalytics>>, TError = ErrorType<UpgradeRequired>>(params: GetProgressAnalyticsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProgressAnalyticsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgressAnalytics>>> = ({ signal }) => getProgressAnalytics(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProgressAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProgressAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getProgressAnalytics>>>
+export type GetProgressAnalyticsQueryError = ErrorType<UpgradeRequired>
+
+
+/**
+ * @summary Advanced progress analytics for a language (Bolo! Plus only)
+ */
+
+export function useGetProgressAnalytics<TData = Awaited<ReturnType<typeof getProgressAnalytics>>, TError = ErrorType<UpgradeRequired>>(
+ params: GetProgressAnalyticsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgressAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProgressAnalyticsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetEntitlementsUrl = () => {
+
+
+
+
+  return `/api/entitlements`
+}
+
+/**
+ * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked, and today's remaining daily new-lesson allowance. Clients call this to know what is unlocked and how to render the paywall.
+ * @summary The caller's plan, unlocked features, and daily limits
+ */
+export const getEntitlements = async ( options?: RequestInit): Promise<Entitlements> => {
+
+  return customFetch<Entitlements>(getGetEntitlementsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEntitlementsQueryKey = () => {
+    return [
+    `/api/entitlements`
+    ] as const;
+    }
+
+
+export const getGetEntitlementsQueryOptions = <TData = Awaited<ReturnType<typeof getEntitlements>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEntitlements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEntitlementsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntitlements>>> = ({ signal }) => getEntitlements({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntitlements>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEntitlementsQueryResult = NonNullable<Awaited<ReturnType<typeof getEntitlements>>>
+export type GetEntitlementsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The caller's plan, unlocked features, and daily limits
+ */
+
+export function useGetEntitlements<TData = Awaited<ReturnType<typeof getEntitlements>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEntitlements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEntitlementsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -10,3 +10,4 @@
 - [Review spaced-repetition](review-spaced-repetition.md) — /review/phrases orders by Leitner due-date (not plain weakest-first); mastery math untouched, response shape unchanged.
 - [Store submission assets](store-submission-assets.md) — Play/App Store prep for the Expo app: SVG→PNG listing graphics via gen-store-assets.sh, authed screenshots need a device, block unused Expo permissions.
 - [Pre-curated lessons](curated-lessons.md) — non-default languages' phrases are generated offline + frozen to committed JSON the seeder reads; Gujarati stays hand-curated with variable phrase counts (don't enforce exact-8).
+- [Entitlement gating (Free/Plus)](entitlement-gating.md) — server-authoritative tier gates return 402 upgrade_required; any router that gates must run behind the entitlements loader, and tier-agnostic route tests need a Plus test user.

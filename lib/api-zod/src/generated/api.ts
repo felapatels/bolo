@@ -115,8 +115,8 @@ export const AddCategoryPhrasesResponse = zod.array(AddCategoryPhrasesResponseIt
 
 
 /**
- * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered weakest-first, to power a targeted review session. Returns an empty array when there is nothing to review.
- * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered by a spaced-repetition schedule so phrases that are due (or overdue) to be reviewed surface first, with the weakest best score breaking ties. Each phrase climbs a Leitner-style spacing ladder on passing attempts (widening the gap before it resurfaces) and resets on a miss. Returns an empty array when there is nothing to review.
+ * @summary The learner's not-yet-mastered phrases for a language, spaced-repetition ordered (due first)
  */
 export const ListReviewPhrasesQueryParams = zod.object({
   "lang": zod.coerce.string()
@@ -257,6 +257,60 @@ export const GetProgressSummaryResponse = zod.object({
   "currentStreakDays": zod.number(),
   "attemptsToday": zod.number(),
   "xp": zod.number()
+})
+
+
+/**
+ * A deeper progress breakdown than the basic summary: per-category mastery, a recent daily-activity trend, and how many phrases are due for review. Advanced analytics are a Bolo! Plus feature.
+ * @summary Advanced progress analytics for a language (Bolo! Plus only)
+ */
+export const GetProgressAnalyticsQueryParams = zod.object({
+  "lang": zod.coerce.string()
+})
+
+export const GetProgressAnalyticsResponse = zod.object({
+  "languageCode": zod.string(),
+  "totalXp": zod.number(),
+  "reviewDueCount": zod.number(),
+  "categories": zod.array(zod.object({
+  "categoryId": zod.number(),
+  "title": zod.string(),
+  "phraseCount": zod.number(),
+  "practicedCount": zod.number(),
+  "masteredCount": zod.number(),
+  "averageScore": zod.number()
+})),
+  "daily": zod.array(zod.object({
+  "date": zod.string().describe('UTC day (YYYY-MM-DD).'),
+  "attempts": zod.number(),
+  "averageScore": zod.number()
+}))
+})
+
+
+/**
+ * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked, and today's remaining daily new-lesson allowance. Clients call this to know what is unlocked and how to render the paywall.
+ * @summary The caller's plan, unlocked features, and daily limits
+ */
+export const GetEntitlementsResponse = zod.object({
+  "plan": zod.string().describe('The effective plan (\"free\" or \"plus\").'),
+  "status": zod.string().describe('none | trialing | active | expired | canceled'),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "allowedLanguages": zod.array(zod.string()).describe('The concrete language codes the caller may access.'),
+  "features": zod.object({
+  "allLanguages": zod.boolean(),
+  "unlimitedLessons": zod.boolean(),
+  "review": zod.boolean(),
+  "advancedAnalytics": zod.boolean()
+}),
+  "limits": zod.object({
+  "dailyNewLessons": zod.object({
+  "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
+  "used": zod.number(),
+  "remaining": zod.number().nullable().describe('Remaining today; null means unlimited (Plus).')
+})
+})
 })
 
 

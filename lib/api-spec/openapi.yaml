@@ -64,6 +64,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Category"
+        "402":
+          description: Upgrade required (this language is Bolo! Plus-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
 
   /categories/{id}/phrases/{lang}:
     get:
@@ -90,6 +96,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Phrase"
+        "402":
+          description: Upgrade required (Plus-only language or Free daily lesson cap reached)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
         "404":
           description: Not found
           content:
@@ -130,6 +142,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Phrase"
+        "402":
+          description: Upgrade required (Plus-only language or Free daily lesson cap reached)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
         "404":
           description: Not found
           content:
@@ -165,6 +183,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Phrase"
+        "402":
+          description: Upgrade required (review sessions are a Bolo! Plus feature)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
 
   /phrases/{id}:
     get:
@@ -276,6 +300,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProgressSummary"
+
+  /progress/analytics:
+    get:
+      operationId: getProgressAnalytics
+      tags: [learning]
+      summary: Advanced progress analytics for a language (Bolo! Plus only)
+      description: >-
+        A deeper progress breakdown than the basic summary: per-category
+        mastery, a recent daily-activity trend, and how many phrases are due for
+        review. Advanced analytics are a Bolo! Plus feature.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Advanced analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressAnalytics"
+        "402":
+          description: Upgrade required (advanced analytics are a Bolo! Plus feature)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+
+  /entitlements:
+    get:
+      operationId: getEntitlements
+      tags: [entitlements]
+      summary: The caller's plan, unlocked features, and daily limits
+      description: >-
+        Returns the authenticated user's effective plan (Free vs Bolo! Plus),
+        subscription status, the languages they may access, the feature flags
+        they have unlocked, and today's remaining daily new-lesson allowance.
+        Clients call this to know what is unlocked and how to render the paywall.
+      responses:
+        "200":
+          description: The caller's entitlements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entitlements"
 
   /openai/tts:
     post:
@@ -750,3 +821,176 @@ components:
           default: 3
           description: How many new phrases to generate and append.
       required: []
+
+    UpgradeRequired:
+      type: object
+      description: >-
+        Returned with HTTP 402 when a Free action needs Bolo! Plus (a locked
+        language, the daily new-lesson cap, or a Plus-only feature). A single
+        shape across every gate so clients render the paywall uniformly.
+      properties:
+        error:
+          type: string
+          description: Always "upgrade_required".
+        upgradeRequired:
+          type: boolean
+          description: Always true.
+        reason:
+          type: string
+          description: language_locked | daily_lesson_limit | feature_locked
+        message:
+          type: string
+        feature:
+          type: string
+          nullable: true
+          description: The related feature flag, when applicable (e.g. "allLanguages").
+        requiredPlan:
+          type: string
+          description: The plan that unlocks the action (e.g. "plus").
+      required:
+        - error
+        - upgradeRequired
+        - reason
+        - message
+        - feature
+        - requiredPlan
+
+    PlanFeatures:
+      type: object
+      properties:
+        allLanguages:
+          type: boolean
+        unlimitedLessons:
+          type: boolean
+        review:
+          type: boolean
+        advancedAnalytics:
+          type: boolean
+      required:
+        - allLanguages
+        - unlimitedLessons
+        - review
+        - advancedAnalytics
+
+    DailyLessonAllowance:
+      type: object
+      properties:
+        limit:
+          type: integer
+          nullable: true
+          description: Daily new-lesson ceiling; null means unlimited (Plus).
+        used:
+          type: integer
+        remaining:
+          type: integer
+          nullable: true
+          description: Remaining today; null means unlimited (Plus).
+      required:
+        - limit
+        - used
+        - remaining
+
+    EntitlementLimits:
+      type: object
+      properties:
+        dailyNewLessons:
+          $ref: "#/components/schemas/DailyLessonAllowance"
+      required:
+        - dailyNewLessons
+
+    Entitlements:
+      type: object
+      properties:
+        plan:
+          type: string
+          description: The effective plan ("free" or "plus").
+        status:
+          type: string
+          description: none | trialing | active | expired | canceled
+        trialEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          nullable: true
+        allowedLanguages:
+          type: array
+          items:
+            type: string
+          description: The concrete language codes the caller may access.
+        features:
+          $ref: "#/components/schemas/PlanFeatures"
+        limits:
+          $ref: "#/components/schemas/EntitlementLimits"
+      required:
+        - plan
+        - status
+        - trialEndsAt
+        - currentPeriodEnd
+        - allowedLanguages
+        - features
+        - limits
+
+    CategoryAnalytics:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+        title:
+          type: string
+        phraseCount:
+          type: integer
+        practicedCount:
+          type: integer
+        masteredCount:
+          type: integer
+        averageScore:
+          type: integer
+      required:
+        - categoryId
+        - title
+        - phraseCount
+        - practicedCount
+        - masteredCount
+        - averageScore
+
+    DailyActivity:
+      type: object
+      properties:
+        date:
+          type: string
+          description: UTC day (YYYY-MM-DD).
+        attempts:
+          type: integer
+        averageScore:
+          type: integer
+      required:
+        - date
+        - attempts
+        - averageScore
+
+    ProgressAnalytics:
+      type: object
+      properties:
+        languageCode:
+          type: string
+        totalXp:
+          type: integer
+        reviewDueCount:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryAnalytics"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyActivity"
+      required:
+        - languageCode
+        - totalXp
+        - reviewDueCount
+        - categories
+        - daily
