@@ -416,20 +416,32 @@ function FinePrint({
   interval: PlusInterval;
 }) {
   const p = TIER_PRICING[tier][interval];
-  if (tier === "plus") {
-    return (
-      <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-        7 days free, then {p.price}
-        {p.per}. {p.note} Cancel anytime before the trial ends and you won't be
-        charged.
-      </p>
-    );
-  }
   return (
-    <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-      {p.price}
-      {p.per}. {p.note} No free trial on this plan.
-    </p>
+    <>
+      {tier === "plus" ? (
+        <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
+          7 days free, then {p.price}
+          {p.per}. {p.note} Cancel anytime before the trial ends and you won't be
+          charged.
+        </p>
+      ) : (
+        <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
+          {p.price}
+          {p.per}. {p.note} No free trial on this plan.
+        </p>
+      )}
+      <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
+        By subscribing you agree to our{" "}
+        <Link href="/terms" className="font-bold text-primary hover:underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="font-bold text-primary hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+    </>
   );
 }
 
