@@ -71,7 +71,8 @@ export default function Landing() {
           >
             One app, all 22 languages. No matching tiles, no silent tapping — you
             say each phrase out loud and Bolo! coaches your pronunciation on the
-            spot. Friendly enough for kids, real enough to actually stick.
+            spot. For kids and grown-ups finding their way back to their
+            family's language — real enough to actually stick.
           </motion.p>
 
           <motion.div
