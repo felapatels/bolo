@@ -1,7 +1,8 @@
 import { useGetProgressSummary, useListRecentAttempts } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { Trophy, Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-react";
+import { Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -26,10 +27,8 @@ export default function Progress() {
 
   return (
     <div className="min-h-[100dvh] pb-24 bg-background">
-      <header className="pt-12 px-6 pb-6 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-secondary rounded-full text-white mb-4 shadow-lg shadow-secondary/30">
-          <Trophy className="w-10 h-10" />
-        </div>
+      <header className="pt-12 px-6 pb-6 text-center flex flex-col items-center">
+        <Mascot pose="cheer" size={104} idle="cheer" className="mb-2" />
         <h1 className="text-3xl font-extrabold text-foreground mb-1">Your Progress</h1>
         <p className="text-muted-foreground text-lg font-medium">
           {activeLanguage ? `Your ${activeLanguage.name} journey` : "Keep up the great work!"}
@@ -51,7 +50,7 @@ export default function Progress() {
             delay={0.2}
           />
           <StatCard 
-            icon={<Star className="w-6 h-6 text-[#ffd166]" />} 
+            icon={<Star className="w-6 h-6 text-amber-400" />} 
             value={summary.bestScore} 
             label="Best Score" 
             delay={0.3}

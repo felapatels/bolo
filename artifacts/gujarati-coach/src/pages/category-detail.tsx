@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
@@ -117,21 +118,25 @@ export default function CategoryDetail() {
 
       <main className="flex-1 p-6 space-y-6">
         {/* Progress Header */}
-        <div className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center" style={{ borderColor: category.accent || 'var(--color-primary)' }}>
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: category.accent ? `${category.accent}20` : 'var(--color-primary-100)', color: category.accent || 'var(--color-primary)' }}>
-            <TrophyIcon className="w-8 h-8" />
-          </div>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center flex flex-col items-center"
+          style={{ borderColor: category.accent || 'var(--color-primary)' }}
+        >
+          <Mascot pose="thumbsup" size={88} className="mb-2" />
           <h2 className="text-2xl font-black mb-1">{masteredCount} / {phrases?.length}</h2>
           <p className="text-muted-foreground font-medium mb-6">Phrases Mastered</p>
           
           <Link 
             href={`/practice/${id}`}
-            className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(27,100%,45%)] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+            className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
           >
             <Play className="w-6 h-6 fill-current" />
             <span>Practice All</span>
           </Link>
-        </div>
+        </motion.div>
 
         {/* Phrase List */}
         <div className="space-y-3">
@@ -200,7 +205,7 @@ export default function CategoryDetail() {
             (asUpgradeRequired(addPhrases.error) ? (
               <Link
                 href="/upgrade"
-                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)] px-6 py-4 text-center text-base font-black text-white shadow-sm active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-center text-base font-black text-white shadow-sm active:scale-[0.98]"
               >
                 <Sparkles className="h-5 w-5" />
                 {asUpgradeRequired(addPhrases.error)?.reason === "daily_lesson_limit"
@@ -227,15 +232,3 @@ export default function CategoryDetail() {
   );
 }
 
-function TrophyIcon(props: any) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round" {...props}>
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
-  );
-}

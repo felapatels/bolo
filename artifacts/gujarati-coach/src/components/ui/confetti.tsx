@@ -6,7 +6,9 @@ export function Confetti({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (active) {
-      const colors = ['#ff7b00', '#00b4d8', '#f72585', '#06d6a0', '#ffd166'];
+      // Calm & Modern celebration palette: indigo + teal, with light tints and
+      // a warm amber pop to keep wins feeling joyful, not clashing.
+      const colors = ['#4F46E5', '#0D9488', '#818CF8', '#2DD4BF', '#FBBF24'];
       const newParticles = Array.from({ length: 60 }).map((_, i) => ({
         id: i,
         x: Math.random() * 100 - 50, // -50vw to 50vw

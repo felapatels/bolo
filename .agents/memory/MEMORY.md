@@ -15,3 +15,4 @@
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade has no real provider endpoint; drives dev-override then refetches entitlements; swap only beginCheckout when payments land.
 - [Expo Router typed routes lag](expo-router-typed-routes.md) — a just-created route file fails typecheck until the expo dev workflow regenerates .expo/types; restart the workflow before tsc, don't cast the href.
+- [Reduced-motion spinners](reduced-motion-spinners.md) — gujarati-coach's global prefers-reduced-motion reset must exclude .animate-spin (and other functional motion) or loaders freeze.

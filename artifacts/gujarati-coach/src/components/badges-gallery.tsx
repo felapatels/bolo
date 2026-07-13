@@ -145,7 +145,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
               className="relative flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center shadow-sm transition-all hover:border-primary active:scale-[0.98]"
               title="Unlock exclusive Plus badges"
             >
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)] text-white shadow-md">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-md">
                 <Crown className="h-6 w-6" fill="currentColor" />
               </div>
               <p className="text-xs font-bold leading-tight text-foreground">

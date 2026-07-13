@@ -15,10 +15,11 @@ import {
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, Sparkles, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
+import { Mascot, type MascotPose } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
@@ -317,12 +318,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       <div className="min-h-screen flex flex-col bg-background p-6">
         <Confetti active={avgScore >= 70} />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <div className="w-24 h-24 bg-secondary rounded-full flex items-center justify-center text-white mb-4">
-            <Sparkles className="w-12 h-12" />
-          </div>
-          <h1 className="text-4xl font-black text-foreground">Session Complete!</h1>
-          
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm border border-card-border shadow-sm">
+          <Mascot pose={avgScore >= 60 ? "cheer" : "thumbsup"} size={148} idle={avgScore >= 60 ? "cheer" : "float"} />
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="text-4xl font-black text-foreground"
+          >
+            {avgScore >= 80 ? "You crushed it!" : avgScore >= 60 ? "Session Complete!" : "Great effort!"}
+          </motion.h1>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.25, type: "spring", stiffness: 260, damping: 18 }}
+            className="bg-white p-6 rounded-3xl w-full max-w-sm border border-card-border shadow-sm"
+          >
             <p className="text-muted-foreground font-bold uppercase tracking-wider mb-2">Average Score</p>
             <div className={cn(
               "text-6xl font-black",
@@ -331,15 +342,29 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               {avgScore}
             </div>
             <p className="text-muted-foreground mt-4 font-medium">You practiced {sessionResults.length} phrases.</p>
-          </div>
+          </motion.div>
         </div>
         
-        <Link href={backHref} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all">
+        <Link href={backHref} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all">
           Done
         </Link>
       </div>
     );
   }
+
+  // Bolo reacts to the moment: listening/thinking while the coach speaks or the
+  // learner records, encouraging on their turn, and celebrating (or gently
+  // cheering back up) once a score lands.
+  const mascotPose: MascotPose =
+    state === "result" && result
+      ? result.score >= 80
+        ? "cheer"
+        : result.score >= 60
+          ? "thumbsup"
+          : "tryagain"
+      : state === "playing_coach" || state === "recording" || state === "evaluating"
+        ? "thinking"
+        : "thumbsup";
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
@@ -373,6 +398,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             transition={{ duration: 0.3 }}
             className="flex-1 flex flex-col justify-center"
           >
+            <div className="flex justify-center mb-2">
+              <Mascot
+                pose={mascotPose}
+                size={92}
+                idle={state === "result" && (result?.score ?? 0) >= 80 ? "cheer" : "float"}
+              />
+            </div>
+
             <div className="bg-white rounded-[2rem] p-8 text-center shadow-sm border border-card-border relative">
               <button 
                 onClick={playAgain}
@@ -399,6 +432,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 bg-white rounded-3xl p-6 border border-card-border shadow-sm text-center"
               >
+                <p className={cn(
+                  "text-2xl font-black mb-2",
+                  result.score >= 80 ? "text-success" :
+                  result.score >= 60 ? "text-primary" :
+                  "text-foreground"
+                )}>
+                  {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
+                </p>
                 <div className={cn(
                   "inline-block px-4 py-1 rounded-full font-black text-xl mb-4",
                   result.score >= 80 ? "bg-success/20 text-success" : 
@@ -427,7 +468,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               </button>
               <button 
                 onClick={handleNext}
-                className="flex-1 bg-primary text-primary-foreground font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(27,100%,45%)] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+                className="flex-1 bg-primary text-primary-foreground font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
               >
                 Next <ArrowRight className="w-6 h-6" />
               </button>
@@ -447,7 +488,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   "w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 disabled:opacity-50",
                   state === "recording" 
                     ? "bg-accent scale-110 shadow-[0_0_40px_hsl(var(--accent)/0.5)] animate-pulse" 
-                    : "bg-primary active:scale-95 shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)]"
+                    : "bg-primary active:scale-95 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
                 )}
               >
                 {state === "recording" ? (

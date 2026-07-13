@@ -5,7 +5,7 @@ import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
 import { SpeakingDemo } from '@/components/speaking-demo';
 
-const CHIP_COLORS = ['#F5871F', '#0FA6A0', '#E84E8A'];
+const CHIP_COLORS = ['#4F46E5', '#0D9488', '#6366F1'];
 
 // Shown instantly on first paint (and if the languages API is slow/empty) so the
 // hero never renders an empty chip row. Replaced by the full list once loaded.
@@ -82,7 +82,7 @@ export default function Landing() {
           >
             <Link
               href="/sign-up"
-              className="w-full sm:w-auto bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl flex items-center justify-center gap-3 shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+              className="w-full sm:w-auto bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl flex items-center justify-center gap-3 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
             >
               Get started free
               <ArrowRight className="w-5 h-5" />
@@ -141,19 +141,19 @@ export default function Landing() {
           {[
             {
               icon: Volume2,
-              color: '#0FA6A0',
+              color: '#0D9488',
               title: 'Hear it',
               body: 'Every phrase spoken clearly in native script, so you catch the vibe before you try.',
             },
             {
               icon: Mic,
-              color: '#F5871F',
+              color: '#4F46E5',
               title: 'Say it out loud',
               body: 'Tap the mic and go for it. Bolo! actually listens and shows you exactly what it heard.',
             },
             {
               icon: Trophy,
-              color: '#E84E8A',
+              color: '#6366F1',
               title: 'Level up',
               body: 'Instant scoring, gentle tips, streaks and mastery to chase. Watch yourself get good.',
             },
@@ -267,7 +267,7 @@ export default function Landing() {
               </p>
               <Link
                 href="/sign-up"
-                className="inline-flex bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl items-center justify-center gap-3 shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+                className="inline-flex bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl items-center justify-center gap-3 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
               >
                 Get started free
                 <ArrowRight className="w-5 h-5" />

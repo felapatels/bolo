@@ -13,7 +13,7 @@ export default function NotFound() {
       </p>
       <Link 
         href="/"
-        className="bg-primary text-primary-foreground font-bold text-lg py-4 px-8 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(27,100%,45%)] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+        className="bg-primary text-primary-foreground font-bold text-lg py-4 px-8 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
       >
         <Home className="w-5 h-5" />
         <span>Go Home</span>

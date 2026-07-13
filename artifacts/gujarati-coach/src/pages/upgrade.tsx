@@ -20,7 +20,7 @@ import { useEntitlements } from "@/lib/entitlements";
 import { beginCheckout, cancelPlus, type PlusInterval } from "@/lib/billing";
 
 const PLUS_GRADIENT =
-  "bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)]";
+  "bg-gradient-to-r from-primary to-secondary";
 
 const PLANS: Record<
   PlusInterval,
@@ -193,7 +193,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             onClick={handleStart}
             disabled={busy}
             className={cn(
-              "flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-5 text-lg font-black text-white shadow-[0_8px_0_hsl(330,82%,36%)] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(330,82%,36%)] disabled:opacity-70",
+              "flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-5 text-lg font-black text-white shadow-[0_8px_0_hsl(var(--secondary-shadow))] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--secondary-shadow))] disabled:opacity-70",
               PLUS_GRADIENT,
             )}
           >

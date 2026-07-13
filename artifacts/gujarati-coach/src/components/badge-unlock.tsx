@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { EarnedBadge } from "@workspace/api-client-react";
 import { Confetti } from "@/components/ui/confetti";
+import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 
 // Full-screen "Badge unlocked!" celebration shown the moment one or more badges
@@ -26,6 +27,8 @@ export function BadgeUnlock({
           className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm p-6"
         >
           <Confetti active={active} />
+
+          <Mascot pose="cheer" size={128} idle="cheer" className="mb-3" />
 
           <motion.p
             initial={{ opacity: 0, y: 12 }}
@@ -70,7 +73,7 @@ export function BadgeUnlock({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 + badges.length * 0.18 }}
             onClick={onDismiss}
-            className="mt-8 bg-primary text-primary-foreground font-black text-lg px-10 py-4 rounded-2xl shadow-[0_6px_0_hsl(27,100%,45%)] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+            className="mt-8 bg-primary text-primary-foreground font-black text-lg px-10 py-4 rounded-2xl shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
           >
             Awesome!
           </motion.button>

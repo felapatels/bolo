@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 // rather than broken.
 
 const PLUS_GRADIENT =
-  "bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)]";
+  "bg-gradient-to-r from-primary to-secondary";
 
 // A compact "Plus" chip to mark locked features and languages.
 export function PlusPill({ className }: { className?: string }) {
@@ -115,7 +115,7 @@ export function UpgradeScreen({
           <Link
             href="/upgrade"
             className={cn(
-              "w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-[0_6px_0_hsl(330,82%,36%)] transition-all active:translate-y-1.5 active:shadow-[0_0px_0_hsl(330,82%,36%)] flex items-center justify-center gap-2",
+              "w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-[0_6px_0_hsl(var(--secondary-shadow))] transition-all active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--secondary-shadow))] flex items-center justify-center gap-2",
               PLUS_GRADIENT,
             )}
           >

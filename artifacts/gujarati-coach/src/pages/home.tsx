@@ -1,9 +1,10 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
 import { UpgradeCard } from "@/components/plus";
+import { Mascot } from "@/components/mascot";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { motion } from "framer-motion";
@@ -66,14 +67,17 @@ export default function Home() {
     <div className="min-h-[100dvh] pb-28 bg-background">
       {/* Header / Greeting */}
       <header className="pt-12 px-6 pb-2">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-black text-foreground mb-1 tracking-tight">
-              Hello{firstName ? `, ${firstName}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
-            </h1>
-            <p className="text-muted-foreground text-lg font-semibold">
-              Ready to speak some <span className="text-foreground">{activeLanguage?.name ?? "..."}</span>?
-            </p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Mascot pose="wave" size={76} className="shrink-0 -ml-1" />
+            <div className="min-w-0">
+              <h1 className="text-3xl font-black text-foreground mb-1 tracking-tight">
+                Hello{firstName ? `, ${firstName}` : ""}!
+              </h1>
+              <p className="text-muted-foreground text-lg font-semibold">
+                Ready to speak some <span className="text-primary">{activeLanguage?.name ?? "..."}</span>?
+              </p>
+            </div>
           </div>
           <button
             onClick={() => signOut({ redirectUrl: basePath || "/" })}
@@ -94,18 +98,18 @@ export default function Home() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[hsl(24,100%,47%)] via-[hsl(0,85%,50%)] to-[hsl(330,82%,46%)] p-5 text-white shadow-[0_10px_30px_-8px_hsl(27,100%,40%,0.55)]"
+            className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-[hsl(220,70%,52%)] to-secondary p-5 text-white shadow-[0_14px_34px_-12px_hsl(243_62%_45%_/_0.6)]"
           >
             {/* soft decorative blobs */}
             <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
             <div className="relative flex items-stretch">
-              <StatCell icon={<Flame className="w-6 h-6" fill="currentColor" />} value={summary.currentStreakDays} label="Day Streak" />
+              <StatCell icon={<Flame className="w-6 h-6" fill="currentColor" />} value={summary.currentStreakDays} label="Day Streak" delay={0.16} />
               <div className="w-px self-stretch bg-white/25" />
-              <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" />
+              <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" delay={0.24} />
               <div className="w-px self-stretch bg-white/25" />
-              <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary.phrasesMastered} label="Mastered" />
+              <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary.phrasesMastered} label="Mastered" delay={0.32} />
             </div>
           </motion.div>
         )}
@@ -182,7 +186,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
             <Link
               href={`/practice/${categories[0].id}`}
-              className="flex w-full items-center justify-between rounded-2xl bg-primary px-6 py-5 text-lg font-black text-primary-foreground shadow-[0_8px_0_hsl(27,100%,45%)] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)]"
+              className="flex w-full items-center justify-between rounded-2xl bg-primary px-6 py-5 text-lg font-black text-primary-foreground shadow-[0_8px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
             >
               <span className="flex items-center gap-3">
                 <Flame className="h-6 w-6" fill="currentColor" />
@@ -233,7 +237,7 @@ export default function Home() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
               <Link
                 href="/review"
-                className="relative flex items-center gap-4 overflow-hidden rounded-3xl border-2 border-secondary bg-secondary/5 p-5 shadow-[0_6px_0_hsl(190,100%,42%)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_hsl(190,100%,42%)]"
+                className="relative flex items-center gap-4 overflow-hidden rounded-3xl border-2 border-secondary bg-secondary/5 p-5 shadow-[0_6px_0_hsl(var(--secondary-shadow))] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_hsl(var(--secondary-shadow))]"
               >
                 <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary opacity-10" />
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary text-white shadow-sm">
@@ -296,12 +300,24 @@ export default function Home() {
   );
 }
 
-function StatCell({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
+function StatCell({ icon, value, label, delay = 0 }: { icon: React.ReactNode; value: number; label: string; delay?: number }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-center">
-      <div className="text-white">{icon}</div>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay, type: "spring", stiffness: 320, damping: 18 }}
+      className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-center"
+    >
+      <motion.div
+        className="text-white"
+        initial={{ rotate: -12, scale: 0.6 }}
+        animate={{ rotate: 0, scale: 1 }}
+        transition={{ delay: delay + 0.05, type: "spring", stiffness: 260, damping: 12 }}
+      >
+        {icon}
+      </motion.div>
       <div className="text-2xl font-black leading-none">{value}</div>
       <div className="text-[11px] font-bold uppercase tracking-wider text-white">{label}</div>
-    </div>
+    </motion.div>
   );
 }
