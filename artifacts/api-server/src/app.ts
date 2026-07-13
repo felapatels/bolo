@@ -28,6 +28,13 @@ for (const domain of (process.env.REPLIT_DOMAINS ?? "").split(",")) {
 if (process.env.REPLIT_DEV_DOMAIN) {
   allowedOrigins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
 }
+// The Expo app runs on its own dev domain (a different origin from the API's
+// REPLIT_DEV_DOMAIN). When it runs in a browser (Expo web / preview), its
+// cross-origin credentialed calls need this origin allowlisted or every
+// preflight falls through to requireAuth and 401s. Dev-only; absent in prod.
+if (process.env.REPLIT_EXPO_DEV_DOMAIN) {
+  allowedOrigins.add(`https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`);
+}
 for (const origin of (process.env.CORS_ALLOWED_ORIGINS ?? "").split(",")) {
   const trimmed = origin.trim();
   if (trimmed) allowedOrigins.add(trimmed.replace(/\/+$/, ""));
