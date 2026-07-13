@@ -20,6 +20,7 @@ import Home from '@/pages/home';
 import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
+import Upgrade from '@/pages/upgrade';
 import NotFound from '@/pages/not-found';
 
 // REQUIRED — copy verbatim. Resolves the key from window.location.hostname so the
@@ -178,6 +179,11 @@ function AppRouter() {
       <Route path="/progress">
         <Guard>
           <Progress />
+        </Guard>
+      </Route>
+      <Route path="/upgrade">
+        <Guard>
+          <Upgrade />
         </Guard>
       </Route>
       <Route component={NotFound} />

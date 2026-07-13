@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, ChevronDown, Globe } from "lucide-react";
+import { useLocation } from "wouter";
+import { Check, ChevronDown, Globe, Lock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
+import { useEntitlements } from "@/lib/entitlements";
+import { PlusPill } from "@/components/plus";
 
 export function LanguagePicker() {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
+  const { isLanguageAllowed } = useEntitlements();
+  const [, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,35 +41,50 @@ export function LanguagePicker() {
           {languages.map((lang) => {
             const native = nativeTextProps(lang);
             const selected = lang.code === activeLang;
+            const locked = !isLanguageAllowed(lang.code);
             return (
               <button
                 key={lang.code}
                 onClick={() => {
+                  if (locked) {
+                    // Locked-but-visible: invite the upgrade instead of erroring.
+                    setOpen(false);
+                    setLocation("/upgrade");
+                    return;
+                  }
                   setActiveLang(lang.code);
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex items-center justify-between gap-2 rounded-2xl border-2 p-3 text-left transition-all active:scale-[0.98]",
+                  "relative flex items-center justify-between gap-2 rounded-2xl border-2 p-3 text-left transition-all active:scale-[0.98]",
                   selected
                     ? "border-primary bg-primary/5"
-                    : "border-card-border bg-white hover:border-primary/40",
+                    : locked
+                      ? "border-card-border bg-muted/40 hover:border-primary/40"
+                      : "border-card-border bg-white hover:border-primary/40",
                 )}
               >
                 <div className="min-w-0">
                   <span
-                    className="block text-xl font-bold text-foreground leading-tight truncate"
+                    className={cn(
+                      "block text-xl font-bold leading-tight truncate",
+                      locked ? "text-muted-foreground" : "text-foreground",
+                    )}
                     style={native.style}
                     dir={native.dir}
                   >
                     {lang.nativeName}
                   </span>
-                  <span className="block text-xs font-medium text-muted-foreground truncate">
-                    {lang.name}
+                  <span className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <span className="truncate">{lang.name}</span>
+                    {locked && <PlusPill />}
                   </span>
                 </div>
-                {selected && (
+                {selected ? (
                   <Check className="w-5 h-5 text-primary shrink-0" />
-                )}
+                ) : locked ? (
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                ) : null}
               </button>
             );
           })}

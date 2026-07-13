@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BadgesGallery } from "@/components/badges-gallery";
+import { AdvancedAnalytics } from "@/components/advanced-analytics";
 
 export default function Progress() {
   const { activeLang, activeLanguage } = useLanguage();
@@ -64,6 +65,8 @@ export default function Progress() {
         </section>
 
         <BadgesGallery lang={activeLang} />
+
+        <AdvancedAnalytics lang={activeLang} />
 
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Practice History</h2>

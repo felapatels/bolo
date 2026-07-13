@@ -22,6 +22,8 @@ import { BadgeUnlock } from "@/components/badge-unlock";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
+import { UpgradeScreen } from "@/components/plus";
+import { asUpgradeRequired } from "@/lib/entitlements";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
@@ -58,6 +60,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     data: phrases,
     isLoading: loadingPhrases,
     isError,
+    error,
     isFetching,
     refetch,
   } = isReview ? reviewQuery : categoryQuery;
@@ -260,6 +263,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const playAgain = () => {
     setState("playing_coach");
   };
+
+  const upgrade = asUpgradeRequired(error);
+  if (upgrade) {
+    return (
+      <UpgradeScreen
+        backHref={backHref}
+        title={
+          upgrade.reason === "daily_lesson_limit"
+            ? "You've hit today's free lessons"
+            : upgrade.reason === "feature_locked"
+              ? "Review is a Plus feature"
+              : "This language is a Plus pick"
+        }
+        message={upgrade.message}
+      />
+    );
+  }
 
   if (isError) {
     return (

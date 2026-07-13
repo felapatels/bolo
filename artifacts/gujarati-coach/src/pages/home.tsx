@@ -1,9 +1,11 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
 import { Link } from "wouter";
-import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases } from "@workspace/api-client-react";
+import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
+import { UpgradeCard } from "@/components/plus";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { useEntitlements } from "@/lib/entitlements";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
@@ -30,12 +32,27 @@ export default function Home() {
   const firstName = user?.firstName;
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
+  const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
   const { data: categories, isLoading: loadingCats } = useListCategories({ lang: activeLang });
   const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
-  const { data: reviewPhrases } = useListReviewPhrases({ lang: activeLang });
+  // Review is a Plus feature; only fetch the review queue when it's unlocked
+  // (Free callers 402 on this route).
+  const { data: reviewPhrases } = useListReviewPhrases(
+    { lang: activeLang },
+    {
+      query: {
+        enabled: features.review,
+        queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }),
+      },
+    },
+  );
   const reviewCount = reviewPhrases?.length ?? 0;
   const canReview = reviewCount > 0;
+  const dailyRemaining = dailyNewLessons.remaining;
+  const dailyLimit = dailyNewLessons.limit;
+  const showDailyMeter = !isPlus && dailyLimit !== null && dailyRemaining !== null;
+  const capReached = showDailyMeter && dailyRemaining === 0;
 
   if (loadingSummary || loadingCats) {
     return (
@@ -178,9 +195,41 @@ export default function Home() {
           </motion.div>
         )}
 
+        {/* Daily lesson allowance (Free only) */}
+        {showDailyMeter && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}>
+            {capReached ? (
+              <UpgradeCard
+                icon={<Zap className="h-6 w-6" fill="currentColor" />}
+                title="You've hit today's free lessons"
+                description={`You've used all ${dailyLimit} of today's new lessons. Come back tomorrow, or go unlimited with Plus.`}
+                cta="Go unlimited"
+              />
+            ) : (
+              <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Zap className="h-5 w-5" fill="currentColor" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">
+                  {dailyRemaining} of {dailyLimit} free lessons left today
+                </p>
+                <Link href="/upgrade" className="ml-auto text-sm font-black text-primary shrink-0">
+                  Go unlimited
+                </Link>
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* Review Weakest Phrases */}
         <section>
-          {canReview ? (
+          {!features.review ? (
+            <UpgradeCard
+              icon={<Target className="h-7 w-7" />}
+              title="Review your weakest phrases"
+              description="Plus builds smart review sessions from the phrases you find trickiest, so they actually stick."
+            />
+          ) : canReview ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
               <Link
                 href="/review"

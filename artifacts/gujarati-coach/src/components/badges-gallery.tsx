@@ -1,9 +1,11 @@
 import { useListBadges, type Badge } from "@workspace/api-client-react";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getBadgeIcon } from "@/lib/badge-icons";
+import { useEntitlements } from "@/lib/entitlements";
 
 // A locked badge is "close" when the learner is at least this far toward it, so
 // we can highlight the goals within realistic reach.
@@ -20,6 +22,7 @@ function progressRatio(badge: Badge): number {
 // emphasized to keep learners motivated.
 export function BadgesGallery({ lang }: { lang: string }) {
   const { data: badges, isLoading } = useListBadges({ lang });
+  const { isPlus } = useEntitlements();
 
   const earnedCount = badges?.filter((b) => b.earned).length ?? 0;
   const total = badges?.length ?? 0;
@@ -136,6 +139,23 @@ export function BadgesGallery({ lang }: { lang: string }) {
               </motion.div>
             );
           })}
+          {!isPlus && (
+            <Link
+              href="/upgrade"
+              className="relative flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center shadow-sm transition-all hover:border-primary active:scale-[0.98]"
+              title="Unlock exclusive Plus badges"
+            >
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)] text-white shadow-md">
+                <Crown className="h-6 w-6" fill="currentColor" />
+              </div>
+              <p className="text-xs font-bold leading-tight text-foreground">
+                Plus badges
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-primary">
+                Unlock
+              </p>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-border">

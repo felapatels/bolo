@@ -13,3 +13,4 @@
 - [Entitlement gating (Free/Plus)](entitlement-gating.md) — server-authoritative tier gates return 402 upgrade_required; any router that gates must run behind the entitlements loader, and tier-agnostic route tests need a Plus test user.
 - [RevenueCat payments](revenuecat-payments.md) — connector is the @replit/connectors-sdk PROXY (not typed SDK); webhook derives state from payload, reconcile-on-read gated on REVENUECAT_PROJECT_ID.
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
+- [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade has no real provider endpoint; drives dev-override then refetches entitlements; swap only beginCheckout when payments land.

@@ -13,6 +13,8 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
+import { UpgradeScreen } from "@/components/plus";
+import { asUpgradeRequired } from "@/lib/entitlements";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -25,6 +27,7 @@ export default function CategoryDetail() {
     data: phrases,
     isLoading: loadingPhrases,
     isError,
+    error,
     isFetching,
     refetch,
   } = useListCategoryPhrases(id, activeLang);
@@ -60,6 +63,21 @@ export default function CategoryDetail() {
   };
 
   const category = categories?.find(c => c.id === id);
+
+  const upgrade = asUpgradeRequired(error);
+  if (upgrade) {
+    return (
+      <UpgradeScreen
+        backHref="/app"
+        title={
+          upgrade.reason === "daily_lesson_limit"
+            ? "You've hit today's free lessons"
+            : "This language is a Plus pick"
+        }
+        message={upgrade.message}
+      />
+    );
+  }
 
   if (isError) {
     return (
@@ -178,11 +196,22 @@ export default function CategoryDetail() {
             )}
           </button>
 
-          {addPhrases.isError && (
-            <p className="text-sm text-destructive text-center font-medium">
-              Couldn't add new phrases. Please try again.
-            </p>
-          )}
+          {addPhrases.isError &&
+            (asUpgradeRequired(addPhrases.error) ? (
+              <Link
+                href="/upgrade"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[hsl(24,100%,47%)] to-[hsl(330,82%,46%)] px-6 py-4 text-center text-base font-black text-white shadow-sm active:scale-[0.98]"
+              >
+                <Sparkles className="h-5 w-5" />
+                {asUpgradeRequired(addPhrases.error)?.reason === "daily_lesson_limit"
+                  ? "Daily limit reached — go unlimited with Plus"
+                  : "Unlock with Plus"}
+              </Link>
+            ) : (
+              <p className="text-sm text-destructive text-center font-medium">
+                Couldn't add new phrases. Please try again.
+              </p>
+            ))}
 
           {noNewPhrases && !addPhrases.isPending && (
             <div className="flex items-start gap-3 rounded-2xl bg-success/10 border border-success/20 p-4 text-left">
