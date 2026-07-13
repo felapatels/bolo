@@ -1,13 +1,15 @@
 import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
 import { Link } from "wouter";
-import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey } from "@workspace/api-client-react";
+import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
+import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { motion } from "framer-motion";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import type { CSSProperties } from "react";
@@ -48,6 +50,17 @@ export default function Home() {
       },
     },
   );
+  const { data: badges } = useListBadges({ lang: activeLang });
+  // The most recently earned badge for the active language — surfaced on the
+  // home screen so learners get an immediate hit of accomplishment on open.
+  const earnedBadges = (badges ?? []).filter((b) => b.earned && b.earnedAt);
+  const earnedBadgeCount = earnedBadges.length;
+  const latestBadge =
+    earnedBadges.length > 0
+      ? [...earnedBadges].sort(
+          (a, b) => new Date(b.earnedAt!).getTime() - new Date(a.earnedAt!).getTime(),
+        )[0]
+      : null;
   const reviewCount = reviewPhrases?.length ?? 0;
   const canReview = reviewCount > 0;
   const dailyRemaining = dailyNewLessons.remaining;
@@ -116,6 +129,44 @@ export default function Home() {
       </header>
 
       <main className="px-6 space-y-8 mt-8">
+        {/* Latest badge — a quick hit of accomplishment, links to Progress */}
+        {latestBadge && (
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+          >
+            <Link
+              href="/progress"
+              className="relative flex items-center gap-4 overflow-hidden rounded-3xl border-2 border-secondary bg-secondary/5 p-5 shadow-[0_6px_0_hsl(var(--secondary-shadow))] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_hsl(var(--secondary-shadow))]"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary opacity-10" />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary text-white shadow-md shadow-secondary/30">
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(latestBadge.iconName);
+                  return <BadgeIcon className="h-7 w-7" />;
+                })()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-wide text-secondary">
+                  Latest badge
+                </p>
+                <h3 className="truncate text-lg font-black leading-tight text-foreground">
+                  {latestBadge.title}
+                </h3>
+                <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                  {earnedBadgeCount} {earnedBadgeCount === 1 ? "badge" : "badges"} earned
+                  {" · "}
+                  {format(new Date(latestBadge.earnedAt!), "MMM d, yyyy")}
+                </p>
+              </div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-white">
+                <ArrowRight className="h-5 w-5" />
+              </div>
+            </Link>
+          </motion.section>
+        )}
+
         {/* Categories Grid */}
         <section>
           <div className="flex items-center gap-2 mb-4">
