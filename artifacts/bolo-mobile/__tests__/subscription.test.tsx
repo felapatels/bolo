@@ -207,6 +207,49 @@ describe('SubscriptionScreen', () => {
     expect(Linking.openURL).toHaveBeenCalled();
   });
 
+  it('shows a friendly empty state when there is no billing history', () => {
+    mockState.sub = successQuery(detailsFixture({ billingHistory: [] }));
+    render(<SubscriptionScreen />);
+
+    expect(screen.getByText('Billing history')).toBeOnTheScreen();
+    expect(
+      screen.getByText(/No past payments to show yet/i),
+    ).toBeOnTheScreen();
+  });
+
+  it('lists past billing periods with dates, plan and status', () => {
+    mockState.sub = successQuery(
+      detailsFixture({
+        billingHistory: [
+          {
+            productId: 'bolo_plus_monthly',
+            store: 'App Store',
+            purchasedAt: '2026-06-01T00:00:00.000Z',
+            expiresAt: '2026-07-01T00:00:00.000Z',
+            periodType: 'normal',
+            status: 'expired',
+          },
+          {
+            productId: 'bolo_plus_monthly',
+            store: 'App Store',
+            purchasedAt: '2026-07-01T00:00:00.000Z',
+            expiresAt: '2026-08-01T00:00:00.000Z',
+            periodType: 'normal',
+            status: 'active',
+          },
+        ],
+      }),
+    );
+    render(<SubscriptionScreen />);
+
+    expect(screen.getByText('Billing history')).toBeOnTheScreen();
+    expect(screen.queryByText(/No past payments/i)).toBeNull();
+    // A humanized plan label is derived from the product id.
+    expect(screen.getAllByText(/Bolo! Plus · Subscription/).length).toBe(2);
+    // Both period statuses render (one active, plus the plan-state "Active").
+    expect(screen.getByText('Expired')).toBeOnTheScreen();
+  });
+
   it('hides in-app retention offers for a Stripe (web) subscriber', () => {
     mockState.sub = successQuery(detailsFixture({ provider: 'stripe' }));
     render(<SubscriptionScreen />);

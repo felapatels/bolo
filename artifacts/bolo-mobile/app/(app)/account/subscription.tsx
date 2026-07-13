@@ -20,6 +20,7 @@ import {
   useAcceptRetentionOffer,
   getGetEntitlementsQueryKey,
   type SubscriptionDetails,
+  type BillingHistoryEntry,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -54,6 +55,56 @@ function formatDate(iso: string | null): string | null {
     month: 'long',
     day: 'numeric',
   });
+}
+
+/** Compact date (e.g. "Mar 5, 2026") for billing-history rows. */
+function formatShortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** A human plan label for a billing entry, inferred from its product id. */
+function billingPlanLabel(productId: string): string {
+  const id = productId.toLowerCase();
+  if (id.includes('one_language') || id.includes('one-language')) {
+    return 'One Language';
+  }
+  if (id.includes('plus')) return 'Bolo! Plus';
+  return 'Subscription';
+}
+
+const PERIOD_LABELS: Record<string, string> = {
+  trial: 'Free trial',
+  intro: 'Intro offer',
+  normal: 'Subscription',
+};
+
+/** A friendly period descriptor, or null when the provider omits it. */
+function periodLabel(periodType: string | null): string | null {
+  if (!periodType) return null;
+  return PERIOD_LABELS[periodType.toLowerCase()] ?? null;
+}
+
+function billingStatusMeta(
+  status: string,
+  colors: ReturnType<typeof useColors>,
+): { label: string; color: string } {
+  switch (status) {
+    case 'active':
+      return { label: 'Active', color: colors.success };
+    case 'canceled':
+      return { label: 'Canceled', color: colors.destructive };
+    case 'expired':
+      return { label: 'Expired', color: colors.mutedForeground };
+    default:
+      return { label: status, color: colors.mutedForeground };
+  }
 }
 
 /**
@@ -275,6 +326,8 @@ export default function SubscriptionScreen() {
             busy={busy}
           />
 
+          <BillingHistory entries={details.billingHistory} />
+
           {/* Restore is always reachable — a reinstall or new device needs it. */}
           <Pressable
             accessibilityRole="button"
@@ -468,6 +521,97 @@ function PlanState({
             above.
           </Text>
         )}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Past billing periods from the provider (RevenueCat / Stripe). The array can be
+ * empty — some providers don't expose history — so we degrade to a friendly
+ * empty state rather than hiding all trace of it.
+ */
+function BillingHistory({ entries }: { entries: BillingHistoryEntry[] }) {
+  const colors = useColors();
+
+  return (
+    <View style={styles.historySection}>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+        Billing history
+      </Text>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        {entries.length === 0 ? (
+          <View style={styles.historyEmpty}>
+            <Feather name="file-text" size={22} color={colors.mutedForeground} />
+            <Text
+              style={[styles.historyEmptyText, { color: colors.mutedForeground }]}
+            >
+              No past payments to show yet. Your billing history will appear here
+              once you’ve been charged.
+            </Text>
+          </View>
+        ) : (
+          entries.map((entry, i) => (
+            <BillingRow
+              key={`${entry.productId}-${entry.purchasedAt ?? i}`}
+              entry={entry}
+              isLast={i === entries.length - 1}
+            />
+          ))
+        )}
+      </View>
+    </View>
+  );
+}
+
+function BillingRow({
+  entry,
+  isLast,
+}: {
+  entry: BillingHistoryEntry;
+  isLast: boolean;
+}) {
+  const colors = useColors();
+  const status = billingStatusMeta(entry.status, colors);
+  const purchased = formatShortDate(entry.purchasedAt);
+  const expires = formatShortDate(entry.expiresAt);
+  const period = periodLabel(entry.periodType);
+
+  const dateRange = purchased
+    ? expires
+      ? `${purchased} – ${expires}`
+      : purchased
+    : 'Date unavailable';
+
+  const subParts = [billingPlanLabel(entry.productId)];
+  if (period) subParts.push(period);
+
+  return (
+    <View
+      style={[
+        styles.historyRow,
+        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+      ]}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.historyDate, { color: colors.foreground }]}>
+          {dateRange}
+        </Text>
+        <Text style={[styles.historyMeta, { color: colors.mutedForeground }]}>
+          {subParts.join(' · ')}
+        </Text>
+      </View>
+      <View
+        style={[styles.statusPill, { backgroundColor: `${status.color}1F` }]}
+      >
+        <Text style={[styles.statusText, { color: status.color }]}>
+          {status.label}
+        </Text>
       </View>
     </View>
   );
@@ -783,6 +927,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   restoreText: { fontFamily: AppFonts.semibold, fontSize: 14 },
+  historySection: { marginTop: 24 },
+  sectionTitle: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 16,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
+  historyEmpty: { alignItems: 'center', gap: 10, paddingVertical: 12 },
+  historyEmptyText: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+    maxWidth: 280,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+  },
+  historyDate: { fontFamily: AppFonts.bold, fontSize: 14 },
+  historyMeta: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 3 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
