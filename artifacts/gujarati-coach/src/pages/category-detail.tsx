@@ -1,5 +1,5 @@
 import { useParams, Link } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListCategoryPhrases,
   useListCategories,
@@ -8,7 +8,7 @@ import {
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,13 @@ export default function CategoryDetail() {
   const { data: categories } = useListCategories({ lang: activeLang });
   const addPhrases = useAddCategoryPhrases();
   const [noNewPhrases, setNoNewPhrases] = useState(false);
+
+  // Clear the "no new phrases" note whenever the lesson context changes — a
+  // different category, a language switch, or the phrase list changing (e.g. it
+  // later gained new phrases). Otherwise the stale note can linger on screen.
+  useEffect(() => {
+    setNoNewPhrases(false);
+  }, [id, activeLang, phrases]);
 
   const handleAddPhrases = async () => {
     setNoNewPhrases(false);
@@ -221,9 +228,17 @@ export default function CategoryDetail() {
           {noNewPhrases && !addPhrases.isPending && (
             <div className="flex items-start gap-3 rounded-2xl bg-success/10 border border-success/20 p-4 text-left">
               <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
-              <p className="text-sm text-success font-medium">
+              <p className="flex-1 text-sm text-success font-medium">
                 You've mastered every phrase we could think of for this topic! Check back later for more.
               </p>
+              <button
+                type="button"
+                onClick={() => setNoNewPhrases(false)}
+                aria-label="Dismiss"
+                className="shrink-0 -mr-1 -mt-1 rounded-full p-1 text-success/70 hover:text-success hover:bg-success/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>
