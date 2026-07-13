@@ -21,7 +21,7 @@ import {
   LANGUAGES,
   CATEGORIES,
   CURATED_LANGUAGE_CODE,
-  PHRASES_PER_LESSON,
+  expectedPhraseCount,
   validateSeedLesson,
   type SeedLesson,
   type CuratedLessonsFile,
@@ -71,6 +71,7 @@ type Job = {
 };
 
 async function generateOne(job: Job): Promise<SeedLesson> {
+  const phraseCount = expectedPhraseCount(job.categorySlug);
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -80,12 +81,13 @@ async function generateOne(job: Job): Promise<SeedLesson> {
         script: job.script,
         topicTitle: job.topicTitle,
         topicDescription: job.topicDescription,
+        phraseCount,
       });
       const lesson: SeedLesson = {
         titleNative: generated.titleNative,
-        phrases: generated.phrases.slice(0, PHRASES_PER_LESSON),
+        phrases: generated.phrases.slice(0, phraseCount),
       };
-      const invalid = validateSeedLesson(lesson);
+      const invalid = validateSeedLesson(lesson, phraseCount);
       if (!invalid) return lesson;
       lastError = invalid;
       console.warn(
@@ -115,7 +117,12 @@ async function main() {
     const byCat = data[lang.code];
     for (const cat of CATEGORIES) {
       const existing = byCat?.[cat.slug];
-      if (!force && existing && validateSeedLesson(existing) === null) continue;
+      if (
+        !force &&
+        existing &&
+        validateSeedLesson(existing, expectedPhraseCount(cat.slug)) === null
+      )
+        continue;
       jobs.push({
         langCode: lang.code,
         langName: lang.name,

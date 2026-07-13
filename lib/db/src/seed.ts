@@ -14,7 +14,6 @@ import {
   CATEGORIES,
   GUJARATI_LESSONS,
   CURATED_LANGUAGE_CODE,
-  PHRASES_PER_LESSON,
   validateSeedLesson,
   validateCuratedLessons,
   type SeedLesson,
@@ -160,7 +159,7 @@ async function seed() {
   // Validate the whole file up front through the shared gate so the seeder
   // refuses loudly on any malformed/empty lesson before inserting a single row.
   const curated = loadCuratedLessons();
-  const { errors, missing } = validateCuratedLessons(curated, PHRASES_PER_LESSON);
+  const { errors, missing } = validateCuratedLessons(curated);
   if (errors.length > 0) {
     throw new Error(
       `Refusing to seed: ${errors.length} curated lesson(s) failed validation:\n` +

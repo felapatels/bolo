@@ -9,6 +9,7 @@ import {
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
   GUJARATI_LESSONS,
+  expectedPhraseCount,
   validateSeedLesson,
   validateCuratedLessons,
   type CuratedLessonsFile,
@@ -81,14 +82,15 @@ test("every frozen lesson passes validation with an exact phrase count", () => {
     const byCategory = curated[code] ?? {};
     for (const cat of CATEGORIES) {
       const lesson = byCategory[cat.slug];
-      const invalid = validateSeedLesson(lesson, PHRASES_PER_LESSON);
+      const count = expectedPhraseCount(cat.slug);
+      const invalid = validateSeedLesson(lesson, count);
       assert.equal(
         invalid,
         null,
         `${code}/${cat.slug} failed validation: ${invalid}`,
       );
       // Belt-and-suspenders on the specifics the validator enforces.
-      assert.equal(lesson.phrases.length, PHRASES_PER_LESSON);
+      assert.equal(lesson.phrases.length, count);
       assert.ok(lesson.titleNative.trim() !== "");
       for (const p of lesson.phrases) {
         assert.ok(p.nativeScript.trim() !== "");
@@ -98,6 +100,35 @@ test("every frozen lesson passes validation with an exact phrase count", () => {
         assert.ok(p.difficulty >= 1 && p.difficulty <= 3);
       }
     }
+  }
+});
+
+test("the Numbers topic teaches a gap-free one-through-ten in every language", () => {
+  const expectedSequence = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+  ];
+  // The topic is titled "Numbers 1-10" and must actually teach all ten in
+  // order — no lesson may stop short at eight or skip a number mid-sequence.
+  assert.equal(expectedPhraseCount("numbers"), expectedSequence.length);
+
+  for (const code of generatedLanguageCodes) {
+    const lesson = curated[code]?.numbers;
+    assert.ok(lesson, `frozen file is missing ${code}/numbers`);
+    const english = lesson.phrases.map((p) => p.english.trim().toLowerCase());
+    assert.deepEqual(
+      english,
+      expectedSequence,
+      `${code}/numbers should teach one..ten in order, got: ${english.join(", ")}`,
+    );
   }
 });
 

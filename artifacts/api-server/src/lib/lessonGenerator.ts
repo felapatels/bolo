@@ -18,9 +18,12 @@ export type LessonRequest = {
   script: string; // e.g. "Devanagari"
   topicTitle: string; // e.g. "Numbers 1-10"
   topicDescription: string;
+  // How many phrases the topic teaches. Defaults to DEFAULT_PHRASES_PER_LESSON;
+  // pass a larger value for fixed-length topics like "Numbers 1-10" (ten).
+  phraseCount?: number;
 };
 
-const PHRASES_PER_LESSON = 8;
+const DEFAULT_PHRASES_PER_LESSON = 8;
 
 // Generates a beginner lesson (native-script phrases + romanization + English)
 // for one (language, topic). Called once per pair; the result is cached in the
@@ -28,6 +31,7 @@ const PHRASES_PER_LESSON = 8;
 export async function generateLesson(
   req: LessonRequest,
 ): Promise<GeneratedLesson> {
+  const phraseCount = req.phraseCount ?? DEFAULT_PHRASES_PER_LESSON;
   const completion = await openai.chat.completions.create({
     model: "gpt-5.4-mini",
     max_completion_tokens: 3000,
@@ -43,7 +47,7 @@ export async function generateLesson(
         content: `Target language: ${req.languageName} (native name: ${req.nativeName}), written in the ${req.script} script.
 Topic: "${req.topicTitle}" — ${req.topicDescription}
 
-Produce exactly ${PHRASES_PER_LESSON} entries for this topic in ${req.languageName}.
+Produce exactly ${phraseCount} entries for this topic in ${req.languageName}.
 
 Reply as JSON with this exact shape:
 {
@@ -61,7 +65,7 @@ Reply as JSON with this exact shape:
 Rules:
 - "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
 - Order entries from easiest to hardest.
-- Return exactly ${PHRASES_PER_LESSON} phrases.`,
+- Return exactly ${phraseCount} phrases.`,
       },
     ],
   });

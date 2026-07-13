@@ -311,6 +311,18 @@
           "difficulty": 2
         },
         {
+          "nativeScript": "আঠ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ন",
+          "romanized": "no",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
           "nativeScript": "দহ",
           "romanized": "doh",
           "english": "ten",
@@ -628,6 +640,18 @@
           "nativeScript": "সাত",
           "romanized": "shat",
           "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আট",
+          "romanized": "aat",
+          "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "নয়",
+          "romanized": "noy",
+          "english": "nine",
           "difficulty": 2
         },
         {
@@ -955,6 +979,18 @@
           "romanized": "daen",
           "english": "eight",
           "difficulty": 2
+        },
+        {
+          "nativeScript": "गु",
+          "romanized": "gu",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "जि",
+          "romanized": "zi",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -1275,6 +1311,18 @@
           "romanized": "ath",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "नौं",
+          "romanized": "naun",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दस",
+          "romanized": "das",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -1594,6 +1642,18 @@
           "nativeScript": "आठ",
           "romanized": "aath",
           "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "नौ",
+          "romanized": "nau",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दस",
+          "romanized": "das",
+          "english": "ten",
           "difficulty": 2
         }
       ]
@@ -1915,6 +1975,18 @@
           "romanized": "entu",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "ಒಂಬತ್ತು",
+          "romanized": "ombattu",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಹತ್ತು",
+          "romanized": "hattu",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -2235,6 +2307,18 @@
           "romanized": "ath",
           "english": "eight",
           "difficulty": 3
+        },
+        {
+          "nativeScript": "णव",
+          "romanized": "nov",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "धा",
+          "romanized": "dha",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -2554,6 +2638,18 @@
           "nativeScript": "اَٹھ",
           "romanized": "ath",
           "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "نَو",
+          "romanized": "nav",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "دَہ",
+          "romanized": "dah",
+          "english": "ten",
           "difficulty": 2
         }
       ]
@@ -2875,6 +2971,18 @@
           "romanized": "aath",
           "english": "eight",
           "difficulty": 2
+        },
+        {
+          "nativeScript": "नौ",
+          "romanized": "nau",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दस",
+          "romanized": "das",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -3195,6 +3303,18 @@
           "romanized": "ettu",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "ഒമ്പത്",
+          "romanized": "onpathu",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "പത്ത്",
+          "romanized": "pathu",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -3515,6 +3635,18 @@
           "romanized": "nipal",
           "english": "eight",
           "difficulty": 3
+        },
+        {
+          "nativeScript": "ꯃꯥꯄꯜ",
+          "romanized": "mapan",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯇꯔꯥ",
+          "romanized": "tara",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -3829,6 +3961,18 @@
           "romanized": "saat",
           "english": "seven",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "आठ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "नऊ",
+          "romanized": "nau",
+          "english": "nine",
+          "difficulty": 2
         },
         {
           "nativeScript": "दहा",
@@ -4149,6 +4293,18 @@
           "romanized": "saat",
           "english": "seven",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "आठ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "नौ",
+          "romanized": "nau",
+          "english": "nine",
+          "difficulty": 2
         },
         {
           "nativeScript": "दश",
@@ -4475,6 +4631,18 @@
           "romanized": "ātha",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "୯",
+          "romanized": "naa",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "୧୦",
+          "romanized": "dasa",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -4795,6 +4963,18 @@
           "romanized": "athh",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "ਨੌਂ",
+          "romanized": "naun",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਦਸ",
+          "romanized": "das",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -5114,6 +5294,18 @@
           "nativeScript": "अष्ट",
           "romanized": "aṣṭa",
           "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "नव",
+          "romanized": "nava",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दश",
+          "romanized": "dasha",
+          "english": "ten",
           "difficulty": 2
         }
       ]
@@ -5435,6 +5627,18 @@
           "romanized": "eneg",
           "english": "eight",
           "difficulty": 3
+        },
+        {
+          "nativeScript": "ᱟᱨᱮ",
+          "romanized": "are",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱜᱮᱞ",
+          "romanized": "gel",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -5748,6 +5952,18 @@
           "nativeScript": "ست",
           "romanized": "saat",
           "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "اٺ",
+          "romanized": "atth",
+          "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "نَو",
+          "romanized": "nao",
+          "english": "nine",
           "difficulty": 2
         },
         {
@@ -6075,6 +6291,18 @@
           "romanized": "ettu",
           "english": "eight",
           "difficulty": 1
+        },
+        {
+          "nativeScript": "ஒன்பது",
+          "romanized": "onbadhu",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "பத்து",
+          "romanized": "pathu",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -6395,6 +6623,18 @@
           "romanized": "enimidhi",
           "english": "eight",
           "difficulty": 2
+        },
+        {
+          "nativeScript": "తొమ్మిది",
+          "romanized": "tommidi",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "పది",
+          "romanized": "padi",
+          "english": "ten",
+          "difficulty": 2
         }
       ]
     }
@@ -6714,6 +6954,18 @@
           "nativeScript": "آٹھ",
           "romanized": "aath",
           "english": "eight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "نو",
+          "romanized": "nau",
+          "english": "nine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "دس",
+          "romanized": "das",
+          "english": "ten",
           "difficulty": 2
         }
       ]

@@ -68,6 +68,20 @@ export const CATEGORIES: SeedCategory[] = [
 
 export const PHRASES_PER_LESSON = 8;
 
+// Most topics teach exactly PHRASES_PER_LESSON phrases, but a few teach a fixed
+// sequence of a different length. "Numbers 1-10" must teach all ten numbers in
+// order (matching the hand-curated Gujarati lesson) — a learner picking that
+// topic should never get a gap-free count that stops at eight. Keyed by
+// category slug; any slug not listed here uses PHRASES_PER_LESSON.
+export const CATEGORY_PHRASE_COUNTS: Record<string, number> = {
+  numbers: 10,
+};
+
+// The exact phrase count a curated lesson for `categorySlug` must have.
+export function expectedPhraseCount(categorySlug: string): number {
+  return CATEGORY_PHRASE_COUNTS[categorySlug] ?? PHRASES_PER_LESSON;
+}
+
 // ---------------------------------------------------------------------------
 // Curated Gujarati content, pre-seeded as cached lessons so the default
 // language has instant, high-quality phrases. Every other language is
@@ -176,10 +190,11 @@ export type CuratedLessonsFile = Record<string, Record<string, SeedLesson>>;
 // non-empty string fields and an integer difficulty within [1, 3], and never
 // zero phrases. Returns an error string, or null when the lesson is valid.
 //
-// `exactCount` enforces an exact phrase count — pass PHRASES_PER_LESSON for the
-// AI-generated lessons, which must all be the same length. Leave it undefined
-// for the hand-curated Gujarati lessons, whose counts vary by topic (Numbers
-// 1-10 has ten, Feelings has seven); those only require at least one phrase.
+// `exactCount` enforces an exact phrase count — pass the category's
+// expectedPhraseCount for the pre-generated lessons, which must each be the
+// length their topic teaches. Leave it undefined for the hand-curated Gujarati
+// lessons, whose counts vary by topic (Numbers 1-10 has ten, Feelings has
+// seven); those only require at least one phrase.
 export function validateSeedLesson(
   lesson: SeedLesson | undefined,
   exactCount?: number,
@@ -232,7 +247,6 @@ export type CuratedLessonsValidation = {
 // tolerated `missing` combinations.
 export function validateCuratedLessons(
   curated: CuratedLessonsFile,
-  exactCount: number = PHRASES_PER_LESSON,
 ): CuratedLessonsValidation {
   const errors: string[] = [];
   const missing: string[] = [];
@@ -245,7 +259,7 @@ export function validateCuratedLessons(
         missing.push(`${lang.code}/${cat.slug}`);
         continue;
       }
-      const invalid = validateSeedLesson(lesson, exactCount);
+      const invalid = validateSeedLesson(lesson, expectedPhraseCount(cat.slug));
       if (invalid) errors.push(`${lang.code}/${cat.slug}: ${invalid}`);
     }
   }
