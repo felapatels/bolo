@@ -73,7 +73,7 @@ export default function CategoryDetail() {
         title={
           upgrade.reason === "daily_lesson_limit"
             ? "You've hit today's free lessons"
-            : "This language is a Plus pick"
+            : "Unlock this language"
         }
         message={upgrade.message}
       />

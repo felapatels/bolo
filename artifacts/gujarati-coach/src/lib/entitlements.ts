@@ -26,18 +26,34 @@ const UNKNOWN_ALLOWANCE: DailyLessonAllowance = {
   remaining: null,
 };
 
+// The three tiers the client can be on. Kept in lockstep with the server's
+// entitlements.Plan; the client only ever reads which one the snapshot reports.
+export type Plan = "free" | "one_language" | "plus";
+
 export type EntitlementsView = {
   /** Snapshot is still loading (only ever true for a signed-in caller). */
   isLoading: boolean;
   isSignedIn: boolean;
   entitlements: Entitlements | undefined;
-  plan: "free" | "plus";
-  /** True for both an active subscription and an active trial. */
+  /** The effective plan the server resolved. */
+  plan: Plan;
+  /** Any paid tier (One Language or All-Access), including an active trial. */
+  isPaid: boolean;
+  /** The middle tier: free Hindi + one chosen language, unlimited lessons. */
+  isOneLanguage: boolean;
+  /** All-Access: every language plus review/analytics/badges. */
+  isAllAccess: boolean;
+  /**
+   * Back-compat alias for the all-access tier. Kept because several surfaces
+   * that gate on "the top tier" (exclusive badges, etc.) read `isPlus`.
+   */
   isPlus: boolean;
   status: string;
   isTrialing: boolean;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  /** The One Language subscriber's chosen language, or null for Free/All-Access. */
+  chosenLanguage: string | null;
   allowedLanguages: string[];
   features: PlanFeatures;
   dailyNewLessons: DailyLessonAllowance;
@@ -56,16 +72,24 @@ export function useEntitlements(): EntitlementsView {
     },
   });
 
+  const plan = (data?.plan as Plan) ?? "free";
+  const isAllAccess = plan === "plus";
+  const isOneLanguage = plan === "one_language";
+
   return {
     isLoading: !!isSignedIn && isLoading,
     isSignedIn: !!isSignedIn,
     entitlements: data,
-    plan: (data?.plan as "free" | "plus") ?? "free",
-    isPlus: data?.plan === "plus",
+    plan,
+    isPaid: isAllAccess || isOneLanguage,
+    isOneLanguage,
+    isAllAccess,
+    isPlus: isAllAccess,
     status: data?.status ?? "none",
     isTrialing: data?.status === "trialing",
     trialEndsAt: data?.trialEndsAt ?? null,
     currentPeriodEnd: data?.currentPeriodEnd ?? null,
+    chosenLanguage: data?.chosenLanguage ?? null,
     allowedLanguages: data?.allowedLanguages ?? [],
     features: data?.features ?? LOCKED_FEATURES,
     dailyNewLessons: data?.limits?.dailyNewLessons ?? UNKNOWN_ALLOWANCE,

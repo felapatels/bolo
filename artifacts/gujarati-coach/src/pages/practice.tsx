@@ -275,7 +275,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             ? "You've hit today's free lessons"
             : upgrade.reason === "feature_locked"
               ? "Review is a Plus feature"
-              : "This language is a Plus pick"
+              : "Unlock this language"
         }
         message={upgrade.message}
       />
