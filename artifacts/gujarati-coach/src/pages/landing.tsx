@@ -279,7 +279,16 @@ export default function Landing() {
       </main>
 
       <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
-        Bolo! — stop tapping, start talking.
+        <p>Bolo! — stop tapping, start talking.</p>
+        <nav className="mt-3 flex items-center justify-center gap-4">
+          <Link href="/privacy" className="hover:text-foreground transition-colors">
+            Privacy Policy
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/terms" className="hover:text-foreground transition-colors">
+            Terms
+          </Link>
+        </nav>
       </footer>
     </div>
   );

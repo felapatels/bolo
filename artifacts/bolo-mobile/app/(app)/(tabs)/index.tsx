@@ -35,6 +35,7 @@ import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
+import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 
 /** Time-of-day greeting to make the mascot's welcome feel personal. */
 function greetingFor(hour: number): string {
@@ -320,6 +321,22 @@ export default function HomeScreen() {
               </Animated.View>
             ))}
           </>
+        ) : null}
+
+        {/* Privacy policy — App/Play review expects an in-app link learners can
+            reach. Opens the hosted /privacy page in an in-app browser. */}
+        {PRIVACY_POLICY_URL ? (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+            onPress={() => openPrivacyPolicy()}
+            style={styles.privacyLink}
+          >
+            <Feather name="shield" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.privacyText, { color: colors.mutedForeground }]}>
+              Privacy Policy
+            </Text>
+          </Pressable>
         ) : null}
       </ScrollView>
     </Screen>
@@ -667,4 +684,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 20,
   },
+  privacyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 20,
+  },
+  privacyText: { fontFamily: AppFonts.semibold, fontSize: 13 },
 });
