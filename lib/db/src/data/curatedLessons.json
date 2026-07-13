@@ -442,8 +442,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "দুঃখিত",
-          "romanized": "dukkhito",
+          "nativeScript": "দুঃখী",
+          "romanized": "dukkhi",
           "english": "sad",
           "difficulty": 1
         },
@@ -460,8 +460,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "আনন্দিত",
-          "romanized": "anondito",
+          "nativeScript": "উত্তেজিত",
+          "romanized": "uttejito",
           "english": "excited",
           "difficulty": 2
         },
@@ -3754,8 +3754,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "सकाळी नमस्कार",
-          "romanized": "sakaali namaskaar",
+          "nativeScript": "सुप्रभात",
+          "romanized": "suprabhaat",
           "english": "good morning",
           "difficulty": 2
         },
@@ -3773,7 +3773,7 @@
         },
         {
           "nativeScript": "तुमचं नाव काय?",
-          "romanized": "tumcha naav kaa?",
+          "romanized": "tumcha naav kaay?",
           "english": "what is your name?",
           "difficulty": 3
         },
@@ -5953,9 +5953,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "குடம்",
-          "romanized": "kudam",
-          "english": "cup / tumbler",
+          "nativeScript": "டம்ளர்",
+          "romanized": "damlar",
+          "english": "tumbler",
           "difficulty": 2
         },
         {
@@ -6013,7 +6013,7 @@
         },
         {
           "nativeScript": "பிரியாவிடை",
-          "romanized": "priyaavidai",
+          "romanized": "piriyaavidai",
           "english": "goodbye",
           "difficulty": 3
         },
