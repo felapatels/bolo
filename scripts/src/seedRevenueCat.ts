@@ -1,4 +1,4 @@
-// One-off setup script: creates (idempotently) the Bolo! Plus entitlement, its
+// One-off setup script: creates (idempotently) the Bolo! entitlements, their
 // monthly + annual products across the Test / App / Play stores, and a "default"
 // offering wiring them together in RevenueCat. Run it AFTER connecting the
 // RevenueCat integration, then copy the logged public API keys + ids into
@@ -11,74 +11,162 @@
 // 7-day free trial is configured per-store in App Store Connect / Google Play
 // (the Test Store can't model trials); the client reads the trial from the
 // product metadata automatically once it's set there.
+//
+// Two tiers are provisioned:
+//   • all-access "Bolo! Plus"  — $9.99/mo, unlocks every language.
+//   • "Bolo! One Language"     — $6.99/mo, unlocks a single chosen language.
+// Each is a distinct RevenueCat entitlement with its own monthly + annual
+// products, all attached to the same "default" offering.
 
 import { ReplitConnectors } from "@replit/connectors-sdk";
 
 // ---------------------------------------------------------------------------
-// Configuration — the entitlement id must match REVENUECAT_ENTITLEMENT_ID on the
-// server (defaults to "plus"). Store identifiers must match what you create in
-// App Store Connect / Google Play. Confirm the store bundle/package ids and the
-// prices before a production run.
+// Configuration — the entitlement ids must match what the API server reads
+// (REVENUECAT_ENTITLEMENT_ID → all-access, defaults to "plus";
+// REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID → middle tier, defaults to
+// "one_language"). Store identifiers must match what you create in App Store
+// Connect / Google Play. Confirm the store bundle/package ids and the prices
+// before a production run.
 // ---------------------------------------------------------------------------
-const ENTITLEMENT_ID = process.env.REVENUECAT_ENTITLEMENT_ID?.trim() || "plus";
-const ENTITLEMENT_DISPLAY_NAME = "Bolo! Plus";
+const PLUS_ENTITLEMENT_ID =
+  process.env.REVENUECAT_ENTITLEMENT_ID?.trim() || "plus";
+const PLUS_ENTITLEMENT_DISPLAY_NAME = "Bolo! Plus";
+
+const ONE_LANGUAGE_ENTITLEMENT_ID =
+  process.env.REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID?.trim() || "one_language";
+const ONE_LANGUAGE_ENTITLEMENT_DISPLAY_NAME = "Bolo! One Language";
 
 const APP_STORE_BUNDLE_ID = "com.bolo.mobile";
 const PLAY_STORE_PACKAGE_NAME = "com.bolo.mobile";
 
 // Product store identifiers. Play Store subscriptions use {subscriptionId}:{basePlanId}.
-const MONTHLY_ID = "bolo_plus_monthly";
-const ANNUAL_ID = "bolo_plus_annual";
-const PLAY_MONTHLY_ID = "bolo_plus_monthly:monthly";
-const PLAY_ANNUAL_ID = "bolo_plus_annual:annual";
+// All-access ("Plus") products.
+const PLUS_MONTHLY_ID = "bolo_plus_monthly";
+const PLUS_ANNUAL_ID = "bolo_plus_annual";
+const PLUS_PLAY_MONTHLY_ID = "bolo_plus_monthly:monthly";
+const PLUS_PLAY_ANNUAL_ID = "bolo_plus_annual:annual";
+
+// One-Language products.
+const ONE_LANGUAGE_MONTHLY_ID = "bolo_one_language_monthly";
+const ONE_LANGUAGE_ANNUAL_ID = "bolo_one_language_annual";
+const ONE_LANGUAGE_PLAY_MONTHLY_ID = "bolo_one_language_monthly:monthly";
+const ONE_LANGUAGE_PLAY_ANNUAL_ID = "bolo_one_language_annual:annual";
 
 const OFFERING_ID = "default";
-const OFFERING_DISPLAY_NAME = "Bolo! Plus";
+const OFFERING_DISPLAY_NAME = "Bolo!";
 
 // Test-store prices (micros = dollars * 1_000_000). Production prices are set in
 // App Store Connect / Google Play, not here.
-const MONTHLY_PRICE_MICROS = 9_990_000; // $9.99 / month
-const ANNUAL_PRICE_MICROS = 59_990_000; // $59.99 / year
+//
+// Monthly prices below are the intended launch prices. The ANNUAL prices are
+// PLACEHOLDERS — confirm the real annual pricing before a production run (and
+// set it in App Store Connect / Google Play; the Test Store price is only for
+// local testing). See the placeholder warning in the wiring log at the end.
+const PLUS_MONTHLY_PRICE_MICROS = 9_990_000; // $9.99 / month
+const PLUS_ANNUAL_PRICE_MICROS_PLACEHOLDER = 59_990_000; // $59.99 / year (PLACEHOLDER)
+const ONE_LANGUAGE_MONTHLY_PRICE_MICROS = 6_990_000; // $6.99 / month
+const ONE_LANGUAGE_ANNUAL_PRICE_MICROS_PLACEHOLDER = 49_990_000; // $49.99 / year (PLACEHOLDER)
+
+interface EntitlementSpec {
+  tier: "plus" | "one_language";
+  lookupKey: string;
+  displayName: string;
+}
+
+const ENTITLEMENTS: EntitlementSpec[] = [
+  {
+    tier: "plus",
+    lookupKey: PLUS_ENTITLEMENT_ID,
+    displayName: PLUS_ENTITLEMENT_DISPLAY_NAME,
+  },
+  {
+    tier: "one_language",
+    lookupKey: ONE_LANGUAGE_ENTITLEMENT_ID,
+    displayName: ONE_LANGUAGE_ENTITLEMENT_DISPLAY_NAME,
+  },
+];
 
 interface ProductSpec {
+  tier: "plus" | "one_language";
   key: "monthly" | "annual";
   displayName: string;
   userFacingTitle: string;
   duration: "P1M" | "P1Y";
   priceMicros: number;
+  // Set for annual products whose test-store price is a placeholder that the
+  // owner must confirm before a production run.
+  priceIsPlaceholder: boolean;
   testId: string;
   appStoreId: string;
   playStoreId: string;
-  packageId: "$rc_monthly" | "$rc_annual";
+  // Package lookup key within the offering. RevenueCat's predefined keys
+  // ($rc_monthly / $rc_annual) are used for the all-access tier; the middle
+  // tier uses custom keys so both tiers can coexist in one offering.
+  packageId: string;
   packageDisplayName: string;
 }
 
 const PRODUCTS: ProductSpec[] = [
   {
+    tier: "plus",
     key: "monthly",
     displayName: "Bolo! Plus (Monthly)",
     userFacingTitle: "Bolo! Plus — Monthly",
     duration: "P1M",
-    priceMicros: MONTHLY_PRICE_MICROS,
-    testId: MONTHLY_ID,
-    appStoreId: MONTHLY_ID,
-    playStoreId: PLAY_MONTHLY_ID,
+    priceMicros: PLUS_MONTHLY_PRICE_MICROS,
+    priceIsPlaceholder: false,
+    testId: PLUS_MONTHLY_ID,
+    appStoreId: PLUS_MONTHLY_ID,
+    playStoreId: PLUS_PLAY_MONTHLY_ID,
     packageId: "$rc_monthly",
-    packageDisplayName: "Monthly",
+    packageDisplayName: "Plus Monthly",
   },
   {
+    tier: "plus",
     key: "annual",
     displayName: "Bolo! Plus (Annual)",
     userFacingTitle: "Bolo! Plus — Annual",
     duration: "P1Y",
-    priceMicros: ANNUAL_PRICE_MICROS,
-    testId: ANNUAL_ID,
-    appStoreId: ANNUAL_ID,
-    playStoreId: PLAY_ANNUAL_ID,
+    priceMicros: PLUS_ANNUAL_PRICE_MICROS_PLACEHOLDER,
+    priceIsPlaceholder: true,
+    testId: PLUS_ANNUAL_ID,
+    appStoreId: PLUS_ANNUAL_ID,
+    playStoreId: PLUS_PLAY_ANNUAL_ID,
     packageId: "$rc_annual",
-    packageDisplayName: "Annual",
+    packageDisplayName: "Plus Annual",
+  },
+  {
+    tier: "one_language",
+    key: "monthly",
+    displayName: "Bolo! One Language (Monthly)",
+    userFacingTitle: "Bolo! One Language — Monthly",
+    duration: "P1M",
+    priceMicros: ONE_LANGUAGE_MONTHLY_PRICE_MICROS,
+    priceIsPlaceholder: false,
+    testId: ONE_LANGUAGE_MONTHLY_ID,
+    appStoreId: ONE_LANGUAGE_MONTHLY_ID,
+    playStoreId: ONE_LANGUAGE_PLAY_MONTHLY_ID,
+    packageId: "one_language_monthly",
+    packageDisplayName: "One Language Monthly",
+  },
+  {
+    tier: "one_language",
+    key: "annual",
+    displayName: "Bolo! One Language (Annual)",
+    userFacingTitle: "Bolo! One Language — Annual",
+    duration: "P1Y",
+    priceMicros: ONE_LANGUAGE_ANNUAL_PRICE_MICROS_PLACEHOLDER,
+    priceIsPlaceholder: true,
+    testId: ONE_LANGUAGE_ANNUAL_ID,
+    appStoreId: ONE_LANGUAGE_ANNUAL_ID,
+    playStoreId: ONE_LANGUAGE_PLAY_ANNUAL_ID,
+    packageId: "one_language_annual",
+    packageDisplayName: "One Language Annual",
   },
 ];
+
+// Stable key for indexing a product spec's per-store ids.
+const specKey = (s: Pick<ProductSpec, "tier" | "key">) => `${s.tier}:${s.key}`;
 
 const connectors = new ReplitConnectors();
 
@@ -117,9 +205,9 @@ async function listAll(path: string): Promise<any[]> {
 }
 
 async function main(): Promise<void> {
-  // Per-plan map from plan key -> its per-store product ids.
+  // Per-product-spec map from spec key -> its per-store product ids.
   const spec_toProductIds = new Map<
-    "monthly" | "annual",
+    string,
     { test: string; app: string; play: string }
   >();
 
@@ -169,7 +257,12 @@ async function main(): Promise<void> {
       (p) => p.store_identifier === storeId && p.app_id === appId,
     );
 
-  const productIds: string[] = [];
+  // Products grouped by entitlement tier, so each entitlement only unlocks its
+  // own products.
+  const productIdsByTier = new Map<"plus" | "one_language", string[]>([
+    ["plus", []],
+    ["one_language", []],
+  ]);
   for (const spec of PRODUCTS) {
     // Test Store product (carries a modeled duration + price for local testing).
     let testProduct = findProduct(spec.testId, testApp.id);
@@ -213,31 +306,42 @@ async function main(): Promise<void> {
       console.log(`Created Play Store product: ${spec.playStoreId}`);
     }
 
-    spec_toProductIds.set(spec.key, {
+    spec_toProductIds.set(specKey(spec), {
       test: testProduct.id,
       app: appProduct.id,
       play: playProduct.id,
     });
-    productIds.push(testProduct.id, appProduct.id, playProduct.id);
+    productIdsByTier
+      .get(spec.tier)!
+      .push(testProduct.id, appProduct.id, playProduct.id);
   }
 
-  // 4) Entitlement — the single "Plus" access level all products unlock.
+  // 4) Entitlements — each tier's access level, unlocking only its products.
   const entitlements = await listAll(`/v2/projects/${projectId}/entitlements`);
-  let entitlement = entitlements.find((e) => e.lookup_key === ENTITLEMENT_ID);
-  if (!entitlement) {
-    entitlement = await rc("POST", `/v2/projects/${projectId}/entitlements`, {
-      lookup_key: ENTITLEMENT_ID,
-      display_name: ENTITLEMENT_DISPLAY_NAME,
-    });
-    console.log(`Created entitlement: ${ENTITLEMENT_ID}`);
+  for (const entSpec of ENTITLEMENTS) {
+    let entitlement = entitlements.find(
+      (e) => e.lookup_key === entSpec.lookupKey,
+    );
+    if (!entitlement) {
+      entitlement = await rc(
+        "POST",
+        `/v2/projects/${projectId}/entitlements`,
+        {
+          lookup_key: entSpec.lookupKey,
+          display_name: entSpec.displayName,
+        },
+      );
+      console.log(`Created entitlement: ${entSpec.lookupKey}`);
+    }
+    await rc(
+      "POST",
+      `/v2/projects/${projectId}/entitlements/${entitlement.id}/actions/attach_products`,
+      { product_ids: productIdsByTier.get(entSpec.tier)! },
+    );
   }
-  await rc(
-    "POST",
-    `/v2/projects/${projectId}/entitlements/${entitlement.id}/actions/attach_products`,
-    { product_ids: productIds },
-  );
 
-  // 5) Offering + packages — what the client shows on the paywall.
+  // 5) Offering + packages — what the client shows on the paywall. Both tiers
+  //    share the one "default" offering; each product spec has its own package.
   const offerings = await listAll(`/v2/projects/${projectId}/offerings`);
   let offering = offerings.find((o) => o.lookup_key === OFFERING_ID);
   if (!offering) {
@@ -262,7 +366,7 @@ async function main(): Promise<void> {
       );
       console.log(`Created package: ${spec.packageId}`);
     }
-    const ids = spec_toProductIds.get(spec.key)!;
+    const ids = spec_toProductIds.get(specKey(spec))!;
     await rc(
       "POST",
       `/v2/projects/${projectId}/packages/${pkg.id}/actions/attach_products`,
@@ -287,13 +391,31 @@ async function main(): Promise<void> {
   console.log("\n====================");
   console.log("RevenueCat setup complete. Wire these up:");
   console.log(`  REVENUECAT_PROJECT_ID = ${projectId}`);
-  console.log(`  REVENUECAT_ENTITLEMENT_ID = ${ENTITLEMENT_ID}`);
+  console.log(`  REVENUECAT_ENTITLEMENT_ID = ${PLUS_ENTITLEMENT_ID}`);
+  console.log(
+    `  REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID = ${ONE_LANGUAGE_ENTITLEMENT_ID}`,
+  );
   console.log(`  EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = ${await keysFor(testApp.id)}`);
   console.log(`  EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = ${await keysFor(appStoreApp.id)}`);
   console.log(`  EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = ${await keysFor(playStoreApp.id)}`);
   console.log("Also set REVENUECAT_WEBHOOK_AUTH (server) to the exact value you");
   console.log("configure as the webhook Authorization header in the RevenueCat");
   console.log("dashboard, pointing the webhook at POST /api/revenuecat/webhook.");
+  console.log("--------------------");
+  console.log("Product store identifiers created (set the real prices in the");
+  console.log("stores; the amounts below are Test Store only):");
+  for (const spec of PRODUCTS) {
+    const price = (spec.priceMicros / 1_000_000).toFixed(2);
+    const flag = spec.priceIsPlaceholder ? "  ⚠ PLACEHOLDER PRICE" : "";
+    console.log(
+      `  [${spec.tier}] ${spec.key}: test=${spec.testId} app=${spec.appStoreId} play=${spec.playStoreId} — $${price}/${spec.duration === "P1M" ? "mo" : "yr"}${flag}`,
+    );
+  }
+  console.log("--------------------");
+  console.log("⚠ ANNUAL PRICES ARE PLACEHOLDERS. Confirm the real annual price");
+  console.log("  for BOTH tiers with the owner before a production run, and set");
+  console.log("  it in App Store Connect / Google Play (the amounts here only");
+  console.log("  affect the Test Store used for local testing).");
   console.log("====================\n");
 }
 
