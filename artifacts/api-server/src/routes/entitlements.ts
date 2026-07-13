@@ -7,6 +7,7 @@ import {
   type SubscriptionState,
 } from "../lib/entitlements";
 import { countLessonGenerationsToday } from "../lib/lessonLimits";
+import { reconcileOnRead } from "../lib/revenuecatReconcile";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
@@ -31,8 +32,41 @@ async function loadSnapshot(req: Request): Promise<Awaited<ReturnType<typeof bui
   );
 }
 
+// Re-resolves the caller's plan from the freshly-stored subscription columns
+// (used after a reconcile may have updated them).
+async function freshResolvedPlan(userId: string) {
+  const user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, userId),
+  });
+  const state: SubscriptionState = user
+    ? {
+        tier: user.tier,
+        subscriptionStatus: user.subscriptionStatus,
+        trialEndsAt: user.trialEndsAt,
+        currentPeriodEnd: user.currentPeriodEnd,
+      }
+    : {
+        tier: "free",
+        subscriptionStatus: null,
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+      };
+  return resolvePlan(state);
+}
+
 // GET /entitlements — the caller's current plan, unlocked features, and limits.
+// Clients hit this on login and to render the paywall, so it's also the natural
+// place to reconcile against RevenueCat: if a purchase/expiry webhook was ever
+// missed, a lightweight (cooldown-throttled, best-effort) pull heals the stored
+// state here so the user is never stuck in the wrong tier.
 router.get("/entitlements", async (req: Request, res: Response): Promise<void> => {
+  const { userId } = req as EntitledRequest;
+  const reconciled = await reconcileOnRead(userId);
+  // Only pay for the re-resolve/re-fetch when a live reconcile actually ran;
+  // otherwise the plan the middleware resolved is already current.
+  if (reconciled) {
+    (req as EntitledRequest).resolvedPlan = await freshResolvedPlan(userId);
+  }
   res.json(await loadSnapshot(req));
 });
 

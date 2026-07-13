@@ -27,7 +27,9 @@ Monorepo (pnpm) with path-routed artifacts:
 - **`artifacts/api-server`** — Express 5 API (mounted at `/api`). Routes:
   `health.ts` (`/healthz`, public), `learning.ts` (categories, phrases, attempts,
   progress) and `openai.ts` (TTS, pronunciation evaluation, AI phrase
-  generation). Everything except `/healthz` is behind `requireAuth`.
+  generation), `entitlements.ts` (plan snapshot), and `revenuecat.ts` (payment
+  webhook — public, shared-secret auth). Everything except `/healthz`,
+  `/languages` and `/revenuecat/webhook` is behind `requireAuth`.
 - **`lib/db`** — Drizzle schema: `users` (id = Clerk userId text PK, email,
   displayName, `tier` default `'free'`), `categories`, `phrases`, `attempts`
   (`attempts.userId` text FK → `users.id`). Seed data in `lib/db/src/seed.ts`
@@ -74,6 +76,33 @@ Monorepo (pnpm) with path-routed artifacts:
   days with at least one attempt (anchors on today or yesterday).
 - AI-generated bonus phrases are not stored in `phrases`; their attempts are
   recorded with `phraseId = null` plus a text snapshot of the phrase.
+
+## Payments / entitlements (RevenueCat)
+
+- **Server is authoritative.** RevenueCat — never the client — decides who is
+  Plus. Billing state lands on the `users` subscription columns
+  (`tier`/`subscriptionStatus`/`trialEndsAt`/`currentPeriodEnd`, plus provider
+  bookkeeping) which the entitlement backbone already reads.
+- **Two sync paths, one apply helper** (`lib/revenuecat*` in api-server):
+  - **Webhook (push):** `POST /api/revenuecat/webhook` (public, before
+    `requireAuth`) authenticates with a shared secret in the `Authorization`
+    header (constant-time compare vs `REVENUECAT_WEBHOOK_AUTH`; fails closed if
+    unset). It derives plan state directly from the event payload — no SDK call.
+  - **Reconcile-on-read (pull):** `GET /api/entitlements` pulls the live
+    subscriber via the RevenueCat connector proxy and heals stored state, so a
+    missed webhook never strands a user. Best-effort, throttled ~5 min/user, and
+    a **no-op until `REVENUECAT_PROJECT_ID` is set** (keeps dev/tests offline).
+- **Config/secrets:** `REVENUECAT_ENTITLEMENT_ID` (default `plus`),
+  `REVENUECAT_WEBHOOK_AUTH` (secret; also set verbatim as the webhook auth header
+  in the RevenueCat dashboard), `REVENUECAT_PROJECT_ID`, and the client public
+  keys (`EXPO_PUBLIC_REVENUECAT_*`) — all emitted by the seed script.
+- **Setup:** connect the RevenueCat integration (connector, OAuth), then run
+  `pnpm --filter @workspace/scripts exec tsx src/seedRevenueCat.ts` to create the
+  Plus entitlement + monthly/annual products + `default` offering and print the
+  keys to wire up. Store-side products (App Store Connect / Google Play / Stripe)
+  and the 7-day trial + sandbox purchase verification are done in those consoles.
+- Integration uses the `@replit/connectors-sdk` **proxy** pattern
+  (`connectors.proxy("revenuecat", "/v1/...")`), not a typed RevenueCat SDK.
 
 ## Running
 
