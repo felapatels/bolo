@@ -12,6 +12,11 @@ expo-env.d.ts
 # Native
 ios/
 android/
+
+# ...but keep the Play Store listing assets (the `android/` rule above is only
+# meant to ignore the generated native project dir, not these committed assets).
+!assets/store/android/
+!assets/store/android/**
 *.orig.*
 *.jks
 *.p8
