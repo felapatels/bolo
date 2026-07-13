@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Mic, Sparkles, Trophy, ArrowRight, Volume2, Hand, MessageCircle, Check, X } from 'lucide-react';
 import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
+import { SpeakingDemo } from '@/components/speaking-demo';
 
 const CHIP_COLORS = ['#F5871F', '#0FA6A0', '#E84E8A'];
 
@@ -92,6 +93,19 @@ export default function Landing() {
             >
               I have an account
             </Link>
+          </motion.div>
+
+          {/* Live product demo — the actual speak → transcribe → coach loop */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="mt-14"
+          >
+            <SpeakingDemo />
+            <p className="mt-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+              Watch the speak-out-loud loop in action
+            </p>
           </motion.div>
 
           {/* Floating language chips — every language Bolo! supports */}
