@@ -6,6 +6,44 @@ export const springSnappy: Transition = { type: 'spring', stiffness: 400, dampin
 export const springBouncy: Transition = { type: 'spring', stiffness: 300, damping: 15 };
 export const springSmooth: Transition = { type: 'spring', stiffness: 120, damping: 25 };
 
+// A varied spread of native scripts hinting at the full 22-language set from the
+// very first frame. Positioned around the perimeter so they frame — never cover —
+// the mascot and title in the center. Each floats gently with its own rhythm.
+type ScriptChip = {
+  script: string;
+  font: string;
+  color: string;
+  position: string;
+  rotate: string;
+  floatY: number;
+  duration: number;
+  delay: number;
+  rtl?: boolean;
+};
+
+const SCRIPT_CHIPS: ScriptChip[] = [
+  // Hindi (Devanagari)
+  { script: 'नमस्ते', font: 'font-devanagari', color: 'text-primary', position: 'top-[18%] left-[8%]', rotate: '-rotate-12', floatY: -10, duration: 3, delay: 0 },
+  // Bengali
+  { script: 'নমস্কার', font: 'font-bengali', color: 'text-secondary', position: 'bottom-[18%] right-[8%]', rotate: 'rotate-6', floatY: 10, duration: 3.5, delay: 0.5 },
+  // Tamil
+  { script: 'வணக்கம்', font: 'font-tamil', color: 'text-accent', position: 'top-[28%] right-[12%]', rotate: 'rotate-12', floatY: -8, duration: 3.2, delay: 1 },
+  // Gujarati
+  { script: 'કેમ છો', font: 'font-gujarati', color: 'text-success', position: 'bottom-[28%] left-[12%]', rotate: '-rotate-6', floatY: 12, duration: 3.8, delay: 0.2 },
+  // Urdu (Perso-Arabic, Nastaliq)
+  { script: 'آداب', font: 'font-nastaliq', color: 'text-primary', position: 'top-[10%] left-[42%]', rotate: 'rotate-3', floatY: -12, duration: 4, delay: 0.7, rtl: true },
+  // Odia
+  { script: 'ନମସ୍କାର', font: 'font-oriya', color: 'text-secondary', position: 'bottom-[10%] left-[38%]', rotate: '-rotate-3', floatY: 9, duration: 3.6, delay: 0.9 },
+  // Manipuri (Meetei Mayek)
+  { script: 'ꯈꯨꯔꯨꯝꯖꯔꯤ', font: 'font-meetei', color: 'text-success', position: 'top-[46%] left-[3%]', rotate: 'rotate-6', floatY: -11, duration: 3.4, delay: 0.4 },
+  // Santali (Ol Chiki)
+  { script: 'ᱡᱚᱦᱟᱨ', font: 'font-olchiki', color: 'text-gold', position: 'top-[48%] right-[4%]', rotate: '-rotate-6', floatY: 11, duration: 4.1, delay: 1.2 },
+  // Telugu
+  { script: 'నమస్కారం', font: 'font-telugu', color: 'text-gold', position: 'bottom-[36%] right-[20%]', rotate: 'rotate-8', floatY: -9, duration: 3.7, delay: 0.6 },
+  // Kannada
+  { script: 'ನಮಸ್ಕಾರ', font: 'font-kannada', color: 'text-accent', position: 'top-[36%] left-[20%]', rotate: '-rotate-8', floatY: 10, duration: 3.3, delay: 1.1 },
+];
+
 export default function Scene1Intro() {
   const [phase, setPhase] = useState(0);
 
@@ -123,80 +161,27 @@ export default function Scene1Intro() {
 
         {/* Floating Language Tags */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center w-[80vw] h-[80vh] left-[10vw] top-[10vh]">
-          {/* Hindi */}
-          <motion.div 
-            className="absolute top-[20%] left-[10%] glass-card px-[1.5vw] py-[0.8vw] text-[1.8vw] font-devanagari font-bold text-primary -rotate-12 shadow-xl"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: phase >= 4 ? 1 : 0, 
-              opacity: phase >= 4 ? 1 : 0,
-              y: phase >= 4 ? [0, -10, 0] : 0
-            }}
-            transition={{ 
-              scale: springBouncy, 
-              opacity: { duration: 0.2 },
-              y: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-            }}
-          >
-            नमस्ते
-          </motion.div>
-
-          {/* Bengali */}
-          <motion.div 
-            className="absolute bottom-[20%] right-[10%] glass-card px-[1.5vw] py-[0.8vw] text-[1.8vw] font-bengali font-bold text-secondary rotate-6 shadow-xl"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: phase >= 4 ? 1 : 0, 
-              opacity: phase >= 4 ? 1 : 0,
-              y: phase >= 4 ? [0, 10, 0] : 0
-            }}
-            transition={{ 
-              scale: springBouncy, 
-              opacity: { duration: 0.2 },
-              delay: 0.1,
-              y: { duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
-            }}
-          >
-            নমস্কার
-          </motion.div>
-
-          {/* Tamil */}
-          <motion.div 
-            className="absolute top-[30%] right-[15%] glass-card px-[1.5vw] py-[0.8vw] text-[1.8vw] font-tamil font-bold text-accent rotate-12 shadow-xl"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: phase >= 4 ? 1 : 0, 
-              opacity: phase >= 4 ? 1 : 0,
-              y: phase >= 4 ? [0, -8, 0] : 0
-            }}
-            transition={{ 
-              scale: springBouncy, 
-              opacity: { duration: 0.2 },
-              delay: 0.2,
-              y: { duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1 }
-            }}
-          >
-            வணக்கம்
-          </motion.div>
-
-          {/* Gujarati */}
-          <motion.div 
-            className="absolute bottom-[30%] left-[15%] glass-card px-[1.5vw] py-[0.8vw] text-[1.8vw] font-gujarati font-bold text-success -rotate-6 shadow-xl"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: phase >= 4 ? 1 : 0, 
-              opacity: phase >= 4 ? 1 : 0,
-              y: phase >= 4 ? [0, 12, 0] : 0
-            }}
-            transition={{ 
-              scale: springBouncy, 
-              opacity: { duration: 0.2 },
-              delay: 0.3,
-              y: { duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: 0.2 }
-            }}
-          >
-            કેમ છો
-          </motion.div>
+          {SCRIPT_CHIPS.map((chip, i) => (
+            <motion.div
+              key={i}
+              dir={chip.rtl ? 'rtl' : 'ltr'}
+              className={`absolute ${chip.position} glass-card px-[1.5vw] py-[0.8vw] text-[1.8vw] font-bold shadow-xl ${chip.font} ${chip.color} ${chip.rotate}`}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{
+                scale: phase >= 4 ? 1 : 0,
+                opacity: phase >= 4 ? 1 : 0,
+                y: phase >= 4 ? [0, chip.floatY, 0] : 0
+              }}
+              transition={{
+                scale: springBouncy,
+                opacity: { duration: 0.2 },
+                delay: i * 0.08,
+                y: { duration: chip.duration, repeat: Infinity, ease: "easeInOut", delay: chip.delay }
+              }}
+            >
+              {chip.script}
+            </motion.div>
+          ))}
         </div>
       </div>
     </motion.div>
