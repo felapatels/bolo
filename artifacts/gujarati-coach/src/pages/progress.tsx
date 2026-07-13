@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BadgesGallery } from "@/components/badges-gallery";
+import { NextBadgeSpotlight } from "@/components/next-badge-spotlight";
 import { AdvancedAnalytics } from "@/components/advanced-analytics";
 
 export default function Progress() {
@@ -62,6 +63,8 @@ export default function Progress() {
             delay={0.4}
           />
         </section>
+
+        <NextBadgeSpotlight lang={activeLang} />
 
         <BadgesGallery lang={activeLang} />
 

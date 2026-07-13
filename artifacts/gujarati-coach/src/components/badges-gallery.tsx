@@ -1,4 +1,4 @@
-import { useListBadges, type Badge } from "@workspace/api-client-react";
+import { useListBadges } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Loader2, Lock, Crown } from "lucide-react";
@@ -6,15 +6,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useEntitlements } from "@/lib/entitlements";
-
-// A locked badge is "close" when the learner is at least this far toward it, so
-// we can highlight the goals within realistic reach.
-const NEAR_THRESHOLD = 0.6;
-
-function progressRatio(badge: Badge): number {
-  if (badge.progressTarget <= 0) return 0;
-  return Math.min(1, badge.progressCurrent / badge.progressTarget);
-}
+import { NEAR_THRESHOLD, progressRatio } from "@/lib/badge-progress";
 
 // The per-language badges gallery shown on the Progress screen. Earned badges
 // render in full color with the date earned; locked badges are dimmed and show
