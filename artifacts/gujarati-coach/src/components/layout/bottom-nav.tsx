@@ -12,7 +12,7 @@ export function BottomNav() {
   const pendingCount = incoming?.length ?? 0;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-safe lg:hidden">
       <div className="flex h-16 items-center justify-around px-6 max-w-md mx-auto">
         <Link 
           href="/app" 

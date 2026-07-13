@@ -14,6 +14,7 @@ import { queryClient } from './lib/queryClient';
 import { LanguageProvider } from './lib/language-context';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { AppShell } from '@/components/layout/app-shell';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
@@ -163,7 +164,9 @@ function AppRouter() {
       <Route path="/terms" component={Terms} />
       <Route path="/app">
         <Guard>
-          <Home />
+          <AppShell>
+            <Home />
+          </AppShell>
         </Guard>
       </Route>
       <Route path="/learn/:categoryId">
@@ -183,12 +186,16 @@ function AppRouter() {
       </Route>
       <Route path="/progress">
         <Guard>
-          <Progress />
+          <AppShell>
+            <Progress />
+          </AppShell>
         </Guard>
       </Route>
       <Route path="/friends">
         <Guard>
-          <Friends />
+          <AppShell>
+            <Friends />
+          </AppShell>
         </Guard>
       </Route>
       <Route path="/upgrade">

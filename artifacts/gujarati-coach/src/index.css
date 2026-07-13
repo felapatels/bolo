@@ -157,6 +157,27 @@
     @apply bg-card/80 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl shadow-primary/5;
   }
 
+  /* Branded app surface: soft indigo/teal radial glows layered over the base
+     background. Fixed attachment keeps the glow anchored as pages scroll, and
+     it reads well across wide desktop widths (the glows sit in the corners
+     rather than a single centered blob). The body already carries the subtle
+     dotted texture; this adds depth without fighting it. */
+  .app-surface {
+    background-image:
+      radial-gradient(
+        60rem 40rem at 100% 0%,
+        hsl(var(--primary) / 0.08),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 40rem at 0% 100%,
+        hsl(var(--secondary) / 0.08),
+        transparent 60%
+      );
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
   .button-spring {
     @apply transition-transform active:scale-95 duration-200;
   }

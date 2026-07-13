@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { mascotEntrance, floatIdle } from "@/lib/motion";
 
 // Bolo the Parrot — the friendly face of the app. Each pose maps to a mood so
 // screens can show the right reaction for the moment. See public/mascot/README.md.
@@ -33,26 +34,15 @@ export function Mascot({
   const reduceMotion = useReducedMotion();
   const src = MASCOT_BASE + POSE_SRC[pose];
 
-  const idleAnimation =
-    reduceMotion || idle === "none"
-      ? undefined
-      : idle === "cheer"
-        ? { y: [0, -10, 0], rotate: [0, -3, 3, 0] }
-        : { y: [0, -6, 0], rotate: [0, -1.5, 1.5, 0] };
-
-  const idleTransition =
-    reduceMotion || idle === "none"
-      ? undefined
-      : idle === "cheer"
-        ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" as const }
-        : { duration: 4, repeat: Infinity, ease: "easeInOut" as const };
+  // Shared motion primitives: the springy entrance + gentle idle bob that the
+  // launch video uses. Both collapse to a still frame under reduced motion.
+  const entrance = mascotEntrance(reduceMotion);
+  const bob = idle === "none" ? undefined : floatIdle(reduceMotion, idle);
 
   return (
     <motion.div
       key={pose}
-      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.55, y: 12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 18 }}
+      {...entrance}
       className={cn("relative select-none", className)}
       style={{ width: size, height: size }}
       aria-hidden="true"
@@ -62,8 +52,8 @@ export function Mascot({
         alt=""
         draggable={false}
         className="h-full w-full object-contain drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]"
-        animate={idleAnimation}
-        transition={idleTransition}
+        animate={bob?.animate}
+        transition={bob?.transition}
       />
     </motion.div>
   );
