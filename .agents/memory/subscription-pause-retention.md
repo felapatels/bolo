@@ -35,3 +35,13 @@ plan !== free.
 One-time 3-month discounted offer: guarded by `retentionOfferAcceptedAt` (409 if
 already set). Accepting un-cancels (status→active), clears pause, and extends
 `currentPeriodEnd` by 3 months from max(now, existing end). Requires a paid tier.
+
+## Reactivate (un-cancel) — no dedicated endpoint
+There is **no** plain resume/reactivate route. The retention endpoint is the ONLY
+server path that un-cancels a store (RevenueCat) subscription, so the mobile
+"Reactivate my plan" action reuses it, then falls back to the store deep-link when
+retention is spent (409). Stripe reactivation must go to the web portal (DB-only
+routes desync from Stripe).
+**Why:** reusing retention means reactivation grants the one-time 3-month discount
+and can only fully un-cancel once — a real correctness gap if reactivation should
+be free/repeatable. A dedicated resume route would fix it.

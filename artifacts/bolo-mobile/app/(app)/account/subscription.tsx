@@ -246,6 +246,51 @@ export default function SubscriptionScreen() {
     }
   };
 
+  // Undo a pending cancellation while the plan is still live. Store (RevenueCat)
+  // subscriptions un-cancel through the backend retention/resume path so the
+  // snapshot reads active again; if that one-time path is spent we fall back to
+  // the store's re-subscribe page. Stripe (web) billing is managed on the web.
+  const onReactivate = async () => {
+    if (!details) return;
+    setBanner(null);
+    const managementUrl = details.paymentMethod?.managementUrl ?? null;
+
+    if (details.provider === 'stripe') {
+      const opened = await openWebBillingPortal(managementUrl);
+      if (!opened) {
+        Alert.alert(
+          'Manage on the web',
+          'Your subscription is billed on the web. Please manage it from the Bolo! website.',
+        );
+      }
+      return;
+    }
+
+    try {
+      const next = await retention.mutateAsync();
+      applyDetails(next);
+      setBanner({
+        kind: 'success',
+        text: 'Your plan is active again — welcome back!',
+      });
+    } catch {
+      // The one-time resume path is spent — send the learner to the store to
+      // turn auto-renew back on.
+      const opened = await openStoreSubscriptions(managementUrl);
+      if (opened) {
+        setBanner({
+          kind: 'info',
+          text: `Turn auto-renew back on in ${storeName()} to keep your plan.`,
+        });
+      } else {
+        Alert.alert(
+          'Couldn’t reactivate',
+          'We couldn’t reactivate your plan just now. Please try again.',
+        );
+      }
+    }
+  };
+
   const busy = cancel.isPending || pause.isPending || retention.isPending;
 
   return (
@@ -323,6 +368,7 @@ export default function SubscriptionScreen() {
             onUpgrade={() => router.push('/(app)/paywall')}
             onManage={onManage}
             onCancelPress={() => setRetentionOpen(true)}
+            onReactivate={onReactivate}
             busy={busy}
           />
 
@@ -381,6 +427,7 @@ function PlanState({
   onUpgrade,
   onManage,
   onCancelPress,
+  onReactivate,
   busy,
 }: {
   details: SubscriptionDetails;
@@ -388,6 +435,7 @@ function PlanState({
   onUpgrade: () => void;
   onManage: () => void;
   onCancelPress: () => void;
+  onReactivate: () => void;
   busy: boolean;
 }) {
   const colors = useColors();
@@ -516,10 +564,21 @@ function PlanState({
             </Text>
           </Pressable>
         ) : (
-          <Text style={[styles.cancelingNote, { color: colors.mutedForeground }]}>
-            Your plan is set to cancel. You still have access until the date
-            above.
-          </Text>
+          <>
+            <ChunkyButton
+              title="Reactivate my plan"
+              icon="rotate-ccw"
+              onPress={onReactivate}
+              disabled={busy}
+              style={{ alignSelf: 'stretch' }}
+            />
+            <Text
+              style={[styles.cancelingNote, { color: colors.mutedForeground }]}
+            >
+              Your plan is set to cancel. Reactivate before the date above to
+              keep your access.
+            </Text>
+          </>
         )}
       </View>
     </View>

@@ -250,6 +250,61 @@ describe('SubscriptionScreen', () => {
     expect(screen.getByText('Expired')).toBeOnTheScreen();
   });
 
+  it('lets a canceling store subscriber reactivate through the resume path', async () => {
+    mockState.sub = successQuery(
+      detailsFixture({ cancelAtPeriodEnd: true, status: 'canceled' }),
+    );
+    render(<SubscriptionScreen />);
+
+    fireEvent.press(screen.getByText('Reactivate my plan'));
+
+    await waitFor(() =>
+      expect(mockState.retention.mutateAsync).toHaveBeenCalled(),
+    );
+    expect(mockQueryClient.setQueryData).toHaveBeenCalled();
+    // A store reactivation stays in-app; it does not deep-link out.
+    expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the store when the resume path is already spent', async () => {
+    mockState.retention = {
+      mutateAsync: jest.fn().mockRejectedValue(new Error('already redeemed')),
+      isPending: false,
+    };
+    mockState.sub = successQuery(
+      detailsFixture({
+        cancelAtPeriodEnd: true,
+        status: 'canceled',
+        retentionOfferAcceptedAt: '2026-06-01T00:00:00.000Z',
+      }),
+    );
+    render(<SubscriptionScreen />);
+
+    fireEvent.press(screen.getByText('Reactivate my plan'));
+
+    await waitFor(() => expect(Linking.openURL).toHaveBeenCalled());
+  });
+
+  it('sends a canceling Stripe subscriber to the web portal to reactivate', async () => {
+    mockState.sub = successQuery(
+      detailsFixture({
+        provider: 'stripe',
+        cancelAtPeriodEnd: true,
+        status: 'canceled',
+        paymentMethod: { store: null, managementUrl: 'https://billing.example/portal' },
+      }),
+    );
+    render(<SubscriptionScreen />);
+
+    fireEvent.press(screen.getByText('Reactivate my plan'));
+
+    await waitFor(() =>
+      expect(Linking.openURL).toHaveBeenCalledWith('https://billing.example/portal'),
+    );
+    // Stripe reactivation must not touch the DB-only resume endpoint.
+    expect(mockState.retention.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('hides in-app retention offers for a Stripe (web) subscriber', () => {
     mockState.sub = successQuery(detailsFixture({ provider: 'stripe' }));
     render(<SubscriptionScreen />);
