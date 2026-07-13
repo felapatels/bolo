@@ -24,11 +24,11 @@ const USER_A = "test_friends_a";
 const USER_B = "test_friends_b";
 const USER_C = "test_friends_c";
 const ALL_USERS = [USER_A, USER_B, USER_C];
-const EMAIL = {
+const EMAIL: Record<string, string> = {
   [USER_A]: "friends-a@example.test",
   [USER_B]: "friends-b@example.test",
   [USER_C]: "friends-c@example.test",
-} as const;
+};
 const LANG = "__test_lang_friends";
 
 let app: Express;
