@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getListBadgesQueryKey } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { BadgesGallery } from '@/components/BadgesGallery';
+import { NextBadgeSpotlight } from '@/components/NextBadgeSpotlight';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -66,6 +67,7 @@ export default function BadgesScreen() {
         <Text style={[styles.sub, { color: colors.mutedForeground }]}>
           {activeLanguage?.name ?? 'Loading...'}
         </Text>
+        <NextBadgeSpotlight lang={activeLang} />
         <BadgesGallery lang={activeLang} />
       </ScrollView>
     </Screen>
