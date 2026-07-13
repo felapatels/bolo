@@ -100,12 +100,36 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     target: 7,
   },
   {
+    key: "streak_14",
+    title: "Fortnight Fire",
+    description: "Practice 14 days in a row.",
+    iconName: "Sunrise",
+    metric: "currentStreakDays",
+    target: 14,
+  },
+  {
     key: "streak_30",
     title: "Unstoppable",
     description: "Practice 30 days in a row.",
     iconName: "Zap",
     metric: "currentStreakDays",
     target: 30,
+  },
+  {
+    key: "streak_60",
+    title: "Summit Seeker",
+    description: "Practice 60 days in a row.",
+    iconName: "Mountain",
+    metric: "currentStreakDays",
+    target: 60,
+  },
+  {
+    key: "streak_100",
+    title: "Century Club",
+    description: "Practice 100 days in a row.",
+    iconName: "Infinity",
+    metric: "currentStreakDays",
+    target: 100,
   },
   // XP milestones
   {

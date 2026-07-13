@@ -22,6 +22,9 @@ const BADGE_ICONS: Record<string, MCIName> = {
   Rocket: 'rocket-launch',
   Trophy: 'trophy',
   Medal: 'medal',
+  Sunrise: 'weather-sunset-up',
+  Mountain: 'terrain',
+  Infinity: 'infinity',
 };
 
 export function badgeIcon(iconName: string): MCIName {

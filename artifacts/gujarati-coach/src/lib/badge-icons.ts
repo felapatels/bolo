@@ -12,6 +12,9 @@ import {
   Rocket,
   Trophy,
   Medal,
+  Sunrise,
+  Mountain,
+  Infinity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +34,9 @@ export const badgeIconMap: Record<string, LucideIcon> = {
   Rocket,
   Trophy,
   Medal,
+  Sunrise,
+  Mountain,
+  Infinity,
 };
 
 export function getBadgeIcon(iconName: string): LucideIcon {
