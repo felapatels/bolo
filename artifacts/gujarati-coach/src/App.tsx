@@ -23,6 +23,7 @@ import Progress from '@/pages/progress';
 import Friends from '@/pages/friends';
 import Upgrade from '@/pages/upgrade';
 import Privacy from '@/pages/privacy';
+import Terms from '@/pages/terms';
 import NotFound from '@/pages/not-found';
 
 // REQUIRED — copy verbatim. Resolves the key from window.location.hostname so the
@@ -159,6 +160,7 @@ function AppRouter() {
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route path="/app">
         <Guard>
           <Home />

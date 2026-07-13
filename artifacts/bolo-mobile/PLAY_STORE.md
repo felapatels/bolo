@@ -63,6 +63,31 @@ pronunciation scoring, learning progress), how it is used, that audio is not
 shared with third parties or retained beyond scoring, and how to contact us /
 delete data.
 
+## 2b. Terms of Service (recommended)
+
+App stores expect a Terms of Service / EULA in addition to the privacy policy,
+especially for apps with paid subscriptions (Bolo! Plus). The terms are hosted
+on the Bolo! web app (`artifacts/gujarati-coach`) at the public route
+**`/terms`** — served for both signed-in and signed-out visitors, so it works
+as a public link.
+
+| Environment | URL |
+| --- | --- |
+| Production (use this in the store listings) | `https://<your-deployed-web-domain>/terms` |
+| Replit dev preview | `https://<REPLIT_DEV_DOMAIN>/terms` |
+
+Replace `<your-deployed-web-domain>` with the domain the Bolo! web artifact is
+published to. Paste that URL into:
+
+- **Play Console** → Store listing → (App details / EULA where a terms URL is
+  requested) and into the app's subscription/paid-content details
+- **App Store Connect** → App Information → **License Agreement** (or use the
+  standard Apple EULA), and reference it in the subscription metadata
+
+The terms cover acceptable use, subscription and billing terms (auto-renewal,
+cancellation, refunds, app-store billing), disclaimers and limitation of
+liability, and how to contact us.
+
 ## 3. Listing assets (`assets/store/android/`)
 
 | Asset | File | Spec | Status |
