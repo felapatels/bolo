@@ -57,9 +57,9 @@ export default function Landing() {
             transition={{ duration: 0.5, delay: 0.05 }}
             className="text-5xl sm:text-6xl font-black text-foreground leading-[1.05] tracking-tight max-w-3xl mx-auto"
           >
-            Learn to speak,
+            One app.
             <br />
-            one word at a time.
+            All 22 official Indian languages.
           </motion.h1>
 
           <motion.p
@@ -68,8 +68,9 @@ export default function Landing() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-lg sm:text-xl text-muted-foreground font-medium mt-6 max-w-xl mx-auto"
           >
-            Bolo! listens as you say each phrase out loud, then coaches your
-            pronunciation with friendly, kid-ready feedback.
+            Learn to speak, one word at a time. Bolo! listens as you say each
+            phrase out loud, then coaches your pronunciation with friendly,
+            kid-ready feedback.
           </motion.p>
 
           <motion.div
