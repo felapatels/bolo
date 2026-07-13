@@ -6,3 +6,4 @@ export * from "./lessons";
 export * from "./phrases";
 export * from "./attempts";
 export * from "./badges";
+export * from "./friendships";

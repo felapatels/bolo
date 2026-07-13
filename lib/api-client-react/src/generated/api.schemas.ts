@@ -270,6 +270,68 @@ export interface ProgressAnalytics {
   daily: DailyActivity[];
 }
 
+/**
+ * A learner's public identity for friends features.
+ */
+export interface UserSummary {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+}
+
+export interface SendFriendRequestInput {
+  /** The exact email of the learner to send a request to. */
+  email: string;
+}
+
+/**
+ * A pending friend request plus the other learner's identity.
+ */
+export interface FriendRequest {
+  id: number;
+  /** Always "pending" for a request. */
+  status: string;
+  createdAt: string;
+  user: UserSummary;
+}
+
+/**
+ * The result of accepting a request — a now-mutual friendship.
+ */
+export interface AcceptedFriendship {
+  id: number;
+  /** Always "accepted". */
+  status: string;
+  friend: UserSummary;
+}
+
+/**
+ * An accepted friend in the caller's friends list.
+ */
+export interface Friend {
+  friendshipId: number;
+  /** When the friendship was accepted. */
+  since?: string | null;
+  id: string;
+  displayName: string | null;
+  email: string | null;
+}
+
+/**
+ * One learner's standing on the friends leaderboard.
+ */
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  /** Total XP summed across every language. */
+  xp: number;
+  /** 1-based rank, highest XP first. */
+  rank: number;
+  /** True for the caller's own entry. */
+  isSelf: boolean;
+}
+
 export type ListCategoriesParams = {
 lang: string;
 };
@@ -293,5 +355,9 @@ lang: string;
 
 export type GetProgressAnalyticsParams = {
 lang: string;
+};
+
+export type SearchFriendByEmailParams = {
+email: string;
 };
 

@@ -347,6 +347,138 @@ export const SetChosenLanguageResponse = zod.object({
 
 
 /**
+ * Looks up a single learner by their exact email address so the caller can send them a friend request. The caller is never returned. Available to all authenticated learners.
+ * @summary Find a learner by their exact email
+ */
+export const SearchFriendByEmailQueryParams = zod.object({
+  "email": zod.coerce.string()
+})
+
+export const SearchFriendByEmailResponse = zod.object({
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('A learner\'s public identity for friends features.')
+
+
+/**
+ * @summary Send a friend request to a learner by email
+ */
+export const SendFriendRequestBody = zod.object({
+  "email": zod.string().describe('The exact email of the learner to send a request to.')
+})
+
+export const SendFriendRequestResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string().describe('Always \"pending\" for a request.'),
+  "createdAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('A learner\'s public identity for friends features.')
+}).describe('A pending friend request plus the other learner\'s identity.')
+
+
+/**
+ * @summary Pending friend requests awaiting the caller's response
+ */
+export const ListIncomingFriendRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "status": zod.string().describe('Always \"pending\" for a request.'),
+  "createdAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('A learner\'s public identity for friends features.')
+}).describe('A pending friend request plus the other learner\'s identity.')
+export const ListIncomingFriendRequestsResponse = zod.array(ListIncomingFriendRequestsResponseItem)
+
+
+/**
+ * @summary The caller's pending friend requests still awaiting the other learner
+ */
+export const ListOutgoingFriendRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "status": zod.string().describe('Always \"pending\" for a request.'),
+  "createdAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('A learner\'s public identity for friends features.')
+}).describe('A pending friend request plus the other learner\'s identity.')
+export const ListOutgoingFriendRequestsResponse = zod.array(ListOutgoingFriendRequestsResponseItem)
+
+
+/**
+ * @summary Accept a pending friend request
+ */
+export const AcceptFriendRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcceptFriendRequestResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string().describe('Always \"accepted\".'),
+  "friend": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('A learner\'s public identity for friends features.')
+}).describe('The result of accepting a request — a now-mutual friendship.')
+
+
+/**
+ * @summary Decline a pending friend request
+ */
+export const DeclineFriendRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeclineFriendRequestResponse = zod.void()
+
+
+/**
+ * @summary The caller's accepted friends
+ */
+export const ListFriendsResponseItem = zod.object({
+  "friendshipId": zod.number(),
+  "since": zod.coerce.date().nullish().describe('When the friendship was accepted.'),
+  "id": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable()
+}).describe('An accepted friend in the caller\'s friends list.')
+export const ListFriendsResponse = zod.array(ListFriendsResponseItem)
+
+
+/**
+ * @summary Remove an accepted friendship
+ */
+export const RemoveFriendParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const RemoveFriendResponse = zod.void()
+
+
+/**
+ * Returns the caller plus their accepted friends ranked by total XP (summed across every language), highest first. Each entry carries a display name, XP, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Available to all authenticated learners.
+ * @summary The caller and their friends ranked by total XP
+ */
+export const GetFriendsLeaderboardResponseItem = zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "xp": zod.number().describe('Total XP summed across every language.'),
+  "rank": zod.number().describe('1-based rank, highest XP first.'),
+  "isSelf": zod.boolean().describe('True for the caller\'s own entry.')
+}).describe('One learner\'s standing on the friends leaderboard.')
+export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResponseItem)
+
+
+/**
  * @summary Convert text to spoken audio
  */
 

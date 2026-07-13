@@ -4,6 +4,7 @@ import languagesRouter from "./languages";
 import learningRouter from "./learning";
 import openaiRouter from "./openai";
 import entitlementsRouter from "./entitlements";
+import friendsRouter from "./friends";
 import revenuecatRouter from "./revenuecat";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -26,6 +27,9 @@ router.use(revenuecatRouter);
 router.use(requireAuth);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);
+// Friends & the friends leaderboard stay available to all authenticated
+// learners (not gated behind Bolo! Plus), so this sits before the gated routers.
+router.use(friendsRouter);
 router.use(learningRouter);
 router.use(openaiRouter);
 

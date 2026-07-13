@@ -14,6 +14,8 @@ tags:
     description: Languages, categories, phrases, attempts and progress
   - name: openai
     description: OpenAI AI audio and content operations
+  - name: friends
+    description: Friends, friend requests, and the friends leaderboard
 paths:
   /healthz:
     get:
@@ -390,6 +392,211 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /friends/search:
+    get:
+      operationId: searchFriendByEmail
+      tags: [friends]
+      summary: Find a learner by their exact email
+      description: >-
+        Looks up a single learner by their exact email address so the caller can
+        send them a friend request. The caller is never returned. Available to
+        all authenticated learners.
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The matching learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSummary"
+        "400":
+          description: Missing email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No learner found with that email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /friends/requests:
+    post:
+      operationId: sendFriendRequest
+      tags: [friends]
+      summary: Send a friend request to a learner by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendFriendRequestInput"
+      responses:
+        "201":
+          description: The created pending request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRequest"
+        "400":
+          description: Missing email or an attempt to friend yourself
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No learner found with that email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: A request or friendship already exists between the two learners
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /friends/requests/incoming:
+    get:
+      operationId: listIncomingFriendRequests
+      tags: [friends]
+      summary: Pending friend requests awaiting the caller's response
+      responses:
+        "200":
+          description: Incoming pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendRequest"
+
+  /friends/requests/outgoing:
+    get:
+      operationId: listOutgoingFriendRequests
+      tags: [friends]
+      summary: The caller's pending friend requests still awaiting the other learner
+      responses:
+        "200":
+          description: Outgoing pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendRequest"
+
+  /friends/requests/{id}/accept:
+    post:
+      operationId: acceptFriendRequest
+      tags: [friends]
+      summary: Accept a pending friend request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The now-accepted friendship
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptedFriendship"
+        "404":
+          description: Request not found or not addressed to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /friends/requests/{id}/decline:
+    post:
+      operationId: declineFriendRequest
+      tags: [friends]
+      summary: Decline a pending friend request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Request declined and removed
+        "404":
+          description: Request not found or not addressed to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /friends:
+    get:
+      operationId: listFriends
+      tags: [friends]
+      summary: The caller's accepted friends
+      responses:
+        "200":
+          description: Accepted friends
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Friend"
+
+  /friends/{userId}:
+    delete:
+      operationId: removeFriend
+      tags: [friends]
+      summary: Remove an accepted friendship
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Friendship removed
+        "404":
+          description: Friendship not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /friends/leaderboard:
+    get:
+      operationId: getFriendsLeaderboard
+      tags: [friends]
+      summary: The caller and their friends ranked by total XP
+      description: >-
+        Returns the caller plus their accepted friends ranked by total XP
+        (summed across every language), highest first. Each entry carries a
+        display name, XP, and 1-based rank, and the caller's own entry is flagged
+        with `isSelf` so clients can highlight their position. Available to all
+        authenticated learners.
+      responses:
+        "200":
+          description: The friends leaderboard, ranked highest XP first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
 
   /openai/tts:
     post:
@@ -1055,3 +1262,119 @@ components:
         - reviewDueCount
         - categories
         - daily
+
+    UserSummary:
+      type: object
+      description: A learner's public identity for friends features.
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+      required:
+        - id
+        - displayName
+        - email
+
+    SendFriendRequestInput:
+      type: object
+      properties:
+        email:
+          type: string
+          description: The exact email of the learner to send a request to.
+      required:
+        - email
+
+    FriendRequest:
+      type: object
+      description: A pending friend request plus the other learner's identity.
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          description: Always "pending" for a request.
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserSummary"
+      required:
+        - id
+        - status
+        - createdAt
+        - user
+
+    AcceptedFriendship:
+      type: object
+      description: The result of accepting a request — a now-mutual friendship.
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          description: Always "accepted".
+        friend:
+          $ref: "#/components/schemas/UserSummary"
+      required:
+        - id
+        - status
+        - friend
+
+    Friend:
+      type: object
+      description: An accepted friend in the caller's friends list.
+      properties:
+        friendshipId:
+          type: integer
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the friendship was accepted.
+        id:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+      required:
+        - friendshipId
+        - id
+        - displayName
+        - email
+
+    LeaderboardEntry:
+      type: object
+      description: One learner's standing on the friends leaderboard.
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        xp:
+          type: integer
+          description: Total XP summed across every language.
+        rank:
+          type: integer
+          description: 1-based rank, highest XP first.
+        isSelf:
+          type: boolean
+          description: True for the caller's own entry.
+      required:
+        - userId
+        - displayName
+        - email
+        - xp
+        - rank
+        - isSelf

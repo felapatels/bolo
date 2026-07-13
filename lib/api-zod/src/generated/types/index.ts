@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './acceptedFriendship';
 export * from './addPhrasesInput';
 export * from './attempt';
 export * from './attemptInput';
@@ -19,11 +20,14 @@ export * from './earnedBadge';
 export * from './entitlementLimits';
 export * from './entitlements';
 export * from './error';
+export * from './friend';
+export * from './friendRequest';
 export * from './generatedPhrase';
 export * from './getProgressAnalyticsParams';
 export * from './getProgressSummaryParams';
 export * from './healthStatus';
 export * from './language';
+export * from './leaderboardEntry';
 export * from './listBadgesParams';
 export * from './listCategoriesParams';
 export * from './listRecentAttemptsParams';
@@ -35,7 +39,10 @@ export * from './progressAnalytics';
 export * from './progressSummary';
 export * from './pronunciationInput';
 export * from './pronunciationResult';
+export * from './searchFriendByEmailParams';
+export * from './sendFriendRequestInput';
 export * from './setChosenLanguageInput';
 export * from './speechInput';
 export * from './speechResult';
 export * from './upgradeRequired';
+export * from './userSummary';

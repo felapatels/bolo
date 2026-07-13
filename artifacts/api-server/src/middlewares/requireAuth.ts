@@ -1,10 +1,11 @@
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { db, usersTable } from "@workspace/db";
+import { ensureLocalUser } from "../lib/userIdentity";
 
 // Adds the authenticated Clerk user id to the request after verifying the
-// session. Also provisions a local `users` row just-in-time so attempts can
-// reference it via foreign key.
+// session. Also provisions a local `users` row just-in-time (capturing the
+// caller's display name + email from Clerk) so attempts can reference it via
+// foreign key and friends can be found and shown by name.
 export interface AuthedRequest extends Request {
   userId: string;
 }
@@ -22,11 +23,9 @@ export async function requireAuth(
       return;
     }
 
-    // Just-in-time provision the local mirror row (no-op if it exists).
-    await db
-      .insert(usersTable)
-      .values({ id: userId })
-      .onConflictDoNothing();
+    // Just-in-time provision the local mirror row and capture the caller's
+    // display name + email from Clerk (backfilling older rows that lack them).
+    await ensureLocalUser(userId);
 
     (req as AuthedRequest).userId = userId;
     next();
