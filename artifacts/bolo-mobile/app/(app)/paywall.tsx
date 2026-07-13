@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -9,25 +10,35 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PurchasesPackage } from 'react-native-purchases';
-import { getGetEntitlementsQueryKey } from '@workspace/api-client-react';
+import {
+  getGetEntitlementsQueryKey,
+  useSetChosenLanguage,
+} from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import {
   usePurchases,
   isTestPurchaseRuntime,
+  type PurchaseTier,
 } from '@/contexts/PurchasesContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts } from '@/constants/fonts';
+import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 
-const BENEFITS: {
+// Hindi is always free, so it is never a One-Language "chosen" language.
+const FREE_LANGUAGE = 'hi';
+
+type Benefit = {
   icon: keyof typeof Feather.glyphMap;
   title: string;
   desc: string;
-}[] = [
+};
+
+const ALL_ACCESS_BENEFITS: Benefit[] = [
   {
     icon: 'globe',
     title: 'Every language',
@@ -55,6 +66,21 @@ const BENEFITS: {
   },
 ];
 
+function oneLanguageBenefits(chosenName: string | null): Benefit[] {
+  return [
+    {
+      icon: 'globe',
+      title: chosenName ? `${chosenName} + Hindi` : 'One language + Hindi',
+      desc: 'Unlock the language you choose, on top of free Hindi.',
+    },
+    {
+      icon: 'zap',
+      title: 'Unlimited lessons',
+      desc: 'No daily cap — practice as much as you like.',
+    },
+  ];
+}
+
 const UNIT_WORDS: Record<string, string> = {
   DAY: 'day',
   WEEK: 'week',
@@ -77,8 +103,10 @@ export default function PaywallScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const {
-    monthlyPackage,
-    annualPackage,
+    allAccessMonthly,
+    allAccessAnnual,
+    oneLanguageMonthly,
+    oneLanguageAnnual,
     isConfigured,
     isReady,
     isPurchasing,
@@ -86,19 +114,97 @@ export default function PaywallScreen() {
     purchase,
     restore,
   } = usePurchases();
-  const { isPlus } = useEntitlements();
+  const { plan, isPlus, chosenLanguage } = useEntitlements();
+  const { languages, activeLang } = useLanguage();
+  const setChosenLanguage = useSetChosenLanguage();
 
-  const [selected, setSelected] = useState<'annual' | 'monthly'>('annual');
+  // A locked language tapped elsewhere lands here as ?lang=<code>, so we can
+  // open on the One-Language tier with that language pre-selected.
+  const params = useLocalSearchParams<{ lang?: string }>();
+  const requestedLang =
+    typeof params.lang === 'string' && params.lang !== FREE_LANGUAGE
+      ? params.lang
+      : null;
+
+  const hasOneLanguage = !!(oneLanguageMonthly || oneLanguageAnnual);
+  const hasAllAccess = !!(allAccessMonthly || allAccessAnnual);
+  const hasOfferings = hasOneLanguage || hasAllAccess;
+
+  // A One-Language subscriber can only meaningfully move to all-access; a Free
+  // learner may choose either tier. A tapped locked language opens on the
+  // One-Language tier; otherwise all-access is the default emphasis.
+  const [tier, setTier] = useState<PurchaseTier>(
+    requestedLang ? 'one_language' : 'all_access',
+  );
+  const [interval, setInterval] = useState<'annual' | 'monthly'>('annual');
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [langPickerVisible, setLangPickerVisible] = useState(false);
   const [status, setStatus] = useState<{
     kind: 'error' | 'success' | 'info';
     text: string;
   } | null>(null);
 
-  const selectedPackage =
-    selected === 'annual' ? annualPackage : monthlyPackage;
-  const hasOfferings = !!(monthlyPackage || annualPackage);
-  const trial = trialLabel(selectedPackage ?? annualPackage ?? monthlyPackage);
+  // The languages a One-Language buyer can pick from: everything except free
+  // Hindi. Once on the middle tier, the choice is locked to the server value.
+  const choosableLanguages = useMemo(
+    () => languages.filter((l) => l.code !== FREE_LANGUAGE),
+    [languages],
+  );
+
+  const [chosenLangCode, setChosenLangCode] = useState<string | null>(
+    chosenLanguage ??
+      requestedLang ??
+      (activeLang !== FREE_LANGUAGE ? activeLang : null),
+  );
+
+  // Keep the tier valid for what the store actually exposes and the caller's
+  // plan (a One-Language subscriber can only buy all-access).
+  useEffect(() => {
+    if (plan === 'one_language') {
+      setTier('all_access');
+      return;
+    }
+    if (!hasAllAccess && hasOneLanguage) setTier('one_language');
+    else if (!hasOneLanguage && hasAllAccess) setTier('all_access');
+  }, [plan, hasAllAccess, hasOneLanguage]);
+
+  // Once on the middle tier the language is fixed to the server's record.
+  useEffect(() => {
+    if (plan === 'one_language' && chosenLanguage) {
+      setChosenLangCode(chosenLanguage);
+    }
+  }, [plan, chosenLanguage]);
+
+  // Default a One-Language pick once the language list arrives.
+  useEffect(() => {
+    if (!chosenLangCode && choosableLanguages.length > 0) {
+      setChosenLangCode(choosableLanguages[0].code);
+    }
+  }, [chosenLangCode, choosableLanguages]);
+
+  const canSwitchLanguage = plan !== 'one_language';
+  const chosenLangName =
+    languages.find((l) => l.code === chosenLangCode)?.name ?? null;
+
+  const benefits =
+    tier === 'all_access'
+      ? ALL_ACCESS_BENEFITS
+      : oneLanguageBenefits(chosenLangName);
+
+  const monthlyPackage =
+    tier === 'all_access' ? allAccessMonthly : oneLanguageMonthly;
+  const annualPackage =
+    tier === 'all_access' ? allAccessAnnual : oneLanguageAnnual;
+  const selectedPackage = interval === 'annual' ? annualPackage : monthlyPackage;
+
+  // The 7-day trial applies to all-access only.
+  const trial =
+    tier === 'all_access'
+      ? trialLabel(selectedPackage ?? annualPackage ?? monthlyPackage)
+      : null;
+
+  const showTierToggle =
+    plan === 'free' && hasOneLanguage && hasAllAccess;
 
   const close = useCallback(() => router.back(), [router]);
 
@@ -106,7 +212,7 @@ export default function PaywallScreen() {
   // truth for the plan, so after a purchase we invalidate every query to pull
   // the freshly-unlocked entitlements and gated content, then close.
   const onUnlocked = useCallback(async () => {
-    setStatus({ kind: 'success', text: 'You’re Plus! Unlocking everything…' });
+    setStatus({ kind: 'success', text: 'You’re in! Unlocking everything…' });
     await queryClient.refetchQueries({ queryKey: getGetEntitlementsQueryKey() });
     await queryClient.invalidateQueries();
     setTimeout(close, 1100);
@@ -117,6 +223,18 @@ export default function PaywallScreen() {
       setStatus(null);
       const outcome = await purchase(pkg);
       if (outcome === 'success') {
+        // Record the chosen language for the middle tier so entitlements
+        // resolve to Hindi + that language. Best-effort: a locked (409) choice
+        // just means it's already set; either way we refetch the server truth.
+        if (tier === 'one_language' && chosenLangCode) {
+          try {
+            await setChosenLanguage.mutateAsync({
+              data: { language: chosenLangCode },
+            });
+          } catch {
+            // Non-fatal — the store webhook reconciles the language server-side.
+          }
+        }
         await onUnlocked();
       } else if (outcome === 'error') {
         setStatus({
@@ -126,11 +244,16 @@ export default function PaywallScreen() {
       }
       // 'cancelled' — silently return to the paywall.
     },
-    [purchase, onUnlocked],
+    [purchase, onUnlocked, tier, chosenLangCode, setChosenLanguage],
   );
 
   const onSubscribe = useCallback(() => {
     if (!selectedPackage) return;
+    // A One-Language purchase needs a concrete language locked in first.
+    if (tier === 'one_language' && !chosenLangCode) {
+      setLangPickerVisible(true);
+      return;
+    }
     // Guard test/sandbox purchases behind an explicit confirm (custom modal, not
     // a system alert) so a tap can't accidentally trigger a store purchase.
     if (isTestPurchaseRuntime()) {
@@ -138,7 +261,7 @@ export default function PaywallScreen() {
       return;
     }
     runPurchase(selectedPackage);
-  }, [selectedPackage, runPurchase]);
+  }, [selectedPackage, tier, chosenLangCode, runPurchase]);
 
   const onRestore = useCallback(async () => {
     setStatus(null);
@@ -155,6 +278,15 @@ export default function PaywallScreen() {
 
   const busy = isPurchasing || isRestoring;
 
+  const ctaTitle =
+    plan === 'one_language'
+      ? 'Upgrade to all-access'
+      : trial
+        ? 'Start free trial'
+        : 'Subscribe';
+
+  const brandTitle = tier === 'all_access' ? 'Bolo! Plus' : 'One Language';
+
   return (
     <Screen padTop={false}>
       <View style={styles.header}>
@@ -163,7 +295,7 @@ export default function PaywallScreen() {
             <Feather name="star" size={16} color="#1a1200" />
           </View>
           <Text style={[styles.brand, { color: colors.foreground }]}>
-            Bolo! Plus
+            {brandTitle}
           </Text>
         </View>
         <Pressable
@@ -180,59 +312,166 @@ export default function PaywallScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.headline, { color: colors.foreground }]}>
-          Learn faster, in every language
+          {tier === 'all_access'
+            ? 'Learn faster, in every language'
+            : 'Go all-in on one language'}
         </Text>
         <Text style={[styles.subhead, { color: colors.mutedForeground }]}>
-          Unlock the full Bolo! experience.
+          {tier === 'all_access'
+            ? 'Unlock the full Bolo! experience.'
+            : 'Unlimited lessons in Hindi plus the language you choose.'}
         </Text>
 
-        {/* Benefits */}
-        <View style={{ marginTop: 20, marginBottom: 24, gap: 14 }}>
-          {BENEFITS.map((b) => (
-            <View key={b.title} style={styles.benefitRow}>
-              <View
-                style={[
-                  styles.benefitIcon,
-                  { backgroundColor: `${colors.primary}1A` },
-                ]}
-              >
-                <Feather name={b.icon} size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.benefitTitle, { color: colors.foreground }]}
-                >
-                  {b.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.benefitDesc,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {b.desc}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
+        {/* Plan is decided server-side; render the matching state. */}
         {isPlus ? (
           <View
             style={[
               styles.plusState,
-              { backgroundColor: `${colors.success}1A`, borderColor: colors.success },
+              {
+                backgroundColor: `${colors.success}1A`,
+                borderColor: colors.success,
+              },
             ]}
           >
             <Feather name="check-circle" size={22} color={colors.success} />
             <Text style={[styles.plusStateText, { color: colors.foreground }]}>
-              You’re already a Plus member. Everything’s unlocked!
+              You’re on all-access. Everything’s unlocked!
             </Text>
           </View>
         ) : isConfigured && !isReady ? (
-          <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+          <ActivityIndicator
+            color={colors.primary}
+            style={{ marginVertical: 24 }}
+          />
         ) : hasOfferings ? (
           <>
+            {plan === 'one_language' ? (
+              <View
+                style={[
+                  styles.currentPlanNote,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Feather name="check-circle" size={20} color={colors.success} />
+                <Text
+                  style={[styles.currentPlanText, { color: colors.foreground }]}
+                >
+                  You’re on One Language
+                  {chosenLangName ? ` (${chosenLangName})` : ''}. Upgrade to
+                  all-access for every language, review & analytics.
+                </Text>
+              </View>
+            ) : showTierToggle ? (
+              <View style={styles.tierToggle}>
+                <TierCard
+                  label="One Language"
+                  priceHint={
+                    oneLanguageMonthly
+                      ? `${oneLanguageMonthly.product.priceString}/mo`
+                      : 'From $6.99/mo'
+                  }
+                  selected={tier === 'one_language'}
+                  onPress={() => setTier('one_language')}
+                />
+                <TierCard
+                  label="All-Access"
+                  priceHint={
+                    allAccessMonthly
+                      ? `${allAccessMonthly.product.priceString}/mo`
+                      : 'Best value'
+                  }
+                  selected={tier === 'all_access'}
+                  onPress={() => setTier('all_access')}
+                />
+              </View>
+            ) : null}
+
+            {/* Benefits for the selected tier */}
+            <View style={{ marginTop: 20, marginBottom: 20, gap: 14 }}>
+              {benefits.map((b) => (
+                <View key={b.title} style={styles.benefitRow}>
+                  <View
+                    style={[
+                      styles.benefitIcon,
+                      { backgroundColor: `${colors.primary}1A` },
+                    ]}
+                  >
+                    <Feather name={b.icon} size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.benefitTitle, { color: colors.foreground }]}
+                    >
+                      {b.title}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benefitDesc,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {b.desc}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* One-Language: which language you're subscribing to */}
+            {tier === 'one_language' ? (
+              <Pressable
+                onPress={
+                  canSwitchLanguage
+                    ? () => setLangPickerVisible(true)
+                    : undefined
+                }
+                disabled={!canSwitchLanguage}
+                style={[
+                  styles.langSelect,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.langSelectIcon,
+                    { backgroundColor: `${colors.primary}1A` },
+                  ]}
+                >
+                  <Feather name="globe" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.langSelectLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {canSwitchLanguage
+                      ? 'Your language (locked in once you subscribe)'
+                      : 'Your language (locked for this subscription)'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.langSelectName,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {chosenLangName ?? 'Choose a language'}
+                  </Text>
+                </View>
+                {canSwitchLanguage ? (
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                ) : (
+                  <Feather name="lock" size={18} color={colors.mutedForeground} />
+                )}
+              </Pressable>
+            ) : null}
+
+            {/* Interval options with live store prices */}
             {annualPackage ? (
               <PlanOption
                 label="Annual"
@@ -240,8 +479,8 @@ export default function PaywallScreen() {
                 period="per year"
                 best
                 monthlyEquivalent={perMonthString(annualPackage)}
-                selected={selected === 'annual'}
-                onPress={() => setSelected('annual')}
+                selected={interval === 'annual'}
+                onPress={() => setInterval('annual')}
               />
             ) : null}
             {monthlyPackage ? (
@@ -249,8 +488,8 @@ export default function PaywallScreen() {
                 label="Monthly"
                 priceString={monthlyPackage.product.priceString}
                 period="per month"
-                selected={selected === 'monthly'}
-                onPress={() => setSelected('monthly')}
+                selected={interval === 'monthly'}
+                onPress={() => setInterval('monthly')}
               />
             ) : null}
 
@@ -279,7 +518,7 @@ export default function PaywallScreen() {
             ) : null}
 
             <ChunkyButton
-              title={trial ? 'Start free trial' : 'Subscribe'}
+              title={ctaTitle}
               icon="unlock"
               onPress={onSubscribe}
               loading={isPurchasing}
@@ -323,6 +562,91 @@ export default function PaywallScreen() {
         )}
       </ScrollView>
 
+      {/* One-Language language picker */}
+      <Modal
+        visible={langPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLangPickerVisible(false)}
+      >
+        <View style={styles.sheetScrim}>
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                Choose your language
+              </Text>
+              <Pressable
+                accessibilityLabel="Close"
+                onPress={() => setLangPickerVisible(false)}
+                style={[styles.closeBtn, { backgroundColor: colors.muted }]}
+              >
+                <Feather name="x" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+            <Text style={[styles.sheetHint, { color: colors.mutedForeground }]}>
+              This is locked in for your subscription. Hindi is always included
+              free.
+            </Text>
+            <FlatList
+              data={choosableLanguages}
+              keyExtractor={(l) => l.code}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const active = item.code === chosenLangCode;
+                return (
+                  <Pressable
+                    onPress={() => {
+                      setChosenLangCode(item.code);
+                      setLangPickerVisible(false);
+                    }}
+                    style={[
+                      styles.langRow,
+                      {
+                        backgroundColor: active
+                          ? `${colors.primary}14`
+                          : colors.card,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          nativeTextStyle(item, { bold: true }),
+                          styles.langRowNative,
+                          { color: colors.foreground },
+                        ]}
+                      >
+                        {item.nativeName}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.langRowName,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        {item.name} · {item.script}
+                      </Text>
+                    </View>
+                    <Feather
+                      name={active ? 'check-circle' : 'circle'}
+                      size={22}
+                      color={active ? colors.primary : colors.border}
+                    />
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Custom test-purchase confirmation (never a system Alert). */}
       <Modal
         visible={confirmVisible}
@@ -340,11 +664,13 @@ export default function PaywallScreen() {
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
               Confirm test purchase
             </Text>
-            <Text
-              style={[styles.modalBody, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.modalBody, { color: colors.mutedForeground }]}>
               You’re in a test environment. Continue with a sandbox purchase of{' '}
-              {selectedPackage?.product.priceString ?? 'this plan'}?
+              {selectedPackage?.product.priceString ?? 'this plan'}
+              {tier === 'one_language' && chosenLangName
+                ? ` for ${chosenLangName}`
+                : ''}
+              ?
             </Text>
             <ChunkyButton
               title="Continue"
@@ -380,6 +706,39 @@ function perMonthString(pkg: PurchasesPackage): string {
   } catch {
     return `${perMonth.toFixed(2)}`;
   }
+}
+
+function TierCard({
+  label,
+  priceHint,
+  selected,
+  onPress,
+}: {
+  label: string;
+  priceHint: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.tierCard,
+        {
+          backgroundColor: selected ? `${colors.primary}12` : colors.card,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+      ]}
+    >
+      <Text style={[styles.tierLabel, { color: colors.foreground }]}>
+        {label}
+      </Text>
+      <Text style={[styles.tierHint, { color: colors.mutedForeground }]}>
+        {priceHint}
+      </Text>
+    </Pressable>
+  );
 }
 
 function PlanOption({
@@ -477,6 +836,26 @@ const styles = StyleSheet.create({
   },
   headline: { fontFamily: AppFonts.extrabold, fontSize: 26, lineHeight: 32 },
   subhead: { fontFamily: AppFonts.regular, fontSize: 15, marginTop: 6 },
+  tierToggle: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  tierCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 2,
+    gap: 4,
+  },
+  tierLabel: { fontFamily: AppFonts.bold, fontSize: 16 },
+  tierHint: { fontFamily: AppFonts.semibold, fontSize: 13 },
+  currentPlanNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 20,
+  },
+  currentPlanText: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 14 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   benefitIcon: {
     width: 40,
@@ -487,6 +866,24 @@ const styles = StyleSheet.create({
   },
   benefitTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
   benefitDesc: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 1 },
+  langSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  langSelectIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langSelectLabel: { fontFamily: AppFonts.regular, fontSize: 12 },
+  langSelectName: { fontFamily: AppFonts.bold, fontSize: 16, marginTop: 2 },
   plan: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -541,6 +938,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 20,
     borderWidth: 1.5,
+    marginTop: 20,
   },
   plusStateText: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 15 },
   unavailable: {
@@ -549,6 +947,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 20,
     borderWidth: 1,
+    marginTop: 20,
   },
   unavailableText: {
     fontFamily: AppFonts.regular,
@@ -556,6 +955,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  sheetScrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    maxHeight: '80%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
+  sheetHint: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    marginTop: 6,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 10,
+  },
+  langRowNative: { fontSize: 20 },
+  langRowName: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 3 },
   modalScrim: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

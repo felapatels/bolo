@@ -28,7 +28,14 @@ export default function LanguageModal() {
     router.back();
   };
 
-  const openPaywall = () => router.push('/(app)/paywall');
+  // Route a tapped locked language to the paywall, pre-selecting it so the
+  // learner lands on the right upgrade instead of a generic screen.
+  const openPaywall = (code?: string) =>
+    router.push(
+      code
+        ? { pathname: '/(app)/paywall', params: { lang: code } }
+        : '/(app)/paywall',
+    );
 
   return (
     <Screen padTop={false}>
@@ -64,7 +71,9 @@ export default function LanguageModal() {
                 language={item}
                 active={item.code === activeLang}
                 locked={locked}
-                onPress={() => (locked ? openPaywall() : choose(item.code))}
+                onPress={() =>
+                  locked ? openPaywall(item.code) : choose(item.code)
+                }
               />
             );
           }}

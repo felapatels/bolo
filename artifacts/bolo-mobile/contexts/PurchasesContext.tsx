@@ -17,10 +17,30 @@ import Purchases, {
 import { useAuth } from '@clerk/expo';
 
 /**
- * The RevenueCat entitlement id that maps to Bolo! Plus. Must match the server's
- * REVENUECAT_ENTITLEMENT_ID and the entitlement the seed script creates.
+ * The RevenueCat entitlement id that maps to all-access Bolo! Plus. Must match
+ * the server's REVENUECAT_ENTITLEMENT_ID and the entitlement the seed creates.
+ * Overridable via env so it can track the server without a code change.
  */
-export const PLUS_ENTITLEMENT_ID = 'plus';
+export const PLUS_ENTITLEMENT_ID =
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || 'plus';
+
+/**
+ * The RevenueCat entitlement id for the middle "One Language" ($6.99) tier —
+ * matches the server's REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID.
+ */
+export const ONE_LANGUAGE_ENTITLEMENT_ID =
+  process.env.EXPO_PUBLIC_REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID?.trim() ||
+  'one_language';
+
+/**
+ * The identifier of the RevenueCat offering that carries the One-Language
+ * monthly/annual packages. The all-access packages come from the `current`
+ * offering (unchanged); the middle tier lives in its own offering so the two
+ * price points never collide. Defaults to "one_language".
+ */
+const ONE_LANGUAGE_OFFERING_ID =
+  process.env.EXPO_PUBLIC_REVENUECAT_ONE_LANGUAGE_OFFERING_ID?.trim() ||
+  'one_language';
 
 const TEST_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -54,6 +74,20 @@ export function isTestPurchaseRuntime(): boolean {
 
 export type PurchaseOutcome = 'success' | 'cancelled' | 'error';
 
+/** The two paid tiers the paywall can drive a purchase for. */
+export type PurchaseTier = 'one_language' | 'all_access';
+
+// True when a store purchase left the customer with either paid entitlement
+// active. The server (webhook / reconcile-on-read) remains the source of truth
+// for the exact plan; this only decides whether the store flow "went through".
+function hasAnyEntitlement(info: CustomerInfo): boolean {
+  const active = info.entitlements.active ?? {};
+  return (
+    active[PLUS_ENTITLEMENT_ID] !== undefined ||
+    active[ONE_LANGUAGE_ENTITLEMENT_ID] !== undefined
+  );
+}
+
 // Module-level flags so React Fast Refresh / remounts don't reconfigure the SDK
 // (RevenueCat warns on repeated configure()). Configure once, then logIn on
 // account changes.
@@ -65,12 +99,16 @@ type PurchasesContextValue = {
   isConfigured: boolean;
   /** Offerings have been loaded (or the attempt has completed). */
   isReady: boolean;
-  monthlyPackage: PurchasesPackage | null;
-  annualPackage: PurchasesPackage | null;
+  /** All-access Bolo! Plus packages (from the current offering). */
+  allAccessMonthly: PurchasesPackage | null;
+  allAccessAnnual: PurchasesPackage | null;
+  /** One Language ($6.99) packages (from the one-language offering). */
+  oneLanguageMonthly: PurchasesPackage | null;
+  oneLanguageAnnual: PurchasesPackage | null;
   isPurchasing: boolean;
   isRestoring: boolean;
   purchase: (pkg: PurchasesPackage) => Promise<PurchaseOutcome>;
-  /** Restores prior purchases. Resolves to whether Plus is active afterwards. */
+  /** Restores prior purchases. Resolves to whether a paid tier is active. */
   restore: () => Promise<boolean>;
 };
 
@@ -84,7 +122,10 @@ export function PurchasesProvider({
   const { userId } = useAuth();
   const [isConfigured, setIsConfigured] = useState(sdkConfigured);
   const [isReady, setIsReady] = useState(false);
-  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
+  const [allAccessOffering, setAllAccessOffering] =
+    useState<PurchasesOffering | null>(null);
+  const [oneLanguageOffering, setOneLanguageOffering] =
+    useState<PurchasesOffering | null>(null);
   const [, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -119,16 +160,26 @@ export function PurchasesProvider({
     };
   }, [userId]);
 
-  // Load the current offering + customer info once configured.
+  // Load the offerings + customer info once configured. The all-access packages
+  // come from the current offering; the One-Language packages come from the
+  // dedicated one-language offering (absent → that tier simply isn't shown).
   useEffect(() => {
     if (!isConfigured) return;
     let cancelled = false;
     (async () => {
       try {
         const offerings = await Purchases.getOfferings();
-        if (!cancelled) setOffering(offerings.current ?? null);
+        if (!cancelled) {
+          setAllAccessOffering(offerings.current ?? null);
+          setOneLanguageOffering(
+            offerings.all?.[ONE_LANGUAGE_OFFERING_ID] ?? null,
+          );
+        }
       } catch {
-        if (!cancelled) setOffering(null);
+        if (!cancelled) {
+          setAllAccessOffering(null);
+          setOneLanguageOffering(null);
+        }
       } finally {
         if (!cancelled) setIsReady(true);
       }
@@ -144,8 +195,10 @@ export function PurchasesProvider({
     };
   }, [isConfigured]);
 
-  const monthlyPackage = offering?.monthly ?? null;
-  const annualPackage = offering?.annual ?? null;
+  const allAccessMonthly = allAccessOffering?.monthly ?? null;
+  const allAccessAnnual = allAccessOffering?.annual ?? null;
+  const oneLanguageMonthly = oneLanguageOffering?.monthly ?? null;
+  const oneLanguageAnnual = oneLanguageOffering?.annual ?? null;
 
   const purchase = useCallback(
     async (pkg: PurchasesPackage): Promise<PurchaseOutcome> => {
@@ -153,9 +206,7 @@ export function PurchasesProvider({
       try {
         const { customerInfo: info } = await Purchases.purchasePackage(pkg);
         setCustomerInfo(info);
-        const active =
-          info.entitlements.active?.[PLUS_ENTITLEMENT_ID] !== undefined;
-        return active ? 'success' : 'error';
+        return hasAnyEntitlement(info) ? 'success' : 'error';
       } catch (err) {
         if (err && typeof err === 'object' && 'userCancelled' in err) {
           if ((err as { userCancelled?: boolean }).userCancelled) {
@@ -175,7 +226,7 @@ export function PurchasesProvider({
     try {
       const info = await Purchases.restorePurchases();
       setCustomerInfo(info);
-      return info.entitlements.active?.[PLUS_ENTITLEMENT_ID] !== undefined;
+      return hasAnyEntitlement(info);
     } catch {
       return false;
     } finally {
@@ -187,8 +238,10 @@ export function PurchasesProvider({
     () => ({
       isConfigured,
       isReady,
-      monthlyPackage,
-      annualPackage,
+      allAccessMonthly,
+      allAccessAnnual,
+      oneLanguageMonthly,
+      oneLanguageAnnual,
       isPurchasing,
       isRestoring,
       purchase,
@@ -197,8 +250,10 @@ export function PurchasesProvider({
     [
       isConfigured,
       isReady,
-      monthlyPackage,
-      annualPackage,
+      allAccessMonthly,
+      allAccessAnnual,
+      oneLanguageMonthly,
+      oneLanguageAnnual,
       isPurchasing,
       isRestoring,
       purchase,

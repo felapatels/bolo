@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AppFonts } from '@/constants/fonts';
 
 /** Small "PLUS" pill used to mark locked, Plus-only affordances. */
@@ -60,9 +61,14 @@ export function LockedFeatureCard({
   );
 }
 
-/** Prominent upgrade banner shown to Free learners on the home screen. */
+/**
+ * Prominent upgrade banner shown to learners who aren't yet all-access. Its copy
+ * adapts to the plan: Free learners are nudged toward the plans generally, while
+ * a One-Language subscriber is nudged specifically toward all-access.
+ */
 export function UpgradeBanner({ onPress }: { onPress: () => void }) {
   const colors = useColors();
+  const { isOneLanguage } = useEntitlements();
   return (
     <Pressable
       onPress={onPress}
@@ -74,10 +80,12 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.bannerTitle, { color: colors.background }]}>
-          Go Plus
+          {isOneLanguage ? 'Go all-access' : 'Go Plus'}
         </Text>
         <Text style={[styles.bannerSub, { color: colors.background }]}>
-          All languages, unlimited lessons & more.
+          {isOneLanguage
+            ? 'Every language, plus review & analytics.'
+            : 'All languages, unlimited lessons & more.'}
         </Text>
       </View>
       <Feather name="chevron-right" size={22} color={colors.background} />

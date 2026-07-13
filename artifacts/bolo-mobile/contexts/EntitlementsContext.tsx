@@ -16,10 +16,20 @@ import {
  * never assumes a tier from a local purchase — it reads it from here, so a
  * purchase only "counts" once the server reflects it.
  */
+/** The effective plan the server resolved the caller to. */
+export type Plan = 'free' | 'one_language' | 'plus';
+
 type EntitlementsContextValue = {
   entitlements: Entitlements | undefined;
   isLoading: boolean;
+  /** The effective plan ("free", "one_language", or "plus"). */
+  plan: Plan;
+  /** All-access Bolo! Plus. */
   isPlus: boolean;
+  /** The middle One Language ($6.99) tier. */
+  isOneLanguage: boolean;
+  /** The single language a One-Language subscriber unlocked (null otherwise). */
+  chosenLanguage: string | null;
   /** Concrete language codes the caller may open (empty until loaded). */
   allowedLanguages: string[];
   /** Whether a given language code is unlocked for the caller. */
@@ -55,12 +65,18 @@ export function EntitlementsProvider({
   const refetch = query.refetch;
 
   const value = useMemo<EntitlementsContextValue>(() => {
-    const isPlus = e?.plan === 'plus';
+    const plan: Plan =
+      e?.plan === 'plus' || e?.plan === 'one_language' ? e.plan : 'free';
+    const isPlus = plan === 'plus';
+    const isOneLanguage = plan === 'one_language';
     const allowedLanguages = e?.allowedLanguages ?? [];
     return {
       entitlements: e,
       isLoading: query.isLoading,
+      plan,
       isPlus,
+      isOneLanguage,
+      chosenLanguage: e?.chosenLanguage ?? null,
       allowedLanguages,
       isLanguageAllowed: (code: string) => {
         if (!e) return true; // unknown yet — don't lock prematurely
