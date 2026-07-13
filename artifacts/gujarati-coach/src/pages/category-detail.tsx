@@ -8,15 +8,15 @@ import {
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Lock, Plus, Sparkles, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
-import { UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
+import { UpgradeCard, UpgradeScreen } from "@/components/plus";
+import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial } from "@/lib/entitlements";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -204,6 +204,18 @@ export default function CategoryDetail() {
               </Link>
             </motion.div>
           ))}
+
+          {category.lockedPhraseCount > 0 && (
+            <UpgradeCard
+              icon={<Lock className="h-6 w-6" />}
+              title={`${category.lockedPhraseCount} more ${
+                category.lockedPhraseCount === 1 ? "phrase" : "phrases"
+              } with Plus`}
+              description="Unlock the full phrase library for this topic and keep going."
+              cta="Unlock with Plus"
+              href={upgradeHref({ plan: "plus" })}
+            />
+          )}
 
           <button
             onClick={handleAddPhrases}

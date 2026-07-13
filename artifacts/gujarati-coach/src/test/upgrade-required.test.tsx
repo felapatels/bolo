@@ -199,6 +199,86 @@ describe("Add-phrases 402", () => {
   });
 });
 
+describe("Plus-locked phrases upsell", () => {
+  // Rendered without a matching <Route>, so useParams() is empty and the page
+  // parses categoryId as 0 — the fixture category must share that id.
+  const withPhrases = () => {
+    h.categoryPhrases = {
+      ...idleQuery,
+      data: [
+        {
+          id: 10,
+          nativeScript: "નમસ્તે",
+          romanized: "namaste",
+          english: "hello",
+          mastered: false,
+          bestScore: null,
+        },
+      ],
+    };
+  };
+
+  test("a non-Plus learner sees the locked-phrase count and an upgrade link", () => {
+    withPhrases();
+    h.categories = [
+      {
+        id: 0,
+        title: "Greetings",
+        titleNative: null,
+        accent: null,
+        phraseCount: 1,
+        masteredCount: 0,
+        lockedPhraseCount: 7,
+      },
+    ];
+    renderPage(<CategoryDetail />, "/learn/1");
+
+    expect(screen.getByText("7 more phrases with Plus")).toBeInTheDocument();
+    // Extended library is an All-Access feature, so the paywall opens on Plus.
+    const link = screen.getByText("Unlock with Plus").closest("a");
+    expect(link).toHaveAttribute("href", "/upgrade?plan=plus");
+  });
+
+  test("singularizes the label when exactly one phrase is locked", () => {
+    withPhrases();
+    h.categories = [
+      {
+        id: 0,
+        title: "Greetings",
+        titleNative: null,
+        accent: null,
+        phraseCount: 1,
+        masteredCount: 0,
+        lockedPhraseCount: 1,
+      },
+    ];
+    renderPage(<CategoryDetail />, "/learn/1");
+
+    expect(screen.getByText("1 more phrase with Plus")).toBeInTheDocument();
+  });
+
+  test("a Plus learner (zero locked) sees no upsell", () => {
+    withPhrases();
+    h.categories = [
+      {
+        id: 0,
+        title: "Greetings",
+        titleNative: null,
+        accent: null,
+        phraseCount: 1,
+        masteredCount: 0,
+        lockedPhraseCount: 0,
+      },
+    ];
+    renderPage(<CategoryDetail />, "/learn/1");
+
+    expect(screen.queryByText(/more phrases? with Plus/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Unlock with Plus")).not.toBeInTheDocument();
+    // The existing add-phrases control still renders.
+    expect(screen.getByText("Add more phrases")).toBeInTheDocument();
+  });
+});
+
 describe("Review session 402", () => {
   test("a locked review session renders the upgrade screen", () => {
     h.reviewPhrases = {
