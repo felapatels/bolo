@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Play, CheckCircle2, Circle, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { springs, FloatingTag } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -110,45 +111,58 @@ export default function CategoryDetail() {
   const masteredCount = phrases?.filter(p => p.mastered).length || 0;
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4 flex items-center justify-between">
-        <Link href="/app" className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors button-spring">
-          <ArrowLeft className="w-6 h-6" />
-        </Link>
-        <div className="text-center">
-          <h1 className="font-bold text-lg text-foreground">{category.title}</h1>
-          {category.titleNative && (
-            <p className="text-xs text-muted-foreground" style={native.style} dir={native.dir}>{category.titleNative}</p>
-          )}
+    <div className="app-surface min-h-[100dvh] bg-background flex flex-col">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
+          <Link href="/app" className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors button-spring">
+            <ArrowLeft className="w-6 h-6" />
+          </Link>
+          <div className="text-center">
+            <h1 className="font-bold text-lg text-foreground">{category.title}</h1>
+            {category.titleNative && (
+              <p className="text-xs text-muted-foreground" style={native.style} dir={native.dir}>{category.titleNative}</p>
+            )}
+          </div>
+          <div className="w-10" /> {/* Spacer */}
         </div>
-        <div className="w-10" /> {/* Spacer */}
       </header>
 
-      <main className="flex-1 p-6 space-y-6">
-        {/* Progress Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center flex flex-col items-center"
-          style={{ borderColor: category.accent || 'var(--color-primary)' }}
-        >
-          <Mascot pose="thumbsup" size={88} className="mb-2" />
-          <h2 className="text-2xl font-black mb-1">{masteredCount} / {phrases?.length}</h2>
-          <p className="text-muted-foreground font-medium mb-6">Phrases Mastered</p>
-          
-          <Link 
-            href={`/practice/${id}`}
-            className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+      <main className="mx-auto w-full max-w-5xl flex-1 p-6">
+        <div className="grid gap-6 lg:grid-cols-[20rem_1fr] lg:items-start lg:gap-8">
+          {/* Progress Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={springs.smooth}
+            className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center flex flex-col items-center lg:sticky lg:top-24"
+            style={{ borderColor: category.accent || 'var(--color-primary)' }}
           >
-            <Play className="w-6 h-6 fill-current" />
-            <span>Practice All</span>
-          </Link>
-        </motion.div>
+            <Mascot pose="thumbsup" size={88} className="mb-2" />
+            <h2 className="text-2xl font-black mb-1">{masteredCount} / {phrases?.length}</h2>
+            <p className="text-muted-foreground font-medium mb-4">Phrases Mastered</p>
 
-        {/* Phrase List */}
-        <div className="space-y-3">
-          <h3 className="font-bold text-lg text-foreground px-2">Phrases to learn</h3>
+            {activeLanguage && (
+              <FloatingTag
+                className="mb-6 bg-secondary/10 text-secondary"
+                style={native.style}
+                dir={native.dir}
+              >
+                {activeLanguage.nativeName}
+              </FloatingTag>
+            )}
+
+            <Link
+              href={`/practice/${id}`}
+              className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+            >
+              <Play className="w-6 h-6 fill-current" />
+              <span>Practice All</span>
+            </Link>
+          </motion.div>
+
+          {/* Phrase List */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-lg text-foreground px-2">Phrases to learn</h3>
           {phrases?.map((phrase, i) => (
             <motion.div
               key={phrase.id}
@@ -245,6 +259,7 @@ export default function CategoryDetail() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </main>
     </div>

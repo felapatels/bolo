@@ -43,7 +43,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       ) : badges && badges.length > 0 ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           {badges.map((badge, i) => {
             const Icon = getBadgeIcon(badge.iconName);
             const ratio = progressRatio(badge);

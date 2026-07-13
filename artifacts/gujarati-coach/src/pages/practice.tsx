@@ -17,6 +17,7 @@ import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs, SoundWavePulse } from "@/lib/motion";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { Mascot, type MascotPose } from "@/components/mascot";
@@ -316,7 +317,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   if (state === "summary") {
     const avgScore = Math.round(sessionResults.reduce((a, b) => a + b.score, 0) / (sessionResults.length || 1));
     return (
-      <div className="min-h-screen flex flex-col bg-background p-6">
+      <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
         <Confetti active={avgScore >= 70} />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
           <Mascot pose={avgScore >= 60 ? "cheer" : "thumbsup"} size={148} idle={avgScore >= 60 ? "cheer" : "float"} />
@@ -368,11 +369,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         : "thumbsup";
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
+    <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
       <Confetti active={showConfetti} />
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
-      <header className="px-6 py-4 flex items-center justify-between">
+      <header className="mx-auto w-full max-w-2xl px-6 py-4 flex items-center justify-between">
         <Link href={backHref} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-8 h-8" />
         </Link>
@@ -389,7 +390,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         <div className="font-bold text-muted-foreground">{currentIndex + 1}/{phrases.length}</div>
       </header>
 
-      <main className="flex-1 flex flex-col px-6 pb-8">
+      <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-6 pb-8">
         <AnimatePresence mode="wait">
           <motion.div 
             key={phrase?.id}
@@ -505,9 +506,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 </p>
               )}
               {state === "recording" && (
-                <p className="text-center text-accent font-bold mt-6 uppercase tracking-widest text-sm animate-pulse">
-                  Listening... stops on its own
-                </p>
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <SoundWavePulse className="text-accent" size={26} bars={7} />
+                  <p className="text-center text-accent font-bold uppercase tracking-widest text-sm">
+                    Listening... stops on its own
+                  </p>
+                </div>
               )}
             </div>
           )}

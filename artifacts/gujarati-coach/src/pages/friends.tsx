@@ -37,12 +37,14 @@ import {
   Mail,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useIsDesktop } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 // Pull a friendly message out of whatever error the client throws.
@@ -95,38 +97,60 @@ function Avatar({
 }
 
 export default function Friends() {
+  const isDesktop = useIsDesktop();
   return (
-    <div className="min-h-[100dvh] pb-24 bg-background">
-      <header className="pt-12 px-6 pb-4 text-center flex flex-col items-center">
+    <div className="min-h-[100dvh] pb-24 lg:pb-12 bg-background">
+      <header className="mx-auto w-full max-w-5xl pt-12 px-6 pb-4 text-center flex flex-col items-center lg:pt-10">
         <Mascot pose="wave" size={96} idle="float" className="mb-2" />
-        <h1 className="text-3xl font-extrabold text-foreground mb-1">Friends</h1>
+        <h1 className="text-3xl font-extrabold text-foreground mb-1 lg:text-4xl">Friends</h1>
         <p className="text-muted-foreground text-lg font-medium">
           Practice better together
         </p>
       </header>
 
-      <main className="px-6 max-w-md mx-auto">
-        <Tabs defaultValue="leaderboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-11 rounded-2xl">
-            <TabsTrigger value="leaderboard" className="rounded-xl gap-1.5 font-bold">
-              <Trophy className="w-4 h-4" /> Leaderboard
-            </TabsTrigger>
-            <TabsTrigger value="friends" className="rounded-xl gap-1.5 font-bold">
-              <Users className="w-4 h-4" /> Friends
-            </TabsTrigger>
-          </TabsList>
+      <main className="px-6">
+        {isDesktop ? (
+          /* Desktop: leaderboard and friend management sit balanced side by side. */
+          <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-2 lg:items-start">
+            <section className="space-y-4">
+              <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+                <Trophy className="h-5 w-5 text-secondary" /> Leaderboard
+              </h2>
+              <LeaderboardTab />
+            </section>
+            <div className="space-y-8">
+              <AddFriend />
+              <IncomingRequests />
+              <OutgoingRequests />
+              <FriendsList />
+            </div>
+          </div>
+        ) : (
+          /* Phones: a compact tabbed view so each section gets the full column. */
+          <div className="mx-auto max-w-md">
+            <Tabs defaultValue="leaderboard" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-11 rounded-2xl">
+                <TabsTrigger value="leaderboard" className="rounded-xl gap-1.5 font-bold">
+                  <Trophy className="w-4 h-4" /> Leaderboard
+                </TabsTrigger>
+                <TabsTrigger value="friends" className="rounded-xl gap-1.5 font-bold">
+                  <Users className="w-4 h-4" /> Friends
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="leaderboard" className="mt-6">
-            <LeaderboardTab />
-          </TabsContent>
+              <TabsContent value="leaderboard" className="mt-6">
+                <LeaderboardTab />
+              </TabsContent>
 
-          <TabsContent value="friends" className="mt-6 space-y-8">
-            <AddFriend />
-            <IncomingRequests />
-            <OutgoingRequests />
-            <FriendsList />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="friends" className="mt-6 space-y-8">
+                <AddFriend />
+                <IncomingRequests />
+                <OutgoingRequests />
+                <FriendsList />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </main>
 
       <BottomNav />
@@ -199,7 +223,7 @@ function LeaderboardRow({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ ...springs.snappy, delay: index * 0.05 }}
       className={cn(
         "flex items-center gap-3 rounded-2xl p-3 border shadow-sm",
         entry.isSelf

@@ -35,3 +35,18 @@ tests (`src/**/*.test.tsx`, run via `pnpm --filter @workspace/gujarati-coach run
 **Why:** the whole Free-vs-Plus "locked but visible → /upgrade" UX is server-driven off the
 `GET /api/entitlements` snapshot and shared 402 `upgrade_required` bodies; these tests lock in that
 contract so a regression can't silently lock out payers or leak Plus to Free.
+
+## Responsive mobile-vs-desktop layouts and jsdom
+- When a page's desktop layout is **structurally different** from mobile (e.g. Friends: mobile Radix
+  Tabs vs. desktop leaderboard+management side-by-side), do **not** render both trees and hide one
+  with `lg:hidden`/`hidden lg:grid`. jsdom ignores CSS, so both stay in the DOM and RTL's
+  `getByText`/`getByRole` find duplicates → "multiple elements found" failures across the file.
+- Instead branch in JS with `useIsDesktop()` (`src/hooks/use-mobile.tsx`) so only one tree mounts.
+  It's matchMedia-based and the setup stub returns `matches:false`, so the **mobile** tree renders in
+  tests (matching existing test expectations). Guard the effect with
+  `if (typeof window.matchMedia !== 'function') return;` — some jsdom runs have no working
+  `matchMedia` and the hook would otherwise throw at mount.
+- `useIsMobile` keys off `window.innerWidth` (1024 in jsdom) so it reports **desktop** in tests;
+  prefer `useIsDesktop` for this branch so tests get the mobile layout.
+- Purely additive CSS reflow (same single tree, `lg:` grid/col tweaks) is fine and needs no hook —
+  only structural swaps risk the duplicate-DOM trap.

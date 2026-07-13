@@ -2,6 +2,7 @@ import { useGetProgressSummary, useListRecentAttempts } from "@workspace/api-cli
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -27,17 +28,17 @@ export default function Progress() {
   if (!summary) return null;
 
   return (
-    <div className="min-h-[100dvh] pb-24 bg-background">
-      <header className="pt-12 px-6 pb-6 text-center flex flex-col items-center">
+    <div className="min-h-[100dvh] pb-24 lg:pb-12 bg-background">
+      <header className="mx-auto w-full max-w-6xl pt-12 px-6 pb-6 text-center flex flex-col items-center lg:pt-10">
         <Mascot pose="cheer" size={104} idle="cheer" className="mb-2" />
-        <h1 className="text-3xl font-extrabold text-foreground mb-1">Your Progress</h1>
+        <h1 className="text-3xl font-extrabold text-foreground mb-1 lg:text-4xl">Your Progress</h1>
         <p className="text-muted-foreground text-lg font-medium">
           {activeLanguage ? `Your ${activeLanguage.name} journey` : "Keep up the great work!"}
         </p>
       </header>
 
-      <main className="px-6 space-y-8">
-        <section className="grid grid-cols-2 gap-4">
+      <main className="mx-auto w-full max-w-6xl px-6 lg:px-10 space-y-8">
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard 
             icon={<Target className="w-6 h-6 text-primary" />} 
             value={summary.phrasesMastered} 
@@ -64,58 +65,62 @@ export default function Progress() {
           />
         </section>
 
-        <NextBadgeSpotlight lang={activeLang} />
+        <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
+          {/* Achievements & analytics — the wide left column on desktop. */}
+          <div className="space-y-8 lg:col-span-2">
+            <NextBadgeSpotlight lang={activeLang} />
+            <BadgesGallery lang={activeLang} />
+            <AdvancedAnalytics lang={activeLang} />
+          </div>
 
-        <BadgesGallery lang={activeLang} />
+          {/* Practice history — a dedicated column on desktop. */}
+          <section className="lg:col-span-1">
+            <h2 className="text-xl font-bold text-foreground mb-4">Practice History</h2>
 
-        <AdvancedAnalytics lang={activeLang} />
-
-        <section>
-          <h2 className="text-xl font-bold text-foreground mb-4">Practice History</h2>
-          
-          {attempts && attempts.length > 0 ? (
-            <div className="space-y-4">
-              {attempts.map((attempt, i) => (
-                <motion.div 
-                  key={attempt.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col gap-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted-foreground uppercase">
-                      {format(new Date(attempt.createdAt), 'MMM d, h:mm a')}
-                    </span>
-                    <div className={cn(
-                      "text-xs font-bold px-2 py-1 rounded-full",
-                      attempt.score >= 80 ? "bg-success/15 text-success" : 
-                      attempt.score >= 60 ? "bg-primary/15 text-primary" : 
-                      "bg-destructive/15 text-destructive"
-                    )}>
-                      Score: {Math.round(attempt.score)}
+            {attempts && attempts.length > 0 ? (
+              <div className="space-y-4">
+                {attempts.map((attempt, i) => (
+                  <motion.div
+                    key={attempt.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ ...springs.snappy, delay: Math.min(i * 0.04, 0.4) }}
+                    className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col gap-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-muted-foreground uppercase">
+                        {format(new Date(attempt.createdAt), 'MMM d, h:mm a')}
+                      </span>
+                      <div className={cn(
+                        "text-xs font-bold px-2 py-1 rounded-full",
+                        attempt.score >= 80 ? "bg-success/15 text-success" : 
+                        attempt.score >= 60 ? "bg-primary/15 text-primary" : 
+                        "bg-destructive/15 text-destructive"
+                      )}>
+                        Score: {Math.round(attempt.score)}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xl font-bold text-foreground leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{attempt.english}</p>
-                  </div>
-                  
-                  {attempt.feedback && (
-                    <div className="bg-muted/50 rounded-xl p-3 mt-1">
-                      <p className="text-sm text-foreground font-medium">"{attempt.feedback}"</p>
+
+                    <div>
+                      <p className="text-xl font-bold text-foreground leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{attempt.english}</p>
                     </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-border">
-              <p className="text-muted-foreground font-medium">No practice history yet.</p>
-            </div>
-          )}
-        </section>
+
+                    {attempt.feedback && (
+                      <div className="bg-muted/50 rounded-xl p-3 mt-1">
+                        <p className="text-sm text-foreground font-medium">"{attempt.feedback}"</p>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-border">
+                <p className="text-muted-foreground font-medium">No practice history yet.</p>
+              </div>
+            )}
+          </section>
+        </div>
       </main>
 
       <BottomNav />

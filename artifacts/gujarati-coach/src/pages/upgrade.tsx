@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { springs, FloatingTag } from "@/lib/motion";
 import {
   ArrowLeft,
   Crown,
@@ -116,9 +117,14 @@ export default function Upgrade() {
   );
 }
 
-function Header() {
+function Header({ className }: { className?: string }) {
   return (
-    <header className="px-6 pt-8 flex items-center justify-between max-w-lg mx-auto">
+    <header
+      className={cn(
+        "px-6 pt-8 flex items-center justify-between mx-auto",
+        className ?? "max-w-lg",
+      )}
+    >
       <Link
         href="/app"
         className="p-2 -ml-2 rounded-full hover:bg-muted text-foreground transition-colors"
@@ -226,15 +232,19 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
 
   const priceForTier = (tier: PaidTier) => TIER_PRICING[tier][interval];
 
-  return (
-    <div className="min-h-[100dvh] bg-background pb-10">
-      <Header />
+  // A handful of language native names for the bobbing hero tags — pure brand
+  // flair echoing the launch video. Falls back gracefully if the list is short.
+  const heroTags = languages.slice(0, 6);
 
-      <main className="px-6 max-w-lg mx-auto">
+  return (
+    <div className="app-surface min-h-[100dvh] bg-background pb-10">
+      <Header className="max-w-lg lg:max-w-4xl" />
+
+      <main className="px-6 max-w-lg lg:max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={springs.smooth}
           className="text-center pt-4"
         >
           <div
@@ -245,17 +255,37 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           >
             <Crown className="h-10 w-10" fill="currentColor" />
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-foreground">
+          <h1 className="text-4xl font-black tracking-tight text-foreground lg:text-5xl">
             {lapsed ? "Pick up where you left off" : "Choose your plan"}
           </h1>
           <p className="mt-3 text-lg font-medium text-muted-foreground">
             Go deeper on one language, or unlock everything — pick the plan that
             fits how you want to learn.
           </p>
+
+          {/* Floating language tags — a little bobbing reminder of what's inside. */}
+          {heroTags.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              {heroTags.map((lang, i) => {
+                const native = nativeTextProps(lang);
+                return (
+                  <FloatingTag
+                    key={lang.code}
+                    delay={i * 0.25}
+                    className="bg-secondary/10 text-secondary"
+                    style={native.style}
+                    dir={native.dir}
+                  >
+                    {lang.nativeName}
+                  </FloatingTag>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
 
         {/* Billing interval toggle */}
-        <div className="mt-8 grid grid-cols-2 gap-3">
+        <div className="mx-auto mt-8 grid max-w-lg grid-cols-2 gap-3">
           {(["monthly", "annual"] as PlusInterval[]).map((key) => {
             const active = interval === key;
             const showSave = key === "annual";
@@ -287,7 +317,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
         </div>
 
         {/* Plan options */}
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
           <PlanCard
             tier="one_language"
             selected={selectedTier === "one_language"}
