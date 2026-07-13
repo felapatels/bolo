@@ -11,6 +11,7 @@
   "scripts": {
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "check-drift": "bash ./scripts/check-drift.sh",
+    "check-migrations": "bash ./scripts/check-migrations.sh",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "seed": "node \"$(ls ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs | head -1)\" ./src/seed.ts",
     "setup": "pnpm run migrate && pnpm run seed",
