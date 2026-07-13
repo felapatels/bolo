@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Mic, Square, Volume2, Loader2, Check } from 'lucide-react';
+import { SoundWavePulse } from '@/lib/motion';
 
 // A looping, in-browser recreation of the real Bolo! practice loop:
 // hear the phrase -> tap the mic -> speak out loud -> get coached.
@@ -237,6 +238,9 @@ export function SpeakingDemo() {
                     )}
                   </div>
                 </div>
+                {isRecording && (
+                  <SoundWavePulse className="mt-3 text-accent" size={22} />
+                )}
                 <p
                   className={
                     'mt-3 text-xs font-bold uppercase tracking-widest ' +
