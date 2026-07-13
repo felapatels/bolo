@@ -75,8 +75,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "বোন",
-          "romanized": "bon",
+          "nativeScript": "ভনী",
+          "romanized": "bhoni",
           "english": "sister",
           "difficulty": 1
         },
@@ -87,8 +87,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "আজো",
-          "romanized": "ajo",
+          "nativeScript": "আজা",
+          "romanized": "aja",
           "english": "grandfather",
           "difficulty": 2
         },
@@ -909,26 +909,26 @@
       "titleNative": "१-१० संखारि",
       "phrases": [
         {
-          "nativeScript": "थाम",
-          "romanized": "tham",
+          "nativeScript": "से",
+          "romanized": "se",
           "english": "one",
           "difficulty": 1
         },
         {
-          "nativeScript": "नि",
-          "romanized": "ni",
+          "nativeScript": "नै",
+          "romanized": "nwi",
           "english": "two",
           "difficulty": 1
         },
         {
-          "nativeScript": "थुम",
-          "romanized": "thum",
+          "nativeScript": "थाम",
+          "romanized": "tham",
           "english": "three",
           "difficulty": 1
         },
         {
-          "nativeScript": "ब्रा",
-          "romanized": "bra",
+          "nativeScript": "ब्रै",
+          "romanized": "brwi",
           "english": "four",
           "difficulty": 1
         },
@@ -939,20 +939,20 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "दौ",
-          "romanized": "dau",
+          "nativeScript": "दो",
+          "romanized": "do",
           "english": "six",
           "difficulty": 2
         },
         {
-          "nativeScript": "सि",
-          "romanized": "si",
+          "nativeScript": "स्नि",
+          "romanized": "sni",
           "english": "seven",
           "difficulty": 2
         },
         {
-          "nativeScript": "सुनि",
-          "romanized": "suni",
+          "nativeScript": "दाइन",
+          "romanized": "daen",
           "english": "eight",
           "difficulty": 2
         }
@@ -1195,7 +1195,7 @@
         },
         {
           "nativeScript": "कृपा कन्नै",
-          "romanized": "kripa kammain",
+          "romanized": "kripa kannai",
           "english": "Please",
           "difficulty": 2
         },
@@ -1775,8 +1775,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ಪ್ಲೇಟ್",
-          "romanized": "pleet",
+          "nativeScript": "ತಟ್ಟೆ",
+          "romanized": "taṭṭe",
           "english": "plate",
           "difficulty": 1
         },
@@ -2007,9 +2007,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "आमी",
-          "romanized": "aami",
-          "english": "mother and father",
+          "nativeScript": "भयण",
+          "romanized": "bhoiṇ",
+          "english": "sister",
           "difficulty": 2
         },
         {
@@ -3032,15 +3032,15 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "എനിക്ക് സന്തോഷം തോന്നുന്നു",
-          "romanized": "enikku santhosham thonnunnu",
-          "english": "I feel happy",
+          "nativeScript": "എനിക്ക് ആശ്ചര്യം തോന്നുന്നു",
+          "romanized": "enikku aashcharyam thonnunnu",
+          "english": "I feel surprised",
           "difficulty": 3
         }
       ]
     },
     "food": {
-      "titleNative": "ഭക്ഷണവും ഭക്ഷണവും",
+      "titleNative": "ഭക്ഷണവും കഴിക്കലും",
       "phrases": [
         {
           "nativeScript": "അരി",
@@ -3085,10 +3085,10 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "നന്ദി",
-          "romanized": "nandi",
-          "english": "thank you",
-          "difficulty": 1
+          "nativeScript": "എനിക്ക് വിശക്കുന്നു",
+          "romanized": "enikku vishakkunnu",
+          "english": "I am hungry",
+          "difficulty": 2
         }
       ]
     },
@@ -3108,14 +3108,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ഗുഡ് മോർണിംഗ്",
-          "romanized": "good morning",
+          "nativeScript": "സുപ്രഭാതം",
+          "romanized": "suprabhaatam",
           "english": "good morning",
           "difficulty": 1
         },
         {
-          "nativeScript": "ഗുഡ് നൈറ്റ്",
-          "romanized": "good night",
+          "nativeScript": "ശുഭരാത്രി",
+          "romanized": "shubharaatri",
           "english": "good night",
           "difficulty": 1
         },
@@ -3481,8 +3481,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯑꯈꯨꯝ",
-          "romanized": "akhum",
+          "nativeScript": "ꯑꯍꯨꯝ",
+          "romanized": "ahum",
           "english": "three",
           "difficulty": 1
         },
@@ -3493,26 +3493,26 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯃꯈꯣꯡ",
-          "romanized": "makhong",
+          "nativeScript": "ꯃꯉꯥ",
+          "romanized": "manga",
           "english": "five",
           "difficulty": 2
         },
         {
-          "nativeScript": "ꯇꯔꯦ",
-          "romanized": "tare",
+          "nativeScript": "ꯇꯔꯨꯛ",
+          "romanized": "taruk",
           "english": "six",
           "difficulty": 2
         },
         {
-          "nativeScript": "ꯇꯣꯒꯦ",
-          "romanized": "toge",
+          "nativeScript": "ꯇꯔꯦꯠ",
+          "romanized": "taret",
           "english": "seven",
           "difficulty": 2
         },
         {
-          "nativeScript": "ꯅ꯭ꯋꯥꯏꯁꯤꯡ",
-          "romanized": "nwaising",
+          "nativeScript": "ꯅꯤꯄꯜ",
+          "romanized": "nipal",
           "english": "eight",
           "difficulty": 3
         }
@@ -4139,8 +4139,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "छह",
-          "romanized": "chhah",
+          "nativeScript": "छ",
+          "romanized": "chha",
           "english": "six",
           "difficulty": 1
         },
@@ -4152,7 +4152,7 @@
         },
         {
           "nativeScript": "दश",
-          "romanized": "dasha",
+          "romanized": "das",
           "english": "ten",
           "difficulty": 1
         }
@@ -4429,49 +4429,49 @@
       "titleNative": "ଏକରୁ ଦଶ",
       "phrases": [
         {
-          "nativeScript": "୧",
+          "nativeScript": "ଏକ",
           "romanized": "eka",
           "english": "one",
           "difficulty": 1
         },
         {
-          "nativeScript": "୨",
+          "nativeScript": "ଦୁଇ",
           "romanized": "dui",
           "english": "two",
           "difficulty": 1
         },
         {
-          "nativeScript": "୩",
-          "romanized": "tina",
+          "nativeScript": "ତିନି",
+          "romanized": "tini",
           "english": "three",
           "difficulty": 1
         },
         {
-          "nativeScript": "୪",
+          "nativeScript": "ଚାରି",
           "romanized": "chāri",
           "english": "four",
           "difficulty": 1
         },
         {
-          "nativeScript": "୫",
+          "nativeScript": "ପାଞ୍ଚ",
           "romanized": "pāñcha",
           "english": "five",
           "difficulty": 1
         },
         {
-          "nativeScript": "୬",
+          "nativeScript": "ଛଅ",
           "romanized": "chha",
           "english": "six",
           "difficulty": 1
         },
         {
-          "nativeScript": "୭",
+          "nativeScript": "ସାତ",
           "romanized": "sāta",
           "english": "seven",
           "difficulty": 1
         },
         {
-          "nativeScript": "୮",
+          "nativeScript": "ଆଠ",
           "romanized": "ātha",
           "english": "eight",
           "difficulty": 1
@@ -4893,14 +4893,14 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "दादी",
-          "romanized": "dadi",
+          "nativeScript": "पितामही",
+          "romanized": "pitāmahī",
           "english": "grandmother",
           "difficulty": 2
         },
         {
-          "nativeScript": "दादाः",
-          "romanized": "dadaah",
+          "nativeScript": "पितामहः",
+          "romanized": "pitāmahaḥ",
           "english": "grandfather",
           "difficulty": 2
         }
@@ -4975,14 +4975,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "प्लतम्",
-          "romanized": "platam",
+          "nativeScript": "स्थाली",
+          "romanized": "sthālī",
           "english": "plate",
           "difficulty": 1
         },
         {
-          "nativeScript": "कटुः",
-          "romanized": "katuh",
+          "nativeScript": "दर्वी",
+          "romanized": "darvī",
           "english": "spoon",
           "difficulty": 1
         },
@@ -5066,7 +5066,7 @@
       ]
     },
     "numbers": {
-      "titleNative": "एकादशसंख्या",
+      "titleNative": "संख्याः (१-१०)",
       "phrases": [
         {
           "nativeScript": "एकम्",
@@ -5569,7 +5569,7 @@
         },
         {
           "nativeScript": "ڊپ لڳڻ",
-          "romanized": "darp lagan",
+          "romanized": "ḍap lagaṇ",
           "english": "to feel afraid",
           "difficulty": 2
         },
@@ -6446,8 +6446,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "پلیز",
-          "romanized": "please",
+          "nativeScript": "براہ کرم",
+          "romanized": "baraah-e-karam",
           "english": "please",
           "difficulty": 3
         }
@@ -6605,9 +6605,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "مہربانی",
-          "romanized": "meharbani",
-          "english": "please / thank you politely",
+          "nativeScript": "کھانا مزیدار ہے",
+          "romanized": "khana mazedaar hai",
+          "english": "the food is delicious",
           "difficulty": 3
         }
       ]
@@ -6636,7 +6636,7 @@
         {
           "nativeScript": "مہربانی",
           "romanized": "meherbani",
-          "english": "kindness / favor",
+          "english": "please",
           "difficulty": 2
         },
         {

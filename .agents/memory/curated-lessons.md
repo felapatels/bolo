@@ -33,11 +33,18 @@ content, not live per-learner generation.
   already exists; never re-insert phrases into an existing lesson.
 - Regenerate content with the api-server `generate-lessons` script (add
   `-- --force` to redo all); then re-run the db `seed`.
-- **Human-review status:** the frozen JSON is raw AI output EXCEPT the five
-  highest-traffic languages, which have had a native-speaker pass: `hi` and `te`
-  were already clean; `bn`, `mr`, `ta` had genuine fixes (e.g. Bengali "sad"
-  দুঃখিত→দুঃখী, Marathi good-morning सकाळी नमस्कार→सुप्रभात, Tamil "tumbler"
-  குடம்→டம்ளர்). The other 16 codes are still unreviewed.
+- **Human-review status:** all 21 non-Gujarati codes have now had a review pass.
+  The five highest-traffic (`hi`,`te` clean; `bn`,`mr`,`ta` fixed) plus the
+  remaining 16. Common raw-AI defects the review found: scrambled/wrong numerals
+  in low-resource languages (Bodo & Manipuri number lessons were badly shuffled),
+  Hindi words substituted for the target language (Sanskrit had दादी/दादाः for
+  grandparents; corrected to पितामही/पितामहः), plain-wrong vocab (Sanskrit "spoon"
+  was कटु = *bitter*), English loanwords where a native term exists (Malayalam
+  "good morning/night", Urdu پلیز), digits instead of spelled-out words (Odia
+  numbers showed ୧୨୩), and duplicate phrases within one lesson (two "happy").
+- **Residual risk:** the Perso-Arabic (Kashmiri), Ol Chiki (Santali) and Meetei
+  Mayek (Manipuri) lessons are hardest to verify without true fluency — treat
+  their kinship terms and exact orthography as still needing a native check.
 - **Known content quirk:** the "Numbers 1-10" topic can only hold 8 phrases in
   generated languages (the exact-count cap), so titles say 1-10 but teach 8, and
   some languages list 1-7 then jump to 10 (skipping eight/nine). Gujarati is the
