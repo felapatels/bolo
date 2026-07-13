@@ -24,6 +24,10 @@ args = "test"
 task = "workflow.run"
 args = "db-drift"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-web-paywall"
+
 [[workflows.workflow]]
 name = "test"
 author = "agent"
@@ -42,6 +46,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/db run check-drift"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test-web-paywall"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/gujarati-coach run test"
 
 [workflows.workflow.metadata]
 isValidation = true

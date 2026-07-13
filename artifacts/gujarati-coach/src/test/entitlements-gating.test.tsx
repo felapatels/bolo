@@ -53,6 +53,7 @@ vi.mock("@workspace/api-client-react", () => ({
   getListReviewPhrasesQueryKey: () => ["review"],
   useListBadges: () => ({ data: h.badges, isLoading: false }),
   useGetProgressAnalytics: () => ({ data: h.analytics, isLoading: false }),
+  useListIncomingFriendRequests: () => ({ data: [], isLoading: false }),
 }));
 
 // Imported after the mocks are declared.
