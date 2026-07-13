@@ -19,7 +19,9 @@ import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
 import { PressableScale } from '@/components/PressableScale';
+import { LockedPhrasesCard } from '@/components/PlusUpsell';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 
@@ -29,6 +31,7 @@ export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const categoryId = Number(id);
   const { activeLang, activeLanguage } = useLanguage();
+  const { isPlus } = useEntitlements();
 
   const categories = useListCategories({ lang: activeLang });
   const phrases = useListCategoryPhrases(categoryId, activeLang);
@@ -107,6 +110,20 @@ export default function CategoryScreen() {
             <PhraseRow key={p.id} phrase={p} index={i} />
           ))
         )}
+
+        {/* Locked extended-library phrases (non-Plus learners). The count is
+            reported by the server per topic; never render a hardcoded number. */}
+        {!phrases.isLoading &&
+        !phrases.isError &&
+        !isPlus &&
+        (category?.lockedPhraseCount ?? 0) > 0 ? (
+          <Animated.View entering={FadeInDown.duration(450).delay(120)}>
+            <LockedPhrasesCard
+              count={category!.lockedPhraseCount}
+              onPress={() => router.push('/(app)/paywall')}
+            />
+          </Animated.View>
+        ) : null}
       </ScrollView>
 
       {/* Sticky CTA */}

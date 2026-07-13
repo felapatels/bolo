@@ -62,6 +62,51 @@ export function LockedFeatureCard({
 }
 
 /**
+ * Shown on a topic screen to a non-Plus learner: surfaces how many additional
+ * phrases the extended (Plus) library holds for this topic and routes to the
+ * paywall. The count is server-reported (never hardcoded); the caller only
+ * renders this when it's > 0.
+ */
+export function LockedPhrasesCard({
+  count,
+  onPress,
+}: {
+  count: number;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const label = `${count} more ${count === 1 ? 'phrase' : 'phrases'} with Plus`;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint="Opens the Bolo! Plus upgrade screen"
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={[styles.cardIcon, { backgroundColor: `${colors.gold}2E` }]}>
+        <Feather name="lock" size={20} color={colors.foreground} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+            {label}
+          </Text>
+          <PlusPill />
+        </View>
+        <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
+          Unlock the full phrase library for this topic.
+        </Text>
+      </View>
+      <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+    </Pressable>
+  );
+}
+
+/**
  * Prominent upgrade banner shown to learners who aren't yet all-access. Its copy
  * adapts to the plan: Free learners are nudged toward the plans generally, while
  * a One-Language subscriber is nudged specifically toward all-access.
