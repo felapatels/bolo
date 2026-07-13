@@ -1,0 +1,50 @@
+---
+name: bolo-mobile jest/RNTL setup
+description: How the Expo mobile app's component tests are wired and the non-obvious gotchas that block them.
+---
+
+# Component testing in artifacts/bolo-mobile
+
+The mobile (Expo) app uses **jest-expo + @testing-library/react-native** for
+component tests (`__tests__/**/*.test.tsx`, run via
+`pnpm --filter @workspace/bolo-mobile run test`). Config in `jest.config.js`
+(preset `jest-expo`, `moduleNameMapper` for the `@/*` alias) + `jest-setup.js`.
+
+## Version / dependency gotchas
+- **Use @testing-library/react-native v13, not v14.** v14 depends on a package
+  literally named `test-renderer` (React 19's new renderer). v13 uses
+  `react-test-renderer` (pin `19.1.0` to match the catalog react), which resolves
+  cleanly in this pnpm workspace.
+- **The shipped `react-native-reanimated/mock` is broken** in this build — it
+  `require`s a `./src/mock` that isn't published. Provide a hand-rolled reanimated
+  mock in `jest-setup.js`: `Animated.{View,Text,ScrollView}` passthroughs that
+  drop `entering/exiting/layout` props, a self-returning Proxy for layout builders
+  (`FadeInDown.duration().delay()`), and no-op worklet hooks.
+- **Mock `@expo/vector-icons` and `expo-haptics` in jest-setup.** Importing
+  `@expo/vector-icons` pulls in `expo-font` → `expo-modules-core`, which throws
+  `__fbBatchedBridgeConfig is not set` on the native bridge at import time. Stub
+  every icon set with a plain View via a Proxy.
+
+## Mocking pattern (mirrors the web friends test)
+- Drive the real screen but `jest.mock('@workspace/api-client-react', ...)`
+  returning a hoisted mutable `mockState` object; reset it in `beforeEach`.
+- **Define `ApiError` INSIDE the jest.mock factory**, then value-import it in the
+  test. ES `import` of the screen is hoisted above any top-level `class`, so a
+  module-scope `MockApiError` is still in TDZ / undefined when the factory runs —
+  the screen's `err instanceof ApiError` then throws "Right-hand side of
+  'instanceof' is not an object".
+- Mock heavy presentational wrappers (`@/components/Screen`, `Mascot`,
+  `KeyboardAwareScrollViewCompat`) and `@/constants/fonts` (avoids loading ~15
+  @expo-google-fonts packages). Keep interactive primitives (`PressableScale`,
+  `ChunkyButton`) real so press + accessibility wiring is exercised.
+- Mobile mutations are called as `.mutate(vars, { onSuccess, onError })` (not
+  `mutateAsync` like web) — the mutation mock's `mutate` must invoke those cbs.
+- `Alert.alert` confirmations (remove friend): `jest.spyOn(Alert,'alert')` and
+  invoke the button's `onPress` from `alertSpy.mock.calls[0][2]`.
+
+## Keep tests out of the app typecheck
+`tsconfig.json` excludes `**/__tests__/**`, `jest.config.js`, `jest-setup.js` so
+test-only globals don't couple into `pnpm typecheck` (the whole-project check).
+Note the app typecheck reads the referenced lib's built `dist` — run the full
+`pnpm run typecheck` (which builds libs first) to check, not the standalone
+filter which sees stale dist.

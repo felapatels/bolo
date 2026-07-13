@@ -15,6 +15,12 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
+  "exclude": [
+    "node_modules",
+    "**/__tests__/**",
+    "jest.config.js",
+    "jest-setup.js"
+  ],
   "references": [
     {
       "path": "../../lib/api-client-react"
