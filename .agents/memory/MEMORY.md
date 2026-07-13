@@ -18,6 +18,7 @@
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade uses real Stripe checkout (redirect-away); client sends BASE_URL so return URLs keep the artifact base path; webhook is the only tier-write path.
 - [Stripe connector broken here](stripe-connector-broken.md) — Replit Stripe connector's credential-listing + proxy both fail in this repl despite "added"; fall back to a user-provided secret key.
+- [Subscription provider authority](subscription-provider-authority.md) — /account/subscription/* are DB-only; Stripe web subscribers must cancel/manage via the Stripe portal, not those endpoints, or app state desyncs from billing.
 - [Expo Router typed routes lag](expo-router-typed-routes.md) — a just-created route file fails typecheck until the expo dev workflow regenerates .expo/types; restart the workflow before tsc, don't cast the href.
 - [Reduced-motion spinners](reduced-motion-spinners.md) — gujarati-coach's global prefers-reduced-motion reset must exclude .animate-spin (and other functional motion) or loaders freeze.
 - [framer-motion vs reduced-motion CSS](framer-motion-reduced-motion.md) — the global CSS reduce-motion reset only stops CSS anims; framer-motion (confetti, spring pops) keeps playing unless gated with useReducedMotion.

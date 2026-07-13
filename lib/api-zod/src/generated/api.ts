@@ -440,6 +440,130 @@ export const UpdateAccountPreferencesResponse = zod.object({
 
 
 /**
+ * Returns the tier/status, relevant dates, chosen language, a best-effort payment-method summary, and billing/invoice history. Softer fields (payment method, history) are pulled from the provider where available and degrade to null/empty when it isn't configured or doesn't expose them.
+ * @summary The caller's full subscription-management snapshot
+ */
+export const GetAccountSubscriptionResponse = zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable(),
+  "provider": zod.string().nullable(),
+  "paymentMethod": zod.object({
+  "store": zod.string().nullable().describe('The store\/processor the subscription is billed through.'),
+  "managementUrl": zod.string().nullable().describe('A link where the customer can manage\/cancel with the store.')
+}).describe('A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.').nullable(),
+  "billingHistory": zod.array(zod.object({
+  "productId": zod.string(),
+  "store": zod.string().nullable(),
+  "purchasedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "periodType": zod.string().nullable(),
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
+}).describe('One subscription period from the provider\'s billing history.'))
+}).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
+
+
+/**
+ * Marks the subscription canceled. Paid access continues until the current period ends (the plan stays live until currentPeriodEnd lapses). Canceling also clears any active pause.
+ * @summary Cancel the caller's subscription at the period boundary
+ */
+export const CancelAccountSubscriptionResponse = zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable(),
+  "provider": zod.string().nullable(),
+  "paymentMethod": zod.object({
+  "store": zod.string().nullable().describe('The store\/processor the subscription is billed through.'),
+  "managementUrl": zod.string().nullable().describe('A link where the customer can manage\/cancel with the store.')
+}).describe('A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.').nullable(),
+  "billingHistory": zod.array(zod.object({
+  "productId": zod.string(),
+  "store": zod.string().nullable(),
+  "purchasedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "periodType": zod.string().nullable(),
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
+}).describe('One subscription period from the provider\'s billing history.'))
+}).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
+
+
+/**
+ * Pauses the subscription for 1–3 months. While paused the provider suspends paid access but does not expire the subscription; it resumes automatically when the window closes.
+ * @summary Pause the caller's subscription for a bounded window
+ */
+export const pauseAccountSubscriptionBodyMonthsMax = 3;
+
+
+
+export const PauseAccountSubscriptionBody = zod.object({
+  "months": zod.number().min(1).max(pauseAccountSubscriptionBodyMonthsMax).optional().describe('Number of months to pause (1–3). Defaults to 1 if omitted.')
+}).describe('How long to pause the subscription for.')
+
+export const PauseAccountSubscriptionResponse = zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable(),
+  "provider": zod.string().nullable(),
+  "paymentMethod": zod.object({
+  "store": zod.string().nullable().describe('The store\/processor the subscription is billed through.'),
+  "managementUrl": zod.string().nullable().describe('A link where the customer can manage\/cancel with the store.')
+}).describe('A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.').nullable(),
+  "billingHistory": zod.array(zod.object({
+  "productId": zod.string(),
+  "store": zod.string().nullable(),
+  "purchasedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "periodType": zod.string().nullable(),
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
+}).describe('One subscription period from the provider\'s billing history.'))
+}).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
+
+
+/**
+ * Redeems the discounted 3-month retention offer. Resumes/keeps the paid tier (clearing any pending cancel or pause), extends the current period by three months, and records that the offer was accepted so it can only be redeemed once.
+ * @summary Accept the one-time discounted 3-month retention offer
+ */
+export const AcceptRetentionOfferResponse = zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable(),
+  "provider": zod.string().nullable(),
+  "paymentMethod": zod.object({
+  "store": zod.string().nullable().describe('The store\/processor the subscription is billed through.'),
+  "managementUrl": zod.string().nullable().describe('A link where the customer can manage\/cancel with the store.')
+}).describe('A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.').nullable(),
+  "billingHistory": zod.array(zod.object({
+  "productId": zod.string(),
+  "store": zod.string().nullable(),
+  "purchasedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "periodType": zod.string().nullable(),
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
+}).describe('One subscription period from the provider\'s billing history.'))
+}).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
+
+
+/**
  * Looks up a single learner by their exact email address so the caller can send them a friend request. The caller is never returned. Available to all authenticated learners.
  * @summary Find a learner by their exact email
  */

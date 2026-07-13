@@ -42,7 +42,6 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/lib/billing", () => ({
   beginOneLanguageCheckout: vi.fn(),
   beginAllAccessCheckout: vi.fn(),
-  cancelPlus: vi.fn(),
 }));
 
 // Imported after the mocks are declared.

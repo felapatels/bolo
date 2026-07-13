@@ -45,6 +45,7 @@ import type {
   ListCategoriesParams,
   ListRecentAttemptsParams,
   ListReviewPhrasesParams,
+  PauseSubscriptionInput,
   Phrase,
   PhraseRequest,
   ProgressAnalytics,
@@ -56,6 +57,7 @@ import type {
   SetChosenLanguageInput,
   SpeechInput,
   SpeechResult,
+  SubscriptionDetails,
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
@@ -1497,6 +1499,300 @@ export const useUpdateAccountPreferences = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateAccountPreferencesMutationOptions(options));
+    }
+
+export const getGetAccountSubscriptionUrl = () => {
+
+
+
+
+  return `/api/account/subscription`
+}
+
+/**
+ * Returns the tier/status, relevant dates, chosen language, a best-effort payment-method summary, and billing/invoice history. Softer fields (payment method, history) are pulled from the provider where available and degrade to null/empty when it isn't configured or doesn't expose them.
+ * @summary The caller's full subscription-management snapshot
+ */
+export const getAccountSubscription = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getGetAccountSubscriptionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountSubscriptionQueryKey = () => {
+    return [
+    `/api/account/subscription`
+    ] as const;
+    }
+
+
+export const getGetAccountSubscriptionQueryOptions = <TData = Awaited<ReturnType<typeof getAccountSubscription>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountSubscription>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountSubscriptionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountSubscription>>> = ({ signal }) => getAccountSubscription({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountSubscription>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountSubscriptionQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountSubscription>>>
+export type GetAccountSubscriptionQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The caller's full subscription-management snapshot
+ */
+
+export function useGetAccountSubscription<TData = Awaited<ReturnType<typeof getAccountSubscription>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountSubscription>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountSubscriptionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCancelAccountSubscriptionUrl = () => {
+
+
+
+
+  return `/api/account/subscription/cancel`
+}
+
+/**
+ * Marks the subscription canceled. Paid access continues until the current period ends (the plan stays live until currentPeriodEnd lapses). Canceling also clears any active pause.
+ * @summary Cancel the caller's subscription at the period boundary
+ */
+export const cancelAccountSubscription = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getCancelAccountSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelAccountSubscriptionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelAccountSubscription>>, TError,void, TContext> => {
+
+const mutationKey = ['cancelAccountSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelAccountSubscription>>, void> = () => {
+
+
+          return  cancelAccountSubscription(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelAccountSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof cancelAccountSubscription>>>
+
+    export type CancelAccountSubscriptionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Cancel the caller's subscription at the period boundary
+ */
+export const useCancelAccountSubscription = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelAccountSubscription>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCancelAccountSubscriptionMutationOptions(options));
+    }
+
+export const getPauseAccountSubscriptionUrl = () => {
+
+
+
+
+  return `/api/account/subscription/pause`
+}
+
+/**
+ * Pauses the subscription for 1–3 months. While paused the provider suspends paid access but does not expire the subscription; it resumes automatically when the window closes.
+ * @summary Pause the caller's subscription for a bounded window
+ */
+export const pauseAccountSubscription = async (pauseSubscriptionInput?: PauseSubscriptionInput, options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getPauseAccountSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pauseSubscriptionInput)
+  }
+);}
+
+
+
+
+
+export const getPauseAccountSubscriptionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAccountSubscription>>, TError,{data?: BodyType<PauseSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseAccountSubscription>>, TError,{data?: BodyType<PauseSubscriptionInput>}, TContext> => {
+
+const mutationKey = ['pauseAccountSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseAccountSubscription>>, {data?: BodyType<PauseSubscriptionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  pauseAccountSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseAccountSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof pauseAccountSubscription>>>
+    export type PauseAccountSubscriptionMutationBody = BodyType<PauseSubscriptionInput> | undefined
+    export type PauseAccountSubscriptionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Pause the caller's subscription for a bounded window
+ */
+export const usePauseAccountSubscription = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAccountSubscription>>, TError,{data?: BodyType<PauseSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseAccountSubscription>>,
+        TError,
+        {data?: BodyType<PauseSubscriptionInput>},
+        TContext
+      > => {
+      return useMutation(getPauseAccountSubscriptionMutationOptions(options));
+    }
+
+export const getAcceptRetentionOfferUrl = () => {
+
+
+
+
+  return `/api/account/subscription/retention`
+}
+
+/**
+ * Redeems the discounted 3-month retention offer. Resumes/keeps the paid tier (clearing any pending cancel or pause), extends the current period by three months, and records that the offer was accepted so it can only be redeemed once.
+ * @summary Accept the one-time discounted 3-month retention offer
+ */
+export const acceptRetentionOffer = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getAcceptRetentionOfferUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptRetentionOfferMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptRetentionOffer>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptRetentionOffer>>, TError,void, TContext> => {
+
+const mutationKey = ['acceptRetentionOffer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptRetentionOffer>>, void> = () => {
+
+
+          return  acceptRetentionOffer(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptRetentionOfferMutationResult = NonNullable<Awaited<ReturnType<typeof acceptRetentionOffer>>>
+
+    export type AcceptRetentionOfferMutationError = ErrorType<Error>
+
+    /**
+ * @summary Accept the one-time discounted 3-month retention offer
+ */
+export const useAcceptRetentionOffer = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptRetentionOffer>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptRetentionOffer>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAcceptRetentionOfferMutationOptions(options));
     }
 
 export const getSearchFriendByEmailUrl = (params: SearchFriendByEmailParams,) => {

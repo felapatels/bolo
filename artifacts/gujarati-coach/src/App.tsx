@@ -24,6 +24,7 @@ import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
 import Friends from '@/pages/friends';
 import Account from '@/pages/account';
+import Subscription from '@/pages/subscription';
 import Upgrade from '@/pages/upgrade';
 import Privacy from '@/pages/privacy';
 import Terms from '@/pages/terms';
@@ -203,6 +204,11 @@ function AppRouter() {
       <Route path="/account">
         <Guard>
           <Account />
+        </Guard>
+      </Route>
+      <Route path="/account/subscription">
+        <Guard>
+          <Subscription />
         </Guard>
       </Route>
       <Route path="/upgrade">

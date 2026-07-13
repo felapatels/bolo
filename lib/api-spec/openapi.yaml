@@ -503,6 +503,137 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /account/subscription:
+    get:
+      operationId: getAccountSubscription
+      tags: [account]
+      summary: The caller's full subscription-management snapshot
+      description: >-
+        Returns the tier/status, relevant dates, chosen language, a best-effort
+        payment-method summary, and billing/invoice history. Softer fields
+        (payment method, history) are pulled from the provider where available
+        and degrade to null/empty when it isn't configured or doesn't expose
+        them.
+      responses:
+        "200":
+          description: The subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /account/subscription/cancel:
+    post:
+      operationId: cancelAccountSubscription
+      tags: [account]
+      summary: Cancel the caller's subscription at the period boundary
+      description: >-
+        Marks the subscription canceled. Paid access continues until the current
+        period ends (the plan stays live until currentPeriodEnd lapses).
+        Canceling also clears any active pause.
+      responses:
+        "200":
+          description: The updated subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "400":
+          description: No active subscription to cancel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /account/subscription/pause:
+    post:
+      operationId: pauseAccountSubscription
+      tags: [account]
+      summary: Pause the caller's subscription for a bounded window
+      description: >-
+        Pauses the subscription for 1–3 months. While paused the provider
+        suspends paid access but does not expire the subscription; it resumes
+        automatically when the window closes.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PauseSubscriptionInput"
+      responses:
+        "200":
+          description: The updated subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "400":
+          description: No active subscription to pause or an invalid month count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The subscription is already paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /account/subscription/retention:
+    post:
+      operationId: acceptRetentionOffer
+      tags: [account]
+      summary: Accept the one-time discounted 3-month retention offer
+      description: >-
+        Redeems the discounted 3-month retention offer. Resumes/keeps the paid
+        tier (clearing any pending cancel or pause), extends the current period
+        by three months, and records that the offer was accepted so it can only
+        be redeemed once.
+      responses:
+        "200":
+          description: The updated subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "400":
+          description: No subscription eligible for the retention offer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The retention offer was already redeemed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /friends/search:
     get:
       operationId: searchFriendByEmail
@@ -884,6 +1015,121 @@ components:
         - pauseUntil
         - cancelAtPeriodEnd
         - retentionOfferAcceptedAt
+
+    PaymentMethodSummary:
+      type: object
+      description: >-
+        A best-effort summary of how the subscription is billed. Every field is
+        nullable because the provider may not expose it.
+      properties:
+        store:
+          type: string
+          nullable: true
+          description: The store/processor the subscription is billed through.
+        managementUrl:
+          type: string
+          nullable: true
+          description: A link where the customer can manage/cancel with the store.
+      required:
+        - store
+        - managementUrl
+
+    BillingHistoryEntry:
+      type: object
+      description: One subscription period from the provider's billing history.
+      properties:
+        productId:
+          type: string
+        store:
+          type: string
+          nullable: true
+        purchasedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        periodType:
+          type: string
+          nullable: true
+        status:
+          type: string
+          description: '"active" | "expired" | "canceled" — derived from the dates/flags.'
+      required:
+        - productId
+        - store
+        - purchasedAt
+        - expiresAt
+        - periodType
+        - status
+
+    SubscriptionDetails:
+      type: object
+      description: >-
+        The full subscription-management snapshot: the server-authoritative
+        tier/status/dates and chosen language, plus the softer provider-sourced
+        payment method and billing history (which degrade gracefully).
+      properties:
+        tier:
+          type: string
+        status:
+          type: string
+        chosenLanguage:
+          type: string
+          nullable: true
+        trialEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          nullable: true
+        pauseUntil:
+          type: string
+          format: date-time
+          nullable: true
+        cancelAtPeriodEnd:
+          type: boolean
+        retentionOfferAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+        provider:
+          type: string
+          nullable: true
+        paymentMethod:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PaymentMethodSummary"
+        billingHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillingHistoryEntry"
+      required:
+        - tier
+        - status
+        - chosenLanguage
+        - trialEndsAt
+        - currentPeriodEnd
+        - pauseUntil
+        - cancelAtPeriodEnd
+        - retentionOfferAcceptedAt
+        - provider
+        - paymentMethod
+        - billingHistory
+
+    PauseSubscriptionInput:
+      type: object
+      description: How long to pause the subscription for.
+      properties:
+        months:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: Number of months to pause (1–3). Defaults to 1 if omitted.
 
     Account:
       type: object

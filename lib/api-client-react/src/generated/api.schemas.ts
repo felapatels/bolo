@@ -57,6 +57,58 @@ export interface AccountSubscriptionSummary {
   retentionOfferAcceptedAt: string | null;
 }
 
+/**
+ * A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.
+ */
+export interface PaymentMethodSummary {
+  /** The store/processor the subscription is billed through. */
+  store: string | null;
+  /** A link where the customer can manage/cancel with the store. */
+  managementUrl: string | null;
+}
+
+/**
+ * One subscription period from the provider's billing history.
+ */
+export interface BillingHistoryEntry {
+  productId: string;
+  store: string | null;
+  purchasedAt: string | null;
+  expiresAt: string | null;
+  periodType: string | null;
+  /** "active" | "expired" | "canceled" — derived from the dates/flags. */
+  status: string;
+}
+
+/**
+ * The full subscription-management snapshot: the server-authoritative tier/status/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).
+ */
+export interface SubscriptionDetails {
+  tier: string;
+  status: string;
+  chosenLanguage: string | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  pauseUntil: string | null;
+  cancelAtPeriodEnd: boolean;
+  retentionOfferAcceptedAt: string | null;
+  provider: string | null;
+  paymentMethod: PaymentMethodSummary | null;
+  billingHistory: BillingHistoryEntry[];
+}
+
+/**
+ * How long to pause the subscription for.
+ */
+export interface PauseSubscriptionInput {
+  /**
+     * Number of months to pause (1–3). Defaults to 1 if omitted.
+     * @minimum 1
+     * @maximum 3
+     */
+  months?: number;
+}
+
 export interface Account {
   profile: AccountProfile;
   preferences: AccountPreferences;

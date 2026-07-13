@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   ArrowLeft,
   User as UserIcon,
+  Crown,
+  Sparkles,
   ShieldCheck,
   Bell,
   GraduationCap,
@@ -90,7 +92,26 @@ export default function Account() {
   const queryClient = useQueryClient();
 
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
-  const { isLanguageAllowed } = useEntitlements();
+  const {
+    isLanguageAllowed,
+    isPaid,
+    isOneLanguage,
+    isTrialing,
+    status: subStatus,
+    chosenLanguage,
+  } = useEntitlements();
+  const isPaused = subStatus === "paused";
+  const hasSubscription = isPaid || isPaused;
+  const subPlanLabel = isPaused
+    ? "Subscription paused"
+    : isOneLanguage
+      ? "One Language"
+      : isTrialing
+        ? "All-Access trial"
+        : "All-Access";
+  const chosenLangName = languages.find(
+    (l) => l.code === chosenLanguage,
+  )?.name;
   const { theme, setTheme } = useTheme();
 
   const { data: account, isLoading } = useGetAccount();
@@ -277,6 +298,50 @@ export default function Account() {
               "Save profile"
             )}
           </Button>
+        </Section>
+
+        {/* Subscription */}
+        <Section
+          icon={Crown}
+          title="Subscription"
+          subtitle="Your plan, billing and cancellation"
+        >
+          {hasSubscription ? (
+            <Link
+              href="/account/subscription"
+              className="flex w-full items-center justify-between rounded-2xl border border-card-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
+            >
+              <div className="min-w-0">
+                <p className="font-black text-foreground">{subPlanLabel}</p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {isPaused
+                    ? "Paused — resumes automatically"
+                    : isOneLanguage && chosenLangName
+                      ? `Hindi + ${chosenLangName}`
+                      : "Manage plan, billing & cancellation"}
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+            </Link>
+          ) : (
+            <Link
+              href="/upgrade"
+              className="flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3.5 text-left text-white shadow-md transition-all hover:opacity-95 active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                  <Sparkles className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-black">Upgrade your plan</p>
+                  <p className="truncate text-sm font-semibold text-white/85">
+                    Unlock more languages and unlimited lessons
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0" />
+            </Link>
+          )}
         </Section>
 
         {/* Sign-in & security (Clerk) */}

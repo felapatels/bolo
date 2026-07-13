@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearch } from "wouter";
+import { Link, Redirect, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
@@ -15,7 +15,6 @@ import {
   Loader2,
   Sparkles,
   Lock,
-  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -24,7 +23,6 @@ import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import {
   beginOneLanguageCheckout,
   beginAllAccessCheckout,
-  cancelPlus,
   refreshAfterBilling,
   type PlusInterval,
   type PaidTier,
@@ -84,16 +82,7 @@ const ALL_ACCESS_BENEFITS = [
 ];
 
 export default function Upgrade() {
-  const {
-    isPaid,
-    plan,
-    isTrialing,
-    status,
-    trialEndsAt,
-    currentPeriodEnd,
-    chosenLanguage,
-    isLoading,
-  } = useEntitlements();
+  const { isPaid, status, isLoading } = useEntitlements();
 
   if (isLoading) {
     return (
@@ -103,15 +92,10 @@ export default function Upgrade() {
     );
   }
 
+  // Paying learners manage their plan in the account area; /upgrade is purely the
+  // checkout/paywall surface for Free and lapsed learners.
   return isPaid ? (
-    <ManageSubscription
-      plan={plan}
-      isTrialing={isTrialing}
-      status={status}
-      trialEndsAt={trialEndsAt}
-      currentPeriodEnd={currentPeriodEnd}
-      chosenLanguage={chosenLanguage}
-    />
+    <Redirect to="/account/subscription" />
   ) : (
     <Paywall lapsed={status === "expired" || status === "canceled"} />
   );
@@ -588,214 +572,5 @@ function PlanCard({
         ))}
       </ul>
     </button>
-  );
-}
-
-function ManageSubscription({
-  plan,
-  isTrialing,
-  status,
-  trialEndsAt,
-  currentPeriodEnd,
-  chosenLanguage,
-}: {
-  plan: "free" | "one_language" | "plus";
-  isTrialing: boolean;
-  status: string;
-  trialEndsAt: string | null;
-  currentPeriodEnd: string | null;
-  chosenLanguage: string | null;
-}) {
-  const queryClient = useQueryClient();
-  const { languages } = useLanguage();
-  const [busy, setBusy] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const isOneLanguage = plan === "one_language";
-  const chosen = languages.find((l) => l.code === chosenLanguage);
-  const benefits = isOneLanguage ? ONE_LANGUAGE_BENEFITS : ALL_ACCESS_BENEFITS;
-
-  const renewalDate = isTrialing ? trialEndsAt : currentPeriodEnd;
-  const renewalLabel = isTrialing ? "Free trial ends" : "Renews on";
-
-  const planLabel = isOneLanguage
-    ? "One Language"
-    : isTrialing
-      ? "All-Access trial"
-      : "All-Access";
-
-  // Returning from the Stripe billing portal: refresh entitlements so a
-  // cancellation/plan change reflects immediately, then clear the query param.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("checkout")) return;
-    void refreshAfterBilling(queryClient);
-    params.delete("checkout");
-    const query = params.toString();
-    window.history.replaceState(
-      {},
-      "",
-      window.location.pathname + (query ? `?${query}` : ""),
-    );
-  }, [queryClient]);
-
-  const handleManage = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      // Redirects the browser to Stripe's billing portal; does not return.
-      await cancelPlus();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setBusy(false);
-    }
-  };
-
-  const handleUpgradeToAllAccess = async () => {
-    setUpgrading(true);
-    setError(null);
-    try {
-      // Already-paying subscriber: move straight to All-Access via Stripe, no
-      // fresh trial. Redirects the browser to Stripe; does not return.
-      await beginAllAccessCheckout(/* withTrial */ false, "annual", queryClient);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setUpgrading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-[100dvh] bg-background pb-10">
-      <Header />
-
-      <main className="px-6 max-w-lg mx-auto">
-        <div className="text-center pt-4">
-          <div
-            className={cn(
-              "mx-auto mb-5 inline-flex h-20 w-20 items-center justify-center rounded-3xl text-white shadow-lg",
-              PLUS_GRADIENT,
-            )}
-          >
-            <Crown className="h-10 w-10" fill="currentColor" />
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">
-            {isOneLanguage
-              ? "You're on One Language"
-              : "You're on All-Access"}
-          </h1>
-          <p className="mt-2 text-lg font-medium text-muted-foreground">
-            {isOneLanguage
-              ? `Hindi${chosen ? ` and ${chosen.name}` : ""} are unlocked with unlimited lessons.`
-              : isTrialing
-                ? "Your free trial is active — every language and Plus feature is unlocked."
-                : "Thanks for being a member. Everything's unlocked."}
-          </p>
-        </div>
-
-        {/* Plan summary */}
-        <div className="mt-8 rounded-3xl border border-card-border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-muted-foreground">Plan</span>
-            <span className="font-black text-foreground">{planLabel}</span>
-          </div>
-
-          {isOneLanguage && (
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-              <span className="font-bold text-muted-foreground">
-                Your language
-              </span>
-              <span className="font-black text-foreground">
-                {chosen ? chosen.name : "Not set"}
-              </span>
-            </div>
-          )}
-
-          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-            <span className="font-bold text-muted-foreground">Status</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-3 py-1 text-sm font-black capitalize text-success">
-              <Check className="h-4 w-4" />
-              {isTrialing ? "Free trial" : status}
-            </span>
-          </div>
-
-          {renewalDate && (
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-              <span className="font-bold text-muted-foreground">
-                {renewalLabel}
-              </span>
-              <span className="font-black text-foreground">
-                {format(new Date(renewalDate), "MMM d, yyyy")}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* What's included */}
-        <ul className="mt-6 space-y-2.5 rounded-3xl border border-card-border bg-white p-6 shadow-sm">
-          {benefits.map((b) => (
-            <li key={b.text} className="flex items-center gap-3">
-              <Check className="h-5 w-5 shrink-0 text-success" />
-              <span className="font-medium text-foreground">{b.text}</span>
-            </li>
-          ))}
-        </ul>
-
-        {/* Upgrade path for One Language subscribers */}
-        {isOneLanguage && (
-          <button
-            onClick={handleUpgradeToAllAccess}
-            disabled={upgrading}
-            className={cn(
-              "mt-6 flex w-full items-center justify-between gap-3 rounded-3xl p-5 text-left text-white shadow-[0_8px_0_hsl(var(--secondary-shadow))] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--secondary-shadow))] disabled:opacity-70",
-              PLUS_GRADIENT,
-            )}
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Crown className="h-5 w-5" fill="currentColor" />
-                <span className="text-lg font-black">Upgrade to All-Access</span>
-              </div>
-              <p className="mt-0.5 text-sm font-semibold text-white/85">
-                Unlock every language, review, and analytics for $9.99/mo.
-              </p>
-            </div>
-            {upgrading ? (
-              <Loader2 className="h-6 w-6 shrink-0 animate-spin" />
-            ) : (
-              <ChevronRight className="h-6 w-6 shrink-0" />
-            )}
-          </button>
-        )}
-
-        {/* Cancel */}
-        <div className="mt-6">
-          <button
-            onClick={handleManage}
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-border bg-white px-6 py-4 text-base font-bold text-foreground transition-all active:scale-[0.98] disabled:opacity-70"
-          >
-            {busy ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Opening…
-              </>
-            ) : (
-              "Manage subscription"
-            )}
-          </button>
-          {error && (
-            <p className="mt-3 text-center text-sm font-medium text-destructive">
-              {error}
-            </p>
-          )}
-          <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-            Update payment, switch plans, or cancel in Stripe's secure portal.
-            If you cancel, you'll keep access until the end of your current
-            period.
-          </p>
-        </div>
-      </main>
-    </div>
   );
 }
