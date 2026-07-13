@@ -12,10 +12,12 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   useListCategories,
   useListCategoryPhrases,
+  ApiError,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { LessonError } from '@/components/LessonError';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -33,6 +35,23 @@ export default function CategoryScreen() {
 
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);
+
+  // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry" —
+  // keep that as the inline note below. Any other failure (e.g. a 502 when AI
+  // generation fails) is retry-able: nothing broken was cached, so a later
+  // request can succeed.
+  const isUpgradeRequired =
+    phrases.error instanceof ApiError && phrases.error.status === 402;
+
+  if (phrases.isError && !isUpgradeRequired) {
+    return (
+      <LessonError
+        onRetry={() => phrases.refetch()}
+        isRetrying={phrases.isFetching}
+        onBack={() => router.back()}
+      />
+    );
+  }
 
   return (
     <Screen>
@@ -76,8 +95,8 @@ export default function CategoryScreen() {
         {phrases.isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
         ) : phrases.isError ? (
-          <Text style={[styles.note, { color: colors.destructive }]}>
-            Couldn't load phrases. Please try again.
+          <Text style={[styles.note, { color: colors.mutedForeground }]}>
+            Upgrade to Plus to keep learning this topic today.
           </Text>
         ) : (phrases.data ?? []).length === 0 ? (
           <Text style={[styles.note, { color: colors.mutedForeground }]}>
