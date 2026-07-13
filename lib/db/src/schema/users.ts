@@ -33,8 +33,8 @@ export const usersTable = pgTable("users", {
   // End of the current paid billing period. Once passed, a "plus" tier reads as
   // expired (downgraded to Free) until renewed.
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
-  // Payment provider bookkeeping for a future payments task (e.g. "stripe",
-  // "revenuecat"). Not consulted by gating.
+  // Payment provider bookkeeping (e.g. "stripe", "revenuecat"). Not consulted
+  // by gating.
   subscriptionProvider: text("subscription_provider"),
   subscriptionProviderId: text("subscription_provider_id"),
   // Subscription-management state (set by the account/subscription endpoints).
@@ -63,6 +63,11 @@ export const usersTable = pgTable("users", {
   activeLanguage: text("active_language"),
   dailyGoal: integer("daily_goal").notNull().default(10),
   theme: text("theme").notNull().default("system"),
+  // Stripe customer id, created on first checkout so a returning learner reuses
+  // the same customer (and so the billing portal has someone to open for).
+  // Independent of `subscriptionProviderId` above, which records the
+  // *subscription*-scoped id once a plan is active.
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

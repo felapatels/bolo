@@ -2,25 +2,74 @@ import type { QueryClient } from "@tanstack/react-query";
 
 // Web checkout / subscription management.
 //
-// The production Stripe/RevenueCat web checkout endpoint is owned by the
-// separate payments task and isn't wired here. Until it lands, the upgrade flow
-// drives the server's dev-override endpoint (non-production only) so the full
-// locked -> upgrade -> unlocked -> lapse -> re-locked experience is testable end
-// to end across all three tiers. When the real checkout ships, only the
-// `begin*Checkout` helpers need to change to redirect to the provider's hosted
-// checkout; everything else (the unlock via entitlements refetch) stays the same.
+// All-Access (Plus) checkout is real Stripe: `beginAllAccessCheckout` and
+// `cancelPlus` create a Stripe session server-side and then hand the browser off
+// to Stripe's hosted pages via a full-page redirect — so they never resolve on
+// success (the tab navigates away). Stripe returns the learner to
+// /upgrade?checkout=success|cancel; the upgrade page picks that up and calls
+// `refreshAfterBilling` to re-pull entitlements so the app unlocks.
+//
+// The middle "One Language" tier is NOT sold through Stripe on web (it stays
+// RevenueCat/mobile-only). Its web flow drives the server's non-production
+// dev-override so the tier is still exercisable end to end (locked -> upgrade ->
+// unlocked -> lapse -> re-locked). In production that endpoint 404s, so
+// `beginOneLanguageCheckout` surfaces a clear "not available" error.
 
-// The billing interval is presentational for now — the dev-override records only
-// the tier, so monthly vs annual doesn't change the resulting entitlements. The
-// real provider checkout will use it to pick the right price.
+// The billing interval. For All-Access it selects the monthly vs annual Stripe
+// price; for the dev-override One-Language path it's presentational.
 export type PlusInterval = "monthly" | "annual";
 
 // The paid tier a learner is buying: the middle "One Language" tier or top
 // "All-Access" (Plus) tier.
 export type PaidTier = "one_language" | "plus";
 
+// The artifact base path (e.g. "/gujarati-coach/") so Stripe's return URLs land
+// back inside the app, not at the domain root. BASE_URL always has a trailing
+// slash.
+const BASE_PATH = import.meta.env.BASE_URL;
+
+// POST to a Stripe session endpoint and return the hosted-page URL to redirect
+// to. Sends the artifact base path so the server can build same-origin return
+// URLs that keep the app's path prefix.
+async function postForRedirectUrl(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  const res = await fetch(path, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...body, basePath: BASE_PATH }),
+  });
+  if (!res.ok) {
+    let message = `Checkout failed (${res.status}).`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data?.error) message = data.error;
+    } catch {
+      // Non-JSON error body — keep the generic message.
+    }
+    throw new Error(message);
+  }
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) {
+    throw new Error("Checkout is temporarily unavailable.");
+  }
+  return data.url;
+}
+
+// After returning from Stripe, re-pull every server-derived query so the app
+// unlocks (or re-locks) immediately without a manual refresh.
+export async function refreshAfterBilling(
+  queryClient: QueryClient,
+): Promise<void> {
+  await queryClient.invalidateQueries();
+}
+
 type DevPlan = "free" | "one_language" | "plus" | "trial";
 
+// Non-production only: flip the caller's tier via the server dev-override so the
+// One-Language web flow is testable without a real provider. 404s in production.
 async function devSetPlan(
   plan: DevPlan,
   chosenLanguage?: string,
@@ -34,24 +83,24 @@ async function devSetPlan(
     ),
   });
   if (!res.ok) {
-    throw new Error(
+    let message =
       res.status === 404
-        ? "Checkout isn't available in this environment yet."
-        : `Checkout failed (${res.status}).`,
-    );
+        ? "This plan isn't available to purchase on the web yet."
+        : `Couldn't start this plan (${res.status}).`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data?.error) message = data.error;
+    } catch {
+      // Non-JSON error body — keep the message above.
+    }
+    throw new Error(message);
   }
-}
-
-// After any billing change, re-pull every server-derived query so the app
-// unlocks (or re-locks) immediately without a manual refresh. Entitlements are
-// refetched first so plan-dependent UI (language guard, feature gates) settles.
-async function refreshAfterBilling(queryClient: QueryClient): Promise<void> {
-  await queryClient.invalidateQueries();
 }
 
 // Start the middle "One Language" tier for the language the learner picked at
 // checkout (locked in for the life of the subscription on the server). Free
-// Hindi plus the chosen language unlock, with no daily lesson cap.
+// Hindi plus the chosen language unlock, with no daily lesson cap. Not real on
+// web yet — dev-override only.
 export async function beginOneLanguageCheckout(
   chosenLanguage: string,
   _interval: PlusInterval,
@@ -61,22 +110,25 @@ export async function beginOneLanguageCheckout(
   await refreshAfterBilling(queryClient);
 }
 
-// Start the top "All-Access" tier. `withTrial` begins the 7-day free trial
-// (all-access that reverts unless converted); otherwise it activates Plus
-// directly — used when a One Language subscriber upgrades and shouldn't get a
-// fresh trial.
+// Start the top "All-Access" (Plus) tier via real Stripe Checkout. `withTrial`
+// begins the 7-day free trial (used for new subscribers); pass false when an
+// existing subscriber upgrades and shouldn't get a fresh trial. Redirects the
+// browser to Stripe — does not return on success.
 export async function beginAllAccessCheckout(
   withTrial: boolean,
-  _interval: PlusInterval,
-  queryClient: QueryClient,
+  interval: PlusInterval,
+  _queryClient?: QueryClient,
 ): Promise<void> {
-  await devSetPlan(withTrial ? "trial" : "plus");
-  await refreshAfterBilling(queryClient);
+  const url = await postForRedirectUrl("/api/stripe/checkout", {
+    interval,
+    withTrial,
+  });
+  window.location.href = url;
 }
 
-// Cancel / lapse the subscription — returns the caller to Free so re-locking can
-// be verified. The real billing portal replaces this once payments are wired.
-export async function cancelPlus(queryClient: QueryClient): Promise<void> {
-  await devSetPlan("free");
-  await refreshAfterBilling(queryClient);
+// Open Stripe's hosted billing portal to manage/cancel the subscription.
+// Redirects the browser — does not return on success.
+export async function cancelPlus(): Promise<void> {
+  const url = await postForRedirectUrl("/api/stripe/portal", {});
+  window.location.href = url;
 }

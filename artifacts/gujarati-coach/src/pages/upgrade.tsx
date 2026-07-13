@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,6 +24,7 @@ import {
   beginOneLanguageCheckout,
   beginAllAccessCheckout,
   cancelPlus,
+  refreshAfterBilling,
   type PlusInterval,
   type PaidTier,
 } from "@/lib/billing";
@@ -178,6 +179,26 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   const chosen = languages.find((l) => l.code === chosenLanguage);
   const needsLanguage = selectedTier === "one_language" && !chosenLanguage;
 
+  // If the learner just returned from a cancelled Stripe Checkout, surface a
+  // gentle notice and refresh entitlements (in case anything changed), then
+  // strip the query param so a refresh doesn't repeat it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get("checkout");
+    if (!outcome) return;
+    if (outcome === "cancel") {
+      setError("Checkout was cancelled — you haven't been charged.");
+    }
+    void refreshAfterBilling(queryClient);
+    params.delete("checkout");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (query ? `?${query}` : ""),
+    );
+  }, [queryClient]);
+
   const handleStart = async () => {
     setBusy(true);
     setError(null);
@@ -188,12 +209,15 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           setBusy(false);
           return;
         }
+        // One Language isn't sold via Stripe on web — dev-override (unlocks in
+        // place), then route into the app.
         await beginOneLanguageCheckout(chosenLanguage, interval, queryClient);
+        setLocation("/app");
       } else {
-        // All-Access starts with the 7-day free trial for new subscribers.
+        // All-Access → real Stripe Checkout with the 7-day free trial. Redirects
+        // the browser to Stripe; does not return on success.
         await beginAllAccessCheckout(/* withTrial */ true, interval, queryClient);
       }
-      setLocation("/app");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setBusy(false);
@@ -552,7 +576,6 @@ function ManageSubscription({
   currentPeriodEnd: string | null;
   chosenLanguage: string | null;
 }) {
-  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { languages } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -572,12 +595,27 @@ function ManageSubscription({
       ? "All-Access trial"
       : "All-Access";
 
-  const handleCancel = async () => {
+  // Returning from the Stripe billing portal: refresh entitlements so a
+  // cancellation/plan change reflects immediately, then clear the query param.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("checkout")) return;
+    void refreshAfterBilling(queryClient);
+    params.delete("checkout");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (query ? `?${query}` : ""),
+    );
+  }, [queryClient]);
+
+  const handleManage = async () => {
     setBusy(true);
     setError(null);
     try {
-      await cancelPlus(queryClient);
-      setLocation("/app");
+      // Redirects the browser to Stripe's billing portal; does not return.
+      await cancelPlus();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setBusy(false);
@@ -588,9 +626,9 @@ function ManageSubscription({
     setUpgrading(true);
     setError(null);
     try {
-      // Already-paying subscriber: move straight to All-Access, no fresh trial.
+      // Already-paying subscriber: move straight to All-Access via Stripe, no
+      // fresh trial. Redirects the browser to Stripe; does not return.
       await beginAllAccessCheckout(/* withTrial */ false, "annual", queryClient);
-      setLocation("/app");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setUpgrading(false);
@@ -703,17 +741,17 @@ function ManageSubscription({
         {/* Cancel */}
         <div className="mt-6">
           <button
-            onClick={handleCancel}
+            onClick={handleManage}
             disabled={busy}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-border bg-white px-6 py-4 text-base font-bold text-foreground transition-all active:scale-[0.98] disabled:opacity-70"
           >
             {busy ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Updating…
+                Opening…
               </>
             ) : (
-              "Cancel subscription"
+              "Manage subscription"
             )}
           </button>
           {error && (
@@ -722,7 +760,9 @@ function ManageSubscription({
             </p>
           )}
           <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-            You'll keep access until the end of your current period.
+            Update payment, switch plans, or cancel in Stripe's secure portal.
+            If you cancel, you'll keep access until the end of your current
+            period.
           </p>
         </div>
       </main>

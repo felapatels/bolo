@@ -10,6 +10,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { stripeWebhookHandler } from "./middlewares/stripeWebhook";
 
 const app: Express = express();
 
@@ -80,6 +81,15 @@ app.use(
     },
   }),
 );
+// Stripe webhook signature verification needs the raw body, so this route is
+// registered with express.raw() BEFORE the JSON body parser below — exactly
+// like the Clerk proxy above.
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler,
+);
+
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 

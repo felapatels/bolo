@@ -106,3 +106,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 REVENUECAT_ENTITLEMENT_ID = "plus"
+STRIPE_PLUS_ANNUAL_PRICE_ID = "price_1TsrZP9m6sWN1FTen82RfBLo"
+STRIPE_PLUS_MONTHLY_PRICE_ID = "price_1TsrZP9m6sWN1FTeqOIUpZ10"
