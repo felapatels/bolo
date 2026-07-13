@@ -7,6 +7,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
+import type { CSSProperties } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -45,16 +46,16 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-[100dvh] pb-24 bg-background">
+    <div className="min-h-[100dvh] pb-28 bg-background">
       {/* Header / Greeting */}
-      <header className="pt-12 px-6 pb-6 bg-gradient-to-b from-primary/10 to-transparent">
+      <header className="pt-12 px-6 pb-2">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-3xl font-extrabold text-foreground mb-1">
+            <h1 className="text-3xl font-black text-foreground mb-1 tracking-tight">
               Hello{firstName ? `, ${firstName}` : ""}! <Hand className="inline-block w-8 h-8 text-primary origin-bottom-right animate-wave" />
             </h1>
-            <p className="text-muted-foreground text-lg font-medium">
-              Ready to speak some {activeLanguage?.name ?? "..."}?
+            <p className="text-muted-foreground text-lg font-semibold">
+              Ready to speak some <span className="text-foreground">{activeLanguage?.name ?? "..."}</span>?
             </p>
           </div>
           <button
@@ -70,70 +71,85 @@ export default function Home() {
           <LanguagePicker />
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Banner — vibrant, front-and-center progress */}
         {summary && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }} 
-            animate={{ opacity: 1, scale: 1 }} 
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex gap-3 mt-6"
+            className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[hsl(24,100%,47%)] via-[hsl(0,85%,50%)] to-[hsl(330,82%,46%)] p-5 text-white shadow-[0_10px_30px_-8px_hsl(27,100%,40%,0.55)]"
           >
-            <div className="flex-1 bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col items-center justify-center button-spring">
-              <Flame className="w-8 h-8 text-primary mb-2" fill="currentColor" />
-              <div className="text-2xl font-black text-foreground">{summary.currentStreakDays}</div>
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Day Streak</div>
-            </div>
-            <div className="flex-1 bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col items-center justify-center button-spring">
-              <Star className="w-8 h-8 text-[#ffd166] mb-2" fill="currentColor" />
-              <div className="text-2xl font-black text-foreground">{summary.xp}</div>
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total XP</div>
-            </div>
-            <div className="flex-1 bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col items-center justify-center button-spring">
-              <Trophy className="w-8 h-8 text-secondary mb-2" fill="currentColor" />
-              <div className="text-2xl font-black text-foreground">{summary.phrasesMastered}</div>
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mastered</div>
+            {/* soft decorative blobs */}
+            <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
+            <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+
+            <div className="relative flex items-stretch">
+              <StatCell icon={<Flame className="w-6 h-6" fill="currentColor" />} value={summary.currentStreakDays} label="Day Streak" />
+              <div className="w-px self-stretch bg-white/25" />
+              <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" />
+              <div className="w-px self-stretch bg-white/25" />
+              <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary.phrasesMastered} label="Mastered" />
             </div>
           </motion.div>
         )}
       </header>
 
-      <main className="px-6 space-y-8">
+      <main className="px-6 space-y-8 mt-8">
         {/* Categories Grid */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-foreground">Topics</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-black text-foreground tracking-tight">Pick a topic</h2>
           </div>
-          <div className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {categories?.map((cat, i) => {
               const Icon = iconMap[cat.iconName] || BookOpen;
+              const accent = cat.accent || "var(--color-primary)";
               const progress = cat.phraseCount > 0 ? Math.round((cat.masteredCount / cat.phraseCount) * 100) : 0;
-              
+              const done = progress >= 100;
+
               return (
                 <motion.div
                   key={cat.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 + i * 0.05 }}
                 >
-                  <Link href={`/learn/${cat.id}`} className="block">
-                    <div className="bg-white rounded-2xl p-5 border-2 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-4 relative overflow-hidden" style={{ borderColor: cat.accent || 'var(--color-primary)' }}>
-                      <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 -mr-10 -mt-10" style={{ backgroundColor: cat.accent || 'var(--color-primary)' }} />
-                      
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: cat.accent ? `${cat.accent}20` : 'var(--color-primary-100)', color: cat.accent || 'var(--color-primary)' }}>
-                        <Icon className="w-7 h-7" />
+                  <Link href={`/learn/${cat.id}`} className="block h-full">
+                    <div
+                      className="group relative flex h-full flex-col rounded-3xl border-2 bg-white p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
+                      style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}
+                    >
+                      <div
+                        className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-10"
+                        style={{ backgroundColor: accent }}
+                      />
+
+                      <div className="flex items-center justify-between">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm"
+                          style={{ backgroundColor: accent }}
+                        >
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <span className="text-xs font-black" style={{ color: accent }}>
+                          {done ? "Done!" : `${progress}%`}
+                        </span>
                       </div>
-                      
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg text-foreground leading-tight">{cat.title}</h3>
-                        {cat.titleNative && (
-                          <p className="text-sm text-muted-foreground mt-0.5" style={native.style} dir={native.dir}>{cat.titleNative}</p>
-                        )}
-                        
-                        <div className="mt-3 flex items-center gap-2">
-                          <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%`, backgroundColor: cat.accent || 'var(--color-primary)' }} />
-                          </div>
-                          <span className="text-xs font-bold text-muted-foreground min-w-[2.5rem] text-right">{progress}%</span>
+
+                      <h3 className="mt-3 text-base font-black leading-tight text-foreground">{cat.title}</h3>
+                      {cat.titleNative && (
+                        <p className="mt-0.5 truncate text-sm text-muted-foreground" style={native.style} dir={native.dir}>
+                          {cat.titleNative}
+                        </p>
+                      )}
+
+                      <div className="mt-auto pt-4">
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${progress}%`, backgroundColor: accent }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -147,13 +163,16 @@ export default function Home() {
         {/* CTA */}
         {categories && categories.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Link 
-              href={`/practice/${categories[0].id}`} 
-              className="w-full bg-primary text-primary-foreground font-black text-lg py-5 px-6 rounded-2xl flex items-center justify-between shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all"
+            <Link
+              href={`/practice/${categories[0].id}`}
+              className="flex w-full items-center justify-between rounded-2xl bg-primary px-6 py-5 text-lg font-black text-primary-foreground shadow-[0_8px_0_hsl(27,100%,45%)] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)]"
             >
-              <span>Start Daily Practice!</span>
-              <div className="bg-white/20 p-2 rounded-full">
-                <ArrowRight className="w-6 h-6" />
+              <span className="flex items-center gap-3">
+                <Flame className="h-6 w-6" fill="currentColor" />
+                Start Daily Practice!
+              </span>
+              <div className="rounded-full bg-white/20 p-2">
+                <ArrowRight className="h-6 w-6" />
               </div>
             </Link>
           </motion.div>
@@ -165,31 +184,31 @@ export default function Home() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
               <Link
                 href="/review"
-                className="block bg-white rounded-2xl p-5 border-2 border-secondary transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-4 relative overflow-hidden"
+                className="relative flex items-center gap-4 overflow-hidden rounded-3xl border-2 border-secondary bg-secondary/5 p-5 shadow-[0_6px_0_hsl(190,100%,42%)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_hsl(190,100%,42%)]"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 -mr-10 -mt-10 bg-secondary" />
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-secondary/15 text-secondary">
-                  <Target className="w-7 h-7" />
+                <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary opacity-10" />
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary text-white shadow-sm">
+                  <Target className="h-7 w-7" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg text-foreground leading-tight">Review your weakest phrases</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-black leading-tight text-foreground">Review your weakest phrases</h3>
+                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">
                     {reviewCount} {reviewCount === 1 ? "phrase" : "phrases"} to sharpen up
                   </p>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
-                  <ArrowRight className="w-5 h-5" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-white">
+                  <ArrowRight className="h-5 w-5" />
                 </div>
               </Link>
             </motion.div>
           ) : (
-            <div className="bg-muted/40 rounded-2xl p-5 border border-card-border flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-muted text-muted-foreground">
-                <Target className="w-7 h-7" />
+            <div className="flex items-center gap-4 rounded-3xl border border-card-border bg-muted/40 p-5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                <Target className="h-7 w-7" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-muted-foreground leading-tight">Review your weakest phrases</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold leading-tight text-muted-foreground">Review your weakest phrases</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Practice a few phrases first — the ones you find tricky will show up here to review.
                 </p>
               </div>
@@ -200,21 +219,21 @@ export default function Home() {
         {/* Recent Activity */}
         {attempts && attempts.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-foreground mb-4">Recent Plays</h2>
+            <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Recent plays</h2>
             <div className="space-y-3">
               {attempts.map((attempt) => (
-                <div key={attempt.id} className="bg-white rounded-xl p-4 border border-card-border shadow-sm flex items-center gap-4">
+                <div key={attempt.id} className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
                   <div className={cn(
-                    "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg",
-                    attempt.score >= 80 ? "bg-success/15 text-success" : 
-                    attempt.score >= 60 ? "bg-primary/15 text-primary" : 
+                    "flex h-12 w-12 items-center justify-center rounded-full text-lg font-black",
+                    attempt.score >= 80 ? "bg-success/15 text-success" :
+                    attempt.score >= 60 ? "bg-primary/15 text-primary" :
                     "bg-destructive/15 text-destructive"
                   )}>
                     {Math.round(attempt.score)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-lg leading-tight truncate" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">{attempt.english}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-lg leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">{attempt.english}</p>
                   </div>
                 </div>
               ))}
@@ -224,6 +243,16 @@ export default function Home() {
       </main>
 
       <BottomNav />
+    </div>
+  );
+}
+
+function StatCell({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-center">
+      <div className="text-white">{icon}</div>
+      <div className="text-2xl font-black leading-none">{value}</div>
+      <div className="text-[11px] font-bold uppercase tracking-wider text-white">{label}</div>
     </div>
   );
 }
