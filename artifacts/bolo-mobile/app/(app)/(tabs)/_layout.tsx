@@ -2,11 +2,18 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useListIncomingFriendRequests } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 export default function TabsLayout() {
   const colors = useColors();
+
+  // Shares the react-query cache with the Friends screen, so accepting or
+  // declining a request there invalidates this and the badge updates live.
+  const { data: incoming } = useListIncomingFriendRequests();
+  const pendingCount = incoming?.length ?? 0;
+
   return (
     <Tabs
       screenOptions={{
@@ -39,6 +46,18 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Feather name="users" size={22} color={color} />
           ),
+          tabBarBadge:
+            pendingCount > 0
+              ? pendingCount > 9
+                ? '9+'
+                : pendingCount
+              : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: colors.primaryForeground,
+            fontFamily: AppFonts.bold,
+            fontSize: 11,
+          },
         }}
       />
       <Tabs.Screen
