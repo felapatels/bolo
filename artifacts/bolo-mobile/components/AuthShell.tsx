@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,10 +10,9 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
-
-const logo = require('@/assets/images/icon.png');
 
 /** Branded wrapper for the sign-in / sign-up screens. */
 export function AuthShell({
@@ -39,7 +37,7 @@ export function AuthShell({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Image source={logo} style={styles.logo} />
+            <Mascot pose="wave" size={104} motion="float" style={styles.mascot} />
             <Text style={[styles.wordmark, { color: colors.primary }]}>
               Bolo!
             </Text>
@@ -108,11 +106,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 28,
   },
-  logo: {
-    width: 76,
-    height: 76,
-    borderRadius: 20,
-    marginBottom: 12,
+  mascot: {
+    marginBottom: 8,
   },
   wordmark: {
     fontFamily: AppFonts.extrabold,
