@@ -104,6 +104,22 @@ The icon and feature graphic are generated from the brand SVGs
 bash scripts/gen-store-assets.sh
 ```
 
+The **feature graphic** (the 1024×500 banner at the top of the listing) leads
+with the brand lockup — speech-bubble mark, the **Bolo!** wordmark, and the
+tagline **"Speak all 22 official Indian languages"** — over a cloud of all 22
+scheduled Indian languages written in their **own native scripts** (हिन्दी,
+বাংলা, தமிழ், ગુજરાતી, اردو, ᱥᱟᱱᱛᱟᱲᱤ, ꯃꯤꯇꯩ …). This surfaces Bolo!'s headline
+differentiator — the full breadth of Indian languages — before a shopper even
+scrolls to the screenshots.
+
+The native-script text is shaped by ImageMagick's bundled librsvg delegate
+(Pango/HarfBuzz), using the Noto Sans + Bricolage fonts vendored under
+`assets/store/fonts/` (committed to the repo). The generator wires only that
+dir into a throwaway fontconfig config, so the output reproduces byte-for-byte
+from a **clean checkout** — no `pnpm install` or system font install required.
+The script fails loudly if any required font is missing rather than silently
+falling back to a different face.
+
 ### Screenshots
 
 `screenshots/` holds nine real captures of the app, all at a Play-compliant
