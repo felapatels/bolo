@@ -18,4 +18,6 @@ export interface Category {
   titleNative: string | null;
   phraseCount: number;
   masteredCount: number;
+  /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
+  lockedPhraseCount: number;
 }

@@ -38,6 +38,10 @@ export interface PlanFeatures {
   review: boolean;
   // Advanced progress analytics.
   advancedAnalytics: boolean;
+  // The deep, pre-seeded "premium" phrase library beyond each topic's free
+  // starter set. Only Plus unlocks the extra phrases; everyone else sees the
+  // starter phrases (plus any they generated themselves).
+  extendedLibrary: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -188,16 +192,19 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       unlimitedLessons: true,
       review: true,
       advancedAnalytics: true,
+      extendedLibrary: true,
     };
   }
   if (plan === "one_language") {
     // The middle tier lifts only the daily-lesson cap; review, advanced
-    // analytics, and exclusive badges stay all-access-only.
+    // analytics, the extended library, and exclusive badges stay
+    // all-access-only.
     return {
       allLanguages: false,
       unlimitedLessons: true,
       review: false,
       advancedAnalytics: false,
+      extendedLibrary: false,
     };
   }
   return {
@@ -205,6 +212,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     unlimitedLessons: false,
     review: false,
     advancedAnalytics: false,
+    extendedLibrary: false,
   };
 }
 

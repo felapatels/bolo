@@ -125,6 +125,7 @@ test("free entitlements expose the daily cap and only the free language", () => 
   assert.equal(e.features.allLanguages, false);
   assert.equal(e.features.review, false);
   assert.equal(e.features.advancedAnalytics, false);
+  assert.equal(e.features.extendedLibrary, false);
   assert.equal(e.limits.dailyNewLessons.limit, FREE_DAILY_NEW_LESSON_CAP);
   assert.equal(e.limits.dailyNewLessons.used, 1);
   assert.equal(e.limits.dailyNewLessons.remaining, FREE_DAILY_NEW_LESSON_CAP - 1);
@@ -146,6 +147,7 @@ test("plus entitlements are unlimited and list every language", () => {
   assert.equal(e.features.unlimitedLessons, true);
   assert.equal(e.features.review, true);
   assert.equal(e.features.advancedAnalytics, true);
+  assert.equal(e.features.extendedLibrary, true);
   assert.equal(e.limits.dailyNewLessons.limit, null);
   assert.equal(e.limits.dailyNewLessons.remaining, null);
   assert.equal(e.chosenLanguage, null);
@@ -188,6 +190,7 @@ test("one_language features: unlimited lessons on, everything else off", () => {
   assert.equal(f.allLanguages, false);
   assert.equal(f.review, false);
   assert.equal(f.advancedAnalytics, false);
+  assert.equal(f.extendedLibrary, false);
 });
 
 test("one_language lifts the daily cap", () => {
@@ -230,6 +233,7 @@ test("one_language entitlements snapshot: Hindi + chosen, unlimited, chosen repo
   assert.equal(e.features.allLanguages, false);
   assert.equal(e.features.review, false);
   assert.equal(e.features.advancedAnalytics, false);
+  assert.equal(e.features.extendedLibrary, false);
   assert.equal(e.limits.dailyNewLessons.limit, null);
   assert.equal(e.limits.dailyNewLessons.remaining, null);
 });

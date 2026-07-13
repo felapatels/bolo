@@ -21,12 +21,17 @@ import {
   LANGUAGES,
   CATEGORIES,
   CURATED_LANGUAGE_CODE,
-  expectedPhraseCount,
+  starterPhraseCount,
+  extendedPhraseCount,
   validateSeedLesson,
   type SeedLesson,
+  type SeedPhrase,
   type CuratedLessonsFile,
 } from "@workspace/db/seed-data";
-import { generateLesson } from "../src/lib/lessonGenerator";
+import {
+  generateLesson,
+  generateAdditionalPhrases,
+} from "../src/lib/lessonGenerator";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT_FILE = path.resolve(here, "../../../lib/db/src/data/curatedLessons.json");
@@ -68,42 +73,125 @@ type Job = {
   categorySlug: string;
   topicTitle: string;
   topicDescription: string;
+  // The lesson already frozen for this pair (its reviewed starter set), if any.
+  // We preserve it verbatim and only append the premium phrases needed to reach
+  // the extended target, so a re-run never rewrites reviewed starter content.
+  existing?: SeedLesson;
 };
 
+// Loose de-duplication key so we never append a phrase that repeats one already
+// in the lesson — matched on both the native script and the English gloss.
+function nativeKey(p: { nativeScript: string }): string {
+  return p.nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
+}
+function englishKey(p: { english: string }): string {
+  return p.english.trim().toLowerCase();
+}
+
+// Append `incoming` phrases onto `base`, skipping blanks and duplicates, until
+// `cap` is reached. Returns a new array.
+function dedupeAppend(
+  base: SeedPhrase[],
+  incoming: SeedPhrase[],
+  cap: number,
+): SeedPhrase[] {
+  const seenNative = new Set(base.map(nativeKey));
+  const seenEnglish = new Set(base.map(englishKey));
+  const out = [...base];
+  for (const p of incoming) {
+    if (out.length >= cap) break;
+    if (!p.nativeScript?.trim() || !p.english?.trim()) continue;
+    const n = nativeKey(p);
+    const e = englishKey(p);
+    if (seenNative.has(n) || seenEnglish.has(e)) continue;
+    seenNative.add(n);
+    seenEnglish.add(e);
+    out.push(p);
+  }
+  return out;
+}
+
 async function generateOne(job: Job): Promise<SeedLesson> {
-  const phraseCount = expectedPhraseCount(job.categorySlug);
+  const starter = starterPhraseCount(job.categorySlug);
+  const target = extendedPhraseCount(job.categorySlug);
+  const lang = {
+    languageName: job.langName,
+    nativeName: job.nativeName,
+    script: job.script,
+    topicTitle: job.topicTitle,
+    topicDescription: job.topicDescription,
+  };
+
+  let titleNative = job.existing?.titleNative ?? "";
+  let phrases: SeedPhrase[] = [...(job.existing?.phrases ?? [])];
   let lastError = "";
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+
+  // 1. Make sure the starter set exists. Only runs for a brand-new pair with no
+  //    reviewed starter yet; existing starter phrases are kept untouched.
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS && phrases.length < starter; attempt++) {
     try {
-      const generated = await generateLesson({
-        languageName: job.langName,
-        nativeName: job.nativeName,
-        script: job.script,
-        topicTitle: job.topicTitle,
-        topicDescription: job.topicDescription,
-        phraseCount,
-      });
-      const lesson: SeedLesson = {
-        titleNative: generated.titleNative,
-        phrases: generated.phrases.slice(0, phraseCount),
-      };
-      const invalid = validateSeedLesson(lesson, phraseCount);
-      if (!invalid) return lesson;
-      lastError = invalid;
-      console.warn(
-        `  ${job.langCode}/${job.categorySlug} attempt ${attempt} invalid: ${invalid}`,
-      );
+      const generated = await generateLesson({ ...lang, phraseCount: starter });
+      if (generated.titleNative) titleNative = generated.titleNative;
+      phrases = dedupeAppend(phrases, generated.phrases, starter);
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
       console.warn(
-        `  ${job.langCode}/${job.categorySlug} attempt ${attempt} failed: ${lastError}`,
+        `  ${job.langCode}/${job.categorySlug} starter attempt ${attempt} failed: ${lastError}`,
       );
     }
   }
-  throw new Error(
-    `Failed to generate a valid lesson for ${job.langCode}/${job.categorySlug} ` +
-      `after ${MAX_ATTEMPTS} attempts: ${lastError}`,
-  );
+  if (phrases.length < starter) {
+    throw new Error(
+      `Failed to build the starter set for ${job.langCode}/${job.categorySlug} ` +
+        `(${phrases.length}/${starter}): ${lastError}`,
+    );
+  }
+
+  // 2. Append premium phrases until the lesson reaches its extended target. Each
+  //    round tells the model exactly which phrases already exist so it returns
+  //    genuinely new ones; give it extra rounds since dedup can drop repeats.
+  for (
+    let attempt = 1;
+    attempt <= MAX_ATTEMPTS * 3 && phrases.length < target;
+    attempt++
+  ) {
+    try {
+      const extra = await generateAdditionalPhrases({
+        ...lang,
+        existing: phrases.map((p) => ({
+          nativeScript: p.nativeScript,
+          romanized: p.romanized,
+          english: p.english,
+        })),
+        count: target - phrases.length,
+      });
+      const before = phrases.length;
+      phrases = dedupeAppend(phrases, extra, target);
+      if (phrases.length === before) {
+        console.warn(
+          `  ${job.langCode}/${job.categorySlug} premium attempt ${attempt} added nothing new`,
+        );
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `  ${job.langCode}/${job.categorySlug} premium attempt ${attempt} failed: ${lastError}`,
+      );
+    }
+  }
+
+  const lesson: SeedLesson = {
+    titleNative: titleNative || job.topicTitle,
+    phrases: phrases.slice(0, target),
+  };
+  const invalid = validateSeedLesson(lesson, target);
+  if (invalid) {
+    throw new Error(
+      `Could not complete ${job.langCode}/${job.categorySlug} ` +
+        `(${phrases.length}/${target}): ${invalid || lastError}`,
+    );
+  }
+  return lesson;
 }
 
 async function main() {
@@ -120,7 +208,7 @@ async function main() {
       if (
         !force &&
         existing &&
-        validateSeedLesson(existing, expectedPhraseCount(cat.slug)) === null
+        validateSeedLesson(existing, extendedPhraseCount(cat.slug)) === null
       )
         continue;
       jobs.push({
@@ -131,6 +219,9 @@ async function main() {
         categorySlug: cat.slug,
         topicTitle: cat.title,
         topicDescription: cat.description,
+        // Keep the reviewed starter set and only extend it (unless --force asks
+        // for a full regeneration from scratch).
+        existing: force ? undefined : existing,
       });
     }
   }

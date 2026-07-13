@@ -39,7 +39,7 @@ import {
   dailyLessonCapDenial,
   recordLessonGeneration,
 } from "../lib/lessonLimits";
-import { UpgradeRequiredError } from "../lib/entitlements";
+import { UpgradeRequiredError, featuresForPlan } from "../lib/entitlements";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
@@ -242,7 +242,11 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   const [categories, langPhrases, lessons, attempts] = await Promise.all([
     db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
     db
-      .select({ id: phrasesTable.id, categoryId: phrasesTable.categoryId })
+      .select({
+        id: phrasesTable.id,
+        categoryId: phrasesTable.categoryId,
+        premium: phrasesTable.premium,
+      })
       .from(phrasesTable)
       .where(eq(phrasesTable.languageCode, lang)),
     db
@@ -258,15 +262,31 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   const stats = buildPhraseStats(attempts);
   const titleByCategory = new Map(lessons.map((l) => [l.categoryId, l.titleNative]));
 
-  const phrasesByCategory = new Map<number, number[]>();
+  // Plus unlocks the premium library; every other tier only sees the starter
+  // set. Split each topic's phrases into what this caller can access versus how
+  // many premium phrases stay locked, so the counts never advertise or count
+  // content the learner can't open — and clients can surface the upgrade nudge.
+  const canAccessPremium = featuresForPlan(
+    (req as EntitledRequest).resolvedPlan.plan,
+  ).extendedLibrary;
+
+  const accessibleByCategory = new Map<number, number[]>();
+  const lockedByCategory = new Map<number, number>();
   for (const p of langPhrases) {
-    const list = phrasesByCategory.get(p.categoryId) ?? [];
+    if (p.premium && !canAccessPremium) {
+      lockedByCategory.set(
+        p.categoryId,
+        (lockedByCategory.get(p.categoryId) ?? 0) + 1,
+      );
+      continue;
+    }
+    const list = accessibleByCategory.get(p.categoryId) ?? [];
     list.push(p.id);
-    phrasesByCategory.set(p.categoryId, list);
+    accessibleByCategory.set(p.categoryId, list);
   }
 
   const data = categories.map((c) => {
-    const phraseIds = phrasesByCategory.get(c.id) ?? [];
+    const phraseIds = accessibleByCategory.get(c.id) ?? [];
     const masteredCount = phraseIds.filter(
       (id) => stats.get(id)?.mastered,
     ).length;
@@ -281,6 +301,9 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       titleNative: titleByCategory.get(c.id) ?? null,
       phraseCount: phraseIds.length,
       masteredCount,
+      // How many additional phrases upgrading to Bolo! Plus would unlock for
+      // this topic. Always 0 for a caller who already has the extended library.
+      lockedPhraseCount: lockedByCategory.get(c.id) ?? 0,
     };
   });
 
@@ -346,7 +369,15 @@ router.get(
     const attempts = await fetchUserAttempts(userId, lang);
     const stats = buildPhraseStats(attempts);
 
-    res.json(phrases.map((p) => serializePhrase(p, stats)));
+    // Only Plus serves the premium library; everyone else gets the starter set
+    // (plus any phrases they generated for themselves, which are never premium).
+    // Premium phrase text is never sent to a caller who can't access it.
+    const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
+    const accessible = canAccessPremium
+      ? phrases
+      : phrases.filter((p) => !p.premium);
+
+    res.json(accessible.map((p) => serializePhrase(p, stats)));
   },
 );
 
@@ -599,6 +630,20 @@ router.get(
 
     // Free may only read Hindi phrases; other languages require Bolo! Plus.
     if (denyLockedLanguage(req, res, phrase.languageCode)) return;
+
+    // A premium (Plus-only) phrase is never served to a caller without the
+    // extended library — even by direct id — so its text can't leak.
+    if (
+      phrase.premium &&
+      denyLockedFeature(
+        req,
+        res,
+        "extendedLibrary",
+        "This phrase is part of the Bolo! Plus library. Upgrade to unlock it.",
+      )
+    ) {
+      return;
+    }
 
     const attempts = await fetchUserAttempts(userId, phrase.languageCode);
     const stats = buildPhraseStats(attempts);

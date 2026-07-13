@@ -1009,6 +1009,12 @@ components:
           type: integer
         masteredCount:
           type: integer
+        lockedPhraseCount:
+          type: integer
+          description: >-
+            How many additional phrases upgrading to Bolo! Plus would unlock for
+            this topic. Always 0 for a caller who already has the extended
+            library.
       required:
         - id
         - slug
@@ -1020,6 +1026,7 @@ components:
         - titleNative
         - phraseCount
         - masteredCount
+        - lockedPhraseCount
 
     Phrase:
       type: object
@@ -1405,11 +1412,17 @@ components:
           type: boolean
         advancedAnalytics:
           type: boolean
+        extendedLibrary:
+          type: boolean
+          description: >-
+            Whether the caller can access the deep, pre-seeded premium phrase
+            library beyond each topic's free starter set. Plus only.
       required:
         - allLanguages
         - unlimitedLessons
         - review
         - advancedAnalytics
+        - extendedLibrary
 
     DailyLessonAllowance:
       type: object

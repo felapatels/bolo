@@ -16,6 +16,8 @@ import {
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
   validateCuratedLessons,
+  starterPhraseCount,
+  extendedPhraseCount,
   type SeedLesson,
   type CuratedLessonsFile,
 } from "./seedData";
@@ -49,6 +51,7 @@ async function seedLesson(
   languageCode: string,
   categoryId: number,
   lesson: SeedLesson,
+  starterCount: number,
 ): Promise<boolean> {
   const existing = await db
     .select({ id: lessonsTable.id })
@@ -68,7 +71,7 @@ async function seedLesson(
 
   let phraseSort = 0;
   await db.insert(phrasesTable).values(
-    lesson.phrases.map((p) => ({
+    lesson.phrases.map((p, index) => ({
       lessonId: insertedLesson.id,
       languageCode,
       categoryId,
@@ -77,6 +80,9 @@ async function seedLesson(
       english: p.english,
       difficulty: p.difficulty,
       sortOrder: phraseSort++,
+      // The first `starterCount` phrases are the free starter set every tier
+      // sees; everything past them is the Plus-only premium library.
+      premium: index >= starterCount,
     })),
   );
   return true;
@@ -145,11 +151,18 @@ async function seed() {
   for (const [slug, lesson] of Object.entries(GUJARATI_LESSONS)) {
     const categoryId = catIdBySlug.get(slug);
     if (categoryId == null) continue;
-    const invalid = validateSeedLesson(lesson);
+    const invalid = validateSeedLesson(lesson, extendedPhraseCount(slug));
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
     }
-    if (await seedLesson(CURATED_LANGUAGE_CODE, categoryId, lesson)) {
+    if (
+      await seedLesson(
+        CURATED_LANGUAGE_CODE,
+        categoryId,
+        lesson,
+        starterPhraseCount(slug),
+      )
+    ) {
       gujaratiSeeded++;
     }
   }
@@ -176,7 +189,15 @@ async function seed() {
       if (categoryId == null) continue;
       const lesson = byCategory?.[cat.slug];
       if (!lesson) continue;
-      if (await seedLesson(lang.code, categoryId, lesson)) generatedSeeded++;
+      if (
+        await seedLesson(
+          lang.code,
+          categoryId,
+          lesson,
+          starterPhraseCount(cat.slug),
+        )
+      )
+        generatedSeeded++;
     }
   }
   console.log(`Pre-seeded ${generatedSeeded} new pre-generated lesson(s).`);

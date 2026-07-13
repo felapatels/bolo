@@ -18,6 +18,7 @@ const LOCKED_FEATURES: PlanFeatures = {
   unlimitedLessons: false,
   review: false,
   advancedAnalytics: false,
+  extendedLibrary: false,
 };
 
 const UNKNOWN_ALLOWANCE: DailyLessonAllowance = {

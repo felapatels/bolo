@@ -9,6 +9,8 @@ import {
   usersTable,
   languagesTable,
   categoriesTable,
+  lessonsTable,
+  phrasesTable,
   lessonGenerationsTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
@@ -30,11 +32,20 @@ const TEST_USER_ID = "test_entitlements_gating";
 const LOCKED_LANG = "__test_lang_locked";
 const OTHER_LANG = "__test_lang_other";
 const CATEGORY_SLUG = "__test_cat_entitlements";
+// A second topic pre-populated with a starter + premium phrase mix, used to
+// prove the extended-library gate: Free sees only the starter phrases plus a
+// locked count, while Plus sees the full set.
+const PREMIUM_CATEGORY_SLUG = "__test_cat_premium";
+const PREMIUM_STARTER_COUNT = 3;
+const PREMIUM_LOCKED_COUNT = 2;
 
 let app: Express;
 let server: Server;
 let baseUrl: string;
 let categoryId: number;
+let premiumCategoryId: number;
+let starterPhraseId: number;
+let premiumPhraseId: number;
 
 async function get(path: string): Promise<{ status: number; json: any }> {
   const res = await fetch(`${baseUrl}${path}`);
@@ -194,6 +205,57 @@ before(async () => {
     .returning();
   categoryId = category.id;
 
+  // Second topic: a curated Hindi lesson with a starter + premium phrase mix so
+  // the extended-library gate has real rows to filter.
+  const [premiumCategory] = await db
+    .insert(categoriesTable)
+    .values({
+      slug: PREMIUM_CATEGORY_SLUG,
+      title: "Premium Test Topic",
+      description: "Premium test topic",
+      iconName: "BookOpen",
+      accent: "#000000",
+    })
+    .returning();
+  premiumCategoryId = premiumCategory.id;
+
+  const [premiumLesson] = await db
+    .insert(lessonsTable)
+    .values({
+      languageCode: FREE_LANGUAGE,
+      categoryId: premiumCategoryId,
+      titleNative: "प्रीमियम",
+    })
+    .returning();
+
+  const rows = [
+    ...Array.from({ length: PREMIUM_STARTER_COUNT }, (_, i) => ({
+      lessonId: premiumLesson.id,
+      languageCode: FREE_LANGUAGE,
+      categoryId: premiumCategoryId,
+      nativeScript: `स्टार्टर${i}`,
+      romanized: `starter${i}`,
+      english: `starter ${i}`,
+      difficulty: 1,
+      sortOrder: i,
+      premium: false,
+    })),
+    ...Array.from({ length: PREMIUM_LOCKED_COUNT }, (_, i) => ({
+      lessonId: premiumLesson.id,
+      languageCode: FREE_LANGUAGE,
+      categoryId: premiumCategoryId,
+      nativeScript: `प्रीमियम${i}`,
+      romanized: `premium${i}`,
+      english: `premium ${i}`,
+      difficulty: 2,
+      sortOrder: PREMIUM_STARTER_COUNT + i,
+      premium: true,
+    })),
+  ];
+  const inserted = await db.insert(phrasesTable).values(rows).returning();
+  starterPhraseId = inserted.find((p) => !p.premium)!.id;
+  premiumPhraseId = inserted.find((p) => p.premium)!.id;
+
   app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -221,6 +283,16 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
+  // Tear down the premium topic's phrases → lesson → category, in FK order.
+  await db
+    .delete(phrasesTable)
+    .where(eq(phrasesTable.categoryId, premiumCategoryId));
+  await db
+    .delete(lessonsTable)
+    .where(eq(lessonsTable.categoryId, premiumCategoryId));
+  await db
+    .delete(categoriesTable)
+    .where(eq(categoriesTable.slug, PREMIUM_CATEGORY_SLUG));
   await db
     .delete(categoriesTable)
     .where(eq(categoriesTable.slug, CATEGORY_SLUG));
@@ -259,6 +331,63 @@ test("free can browse Hindi categories", async () => {
   const { status, json } = await get(`/categories?lang=${FREE_LANGUAGE}`);
   assert.equal(status, 200);
   assert.ok(Array.isArray(json));
+});
+
+test("free sees only the starter phrases and a locked count for a premium topic", async () => {
+  const cats = await get(`/categories?lang=${FREE_LANGUAGE}`);
+  assert.equal(cats.status, 200);
+  const cat = (cats.json as any[]).find((c) => c.id === premiumCategoryId);
+  assert.ok(cat, "premium test topic missing from categories listing");
+  // The tile counts and advertises only what a Free learner can actually open.
+  assert.equal(cat.phraseCount, PREMIUM_STARTER_COUNT);
+  assert.equal(cat.lockedPhraseCount, PREMIUM_LOCKED_COUNT);
+
+  const phrases = await get(
+    `/categories/${premiumCategoryId}/phrases/${FREE_LANGUAGE}`,
+  );
+  assert.equal(phrases.status, 200);
+  assert.ok(Array.isArray(phrases.json));
+  assert.equal(phrases.json.length, PREMIUM_STARTER_COUNT);
+  // No premium phrase text leaks to a Free caller.
+  for (const p of phrases.json as any[]) {
+    assert.ok(!String(p.nativeScript).startsWith("प्रीमियम"));
+  }
+});
+
+test("free is denied a premium phrase fetched directly by id", async () => {
+  const denied = await get(`/phrases/${premiumPhraseId}`);
+  assert.equal(denied.status, 402);
+  assert.equal(denied.json.error, "upgrade_required");
+  assert.equal(denied.json.reason, "feature_locked");
+  assert.equal(denied.json.feature, "extendedLibrary");
+  assert.equal(denied.json.requiredPlan, "plus");
+
+  // A starter phrase in the same topic is still readable.
+  const allowed = await get(`/phrases/${starterPhraseId}`);
+  assert.equal(allowed.status, 200);
+});
+
+test("plus unlocks the full premium library for a topic", async () => {
+  await setPlanPlus();
+
+  const cats = await get(`/categories?lang=${FREE_LANGUAGE}`);
+  const cat = (cats.json as any[]).find((c) => c.id === premiumCategoryId);
+  assert.ok(cat);
+  assert.equal(cat.phraseCount, PREMIUM_STARTER_COUNT + PREMIUM_LOCKED_COUNT);
+  assert.equal(cat.lockedPhraseCount, 0);
+
+  const phrases = await get(
+    `/categories/${premiumCategoryId}/phrases/${FREE_LANGUAGE}`,
+  );
+  assert.equal(phrases.status, 200);
+  assert.equal(
+    phrases.json.length,
+    PREMIUM_STARTER_COUNT + PREMIUM_LOCKED_COUNT,
+  );
+
+  // And the premium phrase is now readable by id.
+  const premium = await get(`/phrases/${premiumPhraseId}`);
+  assert.equal(premium.status, 200);
 });
 
 test("free is denied review sessions (Plus-only feature)", async () => {

@@ -9,7 +9,9 @@ import {
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
   GUJARATI_LESSONS,
-  expectedPhraseCount,
+  starterPhraseCount,
+  extendedPhraseCount,
+  premiumPhraseCount,
   validateSeedLesson,
   validateCuratedLessons,
   type CuratedLessonsFile,
@@ -77,12 +79,14 @@ test("frozen data covers every non-Gujarati language × every category", () => {
   );
 });
 
-test("every frozen lesson passes validation with an exact phrase count", () => {
+test("every frozen lesson holds the full starter + premium library", () => {
   for (const code of generatedLanguageCodes) {
     const byCategory = curated[code] ?? {};
     for (const cat of CATEGORIES) {
       const lesson = byCategory[cat.slug];
-      const count = expectedPhraseCount(cat.slug);
+      // The frozen file must carry the *extended* library (starter + premium),
+      // so a Bolo! Plus subscriber opens a deep, ready lesson with no AI wait.
+      const count = extendedPhraseCount(cat.slug);
       const invalid = validateSeedLesson(lesson, count);
       assert.equal(
         invalid,
@@ -91,6 +95,13 @@ test("every frozen lesson passes validation with an exact phrase count", () => {
       );
       // Belt-and-suspenders on the specifics the validator enforces.
       assert.equal(lesson.phrases.length, count);
+      // The free starter set must fit inside the lesson so the seeder can carve
+      // starter (free) from premium (Plus-only) by index.
+      assert.ok(starterPhraseCount(cat.slug) <= lesson.phrases.length);
+      assert.equal(
+        premiumPhraseCount(cat.slug),
+        count - starterPhraseCount(cat.slug),
+      );
       assert.ok(lesson.titleNative.trim() !== "");
       for (const p of lesson.phrases) {
         assert.ok(p.nativeScript.trim() !== "");
@@ -118,7 +129,7 @@ test("the Numbers topic teaches a gap-free one-through-ten in every language", (
   ];
   // The topic is titled "Numbers 1-10" and must actually teach all ten in
   // order — no lesson may stop short at eight or skip a number mid-sequence.
-  assert.equal(expectedPhraseCount("numbers"), expectedSequence.length);
+  assert.equal(extendedPhraseCount("numbers"), expectedSequence.length);
 
   for (const code of generatedLanguageCodes) {
     const lesson = curated[code]?.numbers;
@@ -240,19 +251,21 @@ test("Gujarati lessons cover every category slug", () => {
   }
 });
 
-test("every Gujarati lesson passes validation (variable phrase counts allowed)", () => {
+test("every Gujarati lesson holds the full starter + premium library", () => {
   for (const cat of CATEGORIES) {
     const lesson = GUJARATI_LESSONS[cat.slug];
-    // No exactCount: curated Gujarati counts vary by topic (Numbers 1-10 has
-    // ten phrases, Feelings has seven), so we only require at least one.
-    const invalid = validateSeedLesson(lesson);
+    // Gujarati now ships the same extended library as every other language:
+    // the full starter + premium set per topic (Numbers 1-10 stays at ten).
+    const count = extendedPhraseCount(cat.slug);
+    const invalid = validateSeedLesson(lesson, count);
     assert.equal(
       invalid,
       null,
       `Gujarati ${cat.slug} failed validation: ${invalid}`,
     );
     // Belt-and-suspenders on the specifics the validator enforces.
-    assert.ok(lesson.phrases.length > 0);
+    assert.equal(lesson.phrases.length, count);
+    assert.ok(starterPhraseCount(cat.slug) <= lesson.phrases.length);
     assert.ok(lesson.titleNative.trim() !== "");
     for (const p of lesson.phrases) {
       assert.ok(p.nativeScript.trim() !== "");

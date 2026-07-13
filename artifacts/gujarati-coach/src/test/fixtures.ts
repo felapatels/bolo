@@ -15,6 +15,7 @@ export const FREE_ENTITLEMENTS: Entitlements = {
     unlimitedLessons: false,
     review: false,
     advancedAnalytics: false,
+    extendedLibrary: false,
   },
   limits: {
     dailyNewLessons: { limit: 3, used: 1, remaining: 2 },
@@ -32,6 +33,7 @@ export const PLUS_ENTITLEMENTS: Entitlements = {
     unlimitedLessons: true,
     review: true,
     advancedAnalytics: true,
+    extendedLibrary: true,
   },
   limits: {
     dailyNewLessons: { limit: null, used: 0, remaining: null },

@@ -130,6 +130,8 @@ export interface Category {
   titleNative: string | null;
   phraseCount: number;
   masteredCount: number;
+  /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
+  lockedPhraseCount: number;
 }
 
 export interface Phrase {
@@ -307,6 +309,8 @@ export interface PlanFeatures {
   unlimitedLessons: boolean;
   review: boolean;
   advancedAnalytics: boolean;
+  /** Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic's free starter set. Plus only. */
+  extendedLibrary: boolean;
 }
 
 export interface DailyLessonAllowance {

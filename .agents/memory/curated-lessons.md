@@ -25,14 +25,22 @@ exists as a safety net.
 content, not live per-learner generation.
 
 **How to apply:**
-- The hand-curated default language (Gujarati, `gu`) has VARIABLE phrase counts
-  per topic (Numbers has ten, Feelings has seven). Do NOT enforce the exact
-  8-phrase count on it — the shared validator takes an optional `exactCount`;
-  pass it only for the generated lessons.
+- **Two count tiers now exist** (see `premium-phrase-library.md`): a starter
+  count (the free set, historically 8, `numbers` 10) and an extended count (the
+  full starter+premium library, 24, `numbers` 10). Every curated lesson — frozen
+  JSON AND hand-curated Gujarati — must hold the EXACT extended count; the
+  validator's `exactCount` is passed the extendedPhraseCount for all of them.
+- Gujarati (`gu`) is no longer variable-count: it was grown to the same extended
+  sizes as every other language (24/topic, `numbers` 10), preserving its
+  original hand-curated phrases as the first (starter) entries.
 - Seeding stays idempotent by skipping any (language, category) lesson row that
-  already exists; never re-insert phrases into an existing lesson.
-- Regenerate content with the api-server `generate-lessons` script (add
-  `-- --force` to redo all); then re-run the db `seed`.
+  already exists; never re-insert phrases into an existing lesson. **Consequence:**
+  growing a lesson's size does NOT update already-seeded lessons — those need a
+  separate backfill; a fresh seed is the only path that picks up new phrases.
+- Regenerate content with the api-server `generate-lessons` script. It PRESERVES
+  the reviewed starter set and only APPENDS premium phrases (via
+  generateAdditionalPhrases) up to the extended target; resumable, dedups on
+  native+English. `-- --force` regenerates a pair from scratch. Then re-run seed.
 - **Human-review status:** all 21 non-Gujarati codes have now had a review pass.
   The five highest-traffic (`hi`,`te` clean; `bn`,`mr`,`ta` fixed) plus the
   remaining 16. Common raw-AI defects the review found: scrambled/wrong numerals
@@ -46,6 +54,13 @@ content, not live per-learner generation.
   Mayek (Manipuri) lessons are hardest to verify without true fluency — treat
   their kinship terms and exact orthography as still needing a native check.
 - **Numbers 1-10 teaches a gap-free one-through-ten in every language** (both
-  curated Gujarati and the frozen generated languages). An earlier exact-count
-  cap made generated languages teach only 8 (some skipping eight/nine); that has
-  been fixed — do not reintroduce a cap that drops numbers from this topic.
+  curated Gujarati and the frozen generated languages); starter AND extended
+  count for `numbers` is 10, enforced gap-free one..ten by a seedData test. It
+  has NO premium extension — the whole topic is the free starter set. An earlier
+  exact-count cap made generated languages teach only 8 (some skipping
+  eight/nine); that has been fixed — do not reintroduce a cap that drops numbers.
+- **Content-review status of the premium phrases:** the extended (Plus-only)
+  phrases for all 21 frozen languages + Gujarati are RAW AI output with no human
+  review pass yet — only the original starter phrases were reviewed. Treat the
+  premium tail as needing verification (same defect classes as the starter
+  review found: wrong vocab, loanwords, script/orthography errors).

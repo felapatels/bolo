@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -25,6 +25,11 @@ export const phrasesTable = pgTable("phrases", {
   hint: text("hint"),
   difficulty: integer("difficulty").notNull().default(1),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Marks a Plus-only ("premium") phrase: one beyond the free starter set that
+  // only a Bolo! Plus subscriber may access. Starter phrases and phrases a
+  // learner generated for themselves are false. Defaulting to false keeps the
+  // Free tier's content and every pre-existing row unchanged across reseeds.
+  premium: boolean("premium").notNull().default(false),
 });
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

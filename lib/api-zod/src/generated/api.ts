@@ -49,7 +49,8 @@ export const ListCategoriesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "titleNative": zod.string().nullable(),
   "phraseCount": zod.number(),
-  "masteredCount": zod.number()
+  "masteredCount": zod.number(),
+  "lockedPhraseCount": zod.number().describe('How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library.')
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
@@ -303,7 +304,8 @@ export const GetEntitlementsResponse = zod.object({
   "allLanguages": zod.boolean(),
   "unlimitedLessons": zod.boolean(),
   "review": zod.boolean(),
-  "advancedAnalytics": zod.boolean()
+  "advancedAnalytics": zod.boolean(),
+  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
@@ -334,7 +336,8 @@ export const SetChosenLanguageResponse = zod.object({
   "allLanguages": zod.boolean(),
   "unlimitedLessons": zod.boolean(),
   "review": zod.boolean(),
-  "advancedAnalytics": zod.boolean()
+  "advancedAnalytics": zod.boolean(),
+  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({

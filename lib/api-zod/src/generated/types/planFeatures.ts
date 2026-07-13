@@ -11,4 +11,6 @@ export interface PlanFeatures {
   unlimitedLessons: boolean;
   review: boolean;
   advancedAnalytics: boolean;
+  /** Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic's free starter set. Plus only. */
+  extendedLibrary: boolean;
 }
