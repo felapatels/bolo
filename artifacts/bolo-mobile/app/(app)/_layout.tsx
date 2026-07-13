@@ -4,6 +4,8 @@ import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
+import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
 
 export default function AppLayout() {
@@ -36,17 +38,19 @@ export default function AppLayout() {
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
 
   return (
-    <LanguageProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="category/[id]" />
-        <Stack.Screen name="practice/[id]" />
-        <Stack.Screen name="badges" />
-        <Stack.Screen
-          name="language"
-          options={{ presentation: 'modal' }}
-        />
-      </Stack>
-    </LanguageProvider>
+    <EntitlementsProvider>
+      <PurchasesProvider>
+        <LanguageProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="category/[id]" />
+            <Stack.Screen name="practice/[id]" />
+            <Stack.Screen name="badges" />
+            <Stack.Screen name="language" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
+          </Stack>
+        </LanguageProvider>
+      </PurchasesProvider>
+    </EntitlementsProvider>
   );
 }

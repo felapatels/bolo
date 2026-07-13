@@ -17,6 +17,8 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { LockedFeatureCard } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { scoreColor } from '@/lib/ui';
@@ -25,6 +27,7 @@ export default function ProgressScreen() {
   const colors = useColors();
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
+  const { isPlus } = useEntitlements();
 
   const summary = useGetProgressSummary({ lang: activeLang });
   const history = useListRecentAttempts({ lang: activeLang, limit: 30 });
@@ -172,6 +175,34 @@ export default function ProgressScreen() {
                 color={colors.mutedForeground}
               />
             </Pressable>
+
+            {/* Present-but-locked Plus features (Free plan). Each routes to the
+                paywall rather than a dead end. */}
+            {!isPlus ? (
+              <>
+                <Text style={[styles.section, { color: colors.foreground }]}>
+                  Unlock with Plus
+                </Text>
+                <LockedFeatureCard
+                  icon="repeat"
+                  title="Review weakest phrases"
+                  description="Targeted sessions on the phrases you miss most."
+                  onPress={() => router.push('/(app)/paywall')}
+                />
+                <LockedFeatureCard
+                  icon="bar-chart-2"
+                  title="Advanced analytics"
+                  description="Deep insights into your progress by topic."
+                  onPress={() => router.push('/(app)/paywall')}
+                />
+                <LockedFeatureCard
+                  icon="award"
+                  title="Exclusive badges"
+                  description="Earn Plus-only achievements as you learn."
+                  onPress={() => router.push('/(app)/paywall')}
+                />
+              </>
+            ) : null}
 
             <Text style={[styles.section, { color: colors.foreground }]}>
               Practice history

@@ -14,3 +14,4 @@
 - [RevenueCat payments](revenuecat-payments.md) — connector is the @replit/connectors-sdk PROXY (not typed SDK); webhook derives state from payload, reconcile-on-read gated on REVENUECAT_PROJECT_ID.
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade has no real provider endpoint; drives dev-override then refetches entitlements; swap only beginCheckout when payments land.
+- [Expo Router typed routes lag](expo-router-typed-routes.md) — a just-created route file fails typecheck until the expo dev workflow regenerates .expo/types; restart the workflow before tsc, don't cast the href.

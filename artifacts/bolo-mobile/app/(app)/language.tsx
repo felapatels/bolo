@@ -11,6 +11,8 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { PlusPill } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import type { Language } from '@workspace/api-client-react';
@@ -19,11 +21,14 @@ export default function LanguageModal() {
   const colors = useColors();
   const router = useRouter();
   const { languages, activeLang, setActiveLang, isLoading } = useLanguage();
+  const { isLanguageAllowed } = useEntitlements();
 
   const choose = (code: string) => {
     setActiveLang(code);
     router.back();
   };
+
+  const openPaywall = () => router.push('/(app)/paywall');
 
   return (
     <Screen padTop={false}>
@@ -52,13 +57,17 @@ export default function LanguageModal() {
           keyExtractor={(l) => l.code}
           contentContainerStyle={{ padding: 20, paddingTop: 4 }}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <LanguageRow
-              language={item}
-              active={item.code === activeLang}
-              onPress={() => choose(item.code)}
-            />
-          )}
+          renderItem={({ item }) => {
+            const locked = !isLanguageAllowed(item.code);
+            return (
+              <LanguageRow
+                language={item}
+                active={item.code === activeLang}
+                locked={locked}
+                onPress={() => (locked ? openPaywall() : choose(item.code))}
+              />
+            );
+          }}
         />
       )}
     </Screen>
@@ -68,10 +77,12 @@ export default function LanguageModal() {
 function LanguageRow({
   language,
   active,
+  locked,
   onPress,
 }: {
   language: Language;
   active: boolean;
+  locked: boolean;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -83,6 +94,7 @@ function LanguageRow({
         {
           backgroundColor: active ? `${colors.primary}14` : colors.card,
           borderColor: active ? colors.primary : colors.border,
+          opacity: locked ? 0.72 : 1,
         },
       ]}
     >
@@ -100,7 +112,12 @@ function LanguageRow({
           {language.name} · {language.script}
         </Text>
       </View>
-      {active ? (
+      {locked ? (
+        <View style={styles.rowRight}>
+          <PlusPill />
+          <Feather name="lock" size={18} color={colors.mutedForeground} />
+        </View>
+      ) : active ? (
         <Feather name="check-circle" size={22} color={colors.primary} />
       ) : (
         <Feather name="circle" size={22} color={colors.border} />
@@ -137,4 +154,5 @@ const styles = StyleSheet.create({
   },
   native: { fontSize: 22 },
   name: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 3 },
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

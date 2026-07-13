@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useListLanguages, type Language } from '@workspace/api-client-react';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 const STORAGE_KEY = 'bolo.activeLang';
 const DEFAULT_LANG = 'hi';
@@ -25,6 +26,11 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useListLanguages();
   const languages = useMemo(() => data ?? [], [data]);
+
+  // Which languages the caller's plan actually unlocks. Used so we never default
+  // to — or get stuck on — a locked language (which would make gated screens
+  // 402 / render empty) after a downgrade.
+  const { allowedLanguages, isPlus } = useEntitlements();
 
   const [activeLang, setActiveLangState] = useState<string>(DEFAULT_LANG);
 
@@ -48,14 +54,32 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, code).catch(() => {});
   };
 
-  // If the stored language isn't supported (e.g. removed), fall back to the
-  // first available one so the app never gets stuck on a bad code.
+  // Keep the active language valid for both the supported list and the caller's
+  // plan. If the stored code isn't supported, fall back to the first available.
+  // If it's supported but locked for this plan (e.g. after a downgrade), switch
+  // to the first allowed language so gated screens never render empty.
   useEffect(() => {
-    if (languages.length > 0 && !languages.some((l) => l.code === activeLang)) {
+    if (languages.length === 0) return;
+
+    if (!languages.some((l) => l.code === activeLang)) {
       setActiveLang(languages[0].code);
+      return;
+    }
+
+    if (
+      !isPlus &&
+      allowedLanguages.length > 0 &&
+      !allowedLanguages.includes(activeLang)
+    ) {
+      const firstAllowed = languages.find((l) =>
+        allowedLanguages.includes(l.code),
+      )?.code;
+      if (firstAllowed && firstAllowed !== activeLang) {
+        setActiveLang(firstAllowed);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [languages]);
+  }, [languages, allowedLanguages, isPlus, activeLang]);
 
   const activeLanguage = languages.find((l) => l.code === activeLang);
 

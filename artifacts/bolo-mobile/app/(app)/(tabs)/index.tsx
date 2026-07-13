@@ -20,6 +20,8 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
@@ -31,6 +33,7 @@ export default function HomeScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const { activeLang, activeLanguage } = useLanguage();
+  const { isPlus, dailyNewLessons } = useEntitlements();
 
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
@@ -177,6 +180,20 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
+        {/* Daily lesson allowance (Free plan) */}
+        {!isPlus && dailyNewLessons?.limit != null ? (
+          <DailyCapNote
+            remaining={dailyNewLessons.remaining ?? 0}
+            limit={dailyNewLessons.limit}
+            onUpgrade={() => router.push('/(app)/paywall')}
+          />
+        ) : null}
+
+        {/* Upgrade prompt (Free plan) */}
+        {!isPlus ? (
+          <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
+        ) : null}
+
         {/* Topics */}
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
           Topics
@@ -268,6 +285,53 @@ export default function HomeScreen() {
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+function DailyCapNote({
+  remaining,
+  limit,
+  onUpgrade,
+}: {
+  remaining: number;
+  limit: number;
+  onUpgrade: () => void;
+}) {
+  const colors = useColors();
+  const done = remaining <= 0;
+  return (
+    <Pressable
+      onPress={done ? onUpgrade : undefined}
+      disabled={!done}
+      style={[
+        styles.capNote,
+        {
+          backgroundColor: done ? `${colors.gold}24` : colors.card,
+          borderColor: done ? colors.gold : colors.border,
+        },
+      ]}
+    >
+      <Feather
+        name={done ? 'sunrise' : 'battery-charging'}
+        size={20}
+        color={done ? colors.foreground : colors.success}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.capTitle, { color: colors.foreground }]}>
+          {done
+            ? 'That’s all of today’s free lessons'
+            : `${remaining} of ${limit} free lessons left today`}
+        </Text>
+        <Text style={[styles.capSub, { color: colors.mutedForeground }]}>
+          {done
+            ? 'Come back tomorrow, or go Plus for unlimited practice.'
+            : 'New lessons refresh each day — Plus unlocks unlimited.'}
+        </Text>
+      </View>
+      {done ? (
+        <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -448,6 +512,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  capNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+  capTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
+  capSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
   sectionTitle: {
     fontFamily: AppFonts.bold,
     fontSize: 20,
