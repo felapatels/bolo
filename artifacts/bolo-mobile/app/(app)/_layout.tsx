@@ -53,6 +53,7 @@ export default function AppLayout() {
             <Stack.Screen name="badges" />
             <Stack.Screen name="analytics" />
             <Stack.Screen name="account/index" />
+            <Stack.Screen name="account/subscription" />
             <Stack.Screen name="account/email" />
             <Stack.Screen name="account/password" />
             <Stack.Screen name="language" options={{ presentation: 'modal' }} />

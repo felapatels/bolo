@@ -36,8 +36,9 @@ import { AppFonts } from '@/constants/fonts';
 // The account & settings hub. Everything that used to live as a lone sign-out
 // icon on Home now lives here: profile (name + avatar), identity changes
 // (email/password via Clerk on their own screens), notification and learning
-// preferences (persisted through the backend account endpoints), and the
-// guarded account deletion. Subscription/billing is intentionally out of scope.
+// preferences (persisted through the backend account endpoints), the
+// subscription-management entry point (which routes into its own screen), and
+// the guarded account deletion.
 export default function AccountScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -257,6 +258,17 @@ export default function AccountScreen() {
             ) : null}
           </View>
 
+          {/* Subscription */}
+          <SectionLabel>SUBSCRIPTION</SectionLabel>
+          <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <NavRow
+              icon="star"
+              label="Plan & billing"
+              value={planLabel(account.data?.subscription.tier)}
+              onPress={() => router.push('/(app)/account/subscription')}
+            />
+          </View>
+
           {/* Account / identity */}
           <SectionLabel>ACCOUNT</SectionLabel>
           <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -412,6 +424,16 @@ function mergePrefs(
       theme: patch.theme ?? base.learning.theme,
     },
   };
+}
+
+const PLAN_LABELS: Record<string, string> = {
+  plus: 'Bolo! Plus',
+  one_language: 'One Language',
+  free: 'Free',
+};
+
+function planLabel(tier: string | undefined): string {
+  return tier ? PLAN_LABELS[tier] ?? 'Free' : '…';
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
