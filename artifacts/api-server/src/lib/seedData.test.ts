@@ -8,6 +8,7 @@ import {
   CATEGORIES,
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
+  GUJARATI_LESSONS,
   validateSeedLesson,
   validateCuratedLessons,
   type CuratedLessonsFile,
@@ -183,4 +184,51 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
     errors.some((e) => e.startsWith(`${victimCode}/${victimCat}`)),
     `expected a fatal error for the tampered ${victimCode}/${victimCat} lesson`,
   );
+});
+
+// The hand-curated Gujarati lessons live in code (GUJARATI_LESSONS), not in the
+// frozen JSON, and are the very first lessons every new learner sees — Gujarati
+// is the default language. A bad edit there (dropped topic, blank phrase,
+// out-of-range difficulty) would ship silently and greet a learner with a blank
+// or malformed starter lesson. These tests fail first instead.
+test("Gujarati lessons cover every category slug", () => {
+  for (const cat of CATEGORIES) {
+    assert.ok(
+      GUJARATI_LESSONS[cat.slug],
+      `GUJARATI_LESSONS is missing category "${cat.slug}"`,
+    );
+  }
+
+  // And no stray/unknown category slugs leaked into the curated set.
+  const knownSlugs = new Set(CATEGORIES.map((c) => c.slug));
+  for (const slug of Object.keys(GUJARATI_LESSONS)) {
+    assert.ok(
+      knownSlugs.has(slug),
+      `GUJARATI_LESSONS has unexpected category "${slug}"`,
+    );
+  }
+});
+
+test("every Gujarati lesson passes validation (variable phrase counts allowed)", () => {
+  for (const cat of CATEGORIES) {
+    const lesson = GUJARATI_LESSONS[cat.slug];
+    // No exactCount: curated Gujarati counts vary by topic (Numbers 1-10 has
+    // ten phrases, Feelings has seven), so we only require at least one.
+    const invalid = validateSeedLesson(lesson);
+    assert.equal(
+      invalid,
+      null,
+      `Gujarati ${cat.slug} failed validation: ${invalid}`,
+    );
+    // Belt-and-suspenders on the specifics the validator enforces.
+    assert.ok(lesson.phrases.length > 0);
+    assert.ok(lesson.titleNative.trim() !== "");
+    for (const p of lesson.phrases) {
+      assert.ok(p.nativeScript.trim() !== "");
+      assert.ok(p.romanized.trim() !== "");
+      assert.ok(p.english.trim() !== "");
+      assert.ok(Number.isInteger(p.difficulty));
+      assert.ok(p.difficulty >= 1 && p.difficulty <= 3);
+    }
+  }
 });
