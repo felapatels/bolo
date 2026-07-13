@@ -30,6 +30,15 @@ way to count real generations). Only real AI generations (cache miss) count;
 cache hits are free. The cap gate fires inside the generation path *before* the
 AI call, so a capped request 402s without generating.
 
+**Client must not default to a locked language.** The web app's default active
+language is Gujarati, but Free is capped to `FREE_LANGUAGE` (Hindi). If the client
+picks/keeps a language the plan can't access, every gated screen (topics/progress/
+review) silently comes back empty (the queries 402). The language context must read
+`useGetEntitlements().allowedLanguages` and switch away from a locked language.
+**Why:** server gating (this task) merged before the paywall UX tasks, so there is
+a window where the client has no lock-awareness — the default-language guard is what
+keeps the app usable for Free users until the full paywall UI lands.
+
 **Dev override:** a non-production-only endpoint flips the caller (or an explicit
 userId) between free/plus/trial by writing the same subscription columns a real
 payment webhook would. Hard-disabled (404) in production; kept out of the
