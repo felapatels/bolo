@@ -121,3 +121,33 @@ export function asUpgradeRequired(err: unknown): UpgradeRequired | null {
   }
   return null;
 }
+
+// Builds a deep link into the paywall that preselects the cheapest unlocking
+// plan (and, for a locked language, pre-picks that language). Locked surfaces
+// pass their context here so the paywall opens on the right card instead of
+// always defaulting to All-Access. See upgrade.tsx for how it's read back.
+export function upgradeHref(opts?: {
+  plan?: "one_language" | "plus";
+  lang?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  if (opts?.plan) params.set("plan", opts.plan);
+  // A specific language only makes sense to pre-pick on the One Language tier.
+  if (opts?.plan === "one_language" && opts.lang) params.set("lang", opts.lang);
+  const qs = params.toString();
+  return qs ? `/upgrade?${qs}` : "/upgrade";
+}
+
+// Derives the paywall deep link from a server 402 body. The server already
+// reports the cheapest unlocking tier in `requiredPlan`; a locked language also
+// tells us which language to pre-pick (passed in from the active language).
+export function upgradeHrefForDenial(
+  upgrade: UpgradeRequired,
+  lang?: string | null,
+): string {
+  const plan = upgrade.requiredPlan === "one_language" ? "one_language" : "plus";
+  return upgradeHref({
+    plan,
+    lang: upgrade.reason === "language_locked" ? lang : null,
+  });
+}

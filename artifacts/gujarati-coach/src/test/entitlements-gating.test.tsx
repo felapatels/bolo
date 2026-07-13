@@ -113,7 +113,9 @@ describe("Language picker gating", () => {
 
     await user.click(hindiButton);
 
-    expect(currentPath(history)).toBe("/upgrade");
+    // A single locked language is cheapest with One Language, and the paywall
+    // opens with that tier preselected and the tapped language pre-picked.
+    expect(currentPath(history)).toBe("/upgrade?plan=one_language&lang=hi");
     expect(h.setActiveLang).not.toHaveBeenCalled();
   });
 
@@ -140,7 +142,8 @@ describe("Advanced analytics gating", () => {
     renderWithRouter(<AdvancedAnalytics lang="gu" />);
 
     const cta = screen.getByText(/See your full breakdown/i);
-    expect(cta.closest("a")).toHaveAttribute("href", "/upgrade");
+    // Analytics is an All-Access feature, so the paywall opens on that plan.
+    expect(cta.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
     // The unlocked panel's "Mastery by topic" heading must be absent (the free
     // card's description mentions the phrase, so match on the heading role).
     expect(
@@ -189,7 +192,8 @@ describe("Badges gallery gating", () => {
     renderWithRouter(<BadgesGallery lang="gu" />);
 
     const teaser = screen.getByText("Plus badges");
-    expect(teaser.closest("a")).toHaveAttribute("href", "/upgrade");
+    // Exclusive badges are an All-Access perk.
+    expect(teaser.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
   });
 
   test("Plus plan hides the teaser", () => {
@@ -207,11 +211,16 @@ describe("Home review card gating", () => {
     renderWithRouter(<Home />);
 
     const reviewCta = screen.getByText(/Plus builds smart review sessions/i);
-    expect(reviewCta.closest("a")).toHaveAttribute("href", "/upgrade");
+    // Review is an All-Access feature.
+    expect(reviewCta.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
 
-    // The daily free-lesson meter offers a way out, never a dead end.
+    // The daily free-lesson meter offers a way out, never a dead end — and the
+    // cap lifts cheapest on the One Language tier.
     const goUnlimited = screen.getByText(/Go unlimited/i);
-    expect(goUnlimited.closest("a")).toHaveAttribute("href", "/upgrade");
+    expect(goUnlimited.closest("a")).toHaveAttribute(
+      "href",
+      "/upgrade?plan=one_language",
+    );
   });
 
   test("Plus plan unlocks review and hides the daily cap", () => {

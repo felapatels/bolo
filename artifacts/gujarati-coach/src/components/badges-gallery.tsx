@@ -5,7 +5,7 @@ import { Loader2, Lock, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getBadgeIcon } from "@/lib/badge-icons";
-import { useEntitlements } from "@/lib/entitlements";
+import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { NEAR_THRESHOLD, progressRatio } from "@/lib/badge-progress";
 
 // The per-language badges gallery shown on the Progress screen. Earned badges
@@ -133,7 +133,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
           })}
           {!isPlus && (
             <Link
-              href="/upgrade"
+              href={upgradeHref({ plan: "plus" })}
               className="relative flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center shadow-sm transition-all hover:border-primary active:scale-[0.98]"
               title="Unlock exclusive Plus badges"
             >

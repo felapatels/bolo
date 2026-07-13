@@ -190,7 +190,12 @@ describe("Add-phrases 402", () => {
     renderPage(<CategoryDetail />, "/learn/1");
 
     const link = screen.getByText(/go unlimited with Plus/i);
-    expect(link.closest("a")).toHaveAttribute("href", "/upgrade");
+    // The daily cap is cheapest to lift with One Language, so the paywall opens
+    // preselected on that tier.
+    expect(link.closest("a")).toHaveAttribute(
+      "href",
+      "/upgrade?plan=one_language",
+    );
   });
 });
 

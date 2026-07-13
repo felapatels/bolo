@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -130,13 +130,41 @@ function Header() {
 
 function Paywall({ lapsed }: { lapsed: boolean }) {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const queryClient = useQueryClient();
   const { languages } = useLanguage();
   const { allowedLanguages } = useEntitlements();
 
+  // The locked surface that routed here can preselect a plan (and, for a locked
+  // language, pre-pick it) via ?plan=one_language&lang=xx or ?plan=plus. We read
+  // it once for the initial state; the learner can still change everything.
+  const intent = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const plan = params.get("plan");
+    const lang = params.get("lang");
+    return {
+      tier: plan === "one_language" ? "one_language" : plan === "plus" ? "plus" : null,
+      lang,
+    } as { tier: PaidTier | null; lang: string | null };
+  }, [search]);
+
   const [interval, setInterval] = useState<PlusInterval>("annual");
-  const [selectedTier, setSelectedTier] = useState<PaidTier>("plus");
-  const [chosenLanguage, setChosenLanguage] = useState<string | null>(null);
+  const [selectedTier, setSelectedTier] = useState<PaidTier>(
+    intent.tier ?? "plus",
+  );
+  const [chosenLanguage, setChosenLanguage] = useState<string | null>(() => {
+    // Only honor a pre-picked language on the One Language tier, and only if it's
+    // a real language the learner doesn't already have unlocked.
+    if (
+      intent.tier === "one_language" &&
+      intent.lang &&
+      languages.some((l) => l.code === intent.lang) &&
+      !allowedLanguages.includes(intent.lang)
+    ) {
+      return intent.lang;
+    }
+    return null;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

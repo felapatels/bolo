@@ -7,7 +7,7 @@ import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
-import { useEntitlements } from "@/lib/entitlements";
+import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -259,6 +259,8 @@ export default function Home() {
                 title="You've hit today's free lessons"
                 description={`You've used all ${dailyLimit} of today's new lessons. Come back tomorrow, or go unlimited with Plus.`}
                 cta="Go unlimited"
+                // Unlimited lessons is cheapest on the One Language tier.
+                href={upgradeHref({ plan: "one_language" })}
               />
             ) : (
               <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
@@ -268,7 +270,7 @@ export default function Home() {
                 <p className="text-sm font-semibold text-foreground">
                   {dailyRemaining} of {dailyLimit} free lessons left today
                 </p>
-                <Link href="/upgrade" className="ml-auto text-sm font-black text-primary shrink-0">
+                <Link href={upgradeHref({ plan: "one_language" })} className="ml-auto text-sm font-black text-primary shrink-0">
                   Go unlimited
                 </Link>
               </div>
@@ -283,6 +285,8 @@ export default function Home() {
               icon={<Target className="h-7 w-7" />}
               title="Review your weakest phrases"
               description="Plus builds smart review sessions from the phrases you find trickiest, so they actually stick."
+              // Review is an All-Access feature.
+              href={upgradeHref({ plan: "plus" })}
             />
           ) : canReview ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>

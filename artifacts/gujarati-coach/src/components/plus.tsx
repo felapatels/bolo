@@ -34,16 +34,19 @@ export function UpgradeCard({
   description,
   cta = "Unlock with Plus",
   className,
+  href = "/upgrade",
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   cta?: string;
   className?: string;
+  /** Deep link into the paywall, preselecting the cheapest unlocking plan. */
+  href?: string;
 }) {
   return (
     <Link
-      href="/upgrade"
+      href={href}
       className={cn(
         "relative flex items-center gap-4 overflow-hidden rounded-3xl border border-card-border bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 active:translate-y-0",
         className,
@@ -83,10 +86,13 @@ export function UpgradeScreen({
   backHref,
   title,
   message,
+  upgradeHref = "/upgrade",
 }: {
   backHref: string;
   title: string;
   message: string;
+  /** Deep link into the paywall, preselecting the cheapest unlocking plan. */
+  upgradeHref?: string;
 }) {
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -113,7 +119,7 @@ export function UpgradeScreen({
             <p className="mt-1 font-medium text-muted-foreground">{message}</p>
           </div>
           <Link
-            href="/upgrade"
+            href={upgradeHref}
             className={cn(
               "w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-[0_6px_0_hsl(var(--secondary-shadow))] transition-all active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--secondary-shadow))] flex items-center justify-center gap-2",
               PLUS_GRADIENT,

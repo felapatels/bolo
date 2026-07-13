@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired } from "@/lib/entitlements";
+import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -83,6 +83,7 @@ export default function CategoryDetail() {
             : "Unlock this language"
         }
         message={upgrade.message}
+        upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
       />
     );
   }
@@ -211,7 +212,10 @@ export default function CategoryDetail() {
           {addPhrases.isError &&
             (asUpgradeRequired(addPhrases.error) ? (
               <Link
-                href="/upgrade"
+                href={upgradeHrefForDenial(
+                  asUpgradeRequired(addPhrases.error)!,
+                  activeLang,
+                )}
                 className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-center text-base font-black text-white shadow-sm active:scale-[0.98]"
               >
                 <Sparkles className="h-5 w-5" />

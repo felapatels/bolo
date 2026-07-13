@@ -61,7 +61,9 @@ export function upgradeRequiredError(
       reason,
       message,
       feature: reason === "language_locked" ? "allLanguages" : null,
-      requiredPlan: reason === "language_locked" ? "one_language" : "plus",
+      // Mirrors the server: a locked language or the daily cap are both cheapest
+      // to lift with the One Language tier; only Plus-only features need All-Access.
+      requiredPlan: reason === "feature_locked" ? "plus" : "one_language",
     },
   };
 }

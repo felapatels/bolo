@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
-import { useEntitlements } from "@/lib/entitlements";
+import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
 
 export function LanguagePicker() {
@@ -48,8 +48,12 @@ export function LanguagePicker() {
                 onClick={() => {
                   if (locked) {
                     // Locked-but-visible: invite the upgrade instead of erroring.
+                    // A single locked language is cheapest to unlock with the
+                    // One Language tier, so preselect it and pre-pick this one.
                     setOpen(false);
-                    setLocation("/upgrade");
+                    setLocation(
+                      upgradeHref({ plan: "one_language", lang: lang.code }),
+                    );
                     return;
                   }
                   setActiveLang(lang.code);

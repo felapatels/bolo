@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired } from "@/lib/entitlements";
+import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
@@ -278,6 +278,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               : "Unlock this language"
         }
         message={upgrade.message}
+        upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
       />
     );
   }

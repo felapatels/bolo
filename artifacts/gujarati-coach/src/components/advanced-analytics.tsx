@@ -2,7 +2,7 @@ import { useGetProgressAnalytics } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import { BarChart3, Loader2, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEntitlements } from "@/lib/entitlements";
+import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { UpgradeCard } from "@/components/plus";
 
 // The advanced analytics surface. For Free learners it's present but locked with
@@ -22,6 +22,8 @@ export function AdvancedAnalytics({ lang }: { lang: string }) {
           icon={<BarChart3 className="h-7 w-7" />}
           title="See your full breakdown"
           description="Track mastery by topic, average scores, and your day-by-day activity with Plus analytics."
+          // Advanced analytics is an All-Access feature.
+          href={upgradeHref({ plan: "plus" })}
         />
       </section>
     );
