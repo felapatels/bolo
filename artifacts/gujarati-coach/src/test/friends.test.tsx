@@ -386,6 +386,37 @@ describe("Incoming requests", () => {
   });
 });
 
+/* --------------------------- Outgoing requests -------------------------- */
+
+describe("Outgoing requests", () => {
+  const pendingOut: FriendRequest = {
+    id: 21,
+    status: "pending",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    user: { id: "u9", displayName: "Ishaan", email: "ishaan@example.com" },
+  };
+
+  test("lists each sent request under a Waiting status", async () => {
+    h.outgoing = successQuery([pendingOut]);
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    expect(screen.getByText("Ishaan")).toBeInTheDocument();
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+  });
+
+  test("renders nothing when there are no outgoing requests", async () => {
+    h.outgoing = successQuery([]);
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    expect(screen.queryByText("Pending")).not.toBeInTheDocument();
+  });
+});
+
 /* ------------------------------ Friends list ---------------------------- */
 
 describe("Friends list", () => {
