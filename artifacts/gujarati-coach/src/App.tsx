@@ -21,6 +21,7 @@ import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
 import Upgrade from '@/pages/upgrade';
+import Privacy from '@/pages/privacy';
 import NotFound from '@/pages/not-found';
 
 // REQUIRED — copy verbatim. Resolves the key from window.location.hostname so the
@@ -156,6 +157,7 @@ function AppRouter() {
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+      <Route path="/privacy" component={Privacy} />
       <Route path="/app">
         <Guard>
           <Home />

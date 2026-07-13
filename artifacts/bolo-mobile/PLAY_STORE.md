@@ -37,6 +37,32 @@ for pronunciation scoring, is not shared with third parties, and is not stored
 beyond the scoring request. No location, contacts, photos, or advertising IDs
 are collected.
 
+## 2a. Privacy policy (required)
+
+Google Play and the App Store both require a publicly hosted privacy-policy URL
+before an app that records audio can be published. Bolo! records the learner's
+voice (microphone → backend) for pronunciation scoring, so the URL is mandatory.
+
+The policy is hosted on the Bolo! web app (`artifacts/gujarati-coach`) at the
+public route **`/privacy`** — it is served for both signed-in and signed-out
+visitors, so it works as a public link.
+
+| Environment | URL |
+| --- | --- |
+| Production (use this in the store listings) | `https://<your-deployed-web-domain>/privacy` |
+| Replit dev preview | `https://<REPLIT_DEV_DOMAIN>/privacy` |
+
+Replace `<your-deployed-web-domain>` with the domain the Bolo! web artifact is
+published to (Replit deployment domain or a custom domain). Paste that URL into:
+
+- **Play Console** → App content → Privacy policy
+- **App Store Connect** → App Privacy → Privacy Policy URL
+
+The policy covers what is collected (email via Clerk auth, audio recordings for
+pronunciation scoring, learning progress), how it is used, that audio is not
+shared with third parties or retained beyond scoring, and how to contact us /
+delete data.
+
 ## 3. Listing assets (`assets/store/android/`)
 
 | Asset | File | Spec | Status |
