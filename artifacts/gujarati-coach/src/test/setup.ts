@@ -35,6 +35,22 @@ if (!("ResizeObserver" in globalThis)) {
   } as unknown as typeof ResizeObserver;
 }
 
+// jsdom has no IntersectionObserver; the landing page's SpeakingDemo uses one to
+// only animate while on screen. Stub it so the component mounts under test.
+if (!("IntersectionObserver" in globalThis)) {
+  globalThis.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+    root = null;
+    rootMargin = "";
+    thresholds = [];
+  } as unknown as typeof IntersectionObserver;
+}
+
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? vi.fn();
 Element.prototype.hasPointerCapture =
   Element.prototype.hasPointerCapture ?? (() => false);
