@@ -19,6 +19,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
@@ -224,6 +225,7 @@ function SummaryRow({
 
 function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View
       style={[
@@ -234,7 +236,7 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
       <Text style={[styles.cardHeading, { color: colors.mutedForeground }]}>
         MASTERY BY TOPIC
       </Text>
-      <View style={{ gap: 16 }}>
+      <View style={{ gap: 8 }}>
         {categories.map((cat) => {
           const pct =
             cat.phraseCount > 0
@@ -242,30 +244,43 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
               : 0;
           const barColor = pct >= 100 ? colors.success : colors.primary;
           return (
-            <View key={cat.categoryId}>
-              <View style={styles.topicTop}>
-                <Text
-                  style={[styles.topicTitle, { color: colors.foreground }]}
-                  numberOfLines={1}
-                >
-                  {cat.title}
-                </Text>
-                <Text style={[styles.topicMeta, { color: colors.mutedForeground }]}>
-                  {cat.masteredCount}/{cat.phraseCount}
-                  {cat.averageScore > 0 ? `  ·  avg ${cat.averageScore}` : ''}
-                </Text>
+            <PressableScale
+              key={cat.categoryId}
+              accessibilityRole="button"
+              accessibilityLabel={`Practice ${cat.title}`}
+              onPress={() => router.push(`/(app)/category/${cat.categoryId}`)}
+              style={styles.topicRow}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={styles.topicTop}>
+                  <Text
+                    style={[styles.topicTitle, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {cat.title}
+                  </Text>
+                  <Text style={[styles.topicMeta, { color: colors.mutedForeground }]}>
+                    {cat.masteredCount}/{cat.phraseCount}
+                    {cat.averageScore > 0 ? `  ·  avg ${cat.averageScore}` : ''}
+                  </Text>
+                </View>
+                <View style={[styles.track, { backgroundColor: colors.muted }]}>
+                  <View
+                    style={{
+                      width: `${pct}%`,
+                      height: '100%',
+                      backgroundColor: barColor,
+                      borderRadius: 999,
+                    }}
+                  />
+                </View>
               </View>
-              <View style={[styles.track, { backgroundColor: colors.muted }]}>
-                <View
-                  style={{
-                    width: `${pct}%`,
-                    height: '100%',
-                    backgroundColor: barColor,
-                    borderRadius: 999,
-                  }}
-                />
-              </View>
-            </View>
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={colors.mutedForeground}
+              />
+            </PressableScale>
           );
         })}
       </View>
@@ -363,6 +378,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.8,
     marginBottom: 16,
+  },
+  topicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
   },
   topicTop: {
     flexDirection: 'row',
