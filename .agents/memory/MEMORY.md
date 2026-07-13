@@ -7,3 +7,4 @@
 - [api-server test setup](api-server-tests.md) — node:test via `node --import tsx --test`; tests share the live DATABASE_URL Postgres, so self-provision + clean up + use test-only ids.
 - [TS project refs read built dist](ts-project-references-stale-dist.md) — artifacts typecheck against a referenced lib's dist/*.d.ts, not src; rebuild with `tsc -b lib/<pkg>` after schema edits.
 - [Lesson cache invariant](lesson-cache-invariant.md) — lesson+phrases must insert atomically; never serve a zero-phrase cached lesson (regenerate); let generation failure propagate before any write.
+- [Review spaced-repetition](review-spaced-repetition.md) — /review/phrases orders by Leitner due-date (not plain weakest-first); mastery math untouched, response shape unchanged.

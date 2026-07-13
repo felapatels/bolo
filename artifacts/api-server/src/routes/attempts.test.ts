@@ -65,6 +65,32 @@ async function seedAttempt(phraseId: number, score: number): Promise<void> {
   });
 }
 
+// Like seedAttempt but pins the attempt's timestamp, so review tests can build
+// spaced-repetition histories where a phrase's last practice is in the past.
+async function seedAttemptAt(
+  phraseId: number,
+  score: number,
+  createdAt: Date,
+): Promise<void> {
+  await db.insert(attemptsTable).values({
+    userId: TEST_USER_ID,
+    languageCode: LANG,
+    phraseId,
+    nativeScript: "x",
+    romanized: "x",
+    english: "x",
+    transcript: "x",
+    score,
+    passed: score >= 80,
+    feedback: "x",
+    createdAt,
+  });
+}
+
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+}
+
 async function getReviewPhrases(lang: string): Promise<{
   status: number;
   json: any;
@@ -434,6 +460,41 @@ test("review returns practiced-but-unmastered phrases, weakest first", async () 
   assert.equal(json[0].bestScore, 55);
   assert.equal(json[0].mastered, false);
   assert.equal(json[1].bestScore, 70);
+});
+
+test("review surfaces a due phrase ahead of a weaker one that was just practiced", async () => {
+  // Spaced repetition should override plain weakest-first: weak-high has the
+  // higher best score but its last practice is old and overdue, while weak-low
+  // is weaker yet was just practiced well (not due again yet). The overdue
+  // phrase must come first even though it is the less-weak of the two.
+  await seedAttemptAt(phrase.weakHigh, 78, daysAgo(10)); // best 78, long overdue
+  await seedAttemptAt(phrase.weakLow, 55, daysAgo(5));
+  await seedAttempt(phrase.weakLow, 70); // best 70, passed just now -> not due
+
+  const { status, json } = await getReviewPhrases(LANG);
+  assert.equal(status, 200);
+  assert.deepEqual(
+    json.map((p: any) => p.id),
+    [phrase.weakHigh, phrase.weakLow],
+    "the overdue phrase leads even though it is less weak",
+  );
+});
+
+test("review breaks ties between equally-due phrases weakest-first", async () => {
+  // Both phrases are brand-new (never passed, so due immediately) and share an
+  // identical last-practice time, so their due dates tie exactly. The lower best
+  // score then wins the tie.
+  const sameTime = daysAgo(1);
+  await seedAttemptAt(phrase.weakHigh, 50, sameTime); // best 50
+  await seedAttemptAt(phrase.weakLow, 30, sameTime); // best 30
+
+  const { status, json } = await getReviewPhrases(LANG);
+  assert.equal(status, 200);
+  assert.deepEqual(
+    json.map((p: any) => p.id),
+    [phrase.weakLow, phrase.weakHigh],
+    "same due date -> weakest first",
+  );
 });
 
 test("review excludes a phrase once its best score reaches mastery", async () => {

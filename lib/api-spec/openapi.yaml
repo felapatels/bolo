@@ -141,12 +141,15 @@ paths:
     get:
       operationId: listReviewPhrases
       tags: [learning]
-      summary: The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+      summary: The learner's not-yet-mastered phrases for a language, spaced-repetition ordered (due first)
       description: >-
         Returns the phrases the learner has practiced but not yet mastered
         (best attempt score below the mastery threshold) for the given
-        language, ordered weakest-first, to power a targeted review session.
-        Returns an empty array when there is nothing to review.
+        language, ordered by a spaced-repetition schedule so phrases that are
+        due (or overdue) to be reviewed surface first, with the weakest best
+        score breaking ties. Each phrase climbs a Leitner-style spacing ladder
+        on passing attempts (widening the gap before it resurfaces) and resets
+        on a miss. Returns an empty array when there is nothing to review.
       parameters:
         - name: lang
           in: query

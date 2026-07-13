@@ -26,6 +26,7 @@ import {
 import { awardNewlyEarnedBadges } from "../lib/badgeAward";
 import {
   buildPhraseStats,
+  buildReviewSchedule,
   computeProgressMetrics,
   type PhraseStats,
 } from "../lib/progressMetrics";
@@ -420,11 +421,15 @@ router.post(
 // How many weak phrases a single review session gathers.
 const REVIEW_SESSION_SIZE = 12;
 
-// GET /review/phrases?lang=xx — the learner's weakest, not-yet-mastered phrases
-// for one language, ordered weakest-first, to power a targeted review session.
-// A phrase qualifies once it has been practiced (has at least one attempt) but
-// its best score is still below the mastery threshold. Returns [] when the
-// learner has nothing to review (all mastered, or nothing practiced yet).
+// GET /review/phrases?lang=xx — the learner's not-yet-mastered phrases for one
+// language, ordered by a spaced-repetition schedule so the ones they're about to
+// forget surface first, to power a targeted review session. A phrase qualifies
+// once it has been practiced (has at least one attempt) but its best score is
+// still below the mastery threshold. Each weak phrase carries a Leitner "box"
+// that widens the gap before it resurfaces on passing attempts and resets on a
+// miss; we order due-first (soonest/most-overdue due date first) and break ties
+// weakest-first. Returns [] when the learner has nothing to review (all
+// mastered, or nothing practiced yet).
 router.get(
   "/review/phrases",
   async (req: Request, res: Response): Promise<void> => {
@@ -435,15 +440,38 @@ router.get(
     }
     const userId = getUserId(req);
 
-    const attempts = await fetchUserAttempts(userId, lang);
+    // Scheduling needs each attempt's timestamp, so pull createdAt alongside the
+    // score/phrase used for the weakest-first stats.
+    const attempts = await db
+      .select({
+        phraseId: attemptsTable.phraseId,
+        score: attemptsTable.score,
+        createdAt: attemptsTable.createdAt,
+      })
+      .from(attemptsTable)
+      .where(
+        and(
+          eq(attemptsTable.userId, userId),
+          eq(attemptsTable.languageCode, lang),
+        ),
+      );
     const stats = buildPhraseStats(attempts);
+    const schedule = buildReviewSchedule(attempts);
 
     // Every entry in `stats` has been practiced at least once; keep the ones
-    // that haven't cleared mastery and order them weakest (lowest best score)
-    // first, capping the session to a manageable size.
+    // that haven't cleared mastery. Order by the spaced-repetition schedule:
+    // phrases whose review is due (or overdue) come first — earliest due date
+    // first — with the weakest best score breaking ties, so a phrase practiced
+    // well and recently waits its interval instead of dominating the session.
+    const nowMs = Date.now();
     const weakIds = [...stats.entries()]
       .filter(([, s]) => !s.mastered)
-      .sort((a, b) => (a[1].bestScore ?? 0) - (b[1].bestScore ?? 0))
+      .sort((a, b) => {
+        const dueA = schedule.get(a[0])?.dueAt.getTime() ?? nowMs;
+        const dueB = schedule.get(b[0])?.dueAt.getTime() ?? nowMs;
+        if (dueA !== dueB) return dueA - dueB;
+        return (a[1].bestScore ?? 0) - (b[1].bestScore ?? 0);
+      })
       .slice(0, REVIEW_SESSION_SIZE)
       .map(([phraseId]) => phraseId);
 

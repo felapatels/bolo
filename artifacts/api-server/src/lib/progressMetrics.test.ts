@@ -2,9 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPhraseStats,
+  buildReviewSchedule,
   computeProgressMetrics,
   computeStreakDays,
   MASTERY_THRESHOLD,
+  REVIEW_INTERVALS_DAYS,
+  REVIEW_PASS_THRESHOLD,
 } from "./progressMetrics";
 
 // These tests pin down the pure per-language progress math that feeds both the
@@ -150,4 +153,93 @@ test("streak dedupes multiple attempts on the same day", () => {
 
 test("streak is zero with no attempts", () => {
   assert.equal(computeStreakDays([]), 0);
+});
+
+// --- Spaced-repetition scheduling -------------------------------------------
+// These pin down buildReviewSchedule: the Leitner box math that decides when a
+// weak phrase should resurface. A change that quietly alters how intervals grow
+// or reset would space reviews wrong (too soon, too late, or never) and fails
+// here first. dueAt is derived purely as lastAttemptAt + interval, so we assert
+// against that rather than wall-clock time.
+
+test("review pass threshold sits below mastery so unmastered phrases can still space out", () => {
+  assert.ok(
+    REVIEW_PASS_THRESHOLD < MASTERY_THRESHOLD,
+    "a phrase should be able to earn a longer gap before it is fully mastered",
+  );
+  assert.equal(REVIEW_INTERVALS_DAYS[0], 0, "level 0 is due immediately");
+});
+
+test("a single passing attempt promotes to the level-1 interval", () => {
+  const last = daysAgo(REF_TODAY, 0);
+  const schedule = buildReviewSchedule([
+    { phraseId: 1, score: REVIEW_PASS_THRESHOLD, createdAt: last },
+  ]);
+  const s = schedule.get(1);
+  assert.equal(s?.level, 1);
+  assert.equal(s?.intervalDays, REVIEW_INTERVALS_DAYS[1]);
+  assert.equal(
+    s?.dueAt.getTime(),
+    last.getTime() + REVIEW_INTERVALS_DAYS[1] * 24 * 60 * 60 * 1000,
+    "due date is the last attempt plus the level's interval",
+  );
+});
+
+test("consecutive passing attempts climb the ladder, widening the gap", () => {
+  const schedule = buildReviewSchedule([
+    { phraseId: 1, score: 65, createdAt: daysAgo(REF_TODAY, 5) },
+    { phraseId: 1, score: 70, createdAt: daysAgo(REF_TODAY, 3) },
+    { phraseId: 1, score: 75, createdAt: daysAgo(REF_TODAY, 1) },
+  ]);
+  const s = schedule.get(1);
+  assert.equal(s?.level, 3, "three passes in a row reach box 3");
+  assert.equal(s?.intervalDays, REVIEW_INTERVALS_DAYS[3]);
+});
+
+test("a miss resets the phrase to box 0 so it is due immediately again", () => {
+  const last = daysAgo(REF_TODAY, 0);
+  const schedule = buildReviewSchedule([
+    { phraseId: 1, score: 70, createdAt: daysAgo(REF_TODAY, 2) }, // -> level 1
+    { phraseId: 1, score: REVIEW_PASS_THRESHOLD - 1, createdAt: last }, // miss -> reset
+  ]);
+  const s = schedule.get(1);
+  assert.equal(s?.level, 0, "a sub-threshold attempt drops back to box 0");
+  assert.equal(s?.intervalDays, 0);
+  assert.equal(s?.dueAt.getTime(), last.getTime(), "due immediately after a miss");
+});
+
+test("the ladder caps at its top rung no matter how many passes accrue", () => {
+  const attempts = Array.from({ length: 12 }, (_, i) => ({
+    phraseId: 1,
+    score: 78,
+    createdAt: daysAgo(REF_TODAY, 12 - i),
+  }));
+  const s = buildReviewSchedule(attempts).get(1);
+  assert.equal(s?.level, REVIEW_INTERVALS_DAYS.length - 1, "capped at top rung");
+  assert.equal(
+    s?.intervalDays,
+    REVIEW_INTERVALS_DAYS[REVIEW_INTERVALS_DAYS.length - 1],
+  );
+});
+
+test("scheduling replays attempts chronologically regardless of input order", () => {
+  // Same three attempts as the climbing test but shuffled; the final level and
+  // last-attempt time must be identical because we sort by createdAt first.
+  const schedule = buildReviewSchedule([
+    { phraseId: 1, score: 75, createdAt: daysAgo(REF_TODAY, 1) },
+    { phraseId: 1, score: 65, createdAt: daysAgo(REF_TODAY, 5) },
+    { phraseId: 1, score: 70, createdAt: daysAgo(REF_TODAY, 3) },
+  ]);
+  const s = schedule.get(1);
+  assert.equal(s?.level, 3);
+  assert.equal(s?.lastAttemptAt.getTime(), daysAgo(REF_TODAY, 1).getTime());
+});
+
+test("scheduling ignores attempts with no phrase id", () => {
+  const schedule = buildReviewSchedule([
+    { phraseId: null, score: 90, createdAt: daysAgo(REF_TODAY, 1) },
+    { phraseId: 2, score: 65, createdAt: daysAgo(REF_TODAY, 1) },
+  ]);
+  assert.equal(schedule.size, 1);
+  assert.equal(schedule.has(2), true);
 });

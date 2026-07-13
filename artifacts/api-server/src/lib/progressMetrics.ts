@@ -36,6 +36,68 @@ export function buildPhraseStats(
   return map;
 }
 
+// The score a single attempt must clear to count as "getting it right" for
+// spaced-repetition scheduling. Deliberately below MASTERY_THRESHOLD (80): a
+// learner can be doing well enough to earn a longer gap before the phrase
+// resurfaces without having fully mastered it. Mastery removes a phrase from
+// review entirely; this only controls how quickly an as-yet-unmastered phrase
+// comes back.
+export const REVIEW_PASS_THRESHOLD = 60;
+
+// Leitner-style spacing ladder, in days, indexed by "box" level. A phrase
+// climbs one rung for every consecutive passing attempt (widening the gap
+// before it resurfaces) and drops back to rung 0 the moment an attempt falls
+// short (so a struggled phrase is due again immediately). The top rung caps how
+// far apart reviews can get. Level 0 = due now.
+export const REVIEW_INTERVALS_DAYS = [0, 1, 3, 7, 16];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type ReviewSchedule = {
+  // Leitner box level: 0 = struggling/new, higher = longer spacing.
+  level: number;
+  // The spacing (in days) implied by the current level.
+  intervalDays: number;
+  // Timestamp of the learner's most recent attempt on this phrase.
+  lastAttemptAt: Date;
+  // When the phrase should next resurface: lastAttemptAt + intervalDays.
+  dueAt: Date;
+};
+
+// Computes a per-phrase spaced-repetition schedule from a learner's attempts.
+// For each phrase we replay its attempts in chronological order, promoting one
+// Leitner rung on each passing attempt and resetting to rung 0 on a miss, then
+// derive when the phrase is next due from its most recent attempt time. Attempts
+// not tied to a phrase are ignored. This is pure scheduling math — it never
+// changes how scores or mastery are computed.
+export function buildReviewSchedule(
+  attempts: { phraseId: number | null; score: number; createdAt: Date }[],
+): Map<number, ReviewSchedule> {
+  const byPhrase = new Map<number, { score: number; createdAt: Date }[]>();
+  for (const a of attempts) {
+    if (a.phraseId == null) continue;
+    const list = byPhrase.get(a.phraseId) ?? [];
+    list.push({ score: a.score, createdAt: a.createdAt });
+    byPhrase.set(a.phraseId, list);
+  }
+
+  const schedule = new Map<number, ReviewSchedule>();
+  const maxLevel = REVIEW_INTERVALS_DAYS.length - 1;
+  for (const [phraseId, list] of byPhrase) {
+    list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    let level = 0;
+    for (const a of list) {
+      level =
+        a.score >= REVIEW_PASS_THRESHOLD ? Math.min(level + 1, maxLevel) : 0;
+    }
+    const lastAttemptAt = list[list.length - 1].createdAt;
+    const intervalDays = REVIEW_INTERVALS_DAYS[level];
+    const dueAt = new Date(lastAttemptAt.getTime() + intervalDays * DAY_MS);
+    schedule.set(phraseId, { level, intervalDays, lastAttemptAt, dueAt });
+  }
+  return schedule;
+}
+
 // Number of consecutive UTC days (ending today, or anchored on yesterday if
 // nothing was practiced today) the learner has an attempt on.
 export function computeStreakDays(createdAts: Date[]): number {
