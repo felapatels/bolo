@@ -6,3 +6,4 @@
 - [Progress evaluation tokens](progress-evaluation-token.md) — attempts/progress must come from the server-signed pronunciation token, never client-asserted score/passed.
 - [api-server test setup](api-server-tests.md) — node:test via `node --import tsx --test`; tests share the live DATABASE_URL Postgres, so self-provision + clean up + use test-only ids.
 - [TS project refs read built dist](ts-project-references-stale-dist.md) — artifacts typecheck against a referenced lib's dist/*.d.ts, not src; rebuild with `tsc -b lib/<pkg>` after schema edits.
+- [Lesson cache invariant](lesson-cache-invariant.md) — lesson+phrases must insert atomically; never serve a zero-phrase cached lesson (regenerate); let generation failure propagate before any write.

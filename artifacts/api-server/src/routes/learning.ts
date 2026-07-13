@@ -10,10 +10,13 @@ import {
 import { asc, desc, eq, and, inArray } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
+import { createRateLimit } from "../middlewares/rateLimit";
 import { verifyEvaluation } from "../lib/evaluationToken";
 import {
   generateLesson,
   generateAdditionalPhrases,
+  type LessonRequest,
+  type GeneratedLesson,
 } from "../lib/lessonGenerator";
 import {
   BADGE_CATALOG,
@@ -75,10 +78,13 @@ function serializePhrase(
 
 // Returns the cached phrases for a (language, topic), generating and persisting
 // them on the first request. Concurrency-safe via the unique (language_code,
-// category_id) constraint on lessons.
-async function getOrCreateLessonPhrases(
+// category_id) constraint on lessons. The generator is injectable so the
+// resilience behavior (fail = nothing cached, empty cache = regenerate) can be
+// tested without calling OpenAI; production always uses the real generateLesson.
+export async function getOrCreateLessonPhrases(
   languageCode: string,
   categoryId: number,
+  generate: (req: LessonRequest) => Promise<GeneratedLesson> = generateLesson,
 ): Promise<typeof phrasesTable.$inferSelect[]> {
   const loadPhrases = (lessonId: number) =>
     db.query.phrasesTable.findMany({
@@ -90,7 +96,14 @@ async function getOrCreateLessonPhrases(
     where: (t, { eq: eqFn, and: andFn }) =>
       andFn(eqFn(t.languageCode, languageCode), eqFn(t.categoryId, categoryId)),
   });
-  if (existing) return loadPhrases(existing.id);
+  if (existing) {
+    const cached = await loadPhrases(existing.id);
+    // A cached lesson row with zero phrases is a poisoned entry (e.g. from a
+    // past partial write or a since-fixed bug). Don't serve an empty lesson
+    // forever — fall through and try to (re)generate its phrases so a later
+    // open can recover instead of showing a permanently broken screen.
+    if (cached.length > 0) return cached;
+  }
 
   const [language, category] = await Promise.all([
     db.query.languagesTable.findFirst({
@@ -102,7 +115,11 @@ async function getOrCreateLessonPhrases(
   ]);
   if (!language || !category) return [];
 
-  const generated = await generateLesson({
+  // If this throws, the AI call failed. It happens BEFORE any DB write below, so
+  // nothing is cached — the caller surfaces a retry-able error and a later open
+  // can succeed. generateLesson also guarantees at least one usable phrase, so a
+  // successful return never yields an empty lesson.
+  const generated = await generate({
     languageName: language.name,
     nativeName: language.nativeName,
     script: language.script,
@@ -110,42 +127,74 @@ async function getOrCreateLessonPhrases(
     topicDescription: category.description,
   });
 
-  const [lesson] = await db
-    .insert(lessonsTable)
-    .values({
-      languageCode,
-      categoryId,
-      titleNative: generated.titleNative,
-    })
-    .onConflictDoNothing()
-    .returning();
+  // Persist the lesson and its phrases atomically. Doing both in one transaction
+  // means a failure can never leave a lesson row cached with zero phrases (which
+  // would otherwise serve empty forever): either both land, or neither does.
+  return db.transaction(async (tx) => {
+    // Resolve the lesson row to attach phrases to. Three cases:
+    //  - a poisoned lesson already exists (empty) → reuse it, locking the row so
+    //    concurrent recoveries serialize and don't double-insert its phrases,
+    //  - no lesson yet → insert one,
+    //  - lost the race to a concurrent insert → reuse the winner's row.
+    let lessonId: number;
+    if (existing) {
+      await tx
+        .select({ id: lessonsTable.id })
+        .from(lessonsTable)
+        .where(eq(lessonsTable.id, existing.id))
+        .for("update");
+      lessonId = existing.id;
+    } else {
+      const [lesson] = await tx
+        .insert(lessonsTable)
+        .values({
+          languageCode,
+          categoryId,
+          titleNative: generated.titleNative,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (lesson) {
+        lessonId = lesson.id;
+      } else {
+        const winner = await tx.query.lessonsTable.findFirst({
+          where: (t, { eq: eqFn, and: andFn }) =>
+            andFn(
+              eqFn(t.languageCode, languageCode),
+              eqFn(t.categoryId, categoryId),
+            ),
+        });
+        if (!winner) return [];
+        lessonId = winner.id;
+      }
+    }
 
-  // Lost the race to another concurrent request — reuse whatever it created.
-  if (!lesson) {
-    const winner = await db.query.lessonsTable.findFirst({
-      where: (t, { eq: eqFn, and: andFn }) =>
-        andFn(
-          eqFn(t.languageCode, languageCode),
-          eqFn(t.categoryId, categoryId),
-        ),
-    });
-    return winner ? loadPhrases(winner.id) : [];
-  }
+    const loadTx = () =>
+      tx.query.phrasesTable.findMany({
+        where: (t, { eq: eqFn }) => eqFn(t.lessonId, lessonId),
+        orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
+      });
 
-  await db.insert(phrasesTable).values(
-    generated.phrases.map((p, i) => ({
-      lessonId: lesson.id,
-      languageCode,
-      categoryId,
-      nativeScript: p.nativeScript,
-      romanized: p.romanized,
-      english: p.english,
-      difficulty: p.difficulty,
-      sortOrder: i,
-    })),
-  );
+    // Another request may have filled this lesson already (or it was never truly
+    // empty) — serve those phrases rather than inserting duplicates.
+    const already = await loadTx();
+    if (already.length > 0) return already;
 
-  return loadPhrases(lesson.id);
+    await tx.insert(phrasesTable).values(
+      generated.phrases.map((p, i) => ({
+        lessonId,
+        languageCode,
+        categoryId,
+        nativeScript: p.nativeScript,
+        romanized: p.romanized,
+        english: p.english,
+        difficulty: p.difficulty,
+        sortOrder: i,
+      })),
+    );
+
+    return loadTx();
+  });
 }
 
 // GET /categories?lang=xx
@@ -450,8 +499,14 @@ router.get(
   },
 );
 
+// Throttle the attempts write path. Each POST inserts a row and recomputes
+// per-language progress + badges, so cap it against abuse the same way the
+// OpenAI routes are capped. The limit is generous enough that recording attempts
+// at human practice speed is never throttled.
+const attemptsRateLimit = createRateLimit({ windowMs: 60_000, max: 60 });
+
 // POST /attempts
-router.post("/attempts", async (req: Request, res: Response): Promise<void> => {
+router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateAttemptBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid attempt payload" });

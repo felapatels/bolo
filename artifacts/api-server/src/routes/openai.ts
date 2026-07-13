@@ -13,43 +13,15 @@ import {
   GeneratePhraseBody,
 } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
+import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
 
 const router: IRouter = Router();
 
-// Lightweight in-memory rate limiter for the AI-backed endpoints. These call
-// OpenAI with server-side credentials and are internet-reachable once
-// published, so this caps abuse / runaway cost without adding any login
-// friction for the single learner. Generous enough for rapid practice.
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 60;
-const hits = new Map<string, number[]>();
-
-function rateLimit(req: Request, res: Response, next: () => void): void {
-  // Key on the authenticated user (this router runs after requireAuth) so one
-  // learner cannot exhaust a shared bucket and lock everyone else out. Fall
-  // back to the client IP only if the user id is somehow unavailable.
-  const key = (req as AuthedRequest).userId ?? req.ip ?? "unknown";
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter(
-    (t) => now - t < RATE_LIMIT_WINDOW_MS,
-  );
-  if (recent.length >= RATE_LIMIT_MAX) {
-    res.status(429).json({ error: "Too many requests, take a short break." });
-    return;
-  }
-  recent.push(now);
-  hits.set(key, recent);
-  // Opportunistic cleanup so the map doesn't grow unbounded.
-  if (hits.size > 500) {
-    for (const [k, times] of hits) {
-      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) hits.delete(k);
-    }
-  }
-  next();
-}
-
-router.use("/openai", rateLimit);
+// The AI-backed endpoints call OpenAI with server-side credentials and are
+// internet-reachable once published, so cap abuse / runaway cost without adding
+// login friction. Generous enough for rapid practice by a single learner.
+router.use("/openai", createRateLimit({ windowMs: 60_000, max: 60 }));
 
 const VOICES = [
   "alloy",
