@@ -21,6 +21,7 @@ export * from './language';
 export * from './listBadgesParams';
 export * from './listCategoriesParams';
 export * from './listRecentAttemptsParams';
+export * from './listReviewPhrasesParams';
 export * from './phrase';
 export * from './phraseRequest';
 export * from './progressSummary';

@@ -1,5 +1,6 @@
 - [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.
 - [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.
+- [orval query options need queryKey](orval-query-enabled.md) — passing `{ query: { enabled } }` to a generated hook fails typecheck unless you also pass the matching `queryKey`.
 - [Clerk web auth (same-domain)](clerk-web-auth.md) — cookies flow on relative /api, NO Bearer on web; identity server-side; dev pk_test + "development keys" warning are expected.
 - [drizzle-kit push non-TTY](drizzle-push-non-tty.md) — push aborts on ambiguous diffs (rename vs drop+create) with no TTY; apply the DDL via SQL instead.
 - [Progress evaluation tokens](progress-evaluation-token.md) — attempts/progress must come from the server-signed pronunciation token, never client-asserted score/passed.

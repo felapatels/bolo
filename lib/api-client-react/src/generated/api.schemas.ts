@@ -194,6 +194,10 @@ export type ListCategoriesParams = {
 lang: string;
 };
 
+export type ListReviewPhrasesParams = {
+lang: string;
+};
+
 export type ListRecentAttemptsParams = {
 lang: string;
 limit?: number;

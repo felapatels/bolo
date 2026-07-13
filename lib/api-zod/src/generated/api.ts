@@ -115,6 +115,31 @@ export const AddCategoryPhrasesResponse = zod.array(AddCategoryPhrasesResponseIt
 
 
 /**
+ * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered weakest-first, to power a targeted review session. Returns an empty array when there is nothing to review.
+ * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ */
+export const ListReviewPhrasesQueryParams = zod.object({
+  "lang": zod.coerce.string()
+})
+
+export const ListReviewPhrasesResponseItem = zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number()
+})
+export const ListReviewPhrasesResponse = zod.array(ListReviewPhrasesResponseItem)
+
+
+/**
  * @summary Get a single phrase
  */
 export const GetPhraseParams = zod.object({

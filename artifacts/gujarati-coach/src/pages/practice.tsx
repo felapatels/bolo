@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useSearch } from "wouter";
 import { 
   useListCategoryPhrases, 
+  useListReviewPhrases,
   useSynthesizeSpeech, 
   useEvaluatePronunciation, 
   useCreateAttempt,
   getListCategoryPhrasesQueryKey,
+  getListReviewPhrasesQueryKey,
   getGetProgressSummaryQueryKey,
   getListRecentAttemptsQueryKey,
   getListBadgesQueryKey,
@@ -23,22 +25,42 @@ import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-sta
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
 
-export default function Practice() {
+export default function Practice({ mode = "category" }: { mode?: "category" | "review" }) {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
+  const isReview = mode === "review";
   const search = useSearch();
   const startPhraseId = new URLSearchParams(search).get("phrase");
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
 
+  // Where "back" goes: the review session lives off the Home dashboard, while a
+  // normal lesson belongs to its category.
+  const backHref = isReview ? "/app" : `/learn/${id}`;
+
+  const categoryQuery = useListCategoryPhrases(id, activeLang, {
+    query: {
+      enabled: !isReview,
+      queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
+    },
+  });
+  const reviewQuery = useListReviewPhrases(
+    { lang: activeLang },
+    {
+      query: {
+        enabled: isReview,
+        queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }),
+      },
+    },
+  );
   const {
     data: phrases,
     isLoading: loadingPhrases,
     isError,
     isFetching,
     refetch,
-  } = useListCategoryPhrases(id, activeLang);
+  } = isReview ? reviewQuery : categoryQuery;
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -184,6 +206,7 @@ export default function Practice() {
       queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
       queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
       queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
+      queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
       queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
 
       setState("result");
@@ -241,7 +264,7 @@ export default function Practice() {
   if (isError) {
     return (
       <LessonErrorScreen
-        backHref={`/learn/${id}`}
+        backHref={backHref}
         onRetry={() => { void refetch(); }}
         isRetrying={isFetching}
       />
@@ -252,7 +275,7 @@ export default function Practice() {
     return (
       <LessonBuildingScreen
         languageName={activeLanguage?.name}
-        backHref={`/learn/${id}`}
+        backHref={backHref}
       />
     );
   }
@@ -260,8 +283,10 @@ export default function Practice() {
   if (phrases.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-xl font-bold mb-4">No phrases found here.</h2>
-        <Link href={`/learn/${id}`} className="text-primary font-bold">Go back</Link>
+        <h2 className="text-xl font-bold mb-4">
+          {isReview ? "Nothing to review right now." : "No phrases found here."}
+        </h2>
+        <Link href={backHref} className="text-primary font-bold">Go back</Link>
       </div>
     );
   }
@@ -289,7 +314,7 @@ export default function Practice() {
           </div>
         </div>
         
-        <Link href={`/learn/${id}`} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all">
+        <Link href={backHref} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(27,100%,45%)] active:translate-y-2 active:shadow-[0_0px_0_hsl(27,100%,45%)] transition-all">
           Done
         </Link>
       </div>
@@ -302,7 +327,7 @@ export default function Practice() {
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
       <header className="px-6 py-4 flex items-center justify-between">
-        <Link href={`/learn/${id}`} className="text-muted-foreground hover:text-foreground">
+        <Link href={backHref} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-8 h-8" />
         </Link>
         <div className="flex-1 px-6">

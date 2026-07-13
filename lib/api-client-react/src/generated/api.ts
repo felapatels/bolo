@@ -34,6 +34,7 @@ import type {
   ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
+  ListReviewPhrasesParams,
   Phrase,
   PhraseRequest,
   ProgressSummary,
@@ -465,6 +466,91 @@ export const useAddCategoryPhrases = <TError = ErrorType<Error>,
       > => {
       return useMutation(getAddCategoryPhrasesMutationOptions(options));
     }
+
+export const getListReviewPhrasesUrl = (params: ListReviewPhrasesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/review/phrases?${stringifiedParams}` : `/api/review/phrases`
+}
+
+/**
+ * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered weakest-first, to power a targeted review session. Returns an empty array when there is nothing to review.
+ * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ */
+export const listReviewPhrases = async (params: ListReviewPhrasesParams, options?: RequestInit): Promise<Phrase[]> => {
+
+  return customFetch<Phrase[]>(getListReviewPhrasesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReviewPhrasesQueryKey = (params?: ListReviewPhrasesParams,) => {
+    return [
+    `/api/review/phrases`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListReviewPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<unknown>>(params: ListReviewPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReviewPhrasesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReviewPhrases>>> = ({ signal }) => listReviewPhrases(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListReviewPhrasesQueryResult = NonNullable<Awaited<ReturnType<typeof listReviewPhrases>>>
+export type ListReviewPhrasesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+ */
+
+export function useListReviewPhrases<TData = Awaited<ReturnType<typeof listReviewPhrases>>, TError = ErrorType<unknown>>(
+ params: ListReviewPhrasesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReviewPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListReviewPhrasesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetPhraseUrl = (id: number,) => {
 

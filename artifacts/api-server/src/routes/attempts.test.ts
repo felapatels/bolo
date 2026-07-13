@@ -10,6 +10,9 @@ import {
   badgesTable,
   usersTable,
   languagesTable,
+  categoriesTable,
+  lessonsTable,
+  phrasesTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -29,10 +32,49 @@ import { signEvaluation } from "../lib/evaluationToken";
 // up after, and SESSION_SECRET must be set for signEvaluation/verifyEvaluation.
 const TEST_USER_ID = "test_attempts_route";
 const LANG = "__test_lang_attempts";
+const CATEGORY_SLUG = "__test_cat_attempts";
 
 let app: Express;
 let server: Server;
 let baseUrl: string;
+
+// Phrase ids created as fixtures for the review-endpoint tests. `weakLow` and
+// `weakHigh` are practiced-but-not-mastered; `mastered` clears the threshold;
+// `unpracticed` has no attempts.
+let phrase: {
+  weakLow: number;
+  weakHigh: number;
+  mastered: number;
+  unpracticed: number;
+};
+
+// Records an attempt row directly (bypassing the token route) so review tests
+// can set up arbitrary best-score histories per phrase.
+async function seedAttempt(phraseId: number, score: number): Promise<void> {
+  await db.insert(attemptsTable).values({
+    userId: TEST_USER_ID,
+    languageCode: LANG,
+    phraseId,
+    nativeScript: "x",
+    romanized: "x",
+    english: "x",
+    transcript: "x",
+    score,
+    passed: score >= 80,
+    feedback: "x",
+  });
+}
+
+async function getReviewPhrases(lang: string): Promise<{
+  status: number;
+  json: any;
+}> {
+  const res = await fetch(
+    `${baseUrl}/review/phrases?lang=${encodeURIComponent(lang)}`,
+  );
+  const json = await res.json().catch(() => null);
+  return { status: res.status, json };
+}
 
 async function clearRows(): Promise<void> {
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
@@ -119,6 +161,44 @@ before(async () => {
         UNIQUE (user_id, language_code, badge_key)
     );
   `);
+  // The review endpoint joins attempts back to phrase content, so provision the
+  // category/lesson/phrase tables it reads from too.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id serial PRIMARY KEY,
+      slug text NOT NULL UNIQUE,
+      title text NOT NULL,
+      description text NOT NULL,
+      icon_name text NOT NULL,
+      accent text NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id serial PRIMARY KEY,
+      language_code text NOT NULL REFERENCES languages(code),
+      category_id integer NOT NULL REFERENCES categories(id),
+      title_native text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT lessons_language_category_unique
+        UNIQUE (language_code, category_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS phrases (
+      id serial PRIMARY KEY,
+      lesson_id integer NOT NULL REFERENCES lessons(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      category_id integer NOT NULL REFERENCES categories(id),
+      native_script text NOT NULL,
+      romanized text NOT NULL,
+      english text NOT NULL,
+      hint text,
+      difficulty integer NOT NULL DEFAULT 1,
+      sort_order integer NOT NULL DEFAULT 0
+    );
+  `);
 
   await db
     .insert(usersTable)
@@ -134,6 +214,46 @@ before(async () => {
       fontFamily: "sans-serif",
     })
     .onConflictDoNothing();
+
+  // Category → lesson → phrases fixtures the review endpoint reads content from.
+  const [category] = await db
+    .insert(categoriesTable)
+    .values({
+      slug: CATEGORY_SLUG,
+      title: "Test Topic",
+      description: "Test topic",
+      iconName: "BookOpen",
+      accent: "#000000",
+    })
+    .returning();
+  const [lesson] = await db
+    .insert(lessonsTable)
+    .values({ languageCode: LANG, categoryId: category.id, titleNative: "T" })
+    .returning();
+  const mkPhrase = (english: string, sortOrder: number) => ({
+    lessonId: lesson.id,
+    languageCode: LANG,
+    categoryId: category.id,
+    nativeScript: english,
+    romanized: english,
+    english,
+    sortOrder,
+  });
+  const created = await db
+    .insert(phrasesTable)
+    .values([
+      mkPhrase("weak-low", 0),
+      mkPhrase("weak-high", 1),
+      mkPhrase("mastered", 2),
+      mkPhrase("unpracticed", 3),
+    ])
+    .returning();
+  phrase = {
+    weakLow: created[0].id,
+    weakHigh: created[1].id,
+    mastered: created[2].id,
+    unpracticed: created[3].id,
+  };
 
   // Mount the real learning router behind a stub that injects the authenticated
   // user id the same way requireAuth does, so the handler under test is genuine.
@@ -159,6 +279,10 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
+  // FK order: phrases → lessons → category, then the language + user.
+  await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
+  await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
   await db.delete(languagesTable).where(eq(languagesTable.code, LANG));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER_ID));
   await pool.end();
@@ -287,4 +411,49 @@ test("rejects a token minted for another user", async () => {
   const { status } = await postAttempt({ evaluationToken: token });
   assert.equal(status, 400);
   assert.equal((await storedAttempts()).length, 0);
+});
+
+test("review returns practiced-but-unmastered phrases, weakest first", async () => {
+  // weak-high has a higher best score than weak-low; mastered clears the
+  // threshold and unpracticed has no attempts — only the two weak ones should
+  // come back, ordered weakest (lowest best score) first.
+  await seedAttempt(phrase.weakHigh, 40);
+  await seedAttempt(phrase.weakHigh, 70); // best 70, still < 80
+  await seedAttempt(phrase.weakLow, 55);
+  await seedAttempt(phrase.weakLow, 30); // best 55
+  await seedAttempt(phrase.mastered, 90); // best 90 → mastered, excluded
+
+  const { status, json } = await getReviewPhrases(LANG);
+  assert.equal(status, 200);
+  assert.deepEqual(
+    json.map((p: any) => p.id),
+    [phrase.weakLow, phrase.weakHigh],
+  );
+  // Content needed to practice each phrase comes back, with best-score stats.
+  assert.equal(json[0].english, "weak-low");
+  assert.equal(json[0].bestScore, 55);
+  assert.equal(json[0].mastered, false);
+  assert.equal(json[1].bestScore, 70);
+});
+
+test("review excludes a phrase once its best score reaches mastery", async () => {
+  // A weak attempt then a mastering attempt on the same phrase: it should drop
+  // out of review entirely rather than linger on its earlier low score.
+  await seedAttempt(phrase.weakLow, 50);
+  await seedAttempt(phrase.weakLow, 85);
+
+  const { status, json } = await getReviewPhrases(LANG);
+  assert.equal(status, 200);
+  assert.deepEqual(json, []);
+});
+
+test("review is empty when the learner has practiced nothing", async () => {
+  const { status, json } = await getReviewPhrases(LANG);
+  assert.equal(status, 200);
+  assert.deepEqual(json, []);
+});
+
+test("review requires a language", async () => {
+  const res = await fetch(`${baseUrl}/review/phrases`);
+  assert.equal(res.status, 400);
 });

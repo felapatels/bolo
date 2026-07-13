@@ -1,6 +1,6 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Hand, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target } from "lucide-react";
 import { Link } from "wouter";
-import { useGetProgressSummary, useListCategories, useListRecentAttempts } from "@workspace/api-client-react";
+import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -32,6 +32,9 @@ export default function Home() {
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
   const { data: categories, isLoading: loadingCats } = useListCategories({ lang: activeLang });
   const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
+  const { data: reviewPhrases } = useListReviewPhrases({ lang: activeLang });
+  const reviewCount = reviewPhrases?.length ?? 0;
+  const canReview = reviewCount > 0;
 
   if (loadingSummary || loadingCats) {
     return (
@@ -155,6 +158,44 @@ export default function Home() {
             </Link>
           </motion.div>
         )}
+
+        {/* Review Weakest Phrases */}
+        <section>
+          {canReview ? (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+              <Link
+                href="/review"
+                className="block bg-white rounded-2xl p-5 border-2 border-secondary transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-4 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 -mr-10 -mt-10 bg-secondary" />
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-secondary/15 text-secondary">
+                  <Target className="w-7 h-7" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-lg text-foreground leading-tight">Review your weakest phrases</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {reviewCount} {reviewCount === 1 ? "phrase" : "phrases"} to sharpen up
+                  </p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
+              </Link>
+            </motion.div>
+          ) : (
+            <div className="bg-muted/40 rounded-2xl p-5 border border-card-border flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-muted text-muted-foreground">
+                <Target className="w-7 h-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg text-muted-foreground leading-tight">Review your weakest phrases</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Practice a few phrases first — the ones you find tricky will show up here to review.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Recent Activity */}
         {attempts && attempts.length > 0 && (

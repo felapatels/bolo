@@ -7,7 +7,7 @@ import {
   attemptsTable,
   badgesTable,
 } from "@workspace/db";
-import { asc, desc, eq, and } from "drizzle-orm";
+import { asc, desc, eq, and, inArray } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { verifyEvaluation } from "../lib/evaluationToken";
@@ -365,6 +365,62 @@ router.post(
     const attempts = await fetchUserAttempts(userId, lang);
     const stats = buildPhraseStats(attempts);
     res.json(created.map((p) => serializePhrase(p, stats)));
+  },
+);
+
+// How many weak phrases a single review session gathers.
+const REVIEW_SESSION_SIZE = 12;
+
+// GET /review/phrases?lang=xx — the learner's weakest, not-yet-mastered phrases
+// for one language, ordered weakest-first, to power a targeted review session.
+// A phrase qualifies once it has been practiced (has at least one attempt) but
+// its best score is still below the mastery threshold. Returns [] when the
+// learner has nothing to review (all mastered, or nothing practiced yet).
+router.get(
+  "/review/phrases",
+  async (req: Request, res: Response): Promise<void> => {
+    const lang = String(req.query.lang ?? "");
+    if (!lang) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
+    const userId = getUserId(req);
+
+    const attempts = await fetchUserAttempts(userId, lang);
+    const stats = buildPhraseStats(attempts);
+
+    // Every entry in `stats` has been practiced at least once; keep the ones
+    // that haven't cleared mastery and order them weakest (lowest best score)
+    // first, capping the session to a manageable size.
+    const weakIds = [...stats.entries()]
+      .filter(([, s]) => !s.mastered)
+      .sort((a, b) => (a[1].bestScore ?? 0) - (b[1].bestScore ?? 0))
+      .slice(0, REVIEW_SESSION_SIZE)
+      .map(([phraseId]) => phraseId);
+
+    if (weakIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const rows = await db
+      .select()
+      .from(phrasesTable)
+      .where(
+        and(
+          eq(phrasesTable.languageCode, lang),
+          inArray(phrasesTable.id, weakIds),
+        ),
+      );
+
+    // Restore the weakest-first order — the DB does not guarantee it — and drop
+    // any ids that no longer resolve to a phrase.
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const ordered = weakIds
+      .map((phraseId) => byId.get(phraseId))
+      .filter((r): r is typeof phrasesTable.$inferSelect => r != null);
+
+    res.json(ordered.map((p) => serializePhrase(p, stats)));
   },
 );
 

@@ -170,6 +170,11 @@ function AppRouter() {
           <Practice />
         </Guard>
       </Route>
+      <Route path="/review">
+        <Guard>
+          <Practice mode="review" />
+        </Guard>
+      </Route>
       <Route path="/progress">
         <Guard>
           <Progress />

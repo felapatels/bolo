@@ -137,6 +137,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /review/phrases:
+    get:
+      operationId: listReviewPhrases
+      tags: [learning]
+      summary: The learner's weakest, not-yet-mastered phrases for a language (weakest first)
+      description: >-
+        Returns the phrases the learner has practiced but not yet mastered
+        (best attempt score below the mastery threshold) for the given
+        language, ordered weakest-first, to power a targeted review session.
+        Returns an empty array when there is nothing to review.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Weak phrases to review
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phrase"
+
   /phrases/{id}:
     get:
       operationId: getPhrase
