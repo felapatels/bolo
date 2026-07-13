@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useUser, useClerk } from '@clerk/expo';
+import { useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
@@ -48,7 +48,6 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();
-  const { signOut } = useClerk();
   const { activeLang, activeLanguage } = useLanguage();
   const { isPlus, dailyNewLessons } = useEntitlements();
 
@@ -107,11 +106,11 @@ export default function HomeScreen() {
           </View>
           <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" />
           <Pressable
-            accessibilityLabel="Sign out"
-            onPress={() => signOut()}
+            accessibilityLabel="Account settings"
+            onPress={() => router.push('/(app)/account')}
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
-            <Feather name="log-out" size={18} color={colors.mutedForeground} />
+            <Feather name="settings" size={18} color={colors.mutedForeground} />
           </Pressable>
         </Animated.View>
 

@@ -54,6 +54,12 @@
           "microphonePermission": "Allow Bolo! to use your microphone so you can practice speaking."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Bolo! to access your photos so you can set a profile picture."
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

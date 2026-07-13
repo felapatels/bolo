@@ -94,3 +94,10 @@ jest.mock('expo-haptics', () => ({
     Error: 'error',
   },
 }));
+
+// AsyncStorage's native module is null under Jest. useColors -> ThemeContext now
+// imports it, so any component test that renders a themed component needs the
+// library's official in-memory mock.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);

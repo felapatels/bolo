@@ -7,6 +7,7 @@ import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
 import { useFonts } from 'expo-font';
@@ -40,12 +41,13 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      proxyUrl={proxyUrl}
-    >
-      <ClerkLoaded>
+    <ThemeProvider>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        tokenCache={tokenCache}
+        proxyUrl={proxyUrl}
+      >
+        <ClerkLoaded>
         <SafeAreaProvider>
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
@@ -67,7 +69,8 @@ export default function RootLayout() {
             </QueryClientProvider>
           </ErrorBoundary>
         </SafeAreaProvider>
-      </ClerkLoaded>
-    </ClerkProvider>
+        </ClerkLoaded>
+      </ClerkProvider>
+    </ThemeProvider>
   );
 }
