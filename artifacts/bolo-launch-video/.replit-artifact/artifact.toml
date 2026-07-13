@@ -1,0 +1,27 @@
+kind = "video"
+previewPath = "/launch-video/"
+title = "Bolo! Launch Video"
+version = "1.0.0"
+id = "artifacts/bolo-launch-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/launch-video/" ]
+localPort = 20384
+
+[services.development]
+run = "pnpm --filter @workspace/bolo-launch-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bolo-launch-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bolo-launch-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20384"
+BASE_PATH = "/launch-video/"

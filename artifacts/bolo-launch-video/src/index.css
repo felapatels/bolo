@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400..800&family=Noto+Sans+Devanagari:wght@400..800&family=Noto+Sans+Gujarati:wght@400..800&family=Noto+Sans+Gurmukhi:wght@400..800&family=Noto+Sans+Kannada:wght@400..800&family=Noto+Sans+Malayalam:wght@400..800&family=Noto+Sans+Oriya:wght@400..800&family=Noto+Sans+Tamil:wght@400..800&family=Noto+Sans+Telugu:wght@400..800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0F172A;
+  --color-card-border: #E2E8F0;
+  
+  --color-primary: #4F46E5;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-shadow: #4338CA;
+  
+  --color-secondary: #0D9488;
+  --color-secondary-foreground: #FFFFFF;
+  
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
+  
+  --color-accent: #14B8A6;
+  --color-accent-foreground: #052E2B;
+  
+  --color-success: #10B981;
+  --color-success-foreground: #FFFFFF;
+  
+  --color-gold: #F59E0B;
+  
+  --radius: 10px;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-hidden;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Base custom font utility classes */
+.font-bengali { font-family: 'Noto Sans Bengali', sans-serif; }
+.font-devanagari { font-family: 'Noto Sans Devanagari', sans-serif; }
+.font-gujarati { font-family: 'Noto Sans Gujarati', sans-serif; }
+.font-gurmukhi { font-family: 'Noto Sans Gurmukhi', sans-serif; }
+.font-kannada { font-family: 'Noto Sans Kannada', sans-serif; }
+.font-malayalam { font-family: 'Noto Sans Malayalam', sans-serif; }
+.font-oriya { font-family: 'Noto Sans Oriya', sans-serif; }
+.font-tamil { font-family: 'Noto Sans Tamil', sans-serif; }
+.font-telugu { font-family: 'Noto Sans Telugu', sans-serif; }
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.1);
+  border-radius: var(--radius);
+}
+
+.chunky-btn {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 0 0 var(--color-primary-shadow);
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
