@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges, type Badge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -63,7 +64,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
       ) : badges && badges.length > 0 ? (
         <View style={styles.grid}>
-          {badges.map((badge) => {
+          {badges.map((badge, i) => {
             const ratio = progressRatio(badge);
             const isNearest =
               !badge.earned &&
@@ -71,8 +72,9 @@ export function BadgesGallery({ lang }: { lang: string }) {
               ratio === nearestRatio &&
               ratio < 1;
             return (
-              <View
+              <Animated.View
                 key={badge.key}
+                entering={FadeInDown.duration(360).delay(Math.min(i, 12) * 45)}
                 style={[
                   styles.card,
                   badge.earned
@@ -174,7 +176,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
                     </Text>
                   </View>
                 )}
-              </View>
+              </Animated.View>
             );
           })}
         </View>

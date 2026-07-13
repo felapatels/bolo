@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getListBadgesQueryKey } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { BadgesGallery } from '@/components/BadgesGallery';
+import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -35,13 +36,13 @@ export default function BadgesScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable
+        <PressableScale
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: colors.card }]}
+          style={[styles.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Feather name="chevron-left" size={24} color={colors.foreground} />
-        </Pressable>
+        </PressableScale>
         <Text style={[styles.headerLabel, { color: colors.foreground }]}>
           Badges
         </Text>
@@ -84,6 +85,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

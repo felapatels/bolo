@@ -1,86 +1,87 @@
 /**
- * Semantic design tokens for the Bolo! mobile app.
+ * Semantic design tokens for the Bolo! mobile app — "Calm & Modern" theme.
  *
- * These mirror the sibling web artifact (artifacts/gujarati-coach/src/index.css)
- * so both apps share the warm, playful "Bolo!" identity. HSL values from the web
- * :root / .dark blocks are converted to hex here.
+ * A calm, modern palette built on indigo (primary), teal (accent) and slate
+ * neutrals. Energy in the app comes from motion, the mascot and celebrations —
+ * not from clashing bright colors. The token names are shared with the sibling
+ * web artifact so both apps express the same Bolo! identity.
  */
 
 const colors = {
   light: {
-    text: '#0f1729',
-    tint: '#ff811a',
+    text: '#0F172A',
+    tint: '#4F46E5',
 
-    background: '#fffdf0', // warm cream — 54 100% 97%
-    foreground: '#0f1729', // 222 47% 11%
+    background: '#F8FAFC', // slate-50
+    foreground: '#0F172A', // slate-900
 
-    card: '#ffffff',
-    cardForeground: '#0f1729',
-    cardBorder: '#e2e8f0', // 214 32% 91%
+    card: '#FFFFFF',
+    cardForeground: '#0F172A',
+    cardBorder: '#E2E8F0', // slate-200
 
-    primary: '#ff811a', // 27 100% 55% — orange
-    primaryForeground: '#ffffff',
-    primaryShadow: '#e56a00', // darker orange for chunky button shadows
+    primary: '#4F46E5', // indigo-600
+    primaryForeground: '#FFFFFF',
+    primaryShadow: '#4338CA', // indigo-700 — chunky button underlay
 
-    secondary: '#00b3d6', // 190 100% 42% — cyan
-    secondaryForeground: '#ffffff',
+    secondary: '#0D9488', // teal-600
+    secondaryForeground: '#FFFFFF',
 
-    muted: '#f1f5f9', // 210 40% 96%
-    mutedForeground: '#64748b', // 215 16% 47%
+    muted: '#F1F5F9', // slate-100
+    mutedForeground: '#64748B', // slate-500
 
-    accent: '#f62896', // 328 92% 56% — pink
-    accentForeground: '#ffffff',
+    accent: '#14B8A6', // teal-500 — brighter accent for motion
+    accentForeground: '#052E2B',
 
-    destructive: '#ef4444', // 0 84% 60%
-    destructiveForeground: '#ffffff',
+    destructive: '#EF4444', // red-500
+    destructiveForeground: '#FFFFFF',
 
-    success: '#07d59e', // 164 94% 43% — teal green
-    successForeground: '#ffffff',
+    success: '#10B981', // emerald-500
+    successForeground: '#FFFFFF',
 
-    gold: '#ffd166', // XP / star highlight
+    gold: '#F59E0B', // amber-500 — XP / star / Plus highlight
 
-    border: '#e2e8f0',
-    input: '#e2e8f0',
+    border: '#E2E8F0',
+    input: '#E2E8F0',
   },
 
   dark: {
-    text: '#fffdf0',
-    tint: '#ff8f33',
+    text: '#F8FAFC',
+    tint: '#6366F1',
 
-    background: '#0f1729', // 222 47% 11%
-    foreground: '#fffdf0', // 54 100% 97%
+    background: '#0F172A', // slate-900
+    foreground: '#F8FAFC', // slate-50
 
-    card: '#141f38', // 222 47% 15%
-    cardForeground: '#fffdf0',
-    cardBorder: '#1b294b', // 222 47% 20%
+    card: '#1E293B', // slate-800
+    cardForeground: '#F8FAFC',
+    cardBorder: '#334155', // slate-700
 
-    primary: '#ff8f33', // 27 100% 60%
-    primaryForeground: '#0f1729',
-    primaryShadow: '#c96a12',
+    primary: '#6366F1', // indigo-500 — brighter on dark
+    primaryForeground: '#FFFFFF',
+    primaryShadow: '#4338CA',
 
-    secondary: '#00d4ff', // 190 100% 50%
-    secondaryForeground: '#0f1729',
+    secondary: '#14B8A6', // teal-500
+    secondaryForeground: '#042F2E',
 
-    muted: '#1b294b',
-    mutedForeground: '#a6b0bf', // 215 16% 70%
+    muted: '#334155', // slate-700
+    mutedForeground: '#94A3B8', // slate-400
 
-    accent: '#f854ab', // 328 92% 65%
-    accentForeground: '#ffffff',
+    accent: '#2DD4BF', // teal-400
+    accentForeground: '#042F2E',
 
-    destructive: '#f15b5b', // 0 84% 65%
-    destructiveForeground: '#ffffff',
+    destructive: '#F87171', // red-400
+    destructiveForeground: '#0F172A',
 
-    success: '#07d59e',
-    successForeground: '#052e26',
+    success: '#34D399', // emerald-400
+    successForeground: '#052E1F',
 
-    gold: '#ffd166',
+    gold: '#FBBF24', // amber-400
 
-    border: '#1b294b',
-    input: '#1b294b',
+    border: '#334155',
+    input: '#334155',
   },
 
-  // --radius: 1.5rem -> 24px
-  radius: 24,
+  // Base corner radius for the Calm & Modern theme (~10px).
+  radius: 10,
 };
 
 export default colors;

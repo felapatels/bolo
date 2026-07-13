@@ -12,11 +12,12 @@ import Animated, {
 const { width, height } = Dimensions.get('window');
 
 const CONFETTI_COLORS = [
-  '#ff811a', // primary orange
-  '#00b3d6', // secondary cyan
-  '#f62896', // accent pink
-  '#07d59e', // success teal
-  '#ffd166', // gold
+  '#4F46E5', // indigo (primary)
+  '#6366F1', // indigo-500
+  '#0D9488', // teal (secondary)
+  '#14B8A6', // teal-500 (accent)
+  '#10B981', // emerald (success)
+  '#F59E0B', // amber (gold)
 ];
 
 const PIECE_COUNT = 44;

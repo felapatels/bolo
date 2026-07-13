@@ -15,6 +15,9 @@ import { useAudioRecorder } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
+  FadeIn,
+  FadeInDown,
+  ZoomIn,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -35,6 +38,8 @@ import {
 import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { Mascot, type MascotPose } from '@/components/Mascot';
+import { Confetti } from '@/components/Confetti';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
@@ -71,6 +76,22 @@ export default function PracticeScreen() {
   const [scores, setScores] = React.useState<number[]>([]);
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
+  const [celebrate, setCelebrate] = React.useState(false);
+
+  const celebrateTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const fireConfetti = React.useCallback((durationMs = 2600) => {
+    setCelebrate(true);
+    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    celebrateTimer.current = setTimeout(() => setCelebrate(false), durationMs);
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    },
+    [],
+  );
 
   const playbackRef = React.useRef<PlaybackHandle | null>(null);
   const phrase = list[index];
@@ -114,6 +135,11 @@ export default function PracticeScreen() {
   }, [phrase?.id]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
+
+  // Celebrate finishing a whole session with a longer confetti shower.
+  React.useEffect(() => {
+    if (phase === 'done') fireConfetti(4000);
+  }, [phase, fireConfetti]);
 
   const startRecording = async () => {
     stopPlayback();
@@ -162,6 +188,18 @@ export default function PracticeScreen() {
             ? Haptics.NotificationFeedbackType.Success
             : Haptics.NotificationFeedbackType.Warning,
         );
+      }
+
+      // Bigger reward for a strong attempt: confetti rains on a high score, and
+      // a solid pass gets an extra celebratory haptic pulse.
+      if (res.score >= 90) {
+        fireConfetti();
+        if (Platform.OS !== 'web') {
+          setTimeout(
+            () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
+            140,
+          );
+        }
       }
 
       // Record the attempt using the server-signed token only.
@@ -242,17 +280,24 @@ export default function PracticeScreen() {
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
         <View style={styles.summaryWrap}>
-          <View style={[styles.trophy, { backgroundColor: `${colors.gold}2A` }]}>
-            <Feather name="award" size={56} color={colors.gold} />
-          </View>
-          <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
-            Session complete
-          </Text>
-          <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
+          <Animated.View entering={ZoomIn.springify().damping(12)}>
+            <Mascot pose="cheer" size={168} motion="bounce" />
+          </Animated.View>
+          <Animated.Text
+            entering={FadeInDown.delay(150)}
+            style={[styles.summaryTitle, { color: colors.foreground }]}
+          >
+            Session complete!
+          </Animated.Text>
+          <Animated.Text
+            entering={FadeInDown.delay(220)}
+            style={[styles.summarySub, { color: colors.mutedForeground }]}
+          >
             You practiced {scores.length}{' '}
             {scores.length === 1 ? 'phrase' : 'phrases'}.
-          </Text>
-          <View
+          </Animated.Text>
+          <Animated.View
+            entering={ZoomIn.delay(300).springify().damping(13)}
             style={[
               styles.avgCard,
               { backgroundColor: colors.card, borderColor: colors.border },
@@ -264,7 +309,7 @@ export default function PracticeScreen() {
             <Text style={[styles.avgValue, { color: scoreColor(avg, colors) }]}>
               {avg}
             </Text>
-          </View>
+          </Animated.View>
           <ChunkyButton
             title="Back to home"
             icon="home"
@@ -272,6 +317,7 @@ export default function PracticeScreen() {
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>
+        {celebrate ? <Confetti /> : null}
         <BadgeUnlock
           badges={unlockedBadges}
           onDismiss={() => setUnlockedBadges([])}
@@ -282,6 +328,25 @@ export default function PracticeScreen() {
 
   // --- Practice card ---
   const progress = ((index + (phase === 'result' ? 1 : 0)) / list.length) * 100;
+
+  // Bolo reacts to the moment: listening while you record, cheering a big win,
+  // encouraging a good attempt, and gently nudging after a miss.
+  const mascotPose: MascotPose =
+    phase === 'recording' || phase === 'evaluating'
+      ? 'thinking'
+      : phase === 'result' && result
+        ? result.score >= 90
+          ? 'cheer'
+          : result.passed
+            ? 'thumbsup'
+            : 'tryagain'
+        : 'wave';
+  const mascotMotion =
+    phase === 'recording'
+      ? 'sway'
+      : phase === 'result' && result?.score != null && result.score >= 90
+        ? 'bounce'
+        : 'float';
 
   return (
     <Screen>
@@ -306,6 +371,16 @@ export default function PracticeScreen() {
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
+        {/* Reacting mascot */}
+        <View style={styles.mascotRow}>
+          <Mascot
+            pose={mascotPose}
+            size={104}
+            motion={mascotMotion}
+            entering
+          />
+        </View>
+
         {/* Phrase card */}
         <View
           style={[
@@ -429,6 +504,7 @@ export default function PracticeScreen() {
           />
         )}
       </View>
+      {celebrate ? <Confetti /> : null}
       <BadgeUnlock
         badges={unlockedBadges}
         onDismiss={() => setUnlockedBadges([])}
@@ -551,8 +627,9 @@ const styles = StyleSheet.create({
   progressOuter: { paddingHorizontal: 20, paddingBottom: 8 },
   progressBg: { height: 8, borderRadius: 999, overflow: 'hidden' },
   body: { padding: 20, paddingBottom: 24 },
+  mascotRow: { alignItems: 'center', marginBottom: 4 },
   phraseCard: {
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
     padding: 28,
     alignItems: 'center',
@@ -591,7 +668,7 @@ const styles = StyleSheet.create({
   hint: { fontFamily: AppFonts.regular, fontSize: 13, flex: 1 },
   resultCard: {
     marginTop: 20,
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1.5,
     padding: 20,
   },
@@ -678,7 +755,7 @@ const styles = StyleSheet.create({
   },
   avgCard: {
     marginTop: 24,
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
     paddingVertical: 24,
     paddingHorizontal: 48,

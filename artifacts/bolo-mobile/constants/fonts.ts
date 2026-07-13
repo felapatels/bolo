@@ -1,7 +1,7 @@
 /**
  * Font registry for Bolo!.
  *
- * - UI font: Bricolage Grotesque (matches the web artifact's --app-font-sans).
+ * - UI font: Inter (the Calm & Modern theme's typeface).
  * - Native-script fonts: one Noto family per Eighth Schedule script, keyed by
  *   the `fontFamily` value stored on each Language row in the backend.
  *
@@ -12,11 +12,11 @@ import type { TextStyle } from 'react-native';
 import type { Language } from '@workspace/api-client-react';
 
 import {
-  BricolageGrotesque_400Regular,
-  BricolageGrotesque_600SemiBold,
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
-} from '@expo-google-fonts/bricolage-grotesque';
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import {
   NotoSansBengali_400Regular,
   NotoSansBengali_700Bold,
@@ -65,10 +65,10 @@ import {
 } from '@expo-google-fonts/noto-naskh-arabic';
 
 export const fontMap = {
-  BricolageGrotesque_400Regular,
-  BricolageGrotesque_600SemiBold,
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
   NotoSansBengali_400Regular,
   NotoSansBengali_700Bold,
   NotoSansDevanagari_400Regular,
@@ -95,12 +95,12 @@ export const fontMap = {
   NotoNaskhArabic_700Bold,
 };
 
-/** UI (Latin) font — Bricolage Grotesque. */
+/** UI (Latin) font — Inter (Calm & Modern theme). */
 export const AppFonts = {
-  regular: 'BricolageGrotesque_400Regular',
-  semibold: 'BricolageGrotesque_600SemiBold',
-  bold: 'BricolageGrotesque_700Bold',
-  extrabold: 'BricolageGrotesque_800ExtraBold',
+  regular: 'Inter_400Regular',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  extrabold: 'Inter_800ExtraBold',
 } as const;
 
 // Maps the backend `fontFamily` string to loaded Noto font keys. Scripts with a

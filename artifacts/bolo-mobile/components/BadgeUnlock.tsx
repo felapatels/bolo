@@ -15,6 +15,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { badgeIcon } from '@/lib/badge-icons';
 import { Confetti } from './Confetti';
+import { Mascot } from './Mascot';
 
 /**
  * Full-screen "Badge unlocked!" celebration shown the moment one or more badges
@@ -52,6 +53,10 @@ export function BadgeUnlock({
         style={[styles.backdrop, { backgroundColor: `${colors.background}F2` }]}
       >
         <Confetti />
+
+        <Animated.View entering={ZoomIn.springify().damping(12)}>
+          <Mascot pose="cheer" size={132} motion="bounce" />
+        </Animated.View>
 
         <Animated.Text
           entering={FadeInDown.duration(400)}

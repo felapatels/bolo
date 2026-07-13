@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +8,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   useListCategories,
   useListCategoryPhrases,
@@ -16,6 +16,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
@@ -37,13 +38,13 @@ export default function CategoryScreen() {
     <Screen>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
+        <PressableScale
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: colors.card }]}
+          style={[styles.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Feather name="chevron-left" size={24} color={colors.foreground} />
-        </Pressable>
+        </PressableScale>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
             {category?.title ?? 'Topic'}
@@ -64,9 +65,12 @@ export default function CategoryScreen() {
         showsVerticalScrollIndicator={false}
       >
         {category?.description ? (
-          <Text style={[styles.desc, { color: colors.mutedForeground }]}>
+          <Animated.Text
+            entering={FadeInDown.duration(450)}
+            style={[styles.desc, { color: colors.mutedForeground }]}
+          >
             {category.description}
-          </Text>
+          </Animated.Text>
         ) : null}
 
         {phrases.isLoading ? (
@@ -80,31 +84,35 @@ export default function CategoryScreen() {
             No phrases here yet.
           </Text>
         ) : (
-          (phrases.data ?? []).map((p) => (
-            <PhraseRow key={p.id} phrase={p} />
+          (phrases.data ?? []).map((p, i) => (
+            <PhraseRow key={p.id} phrase={p} index={i} />
           ))
         )}
       </ScrollView>
 
       {/* Sticky CTA */}
       {(phrases.data ?? []).length > 0 ? (
-        <View style={[styles.footer, { backgroundColor: colors.background }]}>
+        <Animated.View
+          entering={FadeInDown.duration(450).delay(120)}
+          style={[styles.footer, { backgroundColor: colors.background }]}
+        >
           <ChunkyButton
             title="Start practice"
             icon="mic"
             onPress={() => router.push(`/(app)/practice/${categoryId}`)}
           />
-        </View>
+        </Animated.View>
       ) : null}
     </Screen>
   );
 }
 
-function PhraseRow({ phrase }: { phrase: Phrase }) {
+function PhraseRow({ phrase, index }: { phrase: Phrase; index: number }) {
   const colors = useColors();
   const { activeLanguage } = useLanguage();
   return (
-    <View
+    <Animated.View
+      entering={FadeInDown.duration(380).delay(Math.min(index, 10) * 55)}
       style={[
         styles.row,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -138,7 +146,7 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
           </Text>
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -154,6 +162,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -163,7 +172,7 @@ const styles = StyleSheet.create({
   note: { fontFamily: AppFonts.regular, fontSize: 15, textAlign: 'center', marginTop: 32 },
   row: {
     padding: 16,
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 12,
     flexDirection: 'row',
@@ -177,7 +186,7 @@ const styles = StyleSheet.create({
     minWidth: 40,
     height: 40,
     paddingHorizontal: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

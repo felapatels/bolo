@@ -10,8 +10,16 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUser, useClerk } from '@clerk/expo';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSpring,
+} from 'react-native-reanimated';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -19,6 +27,8 @@ import {
   type Category,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
+import { Mascot } from '@/components/Mascot';
+import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
@@ -26,10 +36,16 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
 
+/** Time-of-day greeting to make the mascot's welcome feel personal. */
+function greetingFor(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { user } = useUser();
   const { signOut } = useClerk();
   const { activeLang, activeLanguage } = useLanguage();
@@ -50,6 +66,10 @@ export default function HomeScreen() {
 
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
+  const greeting = greetingFor(new Date().getHours());
+
+  // A learner already practicing today deserves an encouraging cheer from Bolo.
+  const activeToday = (summary.data?.attemptsToday ?? 0) > 0;
 
   const startDaily = () => {
     const list = categories.data ?? [];
@@ -74,56 +94,60 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Greeting */}
-        <View style={styles.topRow}>
+        {/* Greeting + mascot */}
+        <Animated.View entering={FadeInDown.duration(500)} style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>
-              Namaste,
+              {greeting},
             </Text>
             <Text style={[styles.name, { color: colors.foreground }]}>
               {firstName}
             </Text>
           </View>
+          <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" />
           <Pressable
             accessibilityLabel="Sign out"
             onPress={() => signOut()}
-            style={[styles.iconBtn, { backgroundColor: colors.card }]}
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
-            <Feather name="log-out" size={20} color={colors.mutedForeground} />
+            <Feather name="log-out" size={18} color={colors.mutedForeground} />
           </Pressable>
-        </View>
+        </Animated.View>
 
         {/* Language selector */}
-        <Pressable
-          onPress={() => router.push('/(app)/language')}
-          style={[
-            styles.langPill,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={[styles.langBadge, { backgroundColor: colors.primary }]}>
-            <Feather name="globe" size={18} color={colors.primaryForeground} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>
-              Practicing
-            </Text>
-            <Text style={[styles.langName, { color: colors.foreground }]}>
-              {activeLanguage?.name ?? '...'}
-              {activeLanguage ? (
-                <Text style={[nativeProps, { color: colors.mutedForeground }]}>
-                  {'  '}
-                  {activeLanguage.nativeName}
-                </Text>
-              ) : null}
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
-        </Pressable>
+        <Animated.View entering={FadeInDown.duration(500).delay(60)}>
+          <PressableScale
+            onPress={() => router.push('/(app)/language')}
+            style={[
+              styles.langPill,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={[styles.langBadge, { backgroundColor: colors.primary }]}>
+              <Feather name="globe" size={18} color={colors.primaryForeground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>
+                Practicing
+              </Text>
+              <Text style={[styles.langName, { color: colors.foreground }]}>
+                {activeLanguage?.name ?? '...'}
+                {activeLanguage ? (
+                  <Text style={[nativeProps, { color: colors.mutedForeground }]}>
+                    {'  '}
+                    {activeLanguage.nativeName}
+                  </Text>
+                ) : null}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
+          </PressableScale>
+        </Animated.View>
 
         {/* Stats */}
         <View style={styles.statsRow}>
           <StatCard
+            index={0}
             icon="zap"
             tint={colors.accent}
             value={summary.data?.currentStreakDays ?? 0}
@@ -131,6 +155,7 @@ export default function HomeScreen() {
             loading={summary.isLoading}
           />
           <StatCard
+            index={1}
             icon="award"
             tint={colors.success}
             value={summary.data?.phrasesMastered ?? 0}
@@ -138,8 +163,9 @@ export default function HomeScreen() {
             loading={summary.isLoading}
           />
           <StatCard
+            index={2}
             icon="target"
-            tint={colors.secondary}
+            tint={colors.primary}
             value={
               summary.data?.averageScore != null
                 ? `${summary.data.averageScore}`
@@ -151,53 +177,63 @@ export default function HomeScreen() {
         </View>
 
         {/* Daily practice CTA */}
-        <Pressable
-          onPress={startDaily}
-          style={[styles.cta, { backgroundColor: colors.primary }]}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.ctaTitle, { color: colors.primaryForeground }]}>
-              Start daily practice
-            </Text>
-            <Text
+        <Animated.View entering={FadeInDown.duration(500).delay(240)}>
+          <PressableScale
+            onPress={startDaily}
+            scaleTo={0.98}
+            style={[styles.cta, { backgroundColor: colors.primary }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.ctaTitle, { color: colors.primaryForeground }]}>
+                Start daily practice
+              </Text>
+              <Text
+                style={[
+                  styles.ctaSub,
+                  { color: colors.primaryForeground, opacity: 0.9 },
+                ]}
+              >
+                {summary.data?.attemptsToday
+                  ? `${summary.data.attemptsToday} done today — keep going!`
+                  : 'A few minutes a day builds fluency.'}
+              </Text>
+            </View>
+            <View
               style={[
-                styles.ctaSub,
-                { color: colors.primaryForeground, opacity: 0.9 },
+                styles.ctaIcon,
+                { backgroundColor: colors.primaryForeground },
               ]}
             >
-              {summary.data?.attemptsToday
-                ? `${summary.data.attemptsToday} done today — keep going!`
-                : 'A few minutes a day builds fluency.'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.ctaIcon,
-              { backgroundColor: colors.primaryForeground },
-            ]}
-          >
-            <Feather name="mic" size={24} color={colors.primary} />
-          </View>
-        </Pressable>
+              <Feather name="mic" size={24} color={colors.primary} />
+            </View>
+          </PressableScale>
+        </Animated.View>
 
         {/* Daily lesson allowance (Free plan) */}
         {!isPlus && dailyNewLessons?.limit != null ? (
-          <DailyCapNote
-            remaining={dailyNewLessons.remaining ?? 0}
-            limit={dailyNewLessons.limit}
-            onUpgrade={() => router.push('/(app)/paywall')}
-          />
+          <Animated.View entering={FadeInDown.duration(500).delay(300)}>
+            <DailyCapNote
+              remaining={dailyNewLessons.remaining ?? 0}
+              limit={dailyNewLessons.limit}
+              onUpgrade={() => router.push('/(app)/paywall')}
+            />
+          </Animated.View>
         ) : null}
 
         {/* Upgrade prompt (Free plan) */}
         {!isPlus ? (
-          <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
+          <Animated.View entering={FadeInDown.duration(500).delay(340)}>
+            <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
+          </Animated.View>
         ) : null}
 
         {/* Topics */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+        <Animated.Text
+          entering={FadeInDown.duration(500).delay(380)}
+          style={[styles.sectionTitle, { color: colors.foreground }]}
+        >
           Topics
-        </Text>
+        </Animated.Text>
 
         {categories.isLoading ? (
           <ActivityIndicator
@@ -215,9 +251,10 @@ export default function HomeScreen() {
             color={colors.mutedForeground}
           />
         ) : (
-          (categories.data ?? []).map((cat) => (
+          (categories.data ?? []).map((cat, i) => (
             <CategoryCard
               key={cat.id}
+              index={i}
               category={cat}
               onPress={() => router.push(`/(app)/category/${cat.id}`)}
             />
@@ -230,9 +267,10 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               Recent plays
             </Text>
-            {(recent.data ?? []).map((a) => (
-              <View
+            {(recent.data ?? []).map((a, i) => (
+              <Animated.View
                 key={a.id}
+                entering={FadeInDown.duration(400).delay(i * 60)}
                 style={[
                   styles.recentRow,
                   { backgroundColor: colors.card, borderColor: colors.border },
@@ -279,7 +317,7 @@ export default function HomeScreen() {
                     {a.score}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
             ))}
           </>
         ) : null}
@@ -336,12 +374,14 @@ function DailyCapNote({
 }
 
 function StatCard({
+  index,
   icon,
   tint,
   value,
   label,
   loading,
 }: {
+  index: number;
   icon: keyof typeof Feather.glyphMap;
   tint: string;
   value: number | string;
@@ -349,14 +389,39 @@ function StatCard({
   loading?: boolean;
 }) {
   const colors = useColors();
+  const reduceMotion = useReducedMotion();
+  const pop = useSharedValue(reduceMotion ? 1 : 0);
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      pop.value = 1;
+      return;
+    }
+    pop.value = withDelay(
+      120 + index * 90,
+      withSpring(1, { damping: 12, stiffness: 160, mass: 0.6 }),
+    );
+  }, [index, reduceMotion, pop]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: pop.value,
+    transform: [
+      { scale: 0.85 + pop.value * 0.15 },
+      { translateY: (1 - pop.value) * 12 },
+    ],
+  }));
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.statCard,
         { backgroundColor: colors.card, borderColor: colors.border },
+        animatedStyle,
       ]}
     >
-      <Feather name={icon} size={20} color={tint} />
+      <View style={[styles.statIcon, { backgroundColor: `${tint}1F` }]}>
+        <Feather name={icon} size={18} color={tint} />
+      </View>
       {loading ? (
         <ActivityIndicator
           color={colors.mutedForeground}
@@ -370,16 +435,18 @@ function StatCard({
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
         {label}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
 function CategoryCard({
   category,
   onPress,
+  index,
 }: {
   category: Category;
   onPress: () => void;
+  index: number;
 }) {
   const colors = useColors();
   const { activeLanguage } = useLanguage();
@@ -389,80 +456,88 @@ function CategoryCard({
       : 0;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.catCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <View
-        style={[styles.catIcon, { backgroundColor: `${colors.primary}1A` }]}
+    <Animated.View entering={FadeInDown.duration(420).delay(420 + index * 70)}>
+      <PressableScale
+        onPress={onPress}
+        style={[
+          styles.catCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
       >
-        <Feather
-          name={categoryIcon(category.iconName)}
-          size={22}
-          color={colors.primary}
-        />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.catTitle, { color: colors.foreground }]}>
-          {category.title}
-        </Text>
-        {category.titleNative ? (
-          <Text
-            style={[
-              nativeTextStyle(activeLanguage),
-              styles.catNative,
-              { color: colors.mutedForeground },
-            ]}
-          >
-            {category.titleNative}
-          </Text>
-        ) : null}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressBar,
-              { backgroundColor: colors.muted },
-            ]}
-          >
-            <View
-              style={{
-                width: `${pct}%`,
-                height: '100%',
-                backgroundColor: colors.success,
-                borderRadius: 999,
-              }}
-            />
-          </View>
-          <Text style={[styles.progressText, { color: colors.mutedForeground }]}>
-            {category.masteredCount}/{category.phraseCount}
-          </Text>
+        <View
+          style={[styles.catIcon, { backgroundColor: `${colors.primary}1A` }]}
+        >
+          <Feather
+            name={categoryIcon(category.iconName)}
+            size={22}
+            color={colors.primary}
+          />
         </View>
-      </View>
-      <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
-    </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.catTitle, { color: colors.foreground }]}>
+            {category.title}
+          </Text>
+          {category.titleNative ? (
+            <Text
+              style={[
+                nativeTextStyle(activeLanguage),
+                styles.catNative,
+                { color: colors.mutedForeground },
+              ]}
+            >
+              {category.titleNative}
+            </Text>
+          ) : null}
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: colors.muted },
+              ]}
+            >
+              <View
+                style={{
+                  width: `${pct}%`,
+                  height: '100%',
+                  backgroundColor: colors.success,
+                  borderRadius: 999,
+                }}
+              />
+            </View>
+            <Text style={[styles.progressText, { color: colors.mutedForeground }]}>
+              {category.masteredCount}/{category.phraseCount}
+            </Text>
+          </View>
+        </View>
+        <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
+      </PressableScale>
+    </Animated.View>
   );
 }
 
 function ErrorNote({ message, color }: { message: string; color: string }) {
-  return <Text style={[styles.errorNote, { color }]}>{message}</Text>;
+  return (
+    <Animated.Text entering={FadeIn} style={[styles.errorNote, { color }]}>
+      {message}
+    </Animated.Text>
+  );
 }
 
 const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
   name: { fontFamily: AppFonts.extrabold, fontSize: 28, marginTop: 2 },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -471,14 +546,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 12,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 18,
   },
   langBadge: {
     width: 40,
     height: 40,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -489,9 +564,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 16,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
-    gap: 4,
+    gap: 6,
+  },
+  statIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: { fontFamily: AppFonts.extrabold, fontSize: 24 },
   statLabel: { fontFamily: AppFonts.regular, fontSize: 12 },
@@ -499,16 +581,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 26,
+    padding: 18,
+    borderRadius: 16,
+    marginBottom: 16,
   },
-  ctaTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
-  ctaSub: { fontFamily: AppFonts.regular, fontSize: 14, marginTop: 4 },
+  ctaTitle: { fontFamily: AppFonts.extrabold, fontSize: 19 },
+  ctaSub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 3 },
   ctaIcon: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -517,36 +599,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   capTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
   capSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
   sectionTitle: {
     fontFamily: AppFonts.bold,
     fontSize: 20,
+    marginTop: 8,
     marginBottom: 12,
-    marginTop: 4,
   },
   catCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     padding: 14,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 12,
   },
   catIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   catTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
-  catNative: { fontSize: 14, marginTop: 1 },
+  catNative: { fontSize: 13, marginTop: 1 },
   progressTrack: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -565,24 +647,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     marginBottom: 10,
   },
-  recentNative: { fontSize: 17 },
+  recentNative: { fontSize: 16 },
   recentEng: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
   scorePill: {
-    minWidth: 40,
+    minWidth: 42,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   scoreText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   errorNote: {
     fontFamily: AppFonts.regular,
     fontSize: 14,
-    marginVertical: 16,
     textAlign: 'center',
+    marginVertical: 20,
   },
 });

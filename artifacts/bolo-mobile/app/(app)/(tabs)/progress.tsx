@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,12 +9,23 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   useGetProgressSummary,
   useListRecentAttempts,
   useListBadges,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
+import { Mascot } from '@/components/Mascot';
+import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { LockedFeatureCard } from '@/components/PlusUpsell';
@@ -50,6 +60,12 @@ export default function ProgressScreen() {
       ? Math.round((s.phrasesMastered / s.totalPhrases) * 100)
       : 0;
 
+  // Bolo celebrates real momentum, otherwise cheers the learner on.
+  const mascotPose =
+    (s?.phrasesMastered ?? 0) > 0 || (s?.currentStreakDays ?? 0) > 1
+      ? 'cheer'
+      : 'thumbsup';
+
   return (
     <Screen>
       <ScrollView
@@ -66,12 +82,17 @@ export default function ProgressScreen() {
           />
         }
       >
-        <Text style={[styles.h1, { color: colors.foreground }]}>
-          Your progress
-        </Text>
-        <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-          {activeLanguage?.name ?? 'Loading...'}
-        </Text>
+        <Animated.View entering={FadeInDown.duration(500)} style={styles.head}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.h1, { color: colors.foreground }]}>
+              Your progress
+            </Text>
+            <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+              {activeLanguage?.name ?? 'Loading...'}
+            </Text>
+          </View>
+          <Mascot pose={mascotPose} size={76} motion="float" />
+        </Animated.View>
 
         {summary.isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
@@ -79,24 +100,28 @@ export default function ProgressScreen() {
           <>
             <View style={styles.grid}>
               <Stat
+                index={0}
                 icon="award"
                 tint={colors.success}
                 value={s?.phrasesMastered ?? 0}
                 label="Phrases mastered"
               />
               <Stat
+                index={1}
                 icon="mic"
                 tint={colors.primary}
                 value={s?.totalAttempts ?? 0}
                 label="Total practices"
               />
               <Stat
+                index={2}
                 icon="star"
                 tint={colors.gold}
                 value={s?.bestScore ?? 0}
                 label="Best score"
               />
               <Stat
+                index={3}
                 icon="zap"
                 tint={colors.accent}
                 value={s?.currentStreakDays ?? 0}
@@ -105,7 +130,8 @@ export default function ProgressScreen() {
             </View>
 
             {/* Overall mastery */}
-            <View
+            <Animated.View
+              entering={FadeInDown.duration(500).delay(240)}
               style={[
                 styles.masteryCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -121,66 +147,16 @@ export default function ProgressScreen() {
                   {masteryPct}%
                 </Text>
               </View>
-              <View style={[styles.track, { backgroundColor: colors.muted }]}>
-                <View
-                  style={{
-                    width: `${masteryPct}%`,
-                    height: '100%',
-                    backgroundColor: colors.success,
-                    borderRadius: 999,
-                  }}
-                />
-              </View>
+              <ProgressTrack pct={masteryPct} colors={colors} />
               <Text style={[styles.masteryHint, { color: colors.mutedForeground }]}>
                 {s?.phrasesMastered ?? 0} of {s?.totalPhrases ?? 0} phrases
               </Text>
-            </View>
+            </Animated.View>
 
             {/* Badges entry */}
-            <Pressable
-              onPress={() => router.push('/(app)/badges')}
-              style={[
-                styles.badgeEntry,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View
-                style={[
-                  styles.badgeEntryIcon,
-                  { backgroundColor: `${colors.secondary}1F` },
-                ]}
-              >
-                <Feather name="award" size={22} color={colors.secondary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.badgeEntryTitle, { color: colors.foreground }]}
-                >
-                  Badges
-                </Text>
-                <Text
-                  style={[
-                    styles.badgeEntrySub,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {totalBadges > 0
-                    ? `${earnedBadges} of ${totalBadges} earned`
-                    : 'View your achievements'}
-                </Text>
-              </View>
-              <Feather
-                name="chevron-right"
-                size={22}
-                color={colors.mutedForeground}
-              />
-            </Pressable>
-
-            {/* Advanced analytics: a live entry for Plus learners, a locked
-                teaser (routing to the paywall) for everyone else. */}
-            {isPlus ? (
-              <Pressable
-                onPress={() => router.push('/(app)/analytics')}
+            <Animated.View entering={FadeInDown.duration(500).delay(300)}>
+              <PressableScale
+                onPress={() => router.push('/(app)/badges')}
                 style={[
                   styles.badgeEntry,
                   { backgroundColor: colors.card, borderColor: colors.border },
@@ -189,16 +165,16 @@ export default function ProgressScreen() {
                 <View
                   style={[
                     styles.badgeEntryIcon,
-                    { backgroundColor: `${colors.primary}1F` },
+                    { backgroundColor: `${colors.secondary}1F` },
                   ]}
                 >
-                  <Feather name="bar-chart-2" size={22} color={colors.primary} />
+                  <Feather name="award" size={22} color={colors.secondary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.badgeEntryTitle, { color: colors.foreground }]}
                   >
-                    Advanced analytics
+                    Badges
                   </Text>
                   <Text
                     style={[
@@ -206,7 +182,9 @@ export default function ProgressScreen() {
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    Mastery by topic and your recent activity
+                    {totalBadges > 0
+                      ? `${earnedBadges} of ${totalBadges} earned`
+                      : 'View your achievements'}
                   </Text>
                 </View>
                 <Feather
@@ -214,7 +192,50 @@ export default function ProgressScreen() {
                   size={22}
                   color={colors.mutedForeground}
                 />
-              </Pressable>
+              </PressableScale>
+            </Animated.View>
+
+            {/* Advanced analytics: a live entry for Plus learners, a locked
+                teaser (routing to the paywall) for everyone else. */}
+            {isPlus ? (
+              <Animated.View entering={FadeInDown.duration(500).delay(340)}>
+                <PressableScale
+                  onPress={() => router.push('/(app)/analytics')}
+                  style={[
+                    styles.badgeEntry,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.badgeEntryIcon,
+                      { backgroundColor: `${colors.primary}1F` },
+                    ]}
+                  >
+                    <Feather name="bar-chart-2" size={22} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.badgeEntryTitle, { color: colors.foreground }]}
+                    >
+                      Advanced analytics
+                    </Text>
+                    <Text
+                      style={[
+                        styles.badgeEntrySub,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Mastery by topic and your recent activity
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={22}
+                    color={colors.mutedForeground}
+                  />
+                </PressableScale>
+              </Animated.View>
             ) : (
               <>
                 <Text style={[styles.section, { color: colors.foreground }]}>
@@ -259,9 +280,10 @@ export default function ProgressScreen() {
                 </Text>
               </View>
             ) : (
-              (history.data ?? []).map((a) => (
-                <View
+              (history.data ?? []).map((a, i) => (
+                <Animated.View
                   key={a.id}
+                  entering={FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
                   style={[
                     styles.histRow,
                     { backgroundColor: colors.card, borderColor: colors.border },
@@ -302,7 +324,7 @@ export default function ProgressScreen() {
                       {a.score}
                     </Text>
                   </View>
-                </View>
+                </Animated.View>
               ))
             )}
           </>
@@ -312,23 +334,83 @@ export default function ProgressScreen() {
   );
 }
 
+/** Mastery bar that animates its fill on mount (reduced-motion aware). */
+function ProgressTrack({
+  pct,
+  colors,
+}: {
+  pct: number;
+  colors: { muted: string; success: string };
+}) {
+  const reduceMotion = useReducedMotion();
+  const fill = useSharedValue(reduceMotion ? pct : 0);
+
+  React.useEffect(() => {
+    fill.value = reduceMotion
+      ? pct
+      : withDelay(320, withTiming(pct, { duration: 700 }));
+  }, [pct, reduceMotion, fill]);
+
+  const barStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` }));
+
+  return (
+    <View style={[styles.track, { backgroundColor: colors.muted }]}>
+      <Animated.View
+        style={[
+          {
+            height: '100%',
+            backgroundColor: colors.success,
+            borderRadius: 999,
+          },
+          barStyle,
+        ]}
+      />
+    </View>
+  );
+}
+
 function Stat({
+  index,
   icon,
   tint,
   value,
   label,
 }: {
+  index: number;
   icon: keyof typeof Feather.glyphMap;
   tint: string;
   value: number;
   label: string;
 }) {
   const colors = useColors();
+  const reduceMotion = useReducedMotion();
+  const pop = useSharedValue(reduceMotion ? 1 : 0);
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      pop.value = 1;
+      return;
+    }
+    pop.value = withDelay(
+      80 + index * 80,
+      withSpring(1, { damping: 12, stiffness: 160, mass: 0.6 }),
+    );
+  }, [index, reduceMotion, pop]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: pop.value,
+    transform: [
+      { scale: 0.85 + pop.value * 0.15 },
+      { translateY: (1 - pop.value) * 14 },
+    ],
+  }));
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.statCard,
         { backgroundColor: colors.card, borderColor: colors.border },
+        animatedStyle,
       ]}
     >
       <View style={[styles.statIcon, { backgroundColor: `${tint}1F` }]}>
@@ -340,13 +422,19 @@ function Stat({
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
         {label}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontFamily: AppFonts.extrabold, fontSize: 30, marginTop: 8 },
-  sub: { fontFamily: AppFonts.semibold, fontSize: 15, marginTop: 2, marginBottom: 20 },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  h1: { fontFamily: AppFonts.extrabold, fontSize: 30 },
+  sub: { fontFamily: AppFonts.semibold, fontSize: 15, marginTop: 2 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -357,14 +445,14 @@ const styles = StyleSheet.create({
     width: '47%',
     flexGrow: 1,
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
     gap: 8,
   },
   statIcon: {
     width: 40,
     height: 40,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -372,9 +460,9 @@ const styles = StyleSheet.create({
   statLabel: { fontFamily: AppFonts.regular, fontSize: 13 },
   masteryCard: {
     padding: 18,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 26,
+    marginBottom: 24,
   },
   masteryTop: {
     flexDirection: 'row',
@@ -391,14 +479,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 26,
+    marginBottom: 24,
   },
   badgeEntryIcon: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -418,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     marginBottom: 10,
   },
@@ -428,7 +516,7 @@ const styles = StyleSheet.create({
     minWidth: 44,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   scoreVal: { fontFamily: AppFonts.extrabold, fontSize: 16 },
