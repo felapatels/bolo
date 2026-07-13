@@ -1,0 +1,32 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "P8lMB6_PHF5j2NY1tXlhU"
+uri = "file://artifacts/gujarati-coach/public/mascot/mascot-wave.png"
+type = "image"
+title = "Bolo — Waving Hello"
+
+[[outputs]]
+id = "XGTeeZTkm3vG-OYj08zNX"
+uri = "file://artifacts/gujarati-coach/public/mascot/mascot-cheer.png"
+type = "image"
+title = "Bolo — Cheering"
+
+[[outputs]]
+id = "2lJBPZGkrH7lLc3TnzyJH"
+uri = "file://artifacts/gujarati-coach/public/mascot/mascot-thumbsup.png"
+type = "image"
+title = "Bolo — Thumbs Up"
+
+[[outputs]]
+id = "uFAmJy4d-0YYQFiOxyP_W"
+uri = "file://artifacts/gujarati-coach/public/mascot/mascot-thinking.png"
+type = "image"
+title = "Bolo — Thinking / Listening"
+
+[[outputs]]
+id = "S6QccsMqZqPvvN7v15mse"
+uri = "file://artifacts/gujarati-coach/public/mascot/mascot-tryagain.png"
+type = "image"
+title = "Bolo — Try Again"
