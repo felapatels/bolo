@@ -219,7 +219,7 @@ function ClerkProviderWithRoutes() {
         signUp: {
           start: {
             title: 'Join Bolo!',
-            subtitle: 'Create an account to start speaking',
+            subtitle: "Create an account and find your way back to your family's language",
           },
         },
       }}

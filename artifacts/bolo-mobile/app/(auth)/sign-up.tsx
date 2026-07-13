@@ -80,7 +80,7 @@ export default function SignUpScreen() {
   return (
     <AuthShell
       title="Start speaking today"
-      subtitle="Create a free account to practice all 22 Indian languages."
+      subtitle="Create a free account and find your way back to your family's language — all 22 Indian languages, any age welcome."
     >
       <Field
         label="Email"
