@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy } from "lucide-react";
+import { Home, Trophy, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -17,6 +17,16 @@ export function BottomNav() {
         >
           <Home className="w-6 h-6" strokeWidth={location === "/app" ? 2.5 : 2} />
           <span className="text-[10px] font-bold tracking-wide">Home</span>
+        </Link>
+        <Link 
+          href="/friends" 
+          className={cn(
+            "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors button-spring",
+            location === "/friends" ? "text-accent" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Users className="w-6 h-6" strokeWidth={location === "/friends" ? 2.5 : 2} />
+          <span className="text-[10px] font-bold tracking-wide">Friends</span>
         </Link>
         <Link 
           href="/progress" 

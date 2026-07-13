@@ -20,6 +20,7 @@ import Home from '@/pages/home';
 import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
+import Friends from '@/pages/friends';
 import Upgrade from '@/pages/upgrade';
 import Privacy from '@/pages/privacy';
 import NotFound from '@/pages/not-found';
@@ -181,6 +182,11 @@ function AppRouter() {
       <Route path="/progress">
         <Guard>
           <Progress />
+        </Guard>
+      </Route>
+      <Route path="/friends">
+        <Guard>
+          <Friends />
         </Guard>
       </Route>
       <Route path="/upgrade">
