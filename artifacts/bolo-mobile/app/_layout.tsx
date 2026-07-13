@@ -8,8 +8,10 @@ import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { fontMap } from '@/constants/fonts';
+import { useColors } from '@/hooks/useColors';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Point the shared API client at the Replit-hosted api-server. Runs at module
@@ -27,6 +29,7 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontMap);
+  const colors = useColors();
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -48,7 +51,13 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <KeyboardProvider>
-                  <Stack screenOptions={{ headerShown: false }}>
+                  <StatusBar style="auto" />
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: colors.background },
+                    }}
+                  >
                     <Stack.Screen name="index" />
                     <Stack.Screen name="(auth)" />
                     <Stack.Screen name="(app)" />

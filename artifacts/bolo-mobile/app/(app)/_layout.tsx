@@ -41,7 +41,12 @@ export default function AppLayout() {
     <EntitlementsProvider>
       <PurchasesProvider>
         <LanguageProvider>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="category/[id]" />
             <Stack.Screen name="practice/[id]" />
