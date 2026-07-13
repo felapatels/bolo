@@ -35,6 +35,19 @@ adding a NOT NULL column to a populated table.
 **Why:** Keeps migrations deterministic and non-interactive; the drizzle schema
 files stay the source of truth for types, the manual DDL just realizes them.
 
+**The project now uses migration files, not `push`, for setup.** The db `setup`
+script is `drizzle-kit migrate && seed` (migrations committed under the drizzle
+`out` dir; post-merge runs this). `migrate` is deterministic and non-interactive,
+so it's the right tool — but it tracks applied migrations in a journal table
+(`drizzle.__drizzle_migrations`). If tables were created out-of-band (e.g. an
+earlier manual DDL fix or a `push`) the journal stays EMPTY, so `migrate` tries to
+apply `0000` from scratch, hits "relation already exists", and exits 1 (this is
+what breaks post-merge setup after a hand-applied schema). Fix for a disposable
+dev DB: DROP all app tables + `DROP TABLE drizzle.__drizzle_migrations`, then run
+the migrate-based `setup` so the migration applies cleanly AND records its journal.
+Do NOT hand-apply DDL anymore — generate a migration (`drizzle-kit generate`) so
+the journal stays consistent. Never reset production this way.
+
 **Drastically-drifted DB (many ambiguous diffs at once):** An isolated task env
 can hand you a DB whose schema is far behind the ORM (e.g. old single-language
 tables, missing whole tables). Rather than hand-writing a big migration, if the
