@@ -15,6 +15,14 @@ Observed: the `users` subscription columns
 and in migration `0001` but were **absent from the dev DB** (only migration
 `0000` was recorded in `drizzle.__drizzle_migrations`).
 
+Recurs with every new migration: the account/subscription + learner-preference
+columns (`avatar_url`, `pause_until`, `retention_offer_accepted_at`,
+`daily_reminder_*`, `active_language`, `daily_goal`, `theme` — migration `0004`)
+were likewise absent from the dev DB after that feature merged, which broke the
+**entire** api-server test suite (every `users` insert 42703'd), not just the new
+feature's tests. Applying the migration's `ADD COLUMN IF NOT EXISTS` by hand fixed
+it. Watch for this after any task that merges a new `users`/schema migration.
+
 `drizzle-kit migrate` cannot heal this cleanly: migration `0001` has a bare
 `CREATE TABLE "lesson_generations"` (no IF NOT EXISTS), but `lesson_generations`
 already exists in the dev DB because `entitlementsGating.test.ts` creates it with
