@@ -69,7 +69,8 @@ delete data.
 | --- | --- | --- | --- |
 | High-res icon | `play-store-icon.png` | 512×512, 32-bit PNG | ✅ generated |
 | Feature graphic | `feature-graphic.png` | 1024×500 PNG | ✅ generated |
-| Phone screenshots | `screenshots/*.jpg` | 2–8 images, ≤2:1 ratio | ✅ 9 captured |
+| Phone screenshots (raw) | `screenshots/*.jpg` | 412×824, ≤2:1 ratio | ✅ 9 captured |
+| Phone screenshots (listing) | `screenshots-framed/*.jpg` | 1080×1920, ≤2:1 ratio | ✅ generated |
 
 The icon and feature graphic are generated from the brand SVGs
 (`assets/branding/icon.svg` + `adaptive-icon.svg`) and are fully reproducible:
@@ -112,8 +113,35 @@ emulator/device running the internal build (the app renders identically):
 adb exec-out screencap -p > screenshots/03-home-topics.png
 ```
 
-Play requires **at least 2** phone screenshots; these six comfortably exceed
-that and make a strong, feature-forward listing.
+### Branded, captioned screenshots (upload these)
+
+The raw `screenshots/*.jpg` are bare app frames. `gen-store-assets.sh` also
+generates **branded, captioned** versions into `screenshots-framed/` — each raw
+capture is wrapped in an on-brand cream→mint gradient with the Bolo! mark,
+wordmark, and a short benefit headline above a rounded phone plate with a soft
+shadow. Pairing every screenshot with a caption (instead of a bare screen dump)
+is a well-known Play/App Store install-conversion lever.
+
+Each framed image is **1080×1920** (9:16 = 1.78:1 — inside Play's ≤2:1 ratio and
+320–3840px-per-side rules). Headlines:
+
+| File | Headline |
+| --- | --- |
+| `01-sign-in.jpg` | Your language journey starts here |
+| `02-sign-up.jpg` | Create your free account in seconds |
+| `03-home-topics.jpg` | Speak 22 Indian languages |
+| `04-practice.jpg` | Get instant pronunciation feedback |
+| `05-progress.jpg` | Track every streak and milestone |
+| `06-badges.jpg` | Earn badges as you master phrases |
+| `07-home-topics-gujarati.jpg` | Learn in Gujarati, Hindi & more |
+| `08-practice-tamil.jpg` | Practice real Tamil conversations |
+| `09-topic-phrases-bengali.jpg` | Master everyday Bengali phrases |
+
+**Upload the `screenshots-framed/` images to the listing** (the raw ones stay as
+the reproducible source captures). Play accepts **2–8** phone screenshots, so
+pick the strongest 8 — e.g. drop `01-sign-in` and lead with `03`, `04`, `05`,
+`06`, `07`, `08`, `09`, `02`. Re-run `bash scripts/gen-store-assets.sh` to
+regenerate every frame after a re-capture or a copy tweak.
 
 ## 4. Building the release AAB with EAS
 
