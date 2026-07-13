@@ -69,7 +69,7 @@ delete data.
 | --- | --- | --- | --- |
 | High-res icon | `play-store-icon.png` | 512×512, 32-bit PNG | ✅ generated |
 | Feature graphic | `feature-graphic.png` | 1024×500 PNG | ✅ generated |
-| Phone screenshots | `screenshots/*.jpg` | 2–8 images, ≤2:1 ratio | ✅ 6 captured |
+| Phone screenshots | `screenshots/*.jpg` | 2–8 images, ≤2:1 ratio | ✅ 9 captured |
 
 The icon and feature graphic are generated from the brand SVGs
 (`assets/branding/icon.svg` + `adaptive-icon.svg`) and are fully reproducible:
@@ -80,17 +80,24 @@ bash scripts/gen-store-assets.sh
 
 ### Screenshots
 
-`screenshots/` holds six real captures of the app, all at a Play-compliant
+`screenshots/` holds nine real captures of the app, all at a Play-compliant
 **412×824** (exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules):
 
 | File | Screen |
 | --- | --- |
 | `01-sign-in.jpg` | Onboarding — sign in |
 | `02-sign-up.jpg` | Onboarding — create account |
-| `03-home-topics.jpg` | Home — streak/stats + lesson topics list |
-| `04-practice.jpg` | Practice — phrase card + record button |
+| `03-home-topics.jpg` | Home — streak/stats + lesson topics list (Hindi) |
+| `04-practice.jpg` | Practice — phrase card + record button (Hindi) |
 | `05-progress.jpg` | Progress — mastery, stats, badges entry |
 | `06-badges.jpg` | Badges — earned + in-progress achievements |
+| `07-home-topics-gujarati.jpg` | Home — topics list in **Gujarati** (ગુજરાતી) |
+| `08-practice-tamil.jpg` | Practice — phrase card in **Tamil** (தமிழ்) |
+| `09-topic-phrases-bengali.jpg` | Topic — phrase list in **Bengali** (বাংলা) |
+
+Screenshots 07–09 show the same screens in **non-Hindi scripts** to make Bolo!'s
+headline differentiator — all 22 official Indian languages — obvious at a glance
+to a shopper scrolling the listing.
 
 The four feature screens (03–06) live behind Clerk auth and real learner data,
 so they were captured from the app's **web build** (Expo/react-native-web

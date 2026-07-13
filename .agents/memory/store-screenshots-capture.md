@@ -29,6 +29,11 @@ from them.
   project) ALSO silently matches `assets/store/android/`, so store assets are
   never committed. Keep a negation for that path and verify with
   `git check-ignore <file>`.
+- **screenshot tool reuses the browser session per URL path:** capturing two
+  different demo values (e.g. `?shotLang=gu` then `?shotLang=bn`) on the *same*
+  path (`/`) returns the first one's cached SPA state. Give each capture a
+  distinct route path (home `/`, practice `/practice/1`, topic `/category/1`) so
+  each is a fresh page load that re-reads the param and refetches.
 - **stale api-client dist:** the mobile app typechecks against the *built dist*
   of `@workspace/api-client-react`, which is gitignored. Any commit that
   regenerates the client / changes its schema (e.g. paywall work) must rebuild
