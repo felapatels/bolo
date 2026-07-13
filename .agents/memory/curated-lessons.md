@@ -45,7 +45,7 @@ content, not live per-learner generation.
 - **Residual risk:** the Perso-Arabic (Kashmiri), Ol Chiki (Santali) and Meetei
   Mayek (Manipuri) lessons are hardest to verify without true fluency — treat
   their kinship terms and exact orthography as still needing a native check.
-- **Known content quirk:** the "Numbers 1-10" topic can only hold 8 phrases in
-  generated languages (the exact-count cap), so titles say 1-10 but teach 8, and
-  some languages list 1-7 then jump to 10 (skipping eight/nine). Gujarati is the
-  only one that truly teaches all ten.
+- **Numbers 1-10 teaches a gap-free one-through-ten in every language** (both
+  curated Gujarati and the frozen generated languages). An earlier exact-count
+  cap made generated languages teach only 8 (some skipping eight/nine); that has
+  been fixed — do not reintroduce a cap that drops numbers from this topic.
