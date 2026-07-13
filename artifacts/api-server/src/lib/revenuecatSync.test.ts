@@ -6,6 +6,7 @@ import {
   downgradesFromTransfer,
   transferRecipients,
   PLUS_ENTITLEMENT_ID,
+  ONE_LANGUAGE_ENTITLEMENT_ID,
   type RevenueCatEvent,
   type RevenueCatSubscriber,
 } from "./revenuecatSync";
@@ -118,6 +119,52 @@ test("TRANSFER downgrades the losing ids and lists the gaining ids", () => {
   assert.deepEqual(transferRecipients(ev), ["winner_1"]);
 });
 
+// --- One Language ($6.99) middle tier --------------------------------------
+
+test("an event for the one_language entitlement maps to the one_language tier", () => {
+  const apply = applyFromEvent(
+    event({ entitlement_ids: [ONE_LANGUAGE_ENTITLEMENT_ID] }),
+    NOW,
+  );
+  assert.equal(apply?.tier, "one_language");
+  assert.equal(apply?.subscriptionStatus, "active");
+  assert.equal(apply?.currentPeriodEnd?.getTime(), FUTURE.getTime());
+});
+
+test("a TRIAL period on the one_language entitlement is treated as active (no trial)", () => {
+  const apply = applyFromEvent(
+    event({
+      entitlement_ids: [ONE_LANGUAGE_ENTITLEMENT_ID],
+      period_type: "TRIAL",
+    }),
+    NOW,
+  );
+  assert.equal(apply?.tier, "one_language");
+  assert.equal(apply?.subscriptionStatus, "active");
+  assert.equal(apply?.trialEndsAt, null);
+});
+
+test("when an event lists both entitlements, all-access wins", () => {
+  const apply = applyFromEvent(
+    event({ entitlement_ids: [ONE_LANGUAGE_ENTITLEMENT_ID, PLUS_ENTITLEMENT_ID] }),
+    NOW,
+  );
+  assert.equal(apply?.tier, "plus");
+});
+
+test("expiring the one_language entitlement drops the user to Free/expired", () => {
+  const apply = applyFromEvent(
+    event({
+      type: "EXPIRATION",
+      entitlement_ids: [ONE_LANGUAGE_ENTITLEMENT_ID],
+      expiration_at_ms: PAST.getTime(),
+    }),
+    NOW,
+  );
+  assert.equal(apply?.tier, "free");
+  assert.equal(apply?.subscriptionStatus, "expired");
+});
+
 // --- subscriber snapshots (reconcile-on-read) ------------------------------
 
 function subscriber(over: Partial<RevenueCatSubscriber>): RevenueCatSubscriber {
@@ -223,6 +270,71 @@ test("a null subscriber (no RevenueCat record) resolves to Free/none", () => {
   const apply = applyFromSubscriber(USER, null, NOW);
   assert.equal(apply.tier, "free");
   assert.equal(apply.subscriptionStatus, "none");
+});
+
+test("subscriber with an active one_language entitlement resolves to one_language", () => {
+  const apply = applyFromSubscriber(
+    USER,
+    subscriber({
+      entitlements: {
+        [ONE_LANGUAGE_ENTITLEMENT_ID]: {
+          expires_date: FUTURE.toISOString(),
+          product_identifier: "bolo_one_language_monthly",
+        },
+      },
+      subscriptions: {
+        bolo_one_language_monthly: {
+          expires_date: FUTURE.toISOString(),
+          period_type: "normal",
+          unsubscribe_detected_at: null,
+        },
+      },
+    }),
+    NOW,
+  );
+  assert.equal(apply.tier, "one_language");
+  assert.equal(apply.subscriptionStatus, "active");
+});
+
+test("subscriber with both entitlements active prefers all-access Plus", () => {
+  const apply = applyFromSubscriber(
+    USER,
+    subscriber({
+      entitlements: {
+        [PLUS_ENTITLEMENT_ID]: {
+          expires_date: FUTURE.toISOString(),
+          product_identifier: "bolo_plus_monthly",
+        },
+        [ONE_LANGUAGE_ENTITLEMENT_ID]: {
+          expires_date: FUTURE.toISOString(),
+          product_identifier: "bolo_one_language_monthly",
+        },
+      },
+    }),
+    NOW,
+  );
+  assert.equal(apply.tier, "plus");
+});
+
+test("subscriber with an expired plus but active one_language resolves to one_language", () => {
+  const apply = applyFromSubscriber(
+    USER,
+    subscriber({
+      entitlements: {
+        [PLUS_ENTITLEMENT_ID]: {
+          expires_date: PAST.toISOString(),
+          product_identifier: "bolo_plus_monthly",
+        },
+        [ONE_LANGUAGE_ENTITLEMENT_ID]: {
+          expires_date: FUTURE.toISOString(),
+          product_identifier: "bolo_one_language_monthly",
+        },
+      },
+    }),
+    NOW,
+  );
+  assert.equal(apply.tier, "one_language");
+  assert.equal(apply.subscriptionStatus, "active");
 });
 
 test("a lifetime (null-expiry) entitlement is always active Plus", () => {

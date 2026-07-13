@@ -58,7 +58,9 @@ export async function dailyLessonCapDenial(
   if (used < limit) return null;
   return upgradeRequired(
     "daily_lesson_limit",
-    `Free includes ${limit} new lessons a day. Upgrade to Bolo! Plus for unlimited lessons.`,
+    `Free includes ${limit} new lessons a day. Upgrade for unlimited lessons.`,
     "unlimitedLessons",
+    // The cheapest tier that lifts the daily cap is the middle One Language tier.
+    "one_language",
   );
 }

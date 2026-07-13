@@ -348,6 +348,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/Entitlements"
 
+  /entitlements/chosen-language:
+    post:
+      operationId: setChosenLanguage
+      tags: [entitlements]
+      summary: Record the One Language tier's chosen language
+      description: >-
+        Records the single language a One Language ($6.99) subscriber unlocks on
+        top of free Hindi, captured at purchase. Once set while on the middle
+        tier the choice is locked: changing it returns 409, and only upgrading
+        to all-access frees it. Choosing Hindi or an unknown language is
+        rejected. Returns the fresh entitlements snapshot.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetChosenLanguageInput"
+      responses:
+        "200":
+          description: The caller's updated entitlements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entitlements"
+        "400":
+          description: Missing or invalid language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Language not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The chosen language is locked for this subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /openai/tts:
     post:
       operationId: synthesizeSpeech
@@ -422,6 +465,15 @@ components:
           type: string
       required:
         - error
+
+    SetChosenLanguageInput:
+      type: object
+      properties:
+        language:
+          type: string
+          description: The language code to unlock (must not be Hindi).
+      required:
+        - language
 
     Language:
       type: object
@@ -846,7 +898,9 @@ components:
           description: The related feature flag, when applicable (e.g. "allLanguages").
         requiredPlan:
           type: string
-          description: The plan that unlocks the action (e.g. "plus").
+          description: >-
+            The cheapest plan that unlocks the action ("one_language" or
+            "plus").
       required:
         - error
         - upgradeRequired
@@ -903,7 +957,7 @@ components:
       properties:
         plan:
           type: string
-          description: The effective plan ("free" or "plus").
+          description: The effective plan ("free", "one_language", or "plus").
         status:
           type: string
           description: none | trialing | active | expired | canceled
@@ -915,6 +969,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        chosenLanguage:
+          type: string
+          nullable: true
+          description: >-
+            The single language a One Language ($6.99) subscriber unlocked on
+            top of free Hindi. Null for Free and all-access Plus.
         allowedLanguages:
           type: array
           items:
@@ -929,6 +989,7 @@ components:
         - status
         - trialEndsAt
         - currentPeriodEnd
+        - chosenLanguage
         - allowedLanguages
         - features
         - limits

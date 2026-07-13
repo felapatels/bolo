@@ -10,17 +10,25 @@
 
 import type { SubscriptionStatus } from "./entitlements";
 
-// The RevenueCat entitlement identifier that maps to Bolo! Plus. Configurable so
-// it can match whatever the RevenueCat project uses; defaults to "plus".
+// The RevenueCat entitlement identifier that maps to all-access Bolo! Plus.
+// Configurable so it can match whatever the RevenueCat project uses; defaults
+// to "plus".
 export const PLUS_ENTITLEMENT_ID =
   process.env.REVENUECAT_ENTITLEMENT_ID?.trim() || "plus";
 
+// The RevenueCat entitlement identifier that maps to the middle One Language
+// ($6.99) tier. Defaults to "one_language".
+export const ONE_LANGUAGE_ENTITLEMENT_ID =
+  process.env.REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID?.trim() || "one_language";
+
 // The concrete subscription columns we write for a user, plus the user id the
 // change applies to. `subscriptionProviderId` records RevenueCat's stable
-// original app-user id for bookkeeping.
+// original app-user id for bookkeeping. Note: `chosenLanguage` is deliberately
+// NOT written here — the billing sync preserves whatever the subscriber chose,
+// which is captured separately at purchase.
 export interface RevenueCatApply {
   userId: string;
-  tier: "free" | "plus";
+  tier: "free" | "one_language" | "plus";
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
@@ -61,17 +69,24 @@ const IGNORED_EVENT_TYPES = new Set([
   "TEMPORARY_ENTITLEMENT_GRANT",
 ]);
 
-// True when the event pertains to our Plus entitlement. If the event carries no
-// entitlement info at all we assume it applies (this is a single-entitlement
-// app), but if it lists entitlements and ours isn't among them we ignore it.
-function concernsPlus(event: RevenueCatEvent): boolean {
-  if (Array.isArray(event.entitlement_ids) && event.entitlement_ids.length > 0) {
-    return event.entitlement_ids.includes(PLUS_ENTITLEMENT_ID);
-  }
-  if (typeof event.entitlement_id === "string" && event.entitlement_id) {
-    return event.entitlement_id === PLUS_ENTITLEMENT_ID;
-  }
-  return true;
+// Which of our entitlements the event pertains to, or null to ignore it.
+// All-access is preferred when both are listed. If the event carries no
+// entitlement info at all we assume all-access applies (backwards compatible
+// with the original single-entitlement app); if it lists entitlements and
+// neither of ours is among them we ignore it.
+function concernedEntitlement(
+  event: RevenueCatEvent,
+): "plus" | "one_language" | null {
+  const ids =
+    Array.isArray(event.entitlement_ids) && event.entitlement_ids.length > 0
+      ? event.entitlement_ids
+      : typeof event.entitlement_id === "string" && event.entitlement_id
+        ? [event.entitlement_id]
+        : null;
+  if (ids === null) return "plus";
+  if (ids.includes(PLUS_ENTITLEMENT_ID)) return "plus";
+  if (ids.includes(ONE_LANGUAGE_ENTITLEMENT_ID)) return "one_language";
+  return null;
 }
 
 function msToDate(ms: number | null | undefined): Date | null {
@@ -89,7 +104,8 @@ export function applyFromEvent(
   const type = event.type ?? "";
   if (IGNORED_EVENT_TYPES.has(type)) return null;
   if (type === "TRANSFER") return null; // handled separately
-  if (!concernsPlus(event)) return null;
+  const tier = concernedEntitlement(event);
+  if (tier === null) return null;
 
   const userId = event.app_user_id ?? null;
   if (!userId) return null;
@@ -111,9 +127,12 @@ export function applyFromEvent(
     };
   }
 
-  const isTrial = (event.period_type ?? "").toUpperCase() === "TRIAL";
+  // The 7-day free trial applies to all-access only, so a TRIAL period on the
+  // middle tier is treated as a plain active period.
+  const isTrial =
+    tier === "plus" && (event.period_type ?? "").toUpperCase() === "TRIAL";
   // CANCELLATION only turns off auto-renew — access continues until the period
-  // (or trial) ends, so we keep tier "plus" and let the date drive expiry.
+  // (or trial) ends, so we keep the paid tier and let the date drive expiry.
   const status: SubscriptionStatus = isTrial
     ? "trialing"
     : type === "CANCELLATION"
@@ -122,7 +141,7 @@ export function applyFromEvent(
 
   return {
     userId,
-    tier: "plus",
+    tier,
     subscriptionStatus: status,
     trialEndsAt: isTrial ? expiresAt : null,
     currentPeriodEnd: expiresAt,
@@ -190,48 +209,37 @@ function parseDate(iso: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-// Translates a live RevenueCat subscriber snapshot (keyed by the caller's user
-// id) into the subscription columns to write. Used by reconcile-on-read to heal
-// state when a webhook was missed. `null` entitlements/subscriber means the user
-// has no Plus access (Free).
-export function applyFromSubscriber(
-  userId: string,
-  subscriber: RevenueCatSubscriber | null,
-  now: Date = new Date(),
-): RevenueCatApply {
-  const providerId = subscriber?.original_app_user_id ?? userId;
-  const ent = subscriber?.entitlements?.[PLUS_ENTITLEMENT_ID];
+// The resolution of a single RevenueCat entitlement into the fields we care
+// about, or null when the entitlement isn't on record at all.
+interface EntitlementResolution {
+  active: boolean;
+  expiresAt: Date | null;
+  status: SubscriptionStatus;
+  trialEndsAt: Date | null;
+}
 
-  // No Plus entitlement on record → Free.
-  if (!ent) {
-    return {
-      userId,
-      tier: "free",
-      subscriptionStatus: "none",
-      trialEndsAt: null,
-      currentPeriodEnd: null,
-      subscriptionProviderId: providerId,
-    };
-  }
+function resolveEntitlement(
+  subscriber: RevenueCatSubscriber | null,
+  entitlementId: string,
+  tier: "plus" | "one_language",
+  now: Date,
+): EntitlementResolution | null {
+  const ent = subscriber?.entitlements?.[entitlementId];
+  if (!ent) return null;
 
   const expiresAt = parseDate(ent.expires_date);
   // A null expiry means a lifetime/non-expiring grant → always active.
   const active = expiresAt == null || expiresAt.getTime() > now.getTime();
   if (!active) {
-    return {
-      userId,
-      tier: "free",
-      subscriptionStatus: "expired",
-      trialEndsAt: null,
-      currentPeriodEnd: expiresAt,
-      subscriptionProviderId: providerId,
-    };
+    return { active: false, expiresAt, status: "expired", trialEndsAt: null };
   }
 
   const sub = ent.product_identifier
     ? subscriber?.subscriptions?.[ent.product_identifier]
     : undefined;
-  const isTrial = (sub?.period_type ?? "").toLowerCase() === "trial";
+  // Trials apply to all-access only.
+  const isTrial =
+    tier === "plus" && (sub?.period_type ?? "").toLowerCase() === "trial";
   const canceled = sub?.unsubscribe_detected_at != null;
   const status: SubscriptionStatus = isTrial
     ? "trialing"
@@ -239,12 +247,61 @@ export function applyFromSubscriber(
       ? "canceled"
       : "active";
 
+  return { active: true, expiresAt, status, trialEndsAt: isTrial ? expiresAt : null };
+}
+
+// Translates a live RevenueCat subscriber snapshot (keyed by the caller's user
+// id) into the subscription columns to write. Used by reconcile-on-read to heal
+// state when a webhook was missed. All-access is preferred when both paid
+// entitlements are somehow active; an expired-but-present entitlement resolves
+// to Free/expired; a `null`/empty subscriber means the user has no paid access
+// (Free/none).
+export function applyFromSubscriber(
+  userId: string,
+  subscriber: RevenueCatSubscriber | null,
+  now: Date = new Date(),
+): RevenueCatApply {
+  const providerId = subscriber?.original_app_user_id ?? userId;
+
+  const plus = resolveEntitlement(subscriber, PLUS_ENTITLEMENT_ID, "plus", now);
+  const one = resolveEntitlement(
+    subscriber,
+    ONE_LANGUAGE_ENTITLEMENT_ID,
+    "one_language",
+    now,
+  );
+
+  // Prefer all-access when it's active, then the middle tier.
+  if (plus?.active) {
+    return {
+      userId,
+      tier: "plus",
+      subscriptionStatus: plus.status,
+      trialEndsAt: plus.trialEndsAt,
+      currentPeriodEnd: plus.expiresAt,
+      subscriptionProviderId: providerId,
+    };
+  }
+  if (one?.active) {
+    return {
+      userId,
+      tier: "one_language",
+      subscriptionStatus: one.status,
+      trialEndsAt: one.trialEndsAt,
+      currentPeriodEnd: one.expiresAt,
+      subscriptionProviderId: providerId,
+    };
+  }
+
+  // Neither active. If either entitlement was present (but lapsed) → expired,
+  // else the user has no record → none.
+  const present = plus != null || one != null;
   return {
     userId,
-    tier: "plus",
-    subscriptionStatus: status,
-    trialEndsAt: isTrial ? expiresAt : null,
-    currentPeriodEnd: expiresAt,
+    tier: "free",
+    subscriptionStatus: present ? "expired" : "none",
+    trialEndsAt: null,
+    currentPeriodEnd: present ? (plus?.expiresAt ?? one?.expiresAt ?? null) : null,
     subscriptionProviderId: providerId,
   };
 }

@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import {
   FREE_DAILY_NEW_LESSON_CAP,
   FREE_LANGUAGE,
+  allowedLanguagesForPlan,
   buildEntitlements,
+  dailyNewLessonLimit,
+  featuresForPlan,
   isLanguageAllowed,
   resolvePlan,
   type SubscriptionState,
@@ -24,6 +27,7 @@ function state(over: Partial<SubscriptionState> = {}): SubscriptionState {
     subscriptionStatus: null,
     trialEndsAt: null,
     currentPeriodEnd: null,
+    chosenLanguage: null,
     ...over,
   };
 }
@@ -112,6 +116,90 @@ test("plus entitlements are unlimited and list every language", () => {
   assert.equal(e.features.unlimitedLessons, true);
   assert.equal(e.features.review, true);
   assert.equal(e.features.advancedAnalytics, true);
+  assert.equal(e.limits.dailyNewLessons.limit, null);
+  assert.equal(e.limits.dailyNewLessons.remaining, null);
+  assert.equal(e.chosenLanguage, null);
+});
+
+// --- One Language ($6.99) middle tier --------------------------------------
+
+test("an active one_language tier resolves to one_language and carries the chosen language", () => {
+  const r = resolvePlan(
+    state({
+      tier: "one_language",
+      subscriptionStatus: "active",
+      chosenLanguage: "gu",
+    }),
+    NOW,
+  );
+  assert.equal(r.plan, "one_language");
+  assert.equal(r.status, "active");
+  assert.equal(r.chosenLanguage, "gu");
+});
+
+test("a one_language tier whose period has lapsed downgrades to expired free", () => {
+  const r = resolvePlan(
+    state({
+      tier: "one_language",
+      subscriptionStatus: "active",
+      currentPeriodEnd: past,
+      chosenLanguage: "gu",
+    }),
+    NOW,
+  );
+  assert.equal(r.plan, "free");
+  assert.equal(r.status, "expired");
+  assert.equal(r.chosenLanguage, null);
+});
+
+test("one_language features: unlimited lessons on, everything else off", () => {
+  const f = featuresForPlan("one_language");
+  assert.equal(f.unlimitedLessons, true);
+  assert.equal(f.allLanguages, false);
+  assert.equal(f.review, false);
+  assert.equal(f.advancedAnalytics, false);
+});
+
+test("one_language lifts the daily cap", () => {
+  assert.equal(dailyNewLessonLimit("one_language"), null);
+  assert.equal(dailyNewLessonLimit("plus"), null);
+  assert.equal(dailyNewLessonLimit("free"), FREE_DAILY_NEW_LESSON_CAP);
+});
+
+test("one_language allows Hindi plus the chosen language, nothing else", () => {
+  assert.deepEqual(allowedLanguagesForPlan("one_language", "gu"), [
+    FREE_LANGUAGE,
+    "gu",
+  ]);
+  assert.equal(isLanguageAllowed("one_language", FREE_LANGUAGE, "gu"), true);
+  assert.equal(isLanguageAllowed("one_language", "gu", "gu"), true);
+  assert.equal(isLanguageAllowed("one_language", "es", "gu"), false);
+});
+
+test("one_language with no chosen language yet is just Hindi", () => {
+  assert.deepEqual(allowedLanguagesForPlan("one_language", null), [
+    FREE_LANGUAGE,
+  ]);
+  assert.equal(isLanguageAllowed("one_language", "gu", null), false);
+});
+
+test("one_language entitlements snapshot: Hindi + chosen, unlimited, chosen reported", () => {
+  const r = resolvePlan(
+    state({
+      tier: "one_language",
+      subscriptionStatus: "active",
+      chosenLanguage: "gu",
+    }),
+    NOW,
+  );
+  const e = buildEntitlements(r, 5, ["hi", "gu", "es", "fr"]);
+  assert.equal(e.plan, "one_language");
+  assert.deepEqual(e.allowedLanguages, [FREE_LANGUAGE, "gu"]);
+  assert.equal(e.chosenLanguage, "gu");
+  assert.equal(e.features.unlimitedLessons, true);
+  assert.equal(e.features.allLanguages, false);
+  assert.equal(e.features.review, false);
+  assert.equal(e.features.advancedAnalytics, false);
   assert.equal(e.limits.dailyNewLessons.limit, null);
   assert.equal(e.limits.dailyNewLessons.remaining, null);
 });

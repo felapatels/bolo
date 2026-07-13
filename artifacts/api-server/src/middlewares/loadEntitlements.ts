@@ -34,12 +34,14 @@ export async function loadEntitlements(
           subscriptionStatus: user.subscriptionStatus,
           trialEndsAt: user.trialEndsAt,
           currentPeriodEnd: user.currentPeriodEnd,
+          chosenLanguage: user.chosenLanguage,
         }
       : {
           tier: "free",
           subscriptionStatus: null,
           trialEndsAt: null,
           currentPeriodEnd: null,
+          chosenLanguage: null,
         };
 
     (req as EntitledRequest).resolvedPlan = resolvePlan(state);

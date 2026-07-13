@@ -43,6 +43,7 @@ import type {
   ProgressSummary,
   PronunciationInput,
   PronunciationResult,
+  SetChosenLanguageInput,
   SpeechInput,
   SpeechResult,
   UpgradeRequired
@@ -1118,6 +1119,78 @@ export function useGetEntitlements<TData = Awaited<ReturnType<typeof getEntitlem
 
 
 
+
+export const getSetChosenLanguageUrl = () => {
+
+
+
+
+  return `/api/entitlements/chosen-language`
+}
+
+/**
+ * Records the single language a One Language ($6.99) subscriber unlocks on top of free Hindi, captured at purchase. Once set while on the middle tier the choice is locked: changing it returns 409, and only upgrading to all-access frees it. Choosing Hindi or an unknown language is rejected. Returns the fresh entitlements snapshot.
+ * @summary Record the One Language tier's chosen language
+ */
+export const setChosenLanguage = async (setChosenLanguageInput: SetChosenLanguageInput, options?: RequestInit): Promise<Entitlements> => {
+
+  return customFetch<Entitlements>(getSetChosenLanguageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setChosenLanguageInput)
+  }
+);}
+
+
+
+
+
+export const getSetChosenLanguageMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setChosenLanguage>>, TError,{data: BodyType<SetChosenLanguageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setChosenLanguage>>, TError,{data: BodyType<SetChosenLanguageInput>}, TContext> => {
+
+const mutationKey = ['setChosenLanguage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setChosenLanguage>>, {data: BodyType<SetChosenLanguageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setChosenLanguage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetChosenLanguageMutationResult = NonNullable<Awaited<ReturnType<typeof setChosenLanguage>>>
+    export type SetChosenLanguageMutationBody = BodyType<SetChosenLanguageInput>
+    export type SetChosenLanguageMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record the One Language tier's chosen language
+ */
+export const useSetChosenLanguage = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setChosenLanguage>>, TError,{data: BodyType<SetChosenLanguageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setChosenLanguage>>,
+        TError,
+        {data: BodyType<SetChosenLanguageInput>},
+        TContext
+      > => {
+      return useMutation(getSetChosenLanguageMutationOptions(options));
+    }
 
 export const getSynthesizeSpeechUrl = () => {
 

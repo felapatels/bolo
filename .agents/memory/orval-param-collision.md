@@ -30,3 +30,16 @@ survives regeneration.
 **How to apply:** if codegen fails `typecheck:libs` with TS2308 on `<Op>Params`,
 find the GET op that has both a path and query param and move the query param
 into the path.
+
+## Same collision, second cause: INLINE request bodies (`<Op>Body`)
+
+An endpoint whose `requestBody` schema is an INLINE `type: object` (not a `$ref`)
+makes orval-zod emit a VALUE `<Op>Body` in `api.ts` while orval-types emits a
+TYPE `<Op>Body` in `.../generated/types` → the barrel re-exports both → TS2308
+("already exported a member named `<Op>Body`").
+
+**Rule:** never inline a request-body object. Define a named component schema
+(e.g. `SetChosenLanguageInput` under `components.schemas`) and `$ref` it. Then
+zod keeps the operation name `<Op>Body` (value) while the type takes the schema
+name (e.g. `SetChosenLanguageInput`) → different names, no clash. This matches
+how every other body in the spec is written.

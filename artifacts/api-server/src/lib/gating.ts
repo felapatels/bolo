@@ -21,20 +21,27 @@ export function sendUpgradeRequired(
 }
 
 // If the caller's plan can't access `lang`, sends the 402 and returns true so
-// the handler can `if (denyLockedLanguage(...)) return;` and stop.
+// the handler can `if (denyLockedLanguage(...)) return;` and stop. The upgrade
+// target depends on where the caller stands: a Free user can unlock a single
+// language with the middle tier ($6.99), while a One-Language user (who has
+// already spent their one choice) needs all-access Plus to open another.
 export function denyLockedLanguage(
   req: Request,
   res: Response,
   lang: string,
 ): boolean {
-  const { plan } = (req as EntitledRequest).resolvedPlan;
-  if (isLanguageAllowed(plan, lang)) return false;
+  const { plan, chosenLanguage } = (req as EntitledRequest).resolvedPlan;
+  if (isLanguageAllowed(plan, lang, chosenLanguage)) return false;
+  const requiredPlan = plan === "free" ? "one_language" : "plus";
   sendUpgradeRequired(
     res,
     upgradeRequired(
       "language_locked",
-      "Bolo! Plus unlocks every language. Upgrade to learn this one.",
+      requiredPlan === "one_language"
+        ? "This language is a paid unlock. Upgrade to start learning it."
+        : "Bolo! Plus unlocks every language. Upgrade to learn this one too.",
       "allLanguages",
+      requiredPlan,
     ),
   );
   return true;

@@ -9,12 +9,14 @@ import type { EntitlementLimits } from './entitlementLimits';
 import type { PlanFeatures } from './planFeatures';
 
 export interface Entitlements {
-  /** The effective plan ("free" or "plus"). */
+  /** The effective plan ("free", "one_language", or "plus"). */
   plan: string;
   /** none | trialing | active | expired | canceled */
   status: string;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
+  /** The single language a One Language ($6.99) subscriber unlocked on top of free Hindi. Null for Free and all-access Plus. */
+  chosenLanguage: string | null;
   /** The concrete language codes the caller may access. */
   allowedLanguages: string[];
   features: PlanFeatures;

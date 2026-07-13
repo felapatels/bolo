@@ -293,10 +293,42 @@ export const GetProgressAnalyticsResponse = zod.object({
  * @summary The caller's plan, unlocked features, and daily limits
  */
 export const GetEntitlementsResponse = zod.object({
-  "plan": zod.string().describe('The effective plan (\"free\" or \"plus\").'),
+  "plan": zod.string().describe('The effective plan (\"free\", \"one_language\", or \"plus\").'),
   "status": zod.string().describe('none | trialing | active | expired | canceled'),
   "trialEndsAt": zod.coerce.date().nullable(),
   "currentPeriodEnd": zod.coerce.date().nullable(),
+  "chosenLanguage": zod.string().nullable().describe('The single language a One Language ($6.99) subscriber unlocked on top of free Hindi. Null for Free and all-access Plus.'),
+  "allowedLanguages": zod.array(zod.string()).describe('The concrete language codes the caller may access.'),
+  "features": zod.object({
+  "allLanguages": zod.boolean(),
+  "unlimitedLessons": zod.boolean(),
+  "review": zod.boolean(),
+  "advancedAnalytics": zod.boolean()
+}),
+  "limits": zod.object({
+  "dailyNewLessons": zod.object({
+  "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
+  "used": zod.number(),
+  "remaining": zod.number().nullable().describe('Remaining today; null means unlimited (Plus).')
+})
+})
+})
+
+
+/**
+ * Records the single language a One Language ($6.99) subscriber unlocks on top of free Hindi, captured at purchase. Once set while on the middle tier the choice is locked: changing it returns 409, and only upgrading to all-access frees it. Choosing Hindi or an unknown language is rejected. Returns the fresh entitlements snapshot.
+ * @summary Record the One Language tier's chosen language
+ */
+export const SetChosenLanguageBody = zod.object({
+  "language": zod.string().describe('The language code to unlock (must not be Hindi).')
+})
+
+export const SetChosenLanguageResponse = zod.object({
+  "plan": zod.string().describe('The effective plan (\"free\", \"one_language\", or \"plus\").'),
+  "status": zod.string().describe('none | trialing | active | expired | canceled'),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "chosenLanguage": zod.string().nullable().describe('The single language a One Language ($6.99) subscriber unlocked on top of free Hindi. Null for Free and all-access Plus.'),
   "allowedLanguages": zod.array(zod.string()).describe('The concrete language codes the caller may access.'),
   "features": zod.object({
   "allLanguages": zod.boolean(),

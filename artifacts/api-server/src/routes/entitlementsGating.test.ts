@@ -28,6 +28,7 @@ import { FREE_DAILY_NEW_LESSON_CAP, FREE_LANGUAGE } from "../lib/entitlements";
 // (Hindi) row is ensured but never deleted so seeded data is left intact.
 const TEST_USER_ID = "test_entitlements_gating";
 const LOCKED_LANG = "__test_lang_locked";
+const OTHER_LANG = "__test_lang_other";
 const CATEGORY_SLUG = "__test_cat_entitlements";
 
 let app: Express;
@@ -62,6 +63,7 @@ async function setPlanFree(): Promise<void> {
       subscriptionStatus: null,
       trialEndsAt: null,
       currentPeriodEnd: null,
+      chosenLanguage: null,
     })
     .where(eq(usersTable.id, TEST_USER_ID));
 }
@@ -74,6 +76,20 @@ async function setPlanPlus(): Promise<void> {
       subscriptionStatus: "active",
       trialEndsAt: null,
       currentPeriodEnd: null,
+      chosenLanguage: null,
+    })
+    .where(eq(usersTable.id, TEST_USER_ID));
+}
+
+async function setPlanOneLanguage(chosen: string): Promise<void> {
+  await db
+    .update(usersTable)
+    .set({
+      tier: "one_language",
+      subscriptionStatus: "active",
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      chosenLanguage: chosen,
     })
     .where(eq(usersTable.id, TEST_USER_ID));
 }
@@ -153,6 +169,18 @@ before(async () => {
       fontFamily: "sans-serif",
     })
     .onConflictDoNothing();
+  // A second locked language, used to prove a One-Language subscriber still
+  // can't reach a language other than their one chosen one.
+  await db
+    .insert(languagesTable)
+    .values({
+      code: OTHER_LANG,
+      name: "Other Test",
+      nativeName: "O",
+      script: "Latin",
+      fontFamily: "sans-serif",
+    })
+    .onConflictDoNothing();
 
   const [category] = await db
     .insert(categoriesTable)
@@ -197,6 +225,7 @@ after(async () => {
     .delete(categoriesTable)
     .where(eq(categoriesTable.slug, CATEGORY_SLUG));
   await db.delete(languagesTable).where(eq(languagesTable.code, LOCKED_LANG));
+  await db.delete(languagesTable).where(eq(languagesTable.code, OTHER_LANG));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER_ID));
   await pool.end();
 });
@@ -222,7 +251,8 @@ test("free is denied a locked language with a structured upgrade payload", async
   assert.equal(json.error, "upgrade_required");
   assert.equal(json.upgradeRequired, true);
   assert.equal(json.reason, "language_locked");
-  assert.equal(json.requiredPlan, "plus");
+  // A Free learner can unlock a single language with the cheaper middle tier.
+  assert.equal(json.requiredPlan, "one_language");
 });
 
 test("free can browse Hindi categories", async () => {
@@ -318,4 +348,104 @@ test("dev override flips the caller between free, plus, and trial", async () => 
   // A bad plan value is rejected.
   const bad = await post("/entitlements/dev-override", { plan: "wat" });
   assert.equal(bad.status, 400);
+});
+
+// --- One Language ($6.99) middle tier --------------------------------------
+
+test("one_language snapshot: Hindi + chosen only, unlimited lessons, Plus features still locked", async () => {
+  await setPlanOneLanguage(LOCKED_LANG);
+
+  const { status, json } = await get("/entitlements");
+  assert.equal(status, 200);
+  assert.equal(json.plan, "one_language");
+  assert.deepEqual(json.allowedLanguages, [FREE_LANGUAGE, LOCKED_LANG]);
+  assert.equal(json.chosenLanguage, LOCKED_LANG);
+  assert.equal(json.features.unlimitedLessons, true);
+  assert.equal(json.features.allLanguages, false);
+  assert.equal(json.features.review, false);
+  assert.equal(json.features.advancedAnalytics, false);
+  assert.equal(json.limits.dailyNewLessons.limit, null);
+  assert.equal(json.limits.dailyNewLessons.remaining, null);
+});
+
+test("one_language can browse its chosen language and Hindi", async () => {
+  await setPlanOneLanguage(LOCKED_LANG);
+
+  const chosen = await get(`/categories?lang=${encodeURIComponent(LOCKED_LANG)}`);
+  assert.equal(chosen.status, 200);
+  const hindi = await get(`/categories?lang=${FREE_LANGUAGE}`);
+  assert.equal(hindi.status, 200);
+});
+
+test("one_language is denied a language other than its chosen one, pointing at Plus", async () => {
+  await setPlanOneLanguage(LOCKED_LANG);
+
+  const { status, json } = await get(
+    `/categories?lang=${encodeURIComponent(OTHER_LANG)}`,
+  );
+  assert.equal(status, 402);
+  assert.equal(json.reason, "language_locked");
+  assert.equal(json.requiredPlan, "plus");
+});
+
+test("one_language keeps review and advanced analytics locked (Plus-only)", async () => {
+  await setPlanOneLanguage(LOCKED_LANG);
+
+  const review = await get(`/review/phrases?lang=${FREE_LANGUAGE}`);
+  assert.equal(review.status, 402);
+  assert.equal(review.json.reason, "feature_locked");
+  assert.equal(review.json.feature, "review");
+  assert.equal(review.json.requiredPlan, "plus");
+
+  const analytics = await get(`/progress/analytics?lang=${FREE_LANGUAGE}`);
+  assert.equal(analytics.status, 402);
+  assert.equal(analytics.json.feature, "advancedAnalytics");
+  assert.equal(analytics.json.requiredPlan, "plus");
+});
+
+test("dev override can set the one_language tier with a chosen language", async () => {
+  const bad = await post("/entitlements/dev-override", { plan: "one_language" });
+  assert.equal(bad.status, 400);
+
+  const hindi = await post("/entitlements/dev-override", {
+    plan: "one_language",
+    chosenLanguage: FREE_LANGUAGE,
+  });
+  assert.equal(hindi.status, 400);
+
+  const ok = await post("/entitlements/dev-override", {
+    plan: "one_language",
+    chosenLanguage: LOCKED_LANG,
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.plan, "one_language");
+  assert.equal(ok.json.chosenLanguage, LOCKED_LANG);
+  assert.deepEqual(ok.json.allowedLanguages, [FREE_LANGUAGE, LOCKED_LANG]);
+});
+
+test("the chosen language is locked once set while on the one_language tier", async () => {
+  await setPlanOneLanguage(LOCKED_LANG);
+
+  // Re-sending the same choice is a no-op success.
+  const same = await post("/entitlements/chosen-language", {
+    language: LOCKED_LANG,
+  });
+  assert.equal(same.status, 200);
+  assert.equal(same.json.chosenLanguage, LOCKED_LANG);
+
+  // Switching to a different language is rejected.
+  const change = await post("/entitlements/chosen-language", {
+    language: OTHER_LANG,
+  });
+  assert.equal(change.status, 409);
+
+  // Choosing Hindi (free) or an unknown language is rejected.
+  const hindi = await post("/entitlements/chosen-language", {
+    language: FREE_LANGUAGE,
+  });
+  assert.equal(hindi.status, 400);
+  const unknown = await post("/entitlements/chosen-language", {
+    language: "__nope",
+  });
+  assert.equal(unknown.status, 404);
 });

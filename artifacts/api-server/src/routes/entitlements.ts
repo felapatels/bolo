@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import {
   buildEntitlements,
   resolvePlan,
+  FREE_LANGUAGE,
   type SubscriptionState,
 } from "../lib/entitlements";
 import { countLessonGenerationsToday } from "../lib/lessonLimits";
@@ -44,12 +45,14 @@ async function freshResolvedPlan(userId: string) {
         subscriptionStatus: user.subscriptionStatus,
         trialEndsAt: user.trialEndsAt,
         currentPeriodEnd: user.currentPeriodEnd,
+        chosenLanguage: user.chosenLanguage,
       }
     : {
         tier: "free",
         subscriptionStatus: null,
         trialEndsAt: null,
         currentPeriodEnd: null,
+        chosenLanguage: null,
       };
   return resolvePlan(state);
 }
@@ -71,13 +74,15 @@ router.get("/entitlements", async (req: Request, res: Response): Promise<void> =
 });
 
 // POST /entitlements/dev-override — developer-only tier switch for testing the
-// two-tier model end to end without a payment provider. Flips the caller's plan
-// between Free, Plus, and a 7-day Plus trial, then returns the fresh snapshot.
+// three-tier model end to end without a payment provider. Flips the caller's
+// plan between Free, One Language ($6.99), all-access Plus, and a 7-day Plus
+// trial, then returns the fresh snapshot. For "one_language", a `chosenLanguage`
+// must be supplied (the language unlocked on top of free Hindi).
 //
 // Hard-disabled in production (returns 404 so it isn't even discoverable) — it
 // is a test affordance, never a real upgrade path. Real upgrades will come from
 // the separate payments task.
-const DEV_PLANS = ["free", "plus", "trial"] as const;
+const DEV_PLANS = ["free", "one_language", "plus", "trial"] as const;
 type DevPlan = (typeof DEV_PLANS)[number];
 
 router.post(
@@ -96,6 +101,32 @@ router.post(
       return;
     }
 
+    // The middle tier needs a concrete, valid, non-Hindi language to unlock.
+    let chosenLanguage: string | null = null;
+    if ((plan as DevPlan) === "one_language") {
+      const requested = req.body?.chosenLanguage as unknown;
+      if (typeof requested !== "string" || !requested) {
+        res.status(400).json({
+          error: "one_language requires a chosenLanguage",
+        });
+        return;
+      }
+      if (requested === FREE_LANGUAGE) {
+        res.status(400).json({
+          error: "Hindi is included free; choose another language.",
+        });
+        return;
+      }
+      const exists = await db.query.languagesTable.findFirst({
+        where: eq(languagesTable.code, requested),
+      });
+      if (!exists) {
+        res.status(404).json({ error: "Language not found" });
+        return;
+      }
+      chosenLanguage = requested;
+    }
+
     // Target the caller by default; allow an explicit userId for flipping a test
     // account. (Dev-only, so this is safe.)
     const target =
@@ -112,6 +143,16 @@ router.post(
           subscriptionStatus: "active",
           trialEndsAt: null,
           currentPeriodEnd: null,
+          chosenLanguage: null,
+        };
+        break;
+      case "one_language":
+        state = {
+          tier: "one_language",
+          subscriptionStatus: "active",
+          trialEndsAt: null,
+          currentPeriodEnd: null,
+          chosenLanguage,
         };
         break;
       case "trial":
@@ -120,6 +161,7 @@ router.post(
           subscriptionStatus: "trialing",
           trialEndsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
           currentPeriodEnd: null,
+          chosenLanguage: null,
         };
         break;
       case "free":
@@ -129,6 +171,7 @@ router.post(
           subscriptionStatus: null,
           trialEndsAt: null,
           currentPeriodEnd: null,
+          chosenLanguage: null,
         };
         break;
     }
@@ -143,6 +186,7 @@ router.post(
         subscriptionStatus: state.subscriptionStatus,
         trialEndsAt: state.trialEndsAt,
         currentPeriodEnd: state.currentPeriodEnd,
+        chosenLanguage: state.chosenLanguage,
       })
       .where(eq(usersTable.id, target));
 
@@ -159,6 +203,66 @@ router.post(
         languages.map((l) => l.code),
       ),
     );
+  },
+);
+
+// POST /entitlements/chosen-language — records the single language a One-Language
+// subscriber unlocked (captured at purchase). Once set while on the middle tier
+// the choice is LOCKED: changing it is rejected (409) and only upgrading to
+// all-access frees it. Choosing Hindi (the free language) or an unknown language
+// is rejected. On success the fresh entitlements snapshot is returned.
+router.post(
+  "/entitlements/chosen-language",
+  async (req: Request, res: Response): Promise<void> => {
+    const { userId, resolvedPlan } = req as EntitledRequest;
+
+    const language = req.body?.language as unknown;
+    if (typeof language !== "string" || !language) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
+    if (language === FREE_LANGUAGE) {
+      res
+        .status(400)
+        .json({ error: "Hindi is included free; choose another language." });
+      return;
+    }
+    const exists = await db.query.languagesTable.findFirst({
+      where: eq(languagesTable.code, language),
+    });
+    if (!exists) {
+      res.status(404).json({ error: "Language not found" });
+      return;
+    }
+
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+    });
+    const current = user?.chosenLanguage ?? null;
+
+    // Locked in for the life of the One-Language subscription: while on that
+    // tier a different choice is rejected (re-sending the same one is a no-op).
+    if (
+      resolvedPlan.plan === "one_language" &&
+      current &&
+      current !== language
+    ) {
+      res.status(409).json({
+        error:
+          "Your chosen language is locked for this subscription. Upgrade to all-access to switch languages.",
+      });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ chosenLanguage: language })
+      .where(eq(usersTable.id, userId));
+
+    // Re-resolve from the freshly-stored columns so the snapshot reflects the
+    // newly-allowed language for a middle-tier subscriber.
+    (req as EntitledRequest).resolvedPlan = await freshResolvedPlan(userId);
+    res.json(await loadSnapshot(req));
   },
 );
 

@@ -15,6 +15,13 @@
       "when": 1783959491107,
       "tag": "0001_tiny_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783969900273,
+      "tag": "0002_brainy_giant_man",
+      "breakpoints": true
     }
   ]
 }

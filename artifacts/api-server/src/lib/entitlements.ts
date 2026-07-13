@@ -4,7 +4,7 @@
 // live, per-user daily-lesson counts are layered on by the DB-touching
 // lessonLimits helpers; everything here is deterministic given its inputs.
 
-export type Plan = "free" | "plus";
+export type Plan = "free" | "one_language" | "plus";
 
 export type SubscriptionStatus =
   | "none"
@@ -43,6 +43,8 @@ export interface SubscriptionState {
   subscriptionStatus: string | null;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
+  // The One Language tier's single chosen language (null for Free/Plus).
+  chosenLanguage: string | null;
 }
 
 // The effective plan the server acts on, after applying trial/expiry rules.
@@ -51,14 +53,20 @@ export interface ResolvedPlan {
   status: SubscriptionStatus;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
+  // Only set (non-null) when `plan` is "one_language" — the language the
+  // subscriber unlocked on top of free Hindi.
+  chosenLanguage: string | null;
 }
 
 // Resolves the user's *effective* plan from their stored subscription fields.
 // Rules, in order:
 //   - An active trial (status "trialing" and trialEndsAt still in the future)
-//     always counts as Plus.
+//     always counts as Plus — the 7-day trial applies to all-access only.
 //   - A "plus" tier counts as Plus unless its paid period has lapsed
 //     (currentPeriodEnd in the past), in which case it reads as expired/Free.
+//   - A "one_language" tier counts as One Language (carrying its chosen
+//     language) unless its paid period has lapsed, in which case it reads as
+//     expired/Free.
 //   - Otherwise Free — a trial that has since lapsed surfaces as "expired".
 export function resolvePlan(
   state: SubscriptionState,
@@ -77,18 +85,21 @@ export function resolvePlan(
       status: "trialing",
       trialEndsAt: state.trialEndsAt,
       currentPeriodEnd: state.currentPeriodEnd,
+      chosenLanguage: null,
     };
   }
 
+  const periodLapsed =
+    state.currentPeriodEnd != null && state.currentPeriodEnd.getTime() <= t;
+
   if (state.tier === "plus") {
-    const periodLapsed =
-      state.currentPeriodEnd != null && state.currentPeriodEnd.getTime() <= t;
     if (!periodLapsed) {
       return {
         plan: "plus",
         status: status === "none" ? "active" : status,
         trialEndsAt: state.trialEndsAt,
         currentPeriodEnd: state.currentPeriodEnd,
+        chosenLanguage: null,
       };
     }
     return {
@@ -96,6 +107,26 @@ export function resolvePlan(
       status: "expired",
       trialEndsAt: state.trialEndsAt,
       currentPeriodEnd: state.currentPeriodEnd,
+      chosenLanguage: null,
+    };
+  }
+
+  if (state.tier === "one_language") {
+    if (!periodLapsed) {
+      return {
+        plan: "one_language",
+        status: status === "none" ? "active" : status,
+        trialEndsAt: state.trialEndsAt,
+        currentPeriodEnd: state.currentPeriodEnd,
+        chosenLanguage: state.chosenLanguage,
+      };
+    }
+    return {
+      plan: "free",
+      status: "expired",
+      trialEndsAt: state.trialEndsAt,
+      currentPeriodEnd: state.currentPeriodEnd,
+      chosenLanguage: null,
     };
   }
 
@@ -104,6 +135,7 @@ export function resolvePlan(
     status: status === "trialing" ? "expired" : status,
     trialEndsAt: state.trialEndsAt,
     currentPeriodEnd: state.currentPeriodEnd,
+    chosenLanguage: null,
   };
 }
 
@@ -116,6 +148,16 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       advancedAnalytics: true,
     };
   }
+  if (plan === "one_language") {
+    // The middle tier lifts only the daily-lesson cap; review, advanced
+    // analytics, and exclusive badges stay all-access-only.
+    return {
+      allLanguages: false,
+      unlimitedLessons: true,
+      review: false,
+      advancedAnalytics: false,
+    };
+  }
   return {
     allLanguages: false,
     unlimitedLessons: false,
@@ -125,18 +167,33 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
 }
 
 // The languages a plan may access. `null` means "every language"; Free is
-// restricted to the single free language.
-export function allowedLanguagesForPlan(plan: Plan): string[] | null {
-  return plan === "plus" ? null : [FREE_LANGUAGE];
+// restricted to the single free language; One Language may access free Hindi
+// plus the single language chosen at purchase.
+export function allowedLanguagesForPlan(
+  plan: Plan,
+  chosenLanguage: string | null = null,
+): string[] | null {
+  if (plan === "plus") return null;
+  if (plan === "one_language") {
+    return chosenLanguage && chosenLanguage !== FREE_LANGUAGE
+      ? [FREE_LANGUAGE, chosenLanguage]
+      : [FREE_LANGUAGE];
+  }
+  return [FREE_LANGUAGE];
 }
 
-// The daily new-lesson ceiling for a plan. `null` means unlimited.
+// The daily new-lesson ceiling for a plan. `null` means unlimited (both paid
+// tiers). Only Free is capped.
 export function dailyNewLessonLimit(plan: Plan): number | null {
-  return plan === "plus" ? null : FREE_DAILY_NEW_LESSON_CAP;
+  return plan === "free" ? FREE_DAILY_NEW_LESSON_CAP : null;
 }
 
-export function isLanguageAllowed(plan: Plan, lang: string): boolean {
-  const allowed = allowedLanguagesForPlan(plan);
+export function isLanguageAllowed(
+  plan: Plan,
+  lang: string,
+  chosenLanguage: string | null = null,
+): boolean {
+  const allowed = allowedLanguagesForPlan(plan, chosenLanguage);
   return allowed === null || allowed.includes(lang);
 }
 
@@ -164,6 +221,10 @@ export function upgradeRequired(
   reason: UpgradeReason,
   message: string,
   feature: string | null = null,
+  // The cheapest plan that unlocks the denied action. Language locks and the
+  // daily-lesson cap can be lifted by the middle tier; the all-access-only
+  // features (review, analytics, exclusive badges) require Plus.
+  requiredPlan: Plan = "plus",
 ): UpgradeRequiredPayload {
   return {
     error: "upgrade_required",
@@ -171,7 +232,7 @@ export function upgradeRequired(
     reason,
     message,
     feature,
-    requiredPlan: "plus",
+    requiredPlan,
   };
 }
 
@@ -202,6 +263,8 @@ export interface Entitlements {
   status: SubscriptionStatus;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  // The One Language tier's chosen language, or null for Free/Plus.
+  chosenLanguage: string | null;
   // The concrete list of language codes the caller may access.
   allowedLanguages: string[];
   features: PlanFeatures;
@@ -215,10 +278,10 @@ export function buildEntitlements(
   usedToday: number,
   allLanguageCodes: string[],
 ): Entitlements {
-  const { plan } = resolved;
+  const { plan, chosenLanguage } = resolved;
   const limit = dailyNewLessonLimit(plan);
   const remaining = limit === null ? null : Math.max(0, limit - usedToday);
-  const allowed = allowedLanguagesForPlan(plan);
+  const allowed = allowedLanguagesForPlan(plan, chosenLanguage);
   return {
     plan,
     status: resolved.status,
@@ -228,6 +291,8 @@ export function buildEntitlements(
     currentPeriodEnd: resolved.currentPeriodEnd
       ? resolved.currentPeriodEnd.toISOString()
       : null,
+    // Only surfaced for the middle tier; irrelevant (null) for Free/Plus.
+    chosenLanguage: plan === "one_language" ? chosenLanguage : null,
     // For Plus (allowed === null) return every seeded language so clients never
     // hardcode the list.
     allowedLanguages: allowed === null ? allLanguageCodes : allowed,

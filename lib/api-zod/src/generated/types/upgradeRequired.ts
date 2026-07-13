@@ -19,6 +19,6 @@ export interface UpgradeRequired {
   message: string;
   /** The related feature flag, when applicable (e.g. "allLanguages"). */
   feature: string | null;
-  /** The plan that unlocks the action (e.g. "plus"). */
+  /** The cheapest plan that unlocks the action ("one_language" or "plus"). */
   requiredPlan: string;
 }

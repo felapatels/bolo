@@ -35,6 +35,7 @@ export * from './progressAnalytics';
 export * from './progressSummary';
 export * from './pronunciationInput';
 export * from './pronunciationResult';
+export * from './setChosenLanguageInput';
 export * from './speechInput';
 export * from './speechResult';
 export * from './upgradeRequired';
