@@ -9,3 +9,4 @@
 - [Lesson cache invariant](lesson-cache-invariant.md) — lesson+phrases must insert atomically; never serve a zero-phrase cached lesson (regenerate); let generation failure propagate before any write.
 - [Review spaced-repetition](review-spaced-repetition.md) — /review/phrases orders by Leitner due-date (not plain weakest-first); mastery math untouched, response shape unchanged.
 - [Store submission assets](store-submission-assets.md) — Play/App Store prep for the Expo app: SVG→PNG listing graphics via gen-store-assets.sh, authed screenshots need a device, block unused Expo permissions.
+- [Pre-curated lessons](curated-lessons.md) — non-default languages' phrases are generated offline + frozen to committed JSON the seeder reads; Gujarati stays hand-curated with variable phrase counts (don't enforce exact-8).

@@ -1,0 +1,6722 @@
+{
+  "as": {
+    "everyday": {
+      "titleNative": "দৈনন্দিন শব্দ",
+      "phrases": [
+        {
+          "nativeScript": "হয়",
+          "romanized": "hoi",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "নহয়",
+          "romanized": "nohoi",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ধন্যবাদ",
+          "romanized": "dhonyobad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "অনুগ্ৰহ কৰি",
+          "romanized": "onugroho kori",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "নমস্কাৰ",
+          "romanized": "nomoskar",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "বিদায়",
+          "romanized": "bidai",
+          "english": "goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "মাফ কৰিব",
+          "romanized": "maaf koribo",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ঠিক আছে",
+          "romanized": "thik ase",
+          "english": "okay",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "পৰিয়াল",
+      "phrases": [
+        {
+          "nativeScript": "মা",
+          "romanized": "ma",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দেউতা",
+          "romanized": "deuta",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ভাই",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "বোন",
+          "romanized": "bon",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "আজী",
+          "romanized": "aji",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আজো",
+          "romanized": "ajo",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "পুতেক",
+          "romanized": "putek",
+          "english": "son",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "জী",
+          "romanized": "ji",
+          "english": "daughter",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "অনুভৱ",
+      "phrases": [
+        {
+          "nativeScript": "মই সুখী",
+          "romanized": "moi sukhi",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "মই দুখী",
+          "romanized": "moi dukhi",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "মই ভাল",
+          "romanized": "moi bhal",
+          "english": "I am fine",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "মই ভয় পাইছোঁ",
+          "romanized": "moi bhoy paikho",
+          "english": "I am scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "মই খং উঠিছে",
+          "romanized": "moi khong uthise",
+          "english": "I am angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "মই ক্লান্ত",
+          "romanized": "moi klanta",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "মই উত্তেজিত",
+          "romanized": "moi uttojito",
+          "english": "I am excited",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "মই চিন্তিত",
+          "romanized": "moi chintito",
+          "english": "I am worried",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "খাদ্য আৰু খোৱা",
+      "phrases": [
+        {
+          "nativeScript": "ভাত",
+          "romanized": "bhaat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "পানী",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "চামুচ",
+          "romanized": "chaamuch",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "প্লেট",
+          "romanized": "plet",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ডাইনিং টেবিল",
+          "romanized": "daining tebil",
+          "english": "dining table",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "খোৱা আৰম্ভ কৰা",
+          "romanized": "khowa aarombho kora",
+          "english": "start eating",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "নুন দিয়া",
+          "romanized": "nun diya",
+          "english": "pass the salt",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ধন্যবাদ, খাবাৰ বৰ সুস্বাদু",
+          "romanized": "dhonyobad, khabar bor su-swadu",
+          "english": "thank you, the food is very tasty",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "অভিবাদন আৰু শিষ্টাচাৰ",
+      "phrases": [
+        {
+          "nativeScript": "নমস্কাৰ",
+          "romanized": "nomoskar",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "বিদায়",
+          "romanized": "biday",
+          "english": "Goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ধন্যবাদ",
+          "romanized": "dhonyobad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ক্ষমা কৰিব",
+          "romanized": "khoma koribo",
+          "english": "Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "অনুগ্ৰহ কৰি",
+          "romanized": "onugroho kori",
+          "english": "Please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "সুপ্ৰভাত",
+          "romanized": "suprabhat",
+          "english": "Good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "শুভ সন্ধ্যা",
+          "romanized": "shubho sondhya",
+          "english": "Good evening",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আপোনাৰ সৈতে সাক্ষাৎ কৰি আনন্দিত হʼলোঁ",
+          "romanized": "apunar seote sakhat kori anondito holo",
+          "english": "Nice to meet you",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "১ৰ পৰা ১০লৈ সংখ্যা",
+      "phrases": [
+        {
+          "nativeScript": "এটা",
+          "romanized": "eṭa",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দুটা",
+          "romanized": "duta",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "তিনি",
+          "romanized": "tini",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "চাৰি",
+          "romanized": "cari",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "পাঁচ",
+          "romanized": "panc",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ছয়",
+          "romanized": "choy",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "সাত",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "দহ",
+          "romanized": "doh",
+          "english": "ten",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "bn": {
+    "everyday": {
+      "titleNative": "প্রতিদিনের শব্দ",
+      "phrases": [
+        {
+          "nativeScript": "হ্যাঁ",
+          "romanized": "hya",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "না",
+          "romanized": "na",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ধন্যবাদ",
+          "romanized": "dhonnobad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দয়া করে",
+          "romanized": "doya kore",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "সুপ্রভাত",
+          "romanized": "shuprobhat",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "শুভ রাত্রি",
+          "romanized": "shubho ratri",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "কেমন আছো?",
+          "romanized": "kemon acho?",
+          "english": "how are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আবার দেখা হবে",
+          "romanized": "abar dekha hobe",
+          "english": "see you again",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "পরিবার",
+      "phrases": [
+        {
+          "nativeScript": "মা",
+          "romanized": "ma",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "বাবা",
+          "romanized": "baba",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ভাই",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "বোন",
+          "romanized": "bon",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দাদা",
+          "romanized": "dada",
+          "english": "elder brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "দিদি",
+          "romanized": "didi",
+          "english": "elder sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "দাদু",
+          "romanized": "dadu",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ঠাকুমা",
+          "romanized": "thakuma",
+          "english": "grandmother",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "অনুভূতি",
+      "phrases": [
+        {
+          "nativeScript": "ভালো লাগছে",
+          "romanized": "bhalo lagchhe",
+          "english": "I feel good",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "খুশি",
+          "romanized": "khushi",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দুঃখিত",
+          "romanized": "dukkhito",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ভয় লাগছে",
+          "romanized": "bhoy lagchhe",
+          "english": "I feel scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "রাগ লাগছে",
+          "romanized": "rag lagchhe",
+          "english": "I feel angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আনন্দিত",
+          "romanized": "anondito",
+          "english": "excited",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ক্লান্ত",
+          "romanized": "klanto",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "কৌতূহলী",
+          "romanized": "koutuholi",
+          "english": "curious",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "খাদ্য ও খাওয়া",
+      "phrases": [
+        {
+          "nativeScript": "ভাত",
+          "romanized": "bhat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "রুটি",
+          "romanized": "roti",
+          "english": "flatbread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "পানি",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "চামচ",
+          "romanized": "chamoch",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "প্লেট",
+          "romanized": "plet",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "গ্লাস",
+          "romanized": "glass",
+          "english": "glass",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "খাবার",
+          "romanized": "khabar",
+          "english": "food",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ডিনারের টেবিল",
+          "romanized": "dinarer tebil",
+          "english": "dinner table",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "অভিবাদন ও ভদ্রতা",
+      "phrases": [
+        {
+          "nativeScript": "হ্যালো",
+          "romanized": "hello",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "নমস্কার",
+          "romanized": "nomoshkar",
+          "english": "hello / greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ধন্যবাদ",
+          "romanized": "dhonnobad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দয়া করে",
+          "romanized": "doya kore",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "সুপ্রভাত",
+          "romanized": "shuprobhat",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "শুভরাত্রি",
+          "romanized": "shubhoratri",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ক্ষমা করবেন",
+          "romanized": "khoma korben",
+          "english": "excuse me / sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "আপনি কেমন আছেন?",
+          "romanized": "apni kemon achhen?",
+          "english": "how are you?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "এক থেকে দশ",
+      "phrases": [
+        {
+          "nativeScript": "এক",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "দুই",
+          "romanized": "dui",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "তিন",
+          "romanized": "tin",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "চার",
+          "romanized": "char",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "পাঁচ",
+          "romanized": "panch",
+          "english": "five",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ছয়",
+          "romanized": "chhoy",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "সাত",
+          "romanized": "shat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "দশ",
+          "romanized": "dosh",
+          "english": "ten",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "brx": {
+    "everyday": {
+      "titleNative": "दैनदिन बिसोर",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यबाद",
+          "romanized": "dhanyabad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "हूं",
+          "romanized": "hun",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नाइ",
+          "romanized": "nai",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बेलै",
+          "romanized": "belai",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "क्षमा",
+          "romanized": "kshama",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कपाय",
+          "romanized": "kaphai",
+          "english": "okay",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "बिदा",
+          "romanized": "bida",
+          "english": "goodbye",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "मफाम",
+      "phrases": [
+        {
+          "nativeScript": "आबा",
+          "romanized": "aaba",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "आइ",
+          "romanized": "aai",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बोरा",
+          "romanized": "bora",
+          "english": "son",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बोरी",
+          "romanized": "bori",
+          "english": "daughter",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बा",
+          "romanized": "ba",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "बौ",
+          "romanized": "bau",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सोन",
+          "romanized": "son",
+          "english": "brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "साइ",
+          "romanized": "sai",
+          "english": "sister",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "जिमैनि",
+      "phrases": [
+        {
+          "nativeScript": "आनन्द",
+          "romanized": "anond",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "खुसी",
+          "romanized": "khusi",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "उरागो",
+          "romanized": "urago",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "डर",
+          "romanized": "dar",
+          "english": "afraid",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "गुस्सा",
+          "romanized": "gussa",
+          "english": "angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "थांबसो",
+          "romanized": "thambaso",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मफुवा",
+          "romanized": "mofuwa",
+          "english": "excited",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "आराम फिसो",
+          "romanized": "aram phiso",
+          "english": "comfortable",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "खाबा आरो जानथि",
+      "phrases": [
+        {
+          "nativeScript": "भात",
+          "romanized": "bhat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "जोल",
+          "romanized": "jol",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "लै",
+          "romanized": "lai",
+          "english": "tea",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "खाबा",
+          "romanized": "khaba",
+          "english": "food",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चाकु",
+          "romanized": "chaku",
+          "english": "knife",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चामुच",
+          "romanized": "chamuch",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "थालि",
+          "romanized": "thali",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "जन्दै",
+          "romanized": "jondai",
+          "english": "dinner",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिनन्दन आरो बोहायारि",
+      "phrases": [
+        {
+          "nativeScript": "जों",
+          "romanized": "jong",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "खराब बा?",
+          "romanized": "khorab ba?",
+          "english": "How are you?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यबाद",
+          "romanized": "dhonyabad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अननायो",
+          "romanized": "annayo",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "आंफ्राय",
+          "romanized": "amfray",
+          "english": "excuse me",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "क्षमाबा",
+          "romanized": "kshamaba",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "गुडनाइट",
+          "romanized": "goodnight",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "फारसेनै",
+          "romanized": "pharsenai",
+          "english": "goodbye",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "१-१० संखारि",
+      "phrases": [
+        {
+          "nativeScript": "थाम",
+          "romanized": "tham",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नि",
+          "romanized": "ni",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थुम",
+          "romanized": "thum",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ब्रा",
+          "romanized": "bra",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बा",
+          "romanized": "ba",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दौ",
+          "romanized": "dau",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सि",
+          "romanized": "si",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सुनि",
+          "romanized": "suni",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "doi": {
+    "everyday": {
+      "titleNative": "रोज़मर्रा दे लफ्ज़",
+      "phrases": [
+        {
+          "nativeScript": "हां",
+          "romanized": "haan",
+          "english": "Yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ना",
+          "romanized": "naa",
+          "english": "No",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "की हाल ऐ?",
+          "romanized": "kee haal ai?",
+          "english": "How are you?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यावाद",
+          "romanized": "dhanyaavaad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपा करियै",
+          "romanized": "kripaa kariyai",
+          "english": "Please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "माफ करियै",
+          "romanized": "maaf kariyai",
+          "english": "Excuse me / Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "में समझ निं आया",
+          "romanized": "main samajh nain aayaa",
+          "english": "I don't understand",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "फेर मिलदे हां",
+          "romanized": "pher milde haan",
+          "english": "See you later",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "परिवार",
+      "phrases": [
+        {
+          "nativeScript": "मां",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "प्यो",
+          "romanized": "pyo",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाई",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बहन",
+          "romanized": "bahan",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दादा",
+          "romanized": "dada",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दादी",
+          "romanized": "dadi",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "घर",
+          "romanized": "ghar",
+          "english": "home",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "परिवार",
+          "romanized": "parivar",
+          "english": "family",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भाव",
+      "phrases": [
+        {
+          "nativeScript": "ख़ुश",
+          "romanized": "khush",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दुखी",
+          "romanized": "dukhi",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "गुस्से च",
+          "romanized": "gusse ch",
+          "english": "angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "डर लग्गदा ऐ",
+          "romanized": "dar laggda ai",
+          "english": "I am scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मैनूं भूख लग्गी ऐ",
+          "romanized": "mainu bhukh laggi ai",
+          "english": "I am hungry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मैनूं थकावट ऐ",
+          "romanized": "mainu thakavat ai",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मैनूं चंगा लग्गदा ऐ",
+          "romanized": "mainu changa laggda ai",
+          "english": "I feel good",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मैनूं बक्शो, मैनूं ठीक निं ऐ",
+          "romanized": "mainu baksho, mainu theek nin ai",
+          "english": "Sorry, I am not feeling well",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "खाण-पीण",
+      "phrases": [
+        {
+          "nativeScript": "रोटी",
+          "romanized": "roti",
+          "english": "bread/chapati",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पानी",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थाली",
+          "romanized": "thali",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कचौड़ी",
+          "romanized": "kachori",
+          "english": "fried snack/pastry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चम्मच",
+          "romanized": "chammach",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कटोरी",
+          "romanized": "katori",
+          "english": "small bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "खाना परोआ",
+          "romanized": "khana paroa",
+          "english": "serve food",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "भूख लग्गी होई",
+          "romanized": "bhukh laggi hoi",
+          "english": "I am hungry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादन ते शिष्टाचार",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "शुभ प्रभात",
+          "romanized": "shubh prabhat",
+          "english": "Good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपा कन्नै",
+          "romanized": "kripa kammain",
+          "english": "Please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "माफ़ करियै",
+          "romanized": "maaf kariyai",
+          "english": "Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "किवें हो?",
+          "romanized": "kiven ho?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ रात्री",
+          "romanized": "shubh raatri",
+          "english": "Good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "फिर मिलांगे",
+          "romanized": "phir milange",
+          "english": "See you again",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "सङ्ख्यां १-१०",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दो",
+          "romanized": "do",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ती",
+          "romanized": "tee",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पंज",
+          "romanized": "panj",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "छे",
+          "romanized": "chhe",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सत्त",
+          "romanized": "satt",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अठ",
+          "romanized": "ath",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "hi": {
+    "everyday": {
+      "titleNative": "रोज़मर्रा के शब्द",
+      "phrases": [
+        {
+          "nativeScript": "हाँ",
+          "romanized": "haan",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नहीं",
+          "romanized": "nahin",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripya",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ़ कीजिए",
+          "romanized": "maaf kijiye",
+          "english": "excuse me / sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मुझे चाहिए",
+          "romanized": "mujhe chaahiye",
+          "english": "I want / I need",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मैं नहीं समझा",
+          "romanized": "main nahin samjha",
+          "english": "I did not understand",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "क्या आप मदद कर सकते हैं?",
+          "romanized": "kya aap madad kar sakte hain?",
+          "english": "Can you help?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "परिवार",
+      "phrases": [
+        {
+          "nativeScript": "माँ",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पिता",
+          "romanized": "pitaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाई",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बहन",
+          "romanized": "behan",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दादा",
+          "romanized": "daadaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दादी",
+          "romanized": "daadee",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "माता-पिता",
+          "romanized": "maataa-pitaa",
+          "english": "parents",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "परिवार",
+          "romanized": "parivaar",
+          "english": "family",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भावनाएँ",
+      "phrases": [
+        {
+          "nativeScript": "खुश",
+          "romanized": "khush",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दुखी",
+          "romanized": "dukhi",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "डर",
+          "romanized": "dar",
+          "english": "fear",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "गुस्सा",
+          "romanized": "gussa",
+          "english": "angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थका हुआ",
+          "romanized": "thaka hua",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "उत्साहित",
+          "romanized": "utsahit",
+          "english": "excited",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चिंतित",
+          "romanized": "chintit",
+          "english": "worried",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "शांत",
+          "romanized": "shant",
+          "english": "calm",
+          "difficulty": 2
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "भोजन और खाना",
+      "phrases": [
+        {
+          "nativeScript": "खाना",
+          "romanized": "khaana",
+          "english": "food / meal",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पानी",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थाली",
+          "romanized": "thaali",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कटोरी",
+          "romanized": "katori",
+          "english": "small bowl",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चम्मच",
+          "romanized": "chamach",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कांटा",
+          "romanized": "kaanta",
+          "english": "fork",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "रोटी",
+          "romanized": "roti",
+          "english": "flatbread",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कृपया मुझे पानी दीजिए",
+          "romanized": "kripya mujhe paani dijie",
+          "english": "Please give me water",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादन और शिष्टाचार",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ़ कीजिए",
+          "romanized": "maaf kijiye",
+          "english": "Excuse me / Sorry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripya",
+          "english": "Please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सुप्रभात",
+          "romanized": "suprabhaat",
+          "english": "Good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ रात्रि",
+          "romanized": "shubh raatri",
+          "english": "Good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कैसे हैं?",
+          "romanized": "kaise hain?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आपका स्वागत है",
+          "romanized": "aapka swagat hai",
+          "english": "You’re welcome",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "संख्याएँ 1-10",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दो",
+          "romanized": "do",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तीन",
+          "romanized": "teen",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पाँच",
+          "romanized": "paanch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "छह",
+          "romanized": "chhah",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सात",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आठ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "kn": {
+    "everyday": {
+      "titleNative": "ದೈನಂದಿನ ಪದಗಳು",
+      "phrases": [
+        {
+          "nativeScript": "ನಮಸ್ಕಾರ",
+          "romanized": "namaskara",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಧನ್ಯವಾದಗಳು",
+          "romanized": "dhanyavadagalu",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಕ್ಷಮಿಸಿ",
+          "romanized": "kshamisi",
+          "english": "sorry / excuse me",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಹೌದು",
+          "romanized": "haudu",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಇಲ್ಲ",
+          "romanized": "illa",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ದಯವಿಟ್ಟು",
+          "romanized": "dayavittu",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ನನಗೆ ಗೊತ್ತಿಲ್ಲ",
+          "romanized": "nanage gottilla",
+          "english": "I don't know",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ನನಗೆ ಬೇಕು",
+          "romanized": "nanage beku",
+          "english": "I want / I need",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "ಕುಟುಂಬ",
+      "phrases": [
+        {
+          "nativeScript": "ಅಮ್ಮ",
+          "romanized": "amma",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಅಪ್ಪ",
+          "romanized": "appa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಅಣ್ಣ",
+          "romanized": "anna",
+          "english": "older brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಅಕ್ಕ",
+          "romanized": "akka",
+          "english": "older sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ತಮ್ಮ",
+          "romanized": "tamma",
+          "english": "younger brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ತಂಗಿ",
+          "romanized": "tangi",
+          "english": "younger sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಅಜ್ಜ",
+          "romanized": "ajja",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಅಜ್ಜಿ",
+          "romanized": "ajji",
+          "english": "grandmother",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "ಭಾವನೆಗಳು",
+      "phrases": [
+        {
+          "nativeScript": "ನನಗೆ ಸಂತೋಷವಾಗಿದೆ",
+          "romanized": "nanage santoshavagide",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನನಗೆ ದುಃಖವಾಗಿದೆ",
+          "romanized": "nanage dukhkhavagide",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನನಗೆ ಭಯವಾಗಿದೆ",
+          "romanized": "nanage bhayavagide",
+          "english": "I am scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನನಗೆ ಕೋಪವಾಗಿದೆ",
+          "romanized": "nanage kopavagide",
+          "english": "I am angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನನಗೆ ನಿದ್ದೆ ಬರುತ್ತಿದೆ",
+          "romanized": "nanage nidde baruttide",
+          "english": "I am sleepy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ನನಗೆ ಹಸಿವಾಗಿದೆ",
+          "romanized": "nanage hasivagide",
+          "english": "I am hungry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ನನಗೆ ಚೆನ್ನಾಗಿ ಅನಿಸುತ್ತದೆ",
+          "romanized": "nanage chennagi anisutte",
+          "english": "I feel good",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ನನಗೆ ನೋವಾಗಿದೆ",
+          "romanized": "nanage novagide",
+          "english": "I am hurt",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ಆಹಾರ ಮತ್ತು ಊಟ",
+      "phrases": [
+        {
+          "nativeScript": "ಅನ್ನ",
+          "romanized": "anna",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ರೊಟ್ಟಿ",
+          "romanized": "rotti",
+          "english": "bread/roti",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಪ್ಲೇಟ್",
+          "romanized": "pleet",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಚಮಚ",
+          "romanized": "chamacha",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನೀರು",
+          "romanized": "neeru",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಉಪ್ಪು",
+          "romanized": "uppu",
+          "english": "salt",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಸಾರು",
+          "romanized": "saaru",
+          "english": "soup / curry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಊಟ ಮಾಡಿ",
+          "romanized": "oota maadi",
+          "english": "eat a meal / have dinner",
+          "difficulty": 2
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ಶುಭಾಶಯಗಳು ಮತ್ತು ವಿನಯ",
+      "phrases": [
+        {
+          "nativeScript": "ನಮಸ್ಕಾರ",
+          "romanized": "namaskara",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ವಂದನೆಗಳು",
+          "romanized": "vandanegaloo",
+          "english": "greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಧನ್ಯವಾದಗಳು",
+          "romanized": "dhanyavadagalu",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಕ್ಷಮಿಸಿ",
+          "romanized": "kshamisi",
+          "english": "sorry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ದಯವಿಟ್ಟು",
+          "romanized": "dayavittu",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಶುಭೋದಯ",
+          "romanized": "shubhodaya",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಶುಭ ರಾತ್ರಿ",
+          "romanized": "shubha raatri",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ಮಾತನಾಡಿ",
+          "romanized": "maatanaadi",
+          "english": "please speak",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "ಸಂಖ್ಯೆಗಳು 1-10",
+      "phrases": [
+        {
+          "nativeScript": "ಒಂದು",
+          "romanized": "ondu",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಎರಡು",
+          "romanized": "eraDu",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಮೂರು",
+          "romanized": "mooru",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ನಾಲ್ಕು",
+          "romanized": "naalku",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಐದು",
+          "romanized": "aidu",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಆರು",
+          "romanized": "aaru",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಏಳು",
+          "romanized": "eLu",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ಎಂಟು",
+          "romanized": "entu",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "kok": {
+    "everyday": {
+      "titleNative": "दररोजचे शब्द",
+      "phrases": [
+        {
+          "nativeScript": "हांव",
+          "romanized": "haav",
+          "english": "I",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तूं",
+          "romanized": "tuu",
+          "english": "you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "हय",
+          "romanized": "hay",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नाहीं",
+          "romanized": "naahim",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कशें आसा?",
+          "romanized": "kashem aasa?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "thank you",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "उपकार",
+          "romanized": "upkaar",
+          "english": "please / favor",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "माफ कर",
+          "romanized": "maaf kar",
+          "english": "sorry / forgive me",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "कुटुंब",
+      "phrases": [
+        {
+          "nativeScript": "आई",
+          "romanized": "aai",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बाब",
+          "romanized": "baab",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पूत",
+          "romanized": "poot",
+          "english": "son",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मुलगी",
+          "romanized": "mulgi",
+          "english": "daughter",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाऊ",
+          "romanized": "bhaau",
+          "english": "brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आमी",
+          "romanized": "aami",
+          "english": "mother and father",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आजोबो",
+          "romanized": "aajobo",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आजी",
+          "romanized": "aaji",
+          "english": "grandmother",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भावना",
+      "phrases": [
+        {
+          "nativeScript": "बरें वाटता",
+          "romanized": "baren vattata",
+          "english": "I feel good",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "म्हाका बरें दिसता",
+          "romanized": "mhaka borem dista",
+          "english": "I feel fine",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "म्हाका खुष जाला",
+          "romanized": "mhaka khush jala",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "म्हाका दु:ख जालां",
+          "romanized": "mhaka dukh jalam",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "म्हाका भेव वाटता",
+          "romanized": "mhaka bhev vattata",
+          "english": "I feel afraid",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "म्हाका राग येता",
+          "romanized": "mhaka rag yeta",
+          "english": "I feel angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "म्हाका थकलो",
+          "romanized": "mhaka thaklo",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "म्हाका उत्सुकता आस्सा",
+          "romanized": "mhaka utsukta assa",
+          "english": "I am excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "अन्न आनी खावप",
+      "phrases": [
+        {
+          "nativeScript": "भात",
+          "romanized": "bhaat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पाणी",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भांडी",
+          "romanized": "bhaanddi",
+          "english": "dishes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ताट",
+          "romanized": "taat",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "वाटी",
+          "romanized": "vaatti",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चमचो",
+          "romanized": "chamcho",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "फोर्क",
+          "romanized": "fork",
+          "english": "fork",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "रवाळा",
+          "romanized": "ravaala",
+          "english": "napkin",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "नमस्कार आनी नम्रपण",
+      "phrases": [
+        {
+          "nativeScript": "नमस्कार",
+          "romanized": "namaskar",
+          "english": "hello / greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "देव बरें करूं",
+          "romanized": "dev barem karun",
+          "english": "goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "आभार",
+          "romanized": "abhaar",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपा करून",
+          "romanized": "kripa korun",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ करात",
+          "romanized": "maaf karat",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "तुमकां कशें आसा?",
+          "romanized": "tumkam kashem asa?",
+          "english": "how are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "हांव बरो आसा.",
+          "romanized": "haav baro asa.",
+          "english": "I am fine.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "तुमकां भेटून खोशी जाली.",
+          "romanized": "tumkam bhetun khoshi jhali.",
+          "english": "nice to meet you.",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "एक ते दहा अंक",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दोन",
+          "romanized": "don",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तीन",
+          "romanized": "tin",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "char",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पांच",
+          "romanized": "panch",
+          "english": "five",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सहा",
+          "romanized": "saha",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सात",
+          "romanized": "sat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आठ",
+          "romanized": "ath",
+          "english": "eight",
+          "difficulty": 3
+        }
+      ]
+    }
+  },
+  "ks": {
+    "everyday": {
+      "titleNative": "یِومیہ لفظ",
+      "phrases": [
+        {
+          "nativeScript": "آیہ",
+          "romanized": "aaya",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نہٕ",
+          "romanized": "nah",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نَمستے",
+          "romanized": "namaste",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شُکریہ",
+          "romanized": "shukriya",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مُنّٛے",
+          "romanized": "munne",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مَٲفی گژھو",
+          "romanized": "maafi gachho",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کَہٕن۪ن",
+          "romanized": "kahnin",
+          "english": "what",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "کِتھ",
+          "romanized": "kith",
+          "english": "where",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "خٲندان",
+      "phrases": [
+        {
+          "nativeScript": "ماہ",
+          "romanized": "maah",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ابا",
+          "romanized": "abaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "بیا",
+          "romanized": "beeyaa",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "بہن",
+          "romanized": "behan",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "دادی",
+          "romanized": "daadi",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "دادا",
+          "romanized": "daadaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "چاچا",
+          "romanized": "chaacha",
+          "english": "uncle",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "باجی",
+          "romanized": "baaji",
+          "english": "older sister / aunt",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "جذبات",
+      "phrases": [
+        {
+          "nativeScript": "زَنٛگ",
+          "romanized": "zang",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "دُکھی",
+          "romanized": "dukhi",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڈرَنہٕر",
+          "romanized": "daranhar",
+          "english": "afraid",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "غَصَّہٕ",
+          "romanized": "ghassa",
+          "english": "angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "تھکان",
+          "romanized": "thakaan",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "اَچھُو",
+          "romanized": "achhu",
+          "english": "good",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "بیمار",
+          "romanized": "beemar",
+          "english": "sick",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مُشتاق",
+          "romanized": "mushtaaq",
+          "english": "excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "خورَک تِہ ژٕرُن",
+      "phrases": [
+        {
+          "nativeScript": "روٹی",
+          "romanized": "roti",
+          "english": "bread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چاول",
+          "romanized": "chaaval",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پانی",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نمک",
+          "romanized": "namak",
+          "english": "salt",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چمچ",
+          "romanized": "chamach",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "پلیٹ",
+          "romanized": "plate",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کاسہ",
+          "romanized": "kaasa",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کھٲنٕس پٲٹھَہ",
+          "romanized": "khanas paath",
+          "english": "dinner table",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "سلامَتۍ تہ آداب",
+      "phrases": [
+        {
+          "nativeScript": "آداب",
+          "romanized": "aadaab",
+          "english": "hello; greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "سُپرا بھَت",
+          "romanized": "suprā bhat",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "خُدا حافظ",
+          "romanized": "khuda haafiz",
+          "english": "goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شُکریہ",
+          "romanized": "shukriya",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مہربانی",
+          "romanized": "meharbaani",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "معاف کِیجئے",
+          "romanized": "maaf keejiye",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کِرنِو مہربانی",
+          "romanized": "karniv meharbaani",
+          "english": "please do it",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "تُہندُک شُکریہ",
+          "romanized": "tuhanduk shukriya",
+          "english": "thank you very much",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "شمار ۱-۱۰",
+      "phrases": [
+        {
+          "nativeScript": "یِک",
+          "romanized": "yek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "دو",
+          "romanized": "do",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "تِرٕہ",
+          "romanized": "trih",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چار",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پَنج",
+          "romanized": "panch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شَش",
+          "romanized": "shash",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "سَت",
+          "romanized": "sat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "اَٹھ",
+          "romanized": "ath",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "mai": {
+    "everyday": {
+      "titleNative": "दैनिक शब्द",
+      "phrases": [
+        {
+          "nativeScript": "नहि",
+          "romanized": "nahi",
+          "english": "No",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "हँ",
+          "romanized": "han",
+          "english": "Yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripaya",
+          "english": "Please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नमस्कार",
+          "romanized": "namaskar",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सुप्रभात",
+          "romanized": "suprabhat",
+          "english": "Good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ रात्रि",
+          "romanized": "shubh ratri",
+          "english": "Good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कनी?",
+          "romanized": "kani?",
+          "english": "How much?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "परिवार",
+      "phrases": [
+        {
+          "nativeScript": "माँ",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बाबु",
+          "romanized": "babu",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाइ",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बहिन",
+          "romanized": "behin",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "घर",
+          "romanized": "ghar",
+          "english": "home",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दादाजी",
+          "romanized": "dadaji",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दादीजी",
+          "romanized": "dadiji",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "परिवार",
+          "romanized": "parivar",
+          "english": "family",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भाव",
+      "phrases": [
+        {
+          "nativeScript": "खुश छी",
+          "romanized": "khush chhi",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दुखी छी",
+          "romanized": "dukhi chhi",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भूख लागल अछि",
+          "romanized": "bhukh lagal achhi",
+          "english": "I am hungry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पियास लागल अछि",
+          "romanized": "piyas lagal achhi",
+          "english": "I am thirsty",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "डर लागैत अछि",
+          "romanized": "dar lagait achhi",
+          "english": "I am scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "थाकल छी",
+          "romanized": "thakal chhi",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "गुस्सा अछि",
+          "romanized": "gussa achhi",
+          "english": "I am angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "उत्साहित छी",
+          "romanized": "utsahit chhi",
+          "english": "I am excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "खाना आ खाइब",
+      "phrases": [
+        {
+          "nativeScript": "भात",
+          "romanized": "bhaat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "रोटी",
+          "romanized": "roṭi",
+          "english": "bread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पानी",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थाल",
+          "romanized": "thaal",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कटोरी",
+          "romanized": "kaṭori",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "काँटा",
+          "romanized": "kaanṭa",
+          "english": "fork",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चम्मच",
+          "romanized": "chammach",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "खाना खाउ",
+          "romanized": "khaana khaau",
+          "english": "eat food",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादन आ शिष्टाचार",
+      "phrases": [
+        {
+          "nativeScript": "नमस्कार",
+          "romanized": "namaskar",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripaya",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सुप्रभात",
+          "romanized": "suprabhat",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "शुभ रात्रि",
+          "romanized": "shubh ratri",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "किछु नहि",
+          "romanized": "kichhu nahi",
+          "english": "you're welcome",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "क्षमा करू",
+          "romanized": "kshama karu",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आब फेर भेटब",
+          "romanized": "ab pher bhetab",
+          "english": "see you again",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "एकसँ दस",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दू",
+          "romanized": "doo",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तीन",
+          "romanized": "teen",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पाँच",
+          "romanized": "paanch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "छह",
+          "romanized": "chhah",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सात",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आठ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "ml": {
+    "everyday": {
+      "titleNative": "ദൈനംദിന വാക്കുകൾ",
+      "phrases": [
+        {
+          "nativeScript": "ഹലോ",
+          "romanized": "hallo",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "നന്ദി",
+          "romanized": "nandi",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "അതെ",
+          "romanized": "athe",
+          "english": "Yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഇല്ല",
+          "romanized": "illa",
+          "english": "No",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ദയവായി",
+          "romanized": "dayavaayi",
+          "english": "Please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ക്ഷമിക്കണം",
+          "romanized": "kshamikkanam",
+          "english": "Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ശരി",
+          "romanized": "shari",
+          "english": "Okay",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "എനിക്ക് മനസ്സിലായി",
+          "romanized": "enikku manassilaayi",
+          "english": "I understand",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "കുടുംബം",
+      "phrases": [
+        {
+          "nativeScript": "അമ്മ",
+          "romanized": "amma",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "അച്ഛൻ",
+          "romanized": "achchan",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ചേച്ചി",
+          "romanized": "chechi",
+          "english": "older sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "അണ്ണൻ",
+          "romanized": "annan",
+          "english": "older brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "അമ്മമ്മ",
+          "romanized": "ammamma",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "അപ്പൂപ്പൻ",
+          "romanized": "appuppan",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ഇളയ സഹോദരി",
+          "romanized": "ilaya sahodari",
+          "english": "younger sister",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ഇളയ സഹോദരൻ",
+          "romanized": "ilaya sahodaran",
+          "english": "younger brother",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "വികാരങ്ങൾ",
+      "phrases": [
+        {
+          "nativeScript": "സന്തോഷം",
+          "romanized": "santhosham",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ദുഃഖം",
+          "romanized": "duhkham",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ശരി",
+          "romanized": "shari",
+          "english": "okay",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "കോപം",
+          "romanized": "kopam",
+          "english": "angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഭയം",
+          "romanized": "bhayam",
+          "english": "afraid",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ക്ഷീണം",
+          "romanized": "ksheenam",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "വിഷമം തോന്നുന്നു",
+          "romanized": "vishamam thonnunnu",
+          "english": "I feel upset",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "എനിക്ക് സന്തോഷം തോന്നുന്നു",
+          "romanized": "enikku santhosham thonnunnu",
+          "english": "I feel happy",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ഭക്ഷണവും ഭക്ഷണവും",
+      "phrases": [
+        {
+          "nativeScript": "അരി",
+          "romanized": "ari",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "വെള്ളം",
+          "romanized": "vellam",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ചോറ്",
+          "romanized": "choru",
+          "english": "cooked rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "കറി",
+          "romanized": "kari",
+          "english": "curry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "പാത്രം",
+          "romanized": "paathram",
+          "english": "plate / dish",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "സ്പൂൺ",
+          "romanized": "spoon",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "മേശ",
+          "romanized": "mesha",
+          "english": "table",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "നന്ദി",
+          "romanized": "nandi",
+          "english": "thank you",
+          "difficulty": 1
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "അഭിവാദനങ്ങളും വിനീതവാക്കുകളും",
+      "phrases": [
+        {
+          "nativeScript": "നമസ്കാരം",
+          "romanized": "namaskaram",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഹായ്",
+          "romanized": "hai",
+          "english": "hi",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഗുഡ് മോർണിംഗ്",
+          "romanized": "good morning",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഗുഡ് നൈറ്റ്",
+          "romanized": "good night",
+          "english": "good night",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ദയവായി",
+          "romanized": "dayavaayi",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "നന്ദി",
+          "romanized": "nandi",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ക്ഷമിക്കണം",
+          "romanized": "kshamikkanam",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "സുഖമാണോ?",
+          "romanized": "sukhamano?",
+          "english": "how are you?",
+          "difficulty": 2
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "എണ്ണുകൾ 1-10",
+      "phrases": [
+        {
+          "nativeScript": "ഒന്ന്",
+          "romanized": "onnu",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "രണ്ട്",
+          "romanized": "randu",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "മൂന്ന്",
+          "romanized": "moonnu",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "നാല്",
+          "romanized": "naalu",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "അഞ്ച്",
+          "romanized": "anchu",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ആറ്",
+          "romanized": "aaru",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ഏഴ്",
+          "romanized": "ezhu",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "എട്ട്",
+          "romanized": "ettu",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "mni": {
+    "everyday": {
+      "titleNative": "ꯑꯦꯕꯥꯏꯀ꯭ ꯋꯣꯔꯗ꯭ꯁ",
+      "phrases": [
+        {
+          "nativeScript": "ꯊꯄ",
+          "romanized": "thapa",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯊꯦꯡꯀ꯭ꯌꯨ",
+          "romanized": "thengkyu",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯂꯩ",
+          "romanized": "lai",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯃꯅꯤ",
+          "romanized": "mani",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯉꯧꯁꯨ",
+          "romanized": "ngousu",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯂꯩꯔꯤ",
+          "romanized": "lairi",
+          "english": "good",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯑꯃꯜꯂꯤ",
+          "romanized": "amalli",
+          "english": "okay",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯆꯠꯇꯦ",
+          "romanized": "chatte",
+          "english": "sorry",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "ꯃꯃꯍꯥꯛ",
+      "phrases": [
+        {
+          "nativeScript": "ꯃꯥ",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯄꯥ",
+          "romanized": "paa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯏꯌꯥꯖꯩ",
+          "romanized": "iyajai",
+          "english": "elder brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯏꯃꯥ",
+          "romanized": "imaa",
+          "english": "elder sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯌꯣꯅꯥ",
+          "romanized": "yonaa",
+          "english": "younger brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯌꯣꯅꯤ",
+          "romanized": "yoni",
+          "english": "younger sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯏꯃꯥ ꯑꯃꯁꯨ ꯄꯥ ꯑꯃꯁꯨ",
+          "romanized": "imaa amasu paa amasu",
+          "english": "mother and father",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯃꯃꯒꯤ ꯂꯩꯍꯥꯛ",
+          "romanized": "mama-gi laihaak",
+          "english": "my family",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "ꯐꯤꯡ",
+      "phrases": [
+        {
+          "nativeScript": "ꯍꯦꯡꯕ",
+          "romanized": "hengba",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯃꯇꯦꯜ",
+          "romanized": "matel",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯇꯧꯅ",
+          "romanized": "tauna",
+          "english": "angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯂꯧꯕ",
+          "romanized": "lauba",
+          "english": "scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯂꯧꯃ",
+          "romanized": "lauma",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯆꯡꯕ",
+          "romanized": "changba",
+          "english": "worried",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯍꯤꯟꯅꯕ",
+          "romanized": "hinnaba",
+          "english": "calm",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ꯍꯧꯌꯦꯟꯕ",
+          "romanized": "houyenba",
+          "english": "excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ꯑꯦꯃ ꯑꯥꯗꯤ ꯑꯃꯀꯣꯟ",
+      "phrases": [
+        {
+          "nativeScript": "ꯂꯩ",
+          "romanized": "lei",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯆꯥ",
+          "romanized": "cha",
+          "english": "food",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯉꯥꯣ",
+          "romanized": "nga",
+          "english": "fish",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯊꯣꯅꯥ",
+          "romanized": "thona",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯀꯔꯥ",
+          "romanized": "kara",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯄꯥꯟ",
+          "romanized": "pan",
+          "english": "cup",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯑꯃꯨꯕꯤ ꯂꯧ",
+          "romanized": "amubi lou",
+          "english": "please pass me the water",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ꯁꯧꯖꯠ ꯍꯧꯖꯤ",
+          "romanized": "saujat houji",
+          "english": "thank you for the meal",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ꯑꯄꯨꯟ ꯃꯁꯤ ꯑꯃꯁꯨꯡ",
+      "phrases": [
+        {
+          "nativeScript": "ꯎꯏ",
+          "romanized": "ui",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯍꯣ",
+          "romanized": "ho",
+          "english": "Yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯌꯦꯃꯥ",
+          "romanized": "yema",
+          "english": "Okay",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯊꯨꯉꯧ",
+          "romanized": "thungao",
+          "english": "Good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯏꯦꯄꯩ ꯅꯣꯡꯒꯦ",
+          "romanized": "epeinonge",
+          "english": "Thank you",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯄꯥꯛꯀꯔꯤ",
+          "romanized": "pakkari",
+          "english": "Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯅꯤꯡꯊꯣꯚꯥ",
+          "romanized": "ningthouba",
+          "english": "Please",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ꯃꯃ ꯂꯣꯏ",
+          "romanized": "mama loi",
+          "english": "Goodbye",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "ꯅꯨꯝꯕꯔ 1-10",
+      "phrases": [
+        {
+          "nativeScript": "ꯑꯃ",
+          "romanized": "ama",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯑꯅꯤ",
+          "romanized": "ani",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯑꯈꯨꯝ",
+          "romanized": "akhum",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯃꯔꯤ",
+          "romanized": "mari",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ꯃꯈꯣꯡ",
+          "romanized": "makhong",
+          "english": "five",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯇꯔꯦ",
+          "romanized": "tare",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯇꯣꯒꯦ",
+          "romanized": "toge",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ꯅ꯭ꯋꯥꯏꯁꯤꯡ",
+          "romanized": "nwaising",
+          "english": "eight",
+          "difficulty": 3
+        }
+      ]
+    }
+  },
+  "mr": {
+    "everyday": {
+      "titleNative": "दैनंदिन शब्द",
+      "phrases": [
+        {
+          "nativeScript": "हो",
+          "romanized": "ho",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नाही",
+          "romanized": "naahi",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "krupaya",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नमस्कार",
+          "romanized": "namaskaar",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ करा",
+          "romanized": "maaf kara",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "काय?",
+          "romanized": "kaay?",
+          "english": "what?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ठीक आहे",
+          "romanized": "theek aahe",
+          "english": "okay",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "कुटुंब",
+      "phrases": [
+        {
+          "nativeScript": "आई",
+          "romanized": "aai",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बाबा",
+          "romanized": "baba",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाऊ",
+          "romanized": "bhau",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बहीण",
+          "romanized": "bahin",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "आजोबा",
+          "romanized": "ajoba",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "आजी",
+          "romanized": "aaji",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मामा",
+          "romanized": "mama",
+          "english": "maternal uncle",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कुटुंबातील सदस्य",
+          "romanized": "kutumbatil sadasya",
+          "english": "family members",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भावना",
+      "phrases": [
+        {
+          "nativeScript": "मला आनंद आहे",
+          "romanized": "mala anand aahe",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मला बरं वाटतं",
+          "romanized": "mala bara vatata",
+          "english": "I feel good",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मला भूक लागली आहे",
+          "romanized": "mala bhook lagli aahe",
+          "english": "I am hungry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मला तहान लागली आहे",
+          "romanized": "mala tahan lagli aahe",
+          "english": "I am thirsty",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "मला थकवा आला आहे",
+          "romanized": "mala thakva ala aahe",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मला दुःख वाटत आहे",
+          "romanized": "mala dukh vatat aahe",
+          "english": "I feel sad",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मला भीती वाटते",
+          "romanized": "mala bhiti vatte",
+          "english": "I am scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "मला राग आला आहे",
+          "romanized": "mala rag ala aahe",
+          "english": "I am angry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "अन्न आणि खाणे",
+      "phrases": [
+        {
+          "nativeScript": "पाणी",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भाकरी",
+          "romanized": "bhakri",
+          "english": "flatbread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भात",
+          "romanized": "bhaat",
+          "english": "cooked rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पोळी",
+          "romanized": "poli",
+          "english": "chapati",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "वाटी",
+          "romanized": "vati",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ताट",
+          "romanized": "taat",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "चमचा",
+          "romanized": "chamcha",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "जेवण वाढा",
+          "romanized": "jevan vaadha",
+          "english": "serve the meal",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादन आणि शिष्टाचार",
+      "phrases": [
+        {
+          "nativeScript": "नमस्कार",
+          "romanized": "namaskaar",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyavaad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "krupayaa",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सकाळी नमस्कार",
+          "romanized": "sakaali namaskaar",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "निरोप",
+          "romanized": "niroop",
+          "english": "goodbye",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ रात्री",
+          "romanized": "shubh raatri",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "तुमचं नाव काय?",
+          "romanized": "tumcha naav kaa?",
+          "english": "what is your name?",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "माफ करा",
+          "romanized": "maaf kara",
+          "english": "sorry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "एक ते दहा",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दोन",
+          "romanized": "don",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तीन",
+          "romanized": "tin",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पाच",
+          "romanized": "pach",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सहा",
+          "romanized": "sahaa",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सात",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दहा",
+          "romanized": "dahaa",
+          "english": "ten",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "ne": {
+    "everyday": {
+      "titleNative": "दैनिक शब्दहरू",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyabad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "हो",
+          "romanized": "ho",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "होइन",
+          "romanized": "hoina",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripaya",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ गर्नुहोस्",
+          "romanized": "maaf garnuhos",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ठीक छ",
+          "romanized": "thik cha",
+          "english": "okay",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "बिदाइ",
+          "romanized": "bidaai",
+          "english": "goodbye",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "परिवार",
+      "phrases": [
+        {
+          "nativeScript": "आमा",
+          "romanized": "ama",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बुबा",
+          "romanized": "buba",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दिदी",
+          "romanized": "didi",
+          "english": "older sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दाइ",
+          "romanized": "dai",
+          "english": "older brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "बहिनी",
+          "romanized": "bahini",
+          "english": "younger sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "भाइ",
+          "romanized": "bhai",
+          "english": "younger brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "हजुरआमा",
+          "romanized": "hajurama",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "हजुरबुबा",
+          "romanized": "hajurbuba",
+          "english": "grandfather",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भावनाहरू",
+      "phrases": [
+        {
+          "nativeScript": "खुसी",
+          "romanized": "khusi",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दुखी",
+          "romanized": "dukhi",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "रिसाएको",
+          "romanized": "risaaeko",
+          "english": "angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "डर लागेको",
+          "romanized": "dar lageko",
+          "english": "scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "थकित",
+          "romanized": "thakit",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "उत्साहित",
+          "romanized": "utsaahit",
+          "english": "excited",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "निराश",
+          "romanized": "niraash",
+          "english": "disappointed",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "चिन्तित",
+          "romanized": "chintit",
+          "english": "worried",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "खाना र खानु",
+      "phrases": [
+        {
+          "nativeScript": "भात",
+          "romanized": "bhaat",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दाल",
+          "romanized": "daal",
+          "english": "lentil soup",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पानी",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चाम्चा",
+          "romanized": "chaamcha",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "प्लेट",
+          "romanized": "plet",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "गिलास",
+          "romanized": "gilaas",
+          "english": "glass",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "नुन",
+          "romanized": "nun",
+          "english": "salt",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "काँटा",
+          "romanized": "kaanta",
+          "english": "fork",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादन र शिष्टाचार",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवाद",
+          "romanized": "dhanyabad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripaya",
+          "english": "Please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "माफ गर्नुहोस्",
+          "romanized": "maaf garnuhos",
+          "english": "Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ प्रभात",
+          "romanized": "shubh prabhat",
+          "english": "Good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभ रात्री",
+          "romanized": "shubh ratri",
+          "english": "Good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "तपाईंलाई भेटेर खुशी लाग्यो",
+          "romanized": "tapainlai bhetera khushi lagyo",
+          "english": "Nice to meet you",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "विदा लिन्छु",
+          "romanized": "bida linchu",
+          "english": "Goodbye",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "१ देखि १० सम्मका संख्याहरू",
+      "phrases": [
+        {
+          "nativeScript": "एक",
+          "romanized": "ek",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दुई",
+          "romanized": "dui",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "तीन",
+          "romanized": "tin",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चार",
+          "romanized": "char",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पाँच",
+          "romanized": "paanch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "छह",
+          "romanized": "chhah",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "सात",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "दश",
+          "romanized": "dasha",
+          "english": "ten",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "or": {
+    "everyday": {
+      "titleNative": "ଦୈନନ୍ଦିନ ଶବ୍ଦ",
+      "phrases": [
+        {
+          "nativeScript": "ହଁ",
+          "romanized": "han",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ନା",
+          "romanized": "naa",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଦୟାକରି",
+          "romanized": "dayakarI",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଧନ୍ୟବାଦ",
+          "romanized": "dhanyabad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "କ୍ଷମା କରନ୍ତୁ",
+          "romanized": "kshama karantu",
+          "english": "sorry / excuse me",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଶୁଭ ସକାଳ",
+          "romanized": "shubha sakala",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ମୁଁ ଭଲ ଅଛି",
+          "romanized": "mu bhala achhi",
+          "english": "I am fine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ବିଦାୟ",
+          "romanized": "bidaya",
+          "english": "goodbye",
+          "difficulty": 1
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "ପରିବାର",
+      "phrases": [
+        {
+          "nativeScript": "ମା",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ବାପା",
+          "romanized": "bapaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଭାଇ",
+          "romanized": "bhaai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଭଉଣୀ",
+          "romanized": "bhauṇi",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଜେଜେ ମା",
+          "romanized": "jeje maa",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଜେଜେ ବାପା",
+          "romanized": "jeje bapaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଛୋଟ ଭାଇ",
+          "romanized": "chhota bhaai",
+          "english": "younger brother",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ଛୋଟ ଭଉଣୀ",
+          "romanized": "chhota bhauṇi",
+          "english": "younger sister",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "ଭାବନା",
+      "phrases": [
+        {
+          "nativeScript": "ଖୁସି",
+          "romanized": "khushi",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଦୁଃଖିତ",
+          "romanized": "duhkhi-ta",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "କ୍ଲାନ୍ତ",
+          "romanized": "klanta",
+          "english": "tired",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଭୋକ ଲାଗିଛି",
+          "romanized": "bhoka lagichhi",
+          "english": "I am hungry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ତରସ ଲାଗିଛି",
+          "romanized": "tarasa lagichhi",
+          "english": "I am thirsty",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଭୟ ଲାଗୁଛି",
+          "romanized": "bhaya laguchhi",
+          "english": "I am scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "କ୍ରୋଧିତ",
+          "romanized": "krodhita",
+          "english": "angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଉତ୍ସାହିତ",
+          "romanized": "utsahita",
+          "english": "excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ଖାଦ୍ୟ ଓ ଖାଇବା",
+      "phrases": [
+        {
+          "nativeScript": "ଭାତ",
+          "romanized": "bhaat",
+          "english": "cooked rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ରୁଟି",
+          "romanized": "roti",
+          "english": "flatbread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ତରକାରୀ",
+          "romanized": "tarkari",
+          "english": "curry / vegetable dish",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ପାଣି",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଚମଚ",
+          "romanized": "chamacha",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଥାଳି",
+          "romanized": "thali",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ବଟି",
+          "romanized": "bati",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ମୋତେ ଭୋକ ଲାଗିଛି",
+          "romanized": "mote bhoka lagichhi",
+          "english": "I am hungry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ନମସ୍କାର ଓ ସଭ୍ୟତା",
+      "phrases": [
+        {
+          "nativeScript": "ନମସ୍କାର",
+          "romanized": "namaskara",
+          "english": "Hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଧନ୍ୟବାଦ",
+          "romanized": "dhanyabad",
+          "english": "Thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ସୁପ୍ରଭାତ",
+          "romanized": "suprabhat",
+          "english": "Good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଶୁଭ ସନ୍ଧ୍ୟା",
+          "romanized": "shubha sandhya",
+          "english": "Good evening",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଶୁଭରାତ୍ରି",
+          "romanized": "shubharatri",
+          "english": "Good night",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ଦୟାକରି",
+          "romanized": "dayakari",
+          "english": "Please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "କ୍ଷମା କରନ୍ତୁ",
+          "romanized": "kshama karantu",
+          "english": "Excuse me / Sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ଆପଣ କେମିତି ଅଛନ୍ତି?",
+          "romanized": "apana kemiti achanti?",
+          "english": "How are you?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "ଏକରୁ ଦଶ",
+      "phrases": [
+        {
+          "nativeScript": "୧",
+          "romanized": "eka",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୨",
+          "romanized": "dui",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୩",
+          "romanized": "tina",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୪",
+          "romanized": "chāri",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୫",
+          "romanized": "pāñcha",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୬",
+          "romanized": "chha",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୭",
+          "romanized": "sāta",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "୮",
+          "romanized": "ātha",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "pa": {
+    "everyday": {
+      "titleNative": "ਰੋਜ਼ਾਨਾ ਸ਼ਬਦ",
+      "phrases": [
+        {
+          "nativeScript": "ਹਾਂ",
+          "romanized": "haan",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਨਹੀਂ",
+          "romanized": "nahin",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਧੰਨਵਾਦ",
+          "romanized": "dhanvaad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਕਿਰਪਾ ਕਰਕੇ",
+          "romanized": "kirpa karke",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਮਾਫ਼ ਕਰਨਾ",
+          "romanized": "maaf karna",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਸੁਣੋ",
+          "romanized": "suno",
+          "english": "listen",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਕਿਵੇਂ ਹੋ?",
+          "romanized": "kiven ho?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਮੈਨੂੰ ਸਮਝ ਨਹੀਂ ਆਈ",
+          "romanized": "mainu samajh nahin aai",
+          "english": "I didn't understand",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "ਪਰਿਵਾਰ",
+      "phrases": [
+        {
+          "nativeScript": "ਮਾਂ",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਪਿਤਾ",
+          "romanized": "pitaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਭਰਾ",
+          "romanized": "bharaa",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਭੈਣ",
+          "romanized": "bhaen",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਦਾਦਾ",
+          "romanized": "daadaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਦਾਦੀ",
+          "romanized": "daadee",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਪਰਿਵਾਰ",
+          "romanized": "parivaar",
+          "english": "family",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਮੇਰਾ ਪਰਿਵਾਰ",
+          "romanized": "mera parivaar",
+          "english": "my family",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "ਭਾਵਨਾਵਾਂ",
+      "phrases": [
+        {
+          "nativeScript": "ਖੁਸ਼",
+          "romanized": "khush",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਉਦਾਸ",
+          "romanized": "udaas",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਡਰਿਆ ਹੋਇਆ",
+          "romanized": "dariyaa hoyaa",
+          "english": "scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਥੱਕਿਆ ਹੋਇਆ",
+          "romanized": "thakkiyaa hoyaa",
+          "english": "tired",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਗੁੱਸੇ ਵਿੱਚ",
+          "romanized": "gusse vich",
+          "english": "angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਚਿੰਤਿਤ",
+          "romanized": "chintit",
+          "english": "worried",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਉਤਸ਼ਾਹਿਤ",
+          "romanized": "utshahit",
+          "english": "excited",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ਸ਼ਰਮੀਲਾ",
+          "romanized": "sharmeela",
+          "english": "shy",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ਭੋਜਨ ਅਤੇ ਖਾਣਾ",
+      "phrases": [
+        {
+          "nativeScript": "ਰੋਟੀ",
+          "romanized": "roti",
+          "english": "bread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਚਾਵਲ",
+          "romanized": "chaaval",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਪਾਣੀ",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਥਾਲੀ",
+          "romanized": "thaali",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਚਮਚਾ",
+          "romanized": "chamcha",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਕਾਂਟਾ",
+          "romanized": "kaanta",
+          "english": "fork",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਗਲਾਸ",
+          "romanized": "glaas",
+          "english": "glass",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਖਾਣਾ ਦਿਓ",
+          "romanized": "khaana deo",
+          "english": "Please give the food",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ਸਲਾਮ ਅਤੇ ਸ਼ਿਸ਼ਟਾਚਾਰ",
+      "phrases": [
+        {
+          "nativeScript": "ਨਮਸਤੇ",
+          "romanized": "namaste",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ",
+          "romanized": "sat sri akal",
+          "english": "hello / greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਧੰਨਵਾਦ",
+          "romanized": "dhannvaad",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਮਾਫ਼ ਕਰਨਾ",
+          "romanized": "maaf karna",
+          "english": "sorry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਕਿਰਪਾ ਕਰਕੇ",
+          "romanized": "kirpa karke",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਅਲਵਿਦਾ",
+          "romanized": "alvida",
+          "english": "goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਤੁਹਾਡਾ ਕੀ ਹਾਲ ਹੈ?",
+          "romanized": "tuhaada ki haal hai?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ਤੁਹਾਨੂੰ ਮਿਲ ਕੇ ਚੰਗਾ ਲੱਗਿਆ",
+          "romanized": "tuhaanu mil ke changa laggiya",
+          "english": "Nice to meet you",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "1 ਤੋਂ 10 ਤੱਕ ਦੇ ਅੰਕ",
+      "phrases": [
+        {
+          "nativeScript": "ਇੱਕ",
+          "romanized": "ikk",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਦੋ",
+          "romanized": "do",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਤਿੰਨ",
+          "romanized": "tinn",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਚਾਰ",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਪੰਜ",
+          "romanized": "panj",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਛੇ",
+          "romanized": "chhe",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਸੱਤ",
+          "romanized": "satt",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ਅੱਠ",
+          "romanized": "athh",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "sa": {
+    "everyday": {
+      "titleNative": "दैनिकशब्दाः",
+      "phrases": [
+        {
+          "nativeScript": "नमः",
+          "romanized": "namah",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवादः",
+          "romanized": "dhanyavadah",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kripaya",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "क्षम्यताम्",
+          "romanized": "kshamyatam",
+          "english": "sorry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "नास्ति",
+          "romanized": "nasti",
+          "english": "there is not / no",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "अस्ति",
+          "romanized": "asti",
+          "english": "there is / yes",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कथमस्ति",
+          "romanized": "kathamasti",
+          "english": "how are you?",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "शुभरात्रिः",
+          "romanized": "shubharatrih",
+          "english": "good night",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "परिवारः",
+      "phrases": [
+        {
+          "nativeScript": "माता",
+          "romanized": "mata",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पिता",
+          "romanized": "pita",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भ्राता",
+          "romanized": "bhrata",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "भगिनी",
+          "romanized": "bhagini",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पुत्रः",
+          "romanized": "putrah",
+          "english": "son",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "पुत्री",
+          "romanized": "putri",
+          "english": "daughter",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दादी",
+          "romanized": "dadi",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "दादाः",
+          "romanized": "dadaah",
+          "english": "grandfather",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "भावाः",
+      "phrases": [
+        {
+          "nativeScript": "अहम् आनन्दितः अस्मि",
+          "romanized": "aham ananditah asmi",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अहम् दुःखी अस्मि",
+          "romanized": "aham duhkhi asmi",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अहम् क्रुद्धः अस्मि",
+          "romanized": "aham kruddhah asmi",
+          "english": "I am angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अहम् भीतः अस्मि",
+          "romanized": "aham bhitah asmi",
+          "english": "I am scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अहम् श्रान्तः अस्मि",
+          "romanized": "aham shrantah asmi",
+          "english": "I am tired",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "अहम् आरोग्ययुक्तः अस्मि",
+          "romanized": "aham arogyayuktah asmi",
+          "english": "I am healthy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "अहम् विस्मितः अस्मि",
+          "romanized": "aham vismitah asmi",
+          "english": "I am surprised",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "अहम् उत्सुकः अस्मि",
+          "romanized": "aham utsukah asmi",
+          "english": "I am excited",
+          "difficulty": 2
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "भोजनम्",
+      "phrases": [
+        {
+          "nativeScript": "अन्नम्",
+          "romanized": "annam",
+          "english": "food; rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "जलम्",
+          "romanized": "jalam",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "प्लतम्",
+          "romanized": "platam",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कटुः",
+          "romanized": "katuh",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "काचः",
+          "romanized": "kācaḥ",
+          "english": "glass; cup",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कृपया ददातु",
+          "romanized": "kripaya dadātu",
+          "english": "please give",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "अहं भुञ्जे",
+          "romanized": "ahaṃ bhuñje",
+          "english": "I eat",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "भोजनं कुर्वन्तु",
+          "romanized": "bhojanaṃ kurvantu",
+          "english": "Please eat",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "अभिवादनानि च शिष्टाचारः",
+      "phrases": [
+        {
+          "nativeScript": "नमस्ते",
+          "romanized": "namaste",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "धन्यवादः",
+          "romanized": "dhanyavādaḥ",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "कृपया",
+          "romanized": "kṛpayā",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "क्षम्यताम्",
+          "romanized": "kṣamyatām",
+          "english": "sorry / excuse me",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सुप्रभातम्",
+          "romanized": "suprabhātam",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "शुभरात्रिः",
+          "romanized": "śubharātriḥ",
+          "english": "good night",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "कथमस्ति?",
+          "romanized": "katham asti?",
+          "english": "how are you?",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "भवतः नाम किम्?",
+          "romanized": "bhavataḥ nāma kim?",
+          "english": "what is your name?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "एकादशसंख्या",
+      "phrases": [
+        {
+          "nativeScript": "एकम्",
+          "romanized": "ekam",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "द्वे",
+          "romanized": "dve",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "त्रीणि",
+          "romanized": "trīṇi",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "चत्वारि",
+          "romanized": "catvāri",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "पञ्च",
+          "romanized": "pañca",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "षट्",
+          "romanized": "ṣaṭ",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "सप्त",
+          "romanized": "sapta",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "अष्ट",
+          "romanized": "aṣṭa",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "sat": {
+    "everyday": {
+      "titleNative": "ᱦᱟᱹᱨᱤᱡ ᱜᱟᱹᱱ ᱜᱟᱹᱱ",
+      "phrases": [
+        {
+          "nativeScript": "ᱦᱳ",
+          "romanized": "ho",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱵᱟᱦ",
+          "romanized": "bah",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱚᱞᱳ",
+          "romanized": "olo",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱥᱩᱱᱩᱢ",
+          "romanized": "sunum",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱢᱟᱨᱟᱝ",
+          "romanized": "marang",
+          "english": "big",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱪᱤᱠᱟᱹ",
+          "romanized": "chikā",
+          "english": "good",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱵᱟᱝᱜᱟ",
+          "romanized": "banga",
+          "english": "not",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱡᱚᱦᱟᱨ",
+          "romanized": "johar",
+          "english": "hello / greetings",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "ᱵᱟᱰᱟᱜᱟ",
+      "phrases": [
+        {
+          "nativeScript": "ᱟᱲᱟ",
+          "romanized": "ara",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱵᱟᱵᱟ",
+          "romanized": "baba",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱠᱩᱫᱤ",
+          "romanized": "kudi",
+          "english": "daughter",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱵᱟᱵᱟ ᱠᱩᱫᱤ",
+          "romanized": "baba kudi",
+          "english": "son",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱡᱮᱭᱟ",
+          "romanized": "jeya",
+          "english": "younger sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱫᱟᱫᱟ",
+          "romanized": "dada",
+          "english": "older brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱡᱩᱢᱮ",
+          "romanized": "jume",
+          "english": "grandmother",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ᱵᱟᱵᱟ ᱟᱲᱟ",
+          "romanized": "baba ara",
+          "english": "grandfather",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "ᱪᱤᱛᱟᱨ",
+      "phrases": [
+        {
+          "nativeScript": "ᱧᱩᱧᱩ",
+          "romanized": "nyu nyu",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱦᱚᱨᱤᱭᱟ",
+          "romanized": "horiya",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱢᱟᱱᱡᱷᱤ",
+          "romanized": "manjhi",
+          "english": "angry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱥᱤᱨᱟᱹ",
+          "romanized": "siraa",
+          "english": "scared",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱰᱷᱟᱨᱟᱹᱭ",
+          "romanized": "dharaay",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱡᱟᱭᱜᱟ",
+          "romanized": "jayga",
+          "english": "calm",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱟᱹᱫᱟᱨ",
+          "romanized": "aadar",
+          "english": "worried",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ᱵᱚᱝᱛᱟ",
+          "romanized": "bongta",
+          "english": "excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ᱡᱷᱩᱱᱟ ᱟᱨ ᱡᱚᱢ",
+      "phrases": [
+        {
+          "nativeScript": "ᱡᱚᱢ",
+          "romanized": "jom",
+          "english": "eat",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱡᱷᱩᱱᱟ",
+          "romanized": "jhuna",
+          "english": "food",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱡᱚᱢ ᱢᱮ",
+          "romanized": "jom me",
+          "english": "Eat.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱡᱤᱵᱟᱜ",
+          "romanized": "jibag",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱨᱩᱴᱤ",
+          "romanized": "ruti",
+          "english": "bread/roti",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱪᱟᱢᱟᱲ",
+          "romanized": "chamar",
+          "english": "plate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱵᱟᱰᱟ",
+          "romanized": "bada",
+          "english": "bowl",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱡᱷᱩᱱᱟ ᱜᱟᱛᱮ ᱜᱟᱢᱟ",
+          "romanized": "jhuna gate gama",
+          "english": "dinner table",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ᱥᱟᱞᱟᱢ ᱟᱨ ᱥᱟᱹᱫᱷᱩ",
+      "phrases": [
+        {
+          "nativeScript": "ᱥᱟᱞᱟᱢ",
+          "romanized": "salam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱡᱚᱦᱟᱨ",
+          "romanized": "johar",
+          "english": "hello; respect greeting",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱴᱩᱫᱩᱞ ᱵᱚᱦᱟᱫᱟᱜ",
+          "romanized": "tudul bohadag",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱵᱟᱦᱨᱟ ᱱᱤᱫ",
+          "romanized": "bahra nid",
+          "english": "good night",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱥᱤᱭᱟᱱ",
+          "romanized": "siyan",
+          "english": "goodbye",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱫᱚᱱᱭᱟᱵᱟᱫ",
+          "romanized": "donyabad",
+          "english": "thank you",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱠᱚᱵᱮᱡ ᱢᱮ",
+          "romanized": "kobez me",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱢᱤᱥᱟᱠ ᱢᱮ",
+          "romanized": "misak me",
+          "english": "sorry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "ᱮᱠ ᱠᱷᱚᱱ ᱜᱮ ᱰᱥᱟ",
+      "phrases": [
+        {
+          "nativeScript": "ᱢᱤᱫ",
+          "romanized": "mid",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱵᱟᱨ",
+          "romanized": "bar",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱯᱮ",
+          "romanized": "pe",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱯᱚᱱ",
+          "romanized": "pon",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ᱢᱚᱲ",
+          "romanized": "mor",
+          "english": "five",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱛᱩᱲᱩ",
+          "romanized": "turu",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱥᱟᱭ",
+          "romanized": "sai",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ᱮᱱᱮᱜ",
+          "romanized": "eneg",
+          "english": "eight",
+          "difficulty": 3
+        }
+      ]
+    }
+  },
+  "sd": {
+    "everyday": {
+      "titleNative": "روزمره لفظ",
+      "phrases": [
+        {
+          "nativeScript": "ها",
+          "romanized": "haa",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نه",
+          "romanized": "na",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مهرباني",
+          "romanized": "mehrbani",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شڪريو",
+          "romanized": "shukriyo",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "معاف ڪجو",
+          "romanized": "maaf kajo",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "سلام",
+          "romanized": "salaam",
+          "english": "hello",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "صبح جو سلام",
+          "romanized": "subah jo salaam",
+          "english": "good morning",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "شب خير",
+          "romanized": "shab khair",
+          "english": "good night",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "خاندان",
+      "phrases": [
+        {
+          "nativeScript": "ماءُ",
+          "romanized": "maa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پيءُ",
+          "romanized": "peyo",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڀاءُ",
+          "romanized": "bhaa",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڀيڻ",
+          "romanized": "bheen",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڏاڏو",
+          "romanized": "daadho",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ڏاڏي",
+          "romanized": "daadhi",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "پٽ",
+          "romanized": "pat",
+          "english": "son",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ڌيءُ",
+          "romanized": "dhee",
+          "english": "daughter",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "جذبات",
+      "phrases": [
+        {
+          "nativeScript": "سٺو محسوس ڪرڻ",
+          "romanized": "sutho mehsoos karan",
+          "english": "to feel good",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "خوش",
+          "romanized": "khush",
+          "english": "happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "اداس",
+          "romanized": "udaas",
+          "english": "sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڊپ لڳڻ",
+          "romanized": "darp lagan",
+          "english": "to feel afraid",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "پريشان",
+          "romanized": "pareshaan",
+          "english": "worried",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ٿڪل",
+          "romanized": "thakal",
+          "english": "tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "جوش ۾ هئڻ",
+          "romanized": "josh me hiyun",
+          "english": "to be excited",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ناراض",
+          "romanized": "naaraaz",
+          "english": "angry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "کاڌو ۽ کائڻ",
+      "phrases": [
+        {
+          "nativeScript": "ماني",
+          "romanized": "mani",
+          "english": "bread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پاڻي",
+          "romanized": "paani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پليٽ",
+          "romanized": "plate",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چمچو",
+          "romanized": "chamcho",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڪانٽو",
+          "romanized": "kaanto",
+          "english": "fork",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ڪپ",
+          "romanized": "kap",
+          "english": "cup",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "رات جي ماني",
+          "romanized": "raat ji mani",
+          "english": "dinner",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کاڌو وٺو",
+          "romanized": "khaadhu vitho",
+          "english": "take food / help yourself",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "سلام ۽ آداب",
+      "phrases": [
+        {
+          "nativeScript": "سلام",
+          "romanized": "salaam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "صبح جو سلام",
+          "romanized": "subah jo salaam",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شب بخير",
+          "romanized": "shab bakhair",
+          "english": "good night",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مهرباني",
+          "romanized": "mehrbani",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "معاف ڪجو",
+          "romanized": "maaf kajo",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مھرباني ڪري",
+          "romanized": "mehrbani kare",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "خدا حافظ",
+          "romanized": "khuda hafiz",
+          "english": "goodbye",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "توهان ڪيئن آهيو؟",
+          "romanized": "tohan kayn aahyo?",
+          "english": "how are you?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "نمبر ۱-۱۰",
+      "phrases": [
+        {
+          "nativeScript": "هڪ",
+          "romanized": "hik",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ٻه",
+          "romanized": "beh",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ٽِه",
+          "romanized": "teh",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چار",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پنج",
+          "romanized": "panch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ڇهه",
+          "romanized": "chheh",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ست",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ڏهه",
+          "romanized": "dah",
+          "english": "ten",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "ta": {
+    "everyday": {
+      "titleNative": "அன்றாட சொற்கள்",
+      "phrases": [
+        {
+          "nativeScript": "ஆம்",
+          "romanized": "aam",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "இல்லை",
+          "romanized": "illai",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "வணக்கம்",
+          "romanized": "vanakkam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "நன்றி",
+          "romanized": "nandri",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "தயவு செய்து",
+          "romanized": "thayavu seythu",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "மன்னிக்கவும்",
+          "romanized": "mannikkavum",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "எனக்கு புரியவில்லை",
+          "romanized": "enakku puriyavillai",
+          "english": "I don't understand",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "எங்கே?",
+          "romanized": "enge?",
+          "english": "where?",
+          "difficulty": 2
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "குடும்பம்",
+      "phrases": [
+        {
+          "nativeScript": "அம்மா",
+          "romanized": "ammaa",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "அப்பா",
+          "romanized": "appaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "மகன்",
+          "romanized": "magan",
+          "english": "son",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "மகள்",
+          "romanized": "magal",
+          "english": "daughter",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "சகோதரன்",
+          "romanized": "sagodharan",
+          "english": "brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "சகோதரி",
+          "romanized": "sagodhari",
+          "english": "sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "தாத்தா",
+          "romanized": "thaaththaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "பாட்டி",
+          "romanized": "paatti",
+          "english": "grandmother",
+          "difficulty": 2
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "உணர்வுகள்",
+      "phrases": [
+        {
+          "nativeScript": "மகிழ்ச்சி",
+          "romanized": "magizhchi",
+          "english": "happiness",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "சோகம்",
+          "romanized": "sogam",
+          "english": "sadness",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "பயம்",
+          "romanized": "bayam",
+          "english": "fear",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "கோபம்",
+          "romanized": "kobam",
+          "english": "anger",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "சோர்வு",
+          "romanized": "sorvu",
+          "english": "tiredness",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "பசி",
+          "romanized": "pasi",
+          "english": "hunger",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "எனக்கு மகிழ்ச்சியாக இருக்கிறது",
+          "romanized": "enakku magizhchiyaaga irukkiradhu",
+          "english": "I feel happy",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "எனக்கு சோகமாக இருக்கிறது",
+          "romanized": "enakku sogamaaga irukkiradhu",
+          "english": "I feel sad",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "உணவு மற்றும் சாப்பிடுதல்",
+      "phrases": [
+        {
+          "nativeScript": "சாப்பாடு",
+          "romanized": "saappaadu",
+          "english": "food / meal",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "தண்ணீர்",
+          "romanized": "thanneer",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "அரிசி",
+          "romanized": "arisi",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "தட்டு",
+          "romanized": "thattu",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "கரண்டி",
+          "romanized": "karandi",
+          "english": "spoon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "குடம்",
+          "romanized": "kudam",
+          "english": "cup / tumbler",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "இரவு உணவு",
+          "romanized": "iravu unavu",
+          "english": "dinner",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "எனக்கு பசிக்கிறது",
+          "romanized": "enakku pasikkirathu",
+          "english": "I am hungry",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "வாழ்த்துகள் & மரியாதை",
+      "phrases": [
+        {
+          "nativeScript": "வணக்கம்",
+          "romanized": "vanakkam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "நன்றி",
+          "romanized": "nandri",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "தயவு செய்து",
+          "romanized": "thayavu seydhu",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "சரி",
+          "romanized": "sari",
+          "english": "okay",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "மன்னிக்கவும்",
+          "romanized": "mannikkavum",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "காலை வணக்கம்",
+          "romanized": "kaalai vanakkam",
+          "english": "good morning",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "பிரியாவிடை",
+          "romanized": "priyaavidai",
+          "english": "goodbye",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "இரவு வணக்கம்",
+          "romanized": "iravu vanakkam",
+          "english": "good night",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "எண்கள் 1-10",
+      "phrases": [
+        {
+          "nativeScript": "ஒன்று",
+          "romanized": "onru",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "இரண்டு",
+          "romanized": "irandu",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "மூன்று",
+          "romanized": "moonru",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "நான்கு",
+          "romanized": "naangu",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ஐந்து",
+          "romanized": "aindhu",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ஆறு",
+          "romanized": "aaru",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ஏழு",
+          "romanized": "ezhu",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "எட்டு",
+          "romanized": "ettu",
+          "english": "eight",
+          "difficulty": 1
+        }
+      ]
+    }
+  },
+  "te": {
+    "everyday": {
+      "titleNative": "రోజువారీ పదాలు",
+      "phrases": [
+        {
+          "nativeScript": "అవును",
+          "romanized": "avunu",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "కాదు",
+          "romanized": "kaadu",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "దయచేసి",
+          "romanized": "dayachesi",
+          "english": "please",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ధన్యవాదాలు",
+          "romanized": "dhanyavaadaalu",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "క్షమించండి",
+          "romanized": "kshaminchandi",
+          "english": "sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "నాకు అర్థం కాలేదు",
+          "romanized": "naaku artham kaaledu",
+          "english": "I didn’t understand",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "నేను వెళ్లొచ్చా?",
+          "romanized": "nenu vellochchaa?",
+          "english": "Can I go?",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "సహాయం చేయండి",
+          "romanized": "sahaayam cheyandi",
+          "english": "Please help",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "కుటుంబం",
+      "phrases": [
+        {
+          "nativeScript": "అమ్మ",
+          "romanized": "amma",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "నాన్న",
+          "romanized": "naanna",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "అన్నయ్య",
+          "romanized": "annayya",
+          "english": "elder brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "అక్క",
+          "romanized": "akka",
+          "english": "elder sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "చెల్లి",
+          "romanized": "chelli",
+          "english": "younger sister",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "తమ్ముడు",
+          "romanized": "thammudu",
+          "english": "younger brother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "అమ్మమ్మ",
+          "romanized": "ammamma",
+          "english": "maternal grandmother",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "తాతయ్య",
+          "romanized": "thaathayya",
+          "english": "grandfather",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "భావాలు",
+      "phrases": [
+        {
+          "nativeScript": "సంతోషంగా ఉన్నాను",
+          "romanized": "santoshamga unnanu",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "దుఃఖంగా ఉన్నాను",
+          "romanized": "duhkhamga unnanu",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "భయంగా ఉన్నాను",
+          "romanized": "bhayamga unnanu",
+          "english": "I am scared",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "కోపంగా ఉన్నాను",
+          "romanized": "kopamga unnanu",
+          "english": "I am angry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "అలసిపోయాను",
+          "romanized": "alasipoyanu",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ఆకలిగా ఉంది",
+          "romanized": "aakaliga undi",
+          "english": "I am hungry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ఆశ్చర్యంగా ఉంది",
+          "romanized": "ashcharyamga undi",
+          "english": "I am surprised",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ఉత్సాహంగా ఉన్నాను",
+          "romanized": "utsahamga unnanu",
+          "english": "I am excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "ఆహారం మరియు తినడం",
+      "phrases": [
+        {
+          "nativeScript": "అన్నం",
+          "romanized": "annam",
+          "english": "rice",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "నీరు",
+          "romanized": "neeru",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ప్లేట్",
+          "romanized": "pleet",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "చెంచా",
+          "romanized": "chencha",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "గ్లాస్",
+          "romanized": "glaas",
+          "english": "glass",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "విందు",
+          "romanized": "vindu",
+          "english": "dinner; feast",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "వడ్డించండి",
+          "romanized": "vaddin̄chandi",
+          "english": "please serve",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "తినడం",
+          "romanized": "thinadam",
+          "english": "eating",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "ఆహ్వానాలు & మర్యాదలు",
+      "phrases": [
+        {
+          "nativeScript": "హలో",
+          "romanized": "hello",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "నమస్తే",
+          "romanized": "namaste",
+          "english": "hello / greetings",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "శుభోదయం",
+          "romanized": "shubhodayam",
+          "english": "good morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "శుభ సాయంత్రం",
+          "romanized": "shubha saayantram",
+          "english": "good evening",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ధన్యవాదాలు",
+          "romanized": "dhanyavaadaalu",
+          "english": "thank you",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "దయచేసి",
+          "romanized": "dayachesi",
+          "english": "please",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "క్షమించండి",
+          "romanized": "kshaminchandi",
+          "english": "excuse me / sorry",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "మీరు ఎలా ఉన్నారు?",
+          "romanized": "meeru elaa unnaaru?",
+          "english": "How are you?",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "సంఖ్యలు 1-10",
+      "phrases": [
+        {
+          "nativeScript": "ఒకటి",
+          "romanized": "okati",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "రెండు",
+          "romanized": "rendu",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "మూడు",
+          "romanized": "moodu",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "నాలుగు",
+          "romanized": "naalugu",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ఐదు",
+          "romanized": "aidu",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ఆరు",
+          "romanized": "aaru",
+          "english": "six",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ఏడు",
+          "romanized": "edu",
+          "english": "seven",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ఎనిమిది",
+          "romanized": "enimidhi",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  },
+  "ur": {
+    "everyday": {
+      "titleNative": "روزمرہ کے الفاظ",
+      "phrases": [
+        {
+          "nativeScript": "سلام",
+          "romanized": "salaam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شکریہ",
+          "romanized": "shukriya",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "جی",
+          "romanized": "jee",
+          "english": "yes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نہیں",
+          "romanized": "nahin",
+          "english": "no",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مہربانی",
+          "romanized": "meherbani",
+          "english": "kindness / favor",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "معاف کیجیے",
+          "romanized": "maaf kijiye",
+          "english": "sorry / excuse me",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "الوداع",
+          "romanized": "alvida",
+          "english": "goodbye",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "پلیز",
+          "romanized": "please",
+          "english": "please",
+          "difficulty": 3
+        }
+      ]
+    },
+    "family": {
+      "titleNative": "خاندان",
+      "phrases": [
+        {
+          "nativeScript": "ماں",
+          "romanized": "maaṅ",
+          "english": "mother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ابا",
+          "romanized": "abaa",
+          "english": "father",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "بھائی",
+          "romanized": "bhai",
+          "english": "brother",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "بہن",
+          "romanized": "behen",
+          "english": "sister",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "دادا",
+          "romanized": "daadaa",
+          "english": "grandfather",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "دادی",
+          "romanized": "daadi",
+          "english": "grandmother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "چچا",
+          "romanized": "chacha",
+          "english": "paternal uncle",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "خالہ",
+          "romanized": "khaala",
+          "english": "maternal aunt",
+          "difficulty": 3
+        }
+      ]
+    },
+    "feelings": {
+      "titleNative": "احساسات",
+      "phrases": [
+        {
+          "nativeScript": "میں خوش ہوں",
+          "romanized": "main khush hoon",
+          "english": "I am happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "میں اداس ہوں",
+          "romanized": "main udaas hoon",
+          "english": "I am sad",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "میں ٹھیک ہوں",
+          "romanized": "main theek hoon",
+          "english": "I am fine",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مجھے بھوک لگی ہے",
+          "romanized": "mujhe bhook lagi hai",
+          "english": "I am hungry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مجھے پیاس لگی ہے",
+          "romanized": "mujhe pyaas lagi hai",
+          "english": "I am thirsty",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "میں تھکا ہوا ہوں",
+          "romanized": "main thaka hua hoon",
+          "english": "I am tired",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مجھے ڈر لگتا ہے",
+          "romanized": "mujhe dar lagta hai",
+          "english": "I am scared",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "میں پرجوش ہوں",
+          "romanized": "main pur-josh hoon",
+          "english": "I am excited",
+          "difficulty": 3
+        }
+      ]
+    },
+    "food": {
+      "titleNative": "کھانا اور کھانا کھانا",
+      "phrases": [
+        {
+          "nativeScript": "پانی",
+          "romanized": "pani",
+          "english": "water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "روٹی",
+          "romanized": "roti",
+          "english": "bread",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چمچ",
+          "romanized": "chamach",
+          "english": "spoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پلیٹ",
+          "romanized": "plate",
+          "english": "plate",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "کھانا",
+          "romanized": "khana",
+          "english": "food",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "نمک",
+          "romanized": "namak",
+          "english": "salt",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "کپ",
+          "romanized": "cup",
+          "english": "cup",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "مہربانی",
+          "romanized": "meharbani",
+          "english": "please / thank you politely",
+          "difficulty": 3
+        }
+      ]
+    },
+    "greetings": {
+      "titleNative": "آداب اور سلام",
+      "phrases": [
+        {
+          "nativeScript": "سلام",
+          "romanized": "salaam",
+          "english": "hello",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "خدا حافظ",
+          "romanized": "khuda hafiz",
+          "english": "goodbye",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "شکریہ",
+          "romanized": "shukriya",
+          "english": "thank you",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "مہربانی",
+          "romanized": "meherbani",
+          "english": "kindness / favor",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "معاف کیجیے",
+          "romanized": "maaf kijiye",
+          "english": "excuse me / sorry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "آپ کیسے ہیں؟",
+          "romanized": "aap kaise hain?",
+          "english": "How are you?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "میں ٹھیک ہوں",
+          "romanized": "main theek hoon",
+          "english": "I am fine",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "آداب",
+          "romanized": "adaab",
+          "english": "respectful hello",
+          "difficulty": 3
+        }
+      ]
+    },
+    "numbers": {
+      "titleNative": "نمبر ۱-۱۰",
+      "phrases": [
+        {
+          "nativeScript": "ایک",
+          "romanized": "aik",
+          "english": "one",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "دو",
+          "romanized": "do",
+          "english": "two",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "تین",
+          "romanized": "teen",
+          "english": "three",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چار",
+          "romanized": "chaar",
+          "english": "four",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "پانچ",
+          "romanized": "paanch",
+          "english": "five",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "چھ",
+          "romanized": "chhe",
+          "english": "six",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "سات",
+          "romanized": "saat",
+          "english": "seven",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "آٹھ",
+          "romanized": "aath",
+          "english": "eight",
+          "difficulty": 2
+        }
+      ]
+    }
+  }
+}

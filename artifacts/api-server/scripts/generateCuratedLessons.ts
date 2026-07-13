@@ -1,0 +1,193 @@
+// ---------------------------------------------------------------------------
+// Offline lesson pre-generation runner.
+//
+// Enumerates every (language, topic) pair for the 22 official Indian languages
+// (skipping Gujarati, which is hand-curated) and generates its beginner phrase
+// set with the same AI lesson generator the API server uses at runtime. The
+// output is frozen to a committed JSON file so a fresh database seeds populated,
+// reviewed lessons for all 22 languages with no first-open generation wait.
+//
+// Idempotent: re-running only fills pairs that are missing or fail validation,
+// so an interrupted run resumes and existing content is never regenerated.
+//
+// Usage (from repo root):
+//   pnpm --filter @workspace/api-server run generate-lessons
+//   pnpm --filter @workspace/api-server run generate-lessons -- --force   # regenerate all
+// ---------------------------------------------------------------------------
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  LANGUAGES,
+  CATEGORIES,
+  CURATED_LANGUAGE_CODE,
+  PHRASES_PER_LESSON,
+  validateSeedLesson,
+  type SeedLesson,
+  type CuratedLessonsFile,
+} from "@workspace/db/seed-data";
+import { generateLesson } from "../src/lib/lessonGenerator";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const OUT_FILE = path.resolve(here, "../../../lib/db/src/data/curatedLessons.json");
+const MAX_ATTEMPTS = 4; // per (language, topic) before giving up
+const CONCURRENCY = 4; // parallel AI calls in flight at once
+
+const force = process.argv.includes("--force");
+
+function loadExisting(): CuratedLessonsFile {
+  try {
+    return JSON.parse(readFileSync(OUT_FILE, "utf8")) as CuratedLessonsFile;
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === "ENOENT") return {};
+    throw err;
+  }
+}
+
+// Sort keys so the committed JSON is stable and diffable regardless of the
+// order pairs finish generating.
+function stableStringify(data: CuratedLessonsFile): string {
+  const langCodes = Object.keys(data).sort();
+  const ordered: CuratedLessonsFile = {};
+  for (const code of langCodes) {
+    const byCat = data[code];
+    const catSlugs = Object.keys(byCat).sort();
+    const orderedCats: Record<string, SeedLesson> = {};
+    for (const slug of catSlugs) orderedCats[slug] = byCat[slug];
+    ordered[code] = orderedCats;
+  }
+  return JSON.stringify(ordered, null, 2) + "\n";
+}
+
+type Job = {
+  langCode: string;
+  langName: string;
+  nativeName: string;
+  script: string;
+  categorySlug: string;
+  topicTitle: string;
+  topicDescription: string;
+};
+
+async function generateOne(job: Job): Promise<SeedLesson> {
+  let lastError = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const generated = await generateLesson({
+        languageName: job.langName,
+        nativeName: job.nativeName,
+        script: job.script,
+        topicTitle: job.topicTitle,
+        topicDescription: job.topicDescription,
+      });
+      const lesson: SeedLesson = {
+        titleNative: generated.titleNative,
+        phrases: generated.phrases.slice(0, PHRASES_PER_LESSON),
+      };
+      const invalid = validateSeedLesson(lesson);
+      if (!invalid) return lesson;
+      lastError = invalid;
+      console.warn(
+        `  ${job.langCode}/${job.categorySlug} attempt ${attempt} invalid: ${invalid}`,
+      );
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `  ${job.langCode}/${job.categorySlug} attempt ${attempt} failed: ${lastError}`,
+      );
+    }
+  }
+  throw new Error(
+    `Failed to generate a valid lesson for ${job.langCode}/${job.categorySlug} ` +
+      `after ${MAX_ATTEMPTS} attempts: ${lastError}`,
+  );
+}
+
+async function main() {
+  const data = loadExisting();
+
+  // Build the work list: every non-curated (language, topic) that is missing or
+  // (unless already valid) fails validation. --force regenerates everything.
+  const jobs: Job[] = [];
+  for (const lang of LANGUAGES) {
+    if (lang.code === CURATED_LANGUAGE_CODE) continue;
+    const byCat = data[lang.code];
+    for (const cat of CATEGORIES) {
+      const existing = byCat?.[cat.slug];
+      if (!force && existing && validateSeedLesson(existing) === null) continue;
+      jobs.push({
+        langCode: lang.code,
+        langName: lang.name,
+        nativeName: lang.nativeName,
+        script: lang.script,
+        categorySlug: cat.slug,
+        topicTitle: cat.title,
+        topicDescription: cat.description,
+      });
+    }
+  }
+
+  const totalPairs =
+    (LANGUAGES.length - 1) * CATEGORIES.length; // all non-Gujarati pairs
+  const alreadyDone = totalPairs - jobs.length;
+  console.log(
+    `Pre-generating lessons: ${jobs.length} to generate, ${alreadyDone}/${totalPairs} already valid.`,
+  );
+  if (jobs.length === 0) {
+    console.log("Nothing to do — all lessons already generated and valid.");
+    return;
+  }
+
+  let completed = 0;
+  const failures: string[] = [];
+  let nextIndex = 0;
+
+  // Persist progress after each success so an interruption/crash never loses
+  // completed work and a re-run resumes from where it stopped.
+  function persist() {
+    mkdirSync(path.dirname(OUT_FILE), { recursive: true });
+    writeFileSync(OUT_FILE, stableStringify(data));
+  }
+
+  async function worker() {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= jobs.length) return;
+      const job = jobs[index];
+      try {
+        const lesson = await generateOne(job);
+        (data[job.langCode] ??= {})[job.categorySlug] = lesson;
+        persist();
+        completed++;
+        console.log(
+          `[${completed}/${jobs.length}] ${job.langCode}/${job.categorySlug} ✓`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        failures.push(`${job.langCode}/${job.categorySlug}: ${msg}`);
+        console.error(`[fail] ${msg}`);
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker()),
+  );
+
+  persist();
+  console.log(`\nWrote ${OUT_FILE}`);
+  console.log(`Generated ${completed} lesson(s).`);
+  if (failures.length > 0) {
+    console.error(`\n${failures.length} pair(s) failed:`);
+    for (const f of failures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("Pre-generation failed:", err);
+    process.exit(1);
+  });
