@@ -8,6 +8,10 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate --config ./drizzle.config.ts",
+    "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
+    "seed": "node \"$(ls ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs | head -1)\" ./src/seed.ts",
+    "setup": "pnpm run migrate && pnpm run seed",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

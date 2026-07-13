@@ -3,7 +3,19 @@ name: drizzle-kit push in non-interactive shell
 description: Why `drizzle-kit push` can hang/fail here and how to apply schema changes instead
 ---
 
-# drizzle-kit push fails on rename/ambiguous diffs in this environment
+# Preferred: committed migrations (generate + migrate), not push
+
+`lib/db` now has committed versioned migrations in `lib/db/drizzle/` and scripts:
+`generate` (drizzle-kit generate — author a migration after editing schema),
+`migrate` (drizzle-kit migrate — apply pending migrations, non-interactive/TTY-free),
+`seed` (reference data), and `setup` (migrate + seed, the full fresh-env apply path).
+`scripts/post-merge.sh` runs `setup`. After ANY change to `lib/db/src/schema/*`,
+run `pnpm --filter @workspace/db run generate` and commit the new SQL, or fresh
+environments drift. `drizzle.config.ts` `out` must be a RELATIVE path ("./drizzle");
+an absolute `path.join(__dirname,...)` makes drizzle-kit check/generate read a
+doubled `.//abs/path` and throw ENOENT.
+
+# drizzle-kit push fails on rename/ambiguous diffs in this environment (legacy)
 
 `pnpm --filter @workspace/db run push` (and `push-force`) run `drizzle-kit push`,
 which throws `Interactive prompts require a TTY terminal` whenever the diff is
