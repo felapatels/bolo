@@ -347,6 +347,96 @@ export const SetChosenLanguageResponse = zod.object({
 
 
 /**
+ * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary — everything the account settings screen renders from.
+ * @summary The caller's profile, preferences, and subscription summary
+ */
+export const GetAccountResponse = zod.object({
+  "profile": zod.object({
+  "id": zod.string(),
+  "email": zod.string().nullable(),
+  "displayName": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}).describe('The learner\'s identity fields, mirrored from Clerk.'),
+  "preferences": zod.object({
+  "notifications": zod.object({
+  "dailyReminderEnabled": zod.boolean(),
+  "dailyReminderTime": zod.string().nullable().describe('Preferred local send time as \"HH:MM\" (24h), or null.')
+}),
+  "learning": zod.object({
+  "activeLanguage": zod.string().nullable().describe('The language code the learner is actively studying, or null.'),
+  "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
+  "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").')
+})
+}),
+  "subscription": zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable()
+}).describe('A compact subscription block returned inline by GET \/account.')
+})
+
+
+/**
+ * Permanently deletes the learner's Clerk identity and every local record (attempts, progress, friendships, subscription state). Idempotent and irreversible; the client signs the user out afterwards.
+ * @summary Permanently delete the caller's account and all their data
+ */
+export const DeleteAccountResponse = zod.object({
+  "deleted": zod.boolean()
+})
+
+
+/**
+ * Updates the display name (mirrored to Clerk, the identity source of truth) and/or the avatar reference. Only the fields present in the body are changed.
+ * @summary Update the caller's display name and/or avatar
+ */
+export const UpdateAccountProfileBody = zod.object({
+  "displayName": zod.string().optional(),
+  "avatarUrl": zod.string().nullish()
+}).describe('Any subset of the editable profile fields.')
+
+export const UpdateAccountProfileResponse = zod.object({
+  "profile": zod.object({
+  "id": zod.string(),
+  "email": zod.string().nullable(),
+  "displayName": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}).describe('The learner\'s identity fields, mirrored from Clerk.')
+})
+
+
+/**
+ * Updates any subset of the notification (daily reminder toggle + time) and learning (active language, daily goal, theme) preferences. Only the provided fields change; each is validated.
+ * @summary Update notification and/or learning preferences
+ */
+export const UpdateAccountPreferencesBody = zod.object({
+  "dailyReminderEnabled": zod.boolean().optional(),
+  "dailyReminderTime": zod.string().nullish(),
+  "activeLanguage": zod.string().nullish(),
+  "dailyGoal": zod.number().optional(),
+  "theme": zod.enum(['system', 'light', 'dark']).optional()
+}).describe('Any subset of the notification and learning preferences.')
+
+export const UpdateAccountPreferencesResponse = zod.object({
+  "preferences": zod.object({
+  "notifications": zod.object({
+  "dailyReminderEnabled": zod.boolean(),
+  "dailyReminderTime": zod.string().nullable().describe('Preferred local send time as \"HH:MM\" (24h), or null.')
+}),
+  "learning": zod.object({
+  "activeLanguage": zod.string().nullable().describe('The language code the learner is actively studying, or null.'),
+  "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
+  "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").')
+})
+})
+})
+
+
+/**
  * Looks up a single learner by their exact email address so the caller can send them a friend request. The caller is never returned. Available to all authenticated learners.
  * @summary Find a learner by their exact email
  */

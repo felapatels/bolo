@@ -25,3 +25,4 @@
 - [Friends social graph](friends-graph.md) — friendships are single directional rows; bidirectional dup-prevention is app-level; leaderboard XP reuses computeProgressMetrics across all languages; identity backfilled from Clerk.
 - [video-js scaffold typecheck gaps](video-js-scaffold-typecheck.md) — fresh video artifact fails tsc (missing dom lib + widened `type:'spring'`); fix before markTaskComplete though build/preview pass.
 - [Store asset font reproducibility](store-asset-font-reproducibility.md) — gen-store-assets.sh must render native scripts from committed fonts (assets/store/fonts), not node_modules; review runs a clean checkout with no pnpm install.
+- [Account settings surface](account-settings-surface.md) — /account routes existed in backend but not openapi.yaml (no client hooks); identity mirror is backfill-only so edit via backend not Clerk-only; dark mode = toggle .dark class (CSS vars already shipped).

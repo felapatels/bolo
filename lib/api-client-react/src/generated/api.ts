@@ -21,12 +21,16 @@ import type {
 
 import type {
   AcceptedFriendship,
+  Account,
+  AccountPreferencesResult,
+  AccountProfileResult,
   AddPhrasesInput,
   Attempt,
   AttemptInput,
   AttemptResult,
   Badge,
   Category,
+  DeleteAccountResult,
   Entitlements,
   Error,
   Friend,
@@ -52,6 +56,8 @@ import type {
   SetChosenLanguageInput,
   SpeechInput,
   SpeechResult,
+  UpdatePreferencesInput,
+  UpdateProfileInput,
   UpgradeRequired,
   UserSummary
 } from './api.schemas';
@@ -1197,6 +1203,300 @@ export const useSetChosenLanguage = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSetChosenLanguageMutationOptions(options));
+    }
+
+export const getGetAccountUrl = () => {
+
+
+
+
+  return `/api/account`
+}
+
+/**
+ * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary — everything the account settings screen renders from.
+ * @summary The caller's profile, preferences, and subscription summary
+ */
+export const getAccount = async ( options?: RequestInit): Promise<Account> => {
+
+  return customFetch<Account>(getGetAccountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountQueryKey = () => {
+    return [
+    `/api/account`
+    ] as const;
+    }
+
+
+export const getGetAccountQueryOptions = <TData = Awaited<ReturnType<typeof getAccount>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccount>>> = ({ signal }) => getAccount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountQueryResult = NonNullable<Awaited<ReturnType<typeof getAccount>>>
+export type GetAccountQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The caller's profile, preferences, and subscription summary
+ */
+
+export function useGetAccount<TData = Awaited<ReturnType<typeof getAccount>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteAccountUrl = () => {
+
+
+
+
+  return `/api/account`
+}
+
+/**
+ * Permanently deletes the learner's Clerk identity and every local record (attempts, progress, friendships, subscription state). Idempotent and irreversible; the client signs the user out afterwards.
+ * @summary Permanently delete the caller's account and all their data
+ */
+export const deleteAccount = async ( options?: RequestInit): Promise<DeleteAccountResult> => {
+
+  return customFetch<DeleteAccountResult>(getDeleteAccountUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAccountMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccount>>, void> = () => {
+
+
+          return  deleteAccount(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAccountMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccount>>>
+
+    export type DeleteAccountMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Permanently delete the caller's account and all their data
+ */
+export const useDeleteAccount = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAccount>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteAccountMutationOptions(options));
+    }
+
+export const getUpdateAccountProfileUrl = () => {
+
+
+
+
+  return `/api/account/profile`
+}
+
+/**
+ * Updates the display name (mirrored to Clerk, the identity source of truth) and/or the avatar reference. Only the fields present in the body are changed.
+ * @summary Update the caller's display name and/or avatar
+ */
+export const updateAccountProfile = async (updateProfileInput: UpdateProfileInput, options?: RequestInit): Promise<AccountProfileResult> => {
+
+  return customFetch<AccountProfileResult>(getUpdateAccountProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateProfileInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAccountProfileMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccountProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAccountProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext> => {
+
+const mutationKey = ['updateAccountProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAccountProfile>>, {data: BodyType<UpdateProfileInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAccountProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAccountProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateAccountProfile>>>
+    export type UpdateAccountProfileMutationBody = BodyType<UpdateProfileInput>
+    export type UpdateAccountProfileMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update the caller's display name and/or avatar
+ */
+export const useUpdateAccountProfile = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccountProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAccountProfile>>,
+        TError,
+        {data: BodyType<UpdateProfileInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAccountProfileMutationOptions(options));
+    }
+
+export const getUpdateAccountPreferencesUrl = () => {
+
+
+
+
+  return `/api/account/preferences`
+}
+
+/**
+ * Updates any subset of the notification (daily reminder toggle + time) and learning (active language, daily goal, theme) preferences. Only the provided fields change; each is validated.
+ * @summary Update notification and/or learning preferences
+ */
+export const updateAccountPreferences = async (updatePreferencesInput: UpdatePreferencesInput, options?: RequestInit): Promise<AccountPreferencesResult> => {
+
+  return customFetch<AccountPreferencesResult>(getUpdateAccountPreferencesUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updatePreferencesInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAccountPreferencesMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccountPreferences>>, TError,{data: BodyType<UpdatePreferencesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAccountPreferences>>, TError,{data: BodyType<UpdatePreferencesInput>}, TContext> => {
+
+const mutationKey = ['updateAccountPreferences'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAccountPreferences>>, {data: BodyType<UpdatePreferencesInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAccountPreferences(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAccountPreferencesMutationResult = NonNullable<Awaited<ReturnType<typeof updateAccountPreferences>>>
+    export type UpdateAccountPreferencesMutationBody = BodyType<UpdatePreferencesInput>
+    export type UpdateAccountPreferencesMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update notification and/or learning preferences
+ */
+export const useUpdateAccountPreferences = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccountPreferences>>, TError,{data: BodyType<UpdatePreferencesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAccountPreferences>>,
+        TError,
+        {data: BodyType<UpdatePreferencesInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAccountPreferencesMutationOptions(options));
     }
 
 export const getSearchFriendByEmailUrl = (params: SearchFriendByEmailParams,) => {

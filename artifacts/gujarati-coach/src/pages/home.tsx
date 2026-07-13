@@ -1,4 +1,4 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, LogOut, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -11,10 +11,8 @@ import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useUser, useClerk } from "@clerk/react";
+import { useUser } from "@clerk/react";
 import type { CSSProperties } from "react";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const iconMap: Record<string, React.ElementType> = {
   HandHeart,
@@ -31,7 +29,6 @@ const iconMap: Record<string, React.ElementType> = {
 
 export default function Home() {
   const { user } = useUser();
-  const { signOut } = useClerk();
   const firstName = user?.firstName;
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
@@ -92,13 +89,14 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => signOut({ redirectUrl: basePath || "/" })}
-            title="Sign out"
+          <Link
+            href="/account"
+            title="Account & settings"
+            aria-label="Account & settings"
             className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
           >
-            <LogOut className="w-5 h-5" />
-          </button>
+            <Settings className="w-5 h-5" />
+          </Link>
         </motion.div>
 
         <div className="mt-5">

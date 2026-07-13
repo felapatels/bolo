@@ -7,6 +7,14 @@
  */
 
 export * from './acceptedFriendship';
+export * from './account';
+export * from './accountLearningPreferences';
+export * from './accountNotificationPreferences';
+export * from './accountPreferences';
+export * from './accountPreferencesResult';
+export * from './accountProfile';
+export * from './accountProfileResult';
+export * from './accountSubscriptionSummary';
 export * from './addPhrasesInput';
 export * from './attempt';
 export * from './attemptInput';
@@ -16,6 +24,7 @@ export * from './category';
 export * from './categoryAnalytics';
 export * from './dailyActivity';
 export * from './dailyLessonAllowance';
+export * from './deleteAccountResult';
 export * from './earnedBadge';
 export * from './entitlementLimits';
 export * from './entitlements';
@@ -44,5 +53,8 @@ export * from './sendFriendRequestInput';
 export * from './setChosenLanguageInput';
 export * from './speechInput';
 export * from './speechResult';
+export * from './updatePreferencesInput';
+export * from './updatePreferencesInputTheme';
+export * from './updateProfileInput';
 export * from './upgradeRequired';
 export * from './userSummary';

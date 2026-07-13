@@ -16,6 +16,8 @@ tags:
     description: OpenAI AI audio and content operations
   - name: friends
     description: Friends, friend requests, and the friends leaderboard
+  - name: account
+    description: Profile, notification and learning preferences, and account deletion
 paths:
   /healthz:
     get:
@@ -393,6 +395,114 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /account:
+    get:
+      operationId: getAccount
+      tags: [account]
+      summary: The caller's profile, preferences, and subscription summary
+      description: >-
+        Returns the authenticated learner's profile (name, email, avatar), their
+        notification and learning preferences, and a compact subscription
+        summary — everything the account settings screen renders from.
+      responses:
+        "200":
+          description: The caller's account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteAccount
+      tags: [account]
+      summary: Permanently delete the caller's account and all their data
+      description: >-
+        Permanently deletes the learner's Clerk identity and every local record
+        (attempts, progress, friendships, subscription state). Idempotent and
+        irreversible; the client signs the user out afterwards.
+      responses:
+        "200":
+          description: The account was deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAccountResult"
+
+  /account/profile:
+    patch:
+      operationId: updateAccountProfile
+      tags: [account]
+      summary: Update the caller's display name and/or avatar
+      description: >-
+        Updates the display name (mirrored to Clerk, the identity source of
+        truth) and/or the avatar reference. Only the fields present in the body
+        are changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileInput"
+      responses:
+        "200":
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfileResult"
+        "400":
+          description: Nothing to update or an invalid field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: The identity service could not apply the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /account/preferences:
+    patch:
+      operationId: updateAccountPreferences
+      tags: [account]
+      summary: Update notification and/or learning preferences
+      description: >-
+        Updates any subset of the notification (daily reminder toggle + time)
+        and learning (active language, daily goal, theme) preferences. Only the
+        provided fields change; each is validated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePreferencesInput"
+      responses:
+        "200":
+          description: The updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountPreferencesResult"
+        "400":
+          description: An invalid preference value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The chosen language does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /friends/search:
     get:
       operationId: searchFriendByEmail
@@ -672,6 +782,174 @@ components:
           type: string
       required:
         - error
+
+    AccountProfile:
+      type: object
+      description: The learner's identity fields, mirrored from Clerk.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required:
+        - id
+        - email
+        - displayName
+        - avatarUrl
+
+    AccountNotificationPreferences:
+      type: object
+      properties:
+        dailyReminderEnabled:
+          type: boolean
+        dailyReminderTime:
+          type: string
+          nullable: true
+          description: Preferred local send time as "HH:MM" (24h), or null.
+      required:
+        - dailyReminderEnabled
+        - dailyReminderTime
+
+    AccountLearningPreferences:
+      type: object
+      properties:
+        activeLanguage:
+          type: string
+          nullable: true
+          description: The language code the learner is actively studying, or null.
+        dailyGoal:
+          type: integer
+          description: Target attempts per day (1–100).
+        theme:
+          type: string
+          description: Client colour theme ("system" | "light" | "dark").
+      required:
+        - activeLanguage
+        - dailyGoal
+        - theme
+
+    AccountPreferences:
+      type: object
+      properties:
+        notifications:
+          $ref: "#/components/schemas/AccountNotificationPreferences"
+        learning:
+          $ref: "#/components/schemas/AccountLearningPreferences"
+      required:
+        - notifications
+        - learning
+
+    AccountSubscriptionSummary:
+      type: object
+      description: A compact subscription block returned inline by GET /account.
+      properties:
+        tier:
+          type: string
+        status:
+          type: string
+        chosenLanguage:
+          type: string
+          nullable: true
+        trialEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          nullable: true
+        pauseUntil:
+          type: string
+          format: date-time
+          nullable: true
+        cancelAtPeriodEnd:
+          type: boolean
+        retentionOfferAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - tier
+        - status
+        - chosenLanguage
+        - trialEndsAt
+        - currentPeriodEnd
+        - pauseUntil
+        - cancelAtPeriodEnd
+        - retentionOfferAcceptedAt
+
+    Account:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/AccountProfile"
+        preferences:
+          $ref: "#/components/schemas/AccountPreferences"
+        subscription:
+          $ref: "#/components/schemas/AccountSubscriptionSummary"
+      required:
+        - profile
+        - preferences
+        - subscription
+
+    AccountProfileResult:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/AccountProfile"
+      required:
+        - profile
+
+    AccountPreferencesResult:
+      type: object
+      properties:
+        preferences:
+          $ref: "#/components/schemas/AccountPreferences"
+      required:
+        - preferences
+
+    UpdateProfileInput:
+      type: object
+      description: Any subset of the editable profile fields.
+      properties:
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+
+    UpdatePreferencesInput:
+      type: object
+      description: Any subset of the notification and learning preferences.
+      properties:
+        dailyReminderEnabled:
+          type: boolean
+        dailyReminderTime:
+          type: string
+          nullable: true
+        activeLanguage:
+          type: string
+          nullable: true
+        dailyGoal:
+          type: integer
+        theme:
+          type: string
+          enum: [system, light, dark]
+
+    DeleteAccountResult:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      required:
+        - deleted
 
     SetChosenLanguageInput:
       type: object

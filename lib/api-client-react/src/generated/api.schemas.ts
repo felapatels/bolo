@@ -13,6 +13,96 @@ export interface Error {
   error: string;
 }
 
+/**
+ * The learner's identity fields, mirrored from Clerk.
+ */
+export interface AccountProfile {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface AccountNotificationPreferences {
+  dailyReminderEnabled: boolean;
+  /** Preferred local send time as "HH:MM" (24h), or null. */
+  dailyReminderTime: string | null;
+}
+
+export interface AccountLearningPreferences {
+  /** The language code the learner is actively studying, or null. */
+  activeLanguage: string | null;
+  /** Target attempts per day (1–100). */
+  dailyGoal: number;
+  /** Client colour theme ("system" | "light" | "dark"). */
+  theme: string;
+}
+
+export interface AccountPreferences {
+  notifications: AccountNotificationPreferences;
+  learning: AccountLearningPreferences;
+}
+
+/**
+ * A compact subscription block returned inline by GET /account.
+ */
+export interface AccountSubscriptionSummary {
+  tier: string;
+  status: string;
+  chosenLanguage: string | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  pauseUntil: string | null;
+  cancelAtPeriodEnd: boolean;
+  retentionOfferAcceptedAt: string | null;
+}
+
+export interface Account {
+  profile: AccountProfile;
+  preferences: AccountPreferences;
+  subscription: AccountSubscriptionSummary;
+}
+
+export interface AccountProfileResult {
+  profile: AccountProfile;
+}
+
+export interface AccountPreferencesResult {
+  preferences: AccountPreferences;
+}
+
+/**
+ * Any subset of the editable profile fields.
+ */
+export interface UpdateProfileInput {
+  displayName?: string;
+  avatarUrl?: string | null;
+}
+
+export type UpdatePreferencesInputTheme = typeof UpdatePreferencesInputTheme[keyof typeof UpdatePreferencesInputTheme];
+
+
+export const UpdatePreferencesInputTheme = {
+  system: 'system',
+  light: 'light',
+  dark: 'dark',
+} as const;
+
+/**
+ * Any subset of the notification and learning preferences.
+ */
+export interface UpdatePreferencesInput {
+  dailyReminderEnabled?: boolean;
+  dailyReminderTime?: string | null;
+  activeLanguage?: string | null;
+  dailyGoal?: number;
+  theme?: UpdatePreferencesInputTheme;
+}
+
+export interface DeleteAccountResult {
+  deleted: boolean;
+}
+
 export interface SetChosenLanguageInput {
   /** The language code to unlock (must not be Hindi). */
   language: string;
