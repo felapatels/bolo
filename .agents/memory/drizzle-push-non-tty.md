@@ -15,6 +15,18 @@ environments drift. `drizzle.config.ts` `out` must be a RELATIVE path ("./drizzl
 an absolute `path.join(__dirname,...)` makes drizzle-kit check/generate read a
 doubled `.//abs/path` and throw ENOENT.
 
+# Drift check: generate is the signal, check alone is not enough
+
+A `db-drift` validation (`pnpm --filter @workspace/db run check-drift`) guards against
+someone editing `lib/db/src/schema/*` without running generate. `drizzle-kit check`
+only validates that committed migrations/meta are internally consistent — it does
+NOT compare schema-code against the snapshot, so it passes even when schema drifted.
+The real drift signal is `drizzle-kit generate`: if it emits a new `*.sql`, the code
+diverged from the committed migrations. Both run without a TTY. The check script must
+back up `lib/db/drizzle/` before generate and restore it after (trap EXIT), because a
+drift run WILL write a new migration + mutate meta — you don't want that left in the
+tree. Detect drift by diffing the `.sql` file list before/after generate.
+
 # drizzle-kit push fails on rename/ambiguous diffs in this environment (legacy)
 
 `pnpm --filter @workspace/db run push` (and `push-force`) run `drizzle-kit push`,
