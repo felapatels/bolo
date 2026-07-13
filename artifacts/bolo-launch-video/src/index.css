@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400..800&family=Noto+Sans+Devanagari:wght@400..800&family=Noto+Sans+Gujarati:wght@400..800&family=Noto+Sans+Gurmukhi:wght@400..800&family=Noto+Sans+Kannada:wght@400..800&family=Noto+Sans+Malayalam:wght@400..800&family=Noto+Sans+Oriya:wght@400..800&family=Noto+Sans+Tamil:wght@400..800&family=Noto+Sans+Telugu:wght@400..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Noto+Sans+Meetei+Mayek:wght@400;700&family=Noto+Sans+Ol+Chiki&display=swap');
 
 @import "tailwindcss";
 
@@ -51,6 +52,10 @@
 .font-oriya { font-family: 'Noto Sans Oriya', sans-serif; }
 .font-tamil { font-family: 'Noto Sans Tamil', sans-serif; }
 .font-telugu { font-family: 'Noto Sans Telugu', sans-serif; }
+.font-nastaliq { font-family: 'Noto Nastaliq Urdu', serif; }
+.font-arabic { font-family: 'Noto Naskh Arabic', serif; }
+.font-meetei { font-family: 'Noto Sans Meetei Mayek', sans-serif; }
+.font-olchiki { font-family: 'Noto Sans Ol Chiki', sans-serif; }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.9);

@@ -2,16 +2,44 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { springSnappy, springBouncy, springSmooth } from './Scene1Intro';
 
-const LANGUAGES = [
+type Language = {
+  script: string;
+  roman: string;
+  name: string;
+  font: string;
+  color: string;
+  rtl?: boolean;
+};
+
+// All 22 Eighth Schedule languages, each in its own native script.
+const LANGUAGES: Language[] = [
   { script: 'नमस्ते', roman: 'Namaste', name: 'Hindi', font: 'font-devanagari', color: 'text-primary' },
-  { script: 'કેમ છો', roman: 'Kem chho', name: 'Gujarati', font: 'font-gujarati', color: 'text-success' },
   { script: 'নমস্কার', roman: 'Nomoshkar', name: 'Bengali', font: 'font-bengali', color: 'text-secondary' },
-  { script: 'வணக்கம்', roman: 'Vanakkam', name: 'Tamil', font: 'font-tamil', color: 'text-accent' },
+  { script: 'नमस्कार', roman: 'Namaskar', name: 'Marathi', font: 'font-devanagari', color: 'text-accent' },
   { script: 'నమస్కారం', roman: 'Namaskaram', name: 'Telugu', font: 'font-telugu', color: 'text-gold' },
-  { script: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ', roman: 'Sat sri akaal', name: 'Punjabi', font: 'font-gurmukhi', color: 'text-primary' },
+  { script: 'வணக்கம்', roman: 'Vanakkam', name: 'Tamil', font: 'font-tamil', color: 'text-accent' },
+  { script: 'કેમ છો', roman: 'Kem chho', name: 'Gujarati', font: 'font-gujarati', color: 'text-success' },
+  { script: 'آداب', roman: 'Aadaab', name: 'Urdu', font: 'font-nastaliq', color: 'text-primary', rtl: true },
   { script: 'ನಮಸ್ಕಾರ', roman: 'Namaskara', name: 'Kannada', font: 'font-kannada', color: 'text-success' },
+  { script: 'ନମସ୍କାର', roman: 'Namaskar', name: 'Odia', font: 'font-oriya', color: 'text-secondary' },
   { script: 'നമസ്കാരം', roman: 'Namaskaram', name: 'Malayalam', font: 'font-malayalam', color: 'text-secondary' },
+  { script: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ', roman: 'Sat sri akaal', name: 'Punjabi', font: 'font-gurmukhi', color: 'text-primary' },
+  { script: 'নমস্কাৰ', roman: 'Nomoskar', name: 'Assamese', font: 'font-bengali', color: 'text-accent' },
+  { script: 'प्रणाम', roman: 'Pranam', name: 'Maithili', font: 'font-devanagari', color: 'text-gold' },
+  { script: 'नमो नमः', roman: 'Namo namah', name: 'Sanskrit', font: 'font-devanagari', color: 'text-primary' },
+  { script: 'नमस्ते', roman: 'Namaste', name: 'Nepali', font: 'font-devanagari', color: 'text-success' },
+  { script: 'नमस्कार', roman: 'Namaskar', name: 'Konkani', font: 'font-devanagari', color: 'text-secondary' },
+  { script: 'آداب', roman: 'Aadaab', name: 'Sindhi', font: 'font-arabic', color: 'text-gold', rtl: true },
+  { script: 'नमस्कार', roman: 'Namaskar', name: 'Dogri', font: 'font-devanagari', color: 'text-accent' },
+  { script: 'آداب', roman: 'Aadaab', name: 'Kashmiri', font: 'font-nastaliq', color: 'text-secondary', rtl: true },
+  { script: 'ꯈꯨꯔꯨꯝꯖꯔꯤ', roman: 'Khurumjari', name: 'Manipuri', font: 'font-meetei', color: 'text-success' },
+  { script: 'नमस्कार', roman: 'Namaskar', name: 'Bodo', font: 'font-devanagari', color: 'text-primary' },
+  { script: 'ᱡᱚᱦᱟᱨ', roman: 'Johar', name: 'Santali', font: 'font-olchiki', color: 'text-gold' },
 ];
+
+// Split across the two parallax rows so each row shows distinct scripts.
+const ROW_1 = LANGUAGES.slice(0, 11);
+const ROW_2 = LANGUAGES.slice(11);
 
 export default function Scene1bLanguages() {
   const [phase, setPhase] = useState(0);
@@ -59,7 +87,7 @@ export default function Scene1bLanguages() {
           animate={{ x: '10%' }}
           transition={{ duration: 25, ease: 'linear' }}
         >
-          {[...LANGUAGES, ...LANGUAGES].map((lang, i) => (
+          {[...ROW_1, ...ROW_1].map((lang, i) => (
             <motion.div 
               key={`row1-${i}`}
               className="flex flex-col items-center glass-card px-[3vw] py-[2vh] rounded-[2vw] min-w-[20vw]"
@@ -69,9 +97,9 @@ export default function Scene1bLanguages() {
                 rotateX: phase >= 2 ? 0 : 45,
                 y: phase >= 2 ? 0 : '5vh'
               }}
-              transition={{ delay: i * 0.08, ...springBouncy }}
+              transition={{ delay: (i % ROW_1.length) * 0.08, ...springBouncy }}
             >
-              <div className={`text-[3vw] font-bold mb-[1vh] ${lang.font} ${lang.color}`}>{lang.script}</div>
+              <div dir={lang.rtl ? 'rtl' : 'ltr'} className={`text-[3vw] font-bold mb-[1vh] ${lang.font} ${lang.color}`}>{lang.script}</div>
               <div className="text-[1.5vw] text-foreground font-medium">{lang.roman}</div>
               <div className="text-[1.1vw] text-muted-foreground">{lang.name}</div>
             </motion.div>
@@ -85,7 +113,7 @@ export default function Scene1bLanguages() {
           animate={{ x: '-50%' }}
           transition={{ duration: 30, ease: 'linear' }}
         >
-          {[...LANGUAGES.slice().reverse(), ...LANGUAGES.slice().reverse()].map((lang, i) => (
+          {[...ROW_2, ...ROW_2].map((lang, i) => (
             <motion.div 
               key={`row2-${i}`}
               className="flex flex-col items-center glass-card px-[3vw] py-[2vh] rounded-[2vw] min-w-[20vw]"
@@ -95,9 +123,9 @@ export default function Scene1bLanguages() {
                 rotateX: phase >= 3 ? 0 : -45,
                 y: phase >= 3 ? 0 : '-5vh'
               }}
-              transition={{ delay: i * 0.08, ...springBouncy }}
+              transition={{ delay: (i % ROW_2.length) * 0.08, ...springBouncy }}
             >
-              <div className={`text-[3vw] font-bold mb-[1vh] ${lang.font} ${lang.color}`}>{lang.script}</div>
+              <div dir={lang.rtl ? 'rtl' : 'ltr'} className={`text-[3vw] font-bold mb-[1vh] ${lang.font} ${lang.color}`}>{lang.script}</div>
               <div className="text-[1.5vw] text-foreground font-medium">{lang.roman}</div>
               <div className="text-[1.1vw] text-muted-foreground">{lang.name}</div>
             </motion.div>
