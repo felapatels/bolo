@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -8,9 +9,11 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import {
   useGetProgressSummary,
   useListRecentAttempts,
+  useListBadges,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -20,16 +23,23 @@ import { scoreColor } from '@/lib/ui';
 
 export default function ProgressScreen() {
   const colors = useColors();
+  const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
 
   const summary = useGetProgressSummary({ lang: activeLang });
   const history = useListRecentAttempts({ lang: activeLang, limit: 30 });
+  const badges = useListBadges({ lang: activeLang });
 
-  const refreshing = summary.isRefetching || history.isRefetching;
+  const refreshing =
+    summary.isRefetching || history.isRefetching || badges.isRefetching;
   const onRefresh = () => {
     summary.refetch();
     history.refetch();
+    badges.refetch();
   };
+
+  const earnedBadges = (badges.data ?? []).filter((b) => b.earned).length;
+  const totalBadges = (badges.data ?? []).length;
 
   const s = summary.data;
   const masteryPct =
@@ -122,6 +132,46 @@ export default function ProgressScreen() {
                 {s?.phrasesMastered ?? 0} of {s?.totalPhrases ?? 0} phrases
               </Text>
             </View>
+
+            {/* Badges entry */}
+            <Pressable
+              onPress={() => router.push('/(app)/badges')}
+              style={[
+                styles.badgeEntry,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View
+                style={[
+                  styles.badgeEntryIcon,
+                  { backgroundColor: `${colors.secondary}1F` },
+                ]}
+              >
+                <Feather name="award" size={22} color={colors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.badgeEntryTitle, { color: colors.foreground }]}
+                >
+                  Badges
+                </Text>
+                <Text
+                  style={[
+                    styles.badgeEntrySub,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {totalBadges > 0
+                    ? `${earnedBadges} of ${totalBadges} earned`
+                    : 'View your achievements'}
+                </Text>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={22}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
 
             <Text style={[styles.section, { color: colors.foreground }]}>
               Practice history
@@ -268,6 +318,24 @@ const styles = StyleSheet.create({
   masteryPct: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   track: { height: 10, borderRadius: 999, overflow: 'hidden' },
   masteryHint: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 10 },
+  badgeEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 26,
+  },
+  badgeEntryIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeEntryTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
+  badgeEntrySub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
   section: { fontFamily: AppFonts.bold, fontSize: 20, marginBottom: 12 },
   empty: { alignItems: 'center', gap: 12, paddingVertical: 32 },
   emptyText: {

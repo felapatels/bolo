@@ -41,6 +41,7 @@ export default function AppLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="category/[id]" />
         <Stack.Screen name="practice/[id]" />
+        <Stack.Screen name="badges" />
         <Stack.Screen
           name="language"
           options={{ presentation: 'modal' }}

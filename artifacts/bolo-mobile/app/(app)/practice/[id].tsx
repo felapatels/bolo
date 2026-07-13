@@ -28,9 +28,12 @@ import {
   getGetProgressSummaryQueryKey,
   getListRecentAttemptsQueryKey,
   getListCategoryPhrasesQueryKey,
+  getListBadgesQueryKey,
   type PronunciationResult,
+  type EarnedBadge,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
+import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -67,6 +70,7 @@ export default function PracticeScreen() {
   const [result, setResult] = React.useState<PronunciationResult | null>(null);
   const [scores, setScores] = React.useState<number[]>([]);
   const [coachPlaying, setCoachPlaying] = React.useState(false);
+  const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
 
   const playbackRef = React.useRef<PlaybackHandle | null>(null);
   const phrase = list[index];
@@ -161,7 +165,7 @@ export default function PracticeScreen() {
       }
 
       // Record the attempt using the server-signed token only.
-      await createAttempt.mutateAsync({
+      const attempt = await createAttempt.mutateAsync({
         data: { evaluationToken: res.evaluationToken },
       });
       queryClient.invalidateQueries({
@@ -173,6 +177,14 @@ export default function PracticeScreen() {
       queryClient.invalidateQueries({
         queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
       });
+      queryClient.invalidateQueries({
+        queryKey: getListBadgesQueryKey({ lang: activeLang }),
+      });
+
+      // Celebrate any badges this attempt unlocked (server-authoritative list).
+      if (attempt.newlyEarnedBadges?.length) {
+        setUnlockedBadges(attempt.newlyEarnedBadges);
+      }
     } catch {
       setPhase('idle');
       Alert.alert(
@@ -260,6 +272,10 @@ export default function PracticeScreen() {
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>
+        <BadgeUnlock
+          badges={unlockedBadges}
+          onDismiss={() => setUnlockedBadges([])}
+        />
       </Screen>
     );
   }
@@ -413,6 +429,10 @@ export default function PracticeScreen() {
           />
         )}
       </View>
+      <BadgeUnlock
+        badges={unlockedBadges}
+        onDismiss={() => setUnlockedBadges([])}
+      />
     </Screen>
   );
 }
