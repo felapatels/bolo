@@ -19,6 +19,7 @@
 - [Expo Router typed routes lag](expo-router-typed-routes.md) — a just-created route file fails typecheck until the expo dev workflow regenerates .expo/types; restart the workflow before tsc, don't cast the href.
 - [Reduced-motion spinners](reduced-motion-spinners.md) — gujarati-coach's global prefers-reduced-motion reset must exclude .animate-spin (and other functional motion) or loaders freeze.
 - [gujarati-coach vitest setup](gujarati-coach-vitest.md) — web tests need a separate vitest.config (vite.config throws w/o PORT/BASE_PATH), jsdom polyfills for Radix, and mock data-sources to drive real useEntitlements.
+- [Subscription pause & retention](subscription-pause-retention.md) — paused=suspended-not-expired (resolves free until pauseUntil); pause branch runs before tier branch; loadEntitlements must pass pauseUntil.
 - [Friends social graph](friends-graph.md) — friendships are single directional rows; bidirectional dup-prevention is app-level; leaderboard XP reuses computeProgressMetrics across all languages; identity backfilled from Clerk.
 - [video-js scaffold typecheck gaps](video-js-scaffold-typecheck.md) — fresh video artifact fails tsc (missing dom lib + widened `type:'spring'`); fix before markTaskComplete though build/preview pass.
 - [Store asset font reproducibility](store-asset-font-reproducibility.md) — gen-store-assets.sh must render native scripts from committed fonts (assets/store/fonts), not node_modules; review runs a clean checkout with no pnpm install.

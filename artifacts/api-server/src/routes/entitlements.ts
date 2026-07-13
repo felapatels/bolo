@@ -46,6 +46,7 @@ async function freshResolvedPlan(userId: string) {
         trialEndsAt: user.trialEndsAt,
         currentPeriodEnd: user.currentPeriodEnd,
         chosenLanguage: user.chosenLanguage,
+        pauseUntil: user.pauseUntil,
       }
     : {
         tier: "free",
@@ -53,6 +54,7 @@ async function freshResolvedPlan(userId: string) {
         trialEndsAt: null,
         currentPeriodEnd: null,
         chosenLanguage: null,
+        pauseUntil: null,
       };
   return resolvePlan(state);
 }

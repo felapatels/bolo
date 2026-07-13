@@ -80,6 +80,36 @@ test("a plus tier within its paid period stays plus", () => {
   assert.equal(r.status, "active");
 });
 
+test("a paused subscription within its window suspends access but is not expired", () => {
+  const r = resolvePlan(
+    state({
+      tier: "plus",
+      subscriptionStatus: "paused",
+      currentPeriodEnd: future,
+      pauseUntil: future,
+    }),
+    NOW,
+  );
+  assert.equal(r.plan, "free");
+  assert.equal(r.status, "paused");
+  assert.equal(r.pauseUntil?.getTime(), future.getTime());
+});
+
+test("a paused subscription past its window resumes to the underlying tier", () => {
+  const r = resolvePlan(
+    state({
+      tier: "plus",
+      subscriptionStatus: "paused",
+      currentPeriodEnd: future,
+      pauseUntil: past,
+    }),
+    NOW,
+  );
+  assert.equal(r.plan, "plus");
+  assert.equal(r.status, "active");
+  assert.equal(r.pauseUntil, null);
+});
+
 test("language access follows the plan", () => {
   assert.equal(isLanguageAllowed("free", FREE_LANGUAGE), true);
   assert.equal(isLanguageAllowed("free", "gu"), false);

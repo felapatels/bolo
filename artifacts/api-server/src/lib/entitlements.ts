@@ -11,7 +11,11 @@ export type SubscriptionStatus =
   | "trialing"
   | "active"
   | "expired"
-  | "canceled";
+  | "canceled"
+  // A subscription paused for a bounded window: access is suspended (resolves to
+  // Free) while the pause is open, but it is NOT expired — it resumes to its
+  // underlying tier once the pause window closes.
+  | "paused";
 
 // ---------------------------------------------------------------------------
 // Tier policy (see task brief) — change these to change the policy everywhere.
@@ -45,6 +49,10 @@ export interface SubscriptionState {
   currentPeriodEnd: Date | null;
   // The One Language tier's single chosen language (null for Free/Plus).
   chosenLanguage: string | null;
+  // When a paused subscription resumes. Only consulted while
+  // `subscriptionStatus` is "paused". Optional so callers that predate the
+  // pause feature (and never pause) can omit it.
+  pauseUntil?: Date | null;
 }
 
 // The effective plan the server acts on, after applying trial/expiry rules.
@@ -56,6 +64,9 @@ export interface ResolvedPlan {
   // Only set (non-null) when `plan` is "one_language" — the language the
   // subscriber unlocked on top of free Hindi.
   chosenLanguage: string | null;
+  // Set (non-null) only while the subscription is actively paused — the instant
+  // the (suspended) subscription resumes. Null in every other state.
+  pauseUntil: Date | null;
 }
 
 // Resolves the user's *effective* plan from their stored subscription fields.
@@ -73,7 +84,32 @@ export function resolvePlan(
   now: Date = new Date(),
 ): ResolvedPlan {
   const t = now.getTime();
-  const status = (state.subscriptionStatus ?? "none") as SubscriptionStatus;
+  const rawStatus = (state.subscriptionStatus ?? "none") as SubscriptionStatus;
+
+  // Paused subscriptions come first. While the pause window is open the
+  // subscription is suspended — the learner gets no paid access (resolves to
+  // Free) but is NOT expired, so it will resume. Without this branch a paused
+  // "plus" row within its paid period would fall through and wrongly grant full
+  // Plus access. Once the window has elapsed we drop the paused status and
+  // resolve the underlying tier as if active (the subscription has resumed).
+  if (rawStatus === "paused") {
+    const pauseActive =
+      state.pauseUntil != null && state.pauseUntil.getTime() > t;
+    if (pauseActive) {
+      return {
+        plan: "free",
+        status: "paused",
+        trialEndsAt: null,
+        currentPeriodEnd: state.currentPeriodEnd,
+        chosenLanguage: null,
+        pauseUntil: state.pauseUntil ?? null,
+      };
+    }
+  }
+
+  // Everywhere below, a lapsed pause reads as a resumed (active) subscription.
+  const status: SubscriptionStatus =
+    rawStatus === "paused" ? "active" : rawStatus;
   const trialActive =
     status === "trialing" &&
     state.trialEndsAt != null &&
@@ -86,6 +122,7 @@ export function resolvePlan(
       trialEndsAt: state.trialEndsAt,
       currentPeriodEnd: state.currentPeriodEnd,
       chosenLanguage: null,
+      pauseUntil: null,
     };
   }
 
@@ -100,6 +137,7 @@ export function resolvePlan(
         trialEndsAt: state.trialEndsAt,
         currentPeriodEnd: state.currentPeriodEnd,
         chosenLanguage: null,
+        pauseUntil: null,
       };
     }
     return {
@@ -108,6 +146,7 @@ export function resolvePlan(
       trialEndsAt: state.trialEndsAt,
       currentPeriodEnd: state.currentPeriodEnd,
       chosenLanguage: null,
+      pauseUntil: null,
     };
   }
 
@@ -119,6 +158,7 @@ export function resolvePlan(
         trialEndsAt: state.trialEndsAt,
         currentPeriodEnd: state.currentPeriodEnd,
         chosenLanguage: state.chosenLanguage,
+        pauseUntil: null,
       };
     }
     return {
@@ -127,6 +167,7 @@ export function resolvePlan(
       trialEndsAt: state.trialEndsAt,
       currentPeriodEnd: state.currentPeriodEnd,
       chosenLanguage: null,
+      pauseUntil: null,
     };
   }
 
@@ -136,6 +177,7 @@ export function resolvePlan(
     trialEndsAt: state.trialEndsAt,
     currentPeriodEnd: state.currentPeriodEnd,
     chosenLanguage: null,
+    pauseUntil: null,
   };
 }
 
@@ -263,6 +305,8 @@ export interface Entitlements {
   status: SubscriptionStatus;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  // When an actively-paused subscription resumes, or null when not paused.
+  pauseUntil: string | null;
   // The One Language tier's chosen language, or null for Free/Plus.
   chosenLanguage: string | null;
   // The concrete list of language codes the caller may access.
@@ -291,6 +335,7 @@ export function buildEntitlements(
     currentPeriodEnd: resolved.currentPeriodEnd
       ? resolved.currentPeriodEnd.toISOString()
       : null,
+    pauseUntil: resolved.pauseUntil ? resolved.pauseUntil.toISOString() : null,
     // Only surfaced for the middle tier; irrelevant (null) for Free/Plus.
     chosenLanguage: plan === "one_language" ? chosenLanguage : null,
     // For Plus (allowed === null) return every seeded language so clients never

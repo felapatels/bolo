@@ -4,6 +4,7 @@ import languagesRouter from "./languages";
 import learningRouter from "./learning";
 import openaiRouter from "./openai";
 import entitlementsRouter from "./entitlements";
+import accountRouter from "./account";
 import friendsRouter from "./friends";
 import revenuecatRouter from "./revenuecat";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -27,6 +28,9 @@ router.use(revenuecatRouter);
 router.use(requireAuth);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);
+// Account & subscription management (profile, preferences, deletion, and the
+// cancel/pause/retention surface) are available to every authenticated learner.
+router.use(accountRouter);
 // Friends & the friends leaderboard stay available to all authenticated
 // learners (not gated behind Bolo! Plus), so this sits before the gated routers.
 router.use(friendsRouter);

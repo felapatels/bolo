@@ -35,6 +35,7 @@ export async function loadEntitlements(
           trialEndsAt: user.trialEndsAt,
           currentPeriodEnd: user.currentPeriodEnd,
           chosenLanguage: user.chosenLanguage,
+          pauseUntil: user.pauseUntil,
         }
       : {
           tier: "free",

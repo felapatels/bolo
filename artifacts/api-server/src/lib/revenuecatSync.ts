@@ -189,6 +189,9 @@ export function transferRecipients(event: RevenueCatEvent): string[] {
 // https://www.revenuecat.com/docs/api-v1#tag/customers.
 export interface RevenueCatSubscriber {
   original_app_user_id?: string | null;
+  // A link the store surfaces for the customer to manage/cancel their
+  // subscription (present for App Store / Play Store customers).
+  management_url?: string | null;
   entitlements?: Record<
     string,
     { expires_date?: string | null; product_identifier?: string | null }
@@ -197,8 +200,14 @@ export interface RevenueCatSubscriber {
     string,
     {
       expires_date?: string | null;
+      purchase_date?: string | null;
+      original_purchase_date?: string | null;
       period_type?: string | null; // "normal" | "trial" | "intro"
       unsubscribe_detected_at?: string | null;
+      billing_issues_detected_at?: string | null;
+      // The store the subscription was bought through, e.g. "app_store",
+      // "play_store", "stripe", "promotional".
+      store?: string | null;
     }
   > | null;
 }
