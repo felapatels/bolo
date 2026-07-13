@@ -35,3 +35,20 @@ hand (psql). Do **not** try to force `drizzle-kit migrate`/`push` to fix the
 whole thing — reconciling migration state with the drifted dev DB is its own task
 (the "prove committed migrations build a working DB from scratch" work), not
 something to bolt onto a feature task.
+
+## Blast radius: a lagging `users` column 500s the WHOLE authed API
+
+`ensureLocalUser` upserts **every** column of the `users` schema, and
+`requireAuth` runs it first on every request. So if the dev DB is missing ANY
+`users` column that the committed schema/migration has, the upsert 42703s and
+**every authenticated endpoint 500s** (entitlements, friends, lessons — not just
+the feature that added the column). The symptom looks like "auth/Clerk is broken";
+the cause is a lagging column. Fix by hand-applying that migration's `ALTER TABLE
+users ADD COLUMN IF NOT EXISTS ...`.
+
+Note: committed migrations live under **`lib/db/drizzle/`** (not
+`lib/db/migrations/`). Don't conclude "there's no migration" from grepping the
+wrong path — e.g. `0005` correctly adds `users.stripe_customer_id`; the dev DB
+just hadn't applied it. Fresh DBs (incl. production via post-merge `setup`) get
+the column; `pnpm --filter @workspace/db run check-migrations` proves migrations
+apply cleanly to a throwaway DB.
