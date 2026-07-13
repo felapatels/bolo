@@ -16,6 +16,7 @@ import {
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
   validateSeedLesson,
+  validateCuratedLessons,
   type SeedLesson,
   type CuratedLessonsFile,
 } from "./seedData";
@@ -156,9 +157,18 @@ async function seed() {
   console.log(`Pre-seeded ${gujaratiSeeded} new Gujarati lesson(s).`);
 
   // 4. Pre-seed the frozen, AI-generated lessons for every other language.
+  // Validate the whole file up front through the shared gate so the seeder
+  // refuses loudly on any malformed/empty lesson before inserting a single row.
   const curated = loadCuratedLessons();
+  const { errors, missing } = validateCuratedLessons(curated, PHRASES_PER_LESSON);
+  if (errors.length > 0) {
+    throw new Error(
+      `Refusing to seed: ${errors.length} curated lesson(s) failed validation:\n` +
+        errors.map((e) => `  - ${e}`).join("\n"),
+    );
+  }
+
   let generatedSeeded = 0;
-  const missing: string[] = [];
   for (const lang of LANGUAGES) {
     if (lang.code === CURATED_LANGUAGE_CODE) continue;
     const byCategory = curated[lang.code];
@@ -166,16 +176,7 @@ async function seed() {
       const categoryId = catIdBySlug.get(cat.slug);
       if (categoryId == null) continue;
       const lesson = byCategory?.[cat.slug];
-      if (!lesson) {
-        missing.push(`${lang.code}/${cat.slug}`);
-        continue;
-      }
-      const invalid = validateSeedLesson(lesson, PHRASES_PER_LESSON);
-      if (invalid) {
-        throw new Error(
-          `Curated lesson ${lang.code}/${cat.slug} is invalid: ${invalid}`,
-        );
-      }
+      if (!lesson) continue;
       if (await seedLesson(lang.code, categoryId, lesson)) generatedSeeded++;
     }
   }

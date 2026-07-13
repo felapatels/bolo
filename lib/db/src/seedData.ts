@@ -211,3 +211,43 @@ export function validateSeedLesson(
   }
   return null;
 }
+
+// The outcome of validating a whole frozen curated-lessons file against the
+// expected (non-Gujarati language × category) matrix.
+export type CuratedLessonsValidation = {
+  // A present lesson that failed validation. Each entry is
+  // "<lang>/<category>: <reason>". A non-empty list means the seeder must
+  // refuse to run rather than ship a broken or empty lesson.
+  errors: string[];
+  // A (language, category) combination with no frozen lesson at all. Tolerated:
+  // the seeder skips it and it generates on first open.
+  missing: string[];
+};
+
+// Validates the frozen, pre-generated lessons for every non-curated language.
+// This is the single gate the seeder uses (see seed.ts) so the two never drift:
+// every present lesson must pass validateSeedLesson with an exact phrase count,
+// and every (language, category) combination is accounted for. Returns the
+// fatal `errors` (malformed/empty lessons the seeder must reject) and the
+// tolerated `missing` combinations.
+export function validateCuratedLessons(
+  curated: CuratedLessonsFile,
+  exactCount: number = PHRASES_PER_LESSON,
+): CuratedLessonsValidation {
+  const errors: string[] = [];
+  const missing: string[] = [];
+  for (const lang of LANGUAGES) {
+    if (lang.code === CURATED_LANGUAGE_CODE) continue;
+    const byCategory = curated[lang.code];
+    for (const cat of CATEGORIES) {
+      const lesson = byCategory?.[cat.slug];
+      if (!lesson) {
+        missing.push(`${lang.code}/${cat.slug}`);
+        continue;
+      }
+      const invalid = validateSeedLesson(lesson, exactCount);
+      if (invalid) errors.push(`${lang.code}/${cat.slug}: ${invalid}`);
+    }
+  }
+  return { errors, missing };
+}
