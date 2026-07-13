@@ -9,6 +9,7 @@
 - [Lesson cache invariant](lesson-cache-invariant.md) — lesson+phrases must insert atomically; never serve a zero-phrase cached lesson (regenerate); let generation failure propagate before any write.
 - [Review spaced-repetition](review-spaced-repetition.md) — /review/phrases orders by Leitner due-date (not plain weakest-first); mastery math untouched, response shape unchanged.
 - [Store submission assets](store-submission-assets.md) — Play/App Store prep for the Expo app: SVG→PNG listing graphics via gen-store-assets.sh, authed screenshots need a device, block unused Expo permissions.
+- [Store screenshot capture](store-screenshots-capture.md) — capture auth-gated feature shots via Expo web + throwaway fetch-shim harness at 412×824; `.gitignore` `android/` also hides assets/store/android (needs negation).
 - [Pre-curated lessons](curated-lessons.md) — non-default languages' phrases are generated offline + frozen to committed JSON the seeder reads; Gujarati stays hand-curated with variable phrase counts (don't enforce exact-8).
 - [Entitlement gating (Free/Plus)](entitlement-gating.md) — server-authoritative tier gates return 402 upgrade_required; any router that gates must run behind the entitlements loader, and tier-agnostic route tests need a Plus test user.
 - [RevenueCat payments](revenuecat-payments.md) — connector is the @replit/connectors-sdk PROXY (not typed SDK); webhook derives state from payload, reconcile-on-read gated on REVENUECAT_PROJECT_ID.

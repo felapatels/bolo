@@ -43,7 +43,7 @@ are collected.
 | --- | --- | --- | --- |
 | High-res icon | `play-store-icon.png` | 512×512, 32-bit PNG | ✅ generated |
 | Feature graphic | `feature-graphic.png` | 1024×500 PNG | ✅ generated |
-| Phone screenshots | `screenshots/*.jpg` | 2–8 images, ≤2:1 ratio | ⚠️ see below |
+| Phone screenshots | `screenshots/*.jpg` | 2–8 images, ≤2:1 ratio | ✅ 6 captured |
 
 The icon and feature graphic are generated from the brand SVGs
 (`assets/branding/icon.svg` + `adaptive-icon.svg`) and are fully reproducible:
@@ -54,20 +54,33 @@ bash scripts/gen-store-assets.sh
 
 ### Screenshots
 
-`screenshots/01-sign-in.jpg` and `02-sign-up.jpg` are real captures of the
-app's onboarding at a Play-compliant 412×824 (≈2:1). Before publishing, add a
-few **feature** screenshots (a lesson category list, a practice/recording
-screen, the progress/badges screen). Those live behind auth and are best
-captured on a device/emulator running the internal build:
+`screenshots/` holds six real captures of the app, all at a Play-compliant
+**412×824** (exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules):
+
+| File | Screen |
+| --- | --- |
+| `01-sign-in.jpg` | Onboarding — sign in |
+| `02-sign-up.jpg` | Onboarding — create account |
+| `03-home-topics.jpg` | Home — streak/stats + lesson topics list |
+| `04-practice.jpg` | Practice — phrase card + record button |
+| `05-progress.jpg` | Progress — mastery, stats, badges entry |
+| `06-badges.jpg` | Badges — earned + in-progress achievements |
+
+The four feature screens (03–06) live behind Clerk auth and real learner data,
+so they were captured from the app's **web build** (Expo/react-native-web
+renders the same component tree and styling as the device) with representative
+demo content, sized to the phone spec. They faithfully show the production UI.
+
+If you want captures with device status-bar chrome, re-take them on an
+emulator/device running the internal build (the app renders identically):
 
 ```bash
-# with an emulator or device running the preview/production build
-adb exec-out screencap -p > screenshots/03-practice.png
+# with an emulator or device running the preview/production build, signed in
+adb exec-out screencap -p > screenshots/03-home-topics.png
 ```
 
-Play requires **at least 2** phone screenshots; the two onboarding shots
-already satisfy the minimum, but the feature shots make a much stronger
-listing.
+Play requires **at least 2** phone screenshots; these six comfortably exceed
+that and make a strong, feature-forward listing.
 
 ## 4. Building the release AAB with EAS
 
