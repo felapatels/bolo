@@ -46,6 +46,7 @@ export default function AppLayout() {
             <Stack.Screen name="category/[id]" />
             <Stack.Screen name="practice/[id]" />
             <Stack.Screen name="badges" />
+            <Stack.Screen name="analytics" />
             <Stack.Screen name="language" options={{ presentation: 'modal' }} />
             <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           </Stack>

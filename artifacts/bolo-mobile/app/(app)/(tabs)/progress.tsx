@@ -176,9 +176,46 @@ export default function ProgressScreen() {
               />
             </Pressable>
 
-            {/* Present-but-locked Plus features (Free plan). Each routes to the
-                paywall rather than a dead end. */}
-            {!isPlus ? (
+            {/* Advanced analytics: a live entry for Plus learners, a locked
+                teaser (routing to the paywall) for everyone else. */}
+            {isPlus ? (
+              <Pressable
+                onPress={() => router.push('/(app)/analytics')}
+                style={[
+                  styles.badgeEntry,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.badgeEntryIcon,
+                    { backgroundColor: `${colors.primary}1F` },
+                  ]}
+                >
+                  <Feather name="bar-chart-2" size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.badgeEntryTitle, { color: colors.foreground }]}
+                  >
+                    Advanced analytics
+                  </Text>
+                  <Text
+                    style={[
+                      styles.badgeEntrySub,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Mastery by topic and your recent activity
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={22}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+            ) : (
               <>
                 <Text style={[styles.section, { color: colors.foreground }]}>
                   Unlock with Plus
@@ -202,7 +239,7 @@ export default function ProgressScreen() {
                   onPress={() => router.push('/(app)/paywall')}
                 />
               </>
-            ) : null}
+            )}
 
             <Text style={[styles.section, { color: colors.foreground }]}>
               Practice history
