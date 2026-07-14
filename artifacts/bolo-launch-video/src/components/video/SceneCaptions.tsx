@@ -1,84 +1,22 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+import { SCENE_NARRATION } from './narration';
+
 // On-screen captions of the narration so the story lands with sound off.
 //
-// Each entry mirrors one scene's voiceover line, split into short segments that
-// are revealed at offsets measured from the scene's start. Because the composite
+// The caption words and per-scene timing come straight from SCENE_NARRATION (see
+// narration.ts), the single source of truth shared with voiceover regeneration —
+// so the text on screen can never drift from what viewers hear. Segments are
+// revealed at offsets measured from the scene's start. Because the composite
 // audio track seeks to each scene's canonical start on every scene change (see
 // SCENE_OFFSETS in VideoTemplate), a caption timeline that also restarts from 0
 // on each scene change stays locked to the voiceover across the normal loop,
 // manual scene jumps, and the scene-lock replay behavior.
-//
-// `hideAt` is roughly where the spoken line ends, so the caption clears once the
-// narration is done rather than lingering silently for the rest of the scene.
-type CaptionSegment = { text: string; at: number };
-type SceneCaption = { segments: CaptionSegment[]; hideAt: number };
-
-export const SCENE_CAPTIONS: Record<string, SceneCaption> = {
-  intro: {
-    segments: [
-      { text: 'Your story begins with a single word.', at: 0 },
-      { text: 'Get back to your roots.', at: 2000 },
-    ],
-    hideAt: 3900,
-  },
-  languages: {
-    segments: [
-      {
-        text: '22 languages, each with its own beautiful script and living voice.',
-        at: 0,
-      },
-      { text: 'One of them is yours.', at: 4400 },
-    ],
-    hideAt: 6100,
-  },
-  listen: {
-    segments: [
-      { text: 'Listen closely to native speakers', at: 0 },
-      {
-        text: 'and let the true sound of every word settle into your ear.',
-        at: 2400,
-      },
-    ],
-    hideAt: 5800,
-  },
-  speak: {
-    segments: [
-      { text: 'Now say it out loud.', at: 0 },
-      {
-        text: 'Instant, gentle feedback helps your pronunciation grow with every try.',
-        at: 1800,
-      },
-    ],
-    hideAt: 5600,
-  },
-  reward: {
-    segments: [
-      { text: 'Finish a lesson, keep your streak alive,', at: 0 },
-      { text: 'and feel your confidence build day by day.', at: 2500 },
-    ],
-    hideAt: 4900,
-  },
-  mastery: {
-    segments: [
-      { text: 'Earn badges, track your growth,', at: 0 },
-      { text: 'and truly master your mother tongue over time.', at: 2200 },
-    ],
-    hideAt: 4700,
-  },
-  outro: {
-    segments: [
-      { text: 'Bolo — find your voice and get back to your roots.', at: 0 },
-      { text: 'Download today.', at: 3400 },
-    ],
-    hideAt: 4900,
-  },
-};
 
 export default function SceneCaptions({ sceneKey }: { sceneKey: string }) {
   const baseKey = sceneKey.replace(/_r[12]$/, '');
-  const caption = SCENE_CAPTIONS[baseKey];
+  const caption = SCENE_NARRATION[baseKey];
   const [index, setIndex] = useState(0);
   const [hidden, setHidden] = useState(false);
 
