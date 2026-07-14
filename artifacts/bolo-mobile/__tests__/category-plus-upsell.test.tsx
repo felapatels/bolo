@@ -82,8 +82,37 @@ jest.mock('@/components/Screen', () => {
 
 // Imported after the mocks are declared.
 import CategoryScreen from '@/app/(app)/category/[id]';
+import { ApiError } from '@workspace/api-client-react';
 
 // -------------------------------- fixtures --------------------------------
+
+function errorQuery(error: unknown) {
+  return {
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    isSuccess: false,
+    isFetching: false,
+    error,
+    refetch: jest.fn(),
+  };
+}
+
+function upgrade402(overrides?: Record<string, unknown>) {
+  // Matches the server's shared HTTP 402 "upgrade_required" body.
+  return new (ApiError as unknown as new (status: number, data: unknown) => Error)(
+    402,
+    {
+      error: 'upgrade_required',
+      upgradeRequired: true,
+      reason: 'daily_lesson_limit',
+      message: "You've used today's free lessons. Upgrade for unlimited practice.",
+      feature: null,
+      requiredPlan: 'plus',
+      ...overrides,
+    },
+  );
+}
 
 function successQuery(data: unknown, extra?: Record<string, unknown>) {
   return {
@@ -213,5 +242,68 @@ describe('Plus phrase upsell on the topic screen', () => {
     );
 
     expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
+  });
+});
+
+describe('402 upgrade_required on the topic screen', () => {
+  test('daily lesson limit shows the upgrade screen with the server message', () => {
+    mockState.phrases = errorQuery(upgrade402());
+
+    render(<CategoryScreen />);
+
+    expect(
+      screen.getByText("You've hit today's free lessons"),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        "You've used today's free lessons. Upgrade for unlimited practice.",
+      ),
+    ).toBeOnTheScreen();
+    // No dead-end "no phrases" or retry copy.
+    expect(screen.queryByText(/try again/i)).not.toBeOnTheScreen();
+  });
+
+  test('tapping the upgrade CTA routes to the paywall', () => {
+    mockState.phrases = errorQuery(upgrade402());
+
+    render(<CategoryScreen />);
+
+    fireEvent.press(screen.getByText('Unlock with Plus'));
+    expect(mockState.push).toHaveBeenCalledWith({
+      pathname: '/(app)/paywall',
+    });
+  });
+
+  test('a locked language unlockable by One-Language pre-picks it on the paywall', () => {
+    mockState.phrases = errorQuery(
+      upgrade402({
+        reason: 'language_locked',
+        message: 'Gujarati is locked on the Free plan.',
+        feature: 'allLanguages',
+        requiredPlan: 'one_language',
+      }),
+    );
+
+    render(<CategoryScreen />);
+
+    expect(screen.getByText('Unlock this language')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Unlock with Plus'));
+    expect(mockState.push).toHaveBeenCalledWith({
+      pathname: '/(app)/paywall',
+      params: { lang: 'hi' },
+    });
+  });
+
+  test('a non-402 failure still shows the retry screen, not the paywall', () => {
+    mockState.phrases = errorQuery(
+      new (ApiError as unknown as new (s: number, d: unknown) => Error)(502, {
+        error: 'generation_failed',
+      }),
+    );
+
+    render(<CategoryScreen />);
+
+    expect(screen.getByText(/try again/i)).toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
   });
 });

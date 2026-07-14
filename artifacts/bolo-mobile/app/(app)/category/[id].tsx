@@ -12,7 +12,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   useListCategories,
   useListCategoryPhrases,
-  ApiError,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
@@ -20,6 +19,8 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
 import { PressableScale } from '@/components/PressableScale';
 import { LockedPhrasesCard } from '@/components/PlusUpsell';
+import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
+import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
@@ -40,13 +41,26 @@ export default function CategoryScreen() {
   const nativeProps = nativeTextStyle(activeLanguage);
 
   // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry" —
-  // keep that as the inline note below. Any other failure (e.g. a 502 when AI
-  // generation fails) is retry-able: nothing broken was cached, so a later
-  // request can succeed.
-  const isUpgradeRequired =
-    phrases.error instanceof ApiError && phrases.error.status === 402;
+  // route the learner to the paywall, mirroring the web UpgradeScreen. Any
+  // other failure (e.g. a 502 when AI generation fails) is retry-able: nothing
+  // broken was cached, so a later request can succeed.
+  const upgrade = asUpgradeRequired(phrases.error);
+  if (upgrade) {
+    return (
+      <UpgradeRequiredScreen
+        title={
+          upgrade.reason === 'daily_lesson_limit'
+            ? "You've hit today's free lessons"
+            : 'Unlock this language'
+        }
+        message={upgrade.message}
+        onUpgrade={() => router.push(paywallHrefForDenial(upgrade, activeLang))}
+        onBack={() => router.back()}
+      />
+    );
+  }
 
-  if (phrases.isError && !isUpgradeRequired) {
+  if (phrases.isError) {
     return (
       <LessonError
         onRetry={() => phrases.refetch()}
@@ -97,10 +111,6 @@ export default function CategoryScreen() {
 
         {phrases.isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
-        ) : phrases.isError ? (
-          <Text style={[styles.note, { color: colors.mutedForeground }]}>
-            Upgrade to Plus to keep learning this topic today.
-          </Text>
         ) : (phrases.data ?? []).length === 0 ? (
           <Text style={[styles.note, { color: colors.mutedForeground }]}>
             No phrases here yet.
@@ -114,7 +124,6 @@ export default function CategoryScreen() {
         {/* Locked extended-library phrases (non-Plus learners). The count is
             reported by the server per topic; never render a hardcoded number. */}
         {!phrases.isLoading &&
-        !phrases.isError &&
         !isPlus &&
         (category?.lockedPhraseCount ?? 0) > 0 ? (
           <Animated.View entering={FadeInDown.duration(450).delay(120)}>

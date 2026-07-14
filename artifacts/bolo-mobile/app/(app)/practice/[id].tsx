@@ -32,7 +32,6 @@ import {
   getListRecentAttemptsQueryKey,
   getListCategoryPhrasesQueryKey,
   getListBadgesQueryKey,
-  ApiError,
   type PronunciationResult,
   type EarnedBadge,
 } from '@workspace/api-client-react';
@@ -40,6 +39,8 @@ import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
+import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
+import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Mascot, type MascotPose } from '@/components/Mascot';
 import { Confetti } from '@/components/Confetti';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -261,12 +262,26 @@ export default function PracticeScreen() {
       </Screen>
     );
   }
-  // A 402 means "upgrade required", not a generation failure — fall through to
-  // the "no phrases" note. Any other failure (e.g. a 502 when AI generation
-  // fails) is retry-able because nothing broken was cached.
-  const isUpgradeRequired =
-    phrases.error instanceof ApiError && phrases.error.status === 402;
-  if (phrases.isError && !isUpgradeRequired) {
+  // A 402 means "upgrade required", not a generation failure — send the
+  // learner to the paywall, mirroring the web UpgradeScreen. Any other failure
+  // (e.g. a 502 when AI generation fails) is retry-able because nothing broken
+  // was cached.
+  const upgrade = asUpgradeRequired(phrases.error);
+  if (upgrade) {
+    return (
+      <UpgradeRequiredScreen
+        title={
+          upgrade.reason === 'daily_lesson_limit'
+            ? "You've hit today's free lessons"
+            : 'Unlock this language'
+        }
+        message={upgrade.message}
+        onUpgrade={() => router.push(paywallHrefForDenial(upgrade, activeLang))}
+        onBack={() => router.back()}
+      />
+    );
+  }
+  if (phrases.isError) {
     return (
       <LessonError
         onRetry={() => phrases.refetch()}
