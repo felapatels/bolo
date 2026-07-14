@@ -118,7 +118,14 @@ export default function CategoryScreen() {
           </Text>
         ) : (
           (phrases.data ?? []).map((p, i) => (
-            <PhraseRow key={p.id} phrase={p} index={i} />
+            <PhraseRow
+              key={p.id}
+              phrase={p}
+              index={i}
+              onPress={() =>
+                router.push(`/(app)/practice/${categoryId}?phrase=${p.id}`)
+              }
+            />
           ))
         )}
 
@@ -153,17 +160,31 @@ export default function CategoryScreen() {
   );
 }
 
-function PhraseRow({ phrase, index }: { phrase: Phrase; index: number }) {
+function PhraseRow({
+  phrase,
+  index,
+  onPress,
+}: {
+  phrase: Phrase;
+  index: number;
+  onPress: () => void;
+}) {
   const colors = useColors();
   const { activeLanguage } = useLanguage();
   return (
     <Animated.View
       entering={appear(FadeInDown.duration(380).delay(Math.min(index, 10) * 55))}
-      style={[
-        styles.row,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
     >
+      <PressableScale
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Practice ${phrase.english}`}
+        accessibilityHint="Starts a practice session at this phrase"
+        style={[
+          styles.row,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
       <View style={{ flex: 1 }}>
         <Text
           style={[
@@ -192,6 +213,7 @@ function PhraseRow({ phrase, index }: { phrase: Phrase; index: number }) {
           </Text>
         </View>
       ) : null}
+      </PressableScale>
     </Animated.View>
   );
 }

@@ -62,7 +62,10 @@ export default function PracticeScreen() {
   const colors = useColors();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, phrase: startPhraseId } = useLocalSearchParams<{
+    id: string;
+    phrase?: string;
+  }>();
   const categoryId = Number(id);
   const { activeLang, activeLanguage } = useLanguage();
 
@@ -96,6 +99,21 @@ export default function PracticeScreen() {
     },
     [],
   );
+
+  // Jump to a requested starting phrase once the list loads (a tap on a
+  // phrase card passes `?phrase=`). Falls back to the start if the id isn't
+  // in the list. Applied only once so mid-session refetches can't yank the
+  // learner back to the starting phrase.
+  const appliedStartRef = React.useRef(false);
+  React.useEffect(() => {
+    if (appliedStartRef.current || list.length === 0) return;
+    appliedStartRef.current = true;
+    if (startPhraseId != null) {
+      const idx = list.findIndex((p) => p.id === Number(startPhraseId));
+      if (idx > 0) setIndex(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.length]);
 
   const playbackRef = React.useRef<PlaybackHandle | null>(null);
   const phrase = list[index];
