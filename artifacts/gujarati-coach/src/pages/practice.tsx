@@ -621,30 +621,32 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               </button>
             </div>
           ) : (
-            <div className="relative">
-              {state === "evaluating" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 rounded-full backdrop-blur-sm">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                </div>
-              )}
-              
-              <button 
-                onClick={state === "recording" ? finishRecording : startRecording}
-                disabled={state === "playing_coach" || state === "evaluating"}
-                className={cn(
-                  "w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 disabled:opacity-50",
-                  state === "recording" 
-                    ? "bg-accent scale-110 shadow-[0_0_40px_hsl(var(--accent)/0.5)] animate-pulse" 
-                    : "bg-primary active:scale-95 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                {state === "evaluating" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 rounded-full backdrop-blur-sm">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                  </div>
                 )}
-              >
-                {state === "recording" ? (
-                  <Square className="w-10 h-10 text-white fill-current" />
-                ) : (
-                  <Mic className="w-12 h-12 text-white" />
-                )}
-              </button>
-              
+
+                <button 
+                  onClick={state === "recording" ? finishRecording : startRecording}
+                  disabled={state === "playing_coach" || state === "evaluating"}
+                  className={cn(
+                    "w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 disabled:opacity-50",
+                    state === "recording" 
+                      ? "bg-accent scale-110 shadow-[0_0_40px_hsl(var(--accent)/0.5)] animate-pulse" 
+                      : "bg-primary active:scale-95 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
+                  )}
+                >
+                  {state === "recording" ? (
+                    <Square className="w-10 h-10 text-white fill-current" />
+                  ) : (
+                    <Mic className="w-12 h-12 text-white" />
+                  )}
+                </button>
+              </div>
+
               {state === "idle" && (
                 <p className="text-center text-muted-foreground font-bold mt-6 uppercase tracking-widest text-sm">
                   Tap, then speak
