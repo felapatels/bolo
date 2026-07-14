@@ -95,7 +95,7 @@ liability, and how to contact us.
 | --- | --- | --- | --- |
 | High-res icon | `play-store-icon.png` | 512×512, 32-bit PNG | ✅ generated |
 | Feature graphic | `feature-graphic.png` | 1024×500 PNG | ✅ generated |
-| Phone screenshots (raw) | `screenshots/*.jpg` | 412×824, ≤2:1 ratio | ✅ 9 captured |
+| Phone screenshots (raw) | `screenshots/*.jpg` | 824×1648 (2x DPR), ≤2:1 ratio | ✅ 9 captured |
 | Phone screenshots (listing) | `screenshots-framed/*.jpg` | 1080×1920, ≤2:1 ratio | ✅ generated |
 
 The icon and feature graphic are generated from the brand SVGs
@@ -124,7 +124,7 @@ falling back to a different face.
 ### Screenshots
 
 `screenshots/` holds nine real captures of the app, all at a Play-compliant
-**412×824** (exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules):
+**824×1648** (a 412×824 viewport captured at 2x device pixel ratio — exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules — so device text stays pixel-crisp when framed):
 
 | File | Screen |
 | --- | --- |

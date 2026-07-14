@@ -24,6 +24,20 @@ whole harness after capture — it is dev-only. Public screens (`/sign-in`,
 `/sign-up`) must be captured *after* reverting, or the harness redirects away
 from them.
 
+## Crisp (2x DPR) captures
+Raw sources are now **824×1648** (412×824 CSS at deviceScaleFactor 2) so the
+framed store sets have no upscaling blur. The Screenshot tool can't set DPR;
+use Nix chromium headless + CDP (`Emulation.setDeviceMetricsOverride
+{width:412,height:824,deviceScaleFactor:2,mobile:true}` + `Page.captureScreenshot`)
+via Node's built-in WebSocket. Traps: chromium headless clamps `--window-size`
+below ~500 DIP (cropped layout) so CLI `--screenshot` can't do this; the app's
+Noto webfonts stay `unloaded` in headless — force `document.fonts.forEach(f=>f.load())`
+and wait before capturing; tofu in native text = demo Language rows must use the
+exact backend `fontFamily` strings ("Noto Sans Devanagari" etc., see
+constants/fonts.ts SCRIPT_FONTS); `pkill -f <chromium pattern>` matches the
+ShellExec wrapper's own cmdline (self-kill), and a live background chromium
+holds the shell's pipes open — kill by PID before the command exits.
+
 ## Traps that block committing/reviewing these assets
 - **gitignore:** the Expo `.gitignore` rule `android/` (for the generated native
   project) ALSO silently matches `assets/store/android/`, so store assets are

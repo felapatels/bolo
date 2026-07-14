@@ -173,7 +173,7 @@ magick "$FC_DIR/feature-flat.png" \
   "$OUT/feature-graphic.png"
 
 # --- Branded, captioned phone screenshots -----------------------------------
-# Wraps each raw capture (assets/store/android/screenshots/*.jpg, 412x824) in an
+# Wraps each raw capture (assets/store/android/screenshots/*.jpg, 824x1648 — captured at 2x DPR for a pixel-crisp phone plate) in an
 # on-brand background frame with a short benefit headline. Top-performing Play
 # listings pair every screenshot with a caption instead of a bare screen dump;
 # this is a well-known install-conversion lever.
@@ -256,7 +256,7 @@ done
 # --- iPhone-sized framed screenshots (App Store Connect) ---------------------
 # Apple requires 6.9" (1320x2868, iPhone 16 Pro Max class) and 6.5"
 # (1242x2688, iPhone 11 Pro Max class) screenshot sets. Reuse the exact same
-# raw 412x824 captures + captions as the Android set, re-framed at Apple's
+# raw 824x1648 captures + captions as the Android set, re-framed at Apple's
 # canvas sizes. Output: assets/store/ios/screenshots-6.9/ and screenshots-6.5/.
 IOS_OUT="assets/store/ios"
 
