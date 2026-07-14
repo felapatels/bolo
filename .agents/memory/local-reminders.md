@@ -25,3 +25,5 @@ Daily practice reminders are device-local notifications (no push backend).
   category id that could go stale.
 
 **Expo Go crash guard:** expo-notifications' native module is absent in Android Expo Go (SDK 53+); any touch of it (even module-scope `setNotificationHandler` in the signed-in tree) can crash the app. `remindersSupported` must exclude web AND (android + `Constants.executionEnvironment === 'storeClient'`), and import-time calls stay in try/catch. Reminders remain enabled in dev/prod builds.
+
+**iOS Expo Go hard-crash (July 2026):** scheduling local notifications in *iOS* Expo Go crashed the app natively (silent — no JS error in Metro; app died right after home screen render, when the first reschedule fired on fresh progress data). `remindersSupported` must exclude ALL Expo Go (`executionEnvironment === 'storeClient'`, any platform), not just Android. Debug pattern that found it: temporary `[startup]` console.log breadcrumbs through the route tree, read from the Metro workflow log after a device launch.

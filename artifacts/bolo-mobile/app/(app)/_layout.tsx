@@ -8,12 +8,10 @@ import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
-import { crumb } from '../_layout';
 
 export default function AppLayout() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const colors = useColors();
-  crumb(`app layout render (authLoaded=${isLoaded} signedIn=${isSignedIn})`);
 
   // Attach the Clerk bearer token to every API request. Set during render (not
   // only in an effect) so it's in place before child screens fire their first

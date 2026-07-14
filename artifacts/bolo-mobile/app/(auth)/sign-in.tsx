@@ -7,10 +7,8 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
-import { crumb } from '../_layout';
 
 export default function SignInScreen() {
-  crumb('sign-in screen render');
   const { signIn, errors, fetchStatus } = useSignIn();
   const router = useRouter();
   const colors = useColors();

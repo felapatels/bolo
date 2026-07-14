@@ -17,7 +17,6 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
-import { crumb } from '../../_layout';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -44,7 +43,6 @@ function greetingFor(hour: number): string {
 }
 
 export default function HomeScreen() {
-  crumb('home screen render');
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();

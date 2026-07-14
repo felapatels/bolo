@@ -168,7 +168,7 @@ export default function RemindersScreen() {
           <InfoCard
             icon="info"
             tint={colors.mutedForeground}
-            text="Reminders are sent by your phone, so they're available in the iOS and Android apps — not in the web preview."
+            text="Reminders are sent by your phone, so they're available in the installed iOS and Android apps — not in the web preview or Expo Go."
           />
         ) : null}
 
@@ -192,9 +192,9 @@ export default function RemindersScreen() {
               </Text>
             </View>
             <Switch
-              value={prefs?.enabled ?? false}
+              value={remindersSupported && (prefs?.enabled ?? false)}
               onValueChange={toggleEnabled}
-              disabled={!prefs}
+              disabled={!prefs || !remindersSupported}
               trackColor={{ false: colors.muted, true: colors.primary }}
               thumbColor={colors.card}
             />
@@ -225,7 +225,7 @@ export default function RemindersScreen() {
           </View>
         ) : null}
 
-        {prefs?.enabled ? (
+        {remindersSupported && prefs?.enabled ? (
           <>
             {/* Time */}
             <SectionLabel>TIME</SectionLabel>
