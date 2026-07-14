@@ -598,6 +598,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /account/subscription/resume:
+    post:
+      operationId: resumeAccountSubscription
+      tags: [account]
+      summary: Resume a canceling subscription (undo a pending cancel)
+      description: >-
+        Clears a pending cancellation, returning the subscription status from
+        canceled to active. No discount is applied, the retention offer is not
+        consumed, and the current period end is unchanged. Idempotent for an
+        already-active paid subscription and repeatable any number of times.
+      responses:
+        "200":
+          description: The updated subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "400":
+          description: No paid subscription to resume
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The subscription is paused, not canceling
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /account/subscription/retention:
     post:
       operationId: acceptRetentionOffer

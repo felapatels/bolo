@@ -18,6 +18,7 @@ const mockState: Record<string, any> = {
   cancel: undefined,
   pause: undefined,
   retention: undefined,
+  resume: undefined,
   restore: jest.fn(),
   isRestoring: false,
 };
@@ -41,6 +42,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useCancelAccountSubscription: () => mockState.cancel,
   usePauseAccountSubscription: () => mockState.pause,
   useAcceptRetentionOffer: () => mockState.retention,
+  useResumeAccountSubscription: () => mockState.resume,
   getGetAccountSubscriptionQueryKey: () => ['account-subscription'],
   getGetEntitlementsQueryKey: () => ['entitlements'],
 }));
@@ -126,6 +128,7 @@ beforeEach(() => {
   mockState.cancel = mutation(detailsFixture({ cancelAtPeriodEnd: true, status: 'canceled' }));
   mockState.pause = mutation(detailsFixture({ status: 'paused', pauseUntil: '2026-08-01T00:00:00.000Z' }));
   mockState.retention = mutation(detailsFixture({ retentionOfferAcceptedAt: '2026-07-13T00:00:00.000Z' }));
+  mockState.resume = mutation(detailsFixture({ status: 'active', cancelAtPeriodEnd: false }));
   mockState.restore = jest.fn().mockResolvedValue(false);
   mockState.isRestoring = false;
   jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
@@ -259,23 +262,42 @@ describe('SubscriptionScreen', () => {
     fireEvent.press(screen.getByText('Reactivate my plan'));
 
     await waitFor(() =>
-      expect(mockState.retention.mutateAsync).toHaveBeenCalled(),
+      expect(mockState.resume.mutateAsync).toHaveBeenCalled(),
     );
     expect(mockQueryClient.setQueryData).toHaveBeenCalled();
+    // A plain reactivation never consumes the one-time retention discount.
+    expect(mockState.retention.mutateAsync).not.toHaveBeenCalled();
     // A store reactivation stays in-app; it does not deep-link out.
     expect(Linking.openURL).not.toHaveBeenCalled();
   });
 
-  it('falls back to the store when the resume path is already spent', async () => {
-    mockState.retention = {
-      mutateAsync: jest.fn().mockRejectedValue(new Error('already redeemed')),
+  it('reactivates through the resume path even after the retention offer was redeemed', async () => {
+    mockState.sub = successQuery(
+      detailsFixture({
+        cancelAtPeriodEnd: true,
+        status: 'canceled',
+        retentionOfferAcceptedAt: '2026-06-01T00:00:00.000Z',
+      }),
+    );
+    render(<SubscriptionScreen />);
+
+    fireEvent.press(screen.getByText('Reactivate my plan'));
+
+    await waitFor(() =>
+      expect(mockState.resume.mutateAsync).toHaveBeenCalled(),
+    );
+    expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the store when the resume call fails', async () => {
+    mockState.resume = {
+      mutateAsync: jest.fn().mockRejectedValue(new Error('network')),
       isPending: false,
     };
     mockState.sub = successQuery(
       detailsFixture({
         cancelAtPeriodEnd: true,
         status: 'canceled',
-        retentionOfferAcceptedAt: '2026-06-01T00:00:00.000Z',
       }),
     );
     render(<SubscriptionScreen />);
@@ -302,7 +324,7 @@ describe('SubscriptionScreen', () => {
       expect(Linking.openURL).toHaveBeenCalledWith('https://billing.example/portal'),
     );
     // Stripe reactivation must not touch the DB-only resume endpoint.
-    expect(mockState.retention.mutateAsync).not.toHaveBeenCalled();
+    expect(mockState.resume.mutateAsync).not.toHaveBeenCalled();
   });
 
   it('hides in-app retention offers for a Stripe (web) subscriber', () => {

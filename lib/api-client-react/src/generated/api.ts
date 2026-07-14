@@ -1723,6 +1723,78 @@ export const usePauseAccountSubscription = <TError = ErrorType<Error>,
       return useMutation(getPauseAccountSubscriptionMutationOptions(options));
     }
 
+export const getResumeAccountSubscriptionUrl = () => {
+
+
+
+
+  return `/api/account/subscription/resume`
+}
+
+/**
+ * Clears a pending cancellation, returning the subscription status from canceled to active. No discount is applied, the retention offer is not consumed, and the current period end is unchanged. Idempotent for an already-active paid subscription and repeatable any number of times.
+ * @summary Resume a canceling subscription (undo a pending cancel)
+ */
+export const resumeAccountSubscription = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getResumeAccountSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeAccountSubscriptionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeAccountSubscription>>, TError,void, TContext> => {
+
+const mutationKey = ['resumeAccountSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeAccountSubscription>>, void> = () => {
+
+
+          return  resumeAccountSubscription(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeAccountSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof resumeAccountSubscription>>>
+
+    export type ResumeAccountSubscriptionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Resume a canceling subscription (undo a pending cancel)
+ */
+export const useResumeAccountSubscription = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeAccountSubscription>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResumeAccountSubscriptionMutationOptions(options));
+    }
+
 export const getAcceptRetentionOfferUrl = () => {
 
 

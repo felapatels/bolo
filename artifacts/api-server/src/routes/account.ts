@@ -453,6 +453,45 @@ export function createAccountRouter(
     },
   );
 
+  // POST /account/subscription/resume — plain reactivation: clear a pending
+  // cancel (status canceled → active) with no discount, no period extension,
+  // and no retention-offer bookkeeping. Idempotent for an already-active paid
+  // plan, and repeatable (cancel → resume → cancel → resume works forever).
+  router.post(
+    "/account/subscription/resume",
+    async (req: Request, res: Response): Promise<void> => {
+      const id = userId(req);
+      const user = await loadUser(id);
+      if (!user) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+      // Only a paid subscription that hasn't fully lapsed can be resumed. The
+      // resolver keeps a canceled paid tier live until currentPeriodEnd, so
+      // resolvedPlan !== free covers both "active" and "canceling".
+      const resolved = (req as EntitledRequest).resolvedPlan;
+      if (user.subscriptionStatus === "paused") {
+        res.status(409).json({ error: "Subscription is paused, not canceling" });
+        return;
+      }
+      if (user.tier === "free" || resolved.plan === "free") {
+        res.status(400).json({ error: "No subscription to resume" });
+        return;
+      }
+      if (user.subscriptionStatus === "canceled") {
+        const [updated] = await db
+          .update(usersTable)
+          .set({ subscriptionStatus: "active" })
+          .where(eq(usersTable.id, id))
+          .returning();
+        res.json(await buildSubscriptionDetails(updated));
+        return;
+      }
+      // Already active — idempotent no-op.
+      res.json(await buildSubscriptionDetails(user));
+    },
+  );
+
   // POST /account/subscription/retention — accept the one-time discounted
   // 3-month retention offer. Resumes/keeps the paid tier (clearing a pending
   // cancel or pause), extends the period by 3 months, and records the accepted

@@ -491,6 +491,63 @@ test("retention accepts the 3-month offer, resuming a canceled plan, and is one-
   assert.equal(again.status, 409);
 });
 
+test("resume un-cancels a canceling plan without a discount, and is repeatable", async () => {
+  const future = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+  await setUser({
+    tier: "plus",
+    subscriptionStatus: "canceled",
+    currentPeriodEnd: future,
+  });
+
+  const resumed = await post("/account/subscription/resume");
+  assert.equal(resumed.status, 200);
+  assert.equal(resumed.json.tier, "plus");
+  assert.equal(resumed.json.status, "active");
+  assert.equal(resumed.json.cancelAtPeriodEnd, false);
+  // No discount: the retention offer is untouched and the period unchanged.
+  assert.equal(resumed.json.retentionOfferAcceptedAt, null);
+  assert.equal(
+    new Date(resumed.json.currentPeriodEnd).getTime(),
+    future.getTime(),
+  );
+
+  // Idempotent while already active.
+  const again = await post("/account/subscription/resume");
+  assert.equal(again.status, 200);
+  assert.equal(again.json.status, "active");
+
+  // Repeatable: cancel again, resume again.
+  await post("/account/subscription/cancel");
+  const second = await post("/account/subscription/resume");
+  assert.equal(second.status, 200);
+  assert.equal(second.json.status, "active");
+  assert.equal(second.json.retentionOfferAcceptedAt, null);
+});
+
+test("resume is rejected for free users and paused subscriptions", async () => {
+  const free = await post("/account/subscription/resume");
+  assert.equal(free.status, 400);
+
+  // Expired paid subscription (resolved plan is free) can't be resumed.
+  await setUser({
+    tier: "plus",
+    subscriptionStatus: "canceled",
+    currentPeriodEnd: new Date(Date.now() - 1000),
+  });
+  const expired = await post("/account/subscription/resume");
+  assert.equal(expired.status, 400);
+
+  // Paused is a different state — resume of a pause is via the pause window.
+  await setUser({
+    tier: "plus",
+    subscriptionStatus: "paused",
+    pauseUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+  const paused = await post("/account/subscription/resume");
+  assert.equal(paused.status, 409);
+});
+
 test("retention is rejected for a free user", async () => {
   const { status } = await post("/account/subscription/retention");
   assert.equal(status, 400);

@@ -535,6 +535,35 @@ export const PauseAccountSubscriptionResponse = zod.object({
 
 
 /**
+ * Clears a pending cancellation, returning the subscription status from canceled to active. No discount is applied, the retention offer is not consumed, and the current period end is unchanged. Idempotent for an already-active paid subscription and repeatable any number of times.
+ * @summary Resume a canceling subscription (undo a pending cancel)
+ */
+export const ResumeAccountSubscriptionResponse = zod.object({
+  "tier": zod.string(),
+  "status": zod.string(),
+  "chosenLanguage": zod.string().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "currentPeriodEnd": zod.coerce.date().nullable(),
+  "pauseUntil": zod.coerce.date().nullable(),
+  "cancelAtPeriodEnd": zod.boolean(),
+  "retentionOfferAcceptedAt": zod.coerce.date().nullable(),
+  "provider": zod.string().nullable(),
+  "paymentMethod": zod.object({
+  "store": zod.string().nullable().describe('The store\/processor the subscription is billed through.'),
+  "managementUrl": zod.string().nullable().describe('A link where the customer can manage\/cancel with the store.')
+}).describe('A best-effort summary of how the subscription is billed. Every field is nullable because the provider may not expose it.').nullable(),
+  "billingHistory": zod.array(zod.object({
+  "productId": zod.string(),
+  "store": zod.string().nullable(),
+  "purchasedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "periodType": zod.string().nullable(),
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
+}).describe('One subscription period from the provider\'s billing history.'))
+}).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
+
+
+/**
  * Redeems the discounted 3-month retention offer. Resumes/keeps the paid tier (clearing any pending cancel or pause), extends the current period by three months, and records that the offer was accepted so it can only be redeemed once.
  * @summary Accept the one-time discounted 3-month retention offer
  */

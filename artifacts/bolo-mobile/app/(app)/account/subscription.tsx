@@ -18,6 +18,7 @@ import {
   useCancelAccountSubscription,
   usePauseAccountSubscription,
   useAcceptRetentionOffer,
+  useResumeAccountSubscription,
   getGetEntitlementsQueryKey,
   type SubscriptionDetails,
   type BillingHistoryEntry,
@@ -126,6 +127,7 @@ export default function SubscriptionScreen() {
   const cancel = useCancelAccountSubscription();
   const pause = usePauseAccountSubscription();
   const retention = useAcceptRetentionOffer();
+  const resume = useResumeAccountSubscription();
 
   const [retentionOpen, setRetentionOpen] = React.useState(false);
   const [banner, setBanner] = React.useState<{
@@ -247,9 +249,10 @@ export default function SubscriptionScreen() {
   };
 
   // Undo a pending cancellation while the plan is still live. Store (RevenueCat)
-  // subscriptions un-cancel through the backend retention/resume path so the
-  // snapshot reads active again; if that one-time path is spent we fall back to
-  // the store's re-subscribe page. Stripe (web) billing is managed on the web.
+  // subscriptions un-cancel through the backend resume endpoint — a plain,
+  // repeatable status flip with no discount — so the snapshot reads active
+  // again; if it fails we fall back to the store's re-subscribe page. Stripe
+  // (web) billing is managed on the web.
   const onReactivate = async () => {
     if (!details) return;
     setBanner(null);
@@ -267,14 +270,14 @@ export default function SubscriptionScreen() {
     }
 
     try {
-      const next = await retention.mutateAsync();
+      const next = await resume.mutateAsync();
       applyDetails(next);
       setBanner({
         kind: 'success',
         text: 'Your plan is active again — welcome back!',
       });
     } catch {
-      // The one-time resume path is spent — send the learner to the store to
+      // The backend couldn't resume — send the learner to the store to
       // turn auto-renew back on.
       const opened = await openStoreSubscriptions(managementUrl);
       if (opened) {
@@ -291,7 +294,11 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const busy = cancel.isPending || pause.isPending || retention.isPending;
+  const busy =
+    cancel.isPending ||
+    pause.isPending ||
+    retention.isPending ||
+    resume.isPending;
 
   return (
     <Screen>
