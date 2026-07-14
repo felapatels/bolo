@@ -194,7 +194,13 @@ export default function PracticeScreen() {
   const phrase = list[index];
   const nativeProps = nativeTextStyle(activeLanguage, { bold: true });
 
+  // Each playback attempt gets a token; stopPlayback bumps it so any TTS
+  // response still in flight for an earlier phrase (or an earlier tap) is
+  // discarded instead of playing over the phrase now on screen.
+  const playTokenRef = React.useRef(0);
+
   const stopPlayback = React.useCallback(() => {
+    playTokenRef.current += 1;
     playbackRef.current?.stop();
     playbackRef.current = null;
     setCoachPlaying(false);
@@ -203,6 +209,7 @@ export default function PracticeScreen() {
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
     stopPlayback();
+    const token = playTokenRef.current;
     try {
       setCoachPlaying(true);
       const res = await synth.mutateAsync({
@@ -211,13 +218,21 @@ export default function PracticeScreen() {
           languageName: activeLanguage?.name,
         },
       });
+      // The learner may have moved on (or re-tapped) while we waited for the
+      // audio — this response belongs to the old word, so drop it silently.
+      if (token !== playTokenRef.current) return;
       playbackRef.current = await playBase64Audio(
         res.audioBase64,
         res.format || 'mp3',
         () => setCoachPlaying(false),
       );
+      if (token !== playTokenRef.current) {
+        playbackRef.current?.stop();
+        playbackRef.current = null;
+        return;
+      }
     } catch {
-      setCoachPlaying(false);
+      if (token === playTokenRef.current) setCoachPlaying(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrase?.id, activeLanguage?.name]);
