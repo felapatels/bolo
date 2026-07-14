@@ -9,10 +9,18 @@
     "lib": ["es2022", "dom", "dom.iterable"],
     "jsx": "preserve",
     "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // Two @types/react versions coexist in the monorepo (Expo pins ~19.1,
+      // the web catalog uses ^19.2). Third-party d.ts files (lucide-react,
+      // react-day-picker) otherwise resolve the hoisted 19.1 copy and clash
+      // with this app's 19.2 — pin every `react` type import to one copy.
+      "react": ["./node_modules/@types/react"],
+      "react-dom": ["./node_modules/@types/react-dom"]
     }
   }
 }

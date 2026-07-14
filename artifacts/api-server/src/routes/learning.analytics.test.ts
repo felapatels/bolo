@@ -288,7 +288,18 @@ before(async () => {
         0,
       ),
     );
-  dayT = noon(0);
+  // Today's anchor must be in the PAST (a level-0 miss today is expected to be
+  // due immediately), so before 12:00 UTC we can't use noon today. Anchor at
+  // half the elapsed time since UTC midnight, capped at noon: always strictly
+  // in the past, always inside today's UTC day.
+  const midnightT = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  dayT = new Date(
+    Math.min(noon(0).getTime(), midnightT + Math.floor((now.getTime() - midnightT) / 2)),
+  );
   dayT2 = noon(2);
   dayT5 = noon(5);
   const dayKey = (d: Date) => d.toISOString().slice(0, 10);

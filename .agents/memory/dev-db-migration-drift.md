@@ -29,12 +29,14 @@ already exists in the dev DB because `entitlementsGating.test.ts` creates it wit
 `CREATE TABLE IF NOT EXISTS` at runtime. So `migrate` aborts with
 "relation already exists".
 
-**How to apply:** to unblock feature work that needs a missing column, apply the
-specific `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` from the migration by
-hand (psql). Do **not** try to force `drizzle-kit migrate`/`push` to fix the
-whole thing — reconciling migration state with the drifted dev DB is its own task
-(the "prove committed migrations build a working DB from scratch" work), not
-something to bolt onto a feature task.
+**How to apply:** the api-server test script now self-heals before running:
+`pnpm --filter @workspace/db run sync-schema` replays every committed migration
+statement-by-statement against DATABASE_URL, skipping duplicate-object errors
+(42P07/42701/42710/...). It never drops anything and doesn't touch
+`__drizzle_migrations`. So a newly merged migration can no longer silently break
+the whole suite. For non-test drift (e.g. the running dev API 500ing), run
+`sync-schema` manually instead of hand-writing ALTERs. Do **not** try to force
+`drizzle-kit migrate`/`push` against the drifted dev DB.
 
 ## Blast radius: a lagging `users` column 500s the WHOLE authed API
 
