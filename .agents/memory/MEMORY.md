@@ -44,4 +44,5 @@
 - [Background shell jobs die](background-jobs-die.md) — nohup/setsid processes don't survive ShellExec exit; run long scripts in foreground timeout chunks (make them resumable).
 - [Prod content seeding](prod-content-seeding.md) — publish syncs schema not data; api-server seeds content at startup (dedicated-connection advisory lock); bundle-safe static JSON import, never fs reads.
 - [Web silence auto-stop pitfalls](web-silence-autostop.md) — suspended AudioContext makes auto-stop silently never fire (resume it); fake-mic chrome flags fail here, shim getUserMedia via WebAudio instead.
+- [EAS iOS build & submit](eas-ios-submit.md) — EXPO_TOKEN + eas-cli devDep; poll builds/submissions (GraphQL, no --wait); eas submit only uploads — "Submit for Review" is manual in ASC.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
