@@ -18,6 +18,10 @@ android/
 !assets/store/android/
 !assets/store/android/**
 *.orig.*
+
+# Local production build config (real values live in EAS env vars; see
+# .env.production.example)
+.env.production
 *.jks
 *.p8
 *.p12
