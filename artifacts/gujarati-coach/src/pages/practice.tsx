@@ -15,6 +15,7 @@ import {
   getListBadgesQueryKey,
   type EarnedBadge
 } from "@workspace/api-client-react";
+import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
@@ -29,7 +30,40 @@ import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-sta
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 
-type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "summary";
+type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
+
+type StopMode = "auto" | "manual";
+
+// The learner's stop-mode choice persists per browser across phrases,
+// lessons, and visits.
+const STOP_MODE_STORAGE_KEY = "bolo.stopMode";
+
+function loadStopMode(): StopMode {
+  try {
+    return localStorage.getItem(STOP_MODE_STORAGE_KEY) === "manual" ? "manual" : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+// Turns whatever the evaluation pipeline threw into a short, actionable
+// message for the learner.
+function describeEvaluationError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 502) {
+      return "We couldn't process that recording. Give it another try!";
+    }
+    if (error.status === 429) {
+      return "Whoa, that's a lot of practice! Wait a moment, then try again.";
+    }
+    return "Something went wrong while scoring. Please try again.";
+  }
+  if (error instanceof TypeError) {
+    // fetch() rejects with a TypeError when the network is unreachable.
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+  return "Something went wrong while scoring. Please try again.";
+}
 
 export default function Practice({ mode = "category" }: { mode?: "category" | "review" }) {
   const { categoryId } = useParams();
@@ -89,6 +123,24 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const [sessionResults, setSessionResults] = useState<{ phraseId: number; score: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  // When true, the attempt scored but saving progress failed — the learner
+  // keeps their result and gets a gentle note instead of a silent reset.
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [stopMode, setStopMode] = useState<StopMode>(loadStopMode);
+  // Read by the recorder's onSilence callback so that switching to manual
+  // mid-recording immediately disarms the pending auto-stop.
+  const stopModeRef = useRef<StopMode>(stopMode);
+
+  const changeStopMode = (mode: StopMode) => {
+    setStopMode(mode);
+    stopModeRef.current = mode;
+    try {
+      localStorage.setItem(STOP_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Persistence is best-effort; the in-session choice still applies.
+    }
+  };
 
   // Warm up the microphone as soon as the practice session mounts, so the
   // record tap starts capturing immediately and the first syllable isn't
@@ -189,8 +241,18 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     if (finishingRef.current) return;
     finishingRef.current = true;
     setState("evaluating");
+    setEvalError(null);
+    setSaveFailed(false);
     try {
       const blob = await recorder.stopRecording();
+
+      if (blob.size === 0) {
+        // The recorder produced no audio at all (mic went away, recorder
+        // failed). Tell the learner rather than sending an empty payload.
+        setEvalError("We didn't capture any audio. Check your microphone and try again.");
+        setState("error");
+        return;
+      }
 
       // Blob to base64
       const buf = await blob.arrayBuffer();
@@ -218,25 +280,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       });
       setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
 
-      // Save the attempt for the signed-in user. The score/feedback are
-      // carried inside the server-signed evaluation token, so the server —
-      // not the client — decides what gets recorded. The response reports any
-      // badges newly earned by this attempt, which the server awards exactly
-      // once per (user, language) — so this celebration never replays.
-      const attemptRes = await createAttempt.mutateAsync({
-        data: {
-          evaluationToken: evalRes.evaluationToken
-        }
-      });
-
-      // Invalidate queries so progress updates
-      queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
-      queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
-      queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
-      queryClient.invalidateQueries({ queryKey: getListCategorySentencesQueryKey(id, activeLang) });
-      queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
-      queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
-
+      // The learner has their score — show it now. Saving the attempt below
+      // must never take the result away from them.
       setState("result");
 
       if (evalRes.score >= 80) {
@@ -244,12 +289,37 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         setTimeout(() => setShowConfetti(false), 3000);
       }
 
-      if (attemptRes.newlyEarnedBadges.length > 0) {
-        setNewBadges(attemptRes.newlyEarnedBadges);
+      try {
+        // Save the attempt for the signed-in user. The score/feedback are
+        // carried inside the server-signed evaluation token, so the server —
+        // not the client — decides what gets recorded. The response reports any
+        // badges newly earned by this attempt, which the server awards exactly
+        // once per (user, language) — so this celebration never replays.
+        const attemptRes = await createAttempt.mutateAsync({
+          data: {
+            evaluationToken: evalRes.evaluationToken
+          }
+        });
+
+        // Invalidate queries so progress updates
+        queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+        queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
+        queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
+        queryClient.invalidateQueries({ queryKey: getListCategorySentencesQueryKey(id, activeLang) });
+        queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
+        queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
+
+        if (attemptRes.newlyEarnedBadges.length > 0) {
+          setNewBadges(attemptRes.newlyEarnedBadges);
+        }
+      } catch (saveError) {
+        console.error("Saving the attempt failed", saveError);
+        setSaveFailed(true);
       }
     } catch (error) {
       console.error("Evaluation failed", error);
-      setState("idle");
+      setEvalError(describeEvaluationError(error));
+      setState("error");
     } finally {
       finishingRef.current = false;
     }
@@ -257,15 +327,33 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage]);
 
   const startRecording = async () => {
+    setEvalError(null);
     try {
-      await recorder.startRecording({
-        onSilence: () => { void finishRecording(); },
-        silenceDurationMs: 1600,
-      });
+      await recorder.startRecording(
+        // In manual mode silence detection stays off entirely — recording
+        // only ends when the learner taps stop.
+        stopMode === "auto"
+          ? {
+              onSilence: () => {
+                // The learner may have flipped to manual after recording
+                // began; in that case silence must not end the recording.
+                if (stopModeRef.current !== "auto") return;
+                void finishRecording();
+              },
+              silenceDurationMs: 1600,
+            }
+          : undefined,
+      );
       setState("recording");
     } catch {
-      alert("Microphone access is needed to practice.");
+      setEvalError("We couldn't access your microphone. Allow mic access in your browser, then try again.");
+      setState("error");
     }
+  };
+
+  const handleErrorRetry = () => {
+    setEvalError(null);
+    setState("idle");
   };
 
   const handleNext = () => {
@@ -395,9 +483,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         : result.score >= 60
           ? "thumbsup"
           : "tryagain"
-      : state === "playing_coach" || state === "recording" || state === "evaluating"
-        ? "thinking"
-        : "thumbsup";
+      : state === "error"
+        ? "tryagain"
+        : state === "playing_coach" || state === "recording" || state === "evaluating"
+          ? "thinking"
+          : "thumbsup";
 
   return (
     <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
@@ -459,6 +549,18 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               </div>
             </div>
 
+            {state === "error" && evalError && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 bg-white rounded-3xl p-6 border border-destructive/30 shadow-sm text-center"
+                role="alert"
+              >
+                <p className="text-2xl font-black mb-2 text-destructive">Oops, that didn't work</p>
+                <p className="text-foreground font-medium text-lg leading-snug">{evalError}</p>
+              </motion.div>
+            )}
+
             {state === "result" && result && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -485,13 +587,25 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 {result.tip && (
                   <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">Tip: {result.tip}</p>
                 )}
+                {saveFailed && (
+                  <p className="mt-3 text-sm text-destructive font-medium">
+                    Heads up — this attempt couldn't be saved to your progress.
+                  </p>
+                )}
               </motion.div>
             )}
           </motion.div>
         </AnimatePresence>
 
         <div className="mt-auto pt-8 flex flex-col items-center">
-          {state === "result" ? (
+          {state === "error" ? (
+            <button
+              onClick={handleErrorRetry}
+              className="w-full max-w-sm bg-primary text-primary-foreground font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+            >
+              <RefreshCcw className="w-6 h-6" /> Try again
+            </button>
+          ) : state === "result" ? (
             <div className="w-full flex gap-4">
               <button 
                 onClick={handleRetry}
@@ -540,10 +654,39 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <div className="mt-6 flex flex-col items-center gap-2">
                   <SoundWavePulse className="text-accent" size={26} bars={7} />
                   <p className="text-center text-accent font-bold uppercase tracking-widest text-sm">
-                    Listening... stops on its own
+                    {stopMode === "auto" ? "Listening... stops on its own" : "Listening... tap to stop"}
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {(state === "idle" || state === "recording" || state === "playing_coach") && (
+            <div
+              className="mt-6 inline-flex items-center rounded-full bg-muted p-1"
+              role="group"
+              aria-label="How recording stops"
+            >
+              <button
+                onClick={() => changeStopMode("auto")}
+                aria-pressed={stopMode === "auto"}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                  stopMode === "auto" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                Auto-stop
+              </button>
+              <button
+                onClick={() => changeStopMode("manual")}
+                aria-pressed={stopMode === "manual"}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                  stopMode === "manual" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                I'll tap stop
+              </button>
             </div>
           )}
         </div>

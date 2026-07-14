@@ -51,6 +51,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  ApiError: class extends Error {},
   useListCategoryPhrases: () => h.categoryPhrases,
   // Sentence stage is idle in these suites (no ?stage=sentences).
   useListCategorySentences: () => ({

@@ -71,13 +71,13 @@ export function useVoiceRecorder() {
 
   // Silence detection
   const audioContextRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onSilenceRef = useRef<(() => void) | null>(null);
 
   const cleanupSilenceDetection = useCallback(() => {
-    if (rafRef.current != null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+    if (pollTimerRef.current != null) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
@@ -133,6 +133,16 @@ export function useVoiceRecorder() {
               .webkitAudioContext;
           const audioContext = new AudioCtx();
           audioContextRef.current = audioContext;
+          // The context is created after `await getUserMedia(...)`, i.e.
+          // outside the click gesture's task — browsers may start it in the
+          // "suspended" state, where the analyser reads permanent silence and
+          // auto-stop can never arm. Resume explicitly before analysing.
+          if (audioContext.state === "suspended") {
+            await audioContext.resume();
+          }
+          if (audioContext.state !== "running") {
+            throw new Error("AudioContext failed to start");
+          }
           const source = audioContext.createMediaStreamSource(stream);
           const analyser = audioContext.createAnalyser();
           analyser.fftSize = 2048;
@@ -145,6 +155,7 @@ export function useVoiceRecorder() {
 
           const tick = () => {
             if (!audioContextRef.current) return;
+            if (audioContextRef.current.state !== "running") return;
             analyser.getByteTimeDomainData(data);
             let sumSq = 0;
             for (let i = 0; i < data.length; i++) {
@@ -167,9 +178,10 @@ export function useVoiceRecorder() {
                 return;
               }
             }
-            rafRef.current = requestAnimationFrame(tick);
           };
-          rafRef.current = requestAnimationFrame(tick);
+          // A timer (not requestAnimationFrame) so detection keeps running
+          // when the tab is throttled/backgrounded and rAF stops firing.
+          pollTimerRef.current = setInterval(tick, 50);
         } catch {
           // If audio analysis is unavailable, fall back to manual stop.
           cleanupSilenceDetection();

@@ -45,6 +45,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  ApiError: class extends Error {},
   useListCategoryPhrases: () => h.categoryPhrases,
   // The Plus-only sentence stage stays disabled in these suites (the fixture
   // categories are sentencesLocked or sentence-less), so an idle query is fine.
