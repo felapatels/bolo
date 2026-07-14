@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Repeat } from 'lucide-react';
+import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
 
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
@@ -27,6 +27,11 @@ export default function VideoWithControls() {
   const [collapsed, setCollapsed] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [tapPinned, setTapPinned] = useState(false);
+  // Preview defaults to muted so it doesn't blare audio in the workspace iframe;
+  // the user opts in via the control-bar toggle. The export path (no props)
+  // renders unmuted.
+  const [muted, setMuted] = useState(true);
+  const toggleMuted = useCallback(() => setMuted((m) => !m), []);
 
   const handlePointerEnter = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -79,6 +84,7 @@ export default function VideoWithControls() {
         key={mountKey}
         durations={durations}
         loop
+        muted={muted}
         onSceneChange={onSceneChange}
       />
 
@@ -95,11 +101,13 @@ export default function VideoWithControls() {
           visible={barVisible}
           collapsed={collapsed}
           locked={locked}
+          muted={muted}
           sceneKeys={sceneKeys}
           activeIndex={activeIndex}
           activeDuration={activeDuration}
           tick={tick}
           onToggleLock={toggleLock}
+          onToggleMuted={toggleMuted}
           onJumpTo={jumpTo}
           onToggleCollapsed={handleToggleCollapsed}
         />
@@ -112,11 +120,13 @@ interface ControlBarProps {
   visible: boolean;
   collapsed: boolean;
   locked: boolean;
+  muted: boolean;
   sceneKeys: string[];
   activeIndex: number;
   activeDuration: number;
   tick: number;
   onToggleLock: () => void;
+  onToggleMuted: () => void;
   onJumpTo: (index: number) => void;
   onToggleCollapsed: () => void;
 }
@@ -125,11 +135,13 @@ function ControlBar({
   visible,
   collapsed,
   locked,
+  muted,
   sceneKeys,
   activeIndex,
   activeDuration,
   tick,
   onToggleLock,
+  onToggleMuted,
   onJumpTo,
   onToggleCollapsed,
 }: ControlBarProps) {
@@ -156,6 +168,24 @@ function ControlBar({
         aria-pressed={locked}
       >
         <Repeat className="w-8 h-8" />
+      </button>
+
+      <button
+        onClick={onToggleMuted}
+        className={`w-14 h-14 flex items-center justify-center transition-colors rounded-lg shrink-0 ${
+          muted
+            ? 'text-white/60 hover:text-white hover:bg-white/10'
+            : 'text-white bg-white/15 hover:bg-white/25'
+        }`}
+        title={muted ? 'Unmute audio' : 'Mute audio'}
+        aria-label={muted ? 'Unmute audio' : 'Mute audio'}
+        aria-pressed={!muted}
+      >
+        {muted ? (
+          <VolumeX className="w-8 h-8" />
+        ) : (
+          <Volume2 className="w-8 h-8" />
+        )}
       </button>
 
       <div className="w-px self-stretch bg-white/15" aria-hidden="true" />
