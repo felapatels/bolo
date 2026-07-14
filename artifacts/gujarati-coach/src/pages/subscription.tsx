@@ -41,6 +41,14 @@ const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 const RETENTION_PRICE = "$7.99";
 const RETENTION_MONTHS = 3;
 
+// The pause windows the server accepts (POST /account/subscription/pause with
+// { months }). Learners pick one before confirming rather than a fixed length.
+const PAUSE_MONTH_OPTIONS = [1, 2, 3] as const;
+
+function monthsLabel(n: number): string {
+  return `${n} month${n === 1 ? "" : "s"}`;
+}
+
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
     const data = err.data as { error?: unknown } | undefined;
@@ -505,6 +513,7 @@ function RetentionFlow({
   const [pending, setPending] = useState<
     "retention" | "pause" | "cancel" | null
   >(null);
+  const [pauseMonths, setPauseMonths] = useState<number>(RETENTION_MONTHS);
 
   const cancel = useCancelAccountSubscription();
   const pause = usePauseAccountSubscription();
@@ -589,17 +598,46 @@ function RetentionFlow({
           {canPause && (
             <OfferCard
               icon={PauseCircle}
-              title={`Pause for ${RETENTION_MONTHS} months`}
+              title={`Pause for ${monthsLabel(pauseMonths)}`}
               subtitle="Take a break — we'll keep your progress and resume you later."
               cta="Pause instead"
               loading={pending === "pause"}
               disabled={busy}
               onClick={() =>
                 run("pause", () =>
-                  pause.mutateAsync({ data: { months: RETENTION_MONTHS } }),
+                  pause.mutateAsync({ data: { months: pauseMonths } }),
                 )
               }
-            />
+            >
+              <div
+                role="radiogroup"
+                aria-label="Pause length"
+                className="mt-3 grid grid-cols-3 gap-2"
+              >
+                {PAUSE_MONTH_OPTIONS.map((n) => {
+                  const selected = n === pauseMonths;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-label={monthsLabel(n)}
+                      disabled={busy}
+                      onClick={() => setPauseMonths(n)}
+                      className={cn(
+                        "rounded-xl border-2 px-3 py-2 text-sm font-black transition-all active:scale-[0.98] disabled:opacity-60",
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-card-border bg-white text-muted-foreground hover:border-primary/40",
+                      )}
+                    >
+                      {n} mo
+                    </button>
+                  );
+                })}
+              </div>
+            </OfferCard>
           )}
 
           <OfferCard
@@ -642,6 +680,7 @@ function OfferCard({
   disabled,
   highlight,
   destructive,
+  children,
 }: {
   icon: React.ElementType;
   title: string;
@@ -652,6 +691,7 @@ function OfferCard({
   disabled?: boolean;
   highlight?: boolean;
   destructive?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <div
@@ -691,6 +731,7 @@ function OfferCard({
           </p>
         </div>
       </div>
+      {children}
       <button
         onClick={onClick}
         disabled={disabled}

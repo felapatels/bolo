@@ -148,7 +148,7 @@ describe("Subscription management", () => {
     expect(h.invalidateQueries).toHaveBeenCalled();
   });
 
-  test("pausing sends a 3-month window and refetches", async () => {
+  test("pausing defaults to a 3-month window and refetches", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /Cancel subscription/i }));
@@ -156,6 +156,20 @@ describe("Subscription management", () => {
 
     await waitFor(() =>
       expect(h.pause).toHaveBeenCalledWith({ data: { months: 3 } }),
+    );
+    expect(h.invalidateQueries).toHaveBeenCalled();
+  });
+
+  test("pausing sends the learner's chosen window", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Cancel subscription/i }));
+    // Pick a 1-month pause before confirming instead of the default 3.
+    await user.click(await screen.findByRole("radio", { name: /^1 month$/i }));
+    await user.click(screen.getByRole("button", { name: /Pause instead/i }));
+
+    await waitFor(() =>
+      expect(h.pause).toHaveBeenCalledWith({ data: { months: 1 } }),
     );
     expect(h.invalidateQueries).toHaveBeenCalled();
   });
