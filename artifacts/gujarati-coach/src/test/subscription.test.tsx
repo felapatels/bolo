@@ -119,9 +119,14 @@ describe("Subscription management", () => {
   test("renders plan, payment method and billing history for an active plan", () => {
     renderPage();
     expect(screen.getByText("All-Access")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    // "Active" appears twice: the plan status badge and the billing-row status.
+    expect(screen.getAllByText("Active")).toHaveLength(2);
     expect(screen.getByText("Apple App Store")).toBeInTheDocument();
     expect(screen.getByText("Billing history")).toBeInTheDocument();
+    // The billing row mirrors mobile: a human date range, a plan label, and a
+    // capitalized status rather than raw provider enums.
+    expect(screen.getByText("Jan 1, 2026 – Jan 1, 2099")).toBeInTheDocument();
+    expect(screen.getByText("All-Access · Subscription")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Manage payment & billing/i }),
     ).toHaveAttribute("href", "https://apps.apple.com/manage");

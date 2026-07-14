@@ -63,6 +63,53 @@ function fmtDate(iso: string | null): string | null {
   return Number.isNaN(d.getTime()) ? null : format(d, "MMMM d, yyyy");
 }
 
+// Compact date (e.g. "Mar 5, 2026") for billing-history rows.
+function fmtShortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : format(d, "MMM d, yyyy");
+}
+
+// A human plan label for a billing entry, inferred from its product id — the
+// provider reports the raw SKU, so we map it to the names learners recognise.
+function billingPlanLabel(productId: string): string {
+  const id = productId.toLowerCase();
+  if (id.includes("one_language") || id.includes("one-language")) {
+    return "One Language";
+  }
+  if (id.includes("plus") || id.includes("all_access") || id.includes("all-access")) {
+    return "All-Access";
+  }
+  return "Subscription";
+}
+
+const PERIOD_LABELS: Record<string, string> = {
+  trial: "Free trial",
+  intro: "Intro offer",
+  normal: "Subscription",
+};
+
+// A friendly period descriptor, or null when the provider omits/uses an unknown
+// one (we'd rather show nothing than a raw enum like "normal").
+function periodLabel(periodType: string | null): string | null {
+  if (!periodType) return null;
+  return PERIOD_LABELS[periodType.toLowerCase()] ?? null;
+}
+
+// Human-friendly billing status label (the provider reports lowercase enums).
+function billingStatusLabel(status: string): string {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "canceled":
+      return "Canceled";
+    case "expired":
+      return "Expired";
+    default:
+      return status;
+  }
+}
+
 // A learner with something to manage: any paid tier, or a paused/canceled
 // subscription still worth acting on. A plain Free learner has nothing here and
 // is routed to the paywall instead.
@@ -462,19 +509,28 @@ function BillingHistory({ entries }: { entries: BillingHistoryEntry[] }) {
       ) : (
         <ul className="divide-y divide-card-border">
           {rows.map((e, i) => {
-            const when = fmtDate(e.purchasedAt);
+            const purchased = fmtShortDate(e.purchasedAt);
+            const expires = fmtShortDate(e.expiresAt);
+            const dateRange = purchased
+              ? expires
+                ? `${purchased} – ${expires}`
+                : purchased
+              : "Date unavailable";
+            const period = periodLabel(e.periodType);
+            const meta = [billingPlanLabel(e.productId), period]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <li
-                key={`${e.productId}-${i}`}
+                key={`${e.productId}-${e.purchasedAt ?? i}`}
                 className="flex items-center justify-between gap-3 py-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-foreground">
-                    {when ?? "Unknown date"}
+                    {dateRange}
                   </p>
                   <p className="truncate text-xs font-medium text-muted-foreground">
-                    {storeLabel(e.store) ?? "Subscription"}
-                    {e.periodType ? ` · ${e.periodType}` : ""}
+                    {meta}
                   </p>
                 </div>
                 <span
@@ -487,7 +543,7 @@ function BillingHistory({ entries }: { entries: BillingHistoryEntry[] }) {
                         : "bg-muted text-muted-foreground",
                   )}
                 >
-                  {e.status}
+                  {billingStatusLabel(e.status)}
                 </span>
               </li>
             );
