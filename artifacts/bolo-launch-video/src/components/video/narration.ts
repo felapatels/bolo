@@ -33,7 +33,7 @@ export const SCENE_NARRATION: Record<string, SceneNarration> = {
       { text: 'Your story begins with a single word.', at: 0 },
       { text: 'Get back to your roots.', at: 2000 },
     ],
-    hideAt: 3900,
+    hideAt: 4000,
   },
   languages: {
     segments: [
@@ -53,7 +53,7 @@ export const SCENE_NARRATION: Record<string, SceneNarration> = {
         at: 2400,
       },
     ],
-    hideAt: 5800,
+    hideAt: 5300,
   },
   speak: {
     segments: [
@@ -63,28 +63,28 @@ export const SCENE_NARRATION: Record<string, SceneNarration> = {
         at: 1800,
       },
     ],
-    hideAt: 5600,
+    hideAt: 5700,
   },
   reward: {
     segments: [
       { text: 'Finish a lesson, keep your streak alive,', at: 0 },
       { text: 'and feel your confidence build day by day.', at: 2500 },
     ],
-    hideAt: 4900,
+    hideAt: 5100,
   },
   mastery: {
     segments: [
       { text: 'Earn badges, track your growth,', at: 0 },
       { text: 'and truly master your mother tongue over time.', at: 2200 },
     ],
-    hideAt: 4700,
+    hideAt: 4500,
   },
   outro: {
     segments: [
       { text: 'Bolo — find your voice and get back to your roots.', at: 0 },
       { text: 'Download today.', at: 3400 },
     ],
-    hideAt: 4900,
+    hideAt: 4700,
   },
 };
 
