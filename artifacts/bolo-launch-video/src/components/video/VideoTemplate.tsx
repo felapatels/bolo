@@ -41,6 +41,14 @@ export const TOTAL_DURATION_MS = Object.values(SCENE_DURATIONS).reduce(
   0,
 );
 
+// Tolerance for re-anchoring the audio track to a scene's canonical offset.
+// During a normal linear pass (including the recorded export) the track is
+// already free-running at ~1x, so currentTime is within this window of the
+// target and we skip the seek to avoid an audible gap at each scene boundary.
+// Scene jumps and scene-lock replays drift further than this, so they still
+// re-seek and stay in sync.
+const AUDIO_SEEK_EPSILON_SEC = 0.18;
+
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   intro: Scene1Intro,
   languages: Scene1bLanguages,
@@ -74,15 +82,22 @@ export default function VideoTemplate({
     onSceneChange?.(currentSceneKey);
   }, [currentSceneKey, onSceneChange]);
 
-  // Keep the audio track aligned to the visible scene. Seeking on every scene
-  // change (rather than letting it free-run) keeps sync across normal looping,
-  // manual scene jumps, and the scene-lock replay behavior.
+  // Keep the audio track aligned to the visible scene. We re-anchor to the
+  // scene's canonical offset only when the track has drifted (manual scene
+  // jumps, scene-lock replays); a normal linear pass free-runs so the recorded
+  // export stays gapless while remaining in sync.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const offsetSec = (SCENE_OFFSETS[baseSceneKey] ?? 0) / 1000;
     try {
-      audio.currentTime = offsetSec;
+      // Only re-anchor when the track has actually drifted (scene jump or a
+      // scene-lock replay). During a normal linear pass — including the
+      // recorded export — the track is already at the right spot, so we leave
+      // it running to avoid an audible gap at each scene boundary.
+      if (Math.abs(audio.currentTime - offsetSec) > AUDIO_SEEK_EPSILON_SEC) {
+        audio.currentTime = offsetSec;
+      }
     } catch {
       // currentTime can throw if metadata isn't ready yet; the loadedmetadata
       // handler below re-seeks once it is.
