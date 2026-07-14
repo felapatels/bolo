@@ -61,6 +61,10 @@ export const usersTable = pgTable("users", {
   // `chosenLanguage`); `dailyGoal` is their target attempts/day; `theme` is the
   // client colour theme ("system" | "light" | "dark").
   activeLanguage: text("active_language"),
+  // IANA time zone (e.g. "America/Los_Angeles") the learner practices in, used
+  // to bucket attempts into local calendar days for streaks. Null means the
+  // learner hasn't told us yet, in which case day math falls back to UTC.
+  timezone: text("timezone"),
   dailyGoal: integer("daily_goal").notNull().default(10),
   theme: text("theme").notNull().default("system"),
   // Stripe customer id, created on first checkout so a returning learner reuses

@@ -5,6 +5,7 @@ import {
   buildReviewSchedule,
   computeProgressMetrics,
   computeStreakDays,
+  localDayKey,
   MASTERY_THRESHOLD,
   REVIEW_INTERVALS_DAYS,
   REVIEW_PASS_THRESHOLD,
@@ -153,6 +154,66 @@ test("streak dedupes multiple attempts on the same day", () => {
 
 test("streak is zero with no attempts", () => {
   assert.equal(computeStreakDays([]), 0);
+});
+
+// --- Time-zone-aware day bucketing -------------------------------------------
+// The streak must follow the learner's local midnight, not UTC's. An evening
+// attempt in a negative-offset zone lands on the *next* UTC calendar day, so
+// UTC bucketing would misplace it; these tests pin the zone-aware behaviour.
+// Fixed-offset zones (Etc/GMT+10 = UTC-10) keep the math deterministic.
+
+test("localDayKey buckets an evening negative-offset attempt on the local day, not the next UTC day", () => {
+  // 03:00 UTC on July 12 is 8pm the previous evening in Los Angeles (UTC-7).
+  const instant = new Date("2026-07-12T03:00:00.000Z");
+  assert.equal(instant.toISOString().slice(0, 10), "2026-07-12", "UTC day");
+  assert.equal(
+    localDayKey(instant, "America/Los_Angeles"),
+    "2026-07-11",
+    "local day is still July 11 for the learner",
+  );
+  assert.equal(localDayKey(instant), "2026-07-12", "no zone falls back to UTC");
+});
+
+// Builds an instant at the given local hour on the learner's local "today" in
+// a fixed UTC-10 zone, deterministically relative to the wall clock.
+const NEG_ZONE = "Etc/GMT+10"; // POSIX sign convention: this is UTC-10
+function todayLocalAt(hour: number, localDaysAgo = 0): Date {
+  const key = localDayKey(new Date(), NEG_ZONE);
+  const d = new Date(`${key}T${String(hour).padStart(2, "0")}:00:00.000-10:00`);
+  d.setUTCDate(d.getUTCDate() - localDaysAgo);
+  return d;
+}
+
+test("evening attempts in a negative-offset zone count on the learner's local days", () => {
+  // 9pm local in UTC-10 is 7am the *next* day in UTC — pure UTC bucketing would
+  // shift each of these onto the wrong day. Three consecutive local evenings
+  // must read as a 3-day streak in the learner's zone.
+  const attempts = [
+    todayLocalAt(21, 0),
+    todayLocalAt(21, 1),
+    todayLocalAt(21, 2),
+  ];
+  assert.equal(computeStreakDays(attempts, NEG_ZONE), 3);
+});
+
+test("attempts straddling a UTC day boundary within one local day dedupe to a single streak day", () => {
+  // 1pm local = 23:00Z same UTC day; 9pm local = 07:00Z next UTC day. UTC
+  // bucketing would see two days — locally it is one.
+  const attempts = [todayLocalAt(13, 0), todayLocalAt(21, 0)];
+  assert.equal(computeStreakDays(attempts, NEG_ZONE), 1);
+});
+
+test("zone-aware streak still anchors on local yesterday when today is untouched", () => {
+  const attempts = [todayLocalAt(21, 1), todayLocalAt(21, 2)];
+  assert.equal(computeStreakDays(attempts, NEG_ZONE), 2);
+});
+
+test("progress metrics thread the learner's zone through to the streak", () => {
+  const metrics = computeProgressMetrics(
+    [{ phraseId: 1, score: 90, createdAt: todayLocalAt(21, 0) }],
+    NEG_ZONE,
+  );
+  assert.equal(metrics.currentStreakDays, 1);
 });
 
 // --- Spaced-repetition scheduling -------------------------------------------

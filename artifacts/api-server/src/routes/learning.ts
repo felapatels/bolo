@@ -28,6 +28,7 @@ import {
   buildPhraseStats,
   buildReviewSchedule,
   computeProgressMetrics,
+  localDayKey,
   type PhraseStats,
 } from "../lib/progressMetrics";
 import {
@@ -48,6 +49,13 @@ const router: IRouter = Router();
 // requireAuth middleware — never from client-supplied input.
 function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
+}
+
+// The learner's stored IANA time zone (or null), attached by loadEntitlements.
+// Used so streaks and "today" counters bucket attempts by the learner's local
+// calendar day rather than UTC.
+function getUserTimezone(req: Request): string | null {
+  return (req as EntitledRequest).userTimezone;
 }
 
 // Fetches phraseId+score for the authenticated user, scoped to one language so
@@ -713,7 +721,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       ),
     );
 
-  const metrics = computeProgressMetrics(langAttempts);
+  const metrics = computeProgressMetrics(langAttempts, getUserTimezone(req));
   const newlyEarnedBadges = await awardNewlyEarnedBadges(
     userId,
     claims.languageCode,
@@ -778,7 +786,7 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
   const earnedAtByKey = new Map(earned.map((e) => [e.badgeKey, e.earnedAt]));
   // The same server-authoritative per-language metrics used for awarding badges,
   // so the progress a learner sees always matches what actually unlocks them.
-  const metrics = computeProgressMetrics(attempts);
+  const metrics = computeProgressMetrics(attempts, getUserTimezone(req));
 
   res.json(
     BADGE_CATALOG.map((def) => {
@@ -879,7 +887,8 @@ router.get(
     ]);
 
     const totalPhrases = phrases.length;
-    const metrics = computeProgressMetrics(attempts);
+    const timezone = getUserTimezone(req);
+    const metrics = computeProgressMetrics(attempts, timezone);
 
     const scores = attempts.map((a) => a.score);
     const averageScore =
@@ -887,10 +896,11 @@ router.get(
         ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
         : 0;
 
-    // Today's attempts, using the same UTC day boundary as the streak.
-    const today = new Date().toISOString().slice(0, 10);
+    // Today's attempts, using the same local-calendar-day boundary as the
+    // streak (the learner's stored time zone, falling back to UTC).
+    const today = localDayKey(new Date(), timezone);
     const attemptsToday = attempts.filter(
-      (a) => a.createdAt.toISOString().slice(0, 10) === today,
+      (a) => localDayKey(a.createdAt, timezone) === today,
     ).length;
 
     res.json({
@@ -954,7 +964,7 @@ router.get(
 
     const stats = buildPhraseStats(attempts);
     const schedule = buildReviewSchedule(attempts);
-    const metrics = computeProgressMetrics(attempts);
+    const metrics = computeProgressMetrics(attempts, getUserTimezone(req));
 
     // Map each phrase to its category so attempts roll up per topic.
     const categoryByPhrase = new Map(phrases.map((p) => [p.id, p.categoryId]));

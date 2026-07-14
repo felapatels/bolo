@@ -13,4 +13,6 @@ export interface AccountLearningPreferences {
   dailyGoal: number;
   /** Client colour theme ("system" | "light" | "dark"). */
   theme: string;
+  /** IANA time zone (e.g. "America/Los_Angeles") used to bucket practice into local calendar days for streaks, or null (falls back to UTC). */
+  timezone: string | null;
 }

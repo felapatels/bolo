@@ -16,4 +16,5 @@ export interface UpdatePreferencesInput {
   activeLanguage?: string | null;
   dailyGoal?: number;
   theme?: UpdatePreferencesInputTheme;
+  timezone?: string | null;
 }

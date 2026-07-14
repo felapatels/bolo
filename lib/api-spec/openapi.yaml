@@ -997,10 +997,17 @@ components:
         theme:
           type: string
           description: Client colour theme ("system" | "light" | "dark").
+        timezone:
+          type: string
+          nullable: true
+          description: >-
+            IANA time zone (e.g. "America/Los_Angeles") used to bucket practice
+            into local calendar days for streaks, or null (falls back to UTC).
       required:
         - activeLanguage
         - dailyGoal
         - theme
+        - timezone
 
     AccountPreferences:
       type: object
@@ -1224,6 +1231,9 @@ components:
         theme:
           type: string
           enum: [system, light, dark]
+        timezone:
+          type: string
+          nullable: true
 
     DeleteAccountResult:
       type: object

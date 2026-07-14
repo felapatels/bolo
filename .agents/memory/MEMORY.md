@@ -26,6 +26,7 @@
 - [Subscription pause & retention](subscription-pause-retention.md) — paused=suspended-not-expired (resolves free until pauseUntil); pause branch runs before tier branch; loadEntitlements must pass pauseUntil.
 - [bolo-mobile jest/RNTL setup](bolo-mobile-jest-setup.md) — jest-expo + RNTL v13 (not v14); hand-roll reanimated mock, stub @expo/vector-icons/haptics, define ApiError inside jest.mock factory, exclude __tests__ from typecheck.
 - [Active language cross-device sync](language-sync.md) — server-authoritative activeLanguage; reconcile server→local once, ONLY after the async local store hydrates, or hydration clobbers it.
+- [Streak time-zone bucketing](streak-timezones.md) — streak/"today" math uses users.timezone (IANA, null→UTC); validate at write, clients auto-report device zone on reconcile.
 - [Friends social graph](friends-graph.md) — friendships are single directional rows; bidirectional dup-prevention is app-level; leaderboard XP reuses computeProgressMetrics across all languages; identity backfilled from Clerk.
 - [video-js scaffold typecheck gaps](video-js-scaffold-typecheck.md) — fresh video artifact fails tsc (missing dom lib + widened `type:'spring'`); fix before markTaskComplete though build/preview pass.
 - [Store asset font reproducibility](store-asset-font-reproducibility.md) — gen-store-assets.sh must render native scripts from committed fonts (assets/store/fonts), not node_modules; review runs a clean checkout with no pnpm install.

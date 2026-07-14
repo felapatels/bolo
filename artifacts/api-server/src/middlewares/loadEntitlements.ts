@@ -13,6 +13,10 @@ import type { AuthedRequest } from "./requireAuth";
 // place. Runs after requireAuth (which guarantees a provisioned user row).
 export interface EntitledRequest extends AuthedRequest {
   resolvedPlan: ResolvedPlan;
+  // The learner's stored IANA time zone (null when never set). Attached here so
+  // day-bucketed math (streaks, "today" counters) downstream doesn't need an
+  // extra user lookup.
+  userTimezone: string | null;
 }
 
 export async function loadEntitlements(
@@ -46,6 +50,7 @@ export async function loadEntitlements(
         };
 
     (req as EntitledRequest).resolvedPlan = resolvePlan(state);
+    (req as EntitledRequest).userTimezone = user?.timezone ?? null;
     next();
   } catch (err) {
     next(err);

@@ -50,6 +50,13 @@
       "when": 1783980771265,
       "tag": "0006_secret_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784024605221,
+      "tag": "0007_jazzy_mojo",
+      "breakpoints": true
     }
   ]
 }

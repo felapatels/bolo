@@ -40,6 +40,18 @@ const MIN_PASSWORD = 8;
 const MAX_PAUSE_MONTHS = 3;
 const RETENTION_MONTHS = 3;
 
+// Validates an IANA time zone name by asking Intl to build a formatter for it.
+// Streak/day math trusts stored values without re-checking, so this write-time
+// gate is what keeps garbage out of the column.
+function isValidTimezone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function userId(req: Request): string {
   return (req as EntitledRequest).userId;
 }
@@ -73,6 +85,7 @@ function preferencesOf(user: User) {
       activeLanguage: user.activeLanguage,
       dailyGoal: user.dailyGoal,
       theme: user.theme,
+      timezone: user.timezone,
     },
   };
 }
@@ -303,6 +316,17 @@ export function createAccountRouter(
           return;
         }
         set.theme = th;
+      }
+
+      if ("timezone" in body) {
+        const tz = body.timezone;
+        if (tz !== null && (typeof tz !== "string" || !isValidTimezone(tz))) {
+          res.status(400).json({
+            error: "timezone must be null or a valid IANA time zone name",
+          });
+          return;
+        }
+        set.timezone = tz as string | null;
       }
 
       if (Object.keys(set).length === 0) {

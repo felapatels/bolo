@@ -98,19 +98,50 @@ export function buildReviewSchedule(
   return schedule;
 }
 
-// Number of consecutive UTC days (ending today, or anchored on yesterday if
-// nothing was practiced today) the learner has an attempt on.
-export function computeStreakDays(createdAts: Date[]): number {
-  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-  const days = new Set(createdAts.map(dayKey));
+// Formats an instant as the "YYYY-MM-DD" calendar day it falls on in the given
+// IANA time zone (or UTC when no zone is provided). This is the single day
+// boundary used by streaks and the "today" counters, so an evening attempt in
+// e.g. America/Los_Angeles stays on the learner's local day rather than
+// rolling onto the next UTC day. Throws on an invalid zone — timezone values
+// are validated where they are written, so a bad one here is a bug, not
+// something to silently paper over with UTC.
+export function localDayKey(d: Date, timeZone?: string | null): string {
+  if (!timeZone) return d.toISOString().slice(0, 10);
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+// Steps a "YYYY-MM-DD" day key back one calendar day. Done as pure date-string
+// arithmetic (via a UTC noon anchor) so walking backwards never skips or
+// double-counts a day around DST transitions in the learner's zone.
+function previousDayKey(key: string): string {
+  const d = new Date(`${key}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Number of consecutive calendar days (ending today, or anchored on yesterday
+// if nothing was practiced today) the learner has an attempt on. Days are the
+// learner's local calendar days when an IANA `timeZone` is given, otherwise
+// UTC days.
+export function computeStreakDays(
+  createdAts: Date[],
+  timeZone?: string | null,
+): number {
+  const days = new Set(createdAts.map((d) => localDayKey(d, timeZone)));
   let streak = 0;
-  const cursor = new Date();
-  if (!days.has(dayKey(cursor))) {
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  let cursor = localDayKey(new Date(), timeZone);
+  if (!days.has(cursor)) {
+    cursor = previousDayKey(cursor);
   }
-  while (days.has(dayKey(cursor))) {
+  while (days.has(cursor)) {
     streak += 1;
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    cursor = previousDayKey(cursor);
   }
   return streak;
 }
@@ -120,6 +151,7 @@ export function computeStreakDays(createdAts: Date[]): number {
 // attempts for one language.
 export function computeProgressMetrics(
   attempts: { phraseId: number | null; score: number; createdAt: Date }[],
+  timeZone?: string | null,
 ): ProgressMetrics {
   const stats = buildPhraseStats(attempts);
   let phrasesMastered = 0;
@@ -133,6 +165,9 @@ export function computeProgressMetrics(
     phrasesMastered,
     bestScore: scores.length > 0 ? Math.max(...scores) : 0,
     xp: scores.reduce((sum, s) => sum + s, 0),
-    currentStreakDays: computeStreakDays(attempts.map((a) => a.createdAt)),
+    currentStreakDays: computeStreakDays(
+      attempts.map((a) => a.createdAt),
+      timeZone,
+    ),
   };
 }

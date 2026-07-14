@@ -422,6 +422,8 @@ function mergePrefs(
         patch.activeLanguage !== undefined ? patch.activeLanguage : base.learning.activeLanguage,
       dailyGoal: patch.dailyGoal ?? base.learning.dailyGoal,
       theme: patch.theme ?? base.learning.theme,
+      timezone:
+        patch.timezone !== undefined ? patch.timezone : base.learning.timezone,
     },
   };
 }

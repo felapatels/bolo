@@ -182,6 +182,7 @@ before(async () => {
     `active_language text`,
     `daily_goal integer NOT NULL DEFAULT 10`,
     `theme text NOT NULL DEFAULT 'system'`,
+    `timezone text`,
   ]) {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col};`);
   }

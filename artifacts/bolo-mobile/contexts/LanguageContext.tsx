@@ -118,6 +118,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     } else {
       pushRemote(activeLang);
     }
+
+    // Also report the device's IANA time zone so the server buckets streak days
+    // by the learner's local midnight instead of UTC. The device wins (the
+    // learner may have moved); failure is non-fatal for a background sync.
+    try {
+      const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (deviceTz && deviceTz !== account.data.preferences.learning.timezone) {
+        updatePrefs.mutate({ data: { timezone: deviceTz } }, { onError: () => {} });
+      }
+    } catch {
+      // Intl zone lookup unavailable — leave the server value untouched.
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, account.data]);
 
