@@ -30,3 +30,21 @@ id = "S6QccsMqZqPvvN7v15mse"
 uri = "file://artifacts/gujarati-coach/public/mascot/mascot-tryagain.png"
 type = "image"
 title = "Bolo — Try Again"
+
+[[outputs]]
+id = "k_7vxMwl4OMGf8zAxZIRB"
+uri = "file://artifacts/bolo-social-clips/covers/cover-1-roots.png"
+type = "image"
+title = "Clip 1 Cover — Get back to your roots"
+
+[[outputs]]
+id = "QfQMS4DCqpBglifEbz9lJ"
+uri = "file://artifacts/bolo-social-clips/covers/cover-2-how-it-works.png"
+type = "image"
+title = "Clip 2 Cover — Stop typing. Start speaking."
+
+[[outputs]]
+id = "zg8jkclca1JAYBUq3lyaq"
+uri = "file://artifacts/bolo-social-clips/covers/cover-3-languages.png"
+type = "image"
+title = "Clip 3 Cover — 22 languages. One app."
