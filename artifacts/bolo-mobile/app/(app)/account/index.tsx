@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -290,40 +289,16 @@ export default function AccountScreen() {
           {/* Notifications */}
           <SectionLabel>NOTIFICATIONS</SectionLabel>
           <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="bell" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>Daily reminder</Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  A nudge to keep your streak alive.
-                </Text>
-              </View>
-              <Switch
-                value={prefs?.notifications.dailyReminderEnabled ?? false}
-                onValueChange={(on) =>
-                  savePrefs({
-                    dailyReminderEnabled: on,
-                    // Give the reminder a sensible default time when first enabled.
-                    dailyReminderTime: on
-                      ? prefs?.notifications.dailyReminderTime ?? '09:00'
-                      : prefs?.notifications.dailyReminderTime ?? null,
-                  })
-                }
-                trackColor={{ false: colors.muted, true: colors.primary }}
-                thumbColor={colors.card}
-              />
-            </View>
-            {prefs?.notifications.dailyReminderEnabled ? (
-              <>
-                <Divider />
-                <TimePickerRow
-                  value={prefs.notifications.dailyReminderTime ?? '09:00'}
-                  onChange={(t) => savePrefs({ dailyReminderTime: t })}
-                />
-              </>
-            ) : null}
+            <NavRow
+              icon="bell"
+              label="Daily reminder"
+              value={
+                prefs?.notifications.dailyReminderEnabled
+                  ? `On · ${formatReminderTime(prefs.notifications.dailyReminderTime ?? '19:00')}`
+                  : 'Off'
+              }
+              onPress={() => router.push('/(app)/account/reminders')}
+            />
           </View>
 
           {/* Learning */}
@@ -541,38 +516,6 @@ function StepBtn({
   );
 }
 
-/** Adjust an "HH:MM" time in 15-minute steps, wrapping across the day. */
-function TimePickerRow({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const colors = useColors();
-  const [h, m] = parseTime(value);
-  const total = h * 60 + m;
-  const shift = (delta: number) => {
-    const next = (((total + delta) % 1440) + 1440) % 1440;
-    onChange(toHHMM(Math.floor(next / 60), next % 60));
-  };
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowIcon}>
-        <Feather name="clock" size={18} color={colors.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Reminder time</Text>
-        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{formatTime12(h, m)}</Text>
-      </View>
-      <View style={styles.stepper}>
-        <StepBtn icon="minus" onPress={() => shift(-15)} />
-        <StepBtn icon="plus" onPress={() => shift(15)} />
-      </View>
-    </View>
-  );
-}
-
 function Segmented({
   options,
   value,
@@ -611,6 +554,12 @@ function Segmented({
       })}
     </View>
   );
+}
+
+/** "HH:MM" -> "7:00 PM" for the reminder NavRow value. */
+function formatReminderTime(t: string): string {
+  const [h, m] = parseTime(t);
+  return formatTime12(h, m);
 }
 
 function parseTime(t: string): [number, number] {

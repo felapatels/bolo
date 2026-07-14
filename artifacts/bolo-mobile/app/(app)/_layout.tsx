@@ -4,6 +4,7 @@ import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
@@ -41,6 +42,7 @@ export default function AppLayout() {
     <EntitlementsProvider>
       <PurchasesProvider>
         <LanguageProvider>
+          <ReminderScheduler />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -50,9 +52,11 @@ export default function AppLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="category/[id]" />
             <Stack.Screen name="practice/[id]" />
+            <Stack.Screen name="practice/daily" />
             <Stack.Screen name="badges" />
             <Stack.Screen name="analytics" />
             <Stack.Screen name="account/index" />
+            <Stack.Screen name="account/reminders" />
             <Stack.Screen name="account/subscription" />
             <Stack.Screen name="account/email" />
             <Stack.Screen name="account/password" />

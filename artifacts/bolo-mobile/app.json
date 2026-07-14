@@ -60,7 +60,8 @@
           "photosPermission": "Allow Bolo! to access your photos so you can set a profile picture."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

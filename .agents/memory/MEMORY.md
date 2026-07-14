@@ -35,4 +35,5 @@
 - [Video export audio](video-export-audio.md) — exported clip carries sound only if the recording harness allows autoplay-with-sound; verify runtime playback via headless chromium CDP, use a seek epsilon so linear/export passes stay gapless.
 - [Transliterated-loanword seed guard](loanword-guard.md) — gloss blocklist + phonetic match; allowlist PIE cognates (bharaa/sūnuḥ), blind to mis-glossed loanwords; probe data before growing the list.
 - [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.
+- [Local daily reminders (Expo)](local-reminders.md) — reschedule-on-open pattern (local notifs can't check conditions at fire time); prefs device-authoritative; use `expo install`, not `pnpm add`.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
