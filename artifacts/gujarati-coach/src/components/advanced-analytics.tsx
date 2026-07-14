@@ -1,6 +1,7 @@
 import { useGetProgressAnalytics } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
-import { BarChart3, Loader2, TrendingUp } from "lucide-react";
+import { Link } from "wouter";
+import { BarChart3, ChevronRight, Loader2, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { UpgradeCard } from "@/components/plus";
@@ -59,32 +60,40 @@ function AnalyticsPanel({ lang }: { lang: string }) {
                     ? Math.round((cat.masteredCount / cat.phraseCount) * 100)
                     : 0;
                 return (
-                  <div key={cat.categoryId}>
-                    <div className="mb-1 flex items-baseline justify-between gap-2">
-                      <span className="truncate text-sm font-bold text-foreground">
-                        {cat.title}
-                      </span>
-                      <span className="shrink-0 text-xs font-bold text-muted-foreground">
-                        {cat.masteredCount}/{cat.phraseCount}
-                        {cat.averageScore > 0 && (
-                          <span className="ml-2 tabular-nums">
-                            avg {Math.round(cat.averageScore)}
-                          </span>
-                        )}
-                      </span>
+                  <Link
+                    key={cat.categoryId}
+                    href={`/learn/${cat.categoryId}`}
+                    aria-label={`Practice ${cat.title}`}
+                    className="group -mx-2 flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted/60"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-baseline justify-between gap-2">
+                        <span className="truncate text-sm font-bold text-foreground group-hover:text-primary">
+                          {cat.title}
+                        </span>
+                        <span className="shrink-0 text-xs font-bold text-muted-foreground">
+                          {cat.masteredCount}/{cat.phraseCount}
+                          {cat.averageScore > 0 && (
+                            <span className="ml-2 tabular-nums">
+                              avg {Math.round(cat.averageScore)}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <motion.div
+                          className={cn(
+                            "h-full rounded-full",
+                            pct >= 100 ? "bg-success" : "bg-primary",
+                          )}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.5 }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <motion.div
-                        className={cn(
-                          "h-full rounded-full",
-                          pct >= 100 ? "bg-success" : "bg-primary",
-                        )}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.5 }}
-                      />
-                    </div>
-                  </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                  </Link>
                 );
               })}
             </div>
