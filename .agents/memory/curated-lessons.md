@@ -41,9 +41,11 @@ content, not live per-learner generation.
   the reviewed starter set and only APPENDS premium phrases (via
   generateAdditionalPhrases) up to the extended target; resumable, dedups on
   native+English. `-- --force` regenerates a pair from scratch. Then re-run seed.
-- **Human-review status:** all 21 non-Gujarati codes have now had a review pass.
-  The five highest-traffic (`hi`,`te` clean; `bn`,`mr`,`ta` fixed) plus the
-  remaining 16. Common raw-AI defects the review found: scrambled/wrong numerals
+- **Human-review status (STARTER phrases only):** all 21 non-Gujarati codes have
+  had a review pass of their FREE STARTER set (indexes 0..starterCount). The five
+  highest-traffic (`hi`,`te` clean; `bn`,`mr`,`ta` fixed) plus the remaining 16.
+  This bullet is about the starter set; the premium tail is tracked separately
+  below. Common raw-AI defects the review found: scrambled/wrong numerals
   in low-resource languages (Bodo & Manipuri number lessons were badly shuffled),
   Hindi words substituted for the target language (Sanskrit had दादी/दादाः for
   grandparents; corrected to पितामही/पितामहः), plain-wrong vocab (Sanskrit "spoon"
@@ -59,8 +61,14 @@ content, not live per-learner generation.
   has NO premium extension — the whole topic is the free starter set. An earlier
   exact-count cap made generated languages teach only 8 (some skipping
   eight/nine); that has been fixed — do not reintroduce a cap that drops numbers.
-- **Content-review status of the premium phrases:** the extended (Plus-only)
-  phrases for all 21 frozen languages + Gujarati are RAW AI output with no human
-  review pass yet — only the original starter phrases were reviewed. Treat the
-  premium tail as needing verification (same defect classes as the starter
-  review found: wrong vocab, loanwords, script/orthography errors).
+- **Content-review status of the premium phrases:** the premium tail was RAW AI
+  output. A review pass has now corrected the SIX highest-traffic sets — Gujarati
+  (`gu`, in `seedData.ts`) plus `hi`, `bn`, `te`, `mr`, `ta` (in `curatedLessons.json`)
+  — for the same defect classes (wrong vocab e.g. Hindi उबला हुआ="boiled" glossed
+  "annoyed"; loanwords e.g. नर्वस/बोर/আন্টি/গুড্ বై; off-topic content e.g. Tamil
+  had mother/father in the FOOD lesson; broken script e.g. Marathi "च चा"→चहा;
+  wrong glosses e.g. Bengali কাঁটা="spike", Gujarati ફુવા; and semantic duplicates
+  where the premium tail just repeated starter emotions with new phrasing). The
+  remaining ~15 lower-traffic languages' premium tails are STILL unreviewed raw
+  AI output — same defect classes likely; needs a native pass (esp. the hard
+  scripts: Kashmiri Perso-Arabic, Santali Ol Chiki, Manipuri Meetei Mayek).
