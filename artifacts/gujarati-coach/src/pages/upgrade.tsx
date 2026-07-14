@@ -15,6 +15,7 @@ import {
   Loader2,
   Sparkles,
   Lock,
+  BookOpen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -69,7 +70,8 @@ const TIER_PRICING: Record<
 };
 
 const ONE_LANGUAGE_BENEFITS = [
-  { icon: Globe, text: "Hindi + one language of your choice" },
+  { icon: BookOpen, text: "Full Hindi set — every word & sentence" },
+  { icon: Globe, text: "Full set for one language you choose" },
   { icon: InfinityIcon, text: "Unlimited daily lessons" },
 ];
 
@@ -509,7 +511,7 @@ function PlanCard({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        "relative w-full rounded-3xl border-2 p-5 text-left transition-all",
+        "relative flex h-full w-full flex-col rounded-3xl border-2 p-5 text-left transition-all",
         selected
           ? "border-primary bg-primary/5 shadow-sm"
           : "border-card-border bg-white hover:border-primary/40",
