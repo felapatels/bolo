@@ -174,14 +174,23 @@ export async function voiceChatStream(
 export async function textToSpeech(
   text: string,
   voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy",
-  format: "wav" | "mp3" | "flac" | "opus" | "pcm16" = "wav"
+  format: "wav" | "mp3" | "flac" | "opus" | "pcm16" = "wav",
+  // Naming the language anchors the audio model: without it, short snippets in
+  // non-Latin scripts are occasionally misread as a different phrase entirely.
+  language?: string
 ): Promise<Buffer> {
+  const langHint = language?.trim() ? ` The text is in ${language.trim()}.` : "";
   const response = await openai.chat.completions.create({
     model: "gpt-audio",
     modalities: ["text", "audio"],
     audio: { voice, format },
     messages: [
-      { role: "system", content: "You are an assistant that performs text-to-speech." },
+      {
+        role: "system",
+        content:
+          "You are an assistant that performs text-to-speech. Read the given text exactly as written — never substitute, add, or omit words." +
+          langHint,
+      },
       { role: "user", content: `Repeat the following text verbatim: ${text}` },
     ],
   });

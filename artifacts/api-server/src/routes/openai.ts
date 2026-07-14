@@ -40,14 +40,14 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.status(400).json({ error: "Invalid speech payload" });
     return;
   }
-  const { text, voice } = parsed.data;
+  const { text, voice, languageName } = parsed.data;
   const chosen: Voice =
     voice && (VOICES as readonly string[]).includes(voice)
       ? (voice as Voice)
       : "nova";
 
   try {
-    const buffer = await textToSpeech(text, chosen, "mp3");
+    const buffer = await textToSpeech(text, chosen, "mp3", languageName);
     res.json({ audioBase64: buffer.toString("base64"), format: "mp3" });
   } catch (err) {
     req.log.error({ err }, "TTS failed");

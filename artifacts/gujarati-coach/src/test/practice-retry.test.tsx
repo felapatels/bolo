@@ -157,11 +157,15 @@ describe("web practice retry", () => {
     await driveToResult();
     expect(coachCalls()).toBe(1);
 
+    const audioCountBefore = audioInstances.length;
     fireEvent.click(screen.getByText("Retry"));
 
-    // The retry returns through playing_coach: the phrase is spoken again and
-    // the result card is gone.
-    await waitFor(() => expect(coachCalls()).toBe(2));
+    // The retry returns through playing_coach: the phrase is spoken again
+    // (replayed from the per-phrase audio cache, not re-synthesized — so the
+    // model can never read a different phrase on replay) and the result card
+    // is gone.
+    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(audioCountBefore));
+    expect(coachCalls()).toBe(1);
     expect(screen.queryByText(/Score:/)).not.toBeInTheDocument();
     // Still the same phrase.
     expect(screen.getByText("namaste")).toBeInTheDocument();

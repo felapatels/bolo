@@ -45,5 +45,6 @@
 - [Prod content seeding](prod-content-seeding.md) — publish syncs schema not data; api-server seeds content at startup (dedicated-connection advisory lock); bundle-safe static JSON import, never fs reads.
 - [Web silence auto-stop pitfalls](web-silence-autostop.md) — suspended AudioContext makes auto-stop silently never fire (resume it); fake-mic chrome flags fail here, shim getUserMedia via WebAudio instead.
 - [EAS iOS build & submit](eas-ios-submit.md) — EXPO_TOKEN + eas-cli devDep; poll builds/submissions (GraphQL, no --wait); eas submit only uploads — "Submit for Review" is manual in ASC.
+- [TTS replay determinism](tts-replay-determinism.md) — gpt-audio TTS can read the same short phrase differently per call; cache first take per phrase and anchor prompts with the language name.
 - [Prod missing dev-only binaries](prod-ffmpeg-dependency.md) — deployments ship only declared Nix deps; spawned binaries (ffmpeg) must be installed as system deps or prod 502s with ENOENT.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.

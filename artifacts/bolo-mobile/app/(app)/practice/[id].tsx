@@ -206,17 +206,30 @@ export default function PracticeScreen() {
     setCoachPlaying(false);
   }, []);
 
+  // Replays reuse the first synthesized audio for a phrase: regenerating on
+  // every tap sometimes yields a different (wrong) reading from the TTS model.
+  const audioCacheRef = React.useRef(
+    new Map<number, { audioBase64: string; format: string }>(),
+  );
+
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
     stopPlayback();
     const token = playTokenRef.current;
     try {
       setCoachPlaying(true);
-      const res = await synth.mutateAsync({
-        data: {
-          text: phrase.nativeScript,
-          languageName: activeLanguage?.name,
-        },
+      const cached = audioCacheRef.current.get(phrase.id);
+      const res =
+        cached ??
+        (await synth.mutateAsync({
+          data: {
+            text: phrase.nativeScript,
+            languageName: activeLanguage?.name,
+          },
+        }));
+      audioCacheRef.current.set(phrase.id, {
+        audioBase64: res.audioBase64,
+        format: res.format || 'mp3',
       });
       // The learner may have moved on (or re-tapped) while we waited for the
       // audio — this response belongs to the old word, so drop it silently.

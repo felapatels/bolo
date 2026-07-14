@@ -127,6 +127,7 @@ function successQuery(data: unknown) {
 }
 
 beforeEach(() => {
+  jest.requireMock('@/lib/audio').playBase64Audio.mockClear();
   mockState.phrases = successQuery([phraseA, phraseB]);
   mockState.synth = jest.fn(async () => ({
     audioBase64: 'AAA',
@@ -176,8 +177,12 @@ describe('score card retry', () => {
     // Back to the recording controls for the SAME phrase...
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
     expect(screen.getByText('નમસ્તે')).toBeOnTheScreen();
-    // ...and the coach model was replayed (initial auto-play + retry).
-    expect(mockState.synth).toHaveBeenCalledTimes(2);
+    // ...and the coach model was replayed (initial auto-play + retry). The
+    // retry replays the cached first take instead of re-synthesizing, so the
+    // model can never read a different phrase on replay.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+    const { playBase64Audio } = jest.requireMock('@/lib/audio');
+    expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
 
   test('the bottom retry button also replays the coach', async () => {
@@ -188,7 +193,10 @@ describe('score card retry', () => {
       fireEvent.press(screen.getByTestId('retry-button'));
     });
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
-    expect(mockState.synth).toHaveBeenCalledTimes(2);
+    // Replay comes from the per-phrase audio cache, not a fresh synthesis.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+    const { playBase64Audio } = jest.requireMock('@/lib/audio');
+    expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
 
   test('Next phrase advances without retry side effects', async () => {

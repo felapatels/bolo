@@ -154,6 +154,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const feedbackAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Replays reuse the first synthesized audio for a phrase: regenerating on
+  // every "hear it again" sometimes yields a different (wrong) reading.
+  const coachAudioCacheRef = useRef(new Map<number, { audioBase64: string; format: string }>());
 
   const phrase = phrases?.[currentIndex];
 
@@ -175,7 +178,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       let cancelled = false;
       const playCoach = async () => {
         try {
-          const res = await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } });
+          const cached = coachAudioCacheRef.current.get(phrase.id);
+          const res = cached ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } });
+          coachAudioCacheRef.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
           if (cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           audioRef.current = audio;
