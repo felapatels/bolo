@@ -48,3 +48,21 @@ id = "zg8jkclca1JAYBUq3lyaq"
 uri = "file://artifacts/bolo-social-clips/covers/cover-3-languages.png"
 type = "image"
 title = "Clip 3 Cover — 22 languages. One app."
+
+[[outputs]]
+id = "a4uNilzaqN9PKTVaFBJxp"
+uri = "file://review-sheets/ks-premium-review.md"
+type = "text"
+title = "KS premium phrase review sheet"
+
+[[outputs]]
+id = "DhJyS_Uidj7AsXuOk8ovG"
+uri = "file://review-sheets/sat-premium-review.md"
+type = "text"
+title = "SAT premium phrase review sheet"
+
+[[outputs]]
+id = "EBbXVmuF77SjIY4W0C6Q6"
+uri = "file://review-sheets/mni-premium-review.md"
+type = "text"
+title = "MNI premium phrase review sheet"
