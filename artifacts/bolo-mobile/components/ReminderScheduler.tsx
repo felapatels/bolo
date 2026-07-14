@@ -19,15 +19,21 @@ import {
 } from '@/lib/reminders';
 
 // Show reminders even if the app happens to be foregrounded when one fires.
+// Wrapped defensively: this runs at import time inside the signed-in tree, so
+// a missing/limited native module (e.g. Expo Go) must never crash the app.
 if (remindersSupported) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch {
+    // Best-effort; reminders simply won't present while foregrounded.
+  }
 }
 
 export function ReminderScheduler() {
@@ -73,7 +79,11 @@ export function ReminderScheduler() {
       if (url === REMINDER_TARGET_ROUTE) router.push(REMINDER_TARGET_ROUTE);
     };
     // Cold start from a notification tap.
-    Notifications.getLastNotificationResponseAsync().then(route);
+    Notifications.getLastNotificationResponseAsync()
+      .then(route)
+      .catch(() => {
+        // Best-effort on partially supported runtimes (e.g. Expo Go).
+      });
     const sub = Notifications.addNotificationResponseReceivedListener(route);
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps

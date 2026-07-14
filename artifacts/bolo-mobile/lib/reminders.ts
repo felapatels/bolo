@@ -4,6 +4,7 @@
 // All the pure math and copy live in lib/reminder-logic.ts.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import {
   buildReminderCopy,
@@ -19,8 +20,15 @@ export const REMINDER_TARGET_ROUTE = '/(app)/practice/daily' as const;
 
 const ANDROID_CHANNEL_ID = 'daily-reminders';
 
-/** Local notifications never work in the web preview; everything no-ops there. */
-export const remindersSupported = Platform.OS !== 'web';
+/**
+ * Local notifications never work in the web preview, and expo-notifications'
+ * native module is not available inside Expo Go on Android (removed in
+ * SDK 53) — touching it there can crash the app. Everything no-ops in both
+ * environments; reminders work in a development/production build.
+ */
+export const remindersSupported =
+  Platform.OS !== 'web' &&
+  !(Platform.OS === 'android' && Constants.executionEnvironment === 'storeClient');
 
 export async function loadReminderPrefs(): Promise<ReminderPrefs> {
   try {
