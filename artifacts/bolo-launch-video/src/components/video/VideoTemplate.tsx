@@ -9,6 +9,7 @@ import Scene3Speak from './video_scenes/Scene3Speak';
 import Scene4Reward from './video_scenes/Scene4Reward';
 import Scene4bMastery from './video_scenes/Scene4bMastery';
 import Scene5Outro from './video_scenes/Scene5Outro';
+import SceneCaptions from './SceneCaptions';
 
 // Total target: 52.0 seconds (within 45-60s range)
 export const SCENE_DURATIONS = {
@@ -122,6 +123,11 @@ export default function VideoTemplate({
       <AnimatePresence mode="sync">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}
       </AnimatePresence>
+
+      {/* Timed narration captions so the story lands with sound off. Keyed by
+          currentSceneKey so its timeline restarts on every scene change — the
+          same trigger the audio uses to re-seek — keeping the two in sync. */}
+      <SceneCaptions key={currentSceneKey} sceneKey={currentSceneKey} />
     </div>
   );
 }
