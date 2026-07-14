@@ -25,11 +25,19 @@ const DESKTOP_BREAKPOINT = 1024;
 /**
  * True once the viewport is at least the `lg` (1024px) breakpoint. Backed by
  * matchMedia so it stays in sync with the CSS breakpoints used for desktop
- * layouts. Starts `false` (mobile-first) and flips after mount, so pages that
- * branch on it should keep the mobile tree as the default.
+ * layouts. Initialized synchronously from matchMedia so desktop viewports render
+ * the desktop layout on the very first paint (no flash of the phone layout).
+ * Falls back to `false` where matchMedia is unavailable (SSR/jsdom).
  */
+function readIsDesktop(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+  return window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`).matches;
+}
+
 export function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = React.useState(false);
+  const [isDesktop, setIsDesktop] = React.useState(readIsDesktop);
 
   React.useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
