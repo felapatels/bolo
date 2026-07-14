@@ -1,0 +1,75 @@
+# Bolo! Mobile — Apple App Store submission guide
+
+Everything needed to produce a signed iOS build with EAS and finish the App
+Store Connect listing. Android/Play is covered separately in `PLAY_STORE.md`.
+
+## What is already configured in this repo
+
+| Item | Value | Where |
+| --- | --- | --- |
+| Bundle identifier | `com.bolo.mobile` | `app.json` → `expo.ios.bundleIdentifier` |
+| Version | `1.0.0` | `expo.version` |
+| Build number | `1` (auto-incremented by EAS `production` profile) | `expo.ios.buildNumber` + `eas.json` |
+| App icon | 1024×1024 opaque RGB (no alpha — Apple rejects transparency) | `assets/images/icon.png` |
+| Splash | Same mark on `#fffdf0` | `expo.splash` |
+| Microphone purpose string | "Allow Bolo! to use your microphone so you can practice speaking." | `expo-audio` plugin config in `app.json` |
+| Photo library purpose string | "Allow Bolo! to access your photos so you can set a profile picture." | `expo-image-picker` plugin config |
+| Export compliance | `ITSAppUsesNonExemptEncryption: false` (standard HTTPS only) — skips the encryption question on every upload | `expo.ios.infoPlist` |
+| Account deletion in-app | Account screen → "Delete account" (Apple requires this for apps with sign-up) | `app/(app)/account/index.tsx` |
+| EAS build/submit profiles | `production` builds a signed archive; `submit.production.ios` has placeholders to fill | `eas.json` |
+
+## Production configuration (required before building)
+
+The app reads two build-time values (see `.env.production.example`):
+
+- `EXPO_PUBLIC_DOMAIN` — host of the deployed backend/web app. Drives the API
+  base URL, the in-app privacy policy link (`https://<domain>/privacy`), and
+  Stripe-subscription management links.
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` — a **production** Clerk key
+  (`pk_live_...`). The current dev key is `pk_test` and must not ship.
+
+Set them once as EAS environment variables:
+
+```sh
+eas env:create --environment production --name EXPO_PUBLIC_DOMAIN --value <your-deployed-domain>
+eas env:create --environment production --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value pk_live_...
+```
+
+Dev behavior is unchanged — the `dev` script keeps injecting the Replit dev
+domain and test Clerk key.
+
+## Owner checklist (things only you can do)
+
+1. **Apple Developer Program** — enroll at <https://developer.apple.com/programs/>
+   ($99/yr). Note your Team ID (Membership page).
+2. **Deploy the backend** — publish the api-server + web app so
+   `EXPO_PUBLIC_DOMAIN` has a permanent value, and configure a production
+   Clerk instance for that domain (`pk_live` key).
+3. **EAS project** — `npm i -g eas-cli`, `eas login`, then from
+   `artifacts/bolo-mobile/` run `eas init` (adds `extra.eas.projectId`) and the
+   `eas env:create` commands above.
+4. **Build** — `eas build --platform ios --profile production`. EAS manages
+   signing certificates/profiles for you; no Mac needed.
+5. **App Store Connect listing** — create the app at
+   <https://appstoreconnect.apple.com> with bundle ID `com.bolo.mobile`. Fill
+   in name, subtitle, description, keywords, category (Education), support
+   URL, and the **privacy policy URL** (`https://<your-domain>/privacy` — the
+   same public route documented in `PLAY_STORE.md` §2a).
+6. **Privacy nutrition label** — declare: audio recordings (microphone →
+   backend for pronunciation scoring, not shared, not retained beyond
+   scoring), account info (email/name via Clerk), and purchase history
+   (subscriptions). No tracking, no ads, no location. Note: `expo-location`
+   is an unused transitive dependency — if App Store Connect flags location
+   usage strings, they can be ignored in the label (no location is collected).
+7. **Screenshots** — 6.9" (iPhone 16 Pro Max) and 6.5" sets required. The
+   framed captures in `assets/store/android/screenshots-framed/` show the
+   flow; recapture at iPhone resolutions via the same harness
+   (`scripts/gen-store-assets.sh` notes) or on a device/simulator.
+8. **In-app purchases** — configure the Plus subscription products in App
+   Store Connect and link them in RevenueCat before review (see task "Run a
+   real Plus purchase on a device before App Store submission").
+9. **Submit** — fill the placeholders in `eas.json` → `submit.production.ios`
+   (`ascAppId` from the App Store Connect app page URL, `appleTeamId`), then
+   `eas submit --platform ios --latest`. Test via TestFlight first, then
+   submit for review. For review notes, provide a demo login and mention the
+   microphone is used for pronunciation scoring.

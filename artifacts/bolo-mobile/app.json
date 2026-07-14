@@ -14,7 +14,13 @@
       "backgroundColor": "#fffdf0"
     },
     "ios": {
-      "supportsTablet": false
+      "bundleIdentifier": "com.bolo.mobile",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.bolo.mobile",
