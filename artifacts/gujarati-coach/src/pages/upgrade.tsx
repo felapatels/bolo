@@ -527,10 +527,10 @@ function PlanCard({
       )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 className="text-xl font-black text-foreground">{title}</h3>
             {highlight && (
-              <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-success">
+              <span className="whitespace-nowrap rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-success">
                 {highlight}
               </span>
             )}
