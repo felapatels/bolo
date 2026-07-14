@@ -368,6 +368,14 @@ export type LessonQualityAllowlist = {
   latinInNative?: string[];
 };
 
+// Human-reviewed quality exceptions for the seeded content, keyed by lesson
+// label ("<lang>/<category>", with CURATED_LANGUAGE_CODE for the hand-curated
+// lessons). This is the single allowlist the seeder gate and the seed test both
+// consult, so an exception approved once holds everywhere. Keep it empty unless
+// a genuine linguistic reason forces an entry, and always leave a comment.
+export const LESSON_QUALITY_ALLOWLISTS: Record<string, LessonQualityAllowlist> =
+  {};
+
 // Scans a lesson for content-quality problems the shape validator ignores:
 //   - two phrases sharing an english gloss (case-insensitive), or
 //   - two phrases sharing a native-script value, or
@@ -451,7 +459,19 @@ export function validateCuratedLessons(
         continue;
       }
       const invalid = validateSeedLesson(lesson, extendedPhraseCount(cat.slug));
-      if (invalid) errors.push(`${lang.code}/${cat.slug}: ${invalid}`);
+      if (invalid) {
+        errors.push(`${lang.code}/${cat.slug}: ${invalid}`);
+        continue;
+      }
+      // Shape is fine — now reject well-formed-but-broken content: a lesson
+      // that repeats a phrase (two entries both meaning "happy") or types an
+      // English word in native script. A bad regeneration must not ship.
+      for (const issue of checkLessonQuality(
+        lesson,
+        LESSON_QUALITY_ALLOWLISTS[`${lang.code}/${cat.slug}`],
+      )) {
+        errors.push(`${lang.code}/${cat.slug}: ${issue}`);
+      }
     }
   }
   return { errors, missing };

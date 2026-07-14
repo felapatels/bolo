@@ -15,6 +15,7 @@ import {
   validateSeedLesson,
   validateCuratedLessons,
   checkLessonQuality,
+  LESSON_QUALITY_ALLOWLISTS,
   type CuratedLessonsFile,
   type SeedLesson,
 } from "@workspace/db/seed-data";
@@ -308,15 +309,9 @@ const allSeedLessons: Array<[string, SeedLesson]> = [
   ),
 ];
 
-// Known, human-reviewed exceptions that would otherwise trip a guard. Each key
-// is a lesson label ("<lang>/<category>"); the arrays list the exact strings a
-// reviewer has confirmed are acceptable there. Keep this empty unless a real
-// linguistic reason forces it (e.g. a native script that legitimately embeds a
-// digit), and always leave a comment explaining why. An allowlisted string is
-// exempt only within its own lesson.
-const DUPLICATE_ENGLISH_ALLOWLIST: Record<string, string[]> = {};
-const DUPLICATE_NATIVE_ALLOWLIST: Record<string, string[]> = {};
-const LATIN_IN_NATIVE_ALLOWLIST: Record<string, string[]> = {};
+// Human-reviewed exceptions live in LESSON_QUALITY_ALLOWLISTS (in
+// @workspace/db/seed-data), shared with the seeder gate so an exception
+// approved once holds in both places and the two can never drift.
 
 // The generator runs this exact same checkLessonQuality rule set before it
 // writes curatedLessons.json, so a bad batch is rejected at generation time —
@@ -325,11 +320,7 @@ test("no lesson repeats the same phrase or types a loanword in native script", (
   const failures: string[] = [];
 
   for (const [label, lesson] of allSeedLessons) {
-    const issues = checkLessonQuality(lesson, {
-      duplicateEnglish: DUPLICATE_ENGLISH_ALLOWLIST[label],
-      duplicateNative: DUPLICATE_NATIVE_ALLOWLIST[label],
-      latinInNative: LATIN_IN_NATIVE_ALLOWLIST[label],
-    });
+    const issues = checkLessonQuality(lesson, LESSON_QUALITY_ALLOWLISTS[label]);
     for (const issue of issues) failures.push(`${label}: ${issue}`);
   }
 
@@ -337,6 +328,26 @@ test("no lesson repeats the same phrase or types a loanword in native script", (
     failures,
     [],
     `Found content-quality problems in a lesson:\n${failures.join("\n")}`,
+  );
+});
+
+// The seeder gate itself must flag duplicated content, not just the tests: a
+// bad regeneration of curatedLessons.json has to be refused at seed time too.
+test("validateCuratedLessons flags a lesson with a duplicated phrase", () => {
+  const doctored = JSON.parse(JSON.stringify(curated)) as CuratedLessonsFile;
+  const lesson = doctored[generatedLanguageCodes[0]][CATEGORIES[0].slug];
+  // Overwrite the last phrase with a copy of the first — same shape and count,
+  // so only the content-quality gate can catch it.
+  lesson.phrases[lesson.phrases.length - 1] = { ...lesson.phrases[0] };
+
+  const { errors } = validateCuratedLessons(doctored);
+  assert.ok(
+    errors.some((e) => e.includes("share the english gloss")),
+    `expected a duplicate-english error, got:\n${errors.join("\n")}`,
+  );
+  assert.ok(
+    errors.some((e) => e.includes("share the native script")),
+    `expected a duplicate-native error, got:\n${errors.join("\n")}`,
   );
 });
 

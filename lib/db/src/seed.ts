@@ -16,6 +16,8 @@ import {
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
   validateCuratedLessons,
+  checkLessonQuality,
+  LESSON_QUALITY_ALLOWLISTS,
   starterPhraseCount,
   extendedPhraseCount,
   type SeedLesson,
@@ -154,6 +156,18 @@ async function seed() {
     const invalid = validateSeedLesson(lesson, extendedPhraseCount(slug));
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
+    }
+    // Same content-quality gate the frozen file goes through: refuse to seed a
+    // lesson that repeats a phrase or types English in native script.
+    const quality = checkLessonQuality(
+      lesson,
+      LESSON_QUALITY_ALLOWLISTS[`${CURATED_LANGUAGE_CODE}/${slug}`],
+    );
+    if (quality.length > 0) {
+      throw new Error(
+        `Gujarati "${slug}" lesson failed quality checks:\n` +
+          quality.map((q) => `  - ${q}`).join("\n"),
+      );
     }
     if (
       await seedLesson(
