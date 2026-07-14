@@ -58,9 +58,9 @@ domain and test Clerk key.
 6. **Privacy nutrition label** — declare: audio recordings (microphone →
    backend for pronunciation scoring, not shared, not retained beyond
    scoring), account info (email/name via Clerk), and purchase history
-   (subscriptions). No tracking, no ads, no location. Note: `expo-location`
-   is an unused transitive dependency — if App Store Connect flags location
-   usage strings, they can be ignored in the label (no location is collected).
+   (subscriptions). No tracking, no ads, no location. (`expo-location` was
+   removed from the project entirely, so no location usage strings appear in
+   Info.plist and nothing location-related shows up in the label.)
 7. **Screenshots** — 6.9" (iPhone 16 Pro Max) and 6.5" sets required. The
    framed captures in `assets/store/android/screenshots-framed/` show the
    flow; recapture at iPhone resolutions via the same harness
