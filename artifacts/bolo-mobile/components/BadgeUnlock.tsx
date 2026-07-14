@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { hapticNotify } from '@/lib/haptics';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import type { EarnedBadge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -54,12 +55,12 @@ export function BadgeUnlock({
       >
         <Confetti />
 
-        <Animated.View entering={ZoomIn.springify().damping(12)}>
+        <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
           <Mascot pose="cheer" size={132} motion="bounce" />
         </Animated.View>
 
         <Animated.Text
-          entering={FadeInDown.duration(400)}
+          entering={appear(FadeInDown.duration(400))}
           style={[styles.kicker, { color: colors.secondary }]}
         >
           {badges.length > 1 ? 'Badges unlocked!' : 'Badge unlocked!'}
@@ -69,7 +70,7 @@ export function BadgeUnlock({
           {badges.map((badge, i) => (
             <Animated.View
               key={badge.key}
-              entering={ZoomIn.delay(150 + i * 160).springify().damping(14)}
+              entering={appear(ZoomIn.delay(150 + i * 160).springify().damping(14))}
               style={[
                 styles.card,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -94,7 +95,7 @@ export function BadgeUnlock({
           ))}
         </View>
 
-        <Animated.View entering={FadeIn.delay(400 + badges.length * 160)}>
+        <Animated.View entering={appear(FadeIn.delay(400 + badges.length * 160))}>
           <Pressable
             onPress={onDismiss}
             style={[styles.button, { backgroundColor: colors.primary }]}

@@ -10,6 +10,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 
 /**
  * Bolo the Parrot — the friendly face of the app. Renders one of the five
@@ -119,7 +120,7 @@ export function Mascot({
       : undefined;
 
   return (
-    <Animated.View key={pose} entering={entrance}>
+    <Animated.View key={pose} entering={appear(entrance)}>
       <Animated.View style={animatedStyle}>
         <Image
           source={SOURCES[pose]}

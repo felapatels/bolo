@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { PressableScale } from '@/components/PressableScale';
@@ -46,30 +47,30 @@ export function UpgradeRequiredScreen({
       </View>
 
       <View style={styles.body}>
-        <Animated.View entering={FadeInDown.duration(450)}>
+        <Animated.View entering={appear(FadeInDown.duration(450))}>
           <Mascot pose="wave" size={140} motion="float" />
         </Animated.View>
         <Animated.View
-          entering={FadeInDown.duration(450).delay(60)}
+          entering={appear(FadeInDown.duration(450).delay(60))}
           style={styles.pillRow}
         >
           <PlusPill />
         </Animated.View>
         <Animated.Text
-          entering={FadeInDown.duration(450).delay(80)}
+          entering={appear(FadeInDown.duration(450).delay(80))}
           style={[styles.title, { color: colors.foreground }]}
         >
           {title}
         </Animated.Text>
         <Animated.Text
-          entering={FadeInDown.duration(450).delay(140)}
+          entering={appear(FadeInDown.duration(450).delay(140))}
           style={[styles.message, { color: colors.mutedForeground }]}
         >
           {message}
         </Animated.Text>
 
         <Animated.View
-          entering={FadeInDown.duration(450).delay(200)}
+          entering={appear(FadeInDown.duration(450).delay(200))}
           style={styles.actions}
         >
           <ChunkyButton

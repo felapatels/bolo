@@ -19,3 +19,5 @@ progress), add it to the exclusion list in the reduced-motion block. Decorative/
 motion (mascot idle bob, entrance springs, confetti) should stay inside the reset — the
 `Mascot` component and framer-motion animations use `useReducedMotion()` to opt out at the
 component level too.
+
+**Expo Go entrance animations (bolo-mobile):** reanimated `entering` animations can silently never run in Expo Go, stranding whole screens at opacity 0 ("app doesn't load" — only tab bar visible). Every `entering={...}` callsite must go through `appear()` in `lib/entrance.ts`, which no-ops in Expo Go (executionEnvironment 'storeClient') and passes through in dev/prod builds. jest mocks expo-constants as 'standalone' so tests exercise the animated path. Also: bolo-mobile web preview screenshots show blank white until Clerk's JS loads — retry the screenshot before suspecting a render break (Clerk dev-keys warning in browser logs = rendered).

@@ -17,6 +17,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import {
   useGetProgressSummary,
   useListRecentAttempts,
@@ -81,7 +82,7 @@ export default function ProgressScreen() {
           />
         }
       >
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.head}>
+        <Animated.View entering={appear(FadeInDown.duration(500))} style={styles.head}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.h1, { color: colors.foreground }]}>
               Your progress
@@ -130,7 +131,7 @@ export default function ProgressScreen() {
 
             {/* Overall mastery */}
             <Animated.View
-              entering={FadeInDown.duration(500).delay(240)}
+              entering={appear(FadeInDown.duration(500).delay(240))}
               style={[
                 styles.masteryCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -153,7 +154,7 @@ export default function ProgressScreen() {
             </Animated.View>
 
             {/* Badges entry */}
-            <Animated.View entering={FadeInDown.duration(500).delay(300)}>
+            <Animated.View entering={appear(FadeInDown.duration(500).delay(300))}>
               <PressableScale
                 onPress={() => router.push('/(app)/badges')}
                 style={[
@@ -197,7 +198,7 @@ export default function ProgressScreen() {
             {/* Advanced analytics: a live entry for Plus learners, a locked
                 teaser (routing to the paywall) for everyone else. */}
             {isPlus ? (
-              <Animated.View entering={FadeInDown.duration(500).delay(340)}>
+              <Animated.View entering={appear(FadeInDown.duration(500).delay(340))}>
                 <PressableScale
                   onPress={() => router.push('/(app)/analytics')}
                   style={[
@@ -282,7 +283,7 @@ export default function ProgressScreen() {
               (history.data ?? []).map((a, i) => (
                 <Animated.View
                   key={a.id}
-                  entering={FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
+                  entering={appear(FadeInDown.duration(360).delay(Math.min(i, 8) * 45))}
                   style={[
                     styles.histRow,
                     { backgroundColor: colors.card, borderColor: colors.border },
@@ -400,7 +401,7 @@ function Stat({
 
   return (
     <Animated.View
-      entering={entrance}
+      entering={appear(entrance)}
       style={[
         styles.statCard,
         { backgroundColor: colors.card, borderColor: colors.border },

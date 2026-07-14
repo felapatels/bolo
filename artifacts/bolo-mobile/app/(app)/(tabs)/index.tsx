@@ -16,6 +16,7 @@ import Animated, {
   FadeInDown,
   useReducedMotion,
 } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -92,7 +93,7 @@ export default function HomeScreen() {
         }
       >
         {/* Greeting + mascot */}
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.topRow}>
+        <Animated.View entering={appear(FadeInDown.duration(500))} style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>
               {greeting},
@@ -115,7 +116,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Language selector */}
-        <Animated.View entering={FadeInDown.duration(500).delay(60)}>
+        <Animated.View entering={appear(FadeInDown.duration(500).delay(60))}>
           <PressableScale
             onPress={() => router.push('/(app)/language')}
             style={[
@@ -177,7 +178,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Daily practice CTA */}
-        <Animated.View entering={FadeInDown.duration(500).delay(240)}>
+        <Animated.View entering={appear(FadeInDown.duration(500).delay(240))}>
           <PressableScale
             onPress={startDaily}
             scaleTo={0.98}
@@ -211,7 +212,7 @@ export default function HomeScreen() {
 
         {/* Daily lesson allowance (Free plan) */}
         {!isPlus && dailyNewLessons?.limit != null ? (
-          <Animated.View entering={FadeInDown.duration(500).delay(300)}>
+          <Animated.View entering={appear(FadeInDown.duration(500).delay(300))}>
             <DailyCapNote
               remaining={dailyNewLessons.remaining ?? 0}
               limit={dailyNewLessons.limit}
@@ -222,14 +223,14 @@ export default function HomeScreen() {
 
         {/* Upgrade prompt (Free plan) */}
         {!isPlus ? (
-          <Animated.View entering={FadeInDown.duration(500).delay(340)}>
+          <Animated.View entering={appear(FadeInDown.duration(500).delay(340))}>
             <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
           </Animated.View>
         ) : null}
 
         {/* Topics */}
         <Animated.Text
-          entering={FadeInDown.duration(500).delay(380)}
+          entering={appear(FadeInDown.duration(500).delay(380))}
           style={[styles.sectionTitle, { color: colors.foreground }]}
         >
           Topics
@@ -270,7 +271,7 @@ export default function HomeScreen() {
             {(recent.data ?? []).map((a, i) => (
               <Animated.View
                 key={a.id}
-                entering={FadeInDown.duration(400).delay(i * 60)}
+                entering={appear(FadeInDown.duration(400).delay(i * 60))}
                 style={[
                   styles.recentRow,
                   { backgroundColor: colors.card, borderColor: colors.border },
@@ -433,7 +434,7 @@ function StatCard({
 
   return (
     <Animated.View
-      entering={entrance}
+      entering={appear(entrance)}
       style={[
         styles.statCard,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -476,7 +477,7 @@ function CategoryCard({
       : 0;
 
   return (
-    <Animated.View entering={FadeInDown.duration(420).delay(420 + index * 70)}>
+    <Animated.View entering={appear(FadeInDown.duration(420).delay(420 + index * 70))}>
       <PressableScale
         onPress={onPress}
         style={[
@@ -537,7 +538,7 @@ function CategoryCard({
 
 function ErrorNote({ message, color }: { message: string; color: string }) {
   return (
-    <Animated.Text entering={FadeIn} style={[styles.errorNote, { color }]}>
+    <Animated.Text entering={appear(FadeIn)} style={[styles.errorNote, { color }]}>
       {message}
     </Animated.Text>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges, type Badge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -74,7 +75,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
             return (
               <Animated.View
                 key={badge.key}
-                entering={FadeInDown.duration(360).delay(Math.min(i, 12) * 45)}
+                entering={appear(FadeInDown.duration(360).delay(Math.min(i, 12) * 45))}
                 style={[
                   styles.card,
                   badge.earned

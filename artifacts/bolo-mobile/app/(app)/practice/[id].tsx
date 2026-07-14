@@ -23,6 +23,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { appear } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
   useSynthesizeSpeech,
@@ -302,24 +303,24 @@ export default function PracticeScreen() {
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
         <View style={styles.summaryWrap}>
-          <Animated.View entering={ZoomIn.springify().damping(12)}>
+          <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
             <Mascot pose="cheer" size={168} motion="bounce" />
           </Animated.View>
           <Animated.Text
-            entering={FadeInDown.delay(150)}
+            entering={appear(FadeInDown.delay(150))}
             style={[styles.summaryTitle, { color: colors.foreground }]}
           >
             Session complete!
           </Animated.Text>
           <Animated.Text
-            entering={FadeInDown.delay(220)}
+            entering={appear(FadeInDown.delay(220))}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You practiced {scores.length}{' '}
             {scores.length === 1 ? 'phrase' : 'phrases'}.
           </Animated.Text>
           <Animated.View
-            entering={ZoomIn.delay(300).springify().damping(13)}
+            entering={appear(ZoomIn.delay(300).springify().damping(13))}
             style={[
               styles.avgCard,
               { backgroundColor: colors.card, borderColor: colors.border },

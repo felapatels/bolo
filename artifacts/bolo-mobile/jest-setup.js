@@ -85,6 +85,14 @@ jest.mock('@expo/vector-icons', () => {
   );
 });
 
+// expo-constants pulls in expo-modules-core's native bridge at import time,
+// which explodes under jest. Tests run as a "standalone" build, so entrance
+// animations (lib/entrance.ts) stay enabled and Expo Go-only no-ops don't fire.
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { executionEnvironment: 'standalone' },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   notificationAsync: jest.fn(),
