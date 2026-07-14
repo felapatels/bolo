@@ -21,14 +21,16 @@ export const REMINDER_TARGET_ROUTE = '/(app)/practice/daily' as const;
 const ANDROID_CHANNEL_ID = 'daily-reminders';
 
 /**
- * Local notifications never work in the web preview, and expo-notifications'
- * native module is not available inside Expo Go on Android (removed in
- * SDK 53) — touching it there can crash the app. Everything no-ops in both
- * environments; reminders work in a development/production build.
+ * Local notifications never work in the web preview, and expo-notifications is
+ * unreliable inside Expo Go on BOTH platforms since SDK 53: the native module
+ * is removed on Android, and scheduling on iOS Expo Go can hard-crash the app
+ * (observed: silent native crash right after the home screen loads, when the
+ * first reschedule fires). Everything no-ops in Expo Go and on web; reminders
+ * work in a development/production build.
  */
 export const remindersSupported =
   Platform.OS !== 'web' &&
-  !(Platform.OS === 'android' && Constants.executionEnvironment === 'storeClient');
+  Constants.executionEnvironment !== 'storeClient';
 
 export async function loadReminderPrefs(): Promise<ReminderPrefs> {
   try {
