@@ -66,3 +66,9 @@ id = "EBbXVmuF77SjIY4W0C6Q6"
 uri = "file://review-sheets/mni-premium-review.md"
 type = "text"
 title = "MNI premium phrase review sheet"
+
+[[outputs]]
+id = "1XrAmJ8hcj5ulZ4BKobFb"
+uri = "file://attached_assets/bolo-appstore-screenshots.zip"
+type = "unspecified"
+title = "App Store screenshots (6.5\" & 6.9\")"
