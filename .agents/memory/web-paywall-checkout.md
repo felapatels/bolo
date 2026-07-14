@@ -19,3 +19,8 @@ The web upgrade flow (`/upgrade`) shows a **three-tier chooser** (Free / One-Lan
 
 ## Client tier rule (reinforces entitlement-gating.md)
 The web client never decides tiers. `useEntitlements()` (`src/lib/entitlements.ts`) wraps `useGetEntitlements` (server snapshot) and exposes `isPlus`, `features`, `dailyNewLessons`, `isLanguageAllowed`. Locked surfaces route to `/upgrade` instead of erroring; server 402 `upgrade_required` bodies are turned into upgrade UI via `asUpgradeRequired(err)` (matches `err.status===402 && err.data.upgradeRequired`).
+
+## Return-URL domain selection (prod)
+Rule: Stripe checkout/portal return URLs must target the domain the user is actually browsing, not `REPLIT_DOMAINS[0]`.
+**Why:** In production REPLIT_DOMAINS lists the *.replit.app twin first; returning there drops the auth session (cookies live on the custom domain), so users land on the signed-out homepage after paying — even though the webhook/tier flip worked.
+**How to apply:** frontendOrigin(req) picks the Origin/Referer hostname only if it exactly matches the REPLIT_DOMAINS/REPLIT_DEV_DOMAIN allowlist (lowercased, deduped); otherwise falls back to the first domain. Never use raw headers as redirect targets.

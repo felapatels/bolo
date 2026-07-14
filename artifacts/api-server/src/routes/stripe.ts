@@ -13,13 +13,38 @@ const router: IRouter = Router();
 // domain; both are Replit-managed and never user-controlled input, so this is
 // safe to use unauthenticated-request-adjacent (it's never taken from the
 // request itself, avoiding an open-redirect via a spoofed Host header).
-function frontendOrigin(): string {
-  const domain =
-    process.env.REPLIT_DOMAINS?.split(",")[0]?.trim() ||
-    process.env.REPLIT_DEV_DOMAIN;
-  if (!domain) {
+function frontendOrigin(req: Request): string {
+  const domains = [
+    ...new Set(
+      [
+        ...(process.env.REPLIT_DOMAINS ?? "").split(","),
+        process.env.REPLIT_DEV_DOMAIN ?? "",
+      ]
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+  if (domains.length === 0) {
     throw new Error("No REPLIT_DOMAINS/REPLIT_DEV_DOMAIN configured");
   }
+  // Prefer the domain the learner is actually browsing from — otherwise Stripe
+  // returns them to a sibling domain (e.g. the *.replit.app twin of a custom
+  // domain) where their auth session cookie doesn't exist and they land
+  // signed-out. Only honored when it matches our own Replit-managed domain
+  // list, so a spoofed Origin/Referer can't create an open redirect.
+  const requestHost = (() => {
+    for (const header of [req.headers.origin, req.headers.referer]) {
+      if (typeof header !== "string") continue;
+      try {
+        return new URL(header).hostname;
+      } catch {
+        /* malformed header — ignore */
+      }
+    }
+    return undefined;
+  })();
+  const domain =
+    (requestHost && domains.find((d) => d === requestHost)) || domains[0];
   return `https://${domain}`;
 }
 
@@ -28,14 +53,14 @@ function frontendOrigin(): string {
 // `import.meta.env.BASE_URL`; we only ever accept a same-origin relative path
 // segment (never a full URL), which closes any open-redirect via a spoofed
 // value — the origin is always our own Replit domain.
-function returnUrl(rawBasePath: unknown, pathAndQuery: string): string {
+function returnUrl(req: Request, rawBasePath: unknown, pathAndQuery: string): string {
   let base = typeof rawBasePath === "string" ? rawBasePath.trim() : "/";
   // Reject anything that isn't a simple absolute path segment.
   if (!/^\/[A-Za-z0-9._~\/-]*$/.test(base)) {
     base = "/";
   }
   if (!base.endsWith("/")) base += "/";
-  return `${frontendOrigin()}${base}${pathAndQuery.replace(/^\//, "")}`;
+  return `${frontendOrigin(req)}${base}${pathAndQuery.replace(/^\//, "")}`;
 }
 
 // POST /stripe/checkout — starts real Bolo! Plus checkout. Creates (and
@@ -97,8 +122,8 @@ router.post(
           ...(withTrial ? { trial_period_days: 7 } : {}),
         },
         allow_promotion_codes: true,
-        success_url: returnUrl(req.body?.basePath, "upgrade?checkout=success"),
-        cancel_url: returnUrl(req.body?.basePath, "upgrade?checkout=cancel"),
+        success_url: returnUrl(req, req.body?.basePath, "upgrade?checkout=success"),
+        cancel_url: returnUrl(req, req.body?.basePath, "upgrade?checkout=cancel"),
       });
 
       if (!session.url) {
@@ -134,7 +159,7 @@ router.post(
       const stripe = await getUncachableStripeClient();
       const portal = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: returnUrl(req.body?.basePath, "upgrade"),
+        return_url: returnUrl(req, req.body?.basePath, "upgrade"),
       });
       res.json({ url: portal.url });
     } catch (err) {
