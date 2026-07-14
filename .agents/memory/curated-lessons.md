@@ -37,6 +37,16 @@ content, not live per-learner generation.
   already exists; never re-insert phrases into an existing lesson. **Consequence:**
   growing a lesson's size does NOT update already-seeded lessons — those need a
   separate backfill; a fresh seed is the only path that picks up new phrases.
+- The separate backfill now exists as `lib/db` script `backfill-premium-phrases`
+  (`src/backfillPremiumPhrases.ts`). It adds the curated library's missing
+  phrases to EXISTING lesson rows only, marking premium by the same
+  starter-then-premium index rule the seeder uses; idempotent, dedups on
+  nativeScript+lowercased english, never mutates existing rows. **Gotcha:** on a
+  DB seeded from PRE-review content, the dedup won't match corrected starter
+  phrases, so it inserts the corrected version as a new (non-premium) row and the
+  lesson grows past its extended count (e.g. 25/26). That's expected drift, not a
+  bug — premium count per non-numbers lesson is still exactly 16; a prod DB
+  seeded from the current committed curated data stays clean at 24.
 - Regenerate content with the api-server `generate-lessons` script. It PRESERVES
   the reviewed starter set and only APPENDS premium phrases (via
   generateAdditionalPhrases) up to the extended target; resumable, dedups on
