@@ -8,8 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { Platform } from 'react-native';
+import { hapticMedium } from '@/lib/haptics';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -80,9 +79,7 @@ export function ChunkyButton({
           pressed.value = 0;
         }}
         onPress={() => {
-          if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          }
+          hapticMedium();
           onPress();
         }}
         style={[

@@ -15,6 +15,7 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { PlusPill } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 import type { Language } from '@workspace/api-client-react';
 
 export default function LanguageModal() {
@@ -45,7 +46,10 @@ export default function LanguageModal() {
         </Text>
         <Pressable
           accessibilityLabel="Close"
-          onPress={() => router.back()}
+          onPress={() => {
+            hapticLight();
+            router.back();
+          }}
           style={[styles.closeBtn, { backgroundColor: colors.muted }]}
         >
           <Feather name="x" size={20} color={colors.foreground} />
@@ -97,7 +101,10 @@ function LanguageRow({
   const colors = useColors();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       style={[
         styles.row,
         {

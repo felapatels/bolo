@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AppFonts } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 
 /** Small "PLUS" pill used to mark locked, Plus-only affordances. */
 export function PlusPill({ style }: { style?: ViewStyle }) {
@@ -34,7 +35,10 @@ export function LockedFeatureCard({
   const colors = useColors();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityHint="Opens the Bolo! Plus upgrade screen"
       style={[
@@ -78,7 +82,10 @@ export function LockedPhrasesCard({
   const label = `${count} more ${count === 1 ? 'phrase' : 'phrases'} with Plus`;
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint="Opens the Bolo! Plus upgrade screen"
@@ -116,7 +123,10 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
   const { isOneLanguage } = useEntitlements();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       accessibilityRole="button"
       style={[styles.banner, { backgroundColor: colors.foreground }]}
     >

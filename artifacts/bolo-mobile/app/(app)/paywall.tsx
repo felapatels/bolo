@@ -28,6 +28,7 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 
 // Hindi is always free, so it is never a One-Language "chosen" language.
 const FREE_LANGUAGE = 'hi';
@@ -300,7 +301,10 @@ export default function PaywallScreen() {
         </View>
         <Pressable
           accessibilityLabel="Close"
-          onPress={close}
+          onPress={() => {
+            hapticLight();
+            close();
+          }}
           style={[styles.closeBtn, { backgroundColor: colors.muted }]}
         >
           <Feather name="x" size={20} color={colors.foreground} />
@@ -422,7 +426,10 @@ export default function PaywallScreen() {
               <Pressable
                 onPress={
                   canSwitchLanguage
-                    ? () => setLangPickerVisible(true)
+                    ? () => {
+                        hapticLight();
+                        setLangPickerVisible(true);
+                      }
                     : undefined
                 }
                 disabled={!canSwitchLanguage}
@@ -527,7 +534,10 @@ export default function PaywallScreen() {
             />
 
             <Pressable
-              onPress={onRestore}
+              onPress={() => {
+                hapticLight();
+                onRestore();
+              }}
               disabled={busy}
               style={{ marginTop: 16, alignItems: 'center' }}
             >
@@ -550,7 +560,10 @@ export default function PaywallScreen() {
               Subscriptions aren’t available in this build yet. Check back soon.
             </Text>
             <Pressable
-              onPress={onRestore}
+              onPress={() => {
+                hapticLight();
+                onRestore();
+              }}
               disabled={busy}
               style={{ marginTop: 6 }}
             >
@@ -582,7 +595,10 @@ export default function PaywallScreen() {
               </Text>
               <Pressable
                 accessibilityLabel="Close"
-                onPress={() => setLangPickerVisible(false)}
+                onPress={() => {
+                  hapticLight();
+                  setLangPickerVisible(false);
+                }}
                 style={[styles.closeBtn, { backgroundColor: colors.muted }]}
               >
                 <Feather name="x" size={20} color={colors.foreground} />
@@ -602,6 +618,7 @@ export default function PaywallScreen() {
                 return (
                   <Pressable
                     onPress={() => {
+                      hapticLight();
                       setChosenLangCode(item.code);
                       setLangPickerVisible(false);
                     }}
@@ -681,7 +698,10 @@ export default function PaywallScreen() {
               style={{ marginTop: 18 }}
             />
             <Pressable
-              onPress={() => setConfirmVisible(false)}
+              onPress={() => {
+                hapticLight();
+                setConfirmVisible(false);
+              }}
               style={{ marginTop: 14, alignItems: 'center' }}
             >
               <Text style={[styles.restore, { color: colors.mutedForeground }]}>
@@ -722,7 +742,10 @@ function TierCard({
   const colors = useColors();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       style={[
         styles.tierCard,
         {
@@ -761,7 +784,10 @@ function PlanOption({
   const colors = useColors();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       style={[
         styles.plan,
         {

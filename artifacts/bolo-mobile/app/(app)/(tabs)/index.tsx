@@ -31,6 +31,7 @@ import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
+import { hapticLight } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 
 /** Time-of-day greeting to make the mascot's welcome feel personal. */
@@ -103,7 +104,10 @@ export default function HomeScreen() {
           <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" />
           <Pressable
             accessibilityLabel="Account settings"
-            onPress={() => router.push('/(app)/account')}
+            onPress={() => {
+              hapticLight();
+              router.push('/(app)/account');
+            }}
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
             <Feather name="settings" size={18} color={colors.mutedForeground} />
@@ -324,7 +328,10 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Privacy Policy"
-            onPress={() => openPrivacyPolicy()}
+            onPress={() => {
+              hapticLight();
+              openPrivacyPolicy();
+            }}
             style={styles.privacyLink}
           >
             <Feather name="shield" size={14} color={colors.mutedForeground} />
@@ -351,7 +358,14 @@ function DailyCapNote({
   const done = remaining <= 0;
   return (
     <Pressable
-      onPress={done ? onUpgrade : undefined}
+      onPress={
+        done
+          ? () => {
+              hapticLight();
+              onUpgrade();
+            }
+          : undefined
+      }
       disabled={!done}
       style={[
         styles.capNote,

@@ -2,7 +2,6 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { useAudioRecorder } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -158,9 +158,7 @@ export default function PracticeScreen() {
       await recorder.prepareToRecordAsync();
       recorder.record();
       setPhase('recording');
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
+      hapticMedium();
     } catch {
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
@@ -185,24 +183,17 @@ export default function PracticeScreen() {
       setScores((prev) => [...prev, res.score]);
       setPhase('result');
 
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(
-          res.passed
-            ? Haptics.NotificationFeedbackType.Success
-            : Haptics.NotificationFeedbackType.Warning,
-        );
-      }
+      hapticNotify(
+        res.passed
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning,
+      );
 
       // Bigger reward for a strong attempt: confetti rains on a high score, and
       // a solid pass gets an extra celebratory haptic pulse.
       if (res.score >= 90) {
         fireConfetti();
-        if (Platform.OS !== 'web') {
-          setTimeout(
-            () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
-            140,
-          );
-        }
+        setTimeout(() => hapticHeavy(), 140);
       }
 
       // Record the attempt using the server-signed token only.

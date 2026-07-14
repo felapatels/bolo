@@ -48,3 +48,7 @@ test-only globals don't couple into `pnpm typecheck` (the whole-project check).
 Note the app typecheck reads the referenced lib's built `dist` — run the full
 `pnpm run typecheck` (which builds libs first) to check, not the standalone
 filter which sees stale dist.
+
+## Haptics
+- Shared tap-feedback helper lives in `lib/haptics.ts`; jest's expo-haptics stub returns undefined from impactAsync/notificationAsync, so fire-and-forget calls must go through Promise.resolve(...) (plain `.catch()` on the return value crashes tests).
+- PressableScale fires a light haptic on press by default (`haptic` prop: light|medium|none) — do not add per-screen haptics on top of it or taps double-fire.

@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -9,6 +8,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { hapticNotify } from '@/lib/haptics';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import type { EarnedBadge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -34,8 +34,8 @@ export function BadgeUnlock({
   const active = badges.length > 0;
 
   React.useEffect(() => {
-    if (active && Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (active) {
+      hapticNotify(Haptics.NotificationFeedbackType.Success);
     }
   }, [active]);
 

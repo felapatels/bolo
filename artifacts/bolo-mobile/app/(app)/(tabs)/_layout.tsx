@@ -5,6 +5,7 @@ import { Tabs } from 'expo-router';
 import { useListIncomingFriendRequests } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 
 export default function TabsLayout() {
   const colors = useColors();
@@ -16,6 +17,12 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Selection-strength feedback on every tab switch, matching other
+      // navigation taps. Fires on the press itself (even re-selecting the
+      // active tab), which is the platform-native feel.
+      screenListeners={{
+        tabPress: () => hapticLight(),
+      }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
