@@ -276,3 +276,114 @@ test("every Gujarati lesson holds the full starter + premium library", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Content-quality guards. The count/shape checks above happily pass a lesson
+// that is technically well-formed but pedagogically broken: the premium tail
+// re-listing the same phrase the starter set already taught, or an English
+// loanword typed in native script ("नर्वस" for "nervous") where a real native
+// term exists. The premium-phrase review kept catching both by hand; these
+// tests catch them first so a regeneration via the generate-lessons script
+// can't silently reintroduce them.
+//
+// Both sources are checked with the same rules: the frozen JSON for every
+// non-Gujarati language, and GUJARATI_LESSONS (the default language, in code).
+// ---------------------------------------------------------------------------
+
+// Every (label, lesson) pair the quality guards scan. The label is
+// "<lang>/<category>" so a failure points straight at the offending lesson.
+const allSeedLessons: Array<[string, SeedLesson]> = [
+  ...generatedLanguageCodes.flatMap((code) =>
+    CATEGORIES.map(
+      (cat) => [`${code}/${cat.slug}`, curated[code][cat.slug]] as [string, SeedLesson],
+    ),
+  ),
+  ...CATEGORIES.map(
+    (cat) =>
+      [`${CURATED_LANGUAGE_CODE}/${cat.slug}`, GUJARATI_LESSONS[cat.slug]] as [
+        string,
+        SeedLesson,
+      ],
+  ),
+];
+
+// Known, human-reviewed exceptions that would otherwise trip a guard. Each key
+// is a lesson label ("<lang>/<category>"); the arrays list the exact strings a
+// reviewer has confirmed are acceptable there. Keep this empty unless a real
+// linguistic reason forces it (e.g. a native script that legitimately embeds a
+// digit), and always leave a comment explaining why. An allowlisted string is
+// exempt only within its own lesson.
+const DUPLICATE_ENGLISH_ALLOWLIST: Record<string, string[]> = {};
+const DUPLICATE_NATIVE_ALLOWLIST: Record<string, string[]> = {};
+const LATIN_IN_NATIVE_ALLOWLIST: Record<string, string[]> = {};
+
+test("no lesson repeats the same phrase (duplicate english gloss or native script)", () => {
+  const failures: string[] = [];
+
+  for (const [label, lesson] of allSeedLessons) {
+    const engAllow = new Set(
+      (DUPLICATE_ENGLISH_ALLOWLIST[label] ?? []).map((s) => s.trim().toLowerCase()),
+    );
+    const nativeAllow = new Set(
+      (DUPLICATE_NATIVE_ALLOWLIST[label] ?? []).map((s) => s.trim()),
+    );
+
+    const seenEnglish = new Map<string, number>();
+    const seenNative = new Map<string, number>();
+
+    lesson.phrases.forEach((p, i) => {
+      const english = p.english.trim().toLowerCase();
+      const native = p.nativeScript.trim();
+
+      if (seenEnglish.has(english) && !engAllow.has(english)) {
+        failures.push(
+          `${label}: phrases ${seenEnglish.get(english)} and ${i} share the english gloss "${p.english.trim()}"`,
+        );
+      } else if (!seenEnglish.has(english)) {
+        seenEnglish.set(english, i);
+      }
+
+      if (seenNative.has(native) && !nativeAllow.has(native)) {
+        failures.push(
+          `${label}: phrases ${seenNative.get(native)} and ${i} share the native script "${native}"`,
+        );
+      } else if (!seenNative.has(native)) {
+        seenNative.set(native, i);
+      }
+    });
+  }
+
+  assert.deepEqual(
+    failures,
+    [],
+    `Found duplicate phrases within a lesson:\n${failures.join("\n")}`,
+  );
+});
+
+test("no native script value contains Latin letters or ASCII digits (loanword/typo signal)", () => {
+  // A Latin letter or ASCII digit inside a nativeScript value is a strong
+  // signal of an English loanword typed in the wrong script or a copy-paste
+  // slip — nativeScript should be entirely in the language's own script. This
+  // is a heuristic: a hit is surfaced for a human to eyeball, and a genuinely
+  // acceptable one can be added to LATIN_IN_NATIVE_ALLOWLIST with a reason.
+  const latinOrDigit = /[A-Za-z0-9]/;
+  const failures: string[] = [];
+
+  for (const [label, lesson] of allSeedLessons) {
+    const allow = new Set((LATIN_IN_NATIVE_ALLOWLIST[label] ?? []).map((s) => s.trim()));
+    lesson.phrases.forEach((p, i) => {
+      const native = p.nativeScript.trim();
+      if (latinOrDigit.test(native) && !allow.has(native)) {
+        failures.push(
+          `${label}: phrase ${i} nativeScript "${native}" (${p.english.trim()}) contains Latin letters or ASCII digits`,
+        );
+      }
+    });
+  }
+
+  assert.deepEqual(
+    failures,
+    [],
+    `Found Latin/ASCII characters in native script values:\n${failures.join("\n")}`,
+  );
+});
