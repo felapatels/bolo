@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Users, Crown, LogOut, type LucideIcon } from "lucide-react";
+import { Home, Trophy, Users, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { useListIncomingFriendRequests } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
@@ -130,27 +130,41 @@ export function DesktopNav() {
         </div>
       )}
 
-      {/* Account */}
-      <div className="flex items-center gap-3 border-t border-card-border px-4 py-4">
-        {user?.imageUrl ? (
-          <img
-            src={user.imageUrl}
-            alt=""
-            className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-card-border"
-          />
-        ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-black text-primary">
-            {(user?.firstName ?? "?").charAt(0).toUpperCase()}
+      {/* Account — the user block links to account settings & subscription
+          management; keep the separate sign-out button beside it. */}
+      <div className="flex items-center gap-2 border-t border-card-border px-4 py-4">
+        <Link
+          href="/account"
+          title="Account & settings"
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors button-spring",
+            location.startsWith("/account")
+              ? "bg-muted"
+              : "hover:bg-muted/60",
+          )}
+          aria-current={location.startsWith("/account") ? "page" : undefined}
+        >
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt=""
+              className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-card-border"
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-black text-primary">
+              {(user?.firstName ?? "?").charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-foreground">
+              {user?.firstName ?? "Your account"}
+            </p>
+            <p className="truncate text-xs font-medium text-muted-foreground">
+              {isPlus ? "Bolo! Plus · Settings" : "Free plan · Settings"}
+            </p>
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-foreground">
-            {user?.firstName ?? "Your account"}
-          </p>
-          <p className="truncate text-xs font-medium text-muted-foreground">
-            {isPlus ? "Bolo! Plus" : "Free plan"}
-          </p>
-        </div>
+          <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </Link>
         <button
           onClick={() => signOut({ redirectUrl: basePath || "/" })}
           title="Sign out"
