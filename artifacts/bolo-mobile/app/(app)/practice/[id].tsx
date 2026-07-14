@@ -51,6 +51,8 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import {
   prepareRecordingSession,
+  prepareRecorderInSession,
+  ensureRecordingMode,
   stopAndReadRecording,
   playBase64Audio,
   RECORDING_PRESET,
@@ -202,7 +204,9 @@ export default function PracticeScreen() {
           sessionReadyRef.current = true;
         }
         if (!recorderPreparedRef.current) {
-          await recorder.prepareToRecordAsync();
+          // Serialized with audio-mode flips: the native prepare re-asserts
+          // the playAndRecord category, which must not land mid-playback.
+          await prepareRecorderInSession(recorder);
           recorderPreparedRef.current = true;
         }
         return true;
@@ -245,6 +249,10 @@ export default function PracticeScreen() {
       }
     }
     try {
+      // Coach playback flips iOS to playback-only mode for speaker routing;
+      // re-assert recording mode (fast category switch, not the heavy
+      // permission/prepare path) so capture actually starts.
+      await ensureRecordingMode();
       recorder.record();
       // The prepared recorder is consumed by this recording; the idle-phase
       // effect re-prepares for the next one.

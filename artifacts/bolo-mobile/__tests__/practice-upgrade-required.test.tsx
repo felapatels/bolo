@@ -70,6 +70,8 @@ jest.mock('expo-audio', () => ({
 
 jest.mock('@/lib/audio', () => ({
   prepareRecordingSession: jest.fn(),
+  prepareRecorderInSession: jest.fn(async () => undefined),
+  ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(),
   playBase64Audio: jest.fn(),
   RECORDING_PRESET: {},
