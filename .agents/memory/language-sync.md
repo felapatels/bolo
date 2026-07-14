@@ -17,7 +17,11 @@ account has never recorded one, seed it from the local value.
 
 **Why:** if you reconcile before the async local load finishes, the local
 hydration lands *after* and clobbers the freshly-adopted server value — silently
-undoing cross-device sync. Gate reconciliation on a `hydrated` flag.
+undoing cross-device sync. Gate reconciliation on a `hydrated` flag *when* the
+local store is async (mobile AsyncStorage). Web localStorage is read
+synchronously in the `useState` initializer, so `activeLang` already holds the
+stored value on first render — no hydration flag needed there; gate only on
+`account.data`.
 
 **How to apply:**
 - Mobile: `contexts/LanguageContext.tsx` gates a one-shot reconcile on both
@@ -26,7 +30,9 @@ undoing cross-device sync. Gate reconciliation on a `hydrated` flag.
   session). Adopting the server's own value uses a local-only path (no push-back
   loop). Entitlement/validity corrections go through `setActiveLang` so the fix
   also syncs up.
-- Web (`gujarati-coach`): the account page pushes on change, but the web
-  `LanguageContext` does NOT yet reconcile *from* the server on load — so web
-  only propagates changes outward, it doesn't adopt another device's choice on
-  launch.
+- Web (`gujarati-coach/src/lib/language-context.tsx`): the account page pushes
+  on change; `LanguageContext` reconciles server → local once on load (gated on
+  `account.data`, `useGetAccount` enabled only when signed-in to avoid a
+  public-route 401). Adopting the server value uses the local-only `setActiveLang`
+  (no push-back); seeding an empty account uses a background `PATCH`. The
+  entitlement/validity-correction effect stays local-only on web, so no loop.

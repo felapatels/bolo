@@ -3,15 +3,21 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { useUser } from "@clerk/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useListLanguages,
   useGetEntitlements,
   getGetEntitlementsQueryKey,
+  useGetAccount,
+  getGetAccountQueryKey,
+  useUpdateAccountPreferences,
+  type Account,
   type Language,
 } from "@workspace/api-client-react";
 
@@ -47,11 +53,31 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
   const allowedLanguages = entitlements?.allowedLanguages;
 
+  // The learner's account carries the authoritative, cross-device copy of the
+  // active language (persisted through PATCH /account/preferences via the account
+  // page). We mirror it locally in localStorage so the choice applies instantly,
+  // then reconcile the two once the account loads — so a language picked on
+  // another device follows the learner here.
+  const account = useGetAccount({
+    // Only signed-in callers have an account; skip on public routes (landing
+    // page) where the request would 401.
+    query: {
+      enabled: !!isSignedIn,
+      queryKey: getGetAccountQueryKey(),
+    },
+  });
+  const updatePrefs = useUpdateAccountPreferences();
+  const queryClient = useQueryClient();
+  const reconciled = useRef(false);
+
   const [activeLang, setActiveLangState] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_LANG;
     return window.localStorage.getItem(STORAGE_KEY) || DEFAULT_LANG;
   });
 
+  // Update just the local mirror (in-memory + localStorage) without touching the
+  // server — used both for direct selections (the account page owns the remote
+  // push) and when adopting the server's own value during reconciliation.
   const setActiveLang = (code: string) => {
     setActiveLangState(code);
     try {
@@ -60,6 +86,46 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       // Ignore storage failures (e.g. private mode); selection still works in-session.
     }
   };
+
+  // Persist the choice to the backend so it follows the learner to their other
+  // devices. Only used to seed the account when it has never recorded a language;
+  // failure is non-fatal for a background sync, so we swallow it.
+  const pushRemote = (code: string) => {
+    updatePrefs.mutate(
+      { data: { activeLanguage: code } },
+      {
+        onSuccess: (res) => {
+          const current = queryClient.getQueryData<Account>(
+            getGetAccountQueryKey(),
+          );
+          if (current) {
+            queryClient.setQueryData(getGetAccountQueryKey(), {
+              ...current,
+              preferences: res.preferences,
+            });
+          }
+        },
+        onError: () => {},
+      },
+    );
+  };
+
+  // Reconcile the local choice with the account once, after it loads. A language
+  // saved on another device wins here; if the account has never recorded one,
+  // seed it from the local choice so future devices inherit it. The localStorage
+  // read above is synchronous, so `activeLang` already holds the stored value by
+  // the time this runs — no need to gate on a separate hydration flag.
+  useEffect(() => {
+    if (reconciled.current || !account.data) return;
+    reconciled.current = true;
+    const server = account.data.preferences.learning.activeLanguage;
+    if (server) {
+      if (server !== activeLang) setActiveLang(server);
+    } else {
+      pushRemote(activeLang);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.data]);
 
   // Keep the active language valid for both the supported list and the caller's
   // plan. If the stored language isn't supported (e.g. removed), fall back to the
