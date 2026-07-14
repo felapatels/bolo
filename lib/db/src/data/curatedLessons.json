@@ -1412,9 +1412,9 @@
       "titleNative": "অভিবাদন ও ভদ্রতা",
       "phrases": [
         {
-          "nativeScript": "হ্যালো",
-          "romanized": "hello",
-          "english": "hello",
+          "nativeScript": "এই যে",
+          "romanized": "ei je",
+          "english": "hello / hey there",
           "difficulty": 1
         },
         {
@@ -2260,8 +2260,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "गुडनाइट",
-          "romanized": "goodnight",
+          "nativeScript": "मोजां हर",
+          "romanized": "mojang hor",
           "english": "good night",
           "difficulty": 2
         },
@@ -2488,9 +2488,9 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "हलो",
-          "romanized": "hallo",
-          "english": "Hello",
+          "nativeScript": "जी आया नूं",
+          "romanized": "ji aaya nu",
+          "english": "welcome",
           "difficulty": 1
         },
         {
@@ -5736,8 +5736,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "س۪تُو",
-          "romanized": "sithu",
+          "nativeScript": "بہِہ",
+          "romanized": "beh",
           "english": "sit down",
           "difficulty": 1
         },
@@ -7312,9 +7312,9 @@
       "titleNative": "ദൈനംദിന വാക്കുകൾ",
       "phrases": [
         {
-          "nativeScript": "ഹലോ",
-          "romanized": "hallo",
-          "english": "Hello",
+          "nativeScript": "എങ്ങനെയുണ്ട്?",
+          "romanized": "enganeyundu?",
+          "english": "How is it going?",
           "difficulty": 1
         },
         {
@@ -7533,8 +7533,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ആന്റി",
-          "romanized": "aanti",
+          "nativeScript": "അമ്മായി",
+          "romanized": "ammaayi",
           "english": "aunt",
           "difficulty": 2
         },
@@ -7914,9 +7914,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ഹായ്",
-          "romanized": "hai",
-          "english": "hi",
+          "nativeScript": "ശുഭദിനം",
+          "romanized": "shubhadinam",
+          "english": "good day",
           "difficulty": 1
         },
         {
@@ -8130,8 +8130,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯊꯦꯡꯀ꯭ꯌꯨ",
-          "romanized": "thengkyu",
+          "nativeScript": "ꯊꯥꯒꯠꯆꯔꯤ",
+          "romanized": "thagatchari",
           "english": "thank you",
           "difficulty": 1
         },
@@ -8238,8 +8238,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯂꯦꯛ",
-          "romanized": "lek",
+          "nativeScript": "ꯌꯦꯡꯉꯨ",
+          "romanized": "yengngu",
           "english": "look",
           "difficulty": 1
         },
@@ -13199,7 +13199,7 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱢᱤ�pᱟᱲᱮ",
+          "nativeScript": "ᱢᱤᱥᱤ",
           "romanized": "misi",
           "english": "sister",
           "difficulty": 1
@@ -15480,8 +15480,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "హలో",
-          "romanized": "hello",
+          "nativeScript": "నమస్కారం",
+          "romanized": "namaskaaram",
           "english": "hello",
           "difficulty": 1
         },
@@ -16028,9 +16028,9 @@
       "titleNative": "ఆహ్వానాలు & మర్యాదలు",
       "phrases": [
         {
-          "nativeScript": "హలో",
-          "romanized": "hello",
-          "english": "hello",
+          "nativeScript": "బాగున్నారా?",
+          "romanized": "baagunnaaraa?",
+          "english": "are you well?",
           "difficulty": 1
         },
         {

@@ -370,7 +370,81 @@ test("no lesson repeats the same phrase or types a loanword in native script", (
 // gloss here only when transliterating it is clearly a defect (a learner should
 // never be taught the English word for a basic feeling or relation).
 const LOANWORD_GLOSS_BLOCKLIST = new Set(
-  ["nervous", "bored", "goodbye", "aunt"].map((g) => g.toLowerCase()),
+  [
+    // feelings — every Indian language has native words for basic emotions
+    "nervous",
+    "bored",
+    "happy",
+    "sad",
+    "angry",
+    "tired",
+    "excited",
+    "worried",
+    "scared",
+    "lonely",
+    "proud",
+    "confused",
+    "surprised",
+    "hungry",
+    "thirsty",
+    "sleepy",
+    "calm",
+    "upset",
+    "shy",
+    "jealous",
+    "disappointed",
+    "relieved",
+    // greetings & manners — "hello"/"bye"/"sorry" typed in native script are
+    // the most common lazy borrowings a regeneration reintroduces
+    "goodbye",
+    "hello",
+    "hi",
+    "bye",
+    "sorry",
+    "please",
+    "welcome",
+    "thanks",
+    "thank",
+    "excuse",
+    "morning",
+    "night",
+    "evening",
+    // family — kinship terms are core native vocabulary everywhere
+    "aunt",
+    "uncle",
+    "mother",
+    "father",
+    "brother",
+    "sister",
+    "cousin",
+    "grandmother",
+    "grandfather",
+    "nephew",
+    "niece",
+    "husband",
+    "wife",
+    "son",
+    "daughter",
+    "family",
+    "baby",
+    // everyday verbs — basic actions must never be taught as English words
+    "come",
+    "go",
+    "stop",
+    "wait",
+    "look",
+    "listen",
+    "sit",
+    "stand",
+    "eat",
+    "drink",
+    "sleep",
+    "walk",
+    "run",
+    "help",
+    "give",
+    "take",
+  ].map((g) => g.toLowerCase()),
 );
 
 // Human-reviewed exceptions: lesson label ("<lang>/<category>") → native-script
@@ -384,6 +458,15 @@ const LOANWORD_ALLOWLIST: Record<string, string[]> = {
   // "लाजो"/lajo = shy). Its consonant skeleton (brg) only coincidentally
   // resembles "bored" (brd); a real transliteration would be "बोर"/"बोर्ड".
   "brx/feelings": ["बिरागो"],
+  // "ਭਰਾ" (bharaa) is the genuine native Punjabi word for "brother" — an
+  // Indo-Aryan cognate of Sanskrit "भ्रातृ"/bhrātṛ. Its consonant skeleton
+  // (bhr) resembles English "brother" (brthr) only because both descend from
+  // the same Proto-Indo-European root, not because it was borrowed.
+  "pa/family": ["ਭਰਾ"],
+  // "सूनुः" (sūnuḥ) is the classical Sanskrit word for "son" — again a shared
+  // Proto-Indo-European inheritance (cf. English "son", German "Sohn"), not an
+  // English loanword.
+  "sa/family": ["सूनुः"],
 };
 
 // Levenshtein distance — the edit distance used for the phonetic ratio below.
