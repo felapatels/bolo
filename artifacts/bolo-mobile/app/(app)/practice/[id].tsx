@@ -11,7 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
-import { useAudioRecorder } from 'expo-audio';
+import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
@@ -38,6 +38,7 @@ import {
   type PronunciationResult,
   type EarnedBadge,
 } from '@workspace/api-client-react';
+import { ApiError } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -56,11 +57,38 @@ import {
   stopAndReadRecording,
   playBase64Audio,
   RECORDING_PRESET,
+  SILENCE_THRESHOLD_DB,
+  SILENCE_DURATION_MS,
   type PlaybackHandle,
 } from '@/lib/audio';
+import {
+  loadStopMode,
+  saveStopMode,
+  type StopMode,
+} from '@/lib/stop-mode';
 import { scoreColor } from '@/lib/ui';
 
-type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'done';
+type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
+
+// Turns whatever the evaluation pipeline threw into a short, actionable
+// message for the learner (mirrors the web practice flow).
+function describeEvaluationError(error: unknown): string {
+  if (error instanceof ApiError) {
+    const status = (error as { status?: number }).status;
+    if (status === 502) {
+      return "We couldn't process that recording. Give it another try!";
+    }
+    if (status === 429) {
+      return "Whoa, that's a lot of practice! Wait a moment, then try again.";
+    }
+    return 'Something went wrong while scoring. Please try again.';
+  }
+  if (error instanceof TypeError) {
+    // fetch() rejects with a TypeError when the network is unreachable.
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+  return 'Something went wrong while scoring. Please try again.';
+}
 
 export default function PracticeScreen() {
   const colors = useColors();
@@ -105,6 +133,32 @@ export default function PracticeScreen() {
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
+  const [evalError, setEvalError] = React.useState<string | null>(null);
+  // When true, the attempt scored but saving progress failed — the learner
+  // keeps their result and gets a gentle note instead of a silent reset.
+  const [saveFailed, setSaveFailed] = React.useState(false);
+
+  // How recording stops: manual (default) or auto-stop on silence. Hydrated
+  // once from local storage; the ref is read by the silence watcher so a
+  // mid-recording flip to manual immediately disarms a pending auto-stop.
+  const [stopMode, setStopMode] = React.useState<StopMode>('manual');
+  const stopModeRef = React.useRef<StopMode>('manual');
+  React.useEffect(() => {
+    let cancelled = false;
+    loadStopMode().then((mode) => {
+      if (cancelled) return;
+      setStopMode(mode);
+      stopModeRef.current = mode;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeStopMode = (mode: StopMode) => {
+    setStopMode(mode);
+    stopModeRef.current = mode;
+    void saveStopMode(mode);
+  };
 
   const celebrateTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -227,8 +281,46 @@ export default function PracticeScreen() {
     }
   }, [phase, prepareRecorder]);
 
+  // --- Silence auto-stop ---
+  // In auto mode, a continuous stretch of quiet (metering stays below the
+  // threshold) ends the recording on its own; any louder sample resets the
+  // countdown. In manual mode silence never stops the recording. The manual
+  // stop button remains available in both modes.
+  const recorderState = useAudioRecorderState(recorder, 250);
+  const silenceSinceRef = React.useRef<number | null>(null);
+  const metering = recorderState?.metering;
+  React.useEffect(() => {
+    if (phase !== 'recording' || stopMode !== 'auto') {
+      silenceSinceRef.current = null;
+      return;
+    }
+    if (typeof metering !== 'number') return;
+    const now = Date.now();
+    if (metering > SILENCE_THRESHOLD_DB) {
+      // Heard something — restart the silence countdown.
+      silenceSinceRef.current = now;
+      return;
+    }
+    if (silenceSinceRef.current == null) {
+      silenceSinceRef.current = now;
+      return;
+    }
+    if (now - silenceSinceRef.current >= SILENCE_DURATION_MS) {
+      silenceSinceRef.current = null;
+      // The learner may have flipped to manual after recording began; in
+      // that case silence must not end the recording.
+      if (stopModeRef.current !== 'auto') return;
+      void stopRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, stopMode, metering, recorderState]);
+
+  // Prevents a manual stop and an auto-stop from both firing.
+  const finishingRef = React.useRef(false);
+
   const startRecording = async () => {
     stopPlayback();
+    setEvalError(null);
     // Not-yet-prepared edge case (e.g. permission was denied on load, or
     // prepare is still in flight): prepare now, then start.
     if (!recorderPreparedRef.current) {
@@ -267,7 +359,11 @@ export default function PracticeScreen() {
   };
 
   const stopRecording = async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     setPhase('evaluating');
+    setEvalError(null);
+    setSaveFailed(false);
     try {
       const audioBase64 = await stopAndReadRecording(recorder);
       const res = await evaluate.mutateAsync({
@@ -298,41 +394,50 @@ export default function PracticeScreen() {
         setTimeout(() => hapticHeavy(), 140);
       }
 
-      // Record the attempt using the server-signed token only.
-      const attempt = await createAttempt.mutateAsync({
-        data: { evaluationToken: res.evaluationToken },
-      });
-      queryClient.invalidateQueries({
-        queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListRecentAttemptsQueryKey({ lang: activeLang }),
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListBadgesQueryKey({ lang: activeLang }),
-      });
+      // The learner has their score — saving the attempt below must never
+      // take the result away from them or silently reset the screen.
+      try {
+        // Record the attempt using the server-signed token only.
+        const attempt = await createAttempt.mutateAsync({
+          data: { evaluationToken: res.evaluationToken },
+        });
+        queryClient.invalidateQueries({
+          queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListRecentAttemptsQueryKey({ lang: activeLang }),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListBadgesQueryKey({ lang: activeLang }),
+        });
 
-      // Celebrate any badges this attempt unlocked (server-authoritative list).
-      if (attempt.newlyEarnedBadges?.length) {
-        setUnlockedBadges(attempt.newlyEarnedBadges);
+        // Celebrate any badges this attempt unlocked (server-authoritative list).
+        if (attempt.newlyEarnedBadges?.length) {
+          setUnlockedBadges(attempt.newlyEarnedBadges);
+        }
+      } catch {
+        setSaveFailed(true);
       }
-    } catch {
-      setPhase('idle');
-      Alert.alert(
-        'Something went wrong',
-        'We could not score that recording. Please try again.',
-      );
+    } catch (error) {
+      // Scoring failed — show a visible, in-context error state with a retry
+      // action instead of a fleeting alert or a silent reset to idle.
+      setEvalError(describeEvaluationError(error));
+      setPhase('error');
+      hapticNotify(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      finishingRef.current = false;
     }
   };
 
   const next = () => {
     setResult(null);
+    setSaveFailed(false);
     if (index + 1 < list.length) {
       setIndex((i) => i + 1);
       setPhase('idle');
@@ -343,9 +448,16 @@ export default function PracticeScreen() {
 
   const tryAgain = () => {
     setResult(null);
+    setSaveFailed(false);
     setPhase('idle');
     // Replay the coach model so the learner hears it again before re-recording.
     playCoach();
+  };
+
+  // Leaving the error card returns to the mic, ready to record again.
+  const retryAfterError = () => {
+    setEvalError(null);
+    setPhase('idle');
   };
 
   // --- Loading / error / empty ---
@@ -473,13 +585,15 @@ export default function PracticeScreen() {
   const mascotPose: MascotPose =
     phase === 'recording' || phase === 'evaluating'
       ? 'thinking'
-      : phase === 'result' && result
-        ? result.score >= 90
-          ? 'cheer'
-          : result.passed
-            ? 'thumbsup'
-            : 'tryagain'
-        : 'wave';
+      : phase === 'error'
+        ? 'tryagain'
+        : phase === 'result' && result
+          ? result.score >= 90
+            ? 'cheer'
+            : result.passed
+              ? 'thumbsup'
+              : 'tryagain'
+          : 'wave';
   const mascotMotion =
     phase === 'recording'
       ? 'sway'
@@ -562,6 +676,28 @@ export default function PracticeScreen() {
           </View>
         ) : null}
 
+        {/* Scoring error */}
+        {phase === 'error' && evalError ? (
+          <View
+            accessibilityRole="alert"
+            testID="eval-error-card"
+            style={[
+              styles.resultCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.destructive,
+              },
+            ]}
+          >
+            <Text style={[styles.errorTitle, { color: colors.destructive }]}>
+              Oops, that didn't work
+            </Text>
+            <Text style={[styles.feedback, { color: colors.foreground }]}>
+              {evalError}
+            </Text>
+          </View>
+        ) : null}
+
         {/* Result */}
         {phase === 'result' && result ? (
           <View
@@ -631,6 +767,11 @@ export default function PracticeScreen() {
                 </Text>
               </View>
             ) : null}
+            {saveFailed ? (
+              <Text style={[styles.saveFailed, { color: colors.destructive }]}>
+                Heads up — this attempt couldn't be saved to your progress.
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -655,12 +796,24 @@ export default function PracticeScreen() {
               style={{ flex: 1 }}
             />
           </View>
-        ) : (
-          <RecordButton
-            phase={phase}
-            onStart={startRecording}
-            onStop={stopRecording}
+        ) : phase === 'error' ? (
+          <ChunkyButton
+            title="Try again"
+            icon="rotate-ccw"
+            onPress={retryAfterError}
           />
+        ) : (
+          <>
+            <RecordButton
+              phase={phase}
+              stopMode={stopMode}
+              onStart={startRecording}
+              onStop={stopRecording}
+            />
+            {phase === 'idle' || phase === 'recording' ? (
+              <StopModeToggle mode={stopMode} onChange={changeStopMode} />
+            ) : null}
+          </>
         )}
       </View>
       {celebrate ? <Confetti /> : null}
@@ -697,12 +850,61 @@ function PracticeHeader({
   );
 }
 
+function StopModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: StopMode;
+  onChange: (mode: StopMode) => void;
+}) {
+  const colors = useColors();
+  const option = (value: StopMode, label: string, testID: string) => {
+    const selected = mode === value;
+    return (
+      <Pressable
+        onPress={() => onChange(value)}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        accessibilityLabel={label}
+        testID={testID}
+        style={[
+          styles.stopModeOption,
+          selected && {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.stopModeText,
+            { color: selected ? colors.foreground : colors.mutedForeground },
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+  return (
+    <View
+      accessibilityLabel="How recording stops"
+      style={[styles.stopModeRow, { backgroundColor: colors.muted }]}
+    >
+      {option('auto', 'Auto-stop', 'stop-mode-auto')}
+      {option('manual', "I'll tap stop", 'stop-mode-manual')}
+    </View>
+  );
+}
+
 function RecordButton({
   phase,
+  stopMode,
   onStart,
   onStop,
 }: {
   phase: Phase;
+  stopMode: StopMode;
   onStart: () => void;
   onStop: () => void;
 }) {
@@ -763,7 +965,9 @@ function RecordButton({
         {evaluating
           ? 'Scoring your pronunciation...'
           : recording
-            ? 'Tap to stop'
+            ? stopMode === 'auto'
+              ? 'Listening... stops on its own'
+              : 'Tap to stop'
             : 'Tap and say it out loud'}
       </Text>
     </View>
@@ -899,6 +1103,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordHint: { fontFamily: AppFonts.semibold, fontSize: 15 },
+  errorTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
+  saveFailed: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 12 },
+  stopModeRow: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    borderRadius: 999,
+    padding: 3,
+    marginTop: 14,
+  },
+  stopModeOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  stopModeText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   note: {
     fontFamily: AppFonts.regular,
     fontSize: 16,

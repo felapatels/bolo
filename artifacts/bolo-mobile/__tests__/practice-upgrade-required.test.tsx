@@ -66,6 +66,7 @@ jest.mock('expo-audio', () => ({
     prepareToRecordAsync: jest.fn(),
     record: jest.fn(),
   }),
+  useAudioRecorderState: () => ({}),
 }));
 
 jest.mock('@/lib/audio', () => ({
@@ -75,6 +76,8 @@ jest.mock('@/lib/audio', () => ({
   stopAndReadRecording: jest.fn(),
   playBase64Audio: jest.fn(),
   RECORDING_PRESET: {},
+  SILENCE_THRESHOLD_DB: -45,
+  SILENCE_DURATION_MS: 1600,
 }));
 
 // UpgradeRequiredScreen renders PlusPill from PlusUpsell, which imports the

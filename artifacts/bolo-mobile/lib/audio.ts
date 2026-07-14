@@ -8,7 +8,21 @@ import {
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 
-export const RECORDING_PRESET = RecordingPresets.HIGH_QUALITY;
+// Metering is on so the practice screen can auto-stop on silence when the
+// learner opts in (see lib/stop-mode.ts).
+export const RECORDING_PRESET = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+};
+
+/**
+ * Silence auto-stop tuning, mirroring the web practice flow's semantics:
+ * recording ends after a continuous stretch of quiet. Metering reports dBFS
+ * (negative numbers, 0 = full scale); levels above the threshold count as
+ * speech and reset the timer.
+ */
+export const SILENCE_THRESHOLD_DB = -45;
+export const SILENCE_DURATION_MS = 1600;
 
 // iOS routes playback to the quiet earpiece (receiver) whenever the audio
 // session category is `playAndRecord` — expo-audio never adds the
