@@ -269,7 +269,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const handleRetry = () => {
     setResult(null);
     setShowConfetti(false);
-    setState("idle");
+    // Return through the coach playback so the learner hears the model
+    // pronunciation again before re-recording.
+    setState("playing_coach");
   };
 
   const playAgain = () => {

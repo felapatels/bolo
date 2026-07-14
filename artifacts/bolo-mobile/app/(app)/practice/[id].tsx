@@ -314,6 +314,8 @@ export default function PracticeScreen() {
   const tryAgain = () => {
     setResult(null);
     setPhase('idle');
+    // Replay the coach model so the learner hears it again before re-recording.
+    playCoach();
   };
 
   // --- Loading / error / empty ---
@@ -548,11 +550,28 @@ export default function PracticeScreen() {
                   <Text style={styles.resultScoreMax}> / 100</Text>
                 </Text>
               </View>
-              <Feather
-                name={result.passed ? 'check-circle' : 'refresh-cw'}
-                size={40}
-                color={scoreColor(result.score, colors)}
-              />
+              {result.passed ? (
+                <Feather
+                  name="check-circle"
+                  size={40}
+                  color={scoreColor(result.score, colors)}
+                />
+              ) : (
+                <Pressable
+                  onPress={tryAgain}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try this phrase again"
+                  hitSlop={12}
+                  style={styles.resultRetryIcon}
+                  testID="result-retry-icon"
+                >
+                  <Feather
+                    name="refresh-cw"
+                    size={40}
+                    color={scoreColor(result.score, colors)}
+                  />
+                </Pressable>
+              )}
             </View>
             {result.transcript ? (
               <Text style={[styles.heard, { color: colors.foreground }]}>
@@ -582,6 +601,9 @@ export default function PracticeScreen() {
           <View style={styles.resultButtons}>
             <Pressable
               onPress={tryAgain}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+              testID="retry-button"
               style={[styles.retryBtn, { borderColor: colors.border }]}
             >
               <Feather name="rotate-ccw" size={20} color={colors.foreground} />
@@ -675,6 +697,9 @@ function RecordButton({
         />
         <Pressable
           disabled={evaluating}
+          testID="record-button"
+          accessibilityRole="button"
+          accessibilityLabel={recording ? 'Stop recording' : 'Start recording'}
           onPress={recording ? onStop : onStart}
           style={[
             styles.recordBtn,
@@ -804,6 +829,12 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   resultButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  resultRetryIcon: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   retryBtn: {
     width: 56,
     height: 56,
