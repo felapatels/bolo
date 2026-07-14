@@ -24,6 +24,8 @@ import {
   starterPhraseCount,
   extendedPhraseCount,
   validateSeedLesson,
+  checkLessonQuality,
+  nativeScriptHasLatinOrDigit,
   type SeedLesson,
   type SeedPhrase,
   type CuratedLessonsFile,
@@ -101,6 +103,10 @@ function dedupeAppend(
   for (const p of incoming) {
     if (out.length >= cap) break;
     if (!p.nativeScript?.trim() || !p.english?.trim()) continue;
+    // Drop loanwords/typos (Latin letters or ASCII digits in the native script)
+    // so a bad phrase never lands in the frozen lesson; the attempt loop then
+    // requests replacements to reach the target count.
+    if (nativeScriptHasLatinOrDigit(p.nativeScript)) continue;
     const n = nativeKey(p);
     const e = englishKey(p);
     if (seenNative.has(n) || seenEnglish.has(e)) continue;
@@ -191,6 +197,16 @@ async function generateOne(job: Job): Promise<SeedLesson> {
         `(${phrases.length}/${target}): ${invalid || lastError}`,
     );
   }
+  // Final content-quality gate: reject a well-formed-but-broken lesson (a
+  // duplicate phrase or a native-script loanword) before it is written to disk,
+  // using the exact same rules the seed test enforces.
+  const quality = checkLessonQuality(lesson);
+  if (quality.length > 0) {
+    throw new Error(
+      `Quality check failed for ${job.langCode}/${job.categorySlug}:\n` +
+        quality.map((q) => `  - ${q}`).join("\n"),
+    );
+  }
   return lesson;
 }
 
@@ -205,10 +221,16 @@ async function main() {
     const byCat = data[lang.code];
     for (const cat of CATEGORIES) {
       const existing = byCat?.[cat.slug];
+      // A lesson only counts as "already done" if it is both well-formed and
+      // content-clean; a duplicate/loanword lesson is regenerated.
+      const existingClean =
+        existing && checkLessonQuality(existing).length === 0
+          ? existing
+          : undefined;
       if (
         !force &&
-        existing &&
-        validateSeedLesson(existing, extendedPhraseCount(cat.slug)) === null
+        existingClean &&
+        validateSeedLesson(existingClean, extendedPhraseCount(cat.slug)) === null
       )
         continue;
       jobs.push({
@@ -220,8 +242,9 @@ async function main() {
         topicTitle: cat.title,
         topicDescription: cat.description,
         // Keep the reviewed starter set and only extend it (unless --force asks
-        // for a full regeneration from scratch).
-        existing: force ? undefined : existing,
+        // for a full regeneration from scratch, or the existing content is
+        // unclean — a duplicate/loanword lesson is rebuilt rather than extended).
+        existing: force ? undefined : existingClean,
       });
     }
   }

@@ -14,6 +14,7 @@ import {
   premiumPhraseCount,
   validateSeedLesson,
   validateCuratedLessons,
+  checkLessonQuality,
   type CuratedLessonsFile,
   type SeedLesson,
 } from "@workspace/db/seed-data";
@@ -317,74 +318,25 @@ const DUPLICATE_ENGLISH_ALLOWLIST: Record<string, string[]> = {};
 const DUPLICATE_NATIVE_ALLOWLIST: Record<string, string[]> = {};
 const LATIN_IN_NATIVE_ALLOWLIST: Record<string, string[]> = {};
 
-test("no lesson repeats the same phrase (duplicate english gloss or native script)", () => {
+// The generator runs this exact same checkLessonQuality rule set before it
+// writes curatedLessons.json, so a bad batch is rejected at generation time —
+// not just here, after the fact. Sharing the helper keeps the two from drifting.
+test("no lesson repeats the same phrase or types a loanword in native script", () => {
   const failures: string[] = [];
 
   for (const [label, lesson] of allSeedLessons) {
-    const engAllow = new Set(
-      (DUPLICATE_ENGLISH_ALLOWLIST[label] ?? []).map((s) => s.trim().toLowerCase()),
-    );
-    const nativeAllow = new Set(
-      (DUPLICATE_NATIVE_ALLOWLIST[label] ?? []).map((s) => s.trim()),
-    );
-
-    const seenEnglish = new Map<string, number>();
-    const seenNative = new Map<string, number>();
-
-    lesson.phrases.forEach((p, i) => {
-      const english = p.english.trim().toLowerCase();
-      const native = p.nativeScript.trim();
-
-      if (seenEnglish.has(english) && !engAllow.has(english)) {
-        failures.push(
-          `${label}: phrases ${seenEnglish.get(english)} and ${i} share the english gloss "${p.english.trim()}"`,
-        );
-      } else if (!seenEnglish.has(english)) {
-        seenEnglish.set(english, i);
-      }
-
-      if (seenNative.has(native) && !nativeAllow.has(native)) {
-        failures.push(
-          `${label}: phrases ${seenNative.get(native)} and ${i} share the native script "${native}"`,
-        );
-      } else if (!seenNative.has(native)) {
-        seenNative.set(native, i);
-      }
+    const issues = checkLessonQuality(lesson, {
+      duplicateEnglish: DUPLICATE_ENGLISH_ALLOWLIST[label],
+      duplicateNative: DUPLICATE_NATIVE_ALLOWLIST[label],
+      latinInNative: LATIN_IN_NATIVE_ALLOWLIST[label],
     });
+    for (const issue of issues) failures.push(`${label}: ${issue}`);
   }
 
   assert.deepEqual(
     failures,
     [],
-    `Found duplicate phrases within a lesson:\n${failures.join("\n")}`,
-  );
-});
-
-test("no native script value contains Latin letters or ASCII digits (loanword/typo signal)", () => {
-  // A Latin letter or ASCII digit inside a nativeScript value is a strong
-  // signal of an English loanword typed in the wrong script or a copy-paste
-  // slip — nativeScript should be entirely in the language's own script. This
-  // is a heuristic: a hit is surfaced for a human to eyeball, and a genuinely
-  // acceptable one can be added to LATIN_IN_NATIVE_ALLOWLIST with a reason.
-  const latinOrDigit = /[A-Za-z0-9]/;
-  const failures: string[] = [];
-
-  for (const [label, lesson] of allSeedLessons) {
-    const allow = new Set((LATIN_IN_NATIVE_ALLOWLIST[label] ?? []).map((s) => s.trim()));
-    lesson.phrases.forEach((p, i) => {
-      const native = p.nativeScript.trim();
-      if (latinOrDigit.test(native) && !allow.has(native)) {
-        failures.push(
-          `${label}: phrase ${i} nativeScript "${native}" (${p.english.trim()}) contains Latin letters or ASCII digits`,
-        );
-      }
-    });
-  }
-
-  assert.deepEqual(
-    failures,
-    [],
-    `Found Latin/ASCII characters in native script values:\n${failures.join("\n")}`,
+    `Found content-quality problems in a lesson:\n${failures.join("\n")}`,
   );
 });
 

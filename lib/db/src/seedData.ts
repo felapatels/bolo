@@ -339,6 +339,85 @@ export function validateSeedLesson(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Content-quality checks that go beyond validateSeedLesson's shape validation.
+// A lesson can be perfectly well-formed (right count, non-empty fields, valid
+// difficulty) yet pedagogically broken: two phrases teaching the same word, or
+// an English loanword typed in native script ("नर्वस" for "nervous"). These
+// helpers are the single source of truth for those rules, shared by the offline
+// generator (so a bad batch is never written to curatedLessons.json) and by the
+// seed test (so the two can't drift).
+// ---------------------------------------------------------------------------
+
+// True when a native-script value contains Latin letters or ASCII digits — a
+// strong signal of an English loanword typed in the wrong script or a
+// copy-paste slip. nativeScript should be entirely in the language's own script.
+export function nativeScriptHasLatinOrDigit(nativeScript: string): boolean {
+  return /[A-Za-z0-9]/.test(nativeScript.trim());
+}
+
+// Human-reviewed exceptions that would otherwise trip a quality check. Populate
+// only for a genuine linguistic reason (e.g. a native script that legitimately
+// embeds a digit) and always with a comment. Each list is scoped to one lesson.
+export type LessonQualityAllowlist = {
+  // English glosses allowed to repeat within the lesson (case-insensitive).
+  duplicateEnglish?: string[];
+  // Native-script values allowed to repeat within the lesson.
+  duplicateNative?: string[];
+  // Native-script values allowed to contain Latin letters / ASCII digits.
+  latinInNative?: string[];
+};
+
+// Scans a lesson for content-quality problems the shape validator ignores:
+//   - two phrases sharing an english gloss (case-insensitive), or
+//   - two phrases sharing a native-script value, or
+//   - a native-script value containing Latin letters or ASCII digits.
+// Returns a list of human-readable issue strings (empty when the lesson is
+// clean). Pass an allowlist to exempt human-reviewed exceptions.
+export function checkLessonQuality(
+  lesson: SeedLesson,
+  allow: LessonQualityAllowlist = {},
+): string[] {
+  const engAllow = new Set(
+    (allow.duplicateEnglish ?? []).map((s) => s.trim().toLowerCase()),
+  );
+  const nativeAllow = new Set((allow.duplicateNative ?? []).map((s) => s.trim()));
+  const latinAllow = new Set((allow.latinInNative ?? []).map((s) => s.trim()));
+
+  const issues: string[] = [];
+  const seenEnglish = new Map<string, number>();
+  const seenNative = new Map<string, number>();
+
+  lesson.phrases.forEach((p, i) => {
+    const english = p.english.trim().toLowerCase();
+    const native = p.nativeScript.trim();
+
+    if (seenEnglish.has(english) && !engAllow.has(english)) {
+      issues.push(
+        `phrases ${seenEnglish.get(english)} and ${i} share the english gloss "${p.english.trim()}"`,
+      );
+    } else if (!seenEnglish.has(english)) {
+      seenEnglish.set(english, i);
+    }
+
+    if (seenNative.has(native) && !nativeAllow.has(native)) {
+      issues.push(
+        `phrases ${seenNative.get(native)} and ${i} share the native script "${native}"`,
+      );
+    } else if (!seenNative.has(native)) {
+      seenNative.set(native, i);
+    }
+
+    if (nativeScriptHasLatinOrDigit(native) && !latinAllow.has(native)) {
+      issues.push(
+        `phrase ${i} nativeScript "${native}" (${p.english.trim()}) contains Latin letters or ASCII digits`,
+      );
+    }
+  });
+
+  return issues;
+}
+
 // The outcome of validating a whole frozen curated-lessons file against the
 // expected (non-Gujarati language × category) matrix.
 export type CuratedLessonsValidation = {
