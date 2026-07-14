@@ -2,19 +2,24 @@ import React from 'react';
 import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
 import Animated, {
   Easing,
+  ZoomIn,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 /**
  * Bolo the Parrot — the friendly face of the app. Renders one of the five
  * mascot poses and gives it life with tasteful, reduced-motion-aware motion.
+ *
+ * Visibility is never gated on animation: the mascot always renders at full
+ * opacity in its resting scale/position. The entrance "pop" and idle motion are
+ * layered on top as progressive enhancements, so if animations don't run (e.g.
+ * some Expo Go setups where reanimated entrance animations don't reliably
+ * commit) the logo is still shown rather than left permanently transparent.
  *
  * Poses (see assets/images/mascot/README.md):
  * - wave:     greetings, home, empty states, welcome back
@@ -57,7 +62,6 @@ export function Mascot({
 }) {
   const reduceMotion = useReducedMotion();
   const loop = useSharedValue(0);
-  const pop = useSharedValue(entering && !reduceMotion ? 0 : 1);
 
   // Idle loop (float / bounce / sway) — skipped when reduced motion is on.
   React.useEffect(() => {
@@ -73,31 +77,24 @@ export function Mascot({
     );
   }, [motion, reduceMotion, loop]);
 
-  // Entrance "pop" — replays whenever the pose changes for a lively reaction.
+  // Cheer gets an extra celebratory wiggle whenever the pose becomes "cheer".
   React.useEffect(() => {
-    if (reduceMotion || !entering) {
-      pop.value = 1;
-      return;
-    }
-    pop.value = 0;
-    pop.value = withDelay(
-      40,
-      withSpring(1, { damping: 10, stiffness: 140, mass: 0.6 }),
+    if (reduceMotion || pose !== 'cheer') return;
+    loop.value = withSequence(
+      withTiming(1, { duration: 220 }),
+      withRepeat(
+        withTiming(0, { duration: 440, easing: Easing.inOut(Easing.sin) }),
+        4,
+        true,
+      ),
     );
-    // Cheer gets an extra celebratory wiggle on top of the pop.
-    if (pose === 'cheer') {
-      loop.value = withSequence(
-        withTiming(1, { duration: 220 }),
-        withRepeat(
-          withTiming(0, { duration: 440, easing: Easing.inOut(Easing.sin) }),
-          4,
-          true,
-        ),
-      );
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pose]);
 
+  // Idle motion (float/bounce/sway + cheer wiggle) layered on the always-visible
+  // resting state. No opacity/scale gating here: the mascot renders at full
+  // opacity and resting scale by default, so it can never be left transparent if
+  // the animation driver doesn't run.
   const animatedStyle = useAnimatedStyle(() => {
     const t = loop.value;
     let translateY = 0;
@@ -108,24 +105,30 @@ export function Mascot({
     if (pose === 'cheer') rotate += (t - 0.5) * 10;
 
     return {
-      transform: [
-        { scale: 0.6 + pop.value * 0.4 },
-        { translateY },
-        { rotate: `${rotate}deg` },
-      ],
-      opacity: pop.value,
+      transform: [{ translateY }, { rotate: `${rotate}deg` }],
     };
   });
 
+  // Entrance "pop" — a progressive enhancement implemented as a reanimated
+  // layout animation. If it never commits, the view is simply shown at rest
+  // (fully visible) rather than staying transparent. Re-keyed on pose so the pop
+  // replays on pose changes, matching the previous lively reaction.
+  const entrance =
+    entering && !reduceMotion
+      ? ZoomIn.springify().damping(10).stiffness(140).mass(0.6).delay(40)
+      : undefined;
+
   return (
-    <Animated.View style={animatedStyle}>
-      <Image
-        source={SOURCES[pose]}
-        style={[{ width: size, height: size }, styles.img, style]}
-        resizeMode="contain"
-        accessibilityRole="image"
-        accessibilityLabel={`Bolo the parrot, ${pose}`}
-      />
+    <Animated.View key={pose} entering={entrance}>
+      <Animated.View style={animatedStyle}>
+        <Image
+          source={SOURCES[pose]}
+          style={[{ width: size, height: size }, styles.img, style]}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel={`Bolo the parrot, ${pose}`}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
