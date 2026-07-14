@@ -13,7 +13,7 @@ Store Connect listing. Android/Play is covered separately in `PLAY_STORE.md`.
 | App icon | 1024×1024 opaque RGB (no alpha — Apple rejects transparency) | `assets/images/icon.png` |
 | Splash | Same mark on `#fffdf0` | `expo.splash` |
 | Microphone purpose string | "Allow Bolo! to use your microphone so you can practice speaking." | `expo-audio` plugin config in `app.json` |
-| Photo library purpose string | "Allow Bolo! to access your photos so you can set a profile picture." | `expo-image-picker` plugin config |
+| Photo library purpose string | "Allow Bolo! to access your photos so you can set a profile picture." — used by the Account screen's profile-picture picker (`app/(app)/account/index.tsx`) | `expo-image-picker` plugin config |
 | Export compliance | `ITSAppUsesNonExemptEncryption: false` (standard HTTPS only) — skips the encryption question on every upload | `expo.ios.infoPlist` |
 | Account deletion in-app | Account screen → "Delete account" (Apple requires this for apps with sign-up) | `app/(app)/account/index.tsx` |
 | EAS build/submit profiles | `production` builds a signed archive; `submit.production.ios` has placeholders to fill | `eas.json` |
@@ -57,8 +57,10 @@ domain and test Clerk key.
    same public route documented in `PLAY_STORE.md` §2a).
 6. **Privacy nutrition label** — declare: audio recordings (microphone →
    backend for pronunciation scoring, not shared, not retained beyond
-   scoring), account info (email/name via Clerk), and purchase history
-   (subscriptions). No tracking, no ads, no location. (`expo-location` was
+   scoring), account info (email/name via Clerk), **photos** (an optional,
+   user-chosen profile picture uploaded to Clerk — the app never scans the
+   photo library), and purchase history (subscriptions). No tracking, no ads,
+   no location. (`expo-location` was
    removed from the project entirely, so no location usage strings appear in
    Info.plist and nothing location-related shows up in the label.)
 7. **Screenshots** — 6.9" (iPhone 16 Pro Max) and 6.5" sets are already

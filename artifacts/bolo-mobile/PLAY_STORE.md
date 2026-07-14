@@ -28,14 +28,20 @@ pronunciation (via `expo-audio`). It is declared and justified through the
 
 `expo-location` has been removed from the project entirely (it was never used
 by any screen), so no location permissions exist to strip. `expo-image-picker`
-remains a dependency that is **not used** by any screen, so the permissions it
-would otherwise inject are stripped via `android.blockedPermissions` (camera,
-external storage, media). This keeps the Play data-safety form honest — the
-only sensitive permission is the microphone.
+**is used** — the Account screen lets learners pick a profile picture from
+their photo library (`app/(app)/account/index.tsx` → `pickAvatar`). On Android
+the library opens the **system photo picker**, which requires no runtime
+permissions, so the legacy permissions the library would otherwise inject
+(camera, external storage, `READ_MEDIA_*`) are stripped via
+`android.blockedPermissions`. The app never scans the photo library and never
+uses the camera; the learner explicitly picks a single image. The only
+sensitive runtime permission is the microphone.
 
 **Data safety form:** declare that audio is recorded and sent to the backend
 for pronunciation scoring, is not shared with third parties, and is not stored
-beyond the scoring request. No location, contacts, photos, or advertising IDs
+beyond the scoring request; and that a **user-chosen profile photo** is
+collected (uploaded to the auth provider, Clerk, to display the learner's
+avatar — optional, user-initiated). No location, contacts, or advertising IDs
 are collected.
 
 ## 2a. Privacy policy (required)
