@@ -139,7 +139,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     } as { tier: PaidTier | null; lang: string | null };
   }, [search]);
 
-  const [interval, setInterval] = useState<PlusInterval>("annual");
+  const [interval, setInterval] = useState<PlusInterval>("monthly");
   const [selectedTier, setSelectedTier] = useState<PaidTier>(
     intent.tier ?? "plus",
   );
@@ -302,6 +302,23 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
 
         {/* Plan options */}
         <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
+          {/* Free — the current plan, shown for context and never selectable.
+              Kept far left so the plans read current → upgrade → best. */}
+          <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-foreground">Free</h3>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Hindi only, {" "}
+                  {/* mirrors the server's Free daily cap */}3 lessons a day
+                </p>
+              </div>
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-black uppercase tracking-wide text-muted-foreground">
+                Current plan
+              </span>
+            </div>
+          </div>
+
           <PlanCard
             tier="one_language"
             selected={selectedTier === "one_language"}
@@ -323,22 +340,6 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             highlight="7-day free trial"
             recommended
           />
-
-          {/* Free — the current plan, shown for context and never selectable. */}
-          <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-foreground">Free</h3>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Hindi only, {" "}
-                  {/* mirrors the server's Free daily cap */}3 lessons a day
-                </p>
-              </div>
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-black uppercase tracking-wide text-muted-foreground">
-                Current plan
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Language selection for the middle tier */}
