@@ -26,6 +26,14 @@ const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 // Prevent the splash screen from auto-hiding before fonts finish loading.
 SplashScreen.preventAutoHideAsync();
 
+// Temporary crash-hunt breadcrumbs: printed to Metro so we can see exactly how
+// far startup gets on a device before Expo Go dies. Dev-only; remove once the
+// Expo Go crash is diagnosed.
+export const crumb = (msg: string) => {
+  if (__DEV__) console.log(`[startup] ${msg}`);
+};
+crumb('root layout module evaluated');
+
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
@@ -34,11 +42,16 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
+      crumb(`fonts ready (loaded=${fontsLoaded} error=${!!fontError}), hiding splash`);
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError) {
+    crumb('waiting on fonts');
+    return null;
+  }
+  crumb('rendering provider tree');
 
   return (
     <ThemeProvider>
