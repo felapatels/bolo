@@ -18,6 +18,7 @@ import learningRouter from "./learning";
 import entitlementsRouter from "./entitlements";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { FREE_DAILY_NEW_LESSON_CAP, FREE_LANGUAGE } from "../lib/entitlements";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the real entitlement gates end to end through the actual Express
 // routers, behind a stub that injects req.userId exactly like requireAuth does,
@@ -120,6 +121,8 @@ async function clearGenerations(): Promise<void> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // Ensure the tables the middleware/routes touch exist (see api-server-tests).
   await pool.query(`
     CREATE TABLE IF NOT EXISTS languages (

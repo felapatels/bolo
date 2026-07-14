@@ -20,6 +20,7 @@ import type {
   AccountIdentity,
   ProfileNameUpdate,
 } from "../lib/accountIdentity";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the account & subscription surface end to end through the real Express
 // router + the genuine loadEntitlements middleware, behind a stub that injects
@@ -86,6 +87,8 @@ async function setUser(fields: Record<string, unknown>): Promise<void> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // Keep reconcile-on-read offline (no connector calls) for subscription reads.
   delete process.env.REVENUECAT_PROJECT_ID;
 

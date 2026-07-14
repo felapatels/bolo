@@ -18,6 +18,7 @@ import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { signEvaluation } from "../lib/evaluationToken";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // This exercises the real POST /attempts route handler end to end — token
 // verification, the attempt insert, per-language metric computation, and badge
@@ -142,6 +143,8 @@ async function postAttempt(body: unknown): Promise<{
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   assert.ok(
     process.env.SESSION_SECRET,
     "SESSION_SECRET must be set to sign/verify evaluation tokens",

@@ -16,6 +16,7 @@ import {
 import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // GET /categories is the first screen learners see: each topic card shows a
 // phraseCount and a masteredCount rolled up from the learner's attempts, plus
@@ -72,6 +73,8 @@ async function getJson(path: string): Promise<{ status: number; json: any }> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // These tables may not have been migrated into this database yet. Provision
   // exactly what the handler touches, mirroring the drizzle schema, so the test
   // is self-contained (see .agents/memory/api-server-tests.md).

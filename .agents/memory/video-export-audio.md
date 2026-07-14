@@ -36,6 +36,18 @@ advancing `currentTime` under a permissive policy confirms the app side is
 correct. Also validate the composite file with ffprobe/volumedetect (duration ==
 timeline total, per-scene VO region louder than the music-only gap).
 
+## Headless chromium probe gotchas (this workspace)
+
+- The ungoogled-chromium **98** in the nix store segfaults headless; use the
+  **131** build (`/nix/store/*ungoogled-chromium-131*/bin/chromium`) with
+  `--headless --no-sandbox --disable-gpu --disable-dev-shm-usage --user-data-dir=/tmp/...`.
+- Poll `http://127.0.0.1:<port>/json/version` until ready instead of a fixed sleep.
+- Never `pkill -f chromium` / `pkill -f remote-debugging-port` from a shell
+  command — the pattern matches the shell's own command line and kills it
+  (looks like a hung/no-output ShellExec). Bracket the pattern (`[c]hromium`).
+- `localhost:80/<artifact previewPath>/` through the workspace proxy works fine
+  as the probe URL for artifact-routed apps.
+
 ## Scene-aligned audio seek: use an epsilon
 
 The scene-change effect must NOT hard-set `audio.currentTime` on every scene.

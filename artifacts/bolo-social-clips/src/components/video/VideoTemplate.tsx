@@ -31,6 +31,12 @@ export const SCENE_OFFSETS: Record<string, number> = (() => {
   return offsets;
 })();
 
+// Only re-anchor the audio when it has drifted from the scene's canonical
+// offset by more than this. A normal linear pass (including the recorded
+// export) free-runs gaplessly; scene jumps and scene-lock replays still
+// re-anchor because they drift well past this threshold.
+const AUDIO_SEEK_EPSILON_SEC = 0.18;
+
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   roots: Scene1,
   howItWorks: Scene2,
@@ -61,15 +67,18 @@ export default function VideoTemplate({
   ) as keyof typeof SCENE_DURATIONS;
   const SceneComponent = SCENE_COMPONENTS[baseSceneKey];
 
-  // Keep the composite audio track aligned to the visible scene. Seeking on
-  // every scene change (rather than letting it free-run) keeps the sound design
-  // synced across normal looping, manual scene jumps, and scene-lock replays.
+  // Keep the composite audio track aligned to the visible scene. We re-anchor
+  // to the scene's canonical offset only when the track has drifted (manual
+  // scene jumps, scene-lock replays); a normal linear pass — including the
+  // recorded export — free-runs so the output stays gapless while in sync.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const offsetSec = (SCENE_OFFSETS[baseSceneKey] ?? 0) / 1000;
     try {
-      audio.currentTime = offsetSec;
+      if (Math.abs(audio.currentTime - offsetSec) > AUDIO_SEEK_EPSILON_SEC) {
+        audio.currentTime = offsetSec;
+      }
     } catch {
       // currentTime can throw if metadata isn't ready yet; the loadedmetadata
       // handler below re-seeks once it is.

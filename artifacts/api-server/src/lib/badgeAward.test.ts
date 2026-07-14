@@ -4,6 +4,7 @@ import { db, pool, badgesTable, usersTable, languagesTable } from "@workspace/db
 import { and, eq } from "drizzle-orm";
 import { awardNewlyEarnedBadges } from "./badgeAward";
 import type { ProgressMetrics } from "./badges";
+import { ensureUsersColumns } from "./testDbCompat";
 
 // These tests exercise the real award path — the code-defined badge catalog plus
 // the badges table's unique (user_id, language_code, badge_key) constraint +
@@ -53,6 +54,8 @@ async function storedBadgeKeys(languageCode: string): Promise<string[]> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // The badges feature's tables may not have been migrated into this database
   // yet. Provision exactly what the award path touches, mirroring the drizzle
   // schema (languagesTable, badgesTable), so the test is self-contained.

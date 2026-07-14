@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { BADGE_CATALOG } from "../lib/badges";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // The read endpoints learners actually look at — the badge wall (GET /badges)
 // and the progress summary (GET /progress/summary) — assemble earned/locked
@@ -74,6 +75,8 @@ async function getJson(path: string): Promise<{ status: number; json: any }> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // These tables may not have been migrated into this database yet. Provision
   // exactly what the handlers touch, mirroring the drizzle schema, so the test
   // is self-contained (see .agents/memory/api-server-tests.md).

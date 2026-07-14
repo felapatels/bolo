@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
 // GET /progress/analytics is the deeper, Bolo! Plus-only progress view: it
@@ -45,7 +46,7 @@ let baseUrl: string;
 let categoryAId: number;
 let categoryBId: number;
 
-// Fixed UTC-noon anchors for the seeded attempts. Noon keeps each attempt firmly
+// Fixed UTC-midnight anchors for the seeded attempts. Midnight keeps each attempt firmly
 // inside its calendar day regardless of a tiny clock skew between seeding here
 // and the handler's own `new Date()`, so the day-bucketing and due-date math are
 // deterministic. All three days sit inside the handler's 14-day window.
@@ -160,32 +161,9 @@ before(async () => {
       sort_order integer NOT NULL DEFAULT 0
     );
   `);
-  // The users table is created by the app's own migrations, but a lagging dev DB
-  // can predate columns the current drizzle schema declares. A drizzle insert
-  // sends every schema column (as DEFAULT), so any missing one fails the insert —
-  // provision the full current column set here so setup is genuinely
-  // self-contained (mirrors lib/db schema/users.ts; see api-server-tests +
-  // dev-db-migration-drift memory notes).
-  for (const col of [
-    `avatar_url text`,
-    `tier text NOT NULL DEFAULT 'free'`,
-    `chosen_language text`,
-    `subscription_status text`,
-    `trial_ends_at timestamptz`,
-    `current_period_end timestamptz`,
-    `subscription_provider text`,
-    `subscription_provider_id text`,
-    `pause_until timestamptz`,
-    `retention_offer_accepted_at timestamptz`,
-    `daily_reminder_enabled boolean NOT NULL DEFAULT false`,
-    `daily_reminder_time text`,
-    `active_language text`,
-    `daily_goal integer NOT NULL DEFAULT 10`,
-    `theme text NOT NULL DEFAULT 'system'`,
-    `timezone text`,
-  ]) {
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col};`);
-  }
+  // Dev DB can lag migrations; make sure users has every current column
+  // (shared shim — see ../lib/testDbCompat).
+  await ensureUsersColumns();
 
   await db
     .insert(usersTable)
@@ -277,31 +255,25 @@ before(async () => {
   };
 
   const now = new Date();
-  const noon = (offset: number): Date =>
+  // Anchor each seeded day at 00:00 UTC (not midday): today's miss (b2) has a
+  // 0-day Leitner interval, so its due-time equals its attempt time. Seeding
+  // at midday made the "due right now" assertion depend on whether the test
+  // ran before or after 12:00 UTC. Midnight has always passed, so the due
+  // check is deterministic while the day-bucket keys stay the same.
+  const dayStart = (offset: number): Date =>
     new Date(
       Date.UTC(
         now.getUTCFullYear(),
         now.getUTCMonth(),
         now.getUTCDate() - offset,
-        12,
+        0,
         0,
         0,
       ),
     );
-  // Today's anchor must be in the PAST (a level-0 miss today is expected to be
-  // due immediately), so before 12:00 UTC we can't use noon today. Anchor at
-  // half the elapsed time since UTC midnight, capped at noon: always strictly
-  // in the past, always inside today's UTC day.
-  const midnightT = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
-  dayT = new Date(
-    Math.min(noon(0).getTime(), midnightT + Math.floor((now.getTime() - midnightT) / 2)),
-  );
-  dayT2 = noon(2);
-  dayT5 = noon(5);
+  dayT = dayStart(0);
+  dayT2 = dayStart(2);
+  dayT5 = dayStart(5);
   const dayKey = (d: Date) => d.toISOString().slice(0, 10);
   keyT = dayKey(dayT);
   keyT2 = dayKey(dayT2);

@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 import friendsRouter from "./friends";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the real friends router end to end against the live schema: search,
 // the request/accept/decline/remove lifecycle, and the XP-ranked friends
@@ -93,6 +94,8 @@ async function clearSocialRows(): Promise<void> {
 }
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   // Self-provision exactly what the router touches so the suite is self-contained.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS languages (

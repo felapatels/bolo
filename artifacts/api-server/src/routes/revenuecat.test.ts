@@ -7,6 +7,7 @@ import { db, pool, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import revenuecatRouter from "./revenuecat";
 import { PLUS_ENTITLEMENT_ID } from "../lib/revenuecatSync";
+import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Exercises the public webhook end to end through the real Express router and DB
 // apply helper: shared-secret auth, event → subscription-column translation, and
@@ -45,6 +46,8 @@ const FUTURE = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 const PAST = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
 before(async () => {
+  // Dev DB can lag migrations; make sure users has every current column.
+  await ensureUsersColumns();
   process.env.REVENUECAT_WEBHOOK_AUTH = WEBHOOK_SECRET;
   // Ensure reconcile-on-read stays offline in this test (no connector calls).
   delete process.env.REVENUECAT_PROJECT_ID;
