@@ -46,6 +46,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
       type: "audio/webm",
     })),
     abortRecording: vi.fn(),
+    prepare: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 
