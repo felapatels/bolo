@@ -71,14 +71,24 @@ content, not live per-learner generation.
   has NO premium extension — the whole topic is the free starter set. An earlier
   exact-count cap made generated languages teach only 8 (some skipping
   eight/nine); that has been fixed — do not reintroduce a cap that drops numbers.
-- **Content-review status of the premium phrases:** the premium tail was RAW AI
-  output. A review pass has now corrected the SIX highest-traffic sets — Gujarati
-  (`gu`, in `seedData.ts`) plus `hi`, `bn`, `te`, `mr`, `ta` (in `curatedLessons.json`)
-  — for the same defect classes (wrong vocab e.g. Hindi उबला हुआ="boiled" glossed
-  "annoyed"; loanwords e.g. नर्वस/बोर/আন্টি/গুড্ বై; off-topic content e.g. Tamil
-  had mother/father in the FOOD lesson; broken script e.g. Marathi "च चा"→चहा;
-  wrong glosses e.g. Bengali কাঁটা="spike", Gujarati ફુવા; and semantic duplicates
-  where the premium tail just repeated starter emotions with new phrasing). The
-  remaining ~15 lower-traffic languages' premium tails are STILL unreviewed raw
-  AI output — same defect classes likely; needs a native pass (esp. the hard
-  scripts: Kashmiri Perso-Arabic, Santali Ol Chiki, Manipuri Meetei Mayek).
+- **Content-review status of the premium phrases:** ALL 22 languages' premium
+  (Plus-only) tails have now had a fluent-review pass. Six highest-traffic first —
+  Gujarati (`gu`, in `seedData.ts`) plus `hi`, `bn`, `te`, `mr`, `ta` (in
+  `curatedLessons.json`) — then the remaining 16 (`as`,`brx`,`doi`,`kn`,`kok`,
+  `ks`,`mai`,`ml`,`mni`,`ne`,`or`,`pa`,`sa`,`sat`,`sd`,`ur`). Same defect classes
+  found and fixed throughout: wrong vocab, LANGUAGE BLEED (a Hindi/English word for
+  a genuine native term), off-topic phrases (Urdu FOOD had "urine"/"sample";
+  Sanskrit food "mortar" was actually "mallet"), broken script/orthography, wrong
+  glosses, and duplicates.
+- **Gotcha (learned this pass):** a vocab/loanword fix can silently create a NEW
+  duplicate against a starter or premium row (correcting a loanword to the
+  standard native "sorry"/"thank you" collides with the existing one). After
+  applying corrections ALWAYS re-run a full per-lesson dup scan on BOTH
+  nativeScript and lowercased english, and get distinct on-topic replacements for
+  any collision.
+- **Still-open caveat:** the hard scripts (Kashmiri Perso-Arabic, Santali Ol
+  Chiki, Manipuri Meetei Mayek) got the same pass, but true native verification of
+  exact orthography would still add confidence.
+- **One pre-existing STARTER defect left untouched (out of premium scope):**
+  brx/feelings idx0 & idx1 are both glossed "happy" (two different native words) —
+  a real duplicate gloss in the already-"reviewed" starter set.

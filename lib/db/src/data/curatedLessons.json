@@ -58,8 +58,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "থাকক",
-          "romanized": "thakok",
+          "nativeScript": "ভালে থাকক",
+          "romanized": "bhale thakok",
           "english": "stay well",
           "difficulty": 2
         },
@@ -130,13 +130,13 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ঘূম লাগিছে",
+          "nativeScript": "ঘুম লাগিছে",
           "romanized": "ghum lagise",
           "english": "I am sleepy",
           "difficulty": 2
         },
         {
-          "nativeScript": "দূৰ্ভাগ্যবশতঃ",
+          "nativeScript": "দুৰ্ভাগ্যবশতঃ",
           "romanized": "durbhagyabosoto",
           "english": "unfortunately",
           "difficulty": 3
@@ -213,8 +213,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ককা",
-          "romanized": "koka",
+          "nativeScript": "ককাই",
+          "romanized": "kokai",
           "english": "older brother",
           "difficulty": 2
         },
@@ -291,8 +291,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "নুমলীয়া ভাই",
-          "romanized": "numoliya bhai",
+          "nativeScript": "সৰু ভাই",
+          "romanized": "xoru bhai",
           "english": "younger brother",
           "difficulty": 2
         }
@@ -531,7 +531,7 @@
         {
           "nativeScript": "চাউল",
           "romanized": "chaul",
-          "english": "cooked rice",
+          "english": "raw rice",
           "difficulty": 1
         },
         {
@@ -559,8 +559,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "চপ",
-          "romanized": "chop",
+          "nativeScript": "পাউৰুটি",
+          "romanized": "pauruti",
           "english": "bread",
           "difficulty": 1
         },
@@ -571,8 +571,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "কাঁটা",
-          "romanized": "kaata",
+          "nativeScript": "কটাৰী",
+          "romanized": "kotari",
           "english": "knife",
           "difficulty": 1
         },
@@ -708,15 +708,15 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "কেমন আছা?",
-          "romanized": "kemon aasa?",
+          "nativeScript": "তই কেনে আছ?",
+          "romanized": "toi kene aas?",
           "english": "How are you? (casual)",
           "difficulty": 1
         },
         {
-          "nativeScript": "কেমন আছে?",
-          "romanized": "kemon aache?",
-          "english": "How are you? (he/she/it)",
+          "nativeScript": "তেওঁ কেনে আছে?",
+          "romanized": "teõ kene aase?",
+          "english": "How is he/she?",
           "difficulty": 1
         },
         {
@@ -738,8 +738,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "স্বাগতম",
-          "romanized": "swagatam",
+          "nativeScript": "একো নহয়",
+          "romanized": "eko nohoy",
           "english": "You're welcome",
           "difficulty": 1
         }
@@ -1706,14 +1706,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "महिनाय",
-          "romanized": "mahinai",
+          "nativeScript": "गाबोन",
+          "romanized": "gabon",
           "english": "tomorrow",
           "difficulty": 1
         },
         {
-          "nativeScript": "आज",
-          "romanized": "aj",
+          "nativeScript": "दिनै",
+          "romanized": "dinwi",
           "english": "today",
           "difficulty": 1
         },
@@ -1736,8 +1736,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "मिन",
-          "romanized": "min",
+          "nativeScript": "आं",
+          "romanized": "ang",
           "english": "I / me",
           "difficulty": 1
         },
@@ -1754,8 +1754,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "कथा",
-          "romanized": "katha",
+          "nativeScript": "राव",
+          "romanized": "raw",
           "english": "word / talk",
           "difficulty": 2
         },
@@ -1909,8 +1909,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "फुपु",
-          "romanized": "fupu",
+          "nativeScript": "आबौ",
+          "romanized": "abou",
           "english": "paternal aunt",
           "difficulty": 2
         },
@@ -2022,9 +2022,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "आश्चर्य",
-          "romanized": "ashcharya",
-          "english": "wondering / astonished",
+          "nativeScript": "गोरोबथाव",
+          "romanized": "gorobthaw",
+          "english": "proud",
           "difficulty": 2
         },
         {
@@ -2034,8 +2034,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "भय",
-          "romanized": "bhay",
+          "nativeScript": "गिनाय",
+          "romanized": "ginai",
           "english": "fear",
           "difficulty": 1
         },
@@ -2058,8 +2058,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ओम्फ्राय",
-          "romanized": "omfrai",
+          "nativeScript": "दुखु",
+          "romanized": "dukhu",
           "english": "hurt",
           "difficulty": 2
         },
@@ -2344,9 +2344,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "सोरि",
-          "romanized": "sori",
-          "english": "thanks",
+          "nativeScript": "गोसो होनानै थां",
+          "romanized": "goso honanai tham",
+          "english": "take care",
           "difficulty": 1
         },
         {
@@ -2548,8 +2548,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "कौ",
-          "romanized": "kau",
+          "nativeScript": "कुण",
+          "romanized": "kun",
           "english": "Who?",
           "difficulty": 1
         },
@@ -2637,8 +2637,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "पुत्र",
-          "romanized": "putra",
+          "nativeScript": "पुत्तर",
+          "romanized": "puttar",
           "english": "son",
           "difficulty": 1
         },
@@ -2661,8 +2661,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "मामी",
-          "romanized": "maami",
+          "nativeScript": "मौसी",
+          "romanized": "mausi",
           "english": "maternal aunt",
           "difficulty": 2
         },
@@ -4172,14 +4172,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ಗುಡ್ ಮಾರ್ನಿಂಗ್",
-          "romanized": "good morning",
+          "nativeScript": "ಶುಭೋದಯ",
+          "romanized": "shubhodaya",
           "english": "good morning",
           "difficulty": 1
         },
         {
-          "nativeScript": "ಗುಡ್ ನೈಟ್",
-          "romanized": "good night",
+          "nativeScript": "ಶುಭ ರಾತ್ರಿ",
+          "romanized": "shubha raatri",
           "english": "good night",
           "difficulty": 1
         },
@@ -4293,7 +4293,7 @@
         {
           "nativeScript": "ಮಾವ",
           "romanized": "maava",
-          "english": "mother-in-law / uncle (maternal uncle in some uses)",
+          "english": "father-in-law",
           "difficulty": 2
         },
         {
@@ -4303,8 +4303,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ಮಾಮ",
-          "romanized": "maama",
+          "nativeScript": "ಸೋದರಮಾವ",
+          "romanized": "sodaramaava",
           "english": "maternal uncle",
           "difficulty": 2
         },
@@ -4315,8 +4315,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ನಾತಿ",
-          "romanized": "naati",
+          "nativeScript": "ಮೊಮ್ಮಗ",
+          "romanized": "mommaga",
           "english": "grandson / grandchild",
           "difficulty": 2
         },
@@ -4328,7 +4328,7 @@
         },
         {
           "nativeScript": "ಅಣ್ಣನ ಹೆಂಡತಿ",
-          "romanized": "annan hendati",
+          "romanized": "annana hendati",
           "english": "older brother's wife",
           "difficulty": 2
         },
@@ -4560,7 +4560,7 @@
         },
         {
           "nativeScript": "ಕಪ್",
-          "romanized": "kappu",
+          "romanized": "kap",
           "english": "cup",
           "difficulty": 1
         },
@@ -4577,8 +4577,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ಕತ್ತರಿ",
-          "romanized": "kattari",
+          "nativeScript": "ಚಾಕು",
+          "romanized": "chaaku",
           "english": "knife",
           "difficulty": 2
         },
@@ -4631,20 +4631,20 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ತುರಾಯಿ",
-          "romanized": "turaayi",
+          "nativeScript": "ಸೌಟು",
+          "romanized": "sautu",
           "english": "serving spoon / ladle",
           "difficulty": 3
         },
         {
-          "nativeScript": "ಸವಿಯ",
-          "romanized": "saviya",
+          "nativeScript": "ರುಚಿ",
+          "romanized": "ruchi",
           "english": "taste",
           "difficulty": 1
         },
         {
-          "nativeScript": "ಭಾತ್",
-          "romanized": "bhaat",
+          "nativeScript": "ಚಿತ್ರಾನ್ನ",
+          "romanized": "chitraanna",
           "english": "cooked rice / rice dish",
           "difficulty": 2
         },
@@ -4708,9 +4708,9 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "ಬೈ",
-          "romanized": "bye",
-          "english": "bye",
+          "nativeScript": "ಹೋಗಿ ಬನ್ನಿ",
+          "romanized": "hogi banni",
+          "english": "goodbye",
           "difficulty": 1
         },
         {
@@ -4774,14 +4774,14 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ಸಂತೋಷವಾಗಿದೆ",
-          "romanized": "santoshavagide",
+          "nativeScript": "ನಿಮ್ಮನ್ನು ಭೇಟಿಯಾಗಿ ಸಂತೋಷವಾಯಿತು",
+          "romanized": "nimmannu bhetiyagi santoshavayitu",
           "english": "Nice to meet you",
           "difficulty": 2
         },
         {
-          "nativeScript": "ಕ್ಷಮಿಸಿ, ನಾನು ತಡವಾಯಿತು",
-          "romanized": "kshamisi, naanu tadavayitu",
+          "nativeScript": "ಕ್ಷಮಿಸಿ, ನನಗೆ ತಡವಾಯಿತು",
+          "romanized": "kshamisi, nanage tadavayitu",
           "english": "Sorry, I was late",
           "difficulty": 3
         },
@@ -4930,8 +4930,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "कोंठें?",
-          "romanized": "konthem?",
+          "nativeScript": "खंय?",
+          "romanized": "khoim?",
           "english": "Where?",
           "difficulty": 1
         },
@@ -4960,14 +4960,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "इंचे",
-          "romanized": "inche",
+          "nativeScript": "हांगा",
+          "romanized": "haanga",
           "english": "here",
           "difficulty": 1
         },
         {
-          "nativeScript": "तेंचें",
-          "romanized": "tenchẽ",
+          "nativeScript": "थंय",
+          "romanized": "thoim",
           "english": "there",
           "difficulty": 1
         },
@@ -4990,14 +4990,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "गुड न्हांव",
-          "romanized": "gud nhaanv",
+          "nativeScript": "बरो सकाळ",
+          "romanized": "boro sokall",
           "english": "good morning",
           "difficulty": 2
         },
         {
-          "nativeScript": "आयेंक",
-          "romanized": "aayenk",
+          "nativeScript": "ये",
+          "romanized": "ye",
           "english": "come",
           "difficulty": 2
         },
@@ -5079,9 +5079,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "चाची",
-          "romanized": "chaachi",
-          "english": "aunt",
+          "nativeScript": "मावशी",
+          "romanized": "maavshi",
+          "english": "maternal aunt",
           "difficulty": 1
         },
         {
@@ -5103,14 +5103,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "पती",
-          "romanized": "pati",
+          "nativeScript": "घोव",
+          "romanized": "ghov",
           "english": "husband",
           "difficulty": 1
         },
         {
-          "nativeScript": "पत्नी",
-          "romanized": "patni",
+          "nativeScript": "बायल",
+          "romanized": "baayl",
           "english": "wife",
           "difficulty": 1
         },
@@ -5133,14 +5133,14 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "दादा",
-          "romanized": "dada",
+          "nativeScript": "भावडो",
+          "romanized": "bhaavddo",
           "english": "older brother",
           "difficulty": 1
         },
         {
-          "nativeScript": "दीदी",
-          "romanized": "didi",
+          "nativeScript": "आक्का",
+          "romanized": "aakka",
           "english": "older sister",
           "difficulty": 1
         },
@@ -5163,9 +5163,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "काका",
-          "romanized": "kaaka",
-          "english": "paternal uncle",
+          "nativeScript": "मामा",
+          "romanized": "maama",
+          "english": "maternal uncle",
           "difficulty": 1
         }
       ]
@@ -5556,14 +5556,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "गुड मॉर्निंग",
-          "romanized": "good morning",
+          "nativeScript": "बरो सकाळ",
+          "romanized": "boro sokall",
           "english": "good morning",
           "difficulty": 1
         },
         {
-          "nativeScript": "गुड नाइट",
-          "romanized": "good night",
+          "nativeScript": "बरी रात",
+          "romanized": "bori raat",
           "english": "good night",
           "difficulty": 1
         },
@@ -5748,8 +5748,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "آبَن",
-          "romanized": "aaban",
+          "nativeScript": "یِیو",
+          "romanized": "yiyav",
           "english": "come",
           "difficulty": 1
         },
@@ -5778,8 +5778,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "روٹی",
-          "romanized": "roti",
+          "nativeScript": "ژوٗٹھ",
+          "romanized": "tsoṭh",
           "english": "bread",
           "difficulty": 1
         },
@@ -5802,8 +5802,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "گھر",
-          "romanized": "ghar",
+          "nativeScript": "گٔر",
+          "romanized": "gar",
           "english": "home",
           "difficulty": 1
         },
@@ -5814,8 +5814,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "مٲل",
-          "romanized": "maal",
+          "nativeScript": "چیز",
+          "romanized": "cheez",
           "english": "thing",
           "difficulty": 2
         },
@@ -5897,8 +5897,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "چھوکری",
-          "romanized": "chhokri",
+          "nativeScript": "کوٗر",
+          "romanized": "koor",
           "english": "daughter",
           "difficulty": 1
         },
@@ -5915,8 +5915,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "شوہر",
-          "romanized": "shohar",
+          "nativeScript": "رٕٹھ",
+          "romanized": "runh",
           "english": "husband",
           "difficulty": 1
         },
@@ -5963,8 +5963,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "کزن",
-          "romanized": "cousin",
+          "nativeScript": "پیتٕر بٲے",
+          "romanized": "petar baay",
           "english": "cousin",
           "difficulty": 1
         },
@@ -6183,14 +6183,14 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "گٲش",
-          "romanized": "gaash",
+          "nativeScript": "ماز",
+          "romanized": "maaz",
           "english": "meat",
           "difficulty": 1
         },
         {
-          "nativeScript": "سبز",
-          "romanized": "sabz",
+          "nativeScript": "ہاکھ",
+          "romanized": "haakh",
           "english": "vegetable",
           "difficulty": 1
         },
@@ -6201,8 +6201,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "دُدھ",
-          "romanized": "dudh",
+          "nativeScript": "دوٗد",
+          "romanized": "dood",
           "english": "milk",
           "difficulty": 1
         },
@@ -6225,14 +6225,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "دُمہ",
-          "romanized": "duma",
+          "nativeScript": "زاماٹ",
+          "romanized": "zaamat",
           "english": "yogurt",
           "difficulty": 2
         },
         {
-          "nativeScript": "چکن",
-          "romanized": "chicken",
+          "nativeScript": "کۅکُر",
+          "romanized": "kokur",
           "english": "chicken",
           "difficulty": 1
         },
@@ -6362,8 +6362,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "نَمَستے",
-          "romanized": "namaste",
+          "nativeScript": "آداب عرض",
+          "romanized": "aadaab arz",
           "english": "respectful greeting",
           "difficulty": 1
         },
@@ -6374,8 +6374,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "بَہَت شُکریہ",
-          "romanized": "bahat shukriya",
+          "nativeScript": "بوٚڈ شُکریہ",
+          "romanized": "boḍ shukriya",
           "english": "many thanks",
           "difficulty": 2
         },
@@ -6745,15 +6745,15 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "दौड़ा",
-          "romanized": "dauda",
-          "english": "uncle",
+          "nativeScript": "काका",
+          "romanized": "kaka",
+          "english": "uncle (father's younger brother)",
           "difficulty": 1
         },
         {
-          "nativeScript": "दौड़ी",
-          "romanized": "daudi",
-          "english": "aunt",
+          "nativeScript": "काकी",
+          "romanized": "kaki",
+          "english": "aunt (father's younger brother's wife)",
           "difficulty": 1
         },
         {
@@ -7013,14 +7013,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "सब्जी",
-          "romanized": "sabzi",
+          "nativeScript": "तरकारी",
+          "romanized": "tarkari",
           "english": "vegetables / curry",
           "difficulty": 1
         },
         {
-          "nativeScript": "प्लेट माँ",
-          "romanized": "plet maa",
+          "nativeScript": "थारीमे",
+          "romanized": "thari me",
           "english": "on the plate",
           "difficulty": 2
         },
@@ -7079,8 +7079,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "रसूईघर",
-          "romanized": "rasoigarh",
+          "nativeScript": "रसोईघर",
+          "romanized": "rasoighar",
           "english": "kitchen",
           "difficulty": 2
         },
@@ -7162,9 +7162,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ससुरिकाल",
-          "romanized": "sasurikal",
-          "english": "hello / goodbye",
+          "nativeScript": "फेर भेटब",
+          "romanized": "pher bhetab",
+          "english": "see you later",
           "difficulty": 1
         },
         {
@@ -7360,8 +7360,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "സുഗമാണോ?",
-          "romanized": "sugamaano?",
+          "nativeScript": "സുഖമാണോ?",
+          "romanized": "sukhamaano?",
           "english": "Are you well?",
           "difficulty": 2
         },
@@ -7392,7 +7392,7 @@
         {
           "nativeScript": "മാപ്പ്",
           "romanized": "maappu",
-          "english": "Excuse me",
+          "english": "Sorry / Pardon",
           "difficulty": 1
         },
         {
@@ -7426,14 +7426,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ഗുഡ് മോർണിംഗ്",
-          "romanized": "good morning",
+          "nativeScript": "സുപ്രഭാതം",
+          "romanized": "suprabhaatam",
           "english": "Good morning",
           "difficulty": 1
         },
         {
-          "nativeScript": "ഗുഡ് നൈറ്റ്",
-          "romanized": "good night",
+          "nativeScript": "ശുഭരാത്രി",
+          "romanized": "shubharaatri",
           "english": "Good night",
           "difficulty": 1
         },
@@ -7533,8 +7533,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "അമ്മായി",
-          "romanized": "ammaayi",
+          "nativeScript": "ആന്റി",
+          "romanized": "aanti",
           "english": "aunt",
           "difficulty": 2
         },
@@ -7712,8 +7712,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "പെരുമഴുപ്പ് തോന്നുന്നു",
-          "romanized": "perumazhuppu thonnunnu",
+          "nativeScript": "മടുപ്പ് തോന്നുന്നു",
+          "romanized": "maduppu thonnunnu",
           "english": "I feel bored",
           "difficulty": 3
         },
@@ -7855,8 +7855,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "തീറ്റുക",
-          "romanized": "theetuka",
+          "nativeScript": "കഴിക്കുക",
+          "romanized": "kazhikkuka",
           "english": "to eat",
           "difficulty": 2
         },
@@ -7867,9 +7867,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "വിളക്ക്",
-          "romanized": "vilakku",
-          "english": "lamp",
+          "nativeScript": "ഉള്ളി",
+          "romanized": "ulli",
+          "english": "onion",
           "difficulty": 1
         },
         {
@@ -7974,15 +7974,15 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ശുഭാപ്തി",
-          "romanized": "shubhaapthi",
+          "nativeScript": "ആശംസകൾ",
+          "romanized": "aashamsakal",
           "english": "best wishes",
           "difficulty": 3
         },
         {
-          "nativeScript": "എക്സ്ക്യൂസ് മീ",
-          "romanized": "excuse me",
-          "english": "excuse me",
+          "nativeScript": "വീണ്ടും കാണാം",
+          "romanized": "veendum kaanaam",
+          "english": "see you again",
           "difficulty": 1
         },
         {
@@ -7992,8 +7992,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ഗുഡ് ഈവനിംഗ്",
-          "romanized": "good evening",
+          "nativeScript": "ശുഭസന്ധ്യ",
+          "romanized": "shubhasandhya",
           "english": "good evening",
           "difficulty": 1
         },
@@ -8214,14 +8214,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯂꯥꯛ",
-          "romanized": "lak",
+          "nativeScript": "ꯆꯠ",
+          "romanized": "chat",
           "english": "go",
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯋꯥꯖꯤ",
-          "romanized": "waji",
+          "nativeScript": "ꯂꯥꯛ",
+          "romanized": "lak",
           "english": "come",
           "difficulty": 1
         },
@@ -8244,8 +8244,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯃꯤ",
-          "romanized": "mi",
+          "nativeScript": "ꯅꯪ",
+          "romanized": "nang",
           "english": "you",
           "difficulty": 1
         },
@@ -8357,14 +8357,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯅꯣꯛ",
-          "romanized": "nok",
+          "nativeScript": "ꯅꯨꯄꯥ",
+          "romanized": "nupa",
           "english": "man",
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯃꯤꯇꯩ",
-          "romanized": "meitei",
+          "nativeScript": "ꯃꯤ",
+          "romanized": "mi",
           "english": "person",
           "difficulty": 1
         },
@@ -8399,8 +8399,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ꯅꯨꯄꯥ",
-          "romanized": "nupaa",
+          "nativeScript": "ꯅꯨꯄꯤ ꯂꯣꯏꯅꯕꯤ",
+          "romanized": "nupi loinabi",
           "english": "wife",
           "difficulty": 2
         },
@@ -8631,8 +8631,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ꯎꯝ",
-          "romanized": "um",
+          "nativeScript": "ꯏꯁꯤꯡ",
+          "romanized": "ising",
           "english": "water",
           "difficulty": 1
         },
@@ -10173,7 +10173,7 @@
         },
         {
           "nativeScript": "आत्तिएको",
-          "romanized": "aattiyeko",
+          "romanized": "attieko",
           "english": "nervous",
           "difficulty": 1
         },
@@ -10315,8 +10315,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "पात",
-          "romanized": "paat",
+          "nativeScript": "टपरी",
+          "romanized": "tapari",
           "english": "leaf plate",
           "difficulty": 2
         },
@@ -10626,9 +10626,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ମାଫ କରନ୍ତୁ",
-          "romanized": "maaf karantu",
-          "english": "forgive me / pardon me",
+          "nativeScript": "ହୁଏତ",
+          "romanized": "hueta",
+          "english": "maybe / perhaps",
           "difficulty": 2
         },
         {
@@ -10674,8 +10674,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ନମସ୍କାରମ୍",
-          "romanized": "namaskaram",
+          "nativeScript": "ଅଭିବାଦନ",
+          "romanized": "abhibadana",
           "english": "greeting",
           "difficulty": 2
         },
@@ -11067,15 +11067,15 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ରୁମାଲ୍",
-          "romanized": "rumal",
+          "nativeScript": "ତଉଲିଆ",
+          "romanized": "tauliaa",
           "english": "napkin",
           "difficulty": 2
         },
         {
-          "nativeScript": "ଗ୍ଲାସ",
-          "romanized": "glaas",
-          "english": "glass",
+          "nativeScript": "ଗିଲାସ",
+          "romanized": "gilaasa",
+          "english": "glass (tumbler)",
           "difficulty": 2
         },
         {
@@ -11216,9 +11216,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ମାଫ କରନ୍ତୁ",
-          "romanized": "maapha karantu",
-          "english": "Sorry / Pardon me",
+          "nativeScript": "ନିଜର ଯତ୍ନ ନିଅନ୍ତୁ",
+          "romanized": "nijara jatna niantu",
+          "english": "Take care",
           "difficulty": 2
         },
         {
@@ -11276,8 +11276,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ନମସ୍କାର ମ୍ୟାଡାମ",
-          "romanized": "namaskar myaadam",
+          "nativeScript": "ନମସ୍କାର ମାଡାମ",
+          "romanized": "namaskar madam",
           "english": "Hello, ma'am",
           "difficulty": 2
         },
@@ -11474,9 +11474,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ਨਮਸਤੇ",
-          "romanized": "namaste",
-          "english": "hello",
+          "nativeScript": "ਜੀ ਆਇਆਂ ਨੂੰ",
+          "romanized": "ji aaiyan nu",
+          "english": "welcome (you're welcome)",
           "difficulty": 1
         },
         {
@@ -11510,9 +11510,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ਧੰਨ",
-          "romanized": "dhan",
-          "english": "grateful; thankful",
+          "nativeScript": "ਧੰਨਵਾਦੀ",
+          "romanized": "dhanvaadi",
+          "english": "thankful; grateful",
           "difficulty": 2
         }
       ]
@@ -11593,9 +11593,9 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ਦਾਦੀ ਮਾਂ",
-          "romanized": "daadee maa",
-          "english": "paternal grandmother",
+          "nativeScript": "ਮਾਸੀ",
+          "romanized": "maasi",
+          "english": "maternal aunt",
           "difficulty": 1
         },
         {
@@ -11742,8 +11742,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ਅਕੇਲਾ",
-          "romanized": "akela",
+          "nativeScript": "ਇਕੱਲਾ",
+          "romanized": "ikalla",
           "english": "lonely",
           "difficulty": 2
         },
@@ -11915,8 +11915,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ਮੱਥਾ",
-          "romanized": "matha",
+          "nativeScript": "ਡੋਂਗਾ",
+          "romanized": "donga",
           "english": "serving dish",
           "difficulty": 2
         },
@@ -12298,8 +12298,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "श्रुणु",
-          "romanized": "shrunu",
+          "nativeScript": "शृणु",
+          "romanized": "shrinu",
           "english": "listen",
           "difficulty": 1
         },
@@ -12387,8 +12387,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "मातुली",
-          "romanized": "mātulī",
+          "nativeScript": "मातृष्वसा",
+          "romanized": "mātr̥ṣvasā",
           "english": "maternal aunt",
           "difficulty": 2
         },
@@ -12417,8 +12417,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "पितृव्यी",
-          "romanized": "pitr̥vyī",
+          "nativeScript": "पितृष्वसा",
+          "romanized": "pitr̥ṣvasā",
           "english": "paternal aunt",
           "difficulty": 2
         },
@@ -12703,8 +12703,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "नमकम्",
-          "romanized": "namakam",
+          "nativeScript": "लवणम्",
+          "romanized": "lavaṇam",
           "english": "salt",
           "difficulty": 1
         },
@@ -12733,9 +12733,9 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "मुद्गरः",
-          "romanized": "mudgaraḥ",
-          "english": "mortar; pestle",
+          "nativeScript": "उलूखलम्",
+          "romanized": "ulūkhalam",
+          "english": "mortar",
           "difficulty": 3
         },
         {
@@ -13044,14 +13044,14 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ᱢᱟᱹᱱ",
-          "romanized": "man",
+          "nativeScript": "ᱟᱢ",
+          "romanized": "am",
           "english": "you",
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱟᱹᱱ",
-          "romanized": "an",
+          "nativeScript": "ᱤᱧ",
+          "romanized": "iñ",
           "english": "I / me",
           "difficulty": 1
         },
@@ -13062,8 +13062,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱩᱱ",
-          "romanized": "un",
+          "nativeScript": "ᱳᱱᱟ",
+          "romanized": "ona",
           "english": "that",
           "difficulty": 1
         },
@@ -13074,20 +13074,20 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ᱦᱮᱪ",
-          "romanized": "hec",
+          "nativeScript": "ᱦᱮᱡ",
+          "romanized": "hej",
           "english": "come",
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱡᱟᱦ",
-          "romanized": "jah",
+          "nativeScript": "ᱪᱟᱞᱟᱜ",
+          "romanized": "chalag",
           "english": "go",
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱛᱚᱝ",
-          "romanized": "tong",
+          "nativeScript": "ᱮᱢ",
+          "romanized": "em",
           "english": "give",
           "difficulty": 1
         },
@@ -13134,8 +13134,8 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "ᱢᱮ",
-          "romanized": "me",
+          "nativeScript": "ᱢᱮᱛᱟ",
+          "romanized": "meta",
           "english": "say",
           "difficulty": 1
         }
@@ -13199,14 +13199,14 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱵᱮᱦᱤᱱ",
-          "romanized": "behin",
+          "nativeScript": "ᱢᱤ�pᱟᱲᱮ",
+          "romanized": "misi",
           "english": "sister",
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱵᱟᱭ",
-          "romanized": "bay",
+          "nativeScript": "ᱵᱚᱠᱚ",
+          "romanized": "boko",
           "english": "brother",
           "difficulty": 1
         },
@@ -13284,7 +13284,7 @@
         },
         {
           "nativeScript": "ᱦᱚᱲ",
-          "romanized": "hor",
+          "romanized": "hoṛ",
           "english": "person",
           "difficulty": 1
         }
@@ -13491,14 +13491,14 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "ᱪᱟᱣᱟᱞ",
-          "romanized": "chaawal",
+          "nativeScript": "ᱫᱟᱠᱟ",
+          "romanized": "daka",
           "english": "cooked rice",
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱫᱟᱞ",
-          "romanized": "dal",
+          "nativeScript": "ᱫᱟᱹᱞ",
+          "romanized": "dāl",
           "english": "lentils",
           "difficulty": 1
         },
@@ -13509,8 +13509,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱪᱤᱠᱟᱱ",
-          "romanized": "chikan",
+          "nativeScript": "ᱥᱤᱢ ᱡᱤᱞ",
+          "romanized": "sim jil",
           "english": "chicken",
           "difficulty": 2
         },
@@ -13521,8 +13521,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱜᱟᱥ",
-          "romanized": "gas",
+          "nativeScript": "ᱫᱟᱜ",
+          "romanized": "dag",
           "english": "water",
           "difficulty": 1
         },
@@ -13545,8 +13545,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "ᱢᱟᱪ",
-          "romanized": "mach",
+          "nativeScript": "ᱦᱟᱠᱩ",
+          "romanized": "haku",
           "english": "fish",
           "difficulty": 1
         },
@@ -13653,7 +13653,7 @@
         },
         {
           "nativeScript": "ᱦᱮᱸ",
-          "romanized": "hen",
+          "romanized": "hẽ",
           "english": "yes",
           "difficulty": 1
         },
@@ -13856,8 +13856,8 @@
           "difficulty": 3
         },
         {
-          "nativeScript": "هيلو",
-          "romanized": "hello",
+          "nativeScript": "سلام عليڪم",
+          "romanized": "salaam alaikum",
           "english": "hi",
           "difficulty": 1
         },
@@ -14387,8 +14387,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "چانه",
-          "romanized": "chaaneh",
+          "nativeScript": "چانھ",
+          "romanized": "chaanh",
           "english": "tea",
           "difficulty": 1
         },
@@ -14525,7 +14525,7 @@
         },
         {
           "nativeScript": "جلد ملنداسين",
-          "romanized": "jald milandاسين",
+          "romanized": "jald milandaaseen",
           "english": "see you soon",
           "difficulty": 2
         },
@@ -16775,8 +16775,8 @@
           "difficulty": 1
         },
         {
-          "nativeScript": "چکن",
-          "romanized": "chicken",
+          "nativeScript": "مرغی",
+          "romanized": "murghi",
           "english": "chicken",
           "difficulty": 1
         },
@@ -16823,15 +16823,15 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "پیشاب",
-          "romanized": "peshab",
-          "english": "urine",
+          "nativeScript": "پیاز",
+          "romanized": "pyaaz",
+          "english": "onion",
           "difficulty": 3
         },
         {
-          "nativeScript": "نمونہ",
-          "romanized": "namoona",
-          "english": "sample",
+          "nativeScript": "چینی",
+          "romanized": "cheeni",
+          "english": "sugar",
           "difficulty": 2
         }
       ]
@@ -16960,15 +16960,15 @@
           "difficulty": 2
         },
         {
-          "nativeScript": "بخیر",
-          "romanized": "bakhair",
-          "english": "all right / okay",
+          "nativeScript": "ٹھیک ہے",
+          "romanized": "theek hai",
+          "english": "okay / all right",
           "difficulty": 1
         },
         {
-          "nativeScript": "سوری",
-          "romanized": "sorry",
-          "english": "sorry",
+          "nativeScript": "اپنا خیال رکھنا",
+          "romanized": "apna khayal rakhna",
+          "english": "see you / take care",
           "difficulty": 1
         },
         {
