@@ -36,6 +36,7 @@
 - [Video export audio](video-export-audio.md) — exported clip carries sound only if the recording harness allows autoplay-with-sound; verify runtime playback via headless chromium CDP, use a seek epsilon so linear/export passes stay gapless.
 - [Transliterated-loanword seed guard](loanword-guard.md) — gloss blocklist + phonetic match; allowlist PIE cognates (bharaa/sūnuḥ), blind to mis-glossed loanwords; probe data before growing the list.
 - [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.
+- [Expo Go native-module crashes](expo-go-native-module-crashes.md) — "ViewManagerAdapter…undefined"/silent crash = native module missing from Expo Go; expo-doctor + prefer RN Image for avatars.
 - [Local daily reminders (Expo)](local-reminders.md) — reschedule-on-open pattern (local notifs can't check conditions at fire time); prefs device-authoritative; use `expo install`, not `pnpm add`.
 - [Mic pre-warm pattern](mic-prewarm.md) — recorder streams/prepare run ahead of the tap; don't stop pre-warmed tracks on stopRecording or clipping returns; indicator flips only when capture is live.
 - [Plus-only sentence stage](sentence-stage.md) — sentences are stage='sentence' rows in the phrases table; every phrase query must filter stage or counts inflate; gate is server-side 402.

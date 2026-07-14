@@ -10,7 +10,10 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+// Use React Native's built-in Image (not expo-image): this screen only shows a
+// simple avatar, and expo-image's native view fails to resolve in some Expo Go
+// versions, hard-crashing the whole Account screen.
+import { Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useUser, useClerk } from '@clerk/expo';
@@ -216,7 +219,7 @@ export default function AccountScreen() {
                 style={styles.avatarWrap}
               >
                 {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+                  <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.muted }]}>
                     <Feather name="user" size={30} color={colors.mutedForeground} />
