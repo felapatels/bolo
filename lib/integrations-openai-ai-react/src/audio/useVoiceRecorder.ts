@@ -40,6 +40,35 @@ export function useVoiceRecorder() {
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string | undefined>(undefined);
 
+  // Pre-warmed microphone stream, so startRecording doesn't have to wait on
+  // permission prompts / device acquisition at click time (which clips the
+  // first syllables of speech).
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const releaseStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const isStreamLive = (stream: MediaStream | null): stream is MediaStream =>
+    !!stream && stream.getTracks().some((t) => t.readyState === "live");
+
+  /**
+   * Acquire the microphone ahead of time. Call this when the recording UI
+   * mounts so that startRecording can begin capturing immediately.
+   * Rejects if permission is denied — callers may ignore that and let
+   * startRecording surface the error at click time.
+   */
+  const prepare = useCallback(async (): Promise<void> => {
+    if (isStreamLive(streamRef.current)) return;
+    releaseStream();
+    streamRef.current = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+  }, [releaseStream]);
+
   // Silence detection
   const audioContextRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -59,7 +88,14 @@ export function useVoiceRecorder() {
 
   const startRecording = useCallback(
     async (options?: StartRecordingOptions): Promise<void> => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Use the pre-warmed stream when available; fall back to acquiring one
+      // now (e.g. if prepare() was never called or the device went away).
+      let stream = streamRef.current;
+      if (!isStreamLive(stream)) {
+        releaseStream();
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+      }
       const mimeType = getSupportedMimeType();
       mimeTypeRef.current = mimeType;
 
@@ -74,7 +110,13 @@ export function useVoiceRecorder() {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      recorder.start(100);
+      // Only report "recording" once the recorder has actually started
+      // capturing, so UIs don't show a recording indicator prematurely.
+      await new Promise<void>((resolve, reject) => {
+        recorder.onstart = () => resolve();
+        recorder.onerror = () => reject(new Error("Recorder failed to start"));
+        recorder.start(100);
+      });
       setState("recording");
 
       // Optional: auto-stop when the user stops talking.
@@ -149,7 +191,11 @@ export function useVoiceRecorder() {
       recorder.onstop = () => {
         const blobType = mimeTypeRef.current ?? recorder.mimeType ?? "audio/webm";
         const blob = new Blob(chunksRef.current, { type: blobType });
-        recorder.stream.getTracks().forEach((t) => t.stop());
+        // Keep the pre-warmed stream alive so the next recording in the same
+        // session also starts instantly; it is released on abort/unmount.
+        if (recorder.stream !== streamRef.current) {
+          recorder.stream.getTracks().forEach((t) => t.stop());
+        }
         setState("stopped");
         resolve(blob);
       };
@@ -175,7 +221,8 @@ export function useVoiceRecorder() {
       mediaRecorderRef.current = null;
     }
     chunksRef.current = [];
-  }, [cleanupSilenceDetection]);
+    releaseStream();
+  }, [cleanupSilenceDetection, releaseStream]);
 
   // Guarantee teardown if the component unmounts mid-recording (e.g. the user
   // navigates away), so the mic stream, AudioContext, and RAF loop don't leak.
@@ -183,5 +230,5 @@ export function useVoiceRecorder() {
     return () => abortRecording();
   }, [abortRecording]);
 
-  return { state, startRecording, stopRecording, abortRecording };
+  return { state, prepare, startRecording, stopRecording, abortRecording };
 }

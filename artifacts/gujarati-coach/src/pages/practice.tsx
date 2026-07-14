@@ -78,6 +78,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const [showConfetti, setShowConfetti] = useState(false);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
 
+  // Warm up the microphone as soon as the practice session mounts, so the
+  // record tap starts capturing immediately and the first syllable isn't
+  // clipped. If permission is denied here, startRecording surfaces the
+  // existing error message at click time. The hook releases the stream on
+  // unmount.
+  useEffect(() => {
+    recorder.prepare().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const feedbackAudioRef = useRef<HTMLAudioElement | null>(null);
 

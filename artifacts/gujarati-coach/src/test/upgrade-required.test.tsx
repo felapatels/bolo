@@ -37,6 +37,7 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
     state: "idle",
+    prepare: vi.fn().mockResolvedValue(undefined),
     startRecording: vi.fn(),
     stopRecording: vi.fn(),
     abortRecording: vi.fn(),

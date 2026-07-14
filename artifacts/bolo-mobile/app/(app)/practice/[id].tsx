@@ -163,22 +163,78 @@ export default function PracticeScreen() {
     if (phase === 'done') fireConfetti(4000);
   }, [phase, fireConfetti]);
 
+  // Warm up recording ahead of the tap: request permission + audio session
+  // once, and run the recorder's prepare step whenever we're back in the idle
+  // phase, so tapping record starts capturing immediately (no clipped first
+  // syllable). Permission denial here is silent — the tap handler surfaces
+  // the existing alert.
+  const sessionReadyRef = React.useRef(false);
+  const recorderPreparedRef = React.useRef(false);
+  // A tap can land while the idle-phase warm-up is still in flight; share the
+  // same prepare promise so we never double-prepare the recorder.
+  const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
+  const prepareRecorder = React.useCallback((): Promise<boolean> => {
+    if (preparePromiseRef.current) return preparePromiseRef.current;
+    const run = async (): Promise<boolean> => {
+      try {
+        if (!sessionReadyRef.current) {
+          const ok = await prepareRecordingSession();
+          if (!ok) return false;
+          sessionReadyRef.current = true;
+        }
+        if (!recorderPreparedRef.current) {
+          await recorder.prepareToRecordAsync();
+          recorderPreparedRef.current = true;
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        preparePromiseRef.current = null;
+      }
+    };
+    preparePromiseRef.current = run();
+    return preparePromiseRef.current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorder]);
+
+  React.useEffect(() => {
+    if (phase === 'idle') {
+      void prepareRecorder();
+    }
+  }, [phase, prepareRecorder]);
+
   const startRecording = async () => {
     stopPlayback();
-    const ok = await prepareRecordingSession();
-    if (!ok) {
-      Alert.alert(
-        'Microphone needed',
-        'Please allow microphone access to practice speaking.',
-      );
-      return;
+    // Not-yet-prepared edge case (e.g. permission was denied on load, or
+    // prepare is still in flight): prepare now, then start.
+    if (!recorderPreparedRef.current) {
+      const ok = await prepareRecorder();
+      if (!ok) {
+        if (!sessionReadyRef.current) {
+          Alert.alert(
+            'Microphone needed',
+            'Please allow microphone access to practice speaking.',
+          );
+        } else {
+          Alert.alert(
+            'Recording failed',
+            'Could not start recording. Try again.',
+          );
+        }
+        return;
+      }
     }
     try {
-      await recorder.prepareToRecordAsync();
       recorder.record();
+      // The prepared recorder is consumed by this recording; the idle-phase
+      // effect re-prepares for the next one.
+      recorderPreparedRef.current = false;
+      // Only show "recording" once capture has actually started.
       setPhase('recording');
       hapticMedium();
     } catch {
+      recorderPreparedRef.current = false;
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };
