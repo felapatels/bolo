@@ -13,13 +13,15 @@ import { appear } from '@/lib/entrance';
 import {
   useListCategories,
   useListCategoryPhrases,
+  useListCategorySentences,
+  getListCategorySentencesQueryKey,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
 import { PressableScale } from '@/components/PressableScale';
-import { LockedPhrasesCard } from '@/components/PlusUpsell';
+import { LockedFeatureCard, LockedPhrasesCard } from '@/components/PlusUpsell';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -40,6 +42,17 @@ export default function CategoryScreen() {
 
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);
+
+  // The topic's final step: the Plus-only sentence stage. Only requested once
+  // the server-reported category listing says this caller can open it —
+  // `sentencesLocked` is server-authoritative, never a client-side guess.
+  const canLoadSentences = !!category && !category.sentencesLocked;
+  const sentences = useListCategorySentences(categoryId, activeLang, {
+    query: {
+      enabled: canLoadSentences,
+      queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
+    },
+  });
 
   // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry" —
   // route the learner to the paywall, mirroring the web UpgradeScreen. Any
@@ -141,6 +154,73 @@ export default function CategoryScreen() {
             />
           </Animated.View>
         ) : null}
+
+        {/* Final step: the Plus-only sentence stage. Locked learners see it
+            exists and tap through to the paywall; Plus learners get the list. */}
+        {!phrases.isLoading && category ? (
+          category.sentencesLocked ? (
+            <Animated.View
+              entering={appear(FadeInDown.duration(450).delay(160))}
+            >
+              <Text
+                style={[styles.sectionTitle, { color: colors.foreground }]}
+              >
+                Final step: Full sentences
+              </Text>
+              <LockedFeatureCard
+                icon="message-circle"
+                title={
+                  category.sentenceCount > 0
+                    ? `${category.sentenceCount} full sentences`
+                    : 'Full sentences'
+                }
+                description="Graduate from phrases to real, natural sentences."
+                onPress={() => router.push('/(app)/paywall')}
+              />
+            </Animated.View>
+          ) : (sentences.data ?? []).length > 0 || sentences.isLoading ? (
+            <Animated.View
+              entering={appear(FadeInDown.duration(450).delay(160))}
+            >
+              <Text
+                style={[styles.sectionTitle, { color: colors.foreground }]}
+              >
+                Final step: Full sentences
+              </Text>
+              {sentences.isLoading ? (
+                <ActivityIndicator
+                  color={colors.primary}
+                  style={{ marginVertical: 20 }}
+                />
+              ) : (
+                <>
+                  {(sentences.data ?? []).map((s, i) => (
+                    <PhraseRow
+                      key={s.id}
+                      phrase={s}
+                      index={i}
+                      onPress={() =>
+                        router.push(
+                          `/(app)/practice/${categoryId}?stage=sentences&phrase=${s.id}`,
+                        )
+                      }
+                    />
+                  ))}
+                  <ChunkyButton
+                    title="Practice sentences"
+                    icon="mic"
+                    onPress={() =>
+                      router.push(
+                        `/(app)/practice/${categoryId}?stage=sentences`,
+                      )
+                    }
+                    style={{ marginTop: 4 }}
+                  />
+                </>
+              )}
+            </Animated.View>
+          ) : null
+        ) : null}
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -237,6 +317,12 @@ const styles = StyleSheet.create({
   title: { fontFamily: AppFonts.extrabold, fontSize: 24 },
   titleNative: { fontSize: 15, marginTop: 1 },
   desc: { fontFamily: AppFonts.regular, fontSize: 15, lineHeight: 22, marginBottom: 18 },
+  sectionTitle: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 18,
+    marginTop: 16,
+    marginBottom: 12,
+  },
   note: { fontFamily: AppFonts.regular, fontSize: 15, textAlign: 'center', marginTop: 32 },
   row: {
     padding: 16,

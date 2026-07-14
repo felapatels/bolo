@@ -30,6 +30,11 @@ export const phrasesTable = pgTable("phrases", {
   // learner generated for themselves are false. Defaulting to false keeps the
   // Free tier's content and every pre-existing row unchanged across reseeds.
   premium: boolean("premium").notNull().default(false),
+  // Which learning stage this row belongs to: the ranked "phrase" list every
+  // topic starts with, or the Plus-only "sentence" stage of full, natural
+  // sentences a learner graduates to after the phrase list. Defaulting to
+  // "phrase" keeps every pre-existing row in the phrase list unchanged.
+  stage: text("stage").notNull().default("phrase"),
 });
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

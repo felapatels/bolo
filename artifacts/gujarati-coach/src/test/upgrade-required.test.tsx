@@ -46,6 +46,16 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 
 vi.mock("@workspace/api-client-react", () => ({
   useListCategoryPhrases: () => h.categoryPhrases,
+  // The Plus-only sentence stage stays disabled in these suites (the fixture
+  // categories are sentencesLocked or sentence-less), so an idle query is fine.
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: h.refetch,
+  }),
   useListReviewPhrases: () => h.reviewPhrases,
   useListCategories: () => ({ data: h.categories, isLoading: false }),
   useAddCategoryPhrases: () => h.addPhrases,
@@ -53,6 +63,7 @@ vi.mock("@workspace/api-client-react", () => ({
   useEvaluatePronunciation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateAttempt: () => ({ mutateAsync: vi.fn(), isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
+  getListCategorySentencesQueryKey: () => ["category-sentences"],
   getListCategoriesQueryKey: () => ["categories"],
   getListReviewPhrasesQueryKey: () => ["review"],
   getGetProgressSummaryQueryKey: () => ["progress-summary"],

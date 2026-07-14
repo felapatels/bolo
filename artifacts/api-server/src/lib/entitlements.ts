@@ -42,6 +42,9 @@ export interface PlanFeatures {
   // starter set. Only Plus unlocks the extra phrases; everyone else sees the
   // starter phrases (plus any they generated themselves).
   extendedLibrary: boolean;
+  // The "sentence stage": every topic's final step of full, natural sentences
+  // a learner graduates to after the phrase list. Plus-only.
+  sentences: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -193,6 +196,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       review: true,
       advancedAnalytics: true,
       extendedLibrary: true,
+      sentences: true,
     };
   }
   if (plan === "one_language") {
@@ -205,6 +209,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       review: false,
       advancedAnalytics: false,
       extendedLibrary: false,
+      sentences: false,
     };
   }
   return {
@@ -213,6 +218,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     review: false,
     advancedAnalytics: false,
     extendedLibrary: false,
+    sentences: false,
   };
 }
 

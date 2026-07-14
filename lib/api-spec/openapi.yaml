@@ -75,6 +75,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/UpgradeRequired"
 
+  /categories/{id}/sentences/{lang}:
+    get:
+      operationId: listCategorySentences
+      tags: [learning]
+      summary: List the topic's Plus-only sentence stage for a language
+      description: >-
+        The topic's final step after the phrase list — full, natural sentences
+        that build on the topic's vocabulary. Bolo! Plus only: callers without
+        the sentences feature receive a 402 upgrade payload and no sentence
+        text. Generated + cached on first request for dynamically generated
+        lessons.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of sentences (same shape as phrases)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phrase"
+        "402":
+          description: Upgrade required (Plus-only feature or language)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /categories/{id}/phrases/{lang}:
     get:
       operationId: listCategoryPhrases
@@ -1307,6 +1351,18 @@ components:
             How many additional phrases upgrading to Bolo! Plus would unlock for
             this topic. Always 0 for a caller who already has the extended
             library.
+        sentenceCount:
+          type: integer
+          description: >-
+            How many full sentences the topic's Plus-only sentence stage holds
+            (the final step after the phrase list). 0 when the stage has not
+            been generated yet for this language.
+        sentencesLocked:
+          type: boolean
+          description: >-
+            Whether the sentence stage is locked for this caller (true for
+            everyone without Bolo! Plus). Server-authoritative; clients show
+            an upgrade nudge instead of requesting the sentences.
       required:
         - id
         - slug
@@ -1319,6 +1375,8 @@ components:
         - phraseCount
         - masteredCount
         - lockedPhraseCount
+        - sentenceCount
+        - sentencesLocked
 
     Phrase:
       type: object

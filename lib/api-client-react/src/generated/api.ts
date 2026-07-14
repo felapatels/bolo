@@ -330,6 +330,89 @@ export function useListCategories<TData = Awaited<ReturnType<typeof listCategori
 
 
 
+export const getListCategorySentencesUrl = (id: number,
+    lang: string,) => {
+
+
+
+
+  return `/api/categories/${id}/sentences/${lang}`
+}
+
+/**
+ * The topic's final step after the phrase list — full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
+ * @summary List the topic's Plus-only sentence stage for a language
+ */
+export const listCategorySentences = async (id: number,
+    lang: string, options?: RequestInit): Promise<Phrase[]> => {
+
+  return customFetch<Phrase[]>(getListCategorySentencesUrl(id,lang),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCategorySentencesQueryKey = (id: number,
+    lang: string,) => {
+    return [
+    `/api/categories/${id}/sentences/${lang}`
+    ] as const;
+    }
+
+
+export const getListCategorySentencesQueryOptions = <TData = Awaited<ReturnType<typeof listCategorySentences>>, TError = ErrorType<UpgradeRequired | Error>>(id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategorySentences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategorySentencesQueryKey(id,lang);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategorySentences>>> = ({ signal }) => listCategorySentences(id,lang, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && lang !== null && lang !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategorySentences>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCategorySentencesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategorySentences>>>
+export type ListCategorySentencesQueryError = ErrorType<UpgradeRequired | Error>
+
+
+/**
+ * @summary List the topic's Plus-only sentence stage for a language
+ */
+
+export function useListCategorySentences<TData = Awaited<ReturnType<typeof listCategorySentences>>, TError = ErrorType<UpgradeRequired | Error>>(
+ id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategorySentences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCategorySentencesQueryOptions(id,lang,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListCategoryPhrasesUrl = (id: number,
     lang: string,) => {
 

@@ -14,9 +14,11 @@ import {
   GUJARATI_LESSONS,
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
+  validateSeedSentences,
   validateCuratedLessons,
   starterPhraseCount,
   extendedPhraseCount,
+  sentenceCount,
   type SeedLesson,
   type CuratedLessonsFile,
 } from "./seedData";
@@ -91,12 +93,23 @@ async function backfillLesson(
     .select({
       nativeScript: phrasesTable.nativeScript,
       english: phrasesTable.english,
+      stage: phrasesTable.stage,
     })
     .from(phrasesTable)
     .where(eq(phrasesTable.lessonId, existingLesson.id));
 
+  // Dedup per stage: a sentence may legitimately reuse a word the phrase list
+  // already teaches, so the phrase list only blocks phrase inserts and the
+  // sentence stage only blocks sentence inserts.
   const seen = new Set(
-    existingPhrases.map((p) => phraseKey(p.nativeScript, p.english)),
+    existingPhrases
+      .filter((p) => p.stage !== "sentence")
+      .map((p) => phraseKey(p.nativeScript, p.english)),
+  );
+  const seenSentences = new Set(
+    existingPhrases
+      .filter((p) => p.stage === "sentence")
+      .map((p) => phraseKey(p.nativeScript, p.english)),
   );
 
   const toInsert = lesson.phrases
@@ -112,6 +125,7 @@ async function backfillLesson(
       // the full library, so backfilled premium phrases sit after the starters.
       sortOrder: index,
       premium: index >= starterCount,
+      stage: "phrase",
     }))
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
@@ -121,9 +135,32 @@ async function backfillLesson(
       return true;
     });
 
-  if (toInsert.length === 0) return 0;
-  await db.insert(phrasesTable).values(toInsert);
-  return toInsert.length;
+  // The Plus-only sentence stage: insert any curated sentences the lesson does
+  // not hold yet, mirroring the seeder (always premium, stage="sentence").
+  const sentenceInserts = (lesson.sentences ?? [])
+    .map((s, index) => ({
+      lessonId: existingLesson.id,
+      languageCode,
+      categoryId,
+      nativeScript: s.nativeScript,
+      romanized: s.romanized,
+      english: s.english,
+      difficulty: s.difficulty,
+      sortOrder: index,
+      premium: true,
+      stage: "sentence",
+    }))
+    .filter((row) => {
+      const key = phraseKey(row.nativeScript, row.english);
+      if (seenSentences.has(key)) return false;
+      seenSentences.add(key);
+      return true;
+    });
+
+  const allInserts = [...toInsert, ...sentenceInserts];
+  if (allInserts.length === 0) return 0;
+  await db.insert(phrasesTable).values(allInserts);
+  return allInserts.length;
 }
 
 async function backfill() {
@@ -145,6 +182,12 @@ async function backfill() {
     const invalid = validateSeedLesson(lesson, extendedPhraseCount(slug));
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
+    }
+    const invalidSentences = validateSeedSentences(lesson, sentenceCount(slug));
+    if (invalidSentences) {
+      throw new Error(
+        `Gujarati "${slug}" sentence stage is invalid: ${invalidSentences}`,
+      );
     }
     const inserted = await backfillLesson(
       CURATED_LANGUAGE_CODE,

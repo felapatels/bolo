@@ -40,6 +40,16 @@ jest.mock('@workspace/api-client-react', () => ({
     }
   },
   useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage is idle in these suites (no ?stage=sentences).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({
     // Never settles: the auto-play coach effect stays pending so it can't
     // trigger state updates outside act() after a test finishes.

@@ -15,9 +15,11 @@ import { verifyEvaluation } from "../lib/evaluationToken";
 import {
   generateLesson,
   generateAdditionalPhrases,
+  generateSentences,
   type LessonRequest,
   type GeneratedLesson,
 } from "../lib/lessonGenerator";
+import { SENTENCES_PER_LESSON } from "@workspace/db/seed-data";
 import {
   BADGE_CATALOG,
   badgeProgress,
@@ -116,9 +118,12 @@ export async function getOrCreateLessonPhrases(
   generate: (req: LessonRequest) => Promise<GeneratedLesson> = generateLesson,
   hooks: LessonGenerationHooks = {},
 ): Promise<typeof phrasesTable.$inferSelect[]> {
+  // Only the phrase stage: the Plus-only sentence stage lives in the same
+  // table (stage="sentence") but is served by its own endpoint.
   const loadPhrases = (lessonId: number) =>
     db.query.phrasesTable.findMany({
-      where: (t, { eq: eqFn }) => eqFn(t.lessonId, lessonId),
+      where: (t, { eq: eqFn, and: andFn }) =>
+        andFn(eqFn(t.lessonId, lessonId), eqFn(t.stage, "phrase")),
       orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
     });
 
@@ -209,7 +214,8 @@ export async function getOrCreateLessonPhrases(
 
     const loadTx = () =>
       tx.query.phrasesTable.findMany({
-        where: (t, { eq: eqFn }) => eqFn(t.lessonId, lessonId),
+        where: (t, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(t.lessonId, lessonId), eqFn(t.stage, "phrase")),
         orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
       });
 
@@ -228,6 +234,7 @@ export async function getOrCreateLessonPhrases(
         english: p.english,
         difficulty: p.difficulty,
         sortOrder: i,
+        stage: "phrase",
       })),
     );
 
@@ -254,6 +261,7 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
         id: phrasesTable.id,
         categoryId: phrasesTable.categoryId,
         premium: phrasesTable.premium,
+        stage: phrasesTable.stage,
       })
       .from(phrasesTable)
       .where(eq(phrasesTable.languageCode, lang)),
@@ -274,13 +282,24 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   // set. Split each topic's phrases into what this caller can access versus how
   // many premium phrases stay locked, so the counts never advertise or count
   // content the learner can't open — and clients can surface the upgrade nudge.
-  const canAccessPremium = featuresForPlan(
+  const callerFeatures = featuresForPlan(
     (req as EntitledRequest).resolvedPlan.plan,
-  ).extendedLibrary;
+  );
+  const canAccessPremium = callerFeatures.extendedLibrary;
 
   const accessibleByCategory = new Map<number, number[]>();
   const lockedByCategory = new Map<number, number>();
+  // The Plus-only sentence stage is counted separately so the existing phrase
+  // counts (and mastery math) never shift when sentences land.
+  const sentencesByCategory = new Map<number, number>();
   for (const p of langPhrases) {
+    if (p.stage === "sentence") {
+      sentencesByCategory.set(
+        p.categoryId,
+        (sentencesByCategory.get(p.categoryId) ?? 0) + 1,
+      );
+      continue;
+    }
     if (p.premium && !canAccessPremium) {
       lockedByCategory.set(
         p.categoryId,
@@ -312,6 +331,10 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       // How many additional phrases upgrading to Bolo! Plus would unlock for
       // this topic. Always 0 for a caller who already has the extended library.
       lockedPhraseCount: lockedByCategory.get(c.id) ?? 0,
+      // The topic's final step: how many full sentences the Plus-only sentence
+      // stage holds, and whether this caller still needs an upgrade to open it.
+      sentenceCount: sentencesByCategory.get(c.id) ?? 0,
+      sentencesLocked: !callerFeatures.sentences,
     };
   });
 
@@ -389,6 +412,153 @@ router.get(
   },
 );
 
+// GET /categories/:id/sentences/:lang — the topic's Plus-only sentence stage:
+// full, natural sentences the learner graduates to after the phrase list. The
+// server is authoritative about the gate: without the "sentences" feature the
+// caller gets a 402 upgrade payload and no sentence text ever leaves the
+// server. For a dynamically generated lesson (a language/topic first opened by
+// a Plus user), the sentence stage is generated on first request and cached in
+// the same table, mirroring how the phrase list itself is built.
+router.get(
+  "/categories/:id/sentences/:lang",
+  async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid category id" });
+      return;
+    }
+    const lang = String(req.params.lang ?? "");
+    const userId = getUserId(req);
+
+    const [category, language] = await Promise.all([
+      db.query.categoriesTable.findFirst({
+        where: (t, { eq: eqFn }) => eqFn(t.id, id),
+      }),
+      db.query.languagesTable.findFirst({
+        where: (t, { eq: eqFn }) => eqFn(t.code, lang),
+      }),
+    ]);
+    if (!category) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+    if (!language) {
+      res.status(404).json({ error: "Language not found" });
+      return;
+    }
+
+    // Free is limited to Hindi; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, lang)) return;
+    // The sentence stage itself is Plus-only, whatever the language.
+    if (
+      denyLockedFeature(
+        req,
+        res,
+        "sentences",
+        "Full sentences are a Bolo! Plus feature. Upgrade to graduate from phrases to real sentences.",
+      )
+    )
+      return;
+
+    const lesson = await db.query.lessonsTable.findFirst({
+      where: (t, { eq: eqFn, and: andFn }) =>
+        andFn(eqFn(t.languageCode, lang), eqFn(t.categoryId, id)),
+    });
+    if (lesson) {
+      const cached = await db.query.phrasesTable.findMany({
+        where: (t, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(t.lessonId, lesson.id), eqFn(t.stage, "sentence")),
+        orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
+      });
+      if (cached.length > 0) {
+        const attempts = await fetchUserAttempts(userId, lang);
+        const stats = buildPhraseStats(attempts);
+        res.json(cached.map((p) => serializePhrase(p, stats)));
+        return;
+      }
+    }
+
+    // No sentence stage cached yet (a dynamically generated lesson). Build the
+    // phrase list first if needed — the sentences are grounded in the topic's
+    // vocabulary — then generate and cache the sentence stage. The caller is
+    // Plus (the gate above), so no daily-cap bookkeeping applies here.
+    try {
+      const phrases = await getOrCreateLessonPhrases(lang, id);
+      if (phrases.length === 0) {
+        res.status(502).json({ error: "Could not build this lesson" });
+        return;
+      }
+      const lessonRow = await db.query.lessonsTable.findFirst({
+        where: (t, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(t.languageCode, lang), eqFn(t.categoryId, id)),
+      });
+      if (!lessonRow) {
+        res.status(502).json({ error: "Could not build this lesson" });
+        return;
+      }
+
+      const generated = await generateSentences({
+        languageName: language.name,
+        nativeName: language.nativeName,
+        script: language.script,
+        topicTitle: category.title,
+        topicDescription: category.description,
+        vocabulary: phrases.map((p) => ({
+          nativeScript: p.nativeScript,
+          romanized: p.romanized,
+          english: p.english,
+        })),
+        count: SENTENCES_PER_LESSON,
+      });
+
+      // Insert atomically and re-check under a row lock so two concurrent
+      // first-openers can't double-insert the stage.
+      const rows = await db.transaction(async (tx) => {
+        await tx
+          .select({ id: lessonsTable.id })
+          .from(lessonsTable)
+          .where(eq(lessonsTable.id, lessonRow.id))
+          .for("update");
+        const loadTx = () =>
+          tx.query.phrasesTable.findMany({
+            where: (t, { eq: eqFn, and: andFn }) =>
+              andFn(eqFn(t.lessonId, lessonRow.id), eqFn(t.stage, "sentence")),
+            orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
+          });
+        const already = await loadTx();
+        if (already.length > 0) return already;
+        await tx.insert(phrasesTable).values(
+          generated.map((s, i) => ({
+            lessonId: lessonRow.id,
+            languageCode: lang,
+            categoryId: id,
+            nativeScript: s.nativeScript,
+            romanized: s.romanized,
+            english: s.english,
+            difficulty: s.difficulty,
+            sortOrder: i,
+            premium: true,
+            stage: "sentence",
+          })),
+        );
+        return loadTx();
+      });
+
+      const attempts = await fetchUserAttempts(userId, lang);
+      const stats = buildPhraseStats(attempts);
+      res.json(rows.map((p) => serializePhrase(p, stats)));
+    } catch (err) {
+      if (err instanceof UpgradeRequiredError) {
+        sendUpgradeRequired(res, err.payload);
+        return;
+      }
+      req.log.error({ err }, "Sentence generation failed");
+      res.status(502).json({ error: "Could not build the sentence stage" });
+      return;
+    }
+  },
+);
+
 // Loose key for de-duplicating phrases by their native-script text.
 function phraseKey(nativeScript: string): string {
   return nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
@@ -456,7 +626,8 @@ router.post(
       }
 
       const existing = await db.query.phrasesTable.findMany({
-        where: (t, { eq: eqFn }) => eqFn(t.lessonId, lesson.id),
+        where: (t, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(t.lessonId, lesson.id), eqFn(t.stage, "phrase")),
         orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
       });
 
@@ -508,6 +679,7 @@ router.post(
             english: p.english,
             difficulty: p.difficulty,
             sortOrder: startOrder + i,
+            stage: "phrase",
           })),
         )
         .returning();
@@ -883,7 +1055,14 @@ router.get(
       db
         .select({ id: phrasesTable.id })
         .from(phrasesTable)
-        .where(eq(phrasesTable.languageCode, lang)),
+        .where(
+          and(
+            eq(phrasesTable.languageCode, lang),
+            // Keep the summary's phrase totals stable: the Plus-only sentence
+            // stage is a separate step and doesn't inflate totalPhrases.
+            eq(phrasesTable.stage, "phrase"),
+          ),
+        ),
     ]);
 
     const totalPhrases = phrases.length;

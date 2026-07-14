@@ -26,6 +26,8 @@ import Animated, {
 import { appear } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
+  useListCategorySentences,
+  getListCategorySentencesQueryKey,
   useSynthesizeSpeech,
   useEvaluatePronunciation,
   useCreateAttempt,
@@ -62,14 +64,31 @@ export default function PracticeScreen() {
   const colors = useColors();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage } = useLocalSearchParams<{
     id: string;
     phrase?: string;
+    stage?: string;
   }>();
   const categoryId = Number(id);
   const { activeLang, activeLanguage } = useLanguage();
 
-  const phrases = useListCategoryPhrases(categoryId, activeLang);
+  // `?stage=sentences` runs the same practice flow over the topic's Plus-only
+  // sentence stage instead of its phrase list. The server enforces the gate —
+  // a non-Plus deep link lands on the upgrade screen via the 402 below.
+  const isSentences = stage === 'sentences';
+  const phraseQuery = useListCategoryPhrases(categoryId, activeLang, {
+    query: {
+      enabled: !isSentences,
+      queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
+    },
+  });
+  const sentenceQuery = useListCategorySentences(categoryId, activeLang, {
+    query: {
+      enabled: isSentences,
+      queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
+    },
+  });
+  const phrases = isSentences ? sentenceQuery : phraseQuery;
   const list = phrases.data ?? [];
 
   const recorder = useAudioRecorder(RECORDING_PRESET);
@@ -285,6 +304,9 @@ export default function PracticeScreen() {
         queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
       });
       queryClient.invalidateQueries({
+        queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
+      });
+      queryClient.invalidateQueries({
         queryKey: getListBadgesQueryKey({ lang: activeLang }),
       });
 
@@ -341,7 +363,9 @@ export default function PracticeScreen() {
         title={
           upgrade.reason === 'daily_lesson_limit'
             ? "You've hit today's free lessons"
-            : 'Unlock this language'
+            : upgrade.reason === 'feature_locked'
+              ? 'Full sentences are a Plus feature'
+              : 'Unlock this language'
         }
         message={upgrade.message}
         onUpgrade={() => router.push(paywallHrefForDenial(upgrade, activeLang))}
@@ -363,7 +387,9 @@ export default function PracticeScreen() {
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="Practice" />
         <Text style={[styles.note, { color: colors.mutedForeground }]}>
-          No phrases to practice here yet.
+          {isSentences
+            ? 'No sentences to practice here yet.'
+            : 'No phrases to practice here yet.'}
         </Text>
       </Screen>
     );
@@ -393,7 +419,13 @@ export default function PracticeScreen() {
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You practiced {scores.length}{' '}
-            {scores.length === 1 ? 'phrase' : 'phrases'}.
+            {isSentences
+              ? scores.length === 1
+                ? 'sentence'
+                : 'sentences'
+              : scores.length === 1
+                ? 'phrase'
+                : 'phrases'}.
           </Animated.Text>
           <Animated.View
             entering={appear(ZoomIn.delay(300).springify().damping(13))}

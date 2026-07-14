@@ -38,4 +38,6 @@
 - [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.
 - [Local daily reminders (Expo)](local-reminders.md) — reschedule-on-open pattern (local notifs can't check conditions at fire time); prefs device-authoritative; use `expo install`, not `pnpm add`.
 - [Mic pre-warm pattern](mic-prewarm.md) — recorder streams/prepare run ahead of the tap; don't stop pre-warmed tracks on stopRecording or clipping returns; indicator flips only when capture is live.
+- [Plus-only sentence stage](sentence-stage.md) — sentences are stage='sentence' rows in the phrases table; every phrase query must filter stage or counts inflate; gate is server-side 402.
+- [Background shell jobs die](background-jobs-die.md) — nohup/setsid processes don't survive ShellExec exit; run long scripts in foreground timeout chunks (make them resumable).
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.

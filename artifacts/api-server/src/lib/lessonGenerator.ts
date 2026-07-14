@@ -100,6 +100,105 @@ Rules:
   };
 }
 
+export type SentencesRequest = LessonRequest & {
+  // The topic's existing phrase vocabulary, so sentences build on what the
+  // learner has already practiced rather than introducing unrelated words.
+  vocabulary: { nativeScript: string; romanized: string; english: string }[];
+  count: number;
+  // Sentences already in the stage, so the model avoids repeating them (used
+  // by the offline pre-generation runner when topping up a partial set).
+  existingSentences?: { nativeScript: string; english: string }[];
+};
+
+// Generates the topic's Plus-only "sentence stage": full, natural sentences
+// (subject + verb, everyday register) that reuse the topic's phrase vocabulary,
+// so a learner graduates from 1-3 word phrases to complete spoken sentences.
+export async function generateSentences(
+  req: SentencesRequest,
+): Promise<GeneratedPhrase[]> {
+  const count = Math.max(1, Math.min(12, Math.round(req.count)));
+  const vocabList =
+    req.vocabulary.length > 0
+      ? req.vocabulary
+          .map((p) => `- ${p.nativeScript} (${p.romanized}) = ${p.english}`)
+          .join("\n")
+      : "(none)";
+  const avoidList =
+    req.existingSentences && req.existingSentences.length > 0
+      ? req.existingSentences
+          .map((s) => `- ${s.nativeScript} = ${s.english}`)
+          .join("\n")
+      : "(none yet)";
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.4-mini",
+    max_completion_tokens: 3000,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You create beginner language-learning content for children and new learners. You are given a target language, a topic, and the short words/phrases the learner has already studied for that topic. Produce COMPLETE, natural, everyday sentences (a full clause with a verb — not single words or fragments) that reuse and build on that vocabulary, so the learner graduates from short phrases to real spoken sentences. Keep sentences short enough for a beginner to say aloud (roughly 4-9 words), natural, kid-appropriate, and genuinely useful in daily life. Every sentence must be written correctly in the target language's own native script. Do not use emojis. Reply ONLY as JSON.",
+      },
+      {
+        role: "user",
+        content: `Target language: ${req.languageName} (native name: ${req.nativeName}), written in the ${req.script} script.
+Topic: "${req.topicTitle}" — ${req.topicDescription}
+
+The learner has already studied this topic vocabulary (build your sentences around these words where natural):
+${vocabList}
+
+Do NOT repeat or closely paraphrase any of these existing sentences:
+${avoidList}
+
+Produce exactly ${count} full sentences for this topic in ${req.languageName}.
+
+Reply as JSON with this exact shape:
+{
+  "phrases": [
+    {
+      "nativeScript": "<the complete sentence in ${req.languageName} using the ${req.script} script — never English letters>",
+      "romanized": "<simple English-letter pronunciation>",
+      "english": "<the English meaning>",
+      "difficulty": <integer 1-3, 1=easiest>
+    }
+  ]
+}
+
+Rules:
+- Every entry MUST be a complete, natural sentence with a verb — never a single word or fragment.
+- "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
+- Order entries from easiest to hardest.
+- Return exactly ${count} sentences.`,
+      },
+    ],
+  });
+
+  const content = completion.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(content) as {
+    phrases?: Array<{
+      nativeScript?: string;
+      romanized?: string;
+      english?: string;
+      difficulty?: number;
+    }>;
+  };
+
+  const sentences = (parsed.phrases ?? [])
+    .filter((p) => p.nativeScript && p.romanized && p.english)
+    .map((p) => ({
+      nativeScript: String(p.nativeScript),
+      romanized: String(p.romanized),
+      english: String(p.english),
+      difficulty: Math.max(1, Math.min(3, Math.round(Number(p.difficulty ?? 1)))),
+    }));
+
+  if (sentences.length === 0) {
+    throw new Error("Sentence generation returned no usable sentences");
+  }
+  return sentences;
+}
+
 export type AdditionalPhrasesRequest = LessonRequest & {
   // Phrases already in the lesson, so the model can avoid repeating them.
   existing: { nativeScript: string; romanized: string; english: string }[];

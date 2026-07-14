@@ -38,6 +38,16 @@ jest.mock('@workspace/api-client-react', () => ({
     }
   },
   useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage is disabled unless ?stage=sentences, which these suites don't use.
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({ mutateAsync: jest.fn() }),
   useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
   useCreateAttempt: () => ({ mutateAsync: jest.fn() }),

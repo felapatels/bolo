@@ -105,6 +105,18 @@ export function extendedPhraseCount(categorySlug: string): number {
   return CATEGORY_EXTENDED_COUNTS[categorySlug] ?? EXTENDED_PHRASES_PER_LESSON;
 }
 
+// The Plus-only "sentence stage": every topic ends with this many full, natural
+// sentences that build on the topic's vocabulary. Curated/frozen lessons must
+// carry exactly this many sentences; every sentence is premium (Plus-only).
+export const SENTENCES_PER_LESSON = 8;
+
+// How many sentence-stage entries a curated lesson for `categorySlug` must
+// have. Uniform today, but routed through a function (like the phrase counts)
+// so a topic could diverge later without touching every call site.
+export function sentenceCount(_categorySlug: string): number {
+  return SENTENCES_PER_LESSON;
+}
+
 // How many premium (Plus-only) phrases a fully-populated `categorySlug` lesson
 // carries: everything past the starter boundary. Zero for fixed-length topics.
 export function premiumPhraseCount(categorySlug: string): number {
@@ -126,7 +138,15 @@ export type SeedPhrase = {
   difficulty: number;
 };
 
-export type SeedLesson = { titleNative: string; phrases: SeedPhrase[] };
+// `phrases` is the ranked starter+premium phrase list; `sentences` is the
+// distinct Plus-only sentence stage of full, natural sentences a learner
+// graduates to after the phrase list. Kept separate so the phrase ranking and
+// tier boundary never shift when the sentence stage grows.
+export type SeedLesson = {
+  titleNative: string;
+  phrases: SeedPhrase[];
+  sentences?: SeedPhrase[];
+};
 
 export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
   greetings: {
@@ -157,6 +177,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "કૃપા કરીને બેસો", romanized: "krupa kari-ne beso", english: "Please sit down", difficulty: 2 },
       { nativeScript: "આવતા રહો", romanized: "aavta raho", english: "Come again / Keep coming", difficulty: 2 },
     ],
+    sentences: [
+      { nativeScript: "તમારું નામ શું છે?", romanized: "tamaru naam shu chhe?", english: "What is your name?", difficulty: 1 },
+      { nativeScript: "મારું નામ રાજ છે.", romanized: "maru naam raj chhe.", english: "My name is Raj.", difficulty: 1 },
+      { nativeScript: "આજે તમે કેમ છો?", romanized: "aaje tame kem chho?", english: "How are you today?", difficulty: 2 },
+      { nativeScript: "તમને મળીને ખૂબ આનંદ થયો.", romanized: "tamne maline khoob aanand thayo.", english: "It was a real pleasure to meet you.", difficulty: 2 },
+      { nativeScript: "મહેરબાની કરીને અંદર આવો.", romanized: "maherbaani karine andar aavo.", english: "Please come inside.", difficulty: 2 },
+      { nativeScript: "માફ કરજો, મને મોડું થયું.", romanized: "maaf karjo, mane modu thayu.", english: "Sorry, I got late.", difficulty: 2 },
+      { nativeScript: "આવજો, આપણે ફરી મળીશું.", romanized: "aavjo, aapne fari malishu.", english: "Goodbye, we will meet again.", difficulty: 2 },
+      { nativeScript: "આપનો દિવસ શુભ રહે.", romanized: "aapno divas shubh rahe.", english: "May your day go well.", difficulty: 3 },
+    ],
   },
   family: {
     titleNative: "કુટુંબ",
@@ -186,6 +216,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "પૌત્રી", romanized: "pautri", english: "granddaughter", difficulty: 1 },
       { nativeScript: "પૌત્રવધૂ", romanized: "pautra-vadhu", english: "grandson's wife", difficulty: 3 },
     ],
+    sentences: [
+      { nativeScript: "મારા પરિવારમાં પાંચ લોકો છે.", romanized: "maara parivaarma paanch loko chhe.", english: "There are five people in my family.", difficulty: 2 },
+      { nativeScript: "મમ્મી રસોડામાં રસોઈ કરે છે.", romanized: "mummy rasodama rasoi kare chhe.", english: "Mom is cooking in the kitchen.", difficulty: 2 },
+      { nativeScript: "પપ્પા કામ પરથી ઘરે આવ્યા.", romanized: "pappa kaam parthi ghare aavya.", english: "Dad came home from work.", difficulty: 2 },
+      { nativeScript: "મારો ભાઈ મારાથી મોટો છે.", romanized: "maro bhai maarathi moto chhe.", english: "My brother is older than me.", difficulty: 2 },
+      { nativeScript: "મારી બહેન શાળામાં ભણે છે.", romanized: "maari bahen shaalama bhane chhe.", english: "My sister studies at school.", difficulty: 2 },
+      { nativeScript: "નાની અમને વાર્તા કહે છે.", romanized: "nani amne vaarta kahe chhe.", english: "Grandma tells us stories.", difficulty: 2 },
+      { nativeScript: "અમે બધા સાથે જમીએ છીએ.", romanized: "ame badha saathe jamie chhie.", english: "We all eat together.", difficulty: 2 },
+      { nativeScript: "દાદા રોજ સવારે ચાલવા જાય છે.", romanized: "dada roj savare chaalva jaay chhe.", english: "Grandpa goes for a walk every morning.", difficulty: 3 },
+    ],
   },
   numbers: {
     titleNative: "સંખ્યા",
@@ -200,6 +240,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "આઠ", romanized: "aath", english: "Eight", difficulty: 1 },
       { nativeScript: "નવ", romanized: "nav", english: "Nine", difficulty: 1 },
       { nativeScript: "દસ", romanized: "das", english: "Ten", difficulty: 1 },
+    ],
+    sentences: [
+      { nativeScript: "મારી પાસે બે પુસ્તકો છે.", romanized: "maari paase be pustako chhe.", english: "I have two books.", difficulty: 1 },
+      { nativeScript: "મને પાંચ મિનિટ આપો.", romanized: "mane paanch minit aapo.", english: "Give me five minutes.", difficulty: 1 },
+      { nativeScript: "ટેબલ પર ત્રણ સફરજન છે.", romanized: "tebal par tran safarjan chhe.", english: "There are three apples on the table.", difficulty: 2 },
+      { nativeScript: "અમારા ઘરમાં ચાર ઓરડા છે.", romanized: "amaara gharma chaar orda chhe.", english: "Our house has four rooms.", difficulty: 2 },
+      { nativeScript: "બગીચામાં છ ઝાડ છે.", romanized: "bagichama chha jhaad chhe.", english: "There are six trees in the garden.", difficulty: 2 },
+      { nativeScript: "અઠવાડિયામાં સાત દિવસ હોય છે.", romanized: "athvadiyama saat divas hoy chhe.", english: "There are seven days in a week.", difficulty: 2 },
+      { nativeScript: "મેં દસ સુધી ગણતરી કરી.", romanized: "me das sudhi ganatri kari.", english: "I counted up to ten.", difficulty: 2 },
+      { nativeScript: "વર્ગમાં નવ વિદ્યાર્થીઓ છે.", romanized: "vargma nav vidyarthio chhe.", english: "There are nine students in the class.", difficulty: 3 },
     ],
   },
   food: {
@@ -230,6 +280,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "લોટી", romanized: "loti", english: "Jug", difficulty: 1 },
       { nativeScript: "મીઠાઈ", romanized: "mithai", english: "Sweet (dessert)", difficulty: 1 },
     ],
+    sentences: [
+      { nativeScript: "કૃપા કરીને મને પાણી આપો.", romanized: "krupa karine mane paani aapo.", english: "Please give me some water.", difficulty: 1 },
+      { nativeScript: "મને થોડું દૂધ જોઈએ છે.", romanized: "mane thodu doodh joie chhe.", english: "I need a little milk.", difficulty: 1 },
+      { nativeScript: "ચાલો, જમવા બેસીએ.", romanized: "chaalo, jamva besie.", english: "Come, let's sit down to eat.", difficulty: 1 },
+      { nativeScript: "આજે જમવામાં દાળ ભાત છે.", romanized: "aaje jamvama daal bhaat chhe.", english: "Today's meal is dal and rice.", difficulty: 2 },
+      { nativeScript: "રોટલી ગરમ છે, ધ્યાન રાખજો.", romanized: "rotli garam chhe, dhyaan raakhjo.", english: "The roti is hot, be careful.", difficulty: 2 },
+      { nativeScript: "મમ્મીએ સ્વાદિષ્ટ શાક બનાવ્યું.", romanized: "mummy-e swadisht shaak banavyu.", english: "Mom made a delicious vegetable dish.", difficulty: 2 },
+      { nativeScript: "મને ગુજરાતી ખાવાનું બહુ ભાવે છે.", romanized: "mane gujarati khaavaanu bahu bhaave chhe.", english: "I really love Gujarati food.", difficulty: 2 },
+      { nativeScript: "જમ્યા પછી આપણે મીઠાઈ ખાઈશું.", romanized: "jamya pachhi aapne mithai khaishu.", english: "We will eat dessert after the meal.", difficulty: 3 },
+    ],
   },
   everyday: {
     titleNative: "રોજિંદા શબ્દો",
@@ -259,6 +319,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "શુભ સવાર", romanized: "shubh savaar", english: "Good morning", difficulty: 2 },
       { nativeScript: "શુભ રાત્રી", romanized: "shubh raatri", english: "Good night", difficulty: 1 },
     ],
+    sentences: [
+      { nativeScript: "મને થોડી મદદ જોઈએ છે.", romanized: "mane thodi madad joie chhe.", english: "I need some help.", difficulty: 1 },
+      { nativeScript: "થોડી વાર અહીં બેસો.", romanized: "thodi vaar ahin beso.", english: "Sit here for a little while.", difficulty: 1 },
+      { nativeScript: "ચાલો, આપણે બહાર ફરવા જઈએ.", romanized: "chaalo, aapne bahaar farva jaie.", english: "Come on, let's go out for a stroll.", difficulty: 2 },
+      { nativeScript: "હું હમણાં ઘરે જાઉં છું.", romanized: "hu hamnaa ghare jaau chhu.", english: "I am going home now.", difficulty: 2 },
+      { nativeScript: "આજે હવામાન બહુ સરસ છે.", romanized: "aaje havaamaan bahu saras chhe.", english: "The weather is very nice today.", difficulty: 2 },
+      { nativeScript: "મહેરબાની કરીને બારણું બંધ કરજો.", romanized: "maherbaani karine baarnu bandh karjo.", english: "Please close the door.", difficulty: 2 },
+      { nativeScript: "મને એ ફરીથી કહો.", romanized: "mane e farithi kaho.", english: "Tell me that again.", difficulty: 2 },
+      { nativeScript: "હું કાલે તમને મળીશ.", romanized: "hu kaale tamne malish.", english: "I will meet you tomorrow.", difficulty: 2 },
+    ],
   },
   feelings: {
     titleNative: "લાગણી",
@@ -287,6 +357,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "પ્રફુલ્લિત છું", romanized: "prafullit chhu", english: "I feel cheerful", difficulty: 3 },
       { nativeScript: "નિરાશ", romanized: "niraash", english: "disappointed", difficulty: 2 },
       { nativeScript: "રાહત થઈ", romanized: "raahat thai", english: "I feel relieved", difficulty: 2 },
+    ],
+    sentences: [
+      { nativeScript: "આજે હું ખૂબ ખુશ છું.", romanized: "aaje hu khoob khush chhu.", english: "I am very happy today.", difficulty: 1 },
+      { nativeScript: "મને આ ગીત બહુ ગમે છે.", romanized: "mane aa geet bahu game chhe.", english: "I like this song a lot.", difficulty: 2 },
+      { nativeScript: "કામ કરીને હું થાકી ગયો છું.", romanized: "kaam karine hu thaki gayo chhu.", english: "I am tired from working.", difficulty: 2 },
+      { nativeScript: "અંધારામાં મને ડર લાગે છે.", romanized: "andhaarama mane dar laage chhe.", english: "I feel scared in the dark.", difficulty: 2 },
+      { nativeScript: "મારા ભાઈ પર મને ગર્વ છે.", romanized: "maara bhai par mane garv chhe.", english: "I am proud of my brother.", difficulty: 2 },
+      { nativeScript: "આજે મન થોડું ઉદાસ છે.", romanized: "aaje man thodu udaas chhe.", english: "My heart feels a little sad today.", difficulty: 2 },
+      { nativeScript: "પરીક્ષા પહેલા હું ગભરાઉં છું.", romanized: "parikshaa pahela hu gabhraau chhu.", english: "I get nervous before an exam.", difficulty: 2 },
+      { nativeScript: "તમને જોઈને મને આનંદ થયો.", romanized: "tamne joine mane aanand thayo.", english: "I felt joy on seeing you.", difficulty: 3 },
     ],
   },
 };
@@ -321,22 +401,50 @@ export function validateSeedLesson(
   if (exactCount != null && lesson.phrases.length !== exactCount) {
     return `expected ${exactCount} phrases, got ${lesson.phrases.length}`;
   }
-  for (let i = 0; i < lesson.phrases.length; i++) {
-    const p = lesson.phrases[i];
+  return validateSeedPhraseFields(lesson.phrases, "phrase");
+}
+
+// Field-level validation shared by the phrase list and the sentence stage:
+// every entry needs non-empty nativeScript/romanized/english and an integer
+// difficulty in [1, 3]. Returns an error string or null.
+function validateSeedPhraseFields(
+  entries: SeedPhrase[],
+  label: string,
+): string | null {
+  for (let i = 0; i < entries.length; i++) {
+    const p = entries[i];
     if (!p || typeof p.nativeScript !== "string" || p.nativeScript.trim() === "") {
-      return `phrase ${i}: missing nativeScript`;
+      return `${label} ${i}: missing nativeScript`;
     }
     if (typeof p.romanized !== "string" || p.romanized.trim() === "") {
-      return `phrase ${i}: missing romanized`;
+      return `${label} ${i}: missing romanized`;
     }
     if (typeof p.english !== "string" || p.english.trim() === "") {
-      return `phrase ${i}: missing english`;
+      return `${label} ${i}: missing english`;
     }
     if (!Number.isInteger(p.difficulty) || p.difficulty < 1 || p.difficulty > 3) {
-      return `phrase ${i}: difficulty ${p.difficulty} out of range 1-3`;
+      return `${label} ${i}: difficulty ${p.difficulty} out of range 1-3`;
     }
   }
   return null;
+}
+
+// Validates a lesson's Plus-only sentence stage. `exactCount` enforces the
+// exact sentence count the curated data must carry (sentenceCount(slug));
+// leave it undefined to only require the stage to be present and non-empty.
+export function validateSeedSentences(
+  lesson: SeedLesson | undefined,
+  exactCount?: number,
+): string | null {
+  if (!lesson) return "missing lesson";
+  const sentences = lesson.sentences;
+  if (!Array.isArray(sentences) || sentences.length === 0) {
+    return "lesson has no sentence stage";
+  }
+  if (exactCount != null && sentences.length !== exactCount) {
+    return `expected ${exactCount} sentences, got ${sentences.length}`;
+  }
+  return validateSeedPhraseFields(sentences, "sentence");
 }
 
 // ---------------------------------------------------------------------------
@@ -462,6 +570,25 @@ export function validateCuratedLessons(
       if (invalid) {
         errors.push(`${lang.code}/${cat.slug}: ${invalid}`);
         continue;
+      }
+      // The sentence stage is part of the frozen contract too: every present
+      // lesson must carry its full, well-formed set of Plus-only sentences.
+      const invalidSentences = validateSeedSentences(
+        lesson,
+        sentenceCount(cat.slug),
+      );
+      if (invalidSentences) {
+        errors.push(`${lang.code}/${cat.slug}: ${invalidSentences}`);
+        continue;
+      }
+      // Sentences go through the same content-quality rules as phrases,
+      // checked among themselves (a sentence may legitimately build on a word
+      // the phrase list already teaches). Allowlist key: "<lesson>#sentences".
+      for (const issue of checkLessonQuality(
+        { titleNative: lesson.titleNative, phrases: lesson.sentences ?? [] },
+        LESSON_QUALITY_ALLOWLISTS[`${lang.code}/${cat.slug}#sentences`],
+      )) {
+        errors.push(`${lang.code}/${cat.slug} (sentences): ${issue}`);
       }
       // Shape is fine — now reject well-formed-but-broken content: a lesson
       // that repeats a phrase (two entries both meaning "happy") or types an

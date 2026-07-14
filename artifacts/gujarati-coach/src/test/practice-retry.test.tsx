@@ -52,6 +52,16 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 
 vi.mock("@workspace/api-client-react", () => ({
   useListCategoryPhrases: () => h.categoryPhrases,
+  // Sentence stage is idle in these suites (no ?stage=sentences).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ["category-sentences"],
   useListReviewPhrases: () => h.reviewPhrases,
   useSynthesizeSpeech: () => ({ mutateAsync: h.synth, isPending: false }),
   useEvaluatePronunciation: () => ({ mutateAsync: h.evaluate, isPending: false }),

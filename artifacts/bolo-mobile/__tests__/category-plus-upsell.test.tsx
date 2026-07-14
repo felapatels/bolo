@@ -46,6 +46,16 @@ jest.mock('@workspace/api-client-react', () => ({
   },
   useListCategories: () => mockState.categories,
   useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage stays idle in these suites (fixtures are locked/sentence-less).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({

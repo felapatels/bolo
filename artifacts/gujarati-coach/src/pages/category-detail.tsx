@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import {
   useListCategoryPhrases,
   useListCategories,
+  useListCategorySentences,
   useAddCategoryPhrases,
   getListCategoryPhrasesQueryKey,
+  getListCategorySentencesQueryKey,
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,6 +36,18 @@ export default function CategoryDetail() {
     refetch,
   } = useListCategoryPhrases(id, activeLang);
   const { data: categories } = useListCategories({ lang: activeLang });
+  const category = categories?.find(c => c.id === id);
+
+  // The topic's final step: the Plus-only sentence stage. Only fetched once
+  // the server says this caller can open it — the lock state itself is
+  // server-authoritative via `sentencesLocked` on the category listing.
+  const canLoadSentences = !!category && !category.sentencesLocked;
+  const sentencesQuery = useListCategorySentences(id, activeLang, {
+    query: {
+      enabled: canLoadSentences,
+      queryKey: getListCategorySentencesQueryKey(id, activeLang),
+    },
+  });
   const addPhrases = useAddCategoryPhrases();
   const [noNewPhrases, setNoNewPhrases] = useState(false);
 
@@ -70,8 +84,6 @@ export default function CategoryDetail() {
       console.error("Failed to add phrases", error);
     }
   };
-
-  const category = categories?.find(c => c.id === id);
 
   const upgrade = asUpgradeRequired(error);
   if (upgrade) {
@@ -254,6 +266,76 @@ export default function CategoryDetail() {
                 Couldn't add new phrases. Please try again.
               </p>
             ))}
+
+          {/* Final step: the Plus-only sentence stage. Locked callers see the
+              upgrade nudge; Plus learners see the full-sentence list. */}
+          {(category.sentencesLocked || (sentencesQuery.data?.length ?? 0) > 0 || sentencesQuery.isLoading) && (
+            <div className="pt-6 space-y-3">
+              <h3 className="font-bold text-lg text-foreground px-2 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-secondary" />
+                Final step: Full sentences
+              </h3>
+              {category.sentencesLocked ? (
+                <UpgradeCard
+                  icon={<Lock className="h-6 w-6" />}
+                  title={
+                    category.sentenceCount > 0
+                      ? `${category.sentenceCount} full ${
+                          category.sentenceCount === 1 ? "sentence" : "sentences"
+                        } with Plus`
+                      : "Full sentences with Plus"
+                  }
+                  description="Graduate from phrases to real, natural sentences — the final step for every topic."
+                  cta="Unlock with Plus"
+                  href={upgradeHref({ plan: "plus" })}
+                />
+              ) : sentencesQuery.isLoading ? (
+                <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-center gap-3 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="font-medium text-sm">Preparing your sentences…</span>
+                </div>
+              ) : (
+                <>
+                  {sentencesQuery.data?.map((sentence, i) => (
+                    <motion.div
+                      key={sentence.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                    >
+                      <Link
+                        href={`/practice/${id}?stage=sentences&phrase=${sentence.id}`}
+                        className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer transition-all hover:border-secondary/60 active:scale-[0.98] button-spring"
+                      >
+                        <div className="mt-1 shrink-0">
+                          {sentence.mastered ? (
+                            <CheckCircle2 className="w-6 h-6 text-success" />
+                          ) : (
+                            <Circle className="w-6 h-6 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="text-xl font-bold text-foreground leading-snug" style={native.style} dir={native.dir}>{sentence.nativeScript}</p>
+                          <p className="text-primary font-medium text-sm">{sentence.romanized}</p>
+                          <p className="text-muted-foreground text-sm">{sentence.english}</p>
+                        </div>
+                        <div className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center shrink-0 self-center">
+                          <Play className="w-4 h-4 fill-current" />
+                        </div>
+                      </Link>
+                    </motion.div>
+                  ))}
+                  <Link
+                    href={`/practice/${id}?stage=sentences`}
+                    className="w-full bg-secondary text-white font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-sm active:scale-[0.98] transition-all button-spring"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    <span>Practice sentences</span>
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
 
           {noNewPhrases && !addPhrases.isPending && (
             <div className="flex items-start gap-3 rounded-2xl bg-success/10 border border-success/20 p-4 text-left">

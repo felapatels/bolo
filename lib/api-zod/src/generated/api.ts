@@ -50,9 +50,37 @@ export const ListCategoriesResponseItem = zod.object({
   "titleNative": zod.string().nullable(),
   "phraseCount": zod.number(),
   "masteredCount": zod.number(),
-  "lockedPhraseCount": zod.number().describe('How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library.')
+  "lockedPhraseCount": zod.number().describe('How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library.'),
+  "sentenceCount": zod.number().describe('How many full sentences the topic\'s Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language.'),
+  "sentencesLocked": zod.boolean().describe('Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences.')
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * The topic's final step after the phrase list — full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
+ * @summary List the topic's Plus-only sentence stage for a language
+ */
+export const ListCategorySentencesParams = zod.object({
+  "id": zod.coerce.number(),
+  "lang": zod.coerce.string()
+})
+
+export const ListCategorySentencesResponseItem = zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number()
+})
+export const ListCategorySentencesResponse = zod.array(ListCategorySentencesResponseItem)
 
 
 /**

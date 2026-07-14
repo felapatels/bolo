@@ -15,11 +15,13 @@ import {
   GUJARATI_LESSONS,
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
+  validateSeedSentences,
   validateCuratedLessons,
   checkLessonQuality,
   LESSON_QUALITY_ALLOWLISTS,
   starterPhraseCount,
   extendedPhraseCount,
+  sentenceCount,
   type SeedLesson,
   type CuratedLessonsFile,
 } from "./seedData";
@@ -85,8 +87,29 @@ async function seedLesson(
       // The first `starterCount` phrases are the free starter set every tier
       // sees; everything past them is the Plus-only premium library.
       premium: index >= starterCount,
+      stage: "phrase",
     })),
   );
+
+  // The Plus-only sentence stage: full, natural sentences the learner
+  // graduates to after the phrase list. Always premium, kept apart from the
+  // ranked phrase list via stage="sentence" (sortOrder restarts per stage).
+  if (lesson.sentences && lesson.sentences.length > 0) {
+    await db.insert(phrasesTable).values(
+      lesson.sentences.map((s, index) => ({
+        lessonId: insertedLesson.id,
+        languageCode,
+        categoryId,
+        nativeScript: s.nativeScript,
+        romanized: s.romanized,
+        english: s.english,
+        difficulty: s.difficulty,
+        sortOrder: index,
+        premium: true,
+        stage: "sentence",
+      })),
+    );
+  }
   return true;
 }
 
@@ -157,12 +180,25 @@ async function seed() {
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
     }
+    const invalidSentences = validateSeedSentences(lesson, sentenceCount(slug));
+    if (invalidSentences) {
+      throw new Error(
+        `Gujarati "${slug}" sentence stage is invalid: ${invalidSentences}`,
+      );
+    }
     // Same content-quality gate the frozen file goes through: refuse to seed a
-    // lesson that repeats a phrase or types English in native script.
-    const quality = checkLessonQuality(
-      lesson,
-      LESSON_QUALITY_ALLOWLISTS[`${CURATED_LANGUAGE_CODE}/${slug}`],
-    );
+    // lesson that repeats a phrase or types English in native script. The
+    // sentence stage passes the same rules, checked among its own entries.
+    const quality = [
+      ...checkLessonQuality(
+        lesson,
+        LESSON_QUALITY_ALLOWLISTS[`${CURATED_LANGUAGE_CODE}/${slug}`],
+      ),
+      ...checkLessonQuality(
+        { titleNative: lesson.titleNative, phrases: lesson.sentences ?? [] },
+        LESSON_QUALITY_ALLOWLISTS[`${CURATED_LANGUAGE_CODE}/${slug}#sentences`],
+      ).map((q) => `(sentences) ${q}`),
+    ];
     if (quality.length > 0) {
       throw new Error(
         `Gujarati "${slug}" lesson failed quality checks:\n` +

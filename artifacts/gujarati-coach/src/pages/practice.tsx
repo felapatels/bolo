@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useSearch } from "wouter";
 import { 
   useListCategoryPhrases, 
+  useListCategorySentences,
   useListReviewPhrases,
   useSynthesizeSpeech, 
   useEvaluatePronunciation, 
   useCreateAttempt,
   getListCategoryPhrasesQueryKey,
+  getListCategorySentencesQueryKey,
   getListReviewPhrasesQueryKey,
   getGetProgressSummaryQueryKey,
   getListRecentAttemptsQueryKey,
@@ -34,7 +36,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const id = parseInt(categoryId || "0", 10);
   const isReview = mode === "review";
   const search = useSearch();
-  const startPhraseId = new URLSearchParams(search).get("phrase");
+  const searchParams = new URLSearchParams(search);
+  const startPhraseId = searchParams.get("phrase");
+  // The Plus-only sentence stage practices through this same session flow —
+  // `?stage=sentences` swaps the phrase list for the topic's sentence list.
+  const isSentences = !isReview && searchParams.get("stage") === "sentences";
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
@@ -45,8 +51,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   const categoryQuery = useListCategoryPhrases(id, activeLang, {
     query: {
-      enabled: !isReview,
+      enabled: !isReview && !isSentences,
       queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
+    },
+  });
+  const sentencesQuery = useListCategorySentences(id, activeLang, {
+    query: {
+      enabled: isSentences,
+      queryKey: getListCategorySentencesQueryKey(id, activeLang),
     },
   });
   const reviewQuery = useListReviewPhrases(
@@ -65,7 +77,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     error,
     isFetching,
     refetch,
-  } = isReview ? reviewQuery : categoryQuery;
+  } = isReview ? reviewQuery : isSentences ? sentencesQuery : categoryQuery;
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -221,6 +233,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
       queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
       queryClient.invalidateQueries({ queryKey: getListCategoryPhrasesQueryKey(id, activeLang) });
+      queryClient.invalidateQueries({ queryKey: getListCategorySentencesQueryKey(id, activeLang) });
       queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
       queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
 
@@ -287,7 +300,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           upgrade.reason === "daily_lesson_limit"
             ? "You've hit today's free lessons"
             : upgrade.reason === "feature_locked"
-              ? "Review is a Plus feature"
+              ? isSentences
+                ? "Full sentences are a Plus feature"
+                : "Review is a Plus feature"
               : "Unlock this language"
         }
         message={upgrade.message}
@@ -319,7 +334,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold mb-4">
-          {isReview ? "Nothing to review right now." : "No phrases found here."}
+          {isReview
+            ? "Nothing to review right now."
+            : isSentences
+              ? "No sentences found here."
+              : "No phrases found here."}
         </h2>
         <Link href={backHref} className="text-primary font-bold">Go back</Link>
       </div>
@@ -355,7 +374,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             )}>
               {avgScore}
             </div>
-            <p className="text-muted-foreground mt-4 font-medium">You practiced {sessionResults.length} phrases.</p>
+            <p className="text-muted-foreground mt-4 font-medium">You practiced {sessionResults.length} {isSentences ? "sentences" : "phrases"}.</p>
           </motion.div>
         </div>
         

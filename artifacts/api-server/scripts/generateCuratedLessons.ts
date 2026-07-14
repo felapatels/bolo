@@ -23,7 +23,9 @@ import {
   CURATED_LANGUAGE_CODE,
   starterPhraseCount,
   extendedPhraseCount,
+  sentenceCount,
   validateSeedLesson,
+  validateSeedSentences,
   checkLessonQuality,
   nativeScriptHasLatinOrDigit,
   type SeedLesson,
@@ -33,6 +35,7 @@ import {
 import {
   generateLesson,
   generateAdditionalPhrases,
+  generateSentences,
 } from "../src/lib/lessonGenerator";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -186,10 +189,67 @@ async function generateOne(job: Job): Promise<SeedLesson> {
     }
   }
 
+  // 3. The Plus-only sentence stage: full, natural sentences that reuse the
+  //    topic's phrase vocabulary. Existing valid sentences are kept and only
+  //    topped up, mirroring how the phrase list is extended.
+  const sentenceTarget = sentenceCount(job.categorySlug);
+  let sentences: SeedPhrase[] = [...(job.existing?.sentences ?? [])];
+  for (
+    let attempt = 1;
+    attempt <= MAX_ATTEMPTS * 2 && sentences.length < sentenceTarget;
+    attempt++
+  ) {
+    try {
+      const extra = await generateSentences({
+        ...lang,
+        vocabulary: phrases.map((p) => ({
+          nativeScript: p.nativeScript,
+          romanized: p.romanized,
+          english: p.english,
+        })),
+        existingSentences: sentences.map((s) => ({
+          nativeScript: s.nativeScript,
+          english: s.english,
+        })),
+        count: sentenceTarget - sentences.length,
+      });
+      const before = sentences.length;
+      sentences = dedupeAppend(sentences, extra, sentenceTarget);
+      if (sentences.length === before) {
+        console.warn(
+          `  ${job.langCode}/${job.categorySlug} sentence attempt ${attempt} added nothing new`,
+        );
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `  ${job.langCode}/${job.categorySlug} sentence attempt ${attempt} failed: ${lastError}`,
+      );
+    }
+  }
+
   const lesson: SeedLesson = {
     titleNative: titleNative || job.topicTitle,
     phrases: phrases.slice(0, target),
+    sentences: sentences.slice(0, sentenceTarget),
   };
+  const invalidSentences = validateSeedSentences(lesson, sentenceTarget);
+  if (invalidSentences) {
+    throw new Error(
+      `Could not complete the sentence stage for ${job.langCode}/${job.categorySlug} ` +
+        `(${sentences.length}/${sentenceTarget}): ${invalidSentences || lastError}`,
+    );
+  }
+  const sentenceQuality = checkLessonQuality({
+    titleNative: lesson.titleNative,
+    phrases: lesson.sentences ?? [],
+  });
+  if (sentenceQuality.length > 0) {
+    throw new Error(
+      `Sentence quality check failed for ${job.langCode}/${job.categorySlug}:\n` +
+        sentenceQuality.map((q) => `  - ${q}`).join("\n"),
+    );
+  }
   const invalid = validateSeedLesson(lesson, target);
   if (invalid) {
     throw new Error(
@@ -230,7 +290,16 @@ async function main() {
       if (
         !force &&
         existingClean &&
-        validateSeedLesson(existingClean, extendedPhraseCount(cat.slug)) === null
+        validateSeedLesson(existingClean, extendedPhraseCount(cat.slug)) ===
+          null &&
+        // The frozen contract now includes the Plus-only sentence stage: a
+        // lesson whose phrases are complete but whose sentences are missing,
+        // short, or unclean still needs a (sentence-only) generation pass.
+        validateSeedSentences(existingClean, sentenceCount(cat.slug)) === null &&
+        checkLessonQuality({
+          titleNative: existingClean.titleNative,
+          phrases: existingClean.sentences ?? [],
+        }).length === 0
       )
         continue;
       jobs.push({

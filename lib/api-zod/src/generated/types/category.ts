@@ -20,4 +20,8 @@ export interface Category {
   masteredCount: number;
   /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
   lockedPhraseCount: number;
+  /** How many full sentences the topic's Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language. */
+  sentenceCount: number;
+  /** Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences. */
+  sentencesLocked: boolean;
 }

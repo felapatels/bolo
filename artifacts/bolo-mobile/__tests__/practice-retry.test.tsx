@@ -25,6 +25,16 @@ jest.mock('expo-router', () => ({
 jest.mock('@workspace/api-client-react', () => ({
   ApiError: class ApiError extends Error {},
   useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage is idle in these suites (no ?stage=sentences).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
