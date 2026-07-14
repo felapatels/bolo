@@ -1,0 +1,27 @@
+kind = "video"
+previewPath = "/social-clips/"
+title = "Bolo! Social Clips"
+version = "1.0.0"
+id = "artifacts/bolo-social-clips"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/social-clips/" ]
+localPort = 19729
+
+[services.development]
+run = "pnpm --filter @workspace/bolo-social-clips run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bolo-social-clips", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bolo-social-clips/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19729"
+BASE_PATH = "/social-clips/"
