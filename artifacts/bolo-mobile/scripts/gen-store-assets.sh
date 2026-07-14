@@ -253,6 +253,66 @@ for (( i=0; i<${#names[@]}; i+=2 )); do
     -quality 92 "$FRAMED/$base.jpg"
 done
 
+# --- iPhone-sized framed screenshots (App Store Connect) ---------------------
+# Apple requires 6.9" (1320x2868, iPhone 16 Pro Max class) and 6.5"
+# (1242x2688, iPhone 11 Pro Max class) screenshot sets. Reuse the exact same
+# raw 412x824 captures + captions as the Android set, re-framed at Apple's
+# canvas sizes. Output: assets/store/ios/screenshots-6.9/ and screenshots-6.5/.
+IOS_OUT="assets/store/ios"
+
+frame_ios() {
+  local label="$1" cw="$2" ch="$3" pw="$4" ph="$5" py="$6" \
+        capw="$7" capsize="$8" acc_y="$9" cap_y="${10}" brand_y="${11}" outdir="${12}"
+  local px=$(( (cw - pw) / 2 ))
+  mkdir -p "$outdir"
+
+  magick -size ${pw}x${ph} xc:black -fill white \
+    -draw "roundrectangle 0,0 $((pw-1)),$((ph-1)) 64,64" /tmp/bolo-ios-mask.png
+  magick -size ${pw}x${ph} xc:none -fill "#0f172966" \
+    -draw "roundrectangle 0,0 $((pw-1)),$((ph-1)) 64,64" -blur 0x30 /tmp/bolo-ios-shadow.png
+
+  # Brand strip scaled up for the larger canvas
+  magick -density 300 -background none assets/branding/adaptive-icon.svg \
+    -resize 116x116 /tmp/bolo-ios-mark.png
+  magick -background none -fill "$INK" -font "$FONT_BOLD" -pointsize 74 \
+    label:"Bolo!" /tmp/bolo-ios-wordmark.png
+  magick -background none -gravity Center /tmp/bolo-ios-mark.png /tmp/bolo-ios-wordmark.png \
+    +append /tmp/bolo-ios-brand.png
+  magick -size 108x12 xc:none -fill "$TEAL" \
+    -draw "roundrectangle 0,0 107,11 6,6" /tmp/bolo-ios-accent.png
+
+  local i base caption src
+  for (( i=0; i<${#names[@]}; i+=2 )); do
+    base="${names[i]}"
+    caption="${names[i+1]}"
+    src="$RAW/$base.jpg"
+    [ -f "$src" ] || { echo "  skip (missing) $base"; continue; }
+
+    magick "$src" -resize ${pw}x${ph}^ -gravity center -extent ${pw}x${ph} \
+      /tmp/bolo-ios-mask.png -alpha off -compose CopyOpacity -composite \
+      /tmp/bolo-ios-phone.png
+
+    magick -background none -fill "$INK" -font "$FONT_BOLD" -pointsize "$capsize" \
+      -size ${capw}x -gravity center caption:"$caption" /tmp/bolo-ios-caption.png
+
+    # Apple requires RGB screenshots without alpha; JPEG satisfies both.
+    magick -size ${cw}x${ch} gradient:"$CREAM_TOP"-"$MINT_BOT" \
+      /tmp/bolo-ios-shadow.png  -gravity NorthWest -geometry +${px}+$((py+22)) -composite \
+      /tmp/bolo-ios-phone.png   -gravity NorthWest -geometry +${px}+${py}      -composite \
+      /tmp/bolo-ios-accent.png  -gravity North     -geometry +0+${acc_y}       -composite \
+      /tmp/bolo-ios-caption.png -gravity North     -geometry +0+${cap_y}       -composite \
+      /tmp/bolo-ios-brand.png   -gravity North     -geometry +0+${brand_y}     -composite \
+      -quality 92 "$outdir/$base.jpg"
+  done
+  echo "  [$label] $(ls "$outdir" | wc -l) screenshots at ${cw}x${ch}"
+}
+
+#          label  cw    ch    pw   ph    py   capw  capsz accY capY brandY outdir
+frame_ios '6.9"' 1320 2868  900 1800  760  1180   92   356  400   72  "$IOS_OUT/screenshots-6.9"
+frame_ios '6.5"' 1242 2688  860 1720  700  1100   86   330  372   64  "$IOS_OUT/screenshots-6.5"
+
 echo "Wrote:"
 identify -format "  %f  %wx%h\n" "$OUT/play-store-icon.png" "$OUT/feature-graphic.png"
 identify -format "  screenshots-framed/%f  %wx%h\n" "$FRAMED"/*.jpg
+identify -format "  ios/screenshots-6.9/%f  %wx%h\n" "$IOS_OUT/screenshots-6.9"/*.jpg
+identify -format "  ios/screenshots-6.5/%f  %wx%h\n" "$IOS_OUT/screenshots-6.5"/*.jpg
