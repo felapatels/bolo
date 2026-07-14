@@ -34,4 +34,5 @@
 - [Audio generation via ElevenLabs](audio-generation-elevenlabs.md) — media-generation TTS/music callbacks are absent here (and for design subagent); use externalApi__elevenlabs, mind the ~1MB response cap.
 - [Video export audio](video-export-audio.md) — exported clip carries sound only if the recording harness allows autoplay-with-sound; verify runtime playback via headless chromium CDP, use a seek epsilon so linear/export passes stay gapless.
 - [Transliterated-loanword seed guard](loanword-guard.md) — gloss blocklist + phonetic match; allowlist PIE cognates (bharaa/sūnuḥ), blind to mis-glossed loanwords; probe data before growing the list.
+- [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.

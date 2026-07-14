@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { useVideoPlayer } from '@/lib/video';
 import { AnimatePresence } from 'framer-motion';
 
+import SceneCaptions from './SceneCaptions';
 import { Scene1 } from './video_scenes/Scene1';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
@@ -117,6 +118,9 @@ export default function VideoTemplate({
         <AnimatePresence mode="popLayout">
           {SceneComponent && <SceneComponent key={currentSceneKey} />}
         </AnimatePresence>
+
+        {/* VO captions burned in so the spoken line lands with sound off */}
+        <SceneCaptions sceneKey={currentSceneKey} />
       </div>
     </div>
   );
