@@ -1,77 +1,57 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
-// On-screen captions of each clip's voiceover line so the spoken message lands
-// with sound off (most TikTok/Reels viewers watch muted).
-//
-// Timing: each VO's start offset within its clip was measured by
-// cross-correlating the individual VO file against the composite audio mix
-// (vo_roots @8.30s, vo_howitworks @1.00s, vo_languages @12.80s), and the hide
-// time is the VO duration plus a short linger so the line stays readable.
-// Because the composite audio seeks to each scene's canonical start on every
-// scene change (see SCENE_OFFSETS in VideoTemplate), a caption timeline that
-// restarts from 0 on each scene change stays locked to the voiceover across
-// normal looping, manual scene jumps, and scene-lock replays.
+import { SCENE_NARRATION } from './narration';
 
-const VO_CAPTIONS: Record<
-  string,
-  { text: string; showAt: number; hideAt: number; position?: 'top' | 'bottom' }
-> = {
-  roots: {
-    text: "It's never too late to speak your language again.",
-    showAt: 8300, // vo_roots starts 8.30s into clip 1 (VO ~3.4s)
-    hideAt: 12500,
-  },
-  howItWorks: {
-    text: 'Just speak, and get instant feedback on every phrase.',
-    showAt: 1000, // vo_howitworks starts 1.00s into clip 2 (VO ~4.1s)
-    hideAt: 6000,
-  },
-  languages: {
-    text: 'Twenty-two languages. One app. Start speaking today.',
-    showAt: 12800, // vo_languages starts 12.80s into clip 3 (VO ~4.6s)
-    hideAt: 17800,
-    // The CTA build-up fills the center/bottom (headline, Bolo! lockup,
-    // mascot), so this caption sits at the top where the frame stays clear.
-    position: 'top',
-  },
-};
+// On-screen captions of the narration so the clips land with sound off.
+//
+// The caption words and per-scene timing come straight from SCENE_NARRATION
+// (see narration.ts), the single source of truth shared with voiceover
+// regeneration — so the text on screen can never drift from what viewers hear.
+// Segments are revealed at offsets measured from the scene's start. Because the
+// composite audio track re-anchors to each scene's canonical start (see
+// SCENE_OFFSETS in VideoTemplate), a caption timeline that also restarts from 0
+// on each scene change stays locked to the voiceover across the normal loop,
+// manual scene jumps, and the scene-lock replay behavior.
 
 export default function SceneCaptions({ sceneKey }: { sceneKey: string }) {
   const baseKey = sceneKey.replace(/_r[12]$/, '');
-  const caption = VO_CAPTIONS[baseKey];
-  const [visible, setVisible] = useState(false);
+  const caption = SCENE_NARRATION[baseKey];
+  const [index, setIndex] = useState(-1);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    setVisible(false);
+    setHidden(false);
     if (!caption) return;
-    const timers = [
-      setTimeout(() => setVisible(true), caption.showAt),
-      setTimeout(() => setVisible(false), caption.hideAt),
-    ];
+    // Start hidden until the first segment's own offset (VO does not always
+    // begin at the scene start in these clips).
+    setIndex(caption.segments[0]?.at === 0 ? 0 : -1);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    caption.segments.forEach((seg, i) => {
+      if (i === 0 && seg.at === 0) return;
+      timers.push(setTimeout(() => setIndex(i), seg.at));
+    });
+    timers.push(setTimeout(() => setHidden(true), caption.hideAt));
     return () => timers.forEach((t) => clearTimeout(t));
   }, [sceneKey, caption]);
 
   if (!caption) return null;
+  const segment = index >= 0 ? caption.segments[index] : undefined;
 
   return (
-    <div
-      className={`absolute inset-x-0 z-50 flex justify-center px-[8%] pointer-events-none ${
-        caption.position === 'top' ? 'top-[6%]' : 'bottom-[7%]'
-      }`}
-    >
+    <div className="absolute inset-x-0 bottom-[7%] z-50 flex justify-center px-[8vw] pointer-events-none">
       <AnimatePresence mode="wait">
-        {visible && (
+        {!hidden && segment && (
           <motion.p
-            key={baseKey}
+            key={index}
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="max-w-[84%] rounded-2xl bg-black/55 px-6 py-3 text-center text-2xl font-semibold leading-snug text-white shadow-lg backdrop-blur-sm"
+            className="max-w-[82vw] rounded-2xl bg-black/55 px-[3vw] py-[1.6vh] text-center text-[2.5vw] font-semibold leading-snug text-white shadow-lg backdrop-blur-sm"
             style={{ textShadow: '0 1px 3px rgba(0,0,0,0.45)' }}
           >
-            {caption.text}
+            {segment.text}
           </motion.p>
         )}
       </AnimatePresence>

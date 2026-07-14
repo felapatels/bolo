@@ -32,6 +32,7 @@
 - [Store asset font reproducibility](store-asset-font-reproducibility.md) — gen-store-assets.sh must render native scripts from committed fonts (assets/store/fonts), not node_modules; review runs a clean checkout with no pnpm install.
 - [Account settings surface](account-settings-surface.md) — /account routes existed in backend but not openapi.yaml (no client hooks); identity mirror is backfill-only so edit via backend not Clerk-only; dark mode = toggle .dark class (CSS vars already shipped).
 - [Audio generation via ElevenLabs](audio-generation-elevenlabs.md) — media-generation TTS/music callbacks are absent here (and for design subagent); use externalApi__elevenlabs, mind the ~1MB response cap.
+- [Bolo video audio pattern](bolo-video-audio-pattern.md) — composite-track architecture, Jessica VO voice id, remix offsets script, and stem-offset recovery via windowed cross-correlation.
 - [Video export audio](video-export-audio.md) — exported clip carries sound only if the recording harness allows autoplay-with-sound; verify runtime playback via headless chromium CDP, use a seek epsilon so linear/export passes stay gapless.
 - [Transliterated-loanword seed guard](loanword-guard.md) — gloss blocklist + phonetic match; allowlist PIE cognates (bharaa/sūnuḥ), blind to mis-glossed loanwords; probe data before growing the list.
 - [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.

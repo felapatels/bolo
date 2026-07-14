@@ -22,7 +22,7 @@ Stop typing, start speaking. 🗣️ Get instant AI pronunciation feedback on 22
 
 ## Clip 3: Breadth + CTA
 **Caption:** 
-22 official languages. One app. Which one are you learning today? 🇮🇳✨ Link in bio to start speaking!
+22 official languages. One app. Bolo! is the world’s first conversational AI–driven language learning app. Which language are you learning today? 🇮🇳✨ Link in bio to start speaking!
 
 **Hashtags:**
 `#india #languages #polyglot #learngujarati #learnmarathi #learnurdu #learnmalayalam #learnkannada #desiculture #speakbolo`

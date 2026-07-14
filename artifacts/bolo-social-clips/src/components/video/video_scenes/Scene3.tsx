@@ -131,6 +131,17 @@ export function Scene3() {
             <span className="text-white font-bold tracking-[0.2em] text-sm uppercase">ALL 22 OFFICIAL LANGUAGES</span>
           </motion.div>
 
+          {/* Positioning tagline (matches the spoken VO line) */}
+          <motion.p
+            className="text-white/90 font-semibold text-xl leading-snug max-w-xs mb-8 -mt-4"
+            initial={{ y: 20, opacity: 0 }}
+            animate={phase >= 3 ? { y: 0, opacity: 1 } : {}}
+            transition={{ ...SPRING, delay: 0.15 }}
+          >
+            The world&rsquo;s first conversational AI&ndash;driven language
+            learning app.
+          </motion.p>
+
           {/* Main Hook */}
           <motion.h1 
             className="text-6xl font-black text-white mb-8 leading-[1.1] drop-shadow-md"

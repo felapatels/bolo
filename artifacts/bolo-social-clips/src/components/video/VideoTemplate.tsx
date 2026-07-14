@@ -129,7 +129,7 @@ export default function VideoTemplate({
         </AnimatePresence>
 
         {/* VO captions burned in so the spoken line lands with sound off */}
-        <SceneCaptions sceneKey={currentSceneKey} />
+        <SceneCaptions key={currentSceneKey} sceneKey={currentSceneKey} />
       </div>
     </div>
   );
