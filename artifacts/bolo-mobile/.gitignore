@@ -13,10 +13,13 @@ expo-env.d.ts
 ios/
 android/
 
-# ...but keep the Play Store listing assets (the `android/` rule above is only
-# meant to ignore the generated native project dir, not these committed assets).
+# ...but keep the store listing assets (the `android/`/`ios/` rules above are
+# only meant to ignore the generated native project dirs, not these committed
+# assets).
 !assets/store/android/
 !assets/store/android/**
+!assets/store/ios/
+!assets/store/ios/**
 *.orig.*
 
 # Local production build config (real values live in EAS env vars; see
