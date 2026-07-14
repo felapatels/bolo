@@ -387,3 +387,119 @@ test("no native script value contains Latin letters or ASCII digits (loanword/ty
     `Found Latin/ASCII characters in native script values:\n${failures.join("\n")}`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Transliterated English-loanword guard.
+//
+// The Latin-in-native check above only catches an English word that still has
+// Latin letters/digits in it. The far more common defect is an English word
+// *transliterated* into the correct native script — "नर्वस"/nervas for
+// "nervous", "बोर"/bor for "bored" — which is written entirely in the right
+// script and sails past that check, yet teaches a learner the English word
+// dressed up in native letters instead of the language's own term.
+//
+// We catch these with a curated blocklist of glosses that a language app must
+// teach with a *native* word (abstract feelings, everyday concepts — never a
+// borrowed English label), confirmed by a phonetic match between the phrase's
+// romanization and that gloss. The blocklist keeps the check precise: genuine,
+// naturalized loanwords a learner really says (plate, glass, fork, menu) and
+// native dish names English itself borrowed (idli, chapati, sambar) are simply
+// not on it, so they never trip the guard and need no allowlisting.
+//
+// The phonetic confirmation is deliberately lenient because the gloss is
+// already high-signal: a phrase only trips the guard when its romanization
+// actually *sounds like* the blocklisted English word (so a correct native
+// translation of the same gloss is left alone).
+// ---------------------------------------------------------------------------
+
+// English glosses that must be taught with the language's own word, never an
+// English word spelled phonetically in native script. Kept intentionally small
+// and focused on concepts every Indian language has a native term for; add a
+// gloss here only when transliterating it is clearly a defect (a learner should
+// never be taught the English word for a basic feeling or relation).
+const LOANWORD_GLOSS_BLOCKLIST = new Set(
+  ["nervous", "bored", "goodbye", "aunt"].map((g) => g.toLowerCase()),
+);
+
+// Human-reviewed exceptions: lesson label ("<lang>/<category>") → native-script
+// strings a reviewer has confirmed are acceptable there despite matching a
+// blocklisted gloss (e.g. a language that genuinely uses the borrowed word).
+// Keep empty unless a real linguistic reason forces it, and leave a comment.
+const LOANWORD_ALLOWLIST: Record<string, string[]> = {
+  // "बिरागो" (birago) is a genuine native Bodo word for "bored", not English
+  // "bored" transliterated — it follows the same native adjectival pattern as
+  // its neighbours in this lesson ("उरागो"/urago = sad, "अलागो"/alago = lonely,
+  // "लाजो"/lajo = shy). Its consonant skeleton (brg) only coincidentally
+  // resembles "bored" (brd); a real transliteration would be "बोर"/"बोर्ड".
+  "brx/feelings": ["बिरागो"],
+};
+
+// Levenshtein distance — the edit distance used for the phonetic ratio below.
+function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+// Keep only ASCII letters, lowercased — the comparable phonetic core.
+const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+// Drop vowels too: a consonant skeleton, which stays stable across the vowel
+// drift transliteration introduces ("nervous" → "narvas" both reduce to "nrvs").
+const consonants = (s: string) => letters(s).replace(/[aeiou]/g, "");
+const similarity = (a: string, b: string) =>
+  a === "" && b === "" ? 1 : 1 - editDistance(a, b) / Math.max(a.length, b.length);
+
+// True when `romanized` sounds like the English `gloss` — i.e. the native-script
+// phrase is really that English word transliterated, not a native translation.
+function romanizationSoundsLike(romanized: string, gloss: string): boolean {
+  const r = letters(romanized);
+  const g = letters(gloss);
+  if (r === "" || g === "") return false;
+  // Either the full forms are close, or their consonant skeletons match well —
+  // the latter survives the vowel changes transliteration adds.
+  return similarity(r, g) >= 0.55 || similarity(consonants(romanized), consonants(gloss)) >= 0.6;
+}
+
+test("no native script value is a transliterated English loanword (e.g. नर्वस for 'nervous')", () => {
+  const failures: string[] = [];
+
+  for (const [label, lesson] of allSeedLessons) {
+    const allow = new Set((LOANWORD_ALLOWLIST[label] ?? []).map((s) => s.trim()));
+    lesson.phrases.forEach((p, i) => {
+      const native = p.nativeScript.trim();
+      if (allow.has(native)) return;
+      // Tokenise the english gloss so a blocklisted word is caught even inside a
+      // longer phrase ("I feel nervous" → token "nervous").
+      const tokens = p.english.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+      for (const token of tokens) {
+        if (
+          LOANWORD_GLOSS_BLOCKLIST.has(token) &&
+          romanizationSoundsLike(p.romanized, token)
+        ) {
+          failures.push(
+            `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}") is the English loanword "${token}" transliterated — use the native word`,
+          );
+          break;
+        }
+      }
+    });
+  }
+
+  assert.deepEqual(
+    failures,
+    [],
+    `Found transliterated English loanwords in native script values:\n${failures.join("\n")}`,
+  );
+});
