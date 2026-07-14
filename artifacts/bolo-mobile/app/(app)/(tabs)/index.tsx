@@ -14,11 +14,7 @@ import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeInDown,
-  useAnimatedStyle,
   useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withSpring,
 } from 'react-native-reanimated';
 import {
   useListCategories,
@@ -406,33 +402,27 @@ function StatCard({
 }) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
-  const pop = useSharedValue(reduceMotion ? 1 : 0);
 
-  React.useEffect(() => {
-    if (reduceMotion) {
-      pop.value = 1;
-      return;
-    }
-    pop.value = withDelay(
-      120 + index * 90,
-      withSpring(1, { damping: 12, stiffness: 160, mass: 0.6 }),
-    );
-  }, [index, reduceMotion, pop]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: pop.value,
-    transform: [
-      { scale: 0.85 + pop.value * 0.15 },
-      { translateY: (1 - pop.value) * 12 },
-    ],
-  }));
+  // Entrance "pop" — a progressive enhancement implemented as a reanimated
+  // layout animation. Visibility is never gated on it: the card renders at full
+  // opacity in its resting position by default, so if the animation never
+  // commits (e.g. some Expo Go setups where reanimated entrance animations
+  // don't reliably run) the numbers are still shown rather than left
+  // permanently transparent. Reduced-motion users get the static resting card.
+  const entrance = reduceMotion
+    ? undefined
+    : FadeInDown.springify()
+        .damping(12)
+        .stiffness(160)
+        .mass(0.6)
+        .delay(120 + index * 90);
 
   return (
     <Animated.View
+      entering={entrance}
       style={[
         styles.statCard,
         { backgroundColor: colors.card, borderColor: colors.border },
-        animatedStyle,
       ]}
     >
       <View style={[styles.statIcon, { backgroundColor: `${tint}1F` }]}>
