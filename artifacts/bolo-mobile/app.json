@@ -30,7 +30,8 @@
         "backgroundColor": "#fffdf0"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "blockedPermissions": [
         "android.permission.CAMERA",
@@ -71,6 +72,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0a2a4637-2e56-4c10-b98f-36d6b96946e5"
+      }
+    },
+    "owner": "aakeshp"
   }
 }
