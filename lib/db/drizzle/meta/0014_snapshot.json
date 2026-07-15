@@ -1,6 +1,6 @@
 {
-  "id": "07ce2f97-cba4-4934-9def-9016c5e3ff71",
-  "prevId": "1c81a99d-8714-4215-88b2-dee45d84ba6b",
+  "id": "c0de09af-57e4-41b7-963f-a72f6b602331",
+  "prevId": "07ce2f97-cba4-4934-9def-9016c5e3ff71",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1020,6 +1020,185 @@
           "columns": [
             "inviter_id",
             "invitee_email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.family_plans": {
+      "name": "family_plans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "join_code": {
+          "name": "join_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "family_plans_owner_user_id_users_id_fk": {
+          "name": "family_plans_owner_user_id_users_id_fk",
+          "tableFrom": "family_plans",
+          "tableTo": "users",
+          "columnsFrom": [
+            "owner_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "family_plans_owner_user_id_unique": {
+          "name": "family_plans_owner_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_user_id"
+          ]
+        },
+        "family_plans_join_code_unique": {
+          "name": "family_plans_join_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "join_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.family_seats": {
+      "name": "family_seats",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_email": {
+          "name": "invited_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invite_token": {
+          "name": "invite_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "family_seats_plan_id_family_plans_id_fk": {
+          "name": "family_seats_plan_id_family_plans_id_fk",
+          "tableFrom": "family_seats",
+          "tableTo": "family_plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "family_seats_member_user_id_users_id_fk": {
+          "name": "family_seats_member_user_id_users_id_fk",
+          "tableFrom": "family_seats",
+          "tableTo": "users",
+          "columnsFrom": [
+            "member_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "family_seats_invite_token_unique": {
+          "name": "family_seats_invite_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "invite_token"
+          ]
+        },
+        "family_seats_member_user_id_unique": {
+          "name": "family_seats_member_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "member_user_id"
+          ]
+        },
+        "family_seats_plan_email_unique": {
+          "name": "family_seats_plan_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "plan_id",
+            "invited_email"
           ]
         }
       },

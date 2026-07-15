@@ -576,6 +576,40 @@ export interface Friend {
   email: string | null;
 }
 
+export type ContactFormInputCategory = typeof ContactFormInputCategory[keyof typeof ContactFormInputCategory];
+
+
+export const ContactFormInputCategory = {
+  general: 'general',
+  billing: 'billing',
+  technical: 'technical',
+  feedback: 'feedback',
+  other: 'other',
+} as const;
+
+/**
+ * A support message submitted via the Contact Us form.
+ */
+export interface ContactFormInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /** The submitter's email address (validated as a valid email format). */
+  email: string;
+  category: ContactFormInputCategory;
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  message: string;
+}
+
+export interface ContactFormResult {
+  success: boolean;
+}
+
 /**
  * One learner's standing on the friends leaderboard.
  */

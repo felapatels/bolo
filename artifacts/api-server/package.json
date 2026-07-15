@@ -26,7 +26,9 @@
     "http-proxy-middleware": "^4.2.0",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
-    "stripe": "^22.3.1"
+    "resend": "^6.17.2",
+    "stripe": "^22.3.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

@@ -28,6 +28,7 @@ import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
 import Friends from '@/pages/friends';
 import Account from '@/pages/account';
+import Contact from '@/pages/contact';
 import Subscription from '@/pages/subscription';
 import Upgrade from '@/pages/upgrade';
 import Family from '@/pages/family';
@@ -210,6 +211,11 @@ function AppRouter() {
       <Route path="/account">
         <Guard>
           <Account />
+        </Guard>
+      </Route>
+      <Route path="/contact">
+        <Guard>
+          <Contact />
         </Guard>
       </Route>
       <Route path="/account/subscription">

@@ -989,6 +989,49 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 
+  /contact:
+    post:
+      operationId: submitContactForm
+      tags: [account]
+      summary: Submit a support message via the Contact Us form
+      description: >-
+        Saves the message to the contact_submissions table and sends a
+        notification email to the support inbox via Resend. The DB row is always
+        saved; if the email send fails email_sent stays false and the caller still
+        receives { success: true }. Rate-limited to 3 submissions per 10 minutes
+        per user/IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactFormInput"
+      responses:
+        "200":
+          description: Message saved (and notification email sent if configured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactFormResult"
+        "400":
+          description: Validation error (missing field or invalid email/category)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: DB insert failed — message was not saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /openai/tts:
     post:
       operationId: synthesizeSpeech
@@ -2508,6 +2551,38 @@ components:
         - id
         - displayName
         - email
+
+    ContactFormInput:
+      type: object
+      description: A support message submitted via the Contact Us form.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          type: string
+          description: The submitter's email address (validated as a valid email format).
+        category:
+          type: string
+          enum: [general, billing, technical, feedback, other]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+        - name
+        - email
+        - category
+        - message
+
+    ContactFormResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
 
     LeaderboardEntry:
       type: object

@@ -11,3 +11,4 @@ export * from "./friendships";
 export * from "./ttsCache";
 export * from "./friendInvites";
 export * from "./familyPlans";
+export * from "./contactSubmissions";

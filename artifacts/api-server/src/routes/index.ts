@@ -9,6 +9,7 @@ import friendsRouter from "./friends";
 import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
 import familyRouter from "./family";
+import contactRouter from "./contact";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -36,6 +37,8 @@ router.use(accountRouter);
 // Friends & the friends leaderboard stay available to all authenticated
 // learners (not gated behind Bolo! Plus), so this sits before the gated routers.
 router.use(friendsRouter);
+// Contact Us form submissions.
+router.use(contactRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every

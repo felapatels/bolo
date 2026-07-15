@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Mail,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -562,6 +563,22 @@ export default function Account() {
             </div>
             <Map className="h-5 w-5 shrink-0 text-muted-foreground" />
           </button>
+        </Section>
+
+        {/* Contact Us */}
+        <Section icon={Mail} title="Support" subtitle="Get help or send feedback">
+          <Link
+            href="/contact"
+            className="flex w-full items-center justify-between rounded-2xl border border-card-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
+          >
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground">Contact Us</p>
+              <p className="truncate text-sm text-muted-foreground">
+                Send us a message — we reply within a business day.
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </Link>
         </Section>
 
         {/* Sign out */}

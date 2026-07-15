@@ -505,6 +505,17 @@ export default function AccountScreen() {
             />
           </View>
 
+          {/* Support */}
+          <SectionLabel>SUPPORT</SectionLabel>
+          <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <NavRow
+              icon="mail"
+              label="Contact Us"
+              value="Send us a message"
+              onPress={() => router.push('/(app)/account/contact')}
+            />
+          </View>
+
           {/* Sign out */}
           <ChunkyButton
             title="Sign out"

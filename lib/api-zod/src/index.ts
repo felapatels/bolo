@@ -4,3 +4,5 @@
 // path param and a query param, and no consumer imports the TS types from here
 // — the react client package carries its own types. Keep this values-only.
 export * from "./generated/api";
+export * from './generated/api';
+export * from './generated/types';

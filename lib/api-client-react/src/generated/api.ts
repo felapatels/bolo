@@ -32,6 +32,8 @@ import type {
   Category,
   ChatTurnInput,
   ChatTurnResult,
+  ContactFormInput,
+  ContactFormResult,
   CreateFamilyInvite201,
   CreateFamilyInviteBody,
   DeleteAccountResult,
@@ -2782,6 +2784,78 @@ export function useGetFriendsLeaderboard<TData = Awaited<ReturnType<typeof getFr
 
 
 
+
+export const getSubmitContactFormUrl = () => {
+
+
+
+
+  return `/api/contact`
+}
+
+/**
+ * Saves the message to the contact_submissions table and sends a notification email to the support inbox via Resend. The DB row is always saved; if the email send fails email_sent stays false and the caller still receives { success: true }. Rate-limited to 3 submissions per 10 minutes per user/IP.
+ * @summary Submit a support message via the Contact Us form
+ */
+export const submitContactForm = async (contactFormInput: ContactFormInput, options?: RequestInit): Promise<ContactFormResult> => {
+
+  return customFetch<ContactFormResult>(getSubmitContactFormUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(contactFormInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitContactFormMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitContactForm>>, TError,{data: BodyType<ContactFormInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitContactForm>>, TError,{data: BodyType<ContactFormInput>}, TContext> => {
+
+const mutationKey = ['submitContactForm'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitContactForm>>, {data: BodyType<ContactFormInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitContactForm(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitContactFormMutationResult = NonNullable<Awaited<ReturnType<typeof submitContactForm>>>
+    export type SubmitContactFormMutationBody = BodyType<ContactFormInput>
+    export type SubmitContactFormMutationError = ErrorType<Error>
+
+    /**
+ * @summary Submit a support message via the Contact Us form
+ */
+export const useSubmitContactForm = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitContactForm>>, TError,{data: BodyType<ContactFormInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitContactForm>>,
+        TError,
+        {data: BodyType<ContactFormInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitContactFormMutationOptions(options));
+    }
 
 export const getSynthesizeSpeechUrl = () => {
 

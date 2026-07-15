@@ -814,6 +814,28 @@ export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResp
 
 
 /**
+ * Saves the message to the contact_submissions table and sends a notification email to the support inbox via Resend. The DB row is always saved; if the email send fails email_sent stays false and the caller still receives { success: true }. Rate-limited to 3 submissions per 10 minutes per user/IP.
+ * @summary Submit a support message via the Contact Us form
+ */
+export const submitContactFormBodyNameMax = 200;
+
+export const submitContactFormBodyMessageMax = 2000;
+
+
+
+export const SubmitContactFormBody = zod.object({
+  "name": zod.string().min(1).max(submitContactFormBodyNameMax),
+  "email": zod.string().describe('The submitter\'s email address (validated as a valid email format).'),
+  "category": zod.enum(['general', 'billing', 'technical', 'feedback', 'other']),
+  "message": zod.string().min(1).max(submitContactFormBodyMessageMax)
+}).describe('A support message submitted via the Contact Us form.')
+
+export const SubmitContactFormResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary Convert text to spoken audio
  */
 
