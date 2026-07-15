@@ -62,6 +62,10 @@ jest.mock('expo-router', () => {
         React.createElement(View, null, children),
       { Screen: () => null },
     ),
+    // Used by ParrotFAB (added to AppLayout) — return safe no-op stubs so the
+    // layout renders without throwing in the tour-bootstrapper test suite.
+    useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+    usePathname: () => '/',
   };
 });
 
@@ -80,6 +84,12 @@ jest.mock('@/contexts/LanguageContext', () => ({
 
 jest.mock('@/components/ReminderScheduler', () => ({
   ReminderScheduler: () => null,
+}));
+
+// ParrotFAB uses useSafeAreaInsets + usePathname which aren't available in
+// this test environment. This test is about TourBootstrapper, not the FAB.
+jest.mock('@/components/ParrotFAB', () => ({
+  ParrotFAB: () => null,
 }));
 
 // GuidedTour probe: reads from the real TourContext so we observe what
