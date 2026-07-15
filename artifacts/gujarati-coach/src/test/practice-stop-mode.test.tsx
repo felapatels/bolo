@@ -5,9 +5,12 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
-// Guards the stop-mode toggle (manual vs auto-stop on silence) and the visible
-// error states of the evaluation flow: failures must show an actionable
-// message with a retry, never a silent reset to the idle mic button.
+// Guards the visible error states of the evaluation flow: failures must show
+// an actionable message with a retry, never a silent reset.
+//
+// NOTE: The auto/manual stop-mode toggle was removed when hold-to-talk
+// replaced the old mic button. Recording now always uses manual stop —
+// the learner holds the parrot belly to record and releases to submit.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -18,7 +21,6 @@ const h = vi.hoisted(() => ({
   createAttempt: vi.fn(),
   startRecording: vi.fn(),
   stopRecording: vi.fn(),
-  lastStartOptions: undefined as undefined | { onSilence?: () => void },
   MockApiError: class extends Error {
     status: number;
     constructor(status: number) {
@@ -115,7 +117,6 @@ function makeBlob(bytes = 4, type = "audio/webm") {
 beforeEach(() => {
   localStorage.clear();
   audioInstances.length = 0;
-  h.lastStartOptions = undefined;
   h.categoryPhrases = {
     data: [phrase, { ...phrase, id: 11, romanized: "aabhar" }],
     isLoading: false,
@@ -133,81 +134,91 @@ beforeEach(() => {
     evaluationToken: "signed-token",
   });
   h.createAttempt.mockReset().mockResolvedValue({ newlyEarnedBadges: [] });
-  h.startRecording.mockReset().mockImplementation(async (opts?: { onSilence?: () => void }) => {
-    h.lastStartOptions = opts;
-  });
+  h.startRecording.mockReset().mockResolvedValue(undefined);
   h.stopRecording.mockReset().mockResolvedValue(makeBlob());
 });
 
+/** Render the page with silent mode and advance to the idle "Hold to speak" state. */
 async function reachIdle() {
+  localStorage.setItem("bolo.silentMode", "on");
   renderPage(<Practice />);
-  await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
+  await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
+}
+
+/** The belly-zone button (aria-label changes based on recording state). */
+function bellyButton(): HTMLButtonElement {
+  return (
+    document.querySelector('[aria-label="Hold to speak"]') ??
+    document.querySelector('[aria-label="Release to submit"]')
+  ) as HTMLButtonElement;
+}
+
+/** Hold the parrot belly to start recording, then release to trigger evaluation. */
+async function recordAndStop() {
+  const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+  fireEvent.pointerDown(belly);
+  await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
+  // After startRecording resolves the state becomes "recording"; pointerUp ends it.
   await act(async () => {
-    audioInstances[0].onended?.();
+    const releaseTarget =
+      document.querySelector('[aria-label="Release to submit"]') ?? belly;
+    fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
 }
 
-function micButton() {
-  return screen.getByText("Tap, then speak").parentElement!.querySelector("button")!;
-}
-
-describe("stop-mode toggle", () => {
-  test("defaults to auto-stop: silence detection is armed", async () => {
+describe("hold-to-talk recording mechanics", () => {
+  test("hold-to-talk always uses manual stop — startRecording is called with no options", async () => {
     await reachIdle();
-    expect(screen.getByText("Auto-stop")).toBeInTheDocument();
-    fireEvent.click(micButton());
+    const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+    fireEvent.pointerDown(belly);
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    expect(h.lastStartOptions?.onSilence).toBeTypeOf("function");
-    expect(screen.getByText("Listening... stops on its own")).toBeInTheDocument();
+    // No onSilence callback — recording only ends on pointer release.
+    expect(h.startRecording).toHaveBeenCalledWith(undefined);
   });
 
-  test("manual mode disables silence detection and persists the choice", async () => {
+  test("belly zone is visible during idle state", async () => {
     await reachIdle();
-    fireEvent.click(screen.getByText("I'll tap stop"));
-    expect(localStorage.getItem("bolo.stopMode")).toBe("manual");
-
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    expect(h.lastStartOptions).toBeUndefined();
-    expect(screen.getByText("Listening... tap to stop")).toBeInTheDocument();
+    expect(bellyButton()).not.toBeNull();
+    expect(bellyButton().disabled).toBe(false);
   });
 
-  test("a persisted manual preference is restored on mount", async () => {
-    localStorage.setItem("bolo.stopMode", "manual");
-    await reachIdle();
-    expect(screen.getByText("I'll tap stop")).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    expect(h.lastStartOptions).toBeUndefined();
+  test("belly zone is not rendered while coach is speaking (playing_coach)", async () => {
+    renderPage(<Practice />); // silent mode OFF → starts in playing_coach
+    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
+    // During playing_coach the belly zone is hidden.
+    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 
-  test("switching to manual mid-recording disarms a pending auto-stop", async () => {
-    await reachIdle();
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.lastStartOptions?.onSilence).toBeTypeOf("function"));
+  test("quick release before startRecording resolves still triggers evaluation (race condition)", async () => {
+    // Simulate permission latency: startRecording hangs until we resolve it.
+    let resolveStart!: () => void;
+    h.startRecording.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
 
-    fireEvent.click(screen.getByText("I'll tap stop"));
+    await reachIdle();
+
+    const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+
+    // pointerDown triggers startRecording (which is now hanging).
+    fireEvent.pointerDown(belly);
+    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
+
+    // pointerUp fires before startRecording resolves — this is the race.
+    fireEvent.pointerUp(belly);
+
+    // startRecording finally resolves — it should honour the pending release
+    // and call stopRecording → evaluate immediately.
     await act(async () => {
-      h.lastStartOptions!.onSilence!();
+      resolveStart();
     });
-    // Still recording — silence must not have ended the attempt.
-    expect(h.stopRecording).not.toHaveBeenCalled();
-    expect(h.evaluate).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(h.stopRecording).toHaveBeenCalled());
+    await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
   });
 });
 
 describe("evaluation error surfacing", () => {
-  async function recordAndStop() {
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    // Tap the (now stop) button to end the recording manually.
-    const stopBtn = document.querySelector("button.w-28")!;
-    await act(async () => {
-      fireEvent.click(stopBtn);
-    });
-  }
-
   test("a failed scoring request shows an error card with retry, not a silent reset", async () => {
     h.evaluate.mockRejectedValue(new MockApiError(502));
     await reachIdle();
@@ -218,9 +229,9 @@ describe("evaluation error surfacing", () => {
     );
     expect(screen.getByText(/couldn't process that recording/i)).toBeInTheDocument();
 
-    // Retry recovers cleanly back to the mic.
+    // Retry recovers cleanly back to the belly zone.
     fireEvent.click(screen.getByText("Try again"));
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
   });
 
   test("a network failure explains the connection problem", async () => {

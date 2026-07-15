@@ -18,8 +18,8 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mic, Square, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
@@ -33,20 +33,6 @@ import { loadSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
-
-type StopMode = "auto" | "manual";
-
-// The learner's stop-mode choice persists per browser across phrases,
-// lessons, and visits.
-const STOP_MODE_STORAGE_KEY = "bolo.stopMode";
-
-function loadStopMode(): StopMode {
-  try {
-    return localStorage.getItem(STOP_MODE_STORAGE_KEY) === "manual" ? "manual" : "auto";
-  } catch {
-    return "auto";
-  }
-}
 
 // Turns whatever the evaluation pipeline threw into a short, actionable
 // message for the learner.
@@ -65,6 +51,37 @@ function describeEvaluationError(error: unknown): string {
     return "We couldn't reach the server. Check your connection and try again.";
   }
   return "Something went wrong while scoring. Please try again.";
+}
+
+// Pulsing glow ring that appears around the parrot zone while recording.
+function RecordingGlow({ active }: { active: boolean }) {
+  const reduceMotion = useReducedMotion();
+  if (!active) return null;
+  return (
+    <motion.div
+      className="absolute inset-0 rounded-full pointer-events-none"
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={
+        reduceMotion
+          ? { opacity: 1, scale: 1 }
+          : {
+              opacity: [0.5, 1, 0.5],
+              scale: [0.97, 1.03, 0.97],
+              boxShadow: [
+                "0 0 0px 0px hsl(var(--accent) / 0)",
+                "0 0 0px 16px hsl(var(--accent) / 0.35)",
+                "0 0 0px 0px hsl(var(--accent) / 0)",
+              ],
+            }
+      }
+      transition={
+        reduceMotion
+          ? { duration: 0.001 }
+          : { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
+      }
+      aria-hidden="true"
+    />
+  );
 }
 
 export default function Practice({ mode = "category" }: { mode?: "category" | "review" }) {
@@ -129,20 +146,6 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
-  const [stopMode, setStopMode] = useState<StopMode>(loadStopMode);
-  // Read by the recorder's onSilence callback so that switching to manual
-  // mid-recording immediately disarms the pending auto-stop.
-  const stopModeRef = useRef<StopMode>(stopMode);
-
-  const changeStopMode = (mode: StopMode) => {
-    setStopMode(mode);
-    stopModeRef.current = mode;
-    try {
-      localStorage.setItem(STOP_MODE_STORAGE_KEY, mode);
-    } catch {
-      // Persistence is best-effort; the in-session choice still applies.
-    }
-  };
 
   const [silentMode, setSilentMode] = useState<boolean>(loadSilentMode);
   // Read by effects so the current value is always visible inside callbacks.
@@ -155,9 +158,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   // Warm up the microphone as soon as the practice session mounts, so the
-  // record tap starts capturing immediately and the first syllable isn't
+  // first hold starts capturing immediately and the first syllable isn't
   // clipped. If permission is denied here, startRecording surfaces the
-  // existing error message at click time. The hook releases the stream on
+  // existing error message at hold time. The hook releases the stream on
   // unmount.
   useEffect(() => {
     recorder.prepare().catch(() => {});
@@ -280,11 +283,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, result?.feedback, result?.tip]);
 
-  // Prevents a manual stop and an auto-stop from both firing.
+  // Prevents a manual stop and any double-release from both firing.
   const finishingRef = useRef(false);
+  // True once recorder.startRecording() has resolved — lets finishRecording
+  // guard without capturing stale React state in a closure.
+  const isRecordingRef = useRef(false);
+  // True when pointerUp fires before startRecording resolves (quick tap / slow
+  // permission grant). startRecording checks this after it resolves and calls
+  // finishRecording immediately so the release is never silently dropped.
+  const isPendingStopRef = useRef(false);
 
   const finishRecording = useCallback(async () => {
     if (finishingRef.current) return;
+    // Guard via ref, not React state — state may still be "idle" in the closure
+    // if this is called synchronously right after startRecording sets the ref.
+    if (!isRecordingRef.current) return;
+    isRecordingRef.current = false;
     finishingRef.current = true;
     setState("evaluating");
     setEvalError(null);
@@ -373,27 +387,52 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage]);
 
   const startRecording = async () => {
+    if (state !== "idle") return;
+    isPendingStopRef.current = false;
     setEvalError(null);
     try {
-      await recorder.startRecording(
-        // In manual mode silence detection stays off entirely — recording
-        // only ends when the learner taps stop.
-        stopMode === "auto"
-          ? {
-              onSilence: () => {
-                // The learner may have flipped to manual after recording
-                // began; in that case silence must not end the recording.
-                if (stopModeRef.current !== "auto") return;
-                void finishRecording();
-              },
-              silenceDurationMs: 1600,
-            }
-          : undefined,
-      );
+      // Hold-to-talk always uses manual stop — the learner releases their
+      // finger to finish, so silence detection is not needed.
+      await recorder.startRecording(undefined);
+      isRecordingRef.current = true;
       setState("recording");
+      // Race: if the learner released before startRecording resolved (quick tap
+      // or slow permission grant), honour that release immediately now.
+      if (isPendingStopRef.current) {
+        void finishRecording();
+      }
     } catch {
       setEvalError("We couldn't access your microphone. Allow mic access in your browser, then try again.");
       setState("error");
+    }
+  };
+
+  const handleBellyPointerDown = (e: React.PointerEvent) => {
+    // Capture the pointer so pointerup fires on this element even if the
+    // learner's finger drifts off it slightly.
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // setPointerCapture is unavailable in some test/jsdom environments.
+    }
+    void startRecording();
+  };
+
+  const handleBellyPointerUp = () => {
+    if (isRecordingRef.current) {
+      void finishRecording();
+    } else {
+      // Recording hasn't started yet — flag it so startRecording stops
+      // immediately once the recorder resolves (quick-tap / permission lag).
+      isPendingStopRef.current = true;
+    }
+  };
+
+  const handleBellyPointerCancel = () => {
+    if (isRecordingRef.current) {
+      void finishRecording();
+    } else {
+      isPendingStopRef.current = true;
     }
   };
 
@@ -537,17 +576,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ? "thinking"
           : "thumbsup";
 
+  // The belly zone is interactive only when the learner can actually record.
+  const bellyActive = state === "idle" || state === "recording";
+
   return (
     <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
       <Confetti active={showConfetti} />
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
-      <header className="mx-auto w-full max-w-2xl px-6 py-4 flex items-center justify-between">
-        <Link href={backHref} className="text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-8 h-8" />
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className="mx-auto w-full max-w-2xl px-4 py-3 flex items-center justify-between gap-3 shrink-0">
+        <Link href={backHref} className="text-muted-foreground hover:text-foreground shrink-0">
+          <ArrowLeft className="w-7 h-7" />
         </Link>
-        <div className="flex-1 px-6">
-          <div className="h-3 bg-muted rounded-full overflow-hidden">
+        <div className="flex-1">
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
             <motion.div 
               className="h-full bg-secondary rounded-full"
               initial={{ width: 0 }}
@@ -556,211 +599,281 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             />
           </div>
         </div>
-        <div className="font-bold text-muted-foreground">{currentIndex + 1}/{phrases.length}</div>
+        <div className="font-bold text-sm text-muted-foreground shrink-0">{currentIndex + 1}/{phrases.length}</div>
+        {/* Silent mode toggle lives in the header so it stays accessible */}
+        <button
+          onClick={() => changeSilentMode(!silentMode)}
+          aria-pressed={silentMode}
+          title={silentMode ? "Silent mode on — tap to hear the coach first" : "Tap to skip the coach voice"}
+          className={cn(
+            "shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all",
+            silentMode
+              ? "bg-secondary text-white shadow-sm"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {silentMode ? (
+            <VolumeX className="w-4 h-4" />
+          ) : (
+            <Volume2 className="w-4 h-4" />
+          )}
+        </button>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-6 pb-8">
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={phrase?.id}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col justify-center"
-          >
-            <div className="flex justify-center mb-2">
-              <Mascot
-                pose={mascotPose}
-                size={92}
-                idle={state === "result" && (result?.score ?? 0) >= 80 ? "cheer" : "float"}
-              />
-            </div>
+      <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-4 pb-4 min-h-0">
 
-            <div className="bg-white rounded-[2rem] p-8 text-center shadow-sm border border-card-border relative">
-              <button 
+        {/* ── Phrase card ─────────────────────────────────────────────────── */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={phrase?.id}
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={springs.snappy}
+            className="shrink-0 bg-white rounded-2xl border border-card-border shadow-sm overflow-hidden"
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              {/* Play-again button */}
+              <button
                 onClick={playAgain}
                 disabled={state === "recording" || state === "evaluating"}
-                className="absolute -top-6 left-1/2 -translate-x-1/2 w-14 h-14 bg-secondary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 disabled:opacity-50 transition-all"
+                aria-label="Hear the phrase again"
+                className="shrink-0 w-11 h-11 bg-secondary text-white rounded-full flex items-center justify-center shadow-md active:scale-95 disabled:opacity-40 transition-all"
               >
-                <Volume2 className="w-7 h-7" />
+                <Volume2 className="w-5 h-5" />
               </button>
-              
-              <div className="pt-6 space-y-6">
-                <h2 className="text-6xl font-extrabold text-foreground leading-tight tracking-tight" style={native.style} dir={native.dir}>
+
+              <div className="flex-1 min-w-0">
+                <h2
+                  className="text-3xl font-extrabold text-foreground leading-tight tracking-tight truncate"
+                  style={native.style}
+                  dir={native.dir}
+                >
                   {phrase?.nativeScript}
                 </h2>
-                <div className="space-y-2">
-                  <p className="text-primary font-bold text-2xl tracking-wide">{phrase?.romanized}</p>
-                  <p className="text-muted-foreground text-lg">{phrase?.english}</p>
-                </div>
+                <p className="text-primary font-bold text-base leading-tight">{phrase?.romanized}</p>
+                <p className="text-muted-foreground text-sm leading-tight">{phrase?.english}</p>
               </div>
             </div>
-
-            {state === "error" && evalError && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-white rounded-3xl p-6 border border-destructive/30 shadow-sm text-center"
-                role="alert"
-              >
-                <p className="text-2xl font-black mb-2 text-destructive">Oops, that didn't work</p>
-                <p className="text-foreground font-medium text-lg leading-snug">{evalError}</p>
-              </motion.div>
-            )}
-
-            {state === "result" && result && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-white rounded-3xl p-6 border border-card-border shadow-sm text-center"
-              >
-                <p className={cn(
-                  "text-2xl font-black mb-2",
-                  result.score >= 80 ? "text-success" :
-                  result.score >= 60 ? "text-primary" :
-                  "text-foreground"
-                )}>
-                  {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
-                </p>
-                <div className={cn(
-                  "inline-block px-4 py-1 rounded-full font-black text-xl mb-4",
-                  result.score >= 80 ? "bg-success/20 text-success" : 
-                  result.score >= 60 ? "bg-primary/20 text-primary" : 
-                  "bg-destructive/20 text-destructive"
-                )}>
-                  Score: {Math.round(result.score)}
-                </div>
-                <p className="text-foreground font-medium text-lg leading-snug mb-3">"{result.feedback}"</p>
-                {result.tip && (
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-xl">Tip: {result.tip}</p>
-                )}
-                {saveFailed && (
-                  <p className="mt-3 text-sm text-destructive font-medium">
-                    Heads up — this attempt couldn't be saved to your progress.
-                  </p>
-                )}
-              </motion.div>
-            )}
           </motion.div>
         </AnimatePresence>
 
-        <div className="mt-auto pt-8 flex flex-col items-center">
-          {state === "error" ? (
-            <button
-              onClick={handleErrorRetry}
-              className="w-full max-w-sm bg-primary text-primary-foreground font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-            >
-              <RefreshCcw className="w-6 h-6" /> Try again
-            </button>
-          ) : state === "result" ? (
-            <div className="w-full flex gap-4">
-              <button 
-                onClick={handleRetry}
-                className="flex-1 bg-white text-foreground border-2 border-border font-bold text-lg py-5 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <RefreshCcw className="w-6 h-6" /> Retry
-              </button>
-              <button 
-                onClick={handleNext}
-                className="flex-1 bg-primary text-primary-foreground font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-              >
-                Next <ArrowRight className="w-6 h-6" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                {state === "evaluating" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 rounded-full backdrop-blur-sm">
-                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                  </div>
-                )}
+        {/* ── Parrot zone ──────────────────────────────────────────────────── */}
+        {/*
+          The parrot takes all remaining vertical space. The belly hit zone is
+          an absolutely-positioned transparent button on the lower-center of the
+          image area so the interaction feels spatially tied to the character.
+        */}
+        <div className="flex-1 relative flex flex-col items-center justify-center min-h-0 mt-1">
+          {/* Parrot image */}
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Glow ring while recording */}
+            <motion.div
+              className="absolute inset-[10%] rounded-full pointer-events-none"
+              animate={
+                state === "recording"
+                  ? {
+                      boxShadow: [
+                        "0 0 0px 0px hsl(var(--accent) / 0)",
+                        "0 0 0px 24px hsl(var(--accent) / 0.3)",
+                        "0 0 0px 0px hsl(var(--accent) / 0)",
+                      ],
+                      opacity: [0.6, 1, 0.6],
+                    }
+                  : { boxShadow: "0 0 0px 0px hsl(var(--accent) / 0)", opacity: 0 }
+              }
+              transition={
+                state === "recording"
+                  ? { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.3 }
+              }
+              aria-hidden="true"
+            />
 
-                <button 
-                  onClick={state === "recording" ? finishRecording : startRecording}
-                  disabled={state === "playing_coach" || state === "evaluating"}
-                  className={cn(
-                    "w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 disabled:opacity-50",
-                    state === "recording" 
-                      ? "bg-accent scale-110 shadow-[0_0_40px_hsl(var(--accent)/0.5)] animate-pulse" 
-                      : "bg-primary active:scale-95 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
-                  )}
-                >
-                  {state === "recording" ? (
-                    <Square className="w-10 h-10 text-white fill-current" />
-                  ) : (
-                    <Mic className="w-12 h-12 text-white" />
-                  )}
-                </button>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mascotPose}
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{
+                  opacity: state === "evaluating" ? 0.55 : 1,
+                  scale: state === "recording" ? 1.04 : 1,
+                }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={springs.snappy}
+                className="w-full h-full"
+              >
+                <Mascot
+                  pose={mascotPose}
+                  fill
+                  idle={state === "result" && (result?.score ?? 0) >= 80 ? "cheer" : "float"}
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Evaluating spinner — centred over the belly zone */}
+            {state === "evaluating" && (
+              <div className="absolute bottom-[18%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
+                <Loader2 className="w-10 h-10 animate-spin text-primary drop-shadow-lg" />
               </div>
+            )}
 
+            {/* Belly hit zone — lower-center of the parrot image area */}
+            {bellyActive && (
+              <div
+                className="absolute"
+                style={{
+                  bottom: "10%",
+                  left: "20%",
+                  right: "20%",
+                  height: "38%",
+                }}
+              >
+                <button
+                  onPointerDown={handleBellyPointerDown}
+                  onPointerUp={handleBellyPointerUp}
+                  onPointerLeave={handleBellyPointerUp}
+                  onPointerCancel={handleBellyPointerCancel}
+                  disabled={!bellyActive}
+                  aria-label={state === "recording" ? "Release to submit" : "Hold to speak"}
+                  style={{ touchAction: "none" }}
+                  className="w-full h-full rounded-[40%] bg-transparent cursor-pointer select-none focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ── Instruction label ───────────────────────────────────────── */}
+          <div className="shrink-0 h-12 flex items-center justify-center mt-1">
+            <AnimatePresence mode="wait">
               {state === "idle" && (
-                <p className="text-center text-muted-foreground font-bold mt-6 uppercase tracking-widest text-sm">
-                  Tap, then speak
-                </p>
+                <motion.p
+                  key="hold-to-speak"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={springs.snappy}
+                  className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs"
+                >
+                  Hold to speak
+                </motion.p>
               )}
               {state === "recording" && (
-                <div className="mt-6 flex flex-col items-center gap-2">
-                  <SoundWavePulse className="text-accent" size={26} bars={7} />
-                  <p className="text-center text-accent font-bold uppercase tracking-widest text-sm">
-                    {stopMode === "auto" ? "Listening... stops on its own" : "Listening... tap to stop"}
+                <motion.div
+                  key="listening"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={springs.snappy}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <SoundWavePulse className="text-accent" size={22} bars={7} />
+                  <p className="text-center text-accent font-bold uppercase tracking-widest text-xs">
+                    Listening…
                   </p>
+                </motion.div>
+              )}
+              {state === "playing_coach" && (
+                <motion.p
+                  key="listen-first"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={springs.snappy}
+                  className="text-center text-muted-foreground font-medium text-sm"
+                >
+                  Listen first…
+                </motion.p>
+              )}
+              {state === "evaluating" && (
+                <motion.p
+                  key="evaluating"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={springs.snappy}
+                  className="text-center text-muted-foreground font-medium text-sm"
+                >
+                  Scoring…
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* ── Bottom panel: result / error / action buttons ────────────── */}
+        {(state === "result" || state === "error") && (
+            <motion.div
+              initial={{ opacity: 0, y: 32 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={springs.bouncy}
+              className="shrink-0 space-y-3 mt-2"
+            >
+              {state === "error" && evalError && (
+                <div
+                  className="bg-white rounded-2xl p-4 border border-destructive/30 shadow-sm text-center"
+                  role="alert"
+                >
+                  <p className="text-lg font-black mb-1 text-destructive">Oops, that didn't work</p>
+                  <p className="text-foreground font-medium text-sm leading-snug">{evalError}</p>
                 </div>
               )}
-            </div>
-          )}
 
-          {(state === "idle" || state === "recording" || state === "playing_coach") && (
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              <div
-                className="inline-flex items-center rounded-full bg-muted p-1"
-                role="group"
-                aria-label="How recording stops"
-              >
-                <button
-                  onClick={() => changeStopMode("auto")}
-                  aria-pressed={stopMode === "auto"}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                    stopMode === "auto" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+              {state === "result" && result && (
+                <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
+                  <p className={cn(
+                    "text-xl font-black mb-1",
+                    result.score >= 80 ? "text-success" :
+                    result.score >= 60 ? "text-primary" :
+                    "text-foreground"
+                  )}>
+                    {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
+                  </p>
+                  <div className={cn(
+                    "inline-block px-3 py-0.5 rounded-full font-black text-base mb-2",
+                    result.score >= 80 ? "bg-success/20 text-success" : 
+                    result.score >= 60 ? "bg-primary/20 text-primary" : 
+                    "bg-destructive/20 text-destructive"
+                  )}>
+                    Score: {Math.round(result.score)}
+                  </div>
+                  <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
+                  {result.tip && (
+                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>
                   )}
-                >
-                  Auto-stop
-                </button>
-                <button
-                  onClick={() => changeStopMode("manual")}
-                  aria-pressed={stopMode === "manual"}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                    stopMode === "manual" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                  {saveFailed && (
+                    <p className="mt-2 text-xs text-destructive font-medium">
+                      Heads up — this attempt couldn't be saved to your progress.
+                    </p>
                   )}
-                >
-                  I'll tap stop
-                </button>
-              </div>
+                </div>
+              )}
 
-              <button
-                onClick={() => changeSilentMode(!silentMode)}
-                aria-pressed={silentMode}
-                title={silentMode ? "Silent mode on — tap to hear the coach first" : "Tap to skip the coach voice"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                  silentMode
-                    ? "bg-secondary text-white shadow-sm"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {silentMode ? (
-                  <VolumeX className="w-3.5 h-3.5" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5" />
-                )}
-                {silentMode ? "Silent" : "Hear it first"}
-              </button>
-            </div>
+              {/* Action buttons */}
+              {state === "error" ? (
+                <button
+                  onClick={handleErrorRetry}
+                  className="w-full bg-primary text-primary-foreground font-black text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+                >
+                  <RefreshCcw className="w-5 h-5" /> Try again
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleRetry}
+                    className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <RefreshCcw className="w-5 h-5" /> Retry
+                  </button>
+                  <button 
+                    onClick={handleNext}
+                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+                  >
+                    Next <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </motion.div>
           )}
-        </div>
       </main>
     </div>
   );

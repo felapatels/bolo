@@ -25,11 +25,18 @@ export function Mascot({
   size = 96,
   idle = "float",
   className,
+  fill = false,
 }: {
   pose: MascotPose;
   size?: number;
   idle?: IdleMotion;
   className?: string;
+  /**
+   * When true, the mascot stretches to fill its parent container (width/height
+   * 100%). Use this when you want the parrot to scale with a flex/grid cell.
+   * The `size` prop is ignored when `fill` is true.
+   */
+  fill?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const src = MASCOT_BASE + POSE_SRC[pose];
@@ -44,7 +51,7 @@ export function Mascot({
       key={pose}
       {...entrance}
       className={cn("relative select-none", className)}
-      style={{ width: size, height: size }}
+      style={fill ? { width: "100%", height: "100%" } : { width: size, height: size }}
       aria-hidden="true"
     >
       <motion.img

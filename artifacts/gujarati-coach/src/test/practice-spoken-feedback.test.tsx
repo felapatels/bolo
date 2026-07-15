@@ -134,25 +134,24 @@ beforeEach(() => {
   h.stopRecording.mockReset().mockResolvedValue(makeBlob());
 });
 
+/** Render in silent mode and wait for the belly zone to appear. */
 async function reachIdle() {
+  localStorage.setItem("bolo.silentMode", "on");
   renderPage(<Practice />);
-  await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-  await act(async () => {
-    audioInstances[0].onended?.();
-  });
-  await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+  );
 }
 
-function micButton() {
-  return screen.getByText("Tap, then speak").parentElement!.querySelector("button")!;
-}
-
+/** Hold parrot belly to record, then release to submit and await the score. */
 async function recordAndScore() {
-  fireEvent.click(micButton());
+  const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+  fireEvent.pointerDown(belly);
   await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-  const stopBtn = document.querySelector("button.w-28")!;
   await act(async () => {
-    fireEvent.click(stopBtn);
+    const releaseTarget =
+      document.querySelector('[aria-label="Release to submit"]') ?? belly;
+    fireEvent.pointerUp(releaseTarget);
   });
   await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
 }
@@ -162,7 +161,7 @@ describe("spoken feedback after scoring", () => {
     await reachIdle();
     await recordAndScore();
 
-    await waitFor(() => expect(h.synth).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(h.synth).toHaveBeenCalledTimes(1));
     expect(h.synth).toHaveBeenLastCalledWith({
       data: { text: "Nice work on that greeting! Soften the t sound." },
     });
@@ -177,7 +176,8 @@ describe("spoken feedback after scoring", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    // Only the target-phrase playback happened.
-    expect(h.synth).toHaveBeenCalledTimes(1);
+    // In silent mode, no coach playback happens either — synth should be
+    // called 0 times total.
+    expect(h.synth).toHaveBeenCalledTimes(0);
   });
 });

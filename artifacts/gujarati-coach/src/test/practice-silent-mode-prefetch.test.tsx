@@ -111,10 +111,15 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
   return render(<Router hook={hook}>{ui}</Router>);
 }
 
-// The mic button sits inside the same container as "Tap, then speak" (idle) or
-// appears as the big round button (playing_coach / evaluating).
-function micButton(): HTMLButtonElement {
-  return document.querySelector("button.w-28") as HTMLButtonElement;
+/**
+ * The belly-zone button. Its aria-label toggles between "Hold to speak" (idle)
+ * and "Release to submit" (recording). Returns whichever is currently rendered.
+ */
+function bellyButton(): HTMLButtonElement {
+  return (
+    document.querySelector('[aria-label="Hold to speak"]') ??
+    document.querySelector('[aria-label="Release to submit"]')
+  ) as HTMLButtonElement;
 }
 
 beforeEach(() => {
@@ -160,7 +165,7 @@ async function renderSilent() {
   renderPage(<Practice />);
   // In silent mode the page skips playing_coach and goes straight to idle.
   await waitFor(() =>
-    expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+    expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
   );
 }
 
@@ -174,8 +179,35 @@ async function renderNormal() {
     audioInstances[0].onended?.();
   });
   await waitFor(() =>
-    expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+    expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
   );
+}
+
+/** Hold belly → wait for startRecording → release → wait for score. */
+async function scoreAndNext() {
+  fireEvent.pointerDown(bellyButton());
+  await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
+  await act(async () => {
+    const releaseTarget =
+      document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
+    fireEvent.pointerUp(releaseTarget);
+  });
+  // Wait for result screen.
+  await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+  // Tap "Next".
+  fireEvent.click(screen.getByText("Next"));
+}
+
+/** Hold belly → wait for startRecording → release → wait for score. */
+async function scorePhrase() {
+  fireEvent.pointerDown(bellyButton());
+  await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
+  await act(async () => {
+    const releaseTarget =
+      document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
+    fireEvent.pointerUp(releaseTarget);
+  });
+  await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +221,7 @@ describe("silent mode — initial load", () => {
     // The coach synthesizer must NOT have been called for the first phrase yet:
     // we never entered playing_coach.
     await waitFor(() =>
-      expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
     );
     // synth may later be called for prefetch of phrase N+1, but NOT for phrase0
     // in the playing_coach path (the audio element is never created for it).
@@ -207,8 +239,8 @@ describe("silent mode — initial load", () => {
     expect(h.synth).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ text: phrase0.nativeScript }) }),
     );
-    // State only reaches idle once the audio finishes.
-    expect(screen.queryByText("Tap, then speak")).not.toBeInTheDocument();
+    // State only reaches idle once the audio finishes — belly zone not shown yet.
+    expect(screen.queryByText("Hold to speak")).not.toBeInTheDocument();
   });
 });
 
@@ -216,26 +248,13 @@ describe("silent mode — initial load", () => {
 // Silent mode: Next
 // ---------------------------------------------------------------------------
 describe("silent mode — next phrase", () => {
-  async function scoreAndNext() {
-    // Record & stop to get a score.
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    await act(async () => {
-      fireEvent.click(micButton());
-    });
-    // Wait for result screen.
-    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
-    // Tap "Next".
-    fireEvent.click(screen.getByText("Next"));
-  }
-
   test("with silent mode ON, advancing to the next phrase skips playing_coach", async () => {
     await renderSilent();
     await scoreAndNext();
 
     // Should land on idle for phrase1 directly.
     await waitFor(() =>
-      expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
     );
     // No Audio element created for phrase1's coach playback.
     const phrase1CoachCalls = h.synth.mock.calls.filter(
@@ -252,8 +271,8 @@ describe("silent mode — next phrase", () => {
 
     // Coach audio for phrase1 must start.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    // We are in playing_coach — mic is disabled.
-    expect(micButton().disabled).toBe(true);
+    // We are in playing_coach — belly zone is hidden (not idle/recording).
+    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
   });
 });
 
@@ -261,15 +280,6 @@ describe("silent mode — next phrase", () => {
 // Silent mode: Retry
 // ---------------------------------------------------------------------------
 describe("silent mode — retry", () => {
-  async function scorePhrase() {
-    fireEvent.click(micButton());
-    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    await act(async () => {
-      fireEvent.click(micButton());
-    });
-    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
-  }
-
   test("with silent mode ON, retry skips playing_coach", async () => {
     await renderSilent();
     await scorePhrase();
@@ -282,7 +292,7 @@ describe("silent mode — retry", () => {
 
     // Should land back at idle without playing coach audio.
     await waitFor(() =>
-      expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
     );
     // synth must NOT have been called for the coach-playback path on retry.
     // (It may still run for prefetch of phrase1, so filter for phrase0.)
@@ -306,37 +316,46 @@ describe("silent mode — retry", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Mic-button disabled states
+// Belly zone disabled states
 // ---------------------------------------------------------------------------
-describe("mic button disabled states", () => {
-  test("mic is enabled in idle state", async () => {
+describe("belly zone availability", () => {
+  test("belly zone is enabled in idle state", async () => {
     await renderSilent();
-    expect(micButton().disabled).toBe(false);
+    const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+    expect(belly).not.toBeNull();
+    expect(belly.disabled).toBe(false);
   });
 
-  test("mic is disabled while the coach is playing (playing_coach)", async () => {
+  test("belly zone is not rendered while the coach is playing (playing_coach)", async () => {
     renderPage(<Practice />); // silent mode OFF
     // Coach audio kicks off — we're in playing_coach before onended fires.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    expect(micButton().disabled).toBe(true);
+    // Belly zone is hidden during playing_coach.
+    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 
-  test("mic is disabled while evaluation is in flight (evaluating)", async () => {
+  test("belly zone is not rendered while evaluation is in flight (evaluating)", async () => {
     // Make evaluate hang so we can assert while it's in progress.
     let resolveEval!: (v: unknown) => void;
     h.evaluate.mockReturnValue(new Promise((res) => { resolveEval = res; }));
 
     await renderSilent();
-    fireEvent.click(micButton());
+    fireEvent.pointerDown(bellyButton());
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
 
-    // Stop recording to kick off evaluation.
+    // Release to kick off evaluation.
     await act(async () => {
-      fireEvent.click(micButton());
+      const releaseTarget =
+        document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
+      fireEvent.pointerUp(releaseTarget);
     });
 
-    // While evaluate is pending the button must be disabled.
-    await waitFor(() => expect(micButton().disabled).toBe(true));
+    // While evaluate is pending the belly zone must be hidden.
+    await waitFor(() => {
+      expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+      expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
+    });
 
     // Clean up: resolve so the component settles.
     await act(async () => {
@@ -373,7 +392,7 @@ describe("audio prefetch", () => {
     localStorage.setItem("bolo.silentMode", "on");
     renderPage(<Practice />);
     await waitFor(() =>
-      expect(screen.getByText("Tap, then speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
     );
 
     // Allow any microtask-queued effects to settle.
@@ -401,11 +420,15 @@ describe("audio prefetch", () => {
     await act(async () => {
       audioInstances[0].onended?.(); // finish coach for phrase0 → idle
     });
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
 
-    fireEvent.click(micButton());
+    fireEvent.pointerDown(bellyButton());
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    await act(async () => { fireEvent.click(micButton()); });
+    await act(async () => {
+      const releaseTarget =
+        document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
+      fireEvent.pointerUp(releaseTarget);
+    });
     await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
 
     // Reset synth call count so we can count only what happens during phrase1's

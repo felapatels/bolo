@@ -5,9 +5,14 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
-// Drives the real Practice page through a full record -> result cycle to guard
-// the retry flow: hitting Retry on the result card must return through the
-// coach-playback state so the phrase is spoken again before re-recording.
+// Drives the real Practice page through a full hold-to-talk record -> result
+// cycle to guard the retry flow: hitting Retry on the result card must return
+// through the coach-playback state so the phrase is spoken again before
+// re-recording.
+//
+// NOTE: The old auto-stop / onSilence pattern was removed when hold-to-talk
+// replaced the mic button. Recording now always uses manual stop —
+// pointerDown on the belly starts recording, pointerUp ends it.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -16,7 +21,6 @@ const h = vi.hoisted(() => ({
   synth: vi.fn(),
   evaluate: vi.fn(),
   createAttempt: vi.fn(),
-  onSilence: null as null | (() => void),
   silentMode: false,
 }));
 
@@ -45,12 +49,11 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
     state: "idle",
-    startRecording: vi.fn(async (opts?: { onSilence?: () => void }) => {
-      h.onSilence = opts?.onSilence ?? null;
-    }),
+    startRecording: vi.fn(async () => {}),
     stopRecording: vi.fn(async () => ({
-      arrayBuffer: async () => new ArrayBuffer(0),
+      size: 4,
       type: "audio/webm",
+      arrayBuffer: async () => new ArrayBuffer(4),
     })),
     abortRecording: vi.fn(),
     prepare: vi.fn().mockResolvedValue(undefined),
@@ -115,7 +118,6 @@ const phrase2 = { id: 11, nativeScript: "આભાર", romanized: "aabhar", eng
 
 beforeEach(() => {
   audioInstances.length = 0;
-  h.onSilence = null;
   h.silentMode = false;
   h.categoryPhrases = {
     data: [phrase, phrase2],
@@ -142,6 +144,28 @@ const coachCalls = () =>
     (c) => (c[0] as any)?.data?.text === phrase.nativeScript,
   ).length;
 
+/** The belly-zone button — aria-label reflects current recording state. */
+function bellyButton(): HTMLButtonElement {
+  return (
+    document.querySelector('[aria-label="Hold to speak"]') ??
+    document.querySelector('[aria-label="Release to submit"]')
+  ) as HTMLButtonElement;
+}
+
+/** Hold belly to record, then release to submit. */
+async function holdAndRelease() {
+  const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+  fireEvent.pointerDown(belly);
+  // Wait for startRecording to resolve and state to flip to "recording".
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="Release to submit"]')).not.toBeNull(),
+  );
+  await act(async () => {
+    const releaseTarget = document.querySelector('[aria-label="Release to submit"]') as HTMLButtonElement;
+    fireEvent.pointerUp(releaseTarget);
+  });
+}
+
 async function driveToResult() {
   renderPage(<Practice />);
 
@@ -154,12 +178,13 @@ async function driveToResult() {
     audioInstances[0].onended?.();
   });
 
-  // Record, then let the silence detector finish the attempt.
-  fireEvent.click(screen.getByText("Tap, then speak").parentElement!.querySelector("button")!);
-  await waitFor(() => expect(h.onSilence).not.toBeNull());
-  await act(async () => {
-    h.onSilence!();
-  });
+  // Wait for the belly zone to appear (idle state).
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+  );
+
+  // Hold and release the belly to record and submit.
+  await holdAndRelease();
 
   await waitFor(() => expect(screen.getByText("Retry")).toBeInTheDocument());
 }
@@ -178,7 +203,8 @@ describe("web practice retry", () => {
     // is gone.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(audioCountBefore));
     expect(coachCalls()).toBe(1);
-    expect(screen.queryByText(/Score:/)).not.toBeInTheDocument();
+    // AnimatePresence may keep the card mounted briefly during exit; wait for it.
+    await waitFor(() => expect(screen.queryByText(/Score:/)).not.toBeInTheDocument());
     // Still the same phrase.
     expect(screen.getByText("namaste")).toBeInTheDocument();
   });
@@ -189,7 +215,7 @@ describe("web practice retry", () => {
     fireEvent.click(screen.getByText("Next"));
 
     await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
-    expect(screen.queryByText(/Score:/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Score:/)).not.toBeInTheDocument());
   });
 });
 
@@ -199,8 +225,10 @@ describe("web practice silent mode", () => {
     renderPage(<Practice />);
 
     // In silent mode the component skips playing_coach and goes straight to
-    // idle — "Tap, then speak" appears without any synth call.
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    // idle — "Hold to speak" appears without any synth call.
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
     expect(coachCalls()).toBe(0);
     expect(audioInstances.length).toBe(0);
   });
@@ -210,24 +238,24 @@ describe("web practice silent mode", () => {
     renderPage(<Practice />);
 
     // Wait for idle (no coach audio).
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
 
     // Drive through a recording attempt to reach the result card.
-    fireEvent.click(screen.getByText("Tap, then speak").parentElement!.querySelector("button")!);
-    await waitFor(() => expect(h.onSilence).not.toBeNull());
-    await act(async () => { h.onSilence!(); });
+    await holdAndRelease();
     await waitFor(() => expect(screen.getByText("Retry")).toBeInTheDocument());
 
     // Retry in silent mode → straight to idle, no new audio.
     const audioCountBeforeRetry = audioInstances.length;
     fireEvent.click(screen.getByText("Retry"));
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
     expect(audioInstances.length).toBe(audioCountBeforeRetry);
 
     // Drive another attempt to reach the result card again, then test Next.
-    fireEvent.click(screen.getByText("Tap, then speak").parentElement!.querySelector("button")!);
-    await waitFor(() => expect(h.onSilence).not.toBeNull());
-    await act(async () => { h.onSilence!(); });
+    await holdAndRelease();
     await waitFor(() => expect(screen.getByText("Next")).toBeInTheDocument());
 
     const audioCountBeforeNext = audioInstances.length;
@@ -248,7 +276,9 @@ describe("web practice silent mode", () => {
     // Finish playback → idle. The prefetch for phrase 2 (different nativeScript)
     // may fire here, but coachCalls() must remain 1 (phrase 1 only).
     await act(async () => { audioInstances[0].onended?.(); });
-    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
 
     expect(coachCalls()).toBe(1);
   });
