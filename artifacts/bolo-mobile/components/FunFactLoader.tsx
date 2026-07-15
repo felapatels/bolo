@@ -13,7 +13,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { useAppear } from '@/lib/entrance';
 import { useColors } from '@/hooks/useColors';
 import { pickFunFact } from '@/lib/funFacts';
 
@@ -28,13 +28,17 @@ export function FunFactLoader({ size = 'large', color, style }: Props) {
   // Picked once per mount: these loaders mount for the duration of a single
   // loading state, so the fact should stay put rather than shuffle mid-wait.
   const [fact] = React.useState(() => pickFunFact());
+  // Drop the entrance animation in Expo Go and when the user has Reduce Motion
+  // enabled — both cases leave views stuck at the animation's initial state
+  // (opacity 0), so we fall back to rendering the text directly in place.
+  const factEntering = useAppear(FadeInDown.duration(450).delay(150));
 
   return (
     <View style={[styles.wrap, style]}>
       <ActivityIndicator size={size} color={color ?? colors.primary} />
       {fact ? (
         <Animated.View
-          entering={appear(FadeInDown.duration(450).delay(150))}
+          entering={factEntering}
           style={styles.factWrap}
         >
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
