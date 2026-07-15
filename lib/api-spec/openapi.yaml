@@ -1047,11 +1047,17 @@ components:
           description: >-
             IANA time zone (e.g. "America/Los_Angeles") used to bucket practice
             into local calendar days for streaks, or null (falls back to UTC).
+        hasCompletedTour:
+          type: boolean
+          description: >-
+            Whether the learner has completed (or explicitly skipped) the
+            onboarding tour. Defaults to false for new and existing users.
       required:
         - activeLanguage
         - dailyGoal
         - theme
         - timezone
+        - hasCompletedTour
 
     AccountPreferences:
       type: object
@@ -1278,6 +1284,8 @@ components:
         timezone:
           type: string
           nullable: true
+        hasCompletedTour:
+          type: boolean
 
     DeleteAccountResult:
       type: object

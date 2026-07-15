@@ -506,6 +506,10 @@ function mergePrefs(
       theme: patch.theme ?? base.learning.theme,
       timezone:
         patch.timezone !== undefined ? patch.timezone : base.learning.timezone,
+      hasCompletedTour:
+        patch.hasCompletedTour !== undefined
+          ? patch.hasCompletedTour
+          : base.learning.hasCompletedTour,
     },
   };
 }

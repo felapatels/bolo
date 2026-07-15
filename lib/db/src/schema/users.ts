@@ -67,6 +67,10 @@ export const usersTable = pgTable("users", {
   timezone: text("timezone"),
   dailyGoal: integer("daily_goal").notNull().default(10),
   theme: text("theme").notNull().default("system"),
+  // Whether the learner has completed (or explicitly skipped) the onboarding
+  // tour. Defaults to false so first-time users see the tour; the web and
+  // mobile scaffold tasks flip this to true on completion/skip.
+  hasCompletedTour: boolean("has_completed_tour").notNull().default(false),
   // Stripe customer id, created on first checkout so a returning learner reuses
   // the same customer (and so the billing portal has someone to open for).
   // Independent of `subscriptionProviderId` above, which records the

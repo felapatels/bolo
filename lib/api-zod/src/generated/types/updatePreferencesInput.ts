@@ -17,4 +17,5 @@ export interface UpdatePreferencesInput {
   dailyGoal?: number;
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
+  hasCompletedTour?: boolean;
 }

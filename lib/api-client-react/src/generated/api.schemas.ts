@@ -38,6 +38,8 @@ export interface AccountLearningPreferences {
   theme: string;
   /** IANA time zone (e.g. "America/Los_Angeles") used to bucket practice into local calendar days for streaks, or null (falls back to UTC). */
   timezone: string | null;
+  /** Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users. */
+  hasCompletedTour: boolean;
 }
 
 export interface AccountPreferences {
@@ -152,6 +154,7 @@ export interface UpdatePreferencesInput {
   dailyGoal?: number;
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
+  hasCompletedTour?: boolean;
 }
 
 export interface DeleteAccountResult {

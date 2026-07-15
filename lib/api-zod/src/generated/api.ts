@@ -397,7 +397,8 @@ export const GetAccountResponse = zod.object({
   "activeLanguage": zod.string().nullable().describe('The language code the learner is actively studying, or null.'),
   "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
-  "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).')
+  "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
+  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.')
 })
 }),
   "subscription": zod.object({
@@ -451,7 +452,8 @@ export const UpdateAccountPreferencesBody = zod.object({
   "activeLanguage": zod.string().nullish(),
   "dailyGoal": zod.number().optional(),
   "theme": zod.enum(['system', 'light', 'dark']).optional(),
-  "timezone": zod.string().nullish()
+  "timezone": zod.string().nullish(),
+  "hasCompletedTour": zod.boolean().optional()
 }).describe('Any subset of the notification and learning preferences.')
 
 export const UpdateAccountPreferencesResponse = zod.object({
@@ -464,7 +466,8 @@ export const UpdateAccountPreferencesResponse = zod.object({
   "activeLanguage": zod.string().nullable().describe('The language code the learner is actively studying, or null.'),
   "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
-  "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).')
+  "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
+  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.')
 })
 })
 })

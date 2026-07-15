@@ -86,6 +86,7 @@ function preferencesOf(user: User) {
       dailyGoal: user.dailyGoal,
       theme: user.theme,
       timezone: user.timezone,
+      hasCompletedTour: user.hasCompletedTour,
     },
   };
 }
@@ -327,6 +328,14 @@ export function createAccountRouter(
           return;
         }
         set.timezone = tz as string | null;
+      }
+
+      if ("hasCompletedTour" in body) {
+        if (typeof body.hasCompletedTour !== "boolean") {
+          res.status(400).json({ error: "hasCompletedTour must be a boolean" });
+          return;
+        }
+        set.hasCompletedTour = body.hasCompletedTour;
       }
 
       if (Object.keys(set).length === 0) {
