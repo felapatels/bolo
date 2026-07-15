@@ -225,15 +225,30 @@ export async function textToSpeechStream(
   })();
 }
 
-/** Speech-to-Text using gpt-4o-mini-transcribe. */
+export interface SpeechToTextOptions {
+  /** ISO-639-1 language code hint (e.g. "gu", "hi"). Improves accuracy for
+   * short utterances in less-common languages. */
+  language?: string;
+  /** Context prompt (e.g. the phrase the speaker is attempting). Steers the
+   * transcriber's vocabulary without forcing the output. */
+  prompt?: string;
+  /** Use the larger transcription model — worth it when the fast model
+   * returned nothing or something wildly divergent. */
+  highQuality?: boolean;
+}
+
+/** Speech-to-Text using gpt-4o-mini-transcribe (or gpt-4o-transcribe). */
 export async function speechToText(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: "wav" | "mp3" | "webm" = "wav",
+  options: SpeechToTextOptions = {}
 ): Promise<string> {
   const file = await toFile(audioBuffer, `audio.${format}`);
   const response = await openai.audio.transcriptions.create({
     file,
-    model: "gpt-4o-mini-transcribe",
+    model: options.highQuality ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe",
+    ...(options.language ? { language: options.language } : {}),
+    ...(options.prompt ? { prompt: options.prompt } : {}),
   });
   return response.text;
 }

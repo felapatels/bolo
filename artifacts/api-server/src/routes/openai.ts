@@ -15,6 +15,11 @@ import {
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
+import {
+  applyScoreGuards,
+  compareToTarget,
+  isEffectivelyEmpty,
+} from "../lib/pronunciationGuards";
 
 const router: IRouter = Router();
 
@@ -93,18 +98,50 @@ router.post(
     }
     const language = languageName?.trim() || "the target language";
 
+    // Hint the transcriber with the language and the phrase being attempted:
+    // this dramatically stabilizes transcripts of short words in less-common
+    // languages, where the model otherwise guesses a random near-homophone.
+    const sttOptions = {
+      ...(languageCode ? { language: languageCode } : {}),
+      prompt: `A language learner is practicing the ${language} phrase "${targetNative}" (romanized: "${targetRomanized}"). Transcribe what they actually say, even if it differs from that phrase.`,
+    };
+
     let transcript = "";
     try {
       const rawBuffer = Buffer.from(audioBase64, "base64");
       const { buffer, format } = await ensureCompatibleFormat(rawBuffer);
-      transcript = (await speechToText(buffer, format)).trim();
+      transcript = (await speechToText(buffer, format, sttOptions)).trim();
+
+      // Second pass with the higher-quality model when the fast pass heard
+      // nothing or something wildly unlike the target — cheap insurance
+      // against failing a good attempt on a transcription quirk.
+      const firstLooksBad =
+        isEffectivelyEmpty(transcript) ||
+        (() => {
+          const cmp = compareToTarget(transcript, targetNative, targetRomanized);
+          return cmp.comparable && cmp.sim <= 0.25;
+        })();
+      if (firstLooksBad) {
+        const retry = (
+          await speechToText(buffer, format, { ...sttOptions, highQuality: true })
+        ).trim();
+        if (!isEffectivelyEmpty(retry)) {
+          // Keep whichever transcript is closer to the target; ties go to the
+          // higher-quality pass.
+          const a = compareToTarget(transcript, targetNative, targetRomanized);
+          const b = compareToTarget(retry, targetNative, targetRomanized);
+          if (isEffectivelyEmpty(transcript) || !a.comparable || b.sim >= a.sim) {
+            transcript = retry;
+          }
+        }
+      }
     } catch (err) {
       req.log.error({ err }, "Speech-to-text failed");
       res.status(502).json({ error: "Could not understand the recording" });
       return;
     }
 
-    if (!transcript) {
+    if (isEffectivelyEmpty(transcript)) {
       const feedback =
         "I couldn't hear anything that time! Tap the button and say it nice and clear.";
       res.json({
@@ -137,7 +174,23 @@ router.post(
         messages: [
           {
             role: "system",
-            content: `You are a warm, chatty, super-encouraging ${language} pronunciation coach for a learner. They hear the target phrase, repeat it aloud, and speech-to-text gives you a rough transcript of what they said. The transcript may be imperfect or written in another script, so judge generously by SOUND, not spelling. Compare the learner's attempt to the target phrase and score how close the pronunciation is from 0 to 100 (80+ means they nailed it). Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`,
+            content: `You are a warm, chatty, super-encouraging ${language} pronunciation coach for a learner. They hear the target phrase, repeat it aloud, and speech-to-text gives you a rough transcript of what they said. The transcript may be imperfect or written in another script, so judge by SOUND, not spelling: mentally sound out both the target and the transcript and compare the sounds.
+
+Score with this rubric, weighing three things:
+1. Phoneme match (most important): how many of the target's consonant and vowel sounds appear, in order, in the attempt. Romanization or script differences that sound the same do NOT count as errors (e.g. "chho"/"cho", aspiration spelled differently, a Devanagari transcript of the same sounds).
+2. Syllable count and structure: same number of syllables in the same order.
+3. Stress and vowel length: right syllable emphasized, long vowels kept long.
+
+Score bands (be consistent — the same transcript quality must land in the same band every time):
+- 90-100: all sounds present and in order; at most one tiny vowel-quality slip.
+- 80-89: recognizably the target phrase; one small sound off or one vowel-length/stress slip. 80+ means they nailed it.
+- 60-79: clearly attempting the target; one syllable or a couple of sounds wrong or missing.
+- 40-59: some overlap with the target, but multiple sounds or syllables wrong.
+- 10-39: mostly a different word or phrase.
+- 0-9: unrelated speech or noise.
+For very short targets (1-2 syllables), apply the same bands per-sound — do not fail an attempt over a single ambiguous transcription character, and do not pass an attempt that is a different word.
+
+Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`,
           },
           {
             role: "user",
@@ -154,12 +207,44 @@ router.post(
         tip?: string;
       };
 
-      const score = Math.max(
+      const llmScore = Math.max(
         0,
         Math.min(100, Math.round(Number(result.score ?? 0))),
       );
-      const passed =
-        typeof result.passed === "boolean" ? result.passed : score >= 80;
+      const llmPassed =
+        typeof result.passed === "boolean" ? result.passed : llmScore >= 80;
+
+      // Deterministic guardrails: a near-exact phonetic match can't fail, and
+      // a transcript that matches a *different* catalog phrase can't pass.
+      let otherPhrases: Array<{ nativeScript: string; romanized: string }> = [];
+      if (resolvedPhraseId != null && languageCode) {
+        try {
+          otherPhrases = (
+            await db.query.phrasesTable.findMany({
+              where: eq(phrasesTable.languageCode, languageCode),
+              columns: { id: true, nativeScript: true, romanized: true },
+              limit: 400,
+            })
+          ).filter((p) => p.id !== resolvedPhraseId);
+        } catch (err) {
+          req.log.warn({ err }, "Could not load sibling phrases for guardrails");
+        }
+      }
+      const guarded = applyScoreGuards({
+        score: llmScore,
+        passed: llmPassed,
+        transcript,
+        targetNative,
+        targetRomanized,
+        otherPhrases,
+      });
+      if (guarded.guard) {
+        req.log.info(
+          { guard: guarded.guard, llmScore, score: guarded.score },
+          "Pronunciation guardrail adjusted the LLM score",
+        );
+      }
+      const { score, passed } = guarded;
       const feedback =
         result.feedback ??
         "Nice effort! Keep practicing and you'll get it even better.";

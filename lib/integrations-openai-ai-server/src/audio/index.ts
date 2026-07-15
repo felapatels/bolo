@@ -9,5 +9,6 @@ export {
   textToSpeech,
   textToSpeechStream,
   speechToText,
+  type SpeechToTextOptions,
   speechToTextStream,
 } from "./client";
