@@ -236,14 +236,16 @@ export default function SubscriptionScreen() {
 
   const onManage = async () => {
     const managementUrl = details?.paymentMethod?.managementUrl ?? null;
-    const opened =
-      details?.provider === 'stripe'
-        ? await openWebBillingPortal(managementUrl)
-        : await openStoreSubscriptions(managementUrl);
+    const isStripe = details?.provider === 'stripe';
+    const opened = isStripe
+      ? await openWebBillingPortal(managementUrl)
+      : await openStoreSubscriptions(managementUrl);
     if (!opened) {
       Alert.alert(
         'Nothing to open',
-        `We couldn’t open ${storeName()} on this device.`,
+        isStripe
+          ? 'We couldn’t open the Bolo! website on this device.'
+          : `We couldn’t open ${storeName()} on this device.`,
       );
     }
   };
@@ -447,6 +449,7 @@ function PlanState({
 }) {
   const colors = useColors();
   const paid = isPaidPlan(details);
+  const isStripe = details.provider === 'stripe';
 
   if (!paid) {
     return (
@@ -552,7 +555,7 @@ function PlanState({
 
       <View style={styles.actions}>
         <ChunkyButton
-          title={`Manage in ${storeName()}`}
+          title={isStripe ? 'Manage on the Bolo! website' : `Manage in ${storeName()}`}
           icon="external-link"
           variant="secondary"
           onPress={onManage}
@@ -779,7 +782,9 @@ function RetentionModal({
           <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
             {canDiscount || canPause
               ? 'Keep your streak going with one of these instead.'
-              : `You’ll finish canceling in ${storeName()}. You keep access until your current period ends.`}
+              : inApp
+                ? `You’ll finish canceling in ${storeName()}. You keep access until your current period ends.`
+                : 'You’ll manage or cancel on the Bolo! website. You keep access until your current period ends.'}
           </Text>
 
           {canDiscount ? (
