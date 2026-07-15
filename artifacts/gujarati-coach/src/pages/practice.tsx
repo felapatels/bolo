@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mic, Square, Volume2, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Mic, Square, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { Confetti } from "@/components/ui/confetti";
@@ -30,7 +30,7 @@ import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-sta
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback } from "@/lib/spoken-feedback";
-import { loadSilentMode } from "@/lib/silent-mode";
+import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
@@ -144,6 +144,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
   };
 
+  const [silentMode, setSilentMode] = useState<boolean>(loadSilentMode);
+  // Read by effects so the current value is always visible inside callbacks.
+  const silentModeRef = useRef<boolean>(silentMode);
+
+  const changeSilentMode = (enabled: boolean) => {
+    setSilentMode(enabled);
+    silentModeRef.current = enabled;
+    saveSilentMode(enabled);
+  };
+
   // Warm up the microphone as soon as the practice session mounts, so the
   // record tap starts capturing immediately and the first syllable isn't
   // clipped. If permission is denied here, startRecording surfaces the
@@ -170,7 +180,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         if (idx >= 0) setCurrentIndex(idx);
       }
       // In silent mode skip the coach voice and go straight to recording.
-      setState(loadSilentMode() ? "idle" : "playing_coach");
+      setState(silentModeRef.current ? "idle" : "playing_coach");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrases, state]);
@@ -178,7 +188,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Prefetch the next phrase's audio while the learner is on the current one
   // so advancing feels instant. Best-effort — failures are silently swallowed.
   useEffect(() => {
-    if (loadSilentMode()) return;
+    if (silentModeRef.current) return;
     const nextPhrase = phrases?.[currentIndex + 1];
     if (!nextPhrase || coachAudioCacheRef.current.has(nextPhrase.id)) return;
 
@@ -398,7 +408,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     if (phrases && currentIndex < phrases.length - 1) {
       setCurrentIndex(c => c + 1);
       // In silent mode skip the coach voice and go straight to recording.
-      setState(loadSilentMode() ? "idle" : "playing_coach");
+      setState(silentMode ? "idle" : "playing_coach");
     } else {
       setState("summary");
     }
@@ -410,7 +420,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // Return through the coach playback so the learner hears the model
     // pronunciation again before re-recording. In silent mode, skip straight
     // to idle so the mic is available immediately.
-    setState(loadSilentMode() ? "idle" : "playing_coach");
+    setState(silentMode ? "idle" : "playing_coach");
   };
 
   const playAgain = () => {
@@ -702,30 +712,51 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           )}
 
           {(state === "idle" || state === "recording" || state === "playing_coach") && (
-            <div
-              className="mt-6 inline-flex items-center rounded-full bg-muted p-1"
-              role="group"
-              aria-label="How recording stops"
-            >
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <div
+                className="inline-flex items-center rounded-full bg-muted p-1"
+                role="group"
+                aria-label="How recording stops"
+              >
+                <button
+                  onClick={() => changeStopMode("auto")}
+                  aria-pressed={stopMode === "auto"}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                    stopMode === "auto" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                  )}
+                >
+                  Auto-stop
+                </button>
+                <button
+                  onClick={() => changeStopMode("manual")}
+                  aria-pressed={stopMode === "manual"}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                    stopMode === "manual" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                  )}
+                >
+                  I'll tap stop
+                </button>
+              </div>
+
               <button
-                onClick={() => changeStopMode("auto")}
-                aria-pressed={stopMode === "auto"}
+                onClick={() => changeSilentMode(!silentMode)}
+                aria-pressed={silentMode}
+                title={silentMode ? "Silent mode on — tap to hear the coach first" : "Tap to skip the coach voice"}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                  stopMode === "auto" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                  "inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                  silentMode
+                    ? "bg-secondary text-white shadow-sm"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
-                Auto-stop
-              </button>
-              <button
-                onClick={() => changeStopMode("manual")}
-                aria-pressed={stopMode === "manual"}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                  stopMode === "manual" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+                {silentMode ? (
+                  <VolumeX className="w-3.5 h-3.5" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5" />
                 )}
-              >
-                I'll tap stop
+                {silentMode ? "Silent" : "Hear it first"}
               </button>
             </div>
           )}
