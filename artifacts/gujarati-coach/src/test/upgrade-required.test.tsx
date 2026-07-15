@@ -24,7 +24,7 @@ vi.mock("@/lib/language-context", () => ({
     setActiveLang: vi.fn(),
     isLoading: false,
   }),
-  useNativeText: () => ({ style: {}, dir: "ltr" as const }),
+  useNativeText: () => ({ style: {}, dir: "ltr" as const, isNastaliq: false }),
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 

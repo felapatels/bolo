@@ -71,7 +71,13 @@ export function LanguagePicker() {
                 <div className="min-w-0">
                   <span
                     className={cn(
-                      "block text-xl font-bold leading-tight truncate",
+                      "block text-xl font-bold",
+                      // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
+                      // vertically — leading-tight clips them. Give them
+                      // relaxed overflow instead of clipping.
+                      native.isNastaliq
+                        ? "overflow-visible"
+                        : "leading-tight truncate",
                       locked ? "text-muted-foreground" : "text-foreground",
                     )}
                     style={native.style}

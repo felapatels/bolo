@@ -195,19 +195,34 @@ export function useLanguage(): LanguageContextValue {
 // Returns style + dir props to render text in the active language's own script
 // (correct font + right-to-left for Perso-Arabic scripts). Spread onto any
 // element that shows native-script text.
-export function useNativeText(): { style: CSSProperties; dir: "rtl" | "ltr" } {
+export function useNativeText(): { style: CSSProperties; dir: "rtl" | "ltr"; isNastaliq: boolean } {
   const { activeLanguage } = useLanguage();
   return nativeTextProps(activeLanguage);
+}
+
+// Nastaliq-script glyphs cascade vertically and need extra line-height.
+// Kashmiri (ks), Urdu (ur), and Sindhi (sd) all use Noto Nastaliq Urdu.
+function isNastaliqFont(fontFamily: string | undefined): boolean {
+  return fontFamily?.toLowerCase().includes("nastaliq") ?? false;
 }
 
 export function nativeTextProps(language: Language | undefined): {
   style: CSSProperties;
   dir: "rtl" | "ltr";
+  /** True for Kashmiri, Urdu, Sindhi — Nastaliq glyphs need extra vertical room. */
+  isNastaliq: boolean;
 } {
+  const nastaliq = isNastaliqFont(language?.fontFamily);
   return {
     style: language
-      ? { fontFamily: `'${language.fontFamily}', 'Noto Sans', sans-serif` }
+      ? {
+          fontFamily: `'${language.fontFamily}', 'Noto Sans', sans-serif`,
+          // Nastaliq glyphs cascade far below the baseline; 2× line-height
+          // prevents them from being clipped or overlapping the row below.
+          ...(nastaliq ? { lineHeight: "2" } : {}),
+        }
       : {},
     dir: language?.rtl ? "rtl" : "ltr",
+    isNastaliq: nastaliq,
   };
 }

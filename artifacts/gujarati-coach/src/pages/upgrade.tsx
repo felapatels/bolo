@@ -383,7 +383,14 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                       >
                         <div className="min-w-0">
                           <span
-                            className="block text-lg font-bold leading-tight truncate text-foreground"
+                            className={cn(
+                              "block text-lg font-bold text-foreground",
+                              // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
+                              // vertically — leading-tight clips them.
+                              native.isNastaliq
+                                ? "overflow-visible"
+                                : "leading-tight truncate",
+                            )}
                             style={native.style}
                             dir={native.dir}
                           >
