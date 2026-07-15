@@ -203,11 +203,12 @@ describe("Leaderboard", () => {
     expect(screen.getByText("240")).toBeInTheDocument();
   });
 
-  test("renders a spinner while loading", () => {
+  test("renders a fun-fact loader while loading", () => {
     h.leaderboard = loadingQuery();
-    const { container } = renderFriends(<Friends />);
+    renderFriends(<Friends />);
 
-    expect(container.querySelector(".animate-spin")).not.toBeNull();
+    // SectionLoader now shows an India fun fact instead of a bare spinner.
+    expect(screen.getByText("Did you know?")).toBeInTheDocument();
     expect(
       screen.queryByText("Your leaderboard is waiting"),
     ).not.toBeInTheDocument();

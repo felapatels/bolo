@@ -36,6 +36,7 @@ import {
   Clock,
   Mail,
 } from "lucide-react";
+import { FunFactSectionLoader } from "@/components/fun-fact-loader";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
@@ -695,11 +696,7 @@ function FriendsList() {
 /* ---------------------------- Shared states ----------------------------- */
 
 function SectionLoader() {
-  return (
-    <div className="flex justify-center py-10 text-secondary">
-      <Loader2 className="h-8 w-8 animate-spin" />
-    </div>
-  );
+  return <FunFactSectionLoader />;
 }
 
 function EmptyState({
