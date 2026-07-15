@@ -30,6 +30,7 @@ import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-sta
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback } from "@/lib/spoken-feedback";
+import { loadSilentMode } from "@/lib/silent-mode";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
@@ -168,10 +169,37 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         const idx = phrases.findIndex(p => p.id === parseInt(startPhraseId, 10));
         if (idx >= 0) setCurrentIndex(idx);
       }
-      setState("playing_coach");
+      // In silent mode skip the coach voice and go straight to recording.
+      setState(loadSilentMode() ? "idle" : "playing_coach");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrases, state]);
+
+  // Prefetch the next phrase's audio while the learner is on the current one
+  // so advancing feels instant. Best-effort — failures are silently swallowed.
+  useEffect(() => {
+    if (loadSilentMode()) return;
+    const nextPhrase = phrases?.[currentIndex + 1];
+    if (!nextPhrase || coachAudioCacheRef.current.has(nextPhrase.id)) return;
+
+    let cancelled = false;
+    synthesize
+      .mutateAsync({ data: { text: nextPhrase.nativeScript, languageName: activeLanguage?.name } })
+      .then((res) => {
+        if (!cancelled) {
+          coachAudioCacheRef.current.set(nextPhrase.id, {
+            audioBase64: res.audioBase64,
+            format: res.format,
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, phrases]);
 
   // Handle coach playing
   useEffect(() => {
@@ -369,7 +397,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     setShowConfetti(false);
     if (phrases && currentIndex < phrases.length - 1) {
       setCurrentIndex(c => c + 1);
-      setState("playing_coach");
+      // In silent mode skip the coach voice and go straight to recording.
+      setState(loadSilentMode() ? "idle" : "playing_coach");
     } else {
       setState("summary");
     }
@@ -379,8 +408,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     setResult(null);
     setShowConfetti(false);
     // Return through the coach playback so the learner hears the model
-    // pronunciation again before re-recording.
-    setState("playing_coach");
+    // pronunciation again before re-recording. In silent mode, skip straight
+    // to idle so the mic is available immediately.
+    setState(loadSilentMode() ? "idle" : "playing_coach");
   };
 
   const playAgain = () => {

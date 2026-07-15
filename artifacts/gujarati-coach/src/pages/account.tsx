@@ -56,6 +56,7 @@ import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
+import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -127,6 +128,14 @@ export default function Account() {
   function handleChangeSpokenFeedback(enabled: boolean) {
     setSpokenFeedback(enabled);
     saveSpokenFeedback(enabled);
+  }
+
+  // Device-local practice preference: whether the coach's voice is skipped
+  // before recording begins. When on, the mic is available immediately.
+  const [silentMode, setSilentMode] = useState(loadSilentMode);
+  function handleChangeSilentMode(enabled: boolean) {
+    setSilentMode(enabled);
+    saveSilentMode(enabled);
   }
 
   // Profile form — seeded from the account snapshot once it loads.
@@ -493,6 +502,22 @@ export default function Account() {
               id="spokenFeedback"
               checked={spokenFeedback}
               onCheckedChange={handleChangeSpokenFeedback}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="silentMode" className="text-base">
+                Silent mode
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Skip the coach's voice and start recording immediately.
+              </p>
+            </div>
+            <Switch
+              id="silentMode"
+              checked={silentMode}
+              onCheckedChange={handleChangeSilentMode}
             />
           </div>
 

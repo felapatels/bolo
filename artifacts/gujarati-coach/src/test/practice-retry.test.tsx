@@ -17,6 +17,13 @@ const h = vi.hoisted(() => ({
   evaluate: vi.fn(),
   createAttempt: vi.fn(),
   onSilence: null as null | (() => void),
+  silentMode: false,
+}));
+
+vi.mock("@/lib/silent-mode", () => ({
+  loadSilentMode: () => h.silentMode,
+  saveSilentMode: vi.fn(),
+  SILENT_MODE_STORAGE_KEY: "bolo.silentMode",
 }));
 
 vi.mock("@/lib/language-context", () => ({
@@ -102,11 +109,16 @@ const phrase = {
   english: "hello",
 };
 
+// Second phrase has a distinct nativeScript so prefetch calls for it are not
+// counted by coachCalls() (which filters on phrase.nativeScript).
+const phrase2 = { id: 11, nativeScript: "આભાર", romanized: "aabhar", english: "thank you" };
+
 beforeEach(() => {
   audioInstances.length = 0;
   h.onSilence = null;
+  h.silentMode = false;
   h.categoryPhrases = {
-    data: [phrase, { ...phrase, id: 11, romanized: "aabhar" }],
+    data: [phrase, phrase2],
     isLoading: false,
     isError: false,
     error: null,
@@ -178,5 +190,66 @@ describe("web practice retry", () => {
 
     await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
     expect(screen.queryByText(/Score:/)).not.toBeInTheDocument();
+  });
+});
+
+describe("web practice silent mode", () => {
+  test("Silent mode ON: mic is available immediately without waiting for coach audio", async () => {
+    h.silentMode = true;
+    renderPage(<Practice />);
+
+    // In silent mode the component skips playing_coach and goes straight to
+    // idle — "Tap, then speak" appears without any synth call.
+    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    expect(coachCalls()).toBe(0);
+    expect(audioInstances.length).toBe(0);
+  });
+
+  test("Silent mode ON: Retry and Next also skip coach playback", async () => {
+    h.silentMode = true;
+    renderPage(<Practice />);
+
+    // Wait for idle (no coach audio).
+    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+
+    // Drive through a recording attempt to reach the result card.
+    fireEvent.click(screen.getByText("Tap, then speak").parentElement!.querySelector("button")!);
+    await waitFor(() => expect(h.onSilence).not.toBeNull());
+    await act(async () => { h.onSilence!(); });
+    await waitFor(() => expect(screen.getByText("Retry")).toBeInTheDocument());
+
+    // Retry in silent mode → straight to idle, no new audio.
+    const audioCountBeforeRetry = audioInstances.length;
+    fireEvent.click(screen.getByText("Retry"));
+    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+    expect(audioInstances.length).toBe(audioCountBeforeRetry);
+
+    // Drive another attempt to reach the result card again, then test Next.
+    fireEvent.click(screen.getByText("Tap, then speak").parentElement!.querySelector("button")!);
+    await waitFor(() => expect(h.onSilence).not.toBeNull());
+    await act(async () => { h.onSilence!(); });
+    await waitFor(() => expect(screen.getByText("Next")).toBeInTheDocument());
+
+    const audioCountBeforeNext = audioInstances.length;
+    fireEvent.click(screen.getByText("Next"));
+    await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
+    expect(audioInstances.length).toBe(audioCountBeforeNext);
+    expect(coachCalls()).toBe(0);
+  });
+
+  test("Silent mode OFF: prefetch does not speak the current phrase a second time", async () => {
+    h.silentMode = false;
+    renderPage(<Practice />);
+
+    // Coach plays phrase 1 once.
+    await waitFor(() => expect(coachCalls()).toBe(1));
+    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
+
+    // Finish playback → idle. The prefetch for phrase 2 (different nativeScript)
+    // may fire here, but coachCalls() must remain 1 (phrase 1 only).
+    await act(async () => { audioInstances[0].onended?.(); });
+    await waitFor(() => expect(screen.getByText("Tap, then speak")).toBeInTheDocument());
+
+    expect(coachCalls()).toBe(1);
   });
 });
