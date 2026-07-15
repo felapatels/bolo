@@ -62,7 +62,12 @@ jest.mock('@/lib/audio', () => ({
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
-  playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
+  // Call onDone immediately so coachPlaying resets; lets the record button
+  // become enabled in tests without requiring a real playback event loop.
+  playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
+    onDone?.();
+    return { stop: jest.fn() };
+  }),
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
@@ -151,8 +156,12 @@ beforeEach(async () => {
 
 async function recordToResult() {
   render(<PracticeScreen />);
-  // Coach model auto-plays for the fresh phrase.
-  await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
+  // Coach model auto-plays for phrase 1; prefetch fires for phrase 2 in the
+  // background. Wait for the record button to become enabled (coachPlaying
+  // resets after playback) before pressing it.
+  await waitFor(() =>
+    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+  );
 
   fireEvent.press(screen.getByTestId('record-button')); // start
   await waitFor(() =>
@@ -185,7 +194,9 @@ describe('score card retry', () => {
     // ...and the coach model was replayed (initial auto-play + retry). The
     // retry replays the cached first take instead of re-synthesizing, so the
     // model can never read a different phrase on replay.
-    expect(mockState.synth).toHaveBeenCalledTimes(1);
+    // Note: synth was also called once during initial render to prefetch
+    // phrase 2's audio in the background, so total is 2.
+    expect(mockState.synth).toHaveBeenCalledTimes(2);
     const { playBase64Audio } = jest.requireMock('@/lib/audio');
     expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
@@ -199,7 +210,8 @@ describe('score card retry', () => {
     });
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
     // Replay comes from the per-phrase audio cache, not a fresh synthesis.
-    expect(mockState.synth).toHaveBeenCalledTimes(1);
+    // (Prefetch for phrase 2 also ran during initial render, so total is 2.)
+    expect(mockState.synth).toHaveBeenCalledTimes(2);
     const { playBase64Audio } = jest.requireMock('@/lib/audio');
     expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });

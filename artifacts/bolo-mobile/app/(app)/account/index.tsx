@@ -36,7 +36,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useThemePref, type ThemePref } from '@/contexts/ThemeContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
-import { loadSpokenFeedback, saveSpokenFeedback } from '@/lib/settings';
+import {
+  loadSpokenFeedback,
+  saveSpokenFeedback,
+  loadSilentMode,
+  saveSilentMode,
+} from '@/lib/settings';
 import { useTour } from '@/contexts/TourContext';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
@@ -80,6 +85,23 @@ export default function AccountScreen() {
   const changeSpokenFeedback = (enabled: boolean) => {
     setSpokenFeedback(enabled);
     void saveSpokenFeedback(enabled);
+  };
+
+  // Silent mode: skip coach voice auto-play on each phrase so the learner can
+  // read the word themselves and record immediately. Device-local, like above.
+  const [silentMode, setSilentMode] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSilentMode().then((enabled) => {
+      if (!cancelled) setSilentMode(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeSilentMode = (enabled: boolean) => {
+    setSilentMode(enabled);
+    void saveSilentMode(enabled);
   };
   const [name, setName] = React.useState('');
   const [avatarBusy, setAvatarBusy] = React.useState(false);
@@ -428,6 +450,27 @@ export default function AccountScreen() {
                 testID="spoken-feedback-switch"
                 value={spokenFeedback}
                 onValueChange={changeSpokenFeedback}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="mic-off" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Silent mode
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Skip the coach voice — read the phrase and record right away
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Silent mode"
+                testID="silent-mode-switch"
+                value={silentMode}
+                onValueChange={changeSilentMode}
                 trackColor={{ true: colors.primary }}
               />
             </View>

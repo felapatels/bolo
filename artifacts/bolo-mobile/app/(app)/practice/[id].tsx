@@ -67,7 +67,7 @@ import {
   saveStopMode,
   type StopMode,
 } from '@/lib/stop-mode';
-import { loadSpokenFeedback } from '@/lib/settings';
+import { loadSpokenFeedback, loadSilentMode } from '@/lib/settings';
 import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
@@ -130,6 +130,15 @@ export default function PracticeScreen() {
 
   const [index, setIndex] = React.useState(0);
   const [phase, setPhase] = React.useState<Phase>('idle');
+  // Ref mirror of phase so async callbacks can check current phase without
+  // closing over a stale value — specifically to guard the auto-play flow
+  // against the race where a learner taps record during the loadSilentMode()
+  // await and recording starts before playCoach() would be called.
+  const phaseRef = React.useRef<Phase>('idle');
+  const setPhaseSync = React.useCallback((next: Phase) => {
+    phaseRef.current = next;
+    setPhase(next);
+  }, []);
   const [result, setResult] = React.useState<PronunciationResult | null>(null);
   const [scores, setScores] = React.useState<number[]>([]);
   const [coachPlaying, setCoachPlaying] = React.useState(false);
@@ -252,14 +261,60 @@ export default function PracticeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrase?.id, activeLanguage?.name]);
 
-  // Auto-play the coach model once when a new phrase appears.
+  // Auto-play the coach model once when a new phrase appears, unless the
+  // learner has opted into silent mode (they prefer to read the phrase and
+  // start recording without hearing the coach first).
   React.useEffect(() => {
-    if (phrase && phase === 'idle') {
-      playCoach();
-    }
-    return () => stopPlayback();
+    if (!phrase) return;
+    let cancelled = false;
+    void (async () => {
+      const silent = await loadSilentMode();
+      if (cancelled) return;
+      // Guard against the race where the learner tapped record during the
+      // async loadSilentMode() call: if phase is no longer idle, don't
+      // start coach playback over an in-progress or completed recording.
+      if (phaseRef.current !== 'idle') return;
+      if (!silent) playCoach();
+    })();
+    return () => {
+      cancelled = true;
+      stopPlayback();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrase?.id]);
+
+  // Prefetch the next phrase's coach audio while the learner is still working
+  // on the current one, so advancing to it feels instant. Skipped in silent
+  // mode (no audio will be needed) and when the cache already has it.
+  React.useEffect(() => {
+    let cancelled = false;
+    const upcoming = list[index + 1];
+    if (!upcoming) return;
+    void (async () => {
+      const silent = await loadSilentMode();
+      if (cancelled || silent) return;
+      if (audioCacheRef.current.has(upcoming.id)) return;
+      try {
+        const res = await synth.mutateAsync({
+          data: {
+            text: upcoming.nativeScript,
+            languageName: activeLanguage?.name,
+          },
+        });
+        if (cancelled) return;
+        audioCacheRef.current.set(upcoming.id, {
+          audioBase64: res.audioBase64,
+          format: res.format || 'mp3',
+        });
+      } catch {
+        // Best-effort — playCoach will synthesize on demand if this fails.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, list.length, activeLanguage?.name]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
 
@@ -417,7 +472,7 @@ export default function PracticeScreen() {
       // effect re-prepares for the next one.
       recorderPreparedRef.current = false;
       // Only show "recording" once capture has actually started.
-      setPhase('recording');
+      setPhaseSync('recording');
       hapticMedium();
     } catch {
       recorderPreparedRef.current = false;
@@ -428,7 +483,7 @@ export default function PracticeScreen() {
   const stopRecording = async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
-    setPhase('evaluating');
+    setPhaseSync('evaluating');
     setEvalError(null);
     setSaveFailed(false);
     try {
@@ -446,7 +501,7 @@ export default function PracticeScreen() {
       });
       setResult(res);
       setScores((prev) => [...prev, res.score]);
-      setPhase('result');
+      setPhaseSync('result');
 
       hapticNotify(
         res.passed
@@ -495,7 +550,7 @@ export default function PracticeScreen() {
       // Scoring failed — show a visible, in-context error state with a retry
       // action instead of a fleeting alert or a silent reset to idle.
       setEvalError(describeEvaluationError(error));
-      setPhase('error');
+      setPhaseSync('error');
       hapticNotify(Haptics.NotificationFeedbackType.Error);
     } finally {
       finishingRef.current = false;
@@ -507,24 +562,31 @@ export default function PracticeScreen() {
     setSaveFailed(false);
     if (index + 1 < list.length) {
       setIndex((i) => i + 1);
-      setPhase('idle');
+      setPhaseSync('idle');
     } else {
-      setPhase('done');
+      setPhaseSync('done');
     }
   };
 
   const tryAgain = () => {
     setResult(null);
     setSaveFailed(false);
-    setPhase('idle');
-    // Replay the coach model so the learner hears it again before re-recording.
-    playCoach();
+    setPhaseSync('idle');
+    // Replay the coach model so the learner hears it again before re-recording,
+    // unless silent mode is on (they prefer to read and record without hearing).
+    // Guard with phaseRef: if the learner taps record during the async read,
+    // don't start playback over an in-progress recording.
+    void (async () => {
+      const silent = await loadSilentMode();
+      if (phaseRef.current !== 'idle') return;
+      if (!silent) playCoach();
+    })();
   };
 
   // Leaving the error card returns to the mic, ready to record again.
   const retryAfterError = () => {
     setEvalError(null);
-    setPhase('idle');
+    setPhaseSync('idle');
   };
 
   // --- Loading / error / empty ---
@@ -870,6 +932,7 @@ export default function PracticeScreen() {
             <RecordButton
               phase={phase}
               stopMode={stopMode}
+              coachPlaying={coachPlaying}
               onStart={startRecording}
               onStop={stopRecording}
             />
@@ -963,11 +1026,13 @@ function StopModeToggle({
 function RecordButton({
   phase,
   stopMode,
+  coachPlaying,
   onStart,
   onStop,
 }: {
   phase: Phase;
   stopMode: StopMode;
+  coachPlaying: boolean;
   onStart: () => void;
   onStop: () => void;
 }) {
@@ -989,6 +1054,11 @@ function RecordButton({
 
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
+  // Disable the mic while the coach is speaking so a tap can't start
+  // recording over or ahead of the phrase playback. (In silent mode the
+  // coach never auto-plays, so coachPlaying stays false and the mic is
+  // immediately available.)
+  const blocked = evaluating || coachPlaying;
 
   return (
     <View style={styles.recordWrap}>
@@ -1001,7 +1071,7 @@ function RecordButton({
           ]}
         />
         <Pressable
-          disabled={evaluating}
+          disabled={blocked}
           testID="record-button"
           accessibilityRole="button"
           accessibilityLabel={recording ? 'Stop recording' : 'Start recording'}
@@ -1010,6 +1080,7 @@ function RecordButton({
             styles.recordBtn,
             {
               backgroundColor: recording ? colors.accent : colors.primary,
+              opacity: blocked && !evaluating ? 0.45 : 1,
             },
           ]}
         >
@@ -1027,11 +1098,13 @@ function RecordButton({
       <Text style={[styles.recordHint, { color: colors.mutedForeground }]}>
         {evaluating
           ? 'Scoring your pronunciation...'
-          : recording
-            ? stopMode === 'auto'
-              ? 'Listening... stops on its own'
-              : 'Tap to stop'
-            : 'Tap and say it out loud'}
+          : coachPlaying
+            ? 'Listen first...'
+            : recording
+              ? stopMode === 'auto'
+                ? 'Listening... stops on its own'
+                : 'Tap to stop'
+              : 'Tap and say it out loud'}
       </Text>
     </View>
   );

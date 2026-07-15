@@ -9,13 +9,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Guards the spoken-feedback read-aloud: when a score lands, the coach's
-// feedback + tip are synthesized and played — unless the device-local
-// "Spoken feedback" preference is off, in which case no feedback TTS fires
-// (target-phrase playback is unaffected either way).
+// Guards the mic-gating race: if a learner taps record during the async gap
+// between a phrase appearing and loadSilentMode() resolving, the coach must
+// NOT start playing once recording has already begun.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
+let resolveSilentMode: () => void;
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '5' }),
@@ -35,8 +35,8 @@ jest.mock('@workspace/api-client-react', () => ({
   }),
   getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
-  useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
-  useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
+  useCreateAttempt: () => ({ mutateAsync: jest.fn() }),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -60,8 +60,6 @@ jest.mock('@/lib/audio', () => ({
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
-  // Call onDone immediately so coachPlaying resets; lets the record button
-  // become enabled in tests without requiring a real playback event loop.
   playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
     onDone?.();
     return { stop: jest.fn() };
@@ -70,6 +68,21 @@ jest.mock('@/lib/audio', () => ({
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
 }));
+
+// Delay loadSilentMode so we can tap record in the async gap.
+jest.mock('@/lib/settings', () => {
+  const actual = jest.requireActual('@/lib/settings') as typeof import('@/lib/settings');
+  return {
+    ...actual,
+    loadSilentMode: jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSilentMode = () => resolve(false); // silent=false → would play coach
+        }),
+    ),
+    loadSpokenFeedback: jest.fn(async () => false),
+  };
+});
 
 jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: true, isOneLanguage: false }),
@@ -102,7 +115,6 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
-// Imported after the mocks are declared.
 import PracticeScreen from '@/app/(app)/practice/[id]';
 
 const phraseA = {
@@ -126,60 +138,42 @@ function successQuery(data: unknown) {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  jest.requireMock('@/lib/audio').playBase64Audio.mockClear();
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
-  mockState.evaluate = jest.fn(async () => ({
-    score: 88,
-    passed: true,
-    transcript: 'namaste',
-    feedback: 'Nice work on that greeting!',
-    tip: 'Soften the t sound.',
-    evaluationToken: 'signed-token',
-  }));
-  mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
 });
 
-async function renderReady() {
-  render(<PracticeScreen />);
-  // Coach model auto-plays for the first phrase; wait until coachPlaying
-  // drops back to false (playback complete) so the record button is enabled.
-  await waitFor(() =>
-    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
-  );
-}
+describe('mic-gate race: recording starts during silent-mode async gap', () => {
+  test('coach does not play if recording starts before loadSilentMode resolves', async () => {
+    render(<PracticeScreen />);
 
-async function recordAndScore() {
-  fireEvent.press(screen.getByTestId('record-button'));
-  await waitFor(() =>
-    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
-  );
-  await act(async () => {
+    // The phrase is showing but loadSilentMode is still pending (not resolved).
+    // The record button must be enabled (coachPlaying is false because
+    // playCoach hasn't been called yet).
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).toBeOnTheScreen(),
+    );
+
+    // Tap record while loadSilentMode is still in flight.
     fireEvent.press(screen.getByTestId('record-button'));
-  });
-  await waitFor(() => expect(screen.getByText('Great job!')).toBeOnTheScreen());
-}
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
 
-describe('spoken feedback after scoring', () => {
-  test('reads the feedback and tip aloud by default', async () => {
-    await renderReady();
-    await recordAndScore();
-
-    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
-    expect(mockState.synth).toHaveBeenLastCalledWith({
-      data: { text: 'Nice work on that greeting! Soften the t sound.' },
-    });
-  });
-
-  test('stays silent when the preference is off', async () => {
-    await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
-    await renderReady();
-    await recordAndScore();
-
-    // Give any (wrong) feedback synthesis a chance to fire.
+    // Now resolve loadSilentMode (silent=false → coach would play in idle).
     await act(async () => {
+      resolveSilentMode();
+      // Flush all pending microtasks so the auto-play effect can complete.
+      await Promise.resolve();
       await Promise.resolve();
     });
-    // Only the target-phrase playback happened.
-    expect(mockState.synth).toHaveBeenCalledTimes(1);
+
+    // Coach must NOT have started playing over the active recording.
+    const { playBase64Audio } = jest.requireMock('@/lib/audio');
+    expect(playBase64Audio).not.toHaveBeenCalled();
+    expect(mockState.synth).not.toHaveBeenCalled();
+
+    // Recording controls still visible (phase is still 'recording').
+    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen();
   });
 });

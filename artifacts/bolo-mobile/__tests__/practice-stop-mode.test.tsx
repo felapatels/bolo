@@ -68,7 +68,12 @@ jest.mock('@/lib/audio', () => ({
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
-  playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
+  // Call onDone immediately so coachPlaying resets; lets the record button
+  // become enabled in tests without requiring a real playback event loop.
+  playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
+    onDone?.();
+    return { stop: jest.fn() };
+  }),
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
@@ -144,7 +149,11 @@ beforeEach(async () => {
 
 async function renderReady() {
   render(<PracticeScreen />);
-  await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
+  // Coach model auto-plays for the first phrase; wait until coachPlaying
+  // drops back to false (playback complete) so the record button is enabled.
+  await waitFor(() =>
+    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+  );
 }
 
 async function startRecording() {
