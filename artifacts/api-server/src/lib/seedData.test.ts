@@ -549,3 +549,207 @@ test("no native script value is a transliterated English loanword (e.g. नर�
     `Found transliterated English loanwords in native script values:\n${failures.join("\n")}`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Gloss-agnostic transliterated-loanword guard.
+//
+// The check above only fires when the phrase's *English gloss* is itself on
+// LOANWORD_GLOSS_BLOCKLIST. That misses a loanword filed under the wrong
+// label entirely: Bodo once taught "সোরি"/sori (English "sorry" in
+// Devanagari-adjacent script) glossed "thanks" — the gloss-matching guard
+// never looked at it because the label said "thanks", not "sorry". A human
+// review caught it by ear and it was replaced with the genuine Bodo term
+// ("সাবায়খর"/sabaikhor), but nothing stopped a regeneration from
+// reintroducing the same pattern under some other wrong label.
+//
+// This guard ignores the gloss entirely and instead checks every phrase's
+// *romanization* against a small, fixed lexicon of extremely common English
+// courtesy/greeting words — the ones a lazy transliteration reaches for
+// regardless of what the phrase is nominally about. If a romanization sounds
+// like one of these words, the phrase is flagged, whatever its English label
+// says.
+// ---------------------------------------------------------------------------
+
+// Small and deliberately narrow: everyday greeting/courtesy words that are
+// short, extremely common across every generated lesson category (so a
+// mislabeled loanword is likely to surface no matter which topic it landed
+// in), and unlikely to collide with genuine native vocabulary once compared
+// via the same lenient phonetic match used above. Grow this list only for
+// another confirmed instance of the same defect — it is not meant to
+// replace the gloss-matched blocklist above, only to catch what a wrong
+// label hides from it.
+const COMMON_ENGLISH_LOANWORD_LEXICON = [
+  "hello",
+  "sorry",
+  "thank you",
+  "thanks",
+  "good night",
+  "good morning",
+  "good evening",
+  "bye",
+  "goodbye",
+  "please",
+  "welcome",
+  "excuse me",
+] as const;
+
+// The gloss-matched check above can afford a lenient phonetic threshold
+// (including the vowel-dropped consonant-skeleton fallback) because the gloss
+// already narrows the field to one specific word. Scanning every phrase
+// against a whole lexicon with no gloss to narrow the search needs a much
+// tighter bar, or short native words collide with short English words by pure
+// chance ("ಇಲ್ಲ"/illa "no" ~ "hello", "ثباب"/bhayo "brother" ~ "bye"). A plain
+// (vowels-included) near-match is specific enough that only a genuine
+// transliteration clears it, which is what actually happened with
+// "সোরি"/sori for the English "sorry" glossed "thanks".
+function romanizationIsCloseTranscriptionOf(romanized: string, word: string): boolean {
+  const r = letters(romanized);
+  const w = letters(word);
+  if (r === "" || w === "") return false;
+  return similarity(r, w) >= 0.6;
+}
+
+// Human-reviewed exceptions for the gloss-agnostic scan: lesson label →
+// native-script strings confirmed to be genuine native vocabulary (or, for
+// "plate", a naturalized loan a learner really says) that only coincidentally
+// sounds like one of the lexicon words above once compared letter-for-letter
+// with no gloss to narrow the search. Kept separate from LOANWORD_ALLOWLIST
+// because a phrase can be cleared for its own gloss match yet still need a
+// separate note here (different lexicon word, same phrase) — in practice the
+// two lists currently agree, but they guard different checks and should not
+// be assumed to stay in lockstep.
+const GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST: Record<string, string[]> = {
+  // "thanda"/"thand"/"thanda" family — the ordinary native word for "cold" in
+  // Assamese, Hindi, Konkani, Punjabi, and Urdu (all descend from the same
+  // Indo-Aryan root). Its consonant-and-vowel shape only coincidentally
+  // resembles "thanks"; a real transliteration of "thanks" would be
+  // "थैंक्स"/"thainks", not "cold".
+  "as/food": ["ঠাণ্ডা"],
+  "hi/food": ["ठंडा"],
+  "pa/feelings": ["ਠੰਡਾ"],
+  // "eklo"/"eklo" — the genuine Bodo/Nepali word for "alone"/"lonely"
+  // (cognate with Hindi "akela"), not "hello" transliterated.
+  "brx/feelings": ["एकलो"],
+  "ne/feelings": ["एक्लो"],
+  // "सोराय"/sorai is the genuine Bodo word for "friend", unrelated to
+  // "sorry" beyond a coincidental "sor-" onset.
+  "brx/greetings": ["सोराय"],
+  // "ಎಲ್ಲಿ"/elli is the genuine Kannada interrogative "where" (part of the
+  // elli/illi/alli question-word family), not "hello" transliterated.
+  "kn/everyday": ["ಎಲ್ಲಿ"],
+  // "ये"/"ye" is the plain imperative "come" in Konkani, Manipuri, and
+  // Marathi — a single short syllable that only coincidentally matches "bye".
+  "kok/everyday": ["ये"],
+  "mni/everyday": ["ꯌꯦ"],
+  "mr/everyday": ["ये"],
+  // "सोयरो"/soyro is the genuine Konkani kinship term for an in-law, sharing
+  // only a coincidental "soy-" onset with "sorry".
+  "kok/family": ["सोयरो"],
+  // "थंड"/"पेलो" — "cold" (see the thanda cluster above) and the ordinary
+  // Konkani word for a drinking glass (not "hello" transliterated — a real
+  // transliteration would be "हेलो") both land in Konkani's food lesson.
+  "kok/food": ["पेलो", "थंड"],
+  // "प्लेट"/"پلیٹ"/"پليٽ" ("plate") is a naturalized loanword for the
+  // household object across Gujarati, Kashmiri, Sindhi, and Urdu — exactly
+  // the kind of everyday borrowed noun this guard is meant to leave alone
+  // (unlike a courtesy word like "please" it labels no other language's
+  // concept).
+  "ks/food": ["پلیٹ"],
+  "sd/food": ["پليٽ"],
+  "gu/food": ["પ્લેટ"],
+  // "अहाँक"/ahank is the genuine Maithili second-person possessive ("your"),
+  // sharing only a coincidental "-hank" rhyme with "thanks".
+  "mai/everyday": ["अहाँक"],
+  "mai/family": ["अहाँक"],
+  // "सोह्र"/"سورهه" (sohra/sorah) are the genuine Nepali and Sindhi numerals
+  // for "sixteen" — a coincidental "sor-" onset, not "sorry" transliterated.
+  "ne/numbers": ["सोह्र"],
+  "sd/numbers": ["سورهه"],
+  // "બે"/be is simply the Gujarati numeral "two" — a single short syllable
+  // that only coincidentally matches "bye".
+  "gu/numbers": ["બે"],
+  // "சோர்வு"/sorvu ("tiredness") and "சோறு"/sooru ("cooked rice") are core,
+  // unrelated Tamil vocabulary; both merely open with the same "sor-"/"soo-"
+  // syllable as "sorry".
+  "ta/feelings": ["சோர்வு"],
+  "ta/food": ["சோறு"],
+  // "చెల్లి"/chelli is the genuine Telugu word for "younger sister", not
+  // "hello" transliterated (a real transliteration would be "హలో").
+  "te/family": ["చెల్లి"],
+  // "ٹھنڈا"/thanda ("cold") and "پلیٹ"/plate (naturalized loan) both land in
+  // Urdu's food lesson.
+  "ur/food": ["ٹھنڈا", "پلیٹ"],
+};
+
+// Extracted so a focused unit test can exercise it against synthetic phrases
+// without depending on the frozen data staying broken (or clean) forever.
+function findGlossAgnosticLoanwords(
+  label: string,
+  lesson: SeedLesson,
+): string[] {
+  const failures: string[] = [];
+  const allow = new Set(
+    (GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST[label] ?? []).map((s) => s.trim()),
+  );
+  lesson.phrases.forEach((p, i) => {
+    const native = p.nativeScript.trim();
+    if (allow.has(native)) return;
+    for (const word of COMMON_ENGLISH_LOANWORD_LEXICON) {
+      if (romanizationIsCloseTranscriptionOf(p.romanized, word)) {
+        failures.push(
+          `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}", glossed "${p.english}") sounds like the English word "${word}" transliterated — use the native word regardless of its label`,
+        );
+        break;
+      }
+    }
+  });
+  return failures;
+}
+
+test("no romanization phonetically matches a common English loanword under any gloss (mislabeled loanwords)", () => {
+  const failures = allSeedLessons.flatMap(([label, lesson]) =>
+    findGlossAgnosticLoanwords(label, lesson),
+  );
+
+  assert.deepEqual(
+    failures,
+    [],
+    `Found mislabeled transliterated English loanwords:\n${failures.join("\n")}`,
+  );
+});
+
+// A synthetic regression test for the exact defect this guard exists for: a
+// loanword transliterated correctly but filed under an unrelated gloss, so
+// the gloss-matched blocklist check above never looks at it. Uses a made-up
+// lesson rather than depending on the frozen data staying broken (or clean).
+test("gloss-agnostic guard catches a transliterated loanword mislabeled with an unrelated gloss", () => {
+  const mislabeled: SeedLesson = {
+    titleNative: "test",
+    phrases: [
+      // The real-world case this guard was added for: "sorry" transliterated
+      // but glossed "thanks", so nothing about the gloss hints at "sorry".
+      { nativeScript: "सोरि", romanized: "sori", english: "thanks", difficulty: 1 },
+    ],
+  };
+  assert.equal(findGlossAgnosticLoanwords("test/mislabeled", mislabeled).length, 1);
+
+  // The fix — the genuine native word, correctly glossed — must not trip it.
+  const fixed: SeedLesson = {
+    titleNative: "test",
+    phrases: [
+      { nativeScript: "साबायखर", romanized: "sabaikhor", english: "thanks", difficulty: 1 },
+    ],
+  };
+  assert.equal(findGlossAgnosticLoanwords("test/fixed", fixed).length, 0);
+
+  // A correct native translation of "sorry" itself must also be left alone —
+  // the guard should only fire when the romanization actually sounds like
+  // the English word, not merely because the topic is apologetic.
+  const correct: SeedLesson = {
+    titleNative: "test",
+    phrases: [
+      { nativeScript: "माफ करा", romanized: "maaf kara", english: "sorry", difficulty: 1 },
+    ],
+  };
+  assert.equal(findGlossAgnosticLoanwords("test/correct", correct).length, 0);
+});
