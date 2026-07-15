@@ -37,6 +37,7 @@ import { useThemePref, type ThemePref } from '@/contexts/ThemeContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { loadSpokenFeedback, saveSpokenFeedback } from '@/lib/settings';
+import { useTour } from '@/contexts/TourContext';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
 // icon on Home now lives here: profile (name + avatar), identity changes
@@ -52,6 +53,7 @@ export default function AccountScreen() {
   const { signOut } = useClerk();
   const { activeLanguage } = useLanguage();
   const { setThemePref } = useThemePref();
+  const { openTour } = useTour();
 
   const account = useGetAccount();
   const updateProfile = useUpdateAccountProfile();
@@ -451,6 +453,13 @@ export default function AccountScreen() {
                 }}
               />
             </View>
+            <Divider />
+            <NavRow
+              icon="map"
+              label="Replay Tour"
+              value="See the app intro again"
+              onPress={openTour}
+            />
           </View>
 
           {/* Sign out */}
