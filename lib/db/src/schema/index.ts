@@ -7,3 +7,4 @@ export * from "./phrases";
 export * from "./attempts";
 export * from "./badges";
 export * from "./friendships";
+export * from "./ttsCache";

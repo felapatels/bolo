@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, phrasesTable } from "@workspace/db";
+import { db, phrasesTable, ttsCacheTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   openai,
@@ -38,6 +39,17 @@ const VOICES = [
 ] as const;
 type Voice = (typeof VOICES)[number];
 
+/** Stable cache key: SHA-256 hex of the three synthesis inputs. */
+function ttsCacheKey(text: string, voice: string, languageName?: string): string {
+  return createHash("sha256")
+    .update(text)
+    .update("\x00")
+    .update(voice)
+    .update("\x00")
+    .update(languageName?.trim() ?? "")
+    .digest("hex");
+}
+
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
   const parsed = SynthesizeSpeechBody.safeParse(req.body);
@@ -51,9 +63,36 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       ? (voice as Voice)
       : "nova";
 
+  const cacheKey = ttsCacheKey(text, chosen, languageName);
+
+  // --- cache hit ---
+  try {
+    const cached = await db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+    });
+    if (cached) {
+      res.json({ audioBase64: cached.audioBase64, format: cached.format });
+      return;
+    }
+  } catch (err) {
+    // Cache read failure is non-fatal: fall through to synthesis.
+    req.log.warn({ err }, "TTS cache read failed, synthesizing fresh");
+  }
+
+  // --- cache miss: synthesize then store ---
   try {
     const buffer = await textToSpeech(text, chosen, "mp3", languageName);
-    res.json({ audioBase64: buffer.toString("base64"), format: "mp3" });
+    const audioBase64 = buffer.toString("base64");
+
+    // Persist to cache (best-effort; a race between two concurrent requests is
+    // harmless — the second upsert just overwrites with identical data).
+    db.insert(ttsCacheTable)
+      .values({ cacheKey, audioBase64, format: "mp3" })
+      .onConflictDoNothing()
+      .execute()
+      .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
+
+    res.json({ audioBase64, format: "mp3" });
   } catch (err) {
     req.log.error({ err }, "TTS failed");
     res.status(502).json({ error: "Could not generate speech" });
