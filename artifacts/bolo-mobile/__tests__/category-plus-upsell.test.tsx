@@ -56,6 +56,7 @@ jest.mock('@workspace/api-client-react', () => ({
     refetch: jest.fn(),
   }),
   getListCategorySentencesQueryKey: () => ['sentences'],
+  getListCategoryPhrasesQueryKey: () => ['phrases'],
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({

@@ -14,6 +14,7 @@ import {
   useListCategories,
   useListCategoryPhrases,
   useListCategorySentences,
+  getListCategoryPhrasesQueryKey,
   getListCategorySentencesQueryKey,
   type Phrase,
 } from '@workspace/api-client-react';
@@ -38,7 +39,17 @@ export default function CategoryScreen() {
   const { isPlus } = useEntitlements();
 
   const categories = useListCategories({ lang: activeLang });
-  const phrases = useListCategoryPhrases(categoryId, activeLang);
+  // Background replenishment (Plus) generates fresh phrases server-side while
+  // the learner practices — refetching on focus (returning from practice) and
+  // a gentle poll make them appear here without any manual action, and never
+  // interrupt an in-progress recording (that lives on the practice screen).
+  const phrases = useListCategoryPhrases(categoryId, activeLang, {
+    query: {
+      queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    },
+  });
 
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);

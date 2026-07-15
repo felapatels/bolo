@@ -43,6 +43,11 @@ import {
   recordLessonGeneration,
 } from "../lib/lessonLimits";
 import { UpgradeRequiredError, featuresForPlan } from "../lib/entitlements";
+import {
+  phraseKey,
+  replenishPhrases,
+  shouldReplenish,
+} from "../lib/phraseReplenisher";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
@@ -409,6 +414,28 @@ router.get(
       : phrases.filter((p) => !p.premium);
 
     res.json(accessible.map((p) => serializePhrase(p, stats)));
+
+    // Background replenishment for Plus learners approaching the end of the
+    // topic: kick off generation of a few fresh phrases so new content is
+    // already waiting on a later fetch. Fire-and-forget AFTER the response —
+    // it never delays or interrupts the current session, is Plus-only (so
+    // Free gating and the daily cap are untouched), and is dedup-protected
+    // inside replenishPhrases against overlapping triggers.
+    if (
+      shouldReplenish(
+        resolvedPlan.plan,
+        accessible.map((p) => p.id),
+        stats,
+      )
+    ) {
+      replenishPhrases({
+        languageCode: lang,
+        categoryId: id,
+        userId,
+      }).catch((err) => {
+        req.log.error({ err }, "Background phrase replenishment failed");
+      });
+    }
   },
 );
 
@@ -558,11 +585,6 @@ router.get(
     }
   },
 );
-
-// Loose key for de-duplicating phrases by their native-script text.
-function phraseKey(nativeScript: string): string {
-  return nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
-}
 
 // POST /categories/:id/phrases/:lang — generate & append fresh AI phrases to an
 // existing lesson so motivated learners can keep practicing past the original set.

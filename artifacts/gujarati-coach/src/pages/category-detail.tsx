@@ -34,7 +34,18 @@ export default function CategoryDetail() {
     error,
     isFetching,
     refetch,
-  } = useListCategoryPhrases(id, activeLang);
+  } = useListCategoryPhrases(id, activeLang, {
+    query: {
+      queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
+      // Background replenishment (Plus) generates fresh phrases server-side
+      // while the learner practices — a gentle poll (plus the default
+      // refetch-on-focus) makes them appear here without any manual action.
+      // The poll only re-renders this list; it never touches an in-progress
+      // recording on the practice screen.
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    },
+  });
   const { data: categories } = useListCategories({ lang: activeLang });
   const category = categories?.find(c => c.id === id);
 
