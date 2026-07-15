@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { useAppearSkip } from '@/lib/entrance';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -18,6 +18,7 @@ import { findNearestLockedBadge, progressRatio } from '@/lib/badge-progress';
  */
 export function NextBadgeSpotlight({ lang }: { lang: string }) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const { data: badges, isLoading } = useListBadges({ lang });
 
   // Nothing to spotlight until we know the catalog for this language.
@@ -28,7 +29,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
   if (!nearest) {
     return (
       <Animated.View
-        entering={appear(FadeInDown.duration(400))}
+        entering={skipEnter ? undefined : FadeInDown.duration(400)}
         style={[
           styles.card,
           styles.allEarned,
@@ -64,7 +65,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
 
   return (
     <Animated.View
-      entering={appear(FadeInDown.duration(400))}
+      entering={skipEnter ? undefined : FadeInDown.duration(400)}
       style={[
         styles.card,
         {

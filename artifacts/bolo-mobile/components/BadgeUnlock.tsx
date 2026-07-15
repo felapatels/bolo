@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { hapticNotify } from '@/lib/haptics';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { appear, useAppearSkip } from '@/lib/entrance';
 import type { EarnedBadge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -32,6 +32,7 @@ export function BadgeUnlock({
   onDismiss: () => void;
 }) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const active = badges.length > 0;
 
   React.useEffect(() => {
@@ -60,7 +61,7 @@ export function BadgeUnlock({
         </Animated.View>
 
         <Animated.Text
-          entering={appear(FadeInDown.duration(400))}
+          entering={skipEnter ? undefined : FadeInDown.duration(400)}
           style={[styles.kicker, { color: colors.secondary }]}
         >
           {badges.length > 1 ? 'Badges unlocked!' : 'Badge unlocked!'}
@@ -70,7 +71,7 @@ export function BadgeUnlock({
           {badges.map((badge, i) => (
             <Animated.View
               key={badge.key}
-              entering={appear(ZoomIn.delay(150 + i * 160).springify().damping(14))}
+              entering={skipEnter ? undefined : ZoomIn.delay(150 + i * 160).springify().damping(14)}
               style={[
                 styles.card,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -95,7 +96,7 @@ export function BadgeUnlock({
           ))}
         </View>
 
-        <Animated.View entering={appear(FadeIn.delay(400 + badges.length * 160))}>
+        <Animated.View entering={skipEnter ? undefined : FadeIn.delay(400 + badges.length * 160)}>
           <Pressable
             onPress={onDismiss}
             style={[styles.button, { backgroundColor: colors.primary }]}

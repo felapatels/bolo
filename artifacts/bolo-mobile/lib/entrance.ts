@@ -37,3 +37,21 @@ export function useAppear<T>(animation: T): T | undefined {
   const reducedMotion = useReducedMotion();
   return isExpoGo || reducedMotion ? undefined : animation;
 }
+
+/**
+ * Returns `true` when entrance animations should be suppressed — either
+ * because we're running in Expo Go or because the user has enabled Reduce
+ * Motion. Use this as a boolean guard in places where the animation value
+ * can't be passed to `useAppear` directly (e.g. inside `.map()` callbacks
+ * where the animation depends on a loop variable).
+ *
+ * ```tsx
+ * const skipEnter = useAppearSkip();
+ * // …
+ * entering={skipEnter ? undefined : FadeInDown.delay(i * 60)}
+ * ```
+ */
+export function useAppearSkip(): boolean {
+  const reducedMotion = useReducedMotion();
+  return isExpoGo || reducedMotion;
+}

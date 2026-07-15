@@ -9,7 +9,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { useAppearSkip } from '@/lib/entrance';
 import {
   useListCategories,
   useListCategoryPhrases,
@@ -52,6 +52,7 @@ export default function CategoryScreen() {
     },
   });
 
+  const skipEnter = useAppearSkip();
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);
 
@@ -128,7 +129,7 @@ export default function CategoryScreen() {
       >
         {category?.description ? (
           <Animated.Text
-            entering={appear(FadeInDown.duration(450))}
+            entering={skipEnter ? undefined : FadeInDown.duration(450)}
             style={[styles.desc, { color: colors.mutedForeground }]}
           >
             {category.description}
@@ -159,7 +160,7 @@ export default function CategoryScreen() {
         {!phrases.isLoading &&
         !isPlus &&
         (category?.lockedPhraseCount ?? 0) > 0 ? (
-          <Animated.View entering={appear(FadeInDown.duration(450).delay(120))}>
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(450).delay(120)}>
             <LockedPhrasesCard
               count={category!.lockedPhraseCount}
               onPress={() => router.push('/(app)/paywall')}
@@ -172,7 +173,7 @@ export default function CategoryScreen() {
         {!phrases.isLoading && category ? (
           category.sentencesLocked ? (
             <Animated.View
-              entering={appear(FadeInDown.duration(450).delay(160))}
+              entering={skipEnter ? undefined : FadeInDown.duration(450).delay(160)}
             >
               <Text
                 style={[styles.sectionTitle, { color: colors.foreground }]}
@@ -192,7 +193,7 @@ export default function CategoryScreen() {
             </Animated.View>
           ) : (sentences.data ?? []).length > 0 || sentences.isLoading ? (
             <Animated.View
-              entering={appear(FadeInDown.duration(450).delay(160))}
+              entering={skipEnter ? undefined : FadeInDown.duration(450).delay(160)}
             >
               <Text
                 style={[styles.sectionTitle, { color: colors.foreground }]}
@@ -238,7 +239,7 @@ export default function CategoryScreen() {
       {/* Sticky CTA */}
       {(phrases.data ?? []).length > 0 ? (
         <Animated.View
-          entering={appear(FadeInDown.duration(450).delay(120))}
+          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(120)}
           style={[styles.footer, { backgroundColor: colors.background }]}
         >
           <ChunkyButton
@@ -262,10 +263,11 @@ function PhraseRow({
   onPress: () => void;
 }) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const { activeLanguage } = useLanguage();
   return (
     <Animated.View
-      entering={appear(FadeInDown.duration(380).delay(Math.min(index, 10) * 55))}
+      entering={skipEnter ? undefined : FadeInDown.duration(380).delay(Math.min(index, 10) * 55)}
     >
       <PressableScale
         onPress={onPress}

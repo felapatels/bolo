@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { useAppearSkip } from '@/lib/entrance';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useSearchFriendByEmail,
@@ -80,11 +80,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function FriendsScreen() {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const [tab, setTab] = React.useState<Tab>('friends');
 
   return (
     <Screen>
-      <Animated.View entering={appear(FadeInDown.duration(500))} style={styles.head}>
+      <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500)} style={styles.head}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.h1, { color: colors.foreground }]}>Friends</Text>
           <Text style={[styles.sub, { color: colors.mutedForeground }]}>
@@ -684,6 +685,7 @@ function EmptyFriends() {
 
 function LeaderboardTab() {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const leaderboard = useGetFriendsLeaderboard();
 
   const rows = leaderboard.data ?? [];
@@ -715,7 +717,7 @@ function LeaderboardTab() {
           {rows.map((entry, i) => (
             <Animated.View
               key={entry.userId}
-              entering={appear(FadeInDown.duration(360).delay(Math.min(i, 8) * 45))}
+              entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
             >
               <LeaderboardRow entry={entry} />
             </Animated.View>

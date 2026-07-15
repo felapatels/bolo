@@ -16,7 +16,7 @@ import Animated, {
   FadeInDown,
   useReducedMotion,
 } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -67,6 +67,7 @@ export default function HomeScreen() {
   const nativeProps = nativeTextStyle(activeLanguage);
   const nativeTallScript = isTallCascadingScript(activeLanguage);
   const greeting = greetingFor(new Date().getHours());
+  const skipEnter = useAppearSkip();
 
   // A learner already practicing today deserves an encouraging cheer from Bolo.
   const activeToday = (summary.data?.attemptsToday ?? 0) > 0;
@@ -95,7 +96,7 @@ export default function HomeScreen() {
         }
       >
         {/* Greeting + mascot */}
-        <Animated.View entering={appear(FadeInDown.duration(500))} style={styles.topRow}>
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500)} style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>
               {greeting},
@@ -118,7 +119,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Language selector */}
-        <Animated.View entering={appear(FadeInDown.duration(500).delay(60))}>
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(60)}>
           <PressableScale
             onPress={() => router.push('/(app)/language')}
             style={[
@@ -186,7 +187,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Daily practice CTA */}
-        <Animated.View entering={appear(FadeInDown.duration(500).delay(240))}>
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}>
           <PressableScale
             onPress={startDaily}
             scaleTo={0.98}
@@ -220,7 +221,7 @@ export default function HomeScreen() {
 
         {/* Daily lesson allowance (Free plan) */}
         {!isPlus && dailyNewLessons?.limit != null ? (
-          <Animated.View entering={appear(FadeInDown.duration(500).delay(300))}>
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(300)}>
             <DailyCapNote
               remaining={dailyNewLessons.remaining ?? 0}
               limit={dailyNewLessons.limit}
@@ -231,14 +232,14 @@ export default function HomeScreen() {
 
         {/* Upgrade prompt (Free plan) */}
         {!isPlus ? (
-          <Animated.View entering={appear(FadeInDown.duration(500).delay(340))}>
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(340)}>
             <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
           </Animated.View>
         ) : null}
 
         {/* Topics */}
         <Animated.Text
-          entering={appear(FadeInDown.duration(500).delay(380))}
+          entering={skipEnter ? undefined : FadeInDown.duration(500).delay(380)}
           style={[styles.sectionTitle, { color: colors.foreground }]}
         >
           Topics
@@ -276,7 +277,7 @@ export default function HomeScreen() {
             {(recent.data ?? []).map((a, i) => (
               <Animated.View
                 key={a.id}
-                entering={appear(FadeInDown.duration(400).delay(i * 60))}
+                entering={skipEnter ? undefined : FadeInDown.duration(400).delay(i * 60)}
                 style={[
                   styles.recentRow,
                   { backgroundColor: colors.card, borderColor: colors.border },
@@ -481,8 +482,9 @@ function CategoryCard({
       ? Math.round((category.masteredCount / category.phraseCount) * 100)
       : 0;
 
+  const skipEnter = useAppearSkip();
   return (
-    <Animated.View entering={appear(FadeInDown.duration(420).delay(420 + index * 70))}>
+    <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(420).delay(420 + index * 70)}>
       <PressableScale
         onPress={onPress}
         style={[
@@ -542,8 +544,9 @@ function CategoryCard({
 }
 
 function ErrorNote({ message, color }: { message: string; color: string }) {
+  const skipEnter = useAppearSkip();
   return (
-    <Animated.Text entering={appear(FadeIn)} style={[styles.errorNote, { color }]}>
+    <Animated.Text entering={skipEnter ? undefined : FadeIn} style={[styles.errorNote, { color }]}>
       {message}
     </Animated.Text>
   );

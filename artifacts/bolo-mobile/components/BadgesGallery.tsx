@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { useAppearSkip } from '@/lib/entrance';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges, type Badge } from '@workspace/api-client-react';
 import { FunFactLoader } from '@/components/FunFactLoader';
@@ -36,6 +36,7 @@ function formatEarnedDate(iso: string): string {
  */
 export function BadgesGallery({ lang }: { lang: string }) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const { data: badges, isLoading } = useListBadges({ lang });
 
   const earnedCount = badges?.filter((b) => b.earned).length ?? 0;
@@ -76,7 +77,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
             return (
               <Animated.View
                 key={badge.key}
-                entering={appear(FadeInDown.duration(360).delay(Math.min(i, 12) * 45))}
+                entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 12) * 45)}
                 style={[
                   styles.card,
                   badge.earned

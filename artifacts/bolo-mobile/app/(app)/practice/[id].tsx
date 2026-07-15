@@ -23,7 +23,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
   useListCategorySentences,
@@ -94,6 +94,7 @@ function describeEvaluationError(error: unknown): string {
 
 export default function PracticeScreen() {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { id, phrase: startPhraseId, stage } = useLocalSearchParams<{
@@ -654,13 +655,13 @@ export default function PracticeScreen() {
             <Mascot pose="cheer" size={168} motion="bounce" />
           </Animated.View>
           <Animated.Text
-            entering={appear(FadeInDown.delay(150))}
+            entering={skipEnter ? undefined : FadeInDown.delay(150)}
             style={[styles.summaryTitle, { color: colors.foreground }]}
           >
             Session complete!
           </Animated.Text>
           <Animated.Text
-            entering={appear(FadeInDown.delay(220))}
+            entering={skipEnter ? undefined : FadeInDown.delay(220)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You practiced {scores.length}{' '}
@@ -673,7 +674,7 @@ export default function PracticeScreen() {
                 : 'phrases'}.
           </Animated.Text>
           <Animated.View
-            entering={appear(ZoomIn.delay(300).springify().damping(13))}
+            entering={skipEnter ? undefined : ZoomIn.delay(300).springify().damping(13)}
             style={[
               styles.avgCard,
               { backgroundColor: colors.card, borderColor: colors.border },

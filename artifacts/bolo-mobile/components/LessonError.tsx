@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { appear, useAppearSkip } from '@/lib/entrance';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { PressableScale } from '@/components/PressableScale';
@@ -26,6 +26,7 @@ export function LessonError({
   onBack: () => void;
 }) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
 
   return (
     <Screen>
@@ -47,20 +48,20 @@ export function LessonError({
           <Mascot pose="tryagain" size={140} motion="float" />
         </Animated.View>
         <Animated.Text
-          entering={appear(FadeInDown.duration(450).delay(80))}
+          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(80)}
           style={[styles.title, { color: colors.foreground }]}
         >
           We couldn't build this lesson
         </Animated.Text>
         <Animated.Text
-          entering={appear(FadeInDown.duration(450).delay(140))}
+          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(140)}
           style={[styles.message, { color: colors.mutedForeground }]}
         >
           Something went wrong while creating your phrases. Let's try that again.
         </Animated.Text>
 
         <Animated.View
-          entering={appear(FadeInDown.duration(450).delay(200))}
+          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(200)}
           style={styles.actions}
         >
           <ChunkyButton
