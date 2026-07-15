@@ -1090,8 +1090,288 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /family:
+    get:
+      operationId: getFamily
+      tags: [family]
+      summary: The caller's family-plan status
+      description: >-
+        Returns the caller's relationship to a family plan: "owner" (with the
+        join code and full seat list), "member" (whose plan they're on), or
+        "none". `active` reflects whether the owner's subscription currently
+        grants the family Plus access.
+      responses:
+        "200":
+          description: The family status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyStatus"
+
+  /family/invites:
+    post:
+      operationId: createFamilyInvite
+      tags: [family]
+      summary: Invite someone to the family plan by email (owner only)
+      description: >-
+        Reserves a pending seat and emails a personal join link. Duplicate
+        emails are rejected without consuming a seat; a full plan (4 people
+        including pending invites) is rejected with 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                basePath:
+                  type: string
+                  description: The web app's base path, used to build the join link.
+      responses:
+        "201":
+          description: The pending invite
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status, email]
+                properties:
+                  id: { type: integer }
+                  status: { type: string }
+                  email: { type: string }
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The caller has no family plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Duplicate invite or the plan is full
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: The invite email could not be sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family/invites/{seatId}:
+    delete:
+      operationId: revokeFamilyInvite
+      tags: [family]
+      summary: Revoke a pending invite, freeing its seat (owner only)
+      parameters:
+        - name: seatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "404":
+          description: No pending invite with that id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family/members/{memberUserId}:
+    delete:
+      operationId: removeFamilyMember
+      tags: [family]
+      summary: Remove a member from the family plan (owner only)
+      description: >-
+        Frees the member's seat immediately. The member drops to Free on their
+        next request; none of their learning data is deleted.
+      parameters:
+        - name: memberUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "404":
+          description: That person isn't on the caller's plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family/leave:
+    post:
+      operationId: leaveFamily
+      tags: [family]
+      summary: Give up the caller's own family seat
+      responses:
+        "200":
+          description: Left the plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "404":
+          description: The caller isn't on a family plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family/code/regenerate:
+    post:
+      operationId: regenerateFamilyCode
+      tags: [family]
+      summary: Replace the shareable join code (owner only)
+      description: The old code stops working immediately.
+      responses:
+        "200":
+          description: The new join code
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [joinCode]
+                properties:
+                  joinCode: { type: string }
+        "404":
+          description: The caller has no family plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family/join:
+    post:
+      operationId: joinFamily
+      tags: [family]
+      summary: Claim a family seat via join code or emailed invite link
+      description: >-
+        Joins a family plan. If the caller pays for their own Plus through
+        Stripe, that subscription is canceled with proration credit before the
+        seat is granted (`previousSubscriptionCanceled` is true in that case).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                inviteToken: { type: string }
+      responses:
+        "200":
+          description: Joined
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, ownerName, previousSubscriptionCanceled, active]
+                properties:
+                  ok: { type: boolean }
+                  ownerName: { type: string }
+                  previousSubscriptionCanceled: { type: boolean }
+                  active: { type: boolean }
+        "400":
+          description: Neither a code nor an invite token was provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid code or invite link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Plan full, already on a plan, or the invite was used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: The caller's existing subscription couldn't be closed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+
+    FamilySeat:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active]
+        email:
+          type: string
+          nullable: true
+        memberUserId:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        joinedAt:
+          type: string
+          nullable: true
+
+    FamilyStatus:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [owner, member, none]
+        active:
+          type: boolean
+        joinCode:
+          type: string
+        capacity:
+          type: integer
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/FamilySeat"
+        ownerName:
+          type: string
+        joinedAt:
+          type: string
+          nullable: true
+
     HealthStatus:
       type: object
       properties:

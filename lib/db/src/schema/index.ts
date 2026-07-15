@@ -10,3 +10,4 @@ export * from "./badges";
 export * from "./friendships";
 export * from "./ttsCache";
 export * from "./friendInvites";
+export * from "./familyPlans";

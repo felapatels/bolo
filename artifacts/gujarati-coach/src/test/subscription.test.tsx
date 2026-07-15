@@ -32,7 +32,11 @@ const h = vi.hoisted(() => ({
   retention: vi.fn(),
   invalidateQueries: vi.fn(),
   beginAllAccessCheckout: vi.fn(),
+  beginFamilyCheckout: vi.fn(),
   cancelPlus: vi.fn(),
+  // Family status returned by the mocked useGetFamily. Default: not on a
+  // family plan, so pre-existing individual-subscription behavior is intact.
+  family: { data: { role: "none" }, isLoading: false } as unknown,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -54,6 +58,7 @@ vi.mock("@/lib/language-context", () => ({
 
 vi.mock("@/lib/billing", () => ({
   beginAllAccessCheckout: (...args: unknown[]) => h.beginAllAccessCheckout(...args),
+  beginFamilyCheckout: (...args: unknown[]) => h.beginFamilyCheckout(...args),
   cancelPlus: (...args: unknown[]) => h.cancelPlus(...args),
 }));
 
@@ -64,6 +69,7 @@ vi.mock("@workspace/api-client-react", () => ({
   usePauseAccountSubscription: () => ({ mutateAsync: h.pause }),
   useUnpauseAccountSubscription: () => ({ mutateAsync: h.unpause, isPending: false }),
   useAcceptRetentionOffer: () => ({ mutateAsync: h.retention }),
+  useGetFamily: () => h.family,
 }));
 
 import Subscription from "@/pages/subscription";
@@ -110,6 +116,7 @@ beforeEach(() => {
     ...PLUS_ACTIVE,
     retentionOfferAcceptedAt: "2026-07-13T00:00:00.000Z",
   });
+  h.family = { data: { role: "none" }, isLoading: false };
 });
 
 describe("Subscription management", () => {
@@ -319,5 +326,92 @@ describe("Subscription management", () => {
       screen.getByRole("button", { name: /Manage payment & billing/i }),
     );
     await waitFor(() => expect(h.cancelPlus).toHaveBeenCalled());
+  });
+
+  test("a family owner sees the Family plan and a seats-management link", () => {
+    h.sub = {
+      data: { ...PLUS_ACTIVE, tier: "family", provider: "stripe", paymentMethod: null },
+      isLoading: false,
+      isError: false,
+    };
+    h.family = {
+      data: { role: "owner", active: true, seats: [], capacity: 4, joinCode: "ABCD1234" },
+      isLoading: false,
+    };
+    renderPage();
+    expect(screen.getByText("Family plan")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Manage family seats/i }),
+    ).toHaveAttribute("href", "/family");
+    // Owners on a family plan don't see the individual family upsell.
+    expect(
+      screen.queryByRole("button", { name: /Upgrade to the Family plan/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("an owner with members gets a warning before the Stripe portal opens", async () => {
+    h.sub = {
+      data: { ...PLUS_ACTIVE, tier: "family", provider: "stripe", paymentMethod: null },
+      isLoading: false,
+      isError: false,
+    };
+    h.family = {
+      data: {
+        role: "owner",
+        active: true,
+        capacity: 4,
+        joinCode: "ABCD1234",
+        seats: [
+          { id: 1, status: "active", memberName: "Asha", email: null },
+          { id: 2, status: "pending", memberName: null, email: "b@x.com" },
+        ],
+      },
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /Cancel subscription/i }));
+    // Our warning interposes before Stripe: portal not opened yet.
+    expect(h.cancelPlus).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Your family is on this plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 person shares/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Continue to Stripe/i }));
+    await waitFor(() => expect(h.cancelPlus).toHaveBeenCalled());
+  });
+
+  test("a family member is redirected away from billing management", () => {
+    h.sub = {
+      data: { ...PLUS_ACTIVE, provider: null, paymentMethod: null, billingHistory: [] },
+      isLoading: false,
+      isError: false,
+    };
+    h.family = {
+      data: { role: "member", active: true, ownerName: "Owner" },
+      isLoading: false,
+    };
+    renderPage();
+    // Members have nothing to bill here — no management surface renders.
+    expect(screen.queryByText("Billing history")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Cancel subscription/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("an individual Stripe All-Access subscriber sees the in-place Family upgrade", async () => {
+    h.sub = {
+      data: { ...PLUS_ACTIVE, provider: "stripe", paymentMethod: null },
+      isLoading: false,
+      isError: false,
+    };
+    h.beginFamilyCheckout.mockResolvedValue("upgraded");
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /Upgrade to the Family plan/i }),
+    );
+    await waitFor(() => expect(h.beginFamilyCheckout).toHaveBeenCalled());
   });
 });

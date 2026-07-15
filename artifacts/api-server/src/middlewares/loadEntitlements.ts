@@ -6,6 +6,7 @@ import {
   type ResolvedPlan,
   type SubscriptionState,
 } from "../lib/entitlements";
+import { familyGrantedPlan } from "../lib/familyAccess";
 import type { AuthedRequest } from "./requireAuth";
 
 // Loads the authenticated user's subscription state and resolves their
@@ -49,7 +50,15 @@ export async function loadEntitlements(
           chosenLanguage: null,
         };
 
-    (req as EntitledRequest).resolvedPlan = resolvePlan(state);
+    let resolved = resolvePlan(state);
+    // Family cascade: a learner whose own subscription resolves to Free but
+    // who occupies an active family seat gets Plus through the plan owner's
+    // subscription. Derived per-request (never stored), so an owner's cancel,
+    // pause, or payment failure drops every member automatically.
+    if (resolved.plan === "free" && user) {
+      resolved = (await familyGrantedPlan(userId)) ?? resolved;
+    }
+    (req as EntitledRequest).resolvedPlan = resolved;
     (req as EntitledRequest).userTimezone = user?.timezone ?? null;
     next();
   } catch (err) {

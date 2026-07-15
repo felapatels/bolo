@@ -30,6 +30,8 @@ import Friends from '@/pages/friends';
 import Account from '@/pages/account';
 import Subscription from '@/pages/subscription';
 import Upgrade from '@/pages/upgrade';
+import Family from '@/pages/family';
+import FamilyJoin from '@/pages/family-join';
 import Privacy from '@/pages/privacy';
 import Terms from '@/pages/terms';
 import NotFound from '@/pages/not-found';
@@ -218,6 +220,16 @@ function AppRouter() {
       <Route path="/chat">
         <Guard>
           <Chat />
+        </Guard>
+      </Route>
+      <Route path="/family">
+        <Guard>
+          <Family />
+        </Guard>
+      </Route>
+      <Route path="/family/join">
+        <Guard>
+          <FamilyJoin />
         </Guard>
       </Route>
       <Route path="/upgrade">

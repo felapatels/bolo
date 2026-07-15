@@ -7,6 +7,10 @@ import {
   badgesTable,
   lessonGenerationsTable,
   friendshipsTable,
+  friendInvitesTable,
+  chatTurnsTable,
+  familyPlansTable,
+  familySeatsTable,
   type User,
 } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
@@ -370,6 +374,30 @@ export function createAccountRouter(
 
       // Purge child rows before the parent `users` row. Friendships reference the
       // user from either side.
+      //
+      // Family relations first: a member's seat simply disappears; an owner's
+      // plan is dissolved (seats + plan) — members lose derived access
+      // automatically because entitlements resolve through the (now gone)
+      // owner. The Stripe subscription, if any, dies with the customer via
+      // the deletion webhook.
+      await db
+        .delete(familySeatsTable)
+        .where(eq(familySeatsTable.memberUserId, id));
+      const ownedPlan = await db.query.familyPlansTable.findFirst({
+        where: eq(familyPlansTable.ownerUserId, id),
+      });
+      if (ownedPlan) {
+        await db
+          .delete(familySeatsTable)
+          .where(eq(familySeatsTable.planId, ownedPlan.id));
+        await db
+          .delete(familyPlansTable)
+          .where(eq(familyPlansTable.id, ownedPlan.id));
+      }
+      await db.delete(chatTurnsTable).where(eq(chatTurnsTable.userId, id));
+      await db
+        .delete(friendInvitesTable)
+        .where(eq(friendInvitesTable.inviterId, id));
       await db.delete(attemptsTable).where(eq(attemptsTable.userId, id));
       await db.delete(badgesTable).where(eq(badgesTable.userId, id));
       await db

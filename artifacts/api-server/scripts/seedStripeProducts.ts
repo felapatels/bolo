@@ -15,6 +15,10 @@ const PRODUCT_NAME = "Bolo! Plus";
 const MONTHLY_CENTS = 999; // $9.99/mo
 const ANNUAL_CENTS = 7199; // $71.99/yr
 
+// Family plan: one subscription covering up to 4 people (owner + 3 seats).
+const FAMILY_PRODUCT_NAME = "Bolo! Family";
+const FAMILY_MONTHLY_CENTS = 1999; // $19.99/mo
+
 async function findOrCreatePrice(
   stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>,
   productId: string,
@@ -70,9 +74,32 @@ async function main(): Promise<void> {
 
   console.log(`Monthly price: $${(MONTHLY_CENTS / 100).toFixed(2)}/mo (${monthlyPriceId})`);
   console.log(`Annual price: $${(ANNUAL_CENTS / 100).toFixed(2)}/yr (${annualPriceId})`);
+  // Family plan product + monthly price.
+  const existingFamily = await stripe.products.search({
+    query: `name:'${FAMILY_PRODUCT_NAME}' AND active:'true'`,
+  });
+  const familyProduct =
+    existingFamily.data[0] ??
+    (await stripe.products.create({
+      name: FAMILY_PRODUCT_NAME,
+      description:
+        "Full Plus access for up to 4 people — all 22 official Indian languages, unlimited lessons, review, and analytics for the whole family.",
+    }));
+  console.log(`Product: ${familyProduct.name} (${familyProduct.id})`);
+  const familyMonthlyPriceId = await findOrCreatePrice(
+    stripe,
+    familyProduct.id,
+    FAMILY_MONTHLY_CENTS,
+    "month",
+  );
+  console.log(
+    `Family monthly price: ${(FAMILY_MONTHLY_CENTS / 100).toFixed(2)}/mo (${familyMonthlyPriceId})`,
+  );
+
   console.log("\nSet these env vars for checkout to use them:");
   console.log(`  STRIPE_PLUS_MONTHLY_PRICE_ID=${monthlyPriceId}`);
   console.log(`  STRIPE_PLUS_ANNUAL_PRICE_ID=${annualPriceId}`);
+  console.log(`  STRIPE_FAMILY_MONTHLY_PRICE_ID=${familyMonthlyPriceId}`);
 }
 
 main().catch((err) => {

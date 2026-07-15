@@ -32,9 +32,12 @@ import type {
   Category,
   ChatTurnInput,
   ChatTurnResult,
+  CreateFamilyInvite201,
+  CreateFamilyInviteBody,
   DeleteAccountResult,
   Entitlements,
   Error,
+  FamilyStatus,
   Friend,
   FriendInviteResult,
   FriendRequest,
@@ -42,12 +45,15 @@ import type {
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
   HealthStatus,
+  JoinFamily200,
+  JoinFamilyBody,
   Language,
   LeaderboardEntry,
   ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
   ListReviewPhrasesParams,
+  Ok,
   PauseSubscriptionInput,
   Phrase,
   PhraseRequest,
@@ -55,6 +61,7 @@ import type {
   ProgressSummary,
   PronunciationInput,
   PronunciationResult,
+  RegenerateFamilyCode200,
   SearchFriendByEmailParams,
   SendFriendInviteInput,
   SendFriendRequestInput,
@@ -3059,5 +3066,513 @@ export const useChatTurn = <TError = ErrorType<UpgradeRequired | Error>,
         TContext
       > => {
       return useMutation(getChatTurnMutationOptions(options));
+    }
+
+export const getGetFamilyUrl = () => {
+
+
+
+
+  return `/api/family`
+}
+
+/**
+ * Returns the caller's relationship to a family plan: "owner" (with the join code and full seat list), "member" (whose plan they're on), or "none". `active` reflects whether the owner's subscription currently grants the family Plus access.
+ * @summary The caller's family-plan status
+ */
+export const getFamily = async ( options?: RequestInit): Promise<FamilyStatus> => {
+
+  return customFetch<FamilyStatus>(getGetFamilyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFamilyQueryKey = () => {
+    return [
+    `/api/family`
+    ] as const;
+    }
+
+
+export const getGetFamilyQueryOptions = <TData = Awaited<ReturnType<typeof getFamily>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFamily>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFamilyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFamily>>> = ({ signal }) => getFamily({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFamily>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFamilyQueryResult = NonNullable<Awaited<ReturnType<typeof getFamily>>>
+export type GetFamilyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The caller's family-plan status
+ */
+
+export function useGetFamily<TData = Awaited<ReturnType<typeof getFamily>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFamily>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFamilyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFamilyInviteUrl = () => {
+
+
+
+
+  return `/api/family/invites`
+}
+
+/**
+ * Reserves a pending seat and emails a personal join link. Duplicate emails are rejected without consuming a seat; a full plan (4 people including pending invites) is rejected with 409.
+ * @summary Invite someone to the family plan by email (owner only)
+ */
+export const createFamilyInvite = async (createFamilyInviteBody: CreateFamilyInviteBody, options?: RequestInit): Promise<CreateFamilyInvite201> => {
+
+  return customFetch<CreateFamilyInvite201>(getCreateFamilyInviteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createFamilyInviteBody)
+  }
+);}
+
+
+
+
+
+export const getCreateFamilyInviteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext> => {
+
+const mutationKey = ['createFamilyInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFamilyInvite>>, {data: BodyType<CreateFamilyInviteBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFamilyInvite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFamilyInviteMutationResult = NonNullable<Awaited<ReturnType<typeof createFamilyInvite>>>
+    export type CreateFamilyInviteMutationBody = BodyType<CreateFamilyInviteBody>
+    export type CreateFamilyInviteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Invite someone to the family plan by email (owner only)
+ */
+export const useCreateFamilyInvite = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFamilyInvite>>,
+        TError,
+        {data: BodyType<CreateFamilyInviteBody>},
+        TContext
+      > => {
+      return useMutation(getCreateFamilyInviteMutationOptions(options));
+    }
+
+export const getRevokeFamilyInviteUrl = (seatId: number,) => {
+
+
+
+
+  return `/api/family/invites/${seatId}`
+}
+
+/**
+ * @summary Revoke a pending invite, freeing its seat (owner only)
+ */
+export const revokeFamilyInvite = async (seatId: number, options?: RequestInit): Promise<Ok> => {
+
+  return customFetch<Ok>(getRevokeFamilyInviteUrl(seatId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeFamilyInviteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeFamilyInvite>>, TError,{seatId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeFamilyInvite>>, TError,{seatId: number}, TContext> => {
+
+const mutationKey = ['revokeFamilyInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeFamilyInvite>>, {seatId: number}> = (props) => {
+          const {seatId} = props ?? {};
+
+          return  revokeFamilyInvite(seatId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeFamilyInviteMutationResult = NonNullable<Awaited<ReturnType<typeof revokeFamilyInvite>>>
+
+    export type RevokeFamilyInviteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Revoke a pending invite, freeing its seat (owner only)
+ */
+export const useRevokeFamilyInvite = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeFamilyInvite>>, TError,{seatId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeFamilyInvite>>,
+        TError,
+        {seatId: number},
+        TContext
+      > => {
+      return useMutation(getRevokeFamilyInviteMutationOptions(options));
+    }
+
+export const getRemoveFamilyMemberUrl = (memberUserId: string,) => {
+
+
+
+
+  return `/api/family/members/${memberUserId}`
+}
+
+/**
+ * Frees the member's seat immediately. The member drops to Free on their next request; none of their learning data is deleted.
+ * @summary Remove a member from the family plan (owner only)
+ */
+export const removeFamilyMember = async (memberUserId: string, options?: RequestInit): Promise<Ok> => {
+
+  return customFetch<Ok>(getRemoveFamilyMemberUrl(memberUserId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveFamilyMemberMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMember>>, TError,{memberUserId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMember>>, TError,{memberUserId: string}, TContext> => {
+
+const mutationKey = ['removeFamilyMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeFamilyMember>>, {memberUserId: string}> = (props) => {
+          const {memberUserId} = props ?? {};
+
+          return  removeFamilyMember(memberUserId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveFamilyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeFamilyMember>>>
+
+    export type RemoveFamilyMemberMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a member from the family plan (owner only)
+ */
+export const useRemoveFamilyMember = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMember>>, TError,{memberUserId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeFamilyMember>>,
+        TError,
+        {memberUserId: string},
+        TContext
+      > => {
+      return useMutation(getRemoveFamilyMemberMutationOptions(options));
+    }
+
+export const getLeaveFamilyUrl = () => {
+
+
+
+
+  return `/api/family/leave`
+}
+
+/**
+ * @summary Give up the caller's own family seat
+ */
+export const leaveFamily = async ( options?: RequestInit): Promise<Ok> => {
+
+  return customFetch<Ok>(getLeaveFamilyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveFamilyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveFamily>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveFamily>>, TError,void, TContext> => {
+
+const mutationKey = ['leaveFamily'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveFamily>>, void> = () => {
+
+
+          return  leaveFamily(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveFamilyMutationResult = NonNullable<Awaited<ReturnType<typeof leaveFamily>>>
+
+    export type LeaveFamilyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Give up the caller's own family seat
+ */
+export const useLeaveFamily = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveFamily>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveFamily>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLeaveFamilyMutationOptions(options));
+    }
+
+export const getRegenerateFamilyCodeUrl = () => {
+
+
+
+
+  return `/api/family/code/regenerate`
+}
+
+/**
+ * The old code stops working immediately.
+ * @summary Replace the shareable join code (owner only)
+ */
+export const regenerateFamilyCode = async ( options?: RequestInit): Promise<RegenerateFamilyCode200> => {
+
+  return customFetch<RegenerateFamilyCode200>(getRegenerateFamilyCodeUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegenerateFamilyCodeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateFamilyCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof regenerateFamilyCode>>, TError,void, TContext> => {
+
+const mutationKey = ['regenerateFamilyCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof regenerateFamilyCode>>, void> = () => {
+
+
+          return  regenerateFamilyCode(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegenerateFamilyCodeMutationResult = NonNullable<Awaited<ReturnType<typeof regenerateFamilyCode>>>
+
+    export type RegenerateFamilyCodeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Replace the shareable join code (owner only)
+ */
+export const useRegenerateFamilyCode = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateFamilyCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof regenerateFamilyCode>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRegenerateFamilyCodeMutationOptions(options));
+    }
+
+export const getJoinFamilyUrl = () => {
+
+
+
+
+  return `/api/family/join`
+}
+
+/**
+ * Joins a family plan. If the caller pays for their own Plus through Stripe, that subscription is canceled with proration credit before the seat is granted (`previousSubscriptionCanceled` is true in that case).
+ * @summary Claim a family seat via join code or emailed invite link
+ */
+export const joinFamily = async (joinFamilyBody: JoinFamilyBody, options?: RequestInit): Promise<JoinFamily200> => {
+
+  return customFetch<JoinFamily200>(getJoinFamilyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(joinFamilyBody)
+  }
+);}
+
+
+
+
+
+export const getJoinFamilyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext> => {
+
+const mutationKey = ['joinFamily'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinFamily>>, {data: BodyType<JoinFamilyBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  joinFamily(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinFamilyMutationResult = NonNullable<Awaited<ReturnType<typeof joinFamily>>>
+    export type JoinFamilyMutationBody = BodyType<JoinFamilyBody>
+    export type JoinFamilyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Claim a family seat via join code or emailed invite link
+ */
+export const useJoinFamily = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinFamily>>,
+        TError,
+        {data: BodyType<JoinFamilyBody>},
+        TContext
+      > => {
+      return useMutation(getJoinFamilyMutationOptions(options));
     }
 

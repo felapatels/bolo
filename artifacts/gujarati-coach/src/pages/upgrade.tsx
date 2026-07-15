@@ -16,6 +16,7 @@ import {
   Sparkles,
   Lock,
   BookOpen,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -24,10 +25,15 @@ import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import {
   beginOneLanguageCheckout,
   beginAllAccessCheckout,
+  beginFamilyCheckout,
   refreshAfterBilling,
   type PlusInterval,
   type PaidTier,
 } from "@/lib/billing";
+
+// The tiers selectable on this page: the two individual paid tiers plus the
+// Family plan (one $19.99/mo subscription covering up to 4 people).
+type SelectableTier = PaidTier | "family";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
@@ -35,7 +41,7 @@ const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 // until the real provider checkout lands (the dev-override records only tier),
 // but we show accurate monthly + annual prices for each plan.
 const TIER_PRICING: Record<
-  PaidTier,
+  SelectableTier,
   Record<
     PlusInterval,
     { price: string; per: string; note: string; badge?: string }
@@ -67,6 +73,19 @@ const TIER_PRICING: Record<
       badge: "Save 40%",
     },
   },
+  // Family is billed monthly regardless of the toggle — both entries match.
+  family: {
+    monthly: {
+      price: "$19.99",
+      per: "/mo",
+      note: "One bill covers up to 4 people. Billed monthly. Cancel anytime.",
+    },
+    annual: {
+      price: "$19.99",
+      per: "/mo",
+      note: "One bill covers up to 4 people. Billed monthly. Cancel anytime.",
+    },
+  },
 };
 
 const ONE_LANGUAGE_BENEFITS = [
@@ -81,6 +100,13 @@ const ALL_ACCESS_BENEFITS = [
   { icon: Target, text: "Review your weakest phrases" },
   { icon: BarChart3, text: "Advanced progress analytics" },
   { icon: Award, text: "Exclusive Plus badges" },
+];
+
+const FAMILY_BENEFITS = [
+  { icon: Users, text: "Everything in All-Access, for up to 4 people" },
+  { icon: Globe, text: "All 22 official Indian languages" },
+  { icon: InfinityIcon, text: "Unlimited daily lessons for everyone" },
+  { icon: Target, text: "Each person's progress stays their own" },
 ];
 
 export default function Upgrade() {
@@ -136,13 +162,16 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     const plan = params.get("plan");
     const lang = params.get("lang");
     return {
-      tier: plan === "one_language" ? "one_language" : plan === "plus" ? "plus" : null,
+      tier:
+        plan === "one_language" || plan === "plus" || plan === "family"
+          ? plan
+          : null,
       lang,
-    } as { tier: PaidTier | null; lang: string | null };
+    } as { tier: SelectableTier | null; lang: string | null };
   }, [search]);
 
   const [interval, setInterval] = useState<PlusInterval>("monthly");
-  const [selectedTier, setSelectedTier] = useState<PaidTier>(
+  const [selectedTier, setSelectedTier] = useState<SelectableTier>(
     intent.tier ?? "plus",
   );
   const [chosenLanguage, setChosenLanguage] = useState<string | null>(() => {
@@ -205,6 +234,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
         // place), then route into the app.
         await beginOneLanguageCheckout(chosenLanguage, interval, queryClient);
         setLocation("/app");
+      } else if (selectedTier === "family") {
+        // Family → Stripe Checkout (redirects away). An existing Plus
+        // subscriber is upgraded in place instead (no redirect).
+        const result = await beginFamilyCheckout(queryClient);
+        if (result === "upgraded") setLocation("/family");
       } else {
         // All-Access → real Stripe Checkout with the 7-day free trial. Redirects
         // the browser to Stripe; does not return on success.
@@ -216,7 +250,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     }
   };
 
-  const priceForTier = (tier: PaidTier) => TIER_PRICING[tier][interval];
+  const priceForTier = (tier: SelectableTier) => TIER_PRICING[tier][interval];
 
   // A handful of language native names for the bobbing hero tags — pure brand
   // flair echoing the launch video. Falls back gracefully if the list is short.
@@ -303,7 +337,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
         </div>
 
         {/* Plan options */}
-        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
+        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:items-stretch xl:grid-cols-4">
           {/* Free — the current plan, shown for context and never selectable.
               Kept far left so the plans read current → upgrade → best. */}
           <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
@@ -341,6 +375,16 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             benefits={ALL_ACCESS_BENEFITS}
             highlight="7-day free trial"
             recommended
+          />
+
+          <PlanCard
+            tier="family"
+            selected={selectedTier === "family"}
+            onSelect={() => setSelectedTier("family")}
+            title="Family"
+            tagline="All-Access for up to 4 people"
+            price={priceForTier("family")}
+            benefits={FAMILY_BENEFITS}
           />
         </div>
 
@@ -437,6 +481,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                 <Sparkles className="h-6 w-6" />
                 Start 7-day free trial
               </>
+            ) : selectedTier === "family" ? (
+              <>
+                <Users className="h-6 w-6" />
+                Get the Family plan
+              </>
             ) : (
               <>
                 <Sparkles className="h-6 w-6" />
@@ -460,13 +509,19 @@ function FinePrint({
   tier,
   interval,
 }: {
-  tier: PaidTier;
+  tier: SelectableTier;
   interval: PlusInterval;
 }) {
   const p = TIER_PRICING[tier][interval];
   return (
     <>
-      {tier === "plus" ? (
+      {tier === "family" ? (
+        <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
+          {p.price}
+          {p.per} for up to 4 people — you plus 3 invites. {p.note} Invite your
+          family after checkout. No free trial on this plan.
+        </p>
+      ) : tier === "plus" ? (
         <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
           7 days free, then {p.price}
           {p.per}. {p.note} Cancel anytime before the trial ends and you won't be
@@ -503,7 +558,7 @@ function PlanCard({
   highlight,
   recommended,
 }: {
-  tier: PaidTier;
+  tier: SelectableTier;
   selected: boolean;
   onSelect: () => void;
   title: string;

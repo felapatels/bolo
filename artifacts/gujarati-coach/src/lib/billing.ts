@@ -126,6 +126,40 @@ export async function beginAllAccessCheckout(
   window.location.href = url;
 }
 
+// Start the Family plan ($19.99/mo, up to 4 people) via Stripe. For a learner
+// with no existing Stripe subscription this redirects to Stripe Checkout (does
+// not return). For an existing Plus subscriber the server upgrades the SAME
+// subscription in place (prorated, never a second subscription) and this
+// resolves with "upgraded".
+export async function beginFamilyCheckout(
+  queryClient?: QueryClient,
+): Promise<"redirected" | "upgraded"> {
+  const res = await fetch("/api/stripe/checkout", {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ plan: "family", basePath: BASE_PATH }),
+  });
+  if (!res.ok) {
+    let message = `Checkout failed (${res.status}).`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data?.error) message = data.error;
+    } catch {
+      // Non-JSON error body — keep the generic message.
+    }
+    throw new Error(message);
+  }
+  const data = (await res.json()) as { url?: string; upgraded?: boolean };
+  if (data.upgraded) {
+    if (queryClient) await refreshAfterBilling(queryClient);
+    return "upgraded";
+  }
+  if (!data.url) throw new Error("Checkout is temporarily unavailable.");
+  window.location.href = data.url;
+  return "redirected";
+}
+
 // Open Stripe's hosted billing portal to manage/cancel the subscription.
 // Redirects the browser — does not return on success.
 export async function cancelPlus(): Promise<void> {

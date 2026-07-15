@@ -904,3 +904,100 @@ export const ChatTurnResponse = zod.object({
 })
 
 
+/**
+ * Returns the caller's relationship to a family plan: "owner" (with the join code and full seat list), "member" (whose plan they're on), or "none". `active` reflects whether the owner's subscription currently grants the family Plus access.
+ * @summary The caller's family-plan status
+ */
+export const GetFamilyResponse = zod.object({
+  "role": zod.enum(['owner', 'member', 'none']),
+  "active": zod.boolean().optional(),
+  "joinCode": zod.string().optional(),
+  "capacity": zod.number().optional(),
+  "seats": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'active']),
+  "email": zod.string().nullish(),
+  "memberUserId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "joinedAt": zod.string().nullish()
+})).optional(),
+  "ownerName": zod.string().optional(),
+  "joinedAt": zod.string().nullish()
+})
+
+
+/**
+ * Reserves a pending seat and emails a personal join link. Duplicate emails are rejected without consuming a seat; a full plan (4 people including pending invites) is rejected with 409.
+ * @summary Invite someone to the family plan by email (owner only)
+ */
+export const CreateFamilyInviteBody = zod.object({
+  "email": zod.string(),
+  "basePath": zod.string().optional().describe('The web app\'s base path, used to build the join link.')
+})
+
+export const CreateFamilyInviteResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "email": zod.string()
+})
+
+
+/**
+ * @summary Revoke a pending invite, freeing its seat (owner only)
+ */
+export const RevokeFamilyInviteParams = zod.object({
+  "seatId": zod.coerce.number()
+})
+
+export const RevokeFamilyInviteResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * Frees the member's seat immediately. The member drops to Free on their next request; none of their learning data is deleted.
+ * @summary Remove a member from the family plan (owner only)
+ */
+export const RemoveFamilyMemberParams = zod.object({
+  "memberUserId": zod.coerce.string()
+})
+
+export const RemoveFamilyMemberResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Give up the caller's own family seat
+ */
+export const LeaveFamilyResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * The old code stops working immediately.
+ * @summary Replace the shareable join code (owner only)
+ */
+export const RegenerateFamilyCodeResponse = zod.object({
+  "joinCode": zod.string()
+})
+
+
+/**
+ * Joins a family plan. If the caller pays for their own Plus through Stripe, that subscription is canceled with proration credit before the seat is granted (`previousSubscriptionCanceled` is true in that case).
+ * @summary Claim a family seat via join code or emailed invite link
+ */
+export const JoinFamilyBody = zod.object({
+  "code": zod.string().optional(),
+  "inviteToken": zod.string().optional()
+})
+
+export const JoinFamilyResponse = zod.object({
+  "ok": zod.boolean(),
+  "ownerName": zod.string(),
+  "previousSubscriptionCanceled": zod.boolean(),
+  "active": zod.boolean()
+})
+
+

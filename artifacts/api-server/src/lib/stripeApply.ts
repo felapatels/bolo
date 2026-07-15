@@ -5,6 +5,7 @@
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { StripeApply } from "./stripeSync";
+import { ensureFamilyPlan } from "./familyAccess";
 
 const PROVIDER = "stripe";
 
@@ -27,4 +28,12 @@ export async function applyStripeState(apply: StripeApply): Promise<void> {
       chosenLanguage: null,
     })
     .where(eq(usersTable.id, apply.userId));
+
+  // The first time a Family subscription becomes live, materialize the group
+  // itself (plan row + join code). Kept across lapses so a payment hiccup
+  // doesn't dissolve the family — the entitlement cascade already stops
+  // granting members Plus while the owner's row isn't live.
+  if (apply.tier === "family") {
+    await ensureFamilyPlan(apply.userId);
+  }
 }

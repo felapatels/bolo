@@ -5,6 +5,46 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface Ok {
+  ok: boolean;
+}
+
+export type FamilySeatStatus = typeof FamilySeatStatus[keyof typeof FamilySeatStatus];
+
+
+export const FamilySeatStatus = {
+  pending: 'pending',
+  active: 'active',
+} as const;
+
+export interface FamilySeat {
+  id: number;
+  status: FamilySeatStatus;
+  email?: string | null;
+  memberUserId?: string | null;
+  displayName?: string | null;
+  joinedAt?: string | null;
+}
+
+export type FamilyStatusRole = typeof FamilyStatusRole[keyof typeof FamilyStatusRole];
+
+
+export const FamilyStatusRole = {
+  owner: 'owner',
+  member: 'member',
+  none: 'none',
+} as const;
+
+export interface FamilyStatus {
+  role: FamilyStatusRole;
+  active?: boolean;
+  joinCode?: string;
+  capacity?: number;
+  seats?: FamilySeat[];
+  ownerName?: string;
+  joinedAt?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -578,5 +618,33 @@ lang: string;
 
 export type SearchFriendByEmailParams = {
 email: string;
+};
+
+export type CreateFamilyInviteBody = {
+  email: string;
+  /** The web app's base path, used to build the join link. */
+  basePath?: string;
+};
+
+export type CreateFamilyInvite201 = {
+  id: number;
+  status: string;
+  email: string;
+};
+
+export type RegenerateFamilyCode200 = {
+  joinCode: string;
+};
+
+export type JoinFamilyBody = {
+  code?: string;
+  inviteToken?: string;
+};
+
+export type JoinFamily200 = {
+  ok: boolean;
+  ownerName: string;
+  previousSubscriptionCanceled: boolean;
+  active: boolean;
 };
 

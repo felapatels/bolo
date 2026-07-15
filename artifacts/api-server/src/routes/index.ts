@@ -8,6 +8,7 @@ import accountRouter from "./account";
 import friendsRouter from "./friends";
 import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
+import familyRouter from "./family";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -37,6 +38,9 @@ router.use(accountRouter);
 router.use(friendsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
+// Family plan management (seats, invites, join). Available to every
+// authenticated learner — joining must work for Free users.
+router.use(familyRouter);
 router.use(learningRouter);
 router.use(openaiRouter);
 

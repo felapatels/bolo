@@ -12,6 +12,8 @@ import {
   badgesTable,
   lessonGenerationsTable,
   friendshipsTable,
+  familyPlansTable,
+  familySeatsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -402,6 +404,82 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     .from(friendshipsTable)
     .where(eq(friendshipsTable.requesterId, TEST_USER_ID));
   assert.equal(friends.length, 0);
+});
+
+test("DELETE /account dissolves a family plan the user owns", async () => {
+  // The user owns a family plan with an active member and a pending invite.
+  const [plan] = await db
+    .insert(familyPlansTable)
+    .values({ ownerUserId: TEST_USER_ID, joinCode: "acctdeltest1" })
+    .returning();
+  await db.insert(usersTable).values({ id: FRIEND_ID }).onConflictDoNothing();
+  await db.insert(familySeatsTable).values([
+    {
+      planId: plan.id,
+      status: "active",
+      memberUserId: FRIEND_ID,
+      joinedAt: new Date(),
+    },
+    {
+      planId: plan.id,
+      status: "pending",
+      invitedEmail: "kid@example.test",
+      inviteToken: "tok_acct_del_test",
+    },
+  ]);
+
+  const { status, json } = await del("/account");
+  assert.equal(status, 200);
+  assert.equal(json.deleted, true);
+
+  // Plan and every seat are gone; the member's own account is untouched.
+  const plans = await db
+    .select()
+    .from(familyPlansTable)
+    .where(eq(familyPlansTable.ownerUserId, TEST_USER_ID));
+  assert.equal(plans.length, 0);
+  const seats = await db
+    .select()
+    .from(familySeatsTable)
+    .where(eq(familySeatsTable.planId, plan.id));
+  assert.equal(seats.length, 0);
+  const member = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, FRIEND_ID),
+  });
+  assert.ok(member);
+});
+
+test("DELETE /account frees the family seat a member occupies", async () => {
+  // The user sits on someone else's family plan.
+  await db.insert(usersTable).values({ id: FRIEND_ID }).onConflictDoNothing();
+  const [plan] = await db
+    .insert(familyPlansTable)
+    .values({ ownerUserId: FRIEND_ID, joinCode: "acctdeltest2" })
+    .returning();
+  await db.insert(familySeatsTable).values({
+    planId: plan.id,
+    status: "active",
+    memberUserId: TEST_USER_ID,
+    joinedAt: new Date(),
+  });
+
+  const { status, json } = await del("/account");
+  assert.equal(status, 200);
+  assert.equal(json.deleted, true);
+
+  // The seat is freed; the owner's plan survives.
+  const seats = await db
+    .select()
+    .from(familySeatsTable)
+    .where(eq(familySeatsTable.planId, plan.id));
+  assert.equal(seats.length, 0);
+  const survivingPlan = await db.query.familyPlansTable.findFirst({
+    where: eq(familyPlansTable.id, plan.id),
+  });
+  assert.ok(survivingPlan);
+
+  // Clean up the owner's plan (FRIEND_ID's user row is removed in after()).
+  await db.delete(familyPlansTable).where(eq(familyPlansTable.id, plan.id));
 });
 
 // --- Subscription details --------------------------------------------------

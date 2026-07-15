@@ -26,10 +26,15 @@ import openaiRouter, { ttsCacheKey } from "./openai";
 // All DB rows use a unique test-only language + category and are cleaned up
 // in after(). See .agents/memory/api-server-tests.md for the test DB conventions.
 
-const TEST_LANG = "__test_lang_tts_cache";
-const CATEGORY_SLUG = "__test_cat_tts_cache";
-const OLD_TEXT = "__tts_cache_test_old_नमस्ते";
-const NEW_TEXT = "__tts_cache_test_new_नमस्कार";
+// Suffix every fixture with the pid so two overlapping runs of this suite
+// (e.g. the test workflow and a validation run against the same shared dev DB)
+// can never delete each other's rows or cache keys in their after() cleanup.
+const RUN = `_${process.pid}`;
+const TEST_LANG = `__test_lang_tts_cache${RUN}`;
+const CATEGORY_SLUG = `__test_cat_tts_cache${RUN}`;
+const LANG_NAME = `Test TTS Lang${RUN}`;
+const OLD_TEXT = `__tts_cache_test_old_नमस्ते${RUN}`;
+const NEW_TEXT = `__tts_cache_test_new_नमस्कार${RUN}`;
 const VOICE = "nova" as const;
 const OLD_AUDIO = "b64_OLD_AUDIO==";
 const NEW_AUDIO = "b64_NEW_AUDIO==";
@@ -124,9 +129,9 @@ before(async () => {
   // Seed a minimal phrase so eviction-by-phraseId has something to look up.
   await pool.query(
     `INSERT INTO languages(code, name, native_name, script, font_family)
-     VALUES ($1, 'Test TTS Lang', 'Test', 'Latin', 'sans-serif')
+     VALUES ($1, $2, 'Test', 'Latin', 'sans-serif')
      ON CONFLICT DO NOTHING;`,
-    [TEST_LANG],
+    [TEST_LANG, LANG_NAME],
   );
   await pool.query(
     `INSERT INTO categories(slug, title, description, icon_name, accent)
@@ -179,7 +184,6 @@ before(async () => {
 after(async () => {
   // Clean up all test-seeded TTS cache entries — both hinted and unhinted forms
   // for every voice so the shared dev DB stays clean for other suites.
-  const LANG_NAME = "Test TTS Lang";
   const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
   for (const v of voices) {
     for (const text of [OLD_TEXT, NEW_TEXT]) {
@@ -357,7 +361,6 @@ test("POST /openai/tts-cache/evict: 404 for unknown phraseId", async () => {
 test("POST /openai/tts-cache/evict: evicts unhinted and language-hinted keys for a phraseId", async () => {
   const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
   // The language row for TEST_LANG has name "Test TTS Lang" (seeded in before()).
-  const LANG_NAME = "Test TTS Lang";
 
   // Seed one unhinted and one hinted cache entry per voice to simulate entries
   // written with and without a languageName hint — the eviction must remove both.
@@ -407,7 +410,6 @@ test("POST /openai/tts-cache/evict: evicts unhinted and language-hinted keys for
 });
 
 test("POST /openai/tts-cache/evict: evicting by languageCode removes unhinted and hinted keys for every phrase", async () => {
-  const LANG_NAME = "Test TTS Lang";
 
   // Seed both an unhinted and a hinted entry (nova voice) to confirm both forms
   // are evicted when the languageCode is used.

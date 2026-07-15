@@ -7,7 +7,8 @@
 // provider isn't configured or doesn't expose them.
 
 import type { User } from "@workspace/db";
-import { resolvePlan, type ResolvedPlan } from "./entitlements";
+import type { ResolvedPlan } from "./entitlements";
+import { resolvePlanWithFamily } from "./familyAccess";
 import { fetchSubscriber } from "./revenuecatClient";
 import type { RevenueCatSubscriber } from "./revenuecatSync";
 
@@ -105,17 +106,10 @@ export async function buildSubscriptionDetails(
   user: User,
   now: Date = new Date(),
 ): Promise<SubscriptionDetails> {
-  const resolved = resolvePlan(
-    {
-      tier: user.tier,
-      subscriptionStatus: user.subscriptionStatus,
-      trialEndsAt: user.trialEndsAt,
-      currentPeriodEnd: user.currentPeriodEnd,
-      chosenLanguage: user.chosenLanguage,
-      pauseUntil: user.pauseUntil,
-    },
-    now,
-  );
+  // Family-aware: a seat member's snapshot reads Plus through the owner's
+  // subscription (their own row stays free), so the account UI never
+  // ping-pongs between "you're paid" (entitlements) and "you're free" (here).
+  const resolved = await resolvePlanWithFamily(user, now);
 
   // A "canceled" subscription still inside its paid period ends at the boundary.
   const cancelAtPeriodEnd =

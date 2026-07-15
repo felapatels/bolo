@@ -144,7 +144,13 @@ export function resolvePlan(
   const periodLapsed =
     state.currentPeriodEnd != null && state.currentPeriodEnd.getTime() <= t;
 
-  if (state.tier === "plus") {
+  // The Family tier is the owner's side of the $19.99/mo family plan. For
+  // entitlement purposes the owner is simply a Plus subscriber (the plan
+  // resolves to "plus" so every existing gate and client keeps working);
+  // family-ness — seats, invites, the join code — is surfaced separately via
+  // the /family endpoints. Members are resolved through the owner's row by
+  // the family cascade in loadEntitlements, not here.
+  if (state.tier === "plus" || state.tier === "family") {
     if (!periodLapsed) {
       return {
         plan: "plus",

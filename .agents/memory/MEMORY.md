@@ -49,4 +49,5 @@
 - [TTS replay determinism](tts-replay-determinism.md) — gpt-audio TTS can read the same short phrase differently per call; cache first take per phrase and anchor prompts with the language name.
 - [Prod missing dev-only binaries](prod-ffmpeg-dependency.md) — deployments ship only declared Nix deps; spawned binaries (ffmpeg) must be installed as system deps or prod 502s with ENOENT.
 - [Plus auto-replenishment](phrase-replenishment.md) — background phrase top-ups fire after the response, dedup via in-flight map + pg advisory lock; 0-new is success, not error.
+- [Family plan entitlements](family-plan-entitlements.md) — member Plus derived per-request from the owner (no writes); join's Stripe cancel runs inside the seat transaction; Plus→Family is an in-place price swap.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.

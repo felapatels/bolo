@@ -10,6 +10,7 @@ import {
 import { countLessonGenerationsToday } from "../lib/lessonLimits";
 import { sumChatSecondsThisWeek } from "../lib/chatLimits";
 import { reconcileOnRead } from "../lib/revenuecatReconcile";
+import { resolvePlanWithFamily } from "../lib/familyAccess";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
@@ -42,24 +43,20 @@ async function freshResolvedPlan(userId: string) {
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, userId),
   });
-  const state: SubscriptionState = user
-    ? {
-        tier: user.tier,
-        subscriptionStatus: user.subscriptionStatus,
-        trialEndsAt: user.trialEndsAt,
-        currentPeriodEnd: user.currentPeriodEnd,
-        chosenLanguage: user.chosenLanguage,
-        pauseUntil: user.pauseUntil,
-      }
-    : {
-        tier: "free",
-        subscriptionStatus: null,
-        trialEndsAt: null,
-        currentPeriodEnd: null,
-        chosenLanguage: null,
-        pauseUntil: null,
-      };
-  return resolvePlan(state);
+  if (!user) {
+    const state: SubscriptionState = {
+      tier: "free",
+      subscriptionStatus: null,
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      chosenLanguage: null,
+      pauseUntil: null,
+    };
+    return resolvePlan(state);
+  }
+  // Includes the family-seat cascade so a member's snapshot stays Plus even
+  // right after a reconcile touched their own (free) columns.
+  return resolvePlanWithFamily(user);
 }
 
 // GET /entitlements — the caller's current plan, unlocked features, and limits.

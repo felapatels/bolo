@@ -25,15 +25,17 @@ import {
   usePauseAccountSubscription,
   useUnpauseAccountSubscription,
   useAcceptRetentionOffer,
+  useGetFamily,
   ApiError,
   type SubscriptionDetails,
+  type FamilyStatus,
   type BillingHistoryEntry,
 } from "@workspace/api-client-react";
 
 import { cn } from "@/lib/utils";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
-import { beginAllAccessCheckout, cancelPlus } from "@/lib/billing";
+import { beginAllAccessCheckout, beginFamilyCheckout, cancelPlus } from "@/lib/billing";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
@@ -122,13 +124,20 @@ function isManageable(sub: SubscriptionDetails): boolean {
 export default function Subscription() {
   const { isLoading: entLoading } = useEntitlements();
   const { data: sub, isLoading, isError } = useGetAccountSubscription();
+  const { data: family, isLoading: familyLoading } = useGetFamily();
 
-  if (entLoading || isLoading) {
+  if (entLoading || isLoading || familyLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center text-primary">
         <Loader2 className="h-12 w-12 animate-spin" />
       </div>
     );
+  }
+
+  // A family member has nothing to bill or manage here — their access flows
+  // through the owner's subscription, so the family page is their home.
+  if (family?.role === "member") {
+    return <Redirect to="/family" />;
   }
 
   // If the details couldn't load we still don't want a dead end — send the
@@ -137,15 +146,25 @@ export default function Subscription() {
     return <Redirect to="/upgrade" />;
   }
 
-  return <ManageView sub={sub} />;
+  return <ManageView sub={sub} family={family ?? null} />;
 }
 
-function ManageView({ sub }: { sub: SubscriptionDetails }) {
+function ManageView({
+  sub,
+  family,
+}: {
+  sub: SubscriptionDetails;
+  family: FamilyStatus | null;
+}) {
   const queryClient = useQueryClient();
   const { languages } = useLanguage();
   const [retentionOpen, setRetentionOpen] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const [familyUpgrading, setFamilyUpgrading] = useState(false);
   const [portalPending, setPortalPending] = useState(false);
+  // Stripe's portal can't warn about family members, so if the owner heads
+  // there while seats are occupied we interpose our own confirmation first.
+  const [downgradeWarnOpen, setDowngradeWarnOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unpauseMutation = useUnpauseAccountSubscription();
 
@@ -160,14 +179,19 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
   // in-app retention flow.
   const isStripe = sub.provider === "stripe";
   const chosen = languages.find((l) => l.code === sub.chosenLanguage);
+  const isFamilyOwner = family?.role === "owner";
+  const occupiedSeats =
+    family?.seats?.filter((s) => s.status === "active").length ?? 0;
 
   const planLabel = isPaused
     ? "Subscription paused"
-    : isOneLanguage
-      ? "One Language"
-      : isTrialing
-        ? "All-Access trial"
-        : "All-Access";
+    : isFamilyOwner
+      ? "Family plan"
+      : isOneLanguage
+        ? "One Language"
+        : isTrialing
+          ? "All-Access trial"
+          : "All-Access";
 
   const statusBadge = isPaused
     ? { text: "Paused", tone: "bg-amber-100 text-amber-700" }
@@ -214,6 +238,32 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
   // Send Stripe subscribers to Stripe's hosted billing portal, where updating a
   // card, downloading invoices, and cancelling all happen provider-side (and
   // sync back via webhook). Redirects the browser — does not return on success.
+  // Upgrade an individual All-Access sub to the Family plan — same Stripe
+  // subscription, prorated in place, never a second one.
+  const [, setLocation] = useLocation();
+  async function handleUpgradeToFamily() {
+    setFamilyUpgrading(true);
+    setError(null);
+    try {
+      const result = await beginFamilyCheckout(queryClient);
+      if (result === "upgraded") setLocation("/family");
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't upgrade to the Family plan."));
+    } finally {
+      setFamilyUpgrading(false);
+    }
+  }
+
+  // Family owners with people on their plan get a warning before Stripe's
+  // portal: canceling there drops every member to Free.
+  function handleStripePortalGuarded() {
+    if (isFamilyOwner && occupiedSeats > 0) {
+      setDowngradeWarnOpen(true);
+      return;
+    }
+    void handleStripePortal();
+  }
+
   async function handleStripePortal() {
     setPortalPending(true);
     setError(null);
@@ -339,9 +389,32 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
         {/* Manage payment / billing portal. Stripe subscribers always get a
             provider-authoritative portal button (cancel, card, invoices all live
             there); other providers link out only when they expose a URL. */}
+        {/* Family owners manage seats & invites on the family page. */}
+        {isFamilyOwner && (
+          <Link
+            href="/family"
+            className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-white p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Crown className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-base font-black text-foreground">
+                  Manage family seats
+                </p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Invite people, share your join code, or remove members
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </Link>
+        )}
+
         {isStripe ? (
           <button
-            onClick={handleStripePortal}
+            onClick={handleStripePortalGuarded}
             disabled={portalPending}
             className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-white p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99] disabled:opacity-70"
           >
@@ -424,6 +497,36 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
         {/* Billing history */}
         <BillingHistory entries={sub.billingHistory} />
 
+        {/* Upgrade an individual Stripe All-Access sub to the Family plan —
+            prorated on the same subscription, covers up to 4 people. */}
+        {isStripe && !isFamilyOwner && !isOneLanguage && !isPaused && !isCanceled && (
+          <button
+            onClick={handleUpgradeToFamily}
+            disabled={familyUpgrading}
+            className={cn(
+              "mt-4 flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left text-white shadow-md transition-all active:scale-[0.99] disabled:opacity-70",
+              PLUS_GRADIENT,
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-base font-black">Upgrade to the Family plan</p>
+                <p className="text-sm font-semibold text-white/85">
+                  Share All-Access with up to 3 more people — $19.99/mo, prorated
+                </p>
+              </div>
+            </div>
+            {familyUpgrading ? (
+              <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+            ) : (
+              <ChevronRight className="h-5 w-5 shrink-0" />
+            )}
+          </button>
+        )}
+
         {/* Upgrade path for the middle tier */}
         {isOneLanguage && !isPaused && !isCanceled && (
           <button
@@ -465,7 +568,7 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
         {!isCanceled && !isPaused && (
           <div className="mt-8">
             <button
-              onClick={isStripe ? handleStripePortal : () => setRetentionOpen(true)}
+              onClick={isStripe ? handleStripePortalGuarded : () => setRetentionOpen(true)}
               disabled={isStripe && portalPending}
               className="w-full rounded-2xl px-6 py-3.5 text-base font-bold text-muted-foreground transition-colors hover:text-destructive disabled:opacity-70"
             >
@@ -490,6 +593,51 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
           </p>
         )}
       </main>
+
+      {/* Downgrade warning for family owners — Stripe's portal can't tell them
+          what canceling means for their members, so we do it here first. */}
+      {downgradeWarnOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setDowngradeWarnOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-sm rounded-3xl bg-background p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-black text-foreground">
+              Your family is on this plan
+            </h3>
+            <p className="mt-2 text-sm font-medium text-muted-foreground">
+              {occupiedSeats === 1
+                ? "1 person shares"
+                : `${occupiedSeats} people share`}{" "}
+              your Family plan. If you cancel or downgrade it, they'll drop to
+              the Free plan when your subscription ends. Nobody's progress or
+              streaks are deleted.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setDowngradeWarnOpen(false)}
+                className="flex-1 rounded-xl border-2 border-card-border py-2.5 text-sm font-black text-foreground"
+              >
+                Keep my plan
+              </button>
+              <button
+                onClick={() => {
+                  setDowngradeWarnOpen(false);
+                  void handleStripePortal();
+                }}
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-black text-white"
+              >
+                Continue to Stripe
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {retentionOpen && (

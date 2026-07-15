@@ -17,7 +17,7 @@ import type { SubscriptionStatus } from "./entitlements";
 
 export interface StripeApply {
   userId: string;
-  tier: "free" | "plus";
+  tier: "free" | "plus" | "family";
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
@@ -45,6 +45,13 @@ function currentPeriodEnd(sub: Stripe.Subscription): Date | null {
 // subscription object into the columns to write, or null when the event isn't
 // attributable to a user (no metadata) or isn't yet an actionable state
 // ("incomplete" — the first payment hasn't succeeded yet — or "paused").
+// Which paid tier a subscription represents. Checkout (and the in-place
+// Plus→Family upgrade) stamp `metadata.plan: "family"` on family
+// subscriptions; anything else is regular all-access Plus.
+function paidTier(sub: Stripe.Subscription): "plus" | "family" {
+  return sub.metadata?.plan === "family" ? "family" : "plus";
+}
+
 export function applyFromStripeSubscription(
   sub: Stripe.Subscription,
 ): StripeApply | null {
@@ -58,7 +65,7 @@ export function applyFromStripeSubscription(
     case "trialing":
       return {
         userId,
-        tier: "plus",
+        tier: paidTier(sub),
         subscriptionStatus: "trialing",
         trialEndsAt,
         currentPeriodEnd: periodEnd,
@@ -73,7 +80,7 @@ export function applyFromStripeSubscription(
       // until then.
       return {
         userId,
-        tier: "plus",
+        tier: paidTier(sub),
         subscriptionStatus: sub.cancel_at_period_end ? "canceled" : "active",
         trialEndsAt: null,
         currentPeriodEnd: periodEnd,

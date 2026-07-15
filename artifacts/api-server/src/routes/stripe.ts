@@ -2,7 +2,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getUncachableStripeClient } from "../lib/stripeClient";
-import { getPlusPriceId, type PlusInterval } from "../lib/stripePricing";
+import { getPlusPriceId, getFamilyPriceId, type PlusInterval } from "../lib/stripePricing";
+import { applyFromStripeSubscription } from "../lib/stripeSync";
+import { applyStripeState } from "../lib/stripeApply";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
 
@@ -76,13 +78,19 @@ router.post(
     const interval: PlusInterval = req.body?.interval === "monthly"
       ? "monthly"
       : "annual";
-    const withTrial = Boolean(req.body?.withTrial);
+    // "family" buys the $19.99/mo Family plan (4 seats); anything else is
+    // regular all-access Plus.
+    const plan: "plus" | "family" =
+      req.body?.plan === "family" ? "family" : "plus";
+    const withTrial = plan === "plus" && Boolean(req.body?.withTrial);
 
-    const priceId = getPlusPriceId(interval);
+    const priceId = plan === "family" ? getFamilyPriceId() : getPlusPriceId(interval);
     if (!priceId) {
       res.status(503).json({
         error:
-          "Plus pricing isn't configured yet. Run the seedStripeProducts script.",
+          plan === "family"
+            ? "Family pricing isn't configured yet. Run the seedStripeProducts script."
+            : "Plus pricing isn't configured yet. Run the seedStripeProducts script.",
       });
       return;
     }
@@ -93,6 +101,55 @@ router.post(
       });
 
       const stripe = await getUncachableStripeClient();
+
+      // Plus → Family upgrade for an existing Stripe subscriber: swap the
+      // price on the SAME subscription (with proration) instead of creating a
+      // second one — the learner must never be double-billed. Applied locally
+      // right away from Stripe's response; the "updated" webhook confirms.
+      if (
+        plan === "family" &&
+        user?.subscriptionProvider === "stripe" &&
+        user.subscriptionProviderId &&
+        (user.tier === "plus" || user.tier === "family")
+      ) {
+        if (user.tier === "family") {
+          res.status(409).json({ error: "You're already on the Family plan." });
+          return;
+        }
+        const current = await stripe.subscriptions.retrieve(
+          user.subscriptionProviderId,
+        );
+        // A delinquent-but-live subscription (past_due/unpaid/incomplete/
+        // paused) must never fall through to Checkout — that would create a
+        // SECOND subscription. The learner has to fix billing in the Stripe
+        // portal first.
+        if (
+          current.status === "past_due" ||
+          current.status === "unpaid" ||
+          current.status === "incomplete" ||
+          current.status === "paused"
+        ) {
+          res.status(409).json({
+            error:
+              "There's a payment issue on your current subscription. Fix it in the billing portal, then upgrade to the Family plan.",
+          });
+          return;
+        }
+        if (current.status === "active" || current.status === "trialing") {
+          const updated = await stripe.subscriptions.update(current.id, {
+            items: [{ id: current.items.data[0].id, price: priceId }],
+            proration_behavior: "always_invoice",
+            // An in-trial upgrade starts the paid Family plan immediately.
+            trial_end: "now",
+            metadata: { userId, plan: "family" },
+            cancel_at_period_end: false,
+          });
+          const apply = applyFromStripeSubscription(updated);
+          if (apply) await applyStripeState(apply);
+          res.json({ upgraded: true });
+          return;
+        }
+      }
 
       let customerId = user?.stripeCustomerId ?? null;
       if (!customerId) {
@@ -118,7 +175,8 @@ router.post(
         // webhook event (created/updated/deleted) is directly attributable —
         // see stripeSync.ts.
         subscription_data: {
-          metadata: { userId },
+          // `plan` lets the webhook distinguish Family from Plus (stripeSync).
+          metadata: { userId, plan },
           ...(withTrial ? { trial_period_days: 7 } : {}),
         },
         allow_promotion_codes: true,
