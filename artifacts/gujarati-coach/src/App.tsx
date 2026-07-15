@@ -22,6 +22,7 @@ import { TourAutoLauncher } from '@/components/tour-auto-launcher';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
+import Chat from '@/pages/chat';
 import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
@@ -212,6 +213,11 @@ function AppRouter() {
       <Route path="/account/subscription">
         <Guard>
           <Subscription />
+        </Guard>
+      </Route>
+      <Route path="/chat">
+        <Guard>
+          <Chat />
         </Guard>
       </Route>
       <Route path="/upgrade">

@@ -1,4 +1,4 @@
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -223,8 +223,16 @@ export default function Home() {
           </Link>
         </motion.div>
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           <LanguagePicker />
+          <Link
+            href="/chat"
+            className="flex items-center gap-2 rounded-2xl border border-card-border bg-white px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] text-sm font-bold text-foreground transition-all hover:border-primary/40 active:translate-y-1 active:shadow-none"
+            title="Chat with Bolo the parrot"
+          >
+            <MessageCircle className="w-4 h-4 text-primary" />
+            <span>Chat with Bolo</span>
+          </Link>
         </div>
 
         {/* Stats Banner — vibrant, front-and-center progress */}

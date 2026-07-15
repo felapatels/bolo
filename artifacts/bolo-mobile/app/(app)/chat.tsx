@@ -1,10 +1,13 @@
 import React from 'react';
 import {
   Alert,
+  FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -64,10 +67,22 @@ function formatSeconds(s: number): string {
 export default function ChatScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { activeLang, activeLanguage } = useLanguage();
+  const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
 
   const chatTurn = useChatTurn();
+
+  // Per-session language state — does NOT change the learner's global active language.
+  const [chatLang, setChatLang] = React.useState<string>(activeLang);
+
+  // Derived from the language list for display.
+  const chatLanguage = React.useMemo(
+    () => languages.find((l) => l.code === chatLang),
+    [languages, chatLang],
+  );
+
+  // Language picker bottom-sheet state.
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   // Conversation history shown in the UI (and sent to the server as context)
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -96,6 +111,16 @@ export default function ChatScreen() {
   const metering = recorderState?.metering;
 
   const scrollRef = React.useRef<ScrollView>(null);
+
+  // Clear conversation history and stop any playback when the chat language changes.
+  React.useEffect(() => {
+    setMessages([]);
+    setErrorMsg(null);
+    setPhase('idle');
+    playbackRef.current?.stop();
+    playbackRef.current = null;
+    setUpgradeRequired(false);
+  }, [chatLang]);
 
   // ── Mic warm-up ────────────────────────────────────────────────────────────
   const prepareRecorder = React.useCallback((): Promise<boolean> => {
@@ -227,7 +252,7 @@ export default function ChatScreen() {
 
     try {
       const result = await chatTurn.mutateAsync({
-        data: { languageCode: activeLang, audioBase64, history },
+        data: { languageCode: chatLang, audioBase64, history },
       });
 
       // Append both sides of the exchange to the transcript
@@ -292,7 +317,9 @@ export default function ChatScreen() {
   };
 
   // ── Language gate ──────────────────────────────────────────────────────────
-  if (upgradeRequired || !isLanguageAllowed(activeLang)) {
+  // Only block the whole screen if a previous turn attempt was denied (edge
+  // case). Per-language locks are handled inside the picker.
+  if (upgradeRequired) {
     return (
       <UpgradeRequiredScreen
         title="Unlock this language"
@@ -308,7 +335,7 @@ export default function ChatScreen() {
                 feature: 'allLanguages',
                 requiredPlan: 'one_language',
               },
-              activeLang,
+              chatLang,
             ),
           )
         }
@@ -354,13 +381,26 @@ export default function ChatScreen() {
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
             Chat with Bolo
           </Text>
-          {activeLanguage && (
-            <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-              {activeLanguage.name}
-            </Text>
-          )}
         </View>
         <View style={styles.backBtn} />
+      </View>
+
+      {/* Language pill — tap to switch chat language */}
+      <View style={styles.langPillRow}>
+        <Pressable
+          onPress={() => setPickerOpen(true)}
+          accessibilityLabel={`Chat language: ${chatLanguage?.name ?? chatLang}. Tap to change.`}
+          style={[
+            styles.langPill,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Feather name="globe" size={14} color={colors.primary} />
+          <Text style={[styles.langPillText, { color: colors.foreground }]}>
+            {chatLanguage?.name ?? chatLang}
+          </Text>
+          <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+        </Pressable>
       </View>
 
       {/* Free-tier time remaining bar */}
@@ -529,6 +569,111 @@ export default function ChatScreen() {
           </Animated.View>
         )}
       </View>
+
+      {/* Language picker modal */}
+      <Modal
+        visible={pickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerOpen(false)}
+      >
+        <Pressable
+          style={[styles.modalBackdrop]}
+          onPress={() => setPickerOpen(false)}
+        >
+          <Pressable
+            style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={() => {}}
+          >
+            {/* Handle bar */}
+            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              Chat language
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
+              Choose the language for this chat session
+            </Text>
+
+            <FlatList
+              data={languages}
+              keyExtractor={(item) => item.code}
+              contentContainerStyle={styles.langList}
+              renderItem={({ item: lang }) => {
+                const selected = lang.code === chatLang;
+                const locked = !isLanguageAllowed(lang.code);
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (locked) {
+                        setPickerOpen(false);
+                        router.push(
+                          paywallHrefForDenial(
+                            {
+                              error: 'upgrade_required',
+                              upgradeRequired: true,
+                              reason: 'language_locked',
+                              message: 'Upgrade to chat in any language.',
+                              feature: 'allLanguages',
+                              requiredPlan: 'one_language',
+                            },
+                            lang.code,
+                          ),
+                        );
+                        return;
+                      }
+                      setChatLang(lang.code);
+                      setPickerOpen(false);
+                    }}
+                    style={[
+                      styles.langRow,
+                      {
+                        backgroundColor: selected
+                          ? colors.primary + '15'
+                          : colors.card,
+                        borderColor: selected
+                          ? colors.primary
+                          : colors.border,
+                      },
+                    ]}
+                    accessibilityLabel={`${lang.name}${locked ? ', locked — upgrade to unlock' : selected ? ', selected' : ''}`}
+                  >
+                    <View style={styles.langRowLeft}>
+                      <Text
+                        style={[
+                          styles.langNativeName,
+                          {
+                            color: locked
+                              ? colors.mutedForeground
+                              : colors.foreground,
+                            fontFamily: lang.fontFamily
+                              ? undefined
+                              : AppFonts.bold,
+                          },
+                          lang.fontFamily
+                            ? { fontFamily: lang.fontFamily }
+                            : {},
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {lang.nativeName}
+                      </Text>
+                      <Text style={[styles.langEnglishName, { color: colors.mutedForeground }]}>
+                        {lang.name}
+                      </Text>
+                    </View>
+                    {selected ? (
+                      <Feather name="check" size={18} color={colors.primary} />
+                    ) : locked ? (
+                      <Feather name="lock" size={16} color={colors.mutedForeground} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -548,11 +693,6 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.bold,
     fontSize: 17,
   },
-  headerSub: {
-    fontFamily: AppFonts.regular,
-    fontSize: 13,
-    marginTop: 1,
-  },
   backBtn: {
     width: 44,
     height: 44,
@@ -560,6 +700,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  langPillRow: {
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  langPillText: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 14,
   },
   timeBar: {
     marginHorizontal: 20,
@@ -660,5 +817,63 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Modal / bottom-sheet
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    maxHeight: '80%',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontFamily: AppFonts.bold,
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  langList: {
+    gap: 8,
+  },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  langRowLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  langNativeName: {
+    fontSize: 16,
+    fontFamily: AppFonts.bold,
+  },
+  langEnglishName: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    marginTop: 2,
   },
 });
