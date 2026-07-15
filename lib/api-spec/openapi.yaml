@@ -1008,6 +1008,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/GeneratedPhrase"
 
+  /openai/chat:
+    post:
+      operationId: chatTurn
+      tags: [openai]
+      summary: One turn of a live conversation with Bolo the parrot
+      description: >-
+        Given a learner's recorded speech and a target language, transcribes
+        the audio, has Bolo the parrot reply in character and in-language
+        (naturally answering "how do you say X" / translation-style meta
+        questions), synthesizes the reply to speech, and returns all three
+        plus the caller's remaining weekly chat-time allowance. Validates the
+        requested language against the caller's plan and, for Free, the
+        2-minutes-per-week chat cap before doing any AI work. One Language and
+        Plus subscribers are never time-capped (still subject to the
+        plan-based language allowlist). Accepts a short recent-turn history so
+        replies stay contextual without server-side chat storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatTurnInput"
+      responses:
+        "200":
+          description: The learner's transcript, Bolo's reply, and reply audio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatTurnResult"
+        "402":
+          description: >-
+            Upgrade required (this language is locked for the caller's plan,
+            or the Free weekly chat-time cap has been reached)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Unknown language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     HealthStatus:
@@ -1745,6 +1789,69 @@ components:
         - romanized
         - english
 
+    ChatTurnMessage:
+      type: object
+      description: A single prior turn in the rolling conversation-context window.
+      properties:
+        role:
+          type: string
+          description: learner | parrot
+        text:
+          type: string
+      required:
+        - role
+        - text
+
+    ChatTurnInput:
+      type: object
+      properties:
+        languageCode:
+          type: string
+          description: The language the learner is chatting in (e.g. "hi", "gu").
+        audioBase64:
+          type: string
+          minLength: 1
+          description: The learner's recorded speech for this turn.
+        history:
+          type: array
+          description: >-
+            A short recent-turn window (client-supplied; not persisted
+            server-side) so replies stay contextual.
+          items:
+            $ref: "#/components/schemas/ChatTurnMessage"
+      required:
+        - languageCode
+        - audioBase64
+
+    ChatTurnResult:
+      type: object
+      properties:
+        transcript:
+          type: string
+          description: What the server heard the learner say.
+        replyText:
+          type: string
+          description: Bolo's in-character reply, in the target language.
+        replyAudioBase64:
+          type: string
+          description: Ready-to-play synthesized speech of the reply.
+        format:
+          type: string
+        languageCode:
+          type: string
+        secondsRemaining:
+          type: ["integer", "null"]
+          description: >-
+            Seconds of weekly chat time left for the caller; null means
+            unlimited (One Language and Plus).
+      required:
+        - transcript
+        - replyText
+        - replyAudioBase64
+        - format
+        - languageCode
+        - secondsRemaining
+
     AddPhrasesInput:
       type: object
       properties:
@@ -1807,12 +1914,19 @@ components:
           description: >-
             Whether the caller can access the deep, pre-seeded premium phrase
             library beyond each topic's free starter set. Plus only.
+        unlimitedChatTime:
+          type: boolean
+          description: >-
+            Whether the caller has no weekly ceiling on Bolo Parrot
+            conversational chat time. Free is capped at 2 minutes/week; One
+            Language and Plus are unlimited.
       required:
         - allLanguages
         - unlimitedLessons
         - review
         - advancedAnalytics
         - extendedLibrary
+        - unlimitedChatTime
 
     DailyLessonAllowance:
       type: object
@@ -1832,13 +1946,36 @@ components:
         - used
         - remaining
 
+    WeeklyChatAllowance:
+      type: object
+      properties:
+        limit:
+          type: integer
+          nullable: true
+          description: >-
+            Weekly Bolo Parrot chat-time ceiling in seconds; null means
+            unlimited (One Language and Plus).
+        used:
+          type: integer
+        remaining:
+          type: integer
+          nullable: true
+          description: Remaining this week; null means unlimited.
+      required:
+        - limit
+        - used
+        - remaining
+
     EntitlementLimits:
       type: object
       properties:
         dailyNewLessons:
           $ref: "#/components/schemas/DailyLessonAllowance"
+        weeklyChatSeconds:
+          $ref: "#/components/schemas/WeeklyChatAllowance"
       required:
         - dailyNewLessons
+        - weeklyChatSeconds
 
     Entitlements:
       type: object

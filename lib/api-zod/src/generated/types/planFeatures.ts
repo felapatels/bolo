@@ -13,4 +13,6 @@ export interface PlanFeatures {
   advancedAnalytics: boolean;
   /** Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic's free starter set. Plus only. */
   extendedLibrary: boolean;
+  /** Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes/week; One Language and Plus are unlimited. */
+  unlimitedChatTime: boolean;
 }

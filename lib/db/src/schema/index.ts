@@ -1,5 +1,6 @@
 export * from "./users";
 export * from "./lessonGenerations";
+export * from "./chatTurns";
 export * from "./languages";
 export * from "./categories";
 export * from "./lessons";

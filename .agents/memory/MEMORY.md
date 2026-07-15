@@ -1,3 +1,4 @@
+- [Bolo Parrot chat weekly cap](chat-weekly-cap.md) — schema, gate shape, injectable turn logic, duration measurement for the conversational chat API.
 - [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.
 - [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.
 - [orval query options need queryKey](orval-query-enabled.md) — passing `{ query: { enabled } }` to a generated hook fails typecheck unless you also pass the matching `queryKey`.

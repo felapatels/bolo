@@ -333,13 +333,19 @@ export const GetEntitlementsResponse = zod.object({
   "unlimitedLessons": zod.boolean(),
   "review": zod.boolean(),
   "advancedAnalytics": zod.boolean(),
-  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.')
+  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.'),
+  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
   "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
   "used": zod.number(),
   "remaining": zod.number().nullable().describe('Remaining today; null means unlimited (Plus).')
+}),
+  "weeklyChatSeconds": zod.object({
+  "limit": zod.number().nullable().describe('Weekly Bolo Parrot chat-time ceiling in seconds; null means unlimited (One Language and Plus).'),
+  "used": zod.number(),
+  "remaining": zod.number().nullable().describe('Remaining this week; null means unlimited.')
 })
 })
 })
@@ -365,13 +371,19 @@ export const SetChosenLanguageResponse = zod.object({
   "unlimitedLessons": zod.boolean(),
   "review": zod.boolean(),
   "advancedAnalytics": zod.boolean(),
-  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.')
+  "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.'),
+  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
   "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
   "used": zod.number(),
   "remaining": zod.number().nullable().describe('Remaining today; null means unlimited (Plus).')
+}),
+  "weeklyChatSeconds": zod.object({
+  "limit": zod.number().nullable().describe('Weekly Bolo Parrot chat-time ceiling in seconds; null means unlimited (One Language and Plus).'),
+  "used": zod.number(),
+  "remaining": zod.number().nullable().describe('Remaining this week; null means unlimited.')
 })
 })
 })
@@ -849,6 +861,32 @@ export const GeneratePhraseResponse = zod.object({
   "nativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string()
+})
+
+
+/**
+ * Given a learner's recorded speech and a target language, transcribes the audio, has Bolo the parrot reply in character and in-language (naturally answering "how do you say X" / translation-style meta questions), synthesizes the reply to speech, and returns all three plus the caller's remaining weekly chat-time allowance. Validates the requested language against the caller's plan and, for Free, the 2-minutes-per-week chat cap before doing any AI work. One Language and Plus subscribers are never time-capped (still subject to the plan-based language allowlist). Accepts a short recent-turn history so replies stay contextual without server-side chat storage.
+ * @summary One turn of a live conversation with Bolo the parrot
+ */
+
+
+
+export const ChatTurnBody = zod.object({
+  "languageCode": zod.string().describe('The language the learner is chatting in (e.g. \"hi\", \"gu\").'),
+  "audioBase64": zod.string().min(1).describe('The learner\'s recorded speech for this turn.'),
+  "history": zod.array(zod.object({
+  "role": zod.string().describe('learner | parrot'),
+  "text": zod.string()
+}).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.')
+})
+
+export const ChatTurnResponse = zod.object({
+  "transcript": zod.string().describe('What the server heard the learner say.'),
+  "replyText": zod.string().describe('Bolo\'s in-character reply, in the target language.'),
+  "replyAudioBase64": zod.string().describe('Ready-to-play synthesized speech of the reply.'),
+  "format": zod.string(),
+  "languageCode": zod.string(),
+  "secondsRemaining": zod.number().nullable().describe('Seconds of weekly chat time left for the caller; null means unlimited (One Language and Plus).')
 })
 
 

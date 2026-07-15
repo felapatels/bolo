@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, phrasesTable, ttsCacheTable } from "@workspace/db";
+import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   openai,
@@ -12,6 +12,7 @@ import {
   SynthesizeSpeechBody,
   EvaluatePronunciationBody,
   GeneratePhraseBody,
+  ChatTurnBody,
 } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
@@ -21,6 +22,10 @@ import {
   compareToTarget,
   isEffectivelyEmpty,
 } from "../lib/pronunciationGuards";
+import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
+import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
+import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
+import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
 const router: IRouter = Router();
 
@@ -371,5 +376,70 @@ router.post(
     }
   },
 );
+
+// POST /openai/chat — one turn of a live conversation with Bolo the parrot.
+// Validates language + weekly time cap *before* any AI work, then transcribes,
+// generates an in-character reply, and synthesizes it to speech.
+router.post("/openai/chat", async (req: Request, res: Response): Promise<void> => {
+  const parsed = ChatTurnBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid chat payload" });
+    return;
+  }
+  const { languageCode, audioBase64, history } = parsed.data;
+  const { userId, resolvedPlan } = req as EntitledRequest;
+
+  // Language access follows the existing plan-based allowlist (Free/One
+  // Language may be locked out of this language entirely).
+  if (denyLockedLanguage(req, res, languageCode)) return;
+
+  // Free's weekly chat-time cap. One Language and Plus are never capped.
+  const timeDenial = await chatTimeCapDenial(resolvedPlan, userId);
+  if (timeDenial) {
+    sendUpgradeRequired(res, timeDenial);
+    return;
+  }
+
+  const language = await db.query.languagesTable.findFirst({
+    where: eq(languagesTable.code, languageCode),
+  });
+  if (!language) {
+    res.status(404).json({ error: "Unknown language" });
+    return;
+  }
+
+  const trimmedHistory: ChatHistoryTurn[] = Array.isArray(history)
+    ? history.slice(-8).map((h) => ({
+        role: (h.role === "parrot" ? "parrot" : "learner") as "learner" | "parrot",
+        text: h.text,
+      }))
+    : [];
+
+  try {
+    const audioBuffer = Buffer.from(audioBase64, "base64");
+    const result = await runParrotTurn({
+      audioBuffer,
+      languageName: language.name,
+      languageCode,
+      history: trimmedHistory,
+    });
+
+    // Record usage from the server-measured duration, not any client claim.
+    await recordChatTurn(userId, languageCode, result.durationSeconds);
+    const secondsRemaining = await chatSecondsRemaining(resolvedPlan, userId);
+
+    res.json({
+      transcript: result.transcript,
+      replyText: result.replyText,
+      replyAudioBase64: result.replyAudio.toString("base64"),
+      format: result.audioFormat,
+      languageCode,
+      secondsRemaining,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Chat turn failed");
+    res.status(502).json({ error: "Could not complete that chat turn" });
+  }
+});
 
 export default router;

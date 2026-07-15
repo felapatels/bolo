@@ -340,6 +340,43 @@ export interface GeneratedPhrase {
   english: string;
 }
 
+/**
+ * A single prior turn in the rolling conversation-context window.
+ */
+export interface ChatTurnMessage {
+  /** learner | parrot */
+  role: string;
+  text: string;
+}
+
+export interface ChatTurnInput {
+  /** The language the learner is chatting in (e.g. "hi", "gu"). */
+  languageCode: string;
+  /**
+     * The learner's recorded speech for this turn.
+     * @minLength 1
+     */
+  audioBase64: string;
+  /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
+  history?: ChatTurnMessage[];
+}
+
+export interface ChatTurnResult {
+  /** What the server heard the learner say. */
+  transcript: string;
+  /** Bolo's in-character reply, in the target language. */
+  replyText: string;
+  /** Ready-to-play synthesized speech of the reply. */
+  replyAudioBase64: string;
+  format: string;
+  languageCode: string;
+  /**
+     * Seconds of weekly chat time left for the caller; null means unlimited (One Language and Plus).
+     * @nullable
+     */
+  secondsRemaining: number | null;
+}
+
 export interface AddPhrasesInput {
   /**
      * How many new phrases to generate and append.
@@ -373,6 +410,8 @@ export interface PlanFeatures {
   advancedAnalytics: boolean;
   /** Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic's free starter set. Plus only. */
   extendedLibrary: boolean;
+  /** Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes/week; One Language and Plus are unlimited. */
+  unlimitedChatTime: boolean;
 }
 
 export interface DailyLessonAllowance {
@@ -383,8 +422,17 @@ export interface DailyLessonAllowance {
   remaining: number | null;
 }
 
+export interface WeeklyChatAllowance {
+  /** Weekly Bolo Parrot chat-time ceiling in seconds; null means unlimited (One Language and Plus). */
+  limit: number | null;
+  used: number;
+  /** Remaining this week; null means unlimited. */
+  remaining: number | null;
+}
+
 export interface EntitlementLimits {
   dailyNewLessons: DailyLessonAllowance;
+  weeklyChatSeconds: WeeklyChatAllowance;
 }
 
 export interface Entitlements {

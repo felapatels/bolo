@@ -28,6 +28,11 @@ export const FREE_LANGUAGE = "hi";
 // cost). Plus is unlimited.
 export const FREE_DAILY_NEW_LESSON_CAP = 3;
 
+// Free's weekly ceiling on Bolo Parrot conversational chat audio, in seconds
+// (2 minutes). One Language and Plus are unlimited. Chat language access
+// still follows the existing plan-based language allowlist below.
+export const FREE_WEEKLY_CHAT_SECONDS_CAP = 120;
+
 // The feature flags a plan unlocks. These are the flags every gate reads.
 export interface PlanFeatures {
   // Access to every language (Free is capped to FREE_LANGUAGE).
@@ -45,6 +50,9 @@ export interface PlanFeatures {
   // The "sentence stage": every topic's final step of full, natural sentences
   // a learner graduates to after the phrase list. Plus-only.
   sentences: boolean;
+  // No weekly ceiling on Bolo Parrot conversational chat audio time. Free is
+  // capped (FREE_WEEKLY_CHAT_SECONDS_CAP); One Language and Plus are unlimited.
+  unlimitedChatTime: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -197,12 +205,13 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       advancedAnalytics: true,
       extendedLibrary: true,
       sentences: true,
+      unlimitedChatTime: true,
     };
   }
   if (plan === "one_language") {
-    // The middle tier lifts only the daily-lesson cap; review, advanced
-    // analytics, the extended library, and exclusive badges stay
-    // all-access-only.
+    // The middle tier lifts the daily-lesson cap and the weekly chat-time cap;
+    // review, advanced analytics, the extended library, and exclusive badges
+    // stay all-access-only.
     return {
       allLanguages: false,
       unlimitedLessons: true,
@@ -210,6 +219,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       advancedAnalytics: false,
       extendedLibrary: false,
       sentences: false,
+      unlimitedChatTime: true,
     };
   }
   return {
@@ -219,6 +229,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     advancedAnalytics: false,
     extendedLibrary: false,
     sentences: false,
+    unlimitedChatTime: false,
   };
 }
 
@@ -244,6 +255,12 @@ export function dailyNewLessonLimit(plan: Plan): number | null {
   return plan === "free" ? FREE_DAILY_NEW_LESSON_CAP : null;
 }
 
+// The weekly Bolo Parrot chat-time ceiling for a plan, in seconds. `null`
+// means unlimited (both paid tiers). Only Free is capped.
+export function weeklyChatSecondsLimit(plan: Plan): number | null {
+  return plan === "free" ? FREE_WEEKLY_CHAT_SECONDS_CAP : null;
+}
+
 export function isLanguageAllowed(
   plan: Plan,
   lang: string,
@@ -261,7 +278,8 @@ export function isLanguageAllowed(
 export type UpgradeReason =
   | "language_locked"
   | "daily_lesson_limit"
-  | "feature_locked";
+  | "feature_locked"
+  | "chat_time_limit";
 
 export interface UpgradeRequiredPayload {
   error: "upgrade_required";
@@ -314,6 +332,14 @@ export interface DailyLessonAllowance {
   remaining: number | null;
 }
 
+export interface WeeklyChatAllowance {
+  // null = unlimited (One Language and Plus).
+  limit: number | null;
+  used: number;
+  // null = unlimited (One Language and Plus).
+  remaining: number | null;
+}
+
 export interface Entitlements {
   plan: Plan;
   status: SubscriptionStatus;
@@ -328,6 +354,10 @@ export interface Entitlements {
   features: PlanFeatures;
   limits: {
     dailyNewLessons: DailyLessonAllowance;
+    // The Bolo Parrot conversational chat time allowance. Chat language
+    // access is not surfaced separately here — it follows `allowedLanguages`
+    // above, the same plan-based allowlist used everywhere else.
+    weeklyChatSeconds: WeeklyChatAllowance;
   };
 }
 
@@ -335,10 +365,16 @@ export function buildEntitlements(
   resolved: ResolvedPlan,
   usedToday: number,
   allLanguageCodes: string[],
+  usedChatSecondsThisWeek: number = 0,
 ): Entitlements {
   const { plan, chosenLanguage } = resolved;
   const limit = dailyNewLessonLimit(plan);
   const remaining = limit === null ? null : Math.max(0, limit - usedToday);
+  const chatLimit = weeklyChatSecondsLimit(plan);
+  const chatRemaining =
+    chatLimit === null
+      ? null
+      : Math.max(0, chatLimit - usedChatSecondsThisWeek);
   const allowed = allowedLanguagesForPlan(plan, chosenLanguage);
   return {
     plan,
@@ -358,6 +394,11 @@ export function buildEntitlements(
     features: featuresForPlan(plan),
     limits: {
       dailyNewLessons: { limit, used: usedToday, remaining },
+      weeklyChatSeconds: {
+        limit: chatLimit,
+        used: usedChatSecondsThisWeek,
+        remaining: chatRemaining,
+      },
     },
   };
 }

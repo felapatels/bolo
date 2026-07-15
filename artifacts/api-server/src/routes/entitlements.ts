@@ -8,6 +8,7 @@ import {
   type SubscriptionState,
 } from "../lib/entitlements";
 import { countLessonGenerationsToday } from "../lib/lessonLimits";
+import { sumChatSecondsThisWeek } from "../lib/chatLimits";
 import { reconcileOnRead } from "../lib/revenuecatReconcile";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
@@ -19,8 +20,9 @@ const router: IRouter = Router();
 // client calls to know what's unlocked and how to render the paywall.
 async function loadSnapshot(req: Request): Promise<Awaited<ReturnType<typeof buildEntitlements>>> {
   const { userId, resolvedPlan } = req as EntitledRequest;
-  const [usedToday, languages] = await Promise.all([
+  const [usedToday, usedChatSecondsThisWeek, languages] = await Promise.all([
     countLessonGenerationsToday(userId),
+    sumChatSecondsThisWeek(userId),
     db
       .select({ code: languagesTable.code })
       .from(languagesTable)
@@ -30,6 +32,7 @@ async function loadSnapshot(req: Request): Promise<Awaited<ReturnType<typeof bui
     resolvedPlan,
     usedToday,
     languages.map((l) => l.code),
+    usedChatSecondsThisWeek,
   );
 }
 
@@ -194,6 +197,7 @@ router.post(
 
     // Report the snapshot for whichever user was changed.
     const usedToday = await countLessonGenerationsToday(target);
+    const usedChatSecondsThisWeek = await sumChatSecondsThisWeek(target);
     const languages = await db
       .select({ code: languagesTable.code })
       .from(languagesTable)
@@ -203,6 +207,7 @@ router.post(
         resolvePlan(state, now),
         usedToday,
         languages.map((l) => l.code),
+        usedChatSecondsThisWeek,
       ),
     );
   },

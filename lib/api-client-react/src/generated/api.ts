@@ -30,6 +30,8 @@ import type {
   AttemptResult,
   Badge,
   Category,
+  ChatTurnInput,
+  ChatTurnResult,
   DeleteAccountResult,
   Entitlements,
   Error,
@@ -2911,5 +2913,77 @@ export const useGeneratePhrase = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getGeneratePhraseMutationOptions(options));
+    }
+
+export const getChatTurnUrl = () => {
+
+
+
+
+  return `/api/openai/chat`
+}
+
+/**
+ * Given a learner's recorded speech and a target language, transcribes the audio, has Bolo the parrot reply in character and in-language (naturally answering "how do you say X" / translation-style meta questions), synthesizes the reply to speech, and returns all three plus the caller's remaining weekly chat-time allowance. Validates the requested language against the caller's plan and, for Free, the 2-minutes-per-week chat cap before doing any AI work. One Language and Plus subscribers are never time-capped (still subject to the plan-based language allowlist). Accepts a short recent-turn history so replies stay contextual without server-side chat storage.
+ * @summary One turn of a live conversation with Bolo the parrot
+ */
+export const chatTurn = async (chatTurnInput: ChatTurnInput, options?: RequestInit): Promise<ChatTurnResult> => {
+
+  return customFetch<ChatTurnResult>(getChatTurnUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chatTurnInput)
+  }
+);}
+
+
+
+
+
+export const getChatTurnMutationOptions = <TError = ErrorType<UpgradeRequired | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatTurn>>, TError,{data: BodyType<ChatTurnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof chatTurn>>, TError,{data: BodyType<ChatTurnInput>}, TContext> => {
+
+const mutationKey = ['chatTurn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof chatTurn>>, {data: BodyType<ChatTurnInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  chatTurn(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChatTurnMutationResult = NonNullable<Awaited<ReturnType<typeof chatTurn>>>
+    export type ChatTurnMutationBody = BodyType<ChatTurnInput>
+    export type ChatTurnMutationError = ErrorType<UpgradeRequired | Error>
+
+    /**
+ * @summary One turn of a live conversation with Bolo the parrot
+ */
+export const useChatTurn = <TError = ErrorType<UpgradeRequired | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatTurn>>, TError,{data: BodyType<ChatTurnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof chatTurn>>,
+        TError,
+        {data: BodyType<ChatTurnInput>},
+        TContext
+      > => {
+      return useMutation(getChatTurnMutationOptions(options));
     }
 
