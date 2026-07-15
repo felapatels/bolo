@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -26,6 +25,7 @@ import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
+import { ttsCacheKey } from "../lib/ttsCache";
 
 const router: IRouter = Router();
 
@@ -43,17 +43,6 @@ const VOICES = [
   "shimmer",
 ] as const;
 type Voice = (typeof VOICES)[number];
-
-/** Stable cache key: SHA-256 hex of the three synthesis inputs. */
-function ttsCacheKey(text: string, voice: string, languageName?: string): string {
-  return createHash("sha256")
-    .update(text)
-    .update("\x00")
-    .update(voice)
-    .update("\x00")
-    .update(languageName?.trim() ?? "")
-    .digest("hex");
-}
 
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {

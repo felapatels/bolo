@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
+import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
 
 const rawPort = process.env["PORT"];
 
@@ -28,4 +29,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Pre-warm the TTS cache in the background after the server is up.
+  // This is fire-and-forget: a failure here never affects request handling.
+  scheduleTtsPrewarm();
 });
