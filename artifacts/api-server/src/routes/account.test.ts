@@ -551,6 +551,42 @@ test("resume is rejected for free users and paused subscriptions", async () => {
   assert.equal(paused.status, 409);
 });
 
+test("unpause resumes a paused subscription early, and rejects non-paused states", async () => {
+  await setUser({
+    tier: "plus",
+    subscriptionStatus: "paused",
+    pauseUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+
+  const resumed = await post("/account/subscription/unpause");
+  assert.equal(resumed.status, 200);
+  assert.equal(resumed.json.tier, "plus");
+  assert.equal(resumed.json.status, "active");
+  assert.equal(resumed.json.pauseUntil, null);
+
+  // Not paused anymore — a second call is rejected.
+  const again = await post("/account/subscription/unpause");
+  assert.equal(again.status, 400);
+});
+
+test("unpause is rejected for free, active, and canceling subscriptions", async () => {
+  const free = await post("/account/subscription/unpause");
+  assert.equal(free.status, 400);
+
+  await setUser({
+    tier: "plus",
+    subscriptionStatus: "active",
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+  const active = await post("/account/subscription/unpause");
+  assert.equal(active.status, 400);
+
+  await setUser({ subscriptionStatus: "canceled" });
+  const canceling = await post("/account/subscription/unpause");
+  assert.equal(canceling.status, 400);
+});
+
 test("retention is rejected for a free user", async () => {
   const { status } = await post("/account/subscription/retention");
   assert.equal(status, 400);

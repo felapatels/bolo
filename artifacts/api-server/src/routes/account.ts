@@ -525,6 +525,35 @@ export function createAccountRouter(
     },
   );
 
+  // POST /account/subscription/unpause — let a learner who changes their mind
+  // come back early instead of waiting out the pause window. Clears the pause
+  // and resumes the underlying paid tier immediately (mirrors what naturally
+  // happens once pauseUntil elapses on its own). Guarded to only apply to a
+  // currently-paused subscription — a canceling/active/expired subscription
+  // has nothing to unpause and is rejected.
+  router.post(
+    "/account/subscription/unpause",
+    async (req: Request, res: Response): Promise<void> => {
+      const id = userId(req);
+      const user = await loadUser(id);
+      if (!user) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+      if (user.subscriptionStatus !== "paused") {
+        res.status(400).json({ error: "Subscription is not paused" });
+        return;
+      }
+
+      const [updated] = await db
+        .update(usersTable)
+        .set({ subscriptionStatus: "active", pauseUntil: null })
+        .where(eq(usersTable.id, id))
+        .returning();
+      res.json(await buildSubscriptionDetails(updated));
+    },
+  );
+
   // POST /account/subscription/retention — accept the one-time discounted
   // 3-month retention offer. Resumes/keeps the paid tier (clearing a pending
   // cancel or pause), extends the period by 3 months, and records the accepted

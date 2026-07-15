@@ -23,6 +23,7 @@ import {
   useGetAccountSubscription,
   useCancelAccountSubscription,
   usePauseAccountSubscription,
+  useUnpauseAccountSubscription,
   useAcceptRetentionOffer,
   ApiError,
   type SubscriptionDetails,
@@ -146,6 +147,7 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
   const [upgrading, setUpgrading] = useState(false);
   const [portalPending, setPortalPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unpauseMutation = useUnpauseAccountSubscription();
 
   const isPaused = sub.status === "paused";
   const isTrialing = sub.status === "trialing";
@@ -191,6 +193,21 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
       setError(errorMessage(err, "Couldn't upgrade. Please try again."));
     } finally {
       setUpgrading(false);
+    }
+  }
+
+  // Let a paused learner come back before the pause window closes. Refetches
+  // every server-derived query so entitlements flip back to paid access
+  // immediately, without a page reload.
+  async function handleUnpause() {
+    setError(null);
+    try {
+      await unpauseMutation.mutateAsync();
+      await refresh();
+    } catch (err) {
+      setError(
+        errorMessage(err, "Couldn't resume your subscription. Please try again."),
+      );
     }
   }
 
@@ -373,6 +390,37 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
           )
         )}
 
+        {/* Resume early — the primary action for a paused subscription. Clears
+            the pause immediately instead of making the learner wait out the
+            window. */}
+        {isPaused && (
+          <button
+            onClick={handleUnpause}
+            disabled={unpauseMutation.isPending}
+            className={cn(
+              "mt-4 flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left text-white shadow-md transition-all active:scale-[0.99] disabled:opacity-70",
+              PLUS_GRADIENT,
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                <PauseCircle className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-base font-black">Resume subscription</p>
+                <p className="text-sm font-semibold text-white/85">
+                  Come back now instead of waiting for {fmtDate(sub.pauseUntil) ?? "the pause to end"}
+                </p>
+              </div>
+            </div>
+            {unpauseMutation.isPending ? (
+              <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+            ) : (
+              <ChevronRight className="h-5 w-5 shrink-0" />
+            )}
+          </button>
+        )}
+
         {/* Billing history */}
         <BillingHistory entries={sub.billingHistory} />
 
@@ -414,7 +462,7 @@ function ManageView({ sub }: { sub: SubscriptionDetails }) {
         {/* Cancel / retention entry. Stripe subscribers cancel in Stripe's
             portal (provider-authoritative); everyone else sees the in-app
             retention flow backed by the /account/subscription/* endpoints. */}
-        {!isCanceled && (
+        {!isCanceled && !isPaused && (
           <div className="mt-8">
             <button
               onClick={isStripe ? handleStripePortal : () => setRetentionOpen(true)}

@@ -678,6 +678,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /account/subscription/unpause:
+    post:
+      operationId: unpauseAccountSubscription
+      tags: [account]
+      summary: Resume a paused subscription early
+      description: >-
+        Lets a learner who changes their mind come back before the pause
+        window closes. Clears the pause and resumes the underlying paid tier
+        immediately — the same outcome as waiting for pauseUntil to elapse
+        naturally, just early. Only applies to a currently-paused
+        subscription; a canceling, active, or expired subscription has
+        nothing to unpause.
+      responses:
+        "200":
+          description: The updated subscription details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetails"
+        "400":
+          description: The subscription is not paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /account/subscription/retention:
     post:
       operationId: acceptRetentionOffer

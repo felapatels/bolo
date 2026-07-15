@@ -1878,6 +1878,78 @@ export const useResumeAccountSubscription = <TError = ErrorType<Error>,
       return useMutation(getResumeAccountSubscriptionMutationOptions(options));
     }
 
+export const getUnpauseAccountSubscriptionUrl = () => {
+
+
+
+
+  return `/api/account/subscription/unpause`
+}
+
+/**
+ * Lets a learner who changes their mind come back before the pause window closes. Clears the pause and resumes the underlying paid tier immediately — the same outcome as waiting for pauseUntil to elapse naturally, just early. Only applies to a currently-paused subscription; a canceling, active, or expired subscription has nothing to unpause.
+ * @summary Resume a paused subscription early
+ */
+export const unpauseAccountSubscription = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
+
+  return customFetch<SubscriptionDetails>(getUnpauseAccountSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnpauseAccountSubscriptionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpauseAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unpauseAccountSubscription>>, TError,void, TContext> => {
+
+const mutationKey = ['unpauseAccountSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unpauseAccountSubscription>>, void> = () => {
+
+
+          return  unpauseAccountSubscription(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnpauseAccountSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof unpauseAccountSubscription>>>
+
+    export type UnpauseAccountSubscriptionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Resume a paused subscription early
+ */
+export const useUnpauseAccountSubscription = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpauseAccountSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unpauseAccountSubscription>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getUnpauseAccountSubscriptionMutationOptions(options));
+    }
+
 export const getAcceptRetentionOfferUrl = () => {
 
 

@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   sub: undefined as unknown,
   cancel: vi.fn(),
   pause: vi.fn(),
+  unpause: vi.fn(),
   retention: vi.fn(),
   invalidateQueries: vi.fn(),
   beginAllAccessCheckout: vi.fn(),
@@ -61,6 +62,7 @@ vi.mock("@workspace/api-client-react", () => ({
   useGetAccountSubscription: () => h.sub,
   useCancelAccountSubscription: () => ({ mutateAsync: h.cancel }),
   usePauseAccountSubscription: () => ({ mutateAsync: h.pause }),
+  useUnpauseAccountSubscription: () => ({ mutateAsync: h.unpause, isPending: false }),
   useAcceptRetentionOffer: () => ({ mutateAsync: h.retention }),
 }));
 
@@ -103,6 +105,7 @@ beforeEach(() => {
   h.sub = { data: PLUS_ACTIVE, isLoading: false, isError: false };
   h.cancel = vi.fn().mockResolvedValue({ ...PLUS_ACTIVE, status: "canceled" });
   h.pause = vi.fn().mockResolvedValue({ ...PLUS_ACTIVE, status: "paused" });
+  h.unpause = vi.fn().mockResolvedValue({ ...PLUS_ACTIVE, status: "active" });
   h.retention = vi.fn().mockResolvedValue({
     ...PLUS_ACTIVE,
     retentionOfferAcceptedAt: "2026-07-13T00:00:00.000Z",
@@ -246,9 +249,13 @@ describe("Subscription management", () => {
     renderPage();
     expect(screen.getByText("Subscription paused")).toBeInTheDocument();
     expect(screen.getByText("Paused")).toBeInTheDocument();
+    // Paused learners see Resume, not Cancel.
     expect(
-      screen.getByRole("button", { name: /Cancel subscription/i }),
+      screen.getByRole("button", { name: /Resume subscription/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Cancel subscription/i }),
+    ).not.toBeInTheDocument();
   });
 
   test("a plain Free learner is redirected to the upgrade surface", () => {
