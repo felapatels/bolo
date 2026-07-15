@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -13,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { PlusPill } from '@/components/PlusUpsell';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
@@ -57,11 +57,7 @@ export default function LanguageModal() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator
-          color={colors.primary}
-          style={{ marginTop: 40 }}
-          size="large"
-        />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={languages}

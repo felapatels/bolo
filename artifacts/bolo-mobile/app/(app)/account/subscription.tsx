@@ -26,6 +26,7 @@ import {
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { PressableScale } from '@/components/PressableScale';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePurchases } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
@@ -319,7 +320,7 @@ export default function SubscriptionScreen() {
       </View>
 
       {sub.isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 48 }} />
       ) : sub.isError || !details ? (
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />

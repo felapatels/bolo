@@ -43,6 +43,7 @@ import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Mascot, type MascotPose } from '@/components/Mascot';
@@ -530,11 +531,7 @@ export default function PracticeScreen() {
   if (phrases.isLoading) {
     return (
       <Screen>
-        <ActivityIndicator
-          color={colors.primary}
-          size="large"
-          style={{ marginTop: 80 }}
-        />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 80 }} />
       </Screen>
     );
   }

@@ -25,6 +25,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -244,10 +245,7 @@ export default function HomeScreen() {
         </Animated.Text>
 
         {categories.isLoading ? (
-          <ActivityIndicator
-            color={colors.primary}
-            style={{ marginVertical: 24 }}
-          />
+          <FunFactLoader color={colors.primary} style={{ marginVertical: 24 }} />
         ) : categories.isError ? (
           <ErrorNote
             message="Couldn't load topics. Pull to refresh."

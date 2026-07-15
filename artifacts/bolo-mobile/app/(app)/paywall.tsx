@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -19,6 +18,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import {
   usePurchases,
   isTestPurchaseRuntime,
@@ -343,10 +343,7 @@ export default function PaywallScreen() {
             </Text>
           </View>
         ) : isConfigured && !isReady ? (
-          <ActivityIndicator
-            color={colors.primary}
-            style={{ marginVertical: 24 }}
-          />
+          <FunFactLoader color={colors.primary} style={{ marginVertical: 24 }} />
         ) : hasOfferings ? (
           <>
             {plan === 'one_language' ? (

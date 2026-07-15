@@ -38,6 +38,7 @@ import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollV
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -605,7 +606,7 @@ function FriendsTab() {
         </Text>
 
         {friends.isLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+          <FunFactLoader color={colors.primary} style={{ marginTop: 24 }} />
         ) : friends.isError ? (
           <ErrorState onRetry={() => friends.refetch()} />
         ) : friendsList.length === 0 ? (
@@ -704,7 +705,7 @@ function LeaderboardTab() {
       }
     >
       {leaderboard.isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 48 }} />
       ) : leaderboard.isError ? (
         <ErrorState onRetry={() => leaderboard.refetch()} />
       ) : rows.length === 0 ? (

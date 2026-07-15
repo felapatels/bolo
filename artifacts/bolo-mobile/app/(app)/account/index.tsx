@@ -28,6 +28,7 @@ import {
   type Account,
   type UpdatePreferencesInput,
 } from '@workspace/api-client-react';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { PressableScale } from '@/components/PressableScale';
@@ -273,7 +274,7 @@ export default function AccountScreen() {
       </View>
 
       {account.isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 48 }} />
       ) : account.isError ? (
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />

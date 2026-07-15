@@ -1,9 +1,10 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges, type Badge } from '@workspace/api-client-react';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { badgeIcon } from '@/lib/badge-icons';
@@ -62,7 +63,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+        <FunFactLoader color={colors.primary} style={{ marginTop: 32 }} />
       ) : badges && badges.length > 0 ? (
         <View style={styles.grid}>
           {badges.map((badge, i) => {

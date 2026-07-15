@@ -3,9 +3,10 @@
 // as Home's "Start daily practice") and forwards into that session, so the
 // notification can always point at one stable URL.
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useListCategories } from '@workspace/api-client-react';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 
@@ -39,7 +40,7 @@ export default function DailyPracticeResolver() {
         backgroundColor: colors.background,
       }}
     >
-      <ActivityIndicator size="large" color={colors.primary} />
+      <FunFactLoader color={colors.primary} />
     </View>
   );
 }

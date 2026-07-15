@@ -21,6 +21,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { LockedFeatureCard, LockedPhrasesCard } from '@/components/PlusUpsell';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
@@ -135,7 +136,7 @@ export default function CategoryScreen() {
         ) : null}
 
         {phrases.isLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+          <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
         ) : (phrases.data ?? []).length === 0 ? (
           <Text style={[styles.note, { color: colors.mutedForeground }]}>
             No phrases here yet.

@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,6 +18,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -94,7 +94,7 @@ export default function AnalyticsScreen() {
         {isUpgradeRequired ? (
           <UpgradePrompt onPress={() => router.push('/(app)/paywall')} />
         ) : analytics.isLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          <FunFactLoader color={colors.primary} style={{ marginTop: 48 }} />
         ) : analytics.isError ? (
           <ErrorState onRetry={() => analytics.refetch()} />
         ) : hasData ? (

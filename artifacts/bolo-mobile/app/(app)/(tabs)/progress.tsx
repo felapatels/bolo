@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -25,6 +24,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -95,7 +95,7 @@ export default function ProgressScreen() {
         </Animated.View>
 
         {summary.isLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+          <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
           <>
             <View style={styles.grid}>
