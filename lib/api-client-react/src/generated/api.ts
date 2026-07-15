@@ -36,6 +36,7 @@ import type {
   Entitlements,
   Error,
   Friend,
+  FriendInviteResult,
   FriendRequest,
   GeneratedPhrase,
   GetProgressAnalyticsParams,
@@ -55,6 +56,7 @@ import type {
   PronunciationInput,
   PronunciationResult,
   SearchFriendByEmailParams,
+  SendFriendInviteInput,
   SendFriendRequestInput,
   SetChosenLanguageInput,
   SpeechInput,
@@ -2622,6 +2624,78 @@ export const useRemoveFriend = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRemoveFriendMutationOptions(options));
+    }
+
+export const getSendFriendInviteUrl = () => {
+
+
+
+
+  return `/api/friends/invite`
+}
+
+/**
+ * Sends a "download Bolo!" referral email to an address that does not belong to any existing learner. Rate-limited to one send per (caller, recipient) pair per 24 hours to prevent abuse. If the invited person later signs up with that email, a pending friend request is automatically created from the inviter so the new learner sees it immediately on sign-in.
+ * @summary Invite a non-member to download Bolo! by email
+ */
+export const sendFriendInvite = async (sendFriendInviteInput: SendFriendInviteInput, options?: RequestInit): Promise<FriendInviteResult> => {
+
+  return customFetch<FriendInviteResult>(getSendFriendInviteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sendFriendInviteInput)
+  }
+);}
+
+
+
+
+
+export const getSendFriendInviteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendInvite>>, TError,{data: BodyType<SendFriendInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendFriendInvite>>, TError,{data: BodyType<SendFriendInviteInput>}, TContext> => {
+
+const mutationKey = ['sendFriendInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendFriendInvite>>, {data: BodyType<SendFriendInviteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendFriendInvite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendFriendInviteMutationResult = NonNullable<Awaited<ReturnType<typeof sendFriendInvite>>>
+    export type SendFriendInviteMutationBody = BodyType<SendFriendInviteInput>
+    export type SendFriendInviteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Invite a non-member to download Bolo! by email
+ */
+export const useSendFriendInvite = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendInvite>>, TError,{data: BodyType<SendFriendInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendFriendInvite>>,
+        TError,
+        {data: BodyType<SendFriendInviteInput>},
+        TContext
+      > => {
+      return useMutation(getSendFriendInviteMutationOptions(options));
     }
 
 export const getGetFriendsLeaderboardUrl = () => {

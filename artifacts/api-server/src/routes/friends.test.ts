@@ -10,8 +10,9 @@ import {
   attemptsTable,
   languagesTable,
   friendshipsTable,
+  friendInvitesTable,
 } from "@workspace/db";
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or, and } from "drizzle-orm";
 import friendsRouter from "./friends";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
@@ -83,6 +84,9 @@ async function makeFriends(a: string, b: string): Promise<void> {
 
 async function clearSocialRows(): Promise<void> {
   await db
+    .delete(friendInvitesTable)
+    .where(inArray(friendInvitesTable.inviterId, ALL_USERS));
+  await db
     .delete(friendshipsTable)
     .where(
       or(
@@ -94,6 +98,8 @@ async function clearSocialRows(): Promise<void> {
 }
 
 before(async () => {
+  // Suppress real email sends in tests.
+  process.env.SKIP_INVITE_EMAIL = "1";
   // Dev DB can lag migrations; make sure users has every current column.
   await ensureUsersColumns();
   // Self-provision exactly what the router touches so the suite is self-contained.
@@ -134,6 +140,17 @@ before(async () => {
       responded_at timestamptz,
       CONSTRAINT friendships_pair_unique UNIQUE (requester_id, addressee_id),
       CONSTRAINT friendships_no_self CHECK (requester_id <> addressee_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS friend_invites (
+      id serial PRIMARY KEY,
+      inviter_id text NOT NULL REFERENCES users(id),
+      invitee_email text NOT NULL,
+      send_count integer NOT NULL DEFAULT 1,
+      last_sent_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT friend_invites_pair_unique UNIQUE (inviter_id, invitee_email)
     );
   `);
 
@@ -387,4 +404,82 @@ test("leaderboard shows a friendless learner alone at rank 1", async () => {
   assert.equal(json[0].xp, 42);
   assert.equal(json[0].rank, 1);
   assert.equal(json[0].isSelf, true);
+});
+
+// ---------------------------------------------------------------------------
+// Invite (POST /friends/invite)
+// ---------------------------------------------------------------------------
+
+const INVITE_EMAIL = "invitee-not-a-member@example.test";
+
+test("invite sends to an unknown email and returns { sent, sendCount }", async () => {
+  actAs(USER_A);
+  const { status, json } = await api("POST", "/friends/invite", {
+    email: INVITE_EMAIL,
+  });
+  assert.equal(status, 200);
+  assert.equal(json.sent, true);
+  assert.equal(json.sendCount, 1);
+});
+
+test("invite rejects if the email already belongs to a learner", async () => {
+  actAs(USER_A);
+  // USER_B is a known learner — should return 400.
+  const { status, json } = await api("POST", "/friends/invite", {
+    email: EMAIL[USER_B],
+  });
+  assert.equal(status, 400);
+  assert.ok(json.error, "should have an error message");
+});
+
+test("invite rejects a missing or blank email with 400", async () => {
+  actAs(USER_A);
+  const missing = await api("POST", "/friends/invite", {});
+  assert.equal(missing.status, 400);
+
+  const blank = await api("POST", "/friends/invite", { email: "   " });
+  assert.equal(blank.status, 400);
+
+  const invalid = await api("POST", "/friends/invite", { email: "notanemail" });
+  assert.equal(invalid.status, 400);
+});
+
+test("invite enforces the 24-hour per-pair cooldown after the first send", async () => {
+  actAs(USER_A);
+  // First send succeeds.
+  const first = await api("POST", "/friends/invite", { email: INVITE_EMAIL });
+  assert.equal(first.status, 200);
+  assert.equal(first.json.sendCount, 1);
+
+  // Immediate re-send is blocked by the cooldown.
+  const second = await api("POST", "/friends/invite", { email: INVITE_EMAIL });
+  assert.equal(second.status, 429);
+
+  // A different caller can still invite the same address.
+  actAs(USER_B);
+  const byB = await api("POST", "/friends/invite", { email: INVITE_EMAIL });
+  assert.equal(byB.status, 200);
+  assert.equal(byB.json.sendCount, 1);
+});
+
+test("re-send after cooldown increments sendCount", async () => {
+  actAs(USER_A);
+  // First send.
+  const first = await api("POST", "/friends/invite", { email: INVITE_EMAIL });
+  assert.equal(first.status, 200);
+
+  // Backdate lastSentAt so the cooldown appears expired.
+  await db
+    .update(friendInvitesTable)
+    .set({ lastSentAt: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+    .where(
+      and(
+        eq(friendInvitesTable.inviterId, USER_A),
+        eq(friendInvitesTable.inviteeEmail, INVITE_EMAIL),
+      ),
+    );
+
+  const second = await api("POST", "/friends/invite", { email: INVITE_EMAIL });
+  assert.equal(second.status, 200);
+  assert.equal(second.json.sendCount, 2);
 });

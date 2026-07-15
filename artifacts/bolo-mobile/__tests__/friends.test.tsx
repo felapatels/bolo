@@ -31,6 +31,7 @@ const mockState: Record<string, any> = {
   friends: undefined,
   leaderboard: undefined,
   sendRequest: undefined,
+  sendInvite: undefined,
   accept: undefined,
   decline: undefined,
   remove: undefined,
@@ -61,6 +62,7 @@ jest.mock('@workspace/api-client-react', () => ({
   },
   useSearchFriendByEmail: () => mockState.search,
   useSendFriendRequest: () => mockState.sendRequest,
+  useSendFriendInvite: () => mockState.sendInvite ?? { mutate: jest.fn(), isPending: false },
   useListIncomingFriendRequests: () => mockState.incoming,
   useListOutgoingFriendRequests: () => mockState.outgoing,
   useListFriends: () => mockState.friends,
@@ -301,16 +303,21 @@ describe('Add friend (search)', () => {
     ).toBeOnTheScreen();
   });
 
-  test('a search miss shows a friendly not-found message', () => {
+  test('a search miss shows an invite prompt instead of a dead end', () => {
     mockState.search = errorQuery(
       new ApiError(404, { detail: 'not found' }),
     );
     render(<FriendsScreen />);
     runSearch('ghost@example.com');
 
+    // New invite UI: shows the email address and a "Send invite" button.
     expect(
-      screen.getByText(/No learner found with that email/i),
+      screen.getByText(/ghost@example\.com isn't on Bolo! yet/i),
     ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: /Invite ghost@example\.com to Bolo!/i }),
+    ).toBeOnTheScreen();
+    // The regular "Add" friend-request button must not be shown.
     expect(
       screen.queryByRole('button', { name: /Send friend request/i }),
     ).not.toBeOnTheScreen();

@@ -474,6 +474,21 @@ export interface ProgressAnalytics {
   daily: DailyActivity[];
 }
 
+export interface SendFriendInviteInput {
+  /** The email address to invite. Must not belong to an existing learner. */
+  email: string;
+}
+
+/**
+ * Confirmation that a referral invite was sent.
+ */
+export interface FriendInviteResult {
+  /** Always true when the invite email was dispatched. */
+  sent: boolean;
+  /** How many times this (caller, email) pair has been invited in total. */
+  sendCount: number;
+}
+
 /**
  * A learner's public identity for friends features.
  */

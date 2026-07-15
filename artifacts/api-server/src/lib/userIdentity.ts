@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/express";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, friendInvitesTable, friendshipsTable } from "@workspace/db";
+import { eq, and, or, ne } from "drizzle-orm";
 
 // Captures a learner's display name and email from their Clerk identity into the
 // local `users` mirror so friend search and the leaderboard can show real names
@@ -90,4 +90,76 @@ export async function ensureLocalUser(userId: string): Promise<void> {
     .update(usersTable)
     .set({ email, displayName })
     .where(eq(usersTable.id, userId));
+
+  // When an email is being populated for the first time (brand-new user or
+  // first-ever identity sync), check whether anyone invited this address via
+  // POST /friends/invite. If so, auto-create a pending friend request from
+  // each inviter so the new learner sees requests waiting on first open.
+  // This is best-effort: any failure here is swallowed so it never blocks the
+  // authenticated request.
+  if (email && !row?.email) {
+    consumePendingInvites(userId, email).catch(() => {});
+  }
+}
+
+// Looks up any outstanding invite rows for `email`, creates a pending friend
+// request from each inviter to the new learner, then deletes the invite rows.
+// Called once per user per email address (since we only enter when row.email
+// was previously null). Idempotent: on conflict it skips gracefully.
+async function consumePendingInvites(
+  newUserId: string,
+  email: string,
+): Promise<void> {
+  const normalised = email.toLowerCase();
+  const invites = await db
+    .select({
+      id: friendInvitesTable.id,
+      inviterId: friendInvitesTable.inviterId,
+    })
+    .from(friendInvitesTable)
+    .where(eq(friendInvitesTable.inviteeEmail, normalised));
+
+  if (invites.length === 0) return;
+
+  for (const invite of invites) {
+    // Skip if the inviter somehow is the same person (shouldn't happen, but
+    // guard it defensively).
+    if (invite.inviterId === newUserId) continue;
+
+    // Check whether a friendship/request already exists in either direction.
+    const [existing] = await db
+      .select({ id: friendshipsTable.id })
+      .from(friendshipsTable)
+      .where(
+        or(
+          and(
+            eq(friendshipsTable.requesterId, invite.inviterId),
+            eq(friendshipsTable.addresseeId, newUserId),
+          ),
+          and(
+            eq(friendshipsTable.requesterId, newUserId),
+            eq(friendshipsTable.addresseeId, invite.inviterId),
+          ),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) {
+      // Insert ignoring conflicts — the unique constraint on (requester,
+      // addressee) makes this safe to retry.
+      await db
+        .insert(friendshipsTable)
+        .values({
+          requesterId: invite.inviterId,
+          addresseeId: newUserId,
+          status: "pending",
+        })
+        .onConflictDoNothing();
+    }
+
+    // Consume the invite row regardless of whether a request was created.
+    await db
+      .delete(friendInvitesTable)
+      .where(eq(friendInvitesTable.id, invite.id));
+  }
 }

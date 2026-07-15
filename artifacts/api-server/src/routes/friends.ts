@@ -1,10 +1,30 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, usersTable, attemptsTable, friendshipsTable } from "@workspace/db";
-import { and, eq, or, inArray } from "drizzle-orm";
+import {
+  db,
+  usersTable,
+  attemptsTable,
+  friendshipsTable,
+  friendInvitesTable,
+} from "@workspace/db";
+import { and, eq, or, inArray, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { computeProgressMetrics } from "../lib/progressMetrics";
+import { createRateLimit } from "../middlewares/rateLimit";
+import { sendFriendInviteEmail } from "../lib/inviteEmail";
 
 const router: IRouter = Router();
+
+// Rate limit for the invite endpoint: max 20 invites per 15 minutes per caller,
+// as a coarse per-user guard against rapid-fire bursts to many different
+// addresses. The per-(caller, recipient) 24-hour cooldown is enforced
+// separately at the DB level inside the handler.
+// In test mode (SKIP_INVITE_EMAIL=1) the limit is raised so the sliding-window
+// state accumulated across sequential test runs does not interfere.
+const inviteRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.SKIP_INVITE_EMAIL === "1" ? 10_000 : 20,
+  message: "You're sending invites too quickly. Please wait a moment.",
+});
 
 // The user id is derived server-side from the verified Clerk session by the
 // requireAuth middleware — never from client-supplied input.
@@ -325,6 +345,115 @@ router.delete("/friends/:userId", async (req: Request, res: Response): Promise<v
   await db.delete(friendshipsTable).where(eq(friendshipsTable.id, existing.id));
   res.status(204).end();
 });
+
+// POST /friends/invite — send a "download Bolo!" referral email to an email
+// address that doesn't belong to any existing learner. Enforces two layers of
+// rate limiting:
+//   1. A coarse per-user in-memory sliding window (5 invites / 15 min) — the
+//      middleware above guards this.
+//   2. A per-(caller, recipient) 24-hour cooldown checked against `lastSentAt`
+//      in the `friend_invites` table so the guard survives a server restart.
+//
+// When the invited person signs up, `ensureLocalUser` in userIdentity.ts will
+// find the pending invite rows and auto-create a pending friend request from
+// each inviter, then delete the invite rows.
+router.post(
+  "/friends/invite",
+  inviteRateLimit,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = getUserId(req);
+    const rawEmail = String(req.body?.email ?? "").trim();
+    const email = rawEmail.toLowerCase();
+
+    if (!email) {
+      res.status(400).json({ error: "Missing email" });
+      return;
+    }
+
+    // Basic format sanity check — full validation lives on the client.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: "Invalid email address" });
+      return;
+    }
+
+    // If the email already belongs to a learner, redirect the caller to the
+    // regular "add friend" flow instead.
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+    if (existing) {
+      res.status(400).json({
+        error:
+          "That email already has a Bolo! account. Use the search above to add them as a friend.",
+      });
+      return;
+    }
+
+    // Per-(caller, recipient) 24-hour cooldown enforced at the DB level.
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+    const [prior] = await db
+      .select({
+        id: friendInvitesTable.id,
+        sendCount: friendInvitesTable.sendCount,
+        lastSentAt: friendInvitesTable.lastSentAt,
+      })
+      .from(friendInvitesTable)
+      .where(
+        and(
+          eq(friendInvitesTable.inviterId, userId),
+          eq(friendInvitesTable.inviteeEmail, email),
+        ),
+      )
+      .limit(1);
+
+    if (prior && Date.now() - prior.lastSentAt.getTime() < COOLDOWN_MS) {
+      res.status(429).json({
+        error:
+          "You've already invited this address recently. You can send another invite after 24 hours.",
+      });
+      return;
+    }
+
+    // Resolve the caller's display name for the email body.
+    const [callerRow] = await db
+      .select({ displayName: usersTable.displayName, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    const inviterName =
+      callerRow?.displayName?.trim() ||
+      callerRow?.email?.split("@")[0] ||
+      "A friend";
+
+    // Send the invite email. Fail fast — the DB row is only written after a
+    // successful send so stale rows never block the cooldown window.
+    await sendFriendInviteEmail({ inviterName, toEmail: email });
+
+    // Upsert the invite row: insert on first send, increment on re-send.
+    let sendCount: number;
+    if (prior) {
+      const [updated] = await db
+        .update(friendInvitesTable)
+        .set({
+          sendCount: prior.sendCount + 1,
+          lastSentAt: new Date(),
+        })
+        .where(eq(friendInvitesTable.id, prior.id))
+        .returning({ sendCount: friendInvitesTable.sendCount });
+      sendCount = updated?.sendCount ?? prior.sendCount + 1;
+    } else {
+      const [inserted] = await db
+        .insert(friendInvitesTable)
+        .values({ inviterId: userId, inviteeEmail: email })
+        .returning({ sendCount: friendInvitesTable.sendCount });
+      sendCount = inserted?.sendCount ?? 1;
+    }
+
+    res.json({ sent: true, sendCount });
+  },
+);
 
 // GET /friends/leaderboard — the caller plus their accepted friends, ranked by
 // total XP (summed across every language), highest first. XP reuses the same

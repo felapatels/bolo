@@ -785,6 +785,20 @@ export const RemoveFriendResponse = zod.void()
 
 
 /**
+ * Sends a "download Bolo!" referral email to an address that does not belong to any existing learner. Rate-limited to one send per (caller, recipient) pair per 24 hours to prevent abuse. If the invited person later signs up with that email, a pending friend request is automatically created from the inviter so the new learner sees it immediately on sign-in.
+ * @summary Invite a non-member to download Bolo! by email
+ */
+export const SendFriendInviteBody = zod.object({
+  "email": zod.string().describe('The email address to invite. Must not belong to an existing learner.')
+})
+
+export const SendFriendInviteResponse = zod.object({
+  "sent": zod.boolean().describe('Always true when the invite email was dispatched.'),
+  "sendCount": zod.number().describe('How many times this (caller, email) pair has been invited in total.')
+}).describe('Confirmation that a referral invite was sent.')
+
+
+/**
  * Returns the caller plus their accepted friends ranked by total XP (summed across every language), highest first. Each entry carries a display name, XP, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Available to all authenticated learners.
  * @summary The caller and their friends ranked by total XP
  */

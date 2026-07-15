@@ -17,6 +17,7 @@ import {
   useSearchFriendByEmail,
   getSearchFriendByEmailQueryKey,
   useSendFriendRequest,
+  useSendFriendInvite,
   useListIncomingFriendRequests,
   getListIncomingFriendRequestsQueryKey,
   useListOutgoingFriendRequests,
@@ -169,6 +170,7 @@ function FriendsTab() {
   const [email, setEmail] = React.useState('');
   const [searchedEmail, setSearchedEmail] = React.useState('');
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [invitedEmail, setInvitedEmail] = React.useState<string | null>(null);
 
   const incoming = useListIncomingFriendRequests();
   const outgoing = useListOutgoingFriendRequests();
@@ -186,6 +188,7 @@ function FriendsTab() {
   );
 
   const sendRequest = useSendFriendRequest();
+  const sendInvite = useSendFriendInvite();
   const accept = useAcceptFriendRequest();
   const decline = useDeclineFriendRequest();
   const remove = useRemoveFriend();
@@ -213,10 +216,49 @@ function FriendsTab() {
     setEmail('');
     setSearchedEmail('');
     setNotice(null);
+    setInvitedEmail(null);
     queryClient.removeQueries({
       queryKey: ['/api/friends/search'],
       exact: false,
     });
+  };
+
+  const onInvite = (toEmail: string) => {
+    sendInvite.mutate(
+      { data: { email: toEmail } },
+      {
+        onSuccess: (result) => {
+          setInvitedEmail(toEmail);
+          setNotice(
+            result.sendCount > 1
+              ? `Invite resent to ${toEmail}!`
+              : `Invite sent to ${toEmail}! They'll get an email with a download link.`,
+          );
+          setEmail('');
+          setSearchedEmail('');
+        },
+        onError: (err) => {
+          if (err instanceof ApiError && err.status === 429) {
+            setNotice(
+              errorMessage(
+                err,
+                "You've already invited this address recently. Try again in 24 hours.",
+              ),
+            );
+          } else if (err instanceof ApiError && err.status === 400) {
+            // Email found a real user — nudge to the regular search flow.
+            setNotice(
+              errorMessage(
+                err,
+                "That email already has an account. Use the search to add them.",
+              ),
+            );
+          } else {
+            setNotice(errorMessage(err, "Couldn't send the invite. Please try again."));
+          }
+        },
+      },
+    );
   };
 
   const onSend = (target: UserSummary) => {
@@ -319,6 +361,7 @@ function FriendsTab() {
   const searchNotFound =
     search.error instanceof ApiError && search.error.status === 404;
   const searchOtherError = search.isError && !searchNotFound;
+  const alreadyInvited = invitedEmail === searchedEmail;
 
   const incomingList = incoming.data ?? [];
   const outgoingList = outgoing.data ?? [];
@@ -419,10 +462,56 @@ function FriendsTab() {
               style={{ marginTop: 16 }}
             />
           ) : searchNotFound ? (
-            <Text style={[styles.searchMsg, { color: colors.mutedForeground }]}>
-              No learner found with that email. Double-check the address and try
-              again.
-            </Text>
+            // No Bolo! account found — offer to send a referral invite.
+            <View
+              style={[styles.inviteBox, { borderColor: colors.border, backgroundColor: `${colors.primary}0D` }]}
+            >
+              <Feather name="mail" size={20} color={colors.primary} style={{ marginBottom: 6 }} />
+              <Text style={[styles.inviteTitle, { color: colors.foreground }]}>
+                {searchedEmail} isn't on Bolo! yet
+              </Text>
+              <Text style={[styles.inviteText, { color: colors.mutedForeground }]}>
+                Send them an invite with a link to download the app. When they
+                join, you'll automatically get a friend request.
+              </Text>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={`Invite ${searchedEmail} to Bolo!`}
+                disabled={sendInvite.isPending || alreadyInvited}
+                onPress={() => onInvite(searchedEmail)}
+                style={[
+                  styles.inviteBtn,
+                  {
+                    backgroundColor:
+                      alreadyInvited ? colors.muted : colors.primary,
+                  },
+                ]}
+              >
+                {sendInvite.isPending ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <>
+                    <Feather
+                      name={alreadyInvited ? 'check' : 'send'}
+                      size={15}
+                      color={alreadyInvited ? colors.mutedForeground : colors.primaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.inviteBtnText,
+                        {
+                          color: alreadyInvited
+                            ? colors.mutedForeground
+                            : colors.primaryForeground,
+                        },
+                      ]}
+                    >
+                      {alreadyInvited ? 'Invite sent!' : 'Send invite'}
+                    </Text>
+                  </>
+                )}
+              </PressableScale>
+            </View>
           ) : searchOtherError ? (
             <Text style={[styles.searchMsg, { color: colors.destructive }]}>
               Couldn&apos;t search right now. Please try again.
@@ -1078,5 +1167,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     paddingHorizontal: 16,
+  },
+  inviteBox: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  inviteTitle: {
+    fontFamily: AppFonts.bold,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  inviteText: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  inviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  inviteBtnText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 14,
   },
 });

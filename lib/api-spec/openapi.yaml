@@ -930,6 +930,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /friends/invite:
+    post:
+      operationId: sendFriendInvite
+      tags: [friends]
+      summary: Invite a non-member to download Bolo! by email
+      description: >-
+        Sends a "download Bolo!" referral email to an address that does not
+        belong to any existing learner. Rate-limited to one send per
+        (caller, recipient) pair per 24 hours to prevent abuse. If the invited
+        person later signs up with that email, a pending friend request is
+        automatically created from the inviter so the new learner sees it
+        immediately on sign-in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendFriendInviteInput"
+      responses:
+        "200":
+          description: Invite sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendInviteResult"
+        "400":
+          description: Missing or invalid email, or that email belongs to an existing learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit reached — already sent an invite to this address recently
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /friends/leaderboard:
     get:
       operationId: getFriendsLeaderboard
@@ -2080,6 +2118,29 @@ components:
         - reviewDueCount
         - categories
         - daily
+
+    SendFriendInviteInput:
+      type: object
+      properties:
+        email:
+          type: string
+          description: The email address to invite. Must not belong to an existing learner.
+      required:
+        - email
+
+    FriendInviteResult:
+      type: object
+      description: Confirmation that a referral invite was sent.
+      properties:
+        sent:
+          type: boolean
+          description: Always true when the invite email was dispatched.
+        sendCount:
+          type: integer
+          description: How many times this (caller, email) pair has been invited in total.
+      required:
+        - sent
+        - sendCount
 
     UserSummary:
       type: object
