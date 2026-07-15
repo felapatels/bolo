@@ -22,7 +22,24 @@ export const RECORDING_PRESET = {
  * speech and reset the timer.
  */
 export const SILENCE_THRESHOLD_DB = -45;
-export const SILENCE_DURATION_MS = 1600;
+// A short pause between syllables is normal speech, not the end of the
+// attempt; 2s of continuous quiet is a more reliable "learner is done" signal
+// than 1.6s, which was cutting words off mid-attempt on real devices.
+export const SILENCE_DURATION_MS = 2000;
+/**
+ * Real devices rarely sit below a fixed dBFS floor — room tone on a phone
+ * mic is often -40..-30 dBFS, which would keep resetting a fixed -45
+ * countdown forever. So auto-stop is adaptive: it arms only once actual
+ * speech is heard (a peak above SPEECH_MIN_DB) and then treats anything
+ * SILENCE_DROP_DB quieter than that peak as silence, never stricter than
+ * the absolute SILENCE_THRESHOLD_DB floor. SPEECH_MIN_DB is deliberately
+ * lenient (rather than a "confidently loud" bar) so a soft-spoken learner or
+ * a phone held at arm's length still arms the countdown; this feature is
+ * inherently sensitive to background noise, so callers should tell learners
+ * to use it in a quiet room rather than trying to tune noise out entirely.
+ */
+export const SPEECH_MIN_DB = -40;
+export const SILENCE_DROP_DB = 14;
 
 // iOS routes playback to the quiet earpiece (receiver) whenever the audio
 // session category is `playAndRecord` — expo-audio never adds the
@@ -71,7 +88,9 @@ export function prepareRecorderInSession(
   recorder: AudioRecorder,
 ): Promise<void> {
   modeIsRecording = true;
-  return enqueueSessionOp(() => recorder.prepareToRecordAsync());
+  // Pass the preset explicitly: metering must be enabled at prepare time or
+  // recorder state never reports levels and silence auto-stop can't work.
+  return enqueueSessionOp(() => recorder.prepareToRecordAsync(RECORDING_PRESET));
 }
 
 /**
@@ -180,6 +199,12 @@ export async function playBase64Audio(
     stop: () => {
       try {
         sub.remove();
+      } catch {}
+      try {
+        // Pause before releasing: on iOS, remove() alone releases the JS
+        // handle but the buffered audio can keep playing to the end, so a
+        // "stop" without pause bleeds into whatever comes next.
+        player.pause();
       } catch {}
       try {
         player.remove();

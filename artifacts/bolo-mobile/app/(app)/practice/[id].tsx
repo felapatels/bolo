@@ -60,6 +60,8 @@ import {
   RECORDING_PRESET,
   SILENCE_THRESHOLD_DB,
   SILENCE_DURATION_MS,
+  SPEECH_MIN_DB,
+  SILENCE_DROP_DB,
   type PlaybackHandle,
 } from '@/lib/audio';
 import {
@@ -67,7 +69,7 @@ import {
   saveStopMode,
   type StopMode,
 } from '@/lib/stop-mode';
-import { loadSpokenFeedback, loadSilentMode } from '@/lib/settings';
+import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/settings';
 import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
@@ -155,6 +157,17 @@ export default function PracticeScreen() {
   // mid-recording flip to manual immediately disarms a pending auto-stop.
   const [stopMode, setStopMode] = React.useState<StopMode>('manual');
   const stopModeRef = React.useRef<StopMode>('manual');
+  // In auto-stop mode, the learner shouldn't have to tap the mic at all: once
+  // the coach model finishes playing (on a fresh phrase or a retry),
+  // recording starts on its own. This is decided at playback-completion time
+  // (reading the ref, never a value captured earlier) so it isn't racy with
+  // stopMode's async hydration from storage on first mount. A manual
+  // "Hear it" replay tap sets this flag so that one playback is excluded.
+  const manualReplayRef = React.useRef(false);
+  // startRecording is defined below (it needs stopPlayback and other things
+  // declared after this point); the coach-playback-done handler above needs
+  // to call it, so route through a ref assigned once startRecording exists.
+  const startRecordingRef = React.useRef<(() => Promise<void>) | null>(null);
   React.useEffect(() => {
     let cancelled = false;
     loadStopMode().then((mode) => {
@@ -211,12 +224,43 @@ export default function PracticeScreen() {
   // discarded instead of playing over the phrase now on screen.
   const playTokenRef = React.useRef(0);
 
+  // Feedback-voice synthesis started as soon as the evaluation returns, so
+  // the result card can play it with minimal extra wait.
+  const feedbackAudioRef = React.useRef<Promise<{
+    audioBase64: string;
+    format?: string;
+  } | null> | null>(null);
+
+  // Spoken-feedback preference, shared with the Account screen toggle via
+  // device storage. Mirrored in state so the result card's quick mute button
+  // applies instantly.
+  const [spokenEnabled, setSpokenEnabled] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSpokenFeedback().then((enabled) => {
+      if (!cancelled) setSpokenEnabled(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const stopPlayback = React.useCallback(() => {
     playTokenRef.current += 1;
     playbackRef.current?.stop();
     playbackRef.current = null;
     setCoachPlaying(false);
   }, []);
+
+  const toggleSpokenFeedback = React.useCallback(() => {
+    setSpokenEnabled((enabled) => {
+      const nextEnabled = !enabled;
+      void saveSpokenFeedback(nextEnabled);
+      // Muting mid-readout should silence the coach immediately.
+      if (!nextEnabled) stopPlayback();
+      return nextEnabled;
+    });
+  }, [stopPlayback]);
 
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every tap sometimes yields a different (wrong) reading from the TTS model.
@@ -246,10 +290,22 @@ export default function PracticeScreen() {
       // The learner may have moved on (or re-tapped) while we waited for the
       // audio — this response belongs to the old word, so drop it silently.
       if (token !== playTokenRef.current) return;
+      const onCoachDone = () => {
+        setCoachPlaying(false);
+        const wasManualReplay = manualReplayRef.current;
+        manualReplayRef.current = false;
+        if (
+          !wasManualReplay &&
+          stopModeRef.current === 'auto' &&
+          phaseRef.current === 'idle'
+        ) {
+          void startRecordingRef.current?.();
+        }
+      };
       playbackRef.current = await playBase64Audio(
         res.audioBase64,
         res.format || 'mp3',
-        () => setCoachPlaying(false),
+        onCoachDone,
       );
       if (token !== playTokenRef.current) {
         playbackRef.current?.stop();
@@ -264,7 +320,8 @@ export default function PracticeScreen() {
 
   // Auto-play the coach model once when a new phrase appears, unless the
   // learner has opted into silent mode (they prefer to read the phrase and
-  // start recording without hearing the coach first).
+  // start recording without hearing the coach first). In auto-stop mode,
+  // recording begins on its own once coach playback finishes (see onCoachDone).
   React.useEffect(() => {
     if (!phrase) return;
     let cancelled = false;
@@ -324,20 +381,23 @@ export default function PracticeScreen() {
   // fresh each time, so a toggle flipped on the Account screen applies to the
   // very next score. The playback token guards staleness: moving on, retrying,
   // or replaying the phrase bumps it and this audio is dropped or stopped.
+  // Read the coach's feedback + tip aloud when a score lands, in the same
+  // coach voice as the model phrase. Synthesis was kicked off the moment the
+  // evaluation returned (see stopRecording), so by the time the card is on
+  // screen the audio is usually ready or nearly so. The playback token guards
+  // staleness: moving on, retrying, or muting bumps it and this audio is
+  // dropped or stopped.
   React.useEffect(() => {
     if (phase !== 'result' || !result) return;
-    const spokenText = [result.feedback, result.tip]
-      .filter(Boolean)
-      .join(' ');
-    if (!spokenText) return;
+    if (!spokenEnabled) return;
+    const pending = feedbackAudioRef.current;
+    if (!pending) return;
     stopPlayback();
     const token = playTokenRef.current;
     void (async () => {
       try {
-        if (!(await loadSpokenFeedback())) return;
-        if (token !== playTokenRef.current) return;
-        // Feedback is English coach-speak — no languageName anchor needed.
-        const res = await synth.mutateAsync({ data: { text: spokenText } });
+        const res = await pending;
+        if (!res) return;
         if (token !== playTokenRef.current) return;
         playbackRef.current = await playBase64Audio(
           res.audioBase64,
@@ -354,7 +414,7 @@ export default function PracticeScreen() {
     })();
     return () => stopPlayback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, result]);
+  }, [phase, result, spokenEnabled]);
 
   // Celebrate finishing a whole session with a longer confetti shower.
   React.useEffect(() => {
@@ -411,15 +471,31 @@ export default function PracticeScreen() {
   // stop button remains available in both modes.
   const recorderState = useAudioRecorderState(recorder, 250);
   const silenceSinceRef = React.useRef<number | null>(null);
+  // Loudest level heard this recording; the silence threshold adapts to it so
+  // ordinary room tone (often above a fixed floor on phone mics) can't keep
+  // resetting the countdown forever.
+  const peakDbRef = React.useRef(-160);
   const metering = recorderState?.metering;
   React.useEffect(() => {
     if (phase !== 'recording' || stopMode !== 'auto') {
       silenceSinceRef.current = null;
+      peakDbRef.current = -160;
       return;
     }
     if (typeof metering !== 'number') return;
     const now = Date.now();
-    if (metering > SILENCE_THRESHOLD_DB) {
+    if (metering > peakDbRef.current) peakDbRef.current = metering;
+    // Don't arm auto-stop until the learner has actually said something —
+    // otherwise ambient quiet before speaking would end the take early.
+    if (peakDbRef.current < SPEECH_MIN_DB) {
+      silenceSinceRef.current = null;
+      return;
+    }
+    const threshold = Math.max(
+      SILENCE_THRESHOLD_DB,
+      peakDbRef.current - SILENCE_DROP_DB,
+    );
+    if (metering > threshold) {
       // Heard something — restart the silence countdown.
       silenceSinceRef.current = now;
       return;
@@ -480,6 +556,7 @@ export default function PracticeScreen() {
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };
+  startRecordingRef.current = startRecording;
 
   const stopRecording = async () => {
     if (finishingRef.current) return;
@@ -500,6 +577,16 @@ export default function PracticeScreen() {
           mimeType: 'audio/m4a',
         },
       });
+      // Kick off feedback-voice synthesis NOW, in parallel with rendering the
+      // result card and saving the attempt, so the coach's voice (the same
+      // bubbly TTS voice as the model phrase) starts with minimal delay.
+      const spokenText = [res.feedback, res.tip].filter(Boolean).join(' ');
+      feedbackAudioRef.current =
+        spokenText && spokenEnabled
+          ? synth
+              .mutateAsync({ data: { text: spokenText } })
+              .catch(() => null)
+          : null;
       setResult(res);
       setScores((prev) => [...prev, res.score]);
       setPhaseSync('result');
@@ -559,6 +646,9 @@ export default function PracticeScreen() {
   };
 
   const next = () => {
+    // Belt and braces: cut any in-flight feedback readout immediately.
+    stopPlayback();
+    feedbackAudioRef.current = null;
     setResult(null);
     setSaveFailed(false);
     if (index + 1 < list.length) {
@@ -570,13 +660,14 @@ export default function PracticeScreen() {
   };
 
   const tryAgain = () => {
+    feedbackAudioRef.current = null;
     setResult(null);
     setSaveFailed(false);
     setPhaseSync('idle');
     // Replay the coach model so the learner hears it again before re-recording,
-    // unless silent mode is on (they prefer to read and record without hearing).
-    // Guard with phaseRef: if the learner taps record during the async read,
-    // don't start playback over an in-progress recording.
+    // unless silent mode is on. In auto-stop mode, recording begins on its own
+    // once playback finishes (see onCoachDone). Guard with phaseRef: if the
+    // learner taps record during the async read, don't overlay playback.
     void (async () => {
       const silent = await loadSilentMode();
       if (phaseRef.current !== 'idle') return;
@@ -778,7 +869,12 @@ export default function PracticeScreen() {
           </Text>
 
           <Pressable
-            onPress={playCoach}
+            onPress={() => {
+              // A manual replay must never auto-start recording, even in
+              // auto-stop mode.
+              manualReplayRef.current = true;
+              playCoach();
+            }}
             disabled={coachPlaying}
             style={[styles.listenBtn, { borderColor: colors.border }]}
           >
@@ -852,6 +948,28 @@ export default function PracticeScreen() {
                   <Text style={styles.resultScoreMax}> / 100</Text>
                 </Text>
               </View>
+              <Pressable
+                onPress={toggleSpokenFeedback}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  spokenEnabled
+                    ? 'Turn off spoken feedback'
+                    : 'Turn on spoken feedback'
+                }
+                hitSlop={12}
+                style={styles.muteBtn}
+                testID="spoken-feedback-quick-toggle"
+              >
+                <Feather
+                  name={spokenEnabled ? 'volume-2' : 'volume-x'}
+                  size={22}
+                  color={
+                    spokenEnabled
+                      ? scoreColor(result.score, colors)
+                      : colors.mutedForeground
+                  }
+                />
+              </Pressable>
               {result.passed ? (
                 <Feather
                   name="check-circle"
@@ -1014,12 +1132,23 @@ function StopModeToggle({
     );
   };
   return (
-    <View
-      accessibilityLabel="How recording stops"
-      style={[styles.stopModeRow, { backgroundColor: colors.muted }]}
-    >
-      {option('auto', 'Auto-stop', 'stop-mode-auto')}
-      {option('manual', "I'll tap stop", 'stop-mode-manual')}
+    <View>
+      <View
+        accessibilityLabel="How recording stops"
+        style={[styles.stopModeRow, { backgroundColor: colors.muted }]}
+      >
+        {option('auto', 'Auto-stop', 'stop-mode-auto')}
+        {option('manual', "I'll tap stop", 'stop-mode-manual')}
+      </View>
+      {mode === 'auto' ? (
+        <Text
+          testID="auto-stop-disclaimer"
+          style={[styles.stopModeHint, { color: colors.mutedForeground }]}
+        >
+          Best in a quiet room — background noise can throw off when it
+          stops listening.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -1210,6 +1339,14 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   resultButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  muteBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
+    marginRight: 8,
+  },
   resultRetryIcon: {
     minWidth: 44,
     minHeight: 44,
@@ -1261,6 +1398,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  stopModeHint: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 24,
   },
   note: {
     fontFamily: AppFonts.regular,

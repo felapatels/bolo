@@ -178,8 +178,11 @@ async function renderNormal() {
   await act(async () => {
     audioInstances[0].onended?.();
   });
+  // Use the belly button's aria-label (rendered as soon as bellyActive=true)
+  // rather than the instruction-label text (inside AnimatePresence mode="wait"
+  // which needs a real animation loop to complete its exit before entering).
   await waitFor(() =>
-    expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
   );
 }
 

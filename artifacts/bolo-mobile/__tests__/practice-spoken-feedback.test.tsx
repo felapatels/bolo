@@ -10,12 +10,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
 // Guards the spoken-feedback read-aloud: when a score lands, the coach's
-// feedback + tip are synthesized and played — unless the device-local
-// "Spoken feedback" preference is off, in which case no feedback TTS fires
-// (target-phrase playback is unaffected either way).
+// feedback + tip are spoken immediately via the device speech engine
+// (expo-speech) — unless the device-local "Spoken feedback" preference is
+// off, in which case nothing is spoken (target-phrase playback is unaffected
+// either way). The result card also has a quick mute toggle that silences
+// mid-readout and persists the preference.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
+
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '5' }),
@@ -160,10 +163,12 @@ async function recordAndScore() {
 }
 
 describe('spoken feedback after scoring', () => {
-  test('reads the feedback and tip aloud by default', async () => {
+  test('synthesizes and plays the feedback + tip in the coach voice by default', async () => {
     await renderReady();
     await recordAndScore();
 
+    // One synth for the target phrase, one (kicked off at evaluation time)
+    // for the feedback readout.
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
     expect(mockState.synth).toHaveBeenLastCalledWith({
       data: { text: 'Nice work on that greeting! Soften the t sound.' },
@@ -175,11 +180,25 @@ describe('spoken feedback after scoring', () => {
     await renderReady();
     await recordAndScore();
 
-    // Give any (wrong) feedback synthesis a chance to fire.
     await act(async () => {
       await Promise.resolve();
     });
     // Only the target-phrase playback happened.
     expect(mockState.synth).toHaveBeenCalledTimes(1);
+  });
+
+  test('quick mute on the result card persists the preference off', async () => {
+    await renderReady();
+    await recordAndScore();
+
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('spoken-feedback-quick-toggle'));
+    });
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem('bolo.spokenFeedback')).toBe('off'),
+    );
+    // No further feedback synthesis for the same result.
+    expect(mockState.synth).toHaveBeenCalledTimes(2);
   });
 });
