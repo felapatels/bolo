@@ -13,9 +13,12 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { LanguageProvider } from './lib/language-context';
 import { ThemeProvider } from './lib/theme-context';
+import { TourProvider } from './lib/tour-context';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
+import { GuidedTourOverlay } from '@/components/guided-tour-overlay';
+import { TourAutoLauncher } from '@/components/tour-auto-launcher';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
@@ -251,10 +254,14 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>
-            <TooltipProvider>
-              <AppRouter />
-              <Toaster />
-            </TooltipProvider>
+            <TourProvider>
+              <TooltipProvider>
+                <AppRouter />
+                <Toaster />
+                <GuidedTourOverlay />
+                <TourAutoLauncher />
+              </TooltipProvider>
+            </TourProvider>
           </LanguageProvider>
         </ThemeProvider>
       </QueryClientProvider>
