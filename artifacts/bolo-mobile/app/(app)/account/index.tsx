@@ -125,7 +125,7 @@ export default function AccountScreen() {
     }
   };
 
-  const pickAvatar = async () => {
+  const pickAvatarFromLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert(
@@ -134,28 +134,91 @@ export default function AccountScreen() {
       );
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+    } catch (err) {
+      console.error('[account] launchImageLibraryAsync failed', err);
+      Alert.alert('Something went wrong', 'We couldn’t open your photo library. Please try again.');
+      return;
+    }
     if (result.canceled || !result.assets[0]) return;
+    await uploadAvatar(result.assets[0].uri);
+  };
 
+  const pickAvatarFromCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        'Camera access needed',
+        'Allow camera access in Settings to take a profile picture.',
+      );
+      return;
+    }
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+    } catch (err) {
+      console.error('[account] launchCameraAsync failed', err);
+      Alert.alert('Something went wrong', 'We couldn’t open the camera. Please try again.');
+      return;
+    }
+    if (result.canceled || !result.assets[0]) return;
+    await uploadAvatar(result.assets[0].uri);
+  };
+
+  const uploadAvatar = async (uri: string) => {
     setAvatarBusy(true);
     try {
-      const blob = await (await fetch(result.assets[0].uri)).blob();
-      await user?.setProfileImage({ file: blob });
-      await user?.reload();
-      const res = await updateProfile.mutateAsync({
-        data: { avatarUrl: user?.imageUrl ?? null },
-      });
-      if (account.data) applyAccount({ ...account.data, profile: res.profile });
-    } catch {
-      Alert.alert('Couldn’t update photo', 'Please try a different image.');
+      let blob: Blob;
+      try {
+        blob = await (await fetch(uri)).blob();
+      } catch (err) {
+        console.error('[account] failed to read picked image', err);
+        Alert.alert('Something went wrong', 'We couldn’t read that photo. Please try a different image.');
+        return;
+      }
+      try {
+        await user?.setProfileImage({ file: blob });
+        await user?.reload();
+      } catch (err) {
+        console.error('[account] Clerk setProfileImage failed', err);
+        Alert.alert('Something went wrong', 'We couldn’t upload your photo. Please try again.');
+        return;
+      }
+      try {
+        const res = await updateProfile.mutateAsync({
+          data: { avatarUrl: user?.imageUrl ?? null },
+        });
+        if (account.data) applyAccount({ ...account.data, profile: res.profile });
+      } catch (err) {
+        console.error('[account] failed to sync avatarUrl to backend', err);
+        Alert.alert(
+          'Photo uploaded, but not saved',
+          'Your new photo uploaded but we couldn’t save it to your account. Please try again.',
+        );
+      }
     } finally {
       setAvatarBusy(false);
     }
+  };
+
+  const pickAvatar = () => {
+    Alert.alert('Update profile picture', undefined, [
+      { text: 'Take Photo', onPress: pickAvatarFromCamera },
+      { text: 'Choose from Library', onPress: pickAvatarFromLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const doSignOut = async () => {

@@ -31,12 +31,8 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
-      "blockedPermissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
       ]
@@ -62,7 +58,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Bolo! to access your photos so you can set a profile picture."
+          "photosPermission": "Allow Bolo! to access your photos so you can set a profile picture.",
+          "cameraPermission": "Allow Bolo! to use your camera so you can take a new profile picture."
         }
       ],
       "expo-secure-store",
