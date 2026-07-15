@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   openai,
   textToSpeech,
@@ -43,6 +43,10 @@ const VOICES = [
   "shimmer",
 ] as const;
 type Voice = (typeof VOICES)[number];
+
+// Re-export so tests and callers can import ttsCacheKey from this module.
+export { ttsCacheKey } from "../lib/ttsCache";
+
 
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
@@ -430,5 +434,106 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     res.status(502).json({ error: "Could not complete that chat turn" });
   }
 });
+
+// POST /openai/tts-cache/evict — remove stale TTS entries after a phrase correction.
+// Accepts a phraseId (evicts all voice variants for that phrase) or a languageCode
+// (evicts all cached entries for every phrase in that language). Intended for
+// admin use after native-speaker corrections ship in bulk; safe to call repeatedly
+// since a missing cache key is just a cache miss on next request.
+router.post(
+  "/openai/tts-cache/evict",
+  async (req: Request, res: Response): Promise<void> => {
+    const { phraseId, languageCode } = req.body as {
+      phraseId?: unknown;
+      languageCode?: unknown;
+    };
+
+    if (phraseId == null && languageCode == null) {
+      res
+        .status(400)
+        .json({ error: "Provide phraseId or languageCode to evict" });
+      return;
+    }
+
+    try {
+      // Collect every phrase whose cache entries need flushing, together with
+      // the language name so we can generate both hinted and unhinted keys.
+      // The /tts endpoint accepts a client-provided languageName which becomes
+      // part of the cache key, so entries synthesized with a language hint
+      // (e.g. "Gujarati") have a different key than those without. We evict
+      // both forms to ensure corrections propagate regardless of how the entry
+      // was originally cached.
+      let phrases: Array<{ nativeScript: string; languageName: string }> = [];
+
+      if (phraseId != null) {
+        const id = Number(phraseId);
+        if (!Number.isInteger(id) || id <= 0) {
+          res.status(400).json({ error: "phraseId must be a positive integer" });
+          return;
+        }
+        const row = await db.query.phrasesTable.findFirst({
+          where: eq(phrasesTable.id, id),
+          columns: { nativeScript: true, languageCode: true },
+        });
+        if (!row) {
+          res.status(404).json({ error: "Phrase not found" });
+          return;
+        }
+        const lang = await db.query.languagesTable.findFirst({
+          where: eq(languagesTable.code, row.languageCode),
+          columns: { name: true },
+        });
+        phrases = [{ nativeScript: row.nativeScript, languageName: lang?.name ?? "" }];
+      } else {
+        const code = String(languageCode).trim();
+        if (!code) {
+          res
+            .status(400)
+            .json({ error: "languageCode must be a non-empty string" });
+          return;
+        }
+        const [rows, lang] = await Promise.all([
+          db.query.phrasesTable.findMany({
+            where: eq(phrasesTable.languageCode, code),
+            columns: { nativeScript: true },
+          }),
+          db.query.languagesTable.findFirst({
+            where: eq(languagesTable.code, code),
+            columns: { name: true },
+          }),
+        ]);
+        if (rows.length === 0) {
+          res.json({ evicted: 0 });
+          return;
+        }
+        const langName = lang?.name ?? "";
+        phrases = rows.map((r) => ({ nativeScript: r.nativeScript, languageName: langName }));
+      }
+
+      // For each phrase × voice, generate both the unhinted key (no languageName)
+      // and the hinted key (with languageName) so entries cached either way are
+      // removed. Duplicates are harmless — the DB delete is idempotent.
+      const keySet = new Set<string>();
+      for (const p of phrases) {
+        for (const v of VOICES) {
+          keySet.add(ttsCacheKey(p.nativeScript, v));
+          if (p.languageName) {
+            keySet.add(ttsCacheKey(p.nativeScript, v, p.languageName));
+          }
+        }
+      }
+      const keys = Array.from(keySet);
+
+      await db
+        .delete(ttsCacheTable)
+        .where(inArray(ttsCacheTable.cacheKey, keys));
+
+      res.json({ evicted: keys.length });
+    } catch (err) {
+      req.log.error({ err }, "TTS cache eviction failed");
+      res.status(500).json({ error: "Cache eviction failed" });
+    }
+  },
+);
 
 export default router;
