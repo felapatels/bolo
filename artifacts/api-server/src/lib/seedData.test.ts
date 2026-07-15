@@ -12,6 +12,7 @@ import {
   starterPhraseCount,
   extendedPhraseCount,
   premiumPhraseCount,
+  NUMBER_WORDS,
   validateSeedLesson,
   validateCuratedLessons,
   checkLessonQuality,
@@ -116,21 +117,12 @@ test("every frozen lesson holds the full starter + premium library", () => {
   }
 });
 
-test("the Numbers topic teaches a gap-free one-through-ten in every language", () => {
-  const expectedSequence = [
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-  ];
-  // The topic is titled "Numbers 1-10" and must actually teach all ten in
-  // order — no lesson may stop short at eight or skip a number mid-sequence.
+test("the Numbers topic teaches a gap-free one-through-twenty in every language", () => {
+  // The free starter set is the fixed one..ten sequence; the Plus-only premium
+  // extension continues eleven..twenty. NUMBER_WORDS is the single canonical
+  // sequence shared with the offline generator, so the two can never drift.
+  const expectedSequence = NUMBER_WORDS;
+  assert.equal(starterPhraseCount("numbers"), 10);
   assert.equal(extendedPhraseCount("numbers"), expectedSequence.length);
 
   for (const code of generatedLanguageCodes) {
@@ -140,7 +132,7 @@ test("the Numbers topic teaches a gap-free one-through-ten in every language", (
     assert.deepEqual(
       english,
       expectedSequence,
-      `${code}/numbers should teach one..ten in order, got: ${english.join(", ")}`,
+      `${code}/numbers should teach one..twenty in order, got: ${english.join(", ")}`,
     );
   }
 });
@@ -478,6 +470,14 @@ const LOANWORD_ALLOWLIST: Record<string, string[]> = {
   // Proto-Indo-European inheritance (cf. English "son", German "Sohn"), not an
   // English loanword.
   "sa/family": ["सूनुः"],
+  // "ভাশুর" (bhashur) is the genuine Bengali kinship term for "husband's elder
+  // brother" (Sanskrit "भ्रातृश्वशुर्"-derived); its consonant skeleton only
+  // coincidentally resembles the "brother" token in its gloss.
+  "bn/family": ["ভাশুর"],
+  // "माहेर" (maher) is the genuine Marathi word for a married woman's natal
+  // home ("mother's home"); it is not English "mother" transliterated — a real
+  // transliteration would be "मदर".
+  "mr/family": ["माहेर"],
 };
 
 // Levenshtein distance — the edit distance used for the phonetic ratio below.

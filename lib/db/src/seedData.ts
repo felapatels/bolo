@@ -90,13 +90,41 @@ export function starterPhraseCount(categorySlug: string): number {
 // The full curated library size per topic (starter + premium). Pre-seeding this
 // many phrases means a Bolo! Plus subscriber opens a much deeper, ready-to-use
 // library with no first-open AI wait; everything past the starter is Plus-only.
-export const EXTENDED_PHRASES_PER_LESSON = 24;
+export const EXTENDED_PHRASES_PER_LESSON = 40;
+
+// The fixed gloss sequence the Numbers topic teaches, in order: the free
+// starter set is one..ten (NUMBER_WORDS_STARTER of them) and the Plus-only
+// premium extension continues eleven..twenty. Shared by the offline generator
+// and the seed test so the enforced sequence can never drift between them.
+export const NUMBER_WORDS: string[] = [
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+];
 
 // Topics whose full library is a fixed length rather than
-// EXTENDED_PHRASES_PER_LESSON. "Numbers 1-10" is an inherently fixed sequence of
-// ten, so it has no premium extension — its starter set is the whole topic.
+// EXTENDED_PHRASES_PER_LESSON. "Numbers 1-10" is an inherently fixed sequence:
+// its starter set stays the free one-through-ten, and its premium extension is
+// the fixed continuation eleven-through-twenty rather than open vocabulary.
 export const CATEGORY_EXTENDED_COUNTS: Record<string, number> = {
-  numbers: 10,
+  numbers: NUMBER_WORDS.length,
 };
 
 // The full (starter + premium) phrase count a curated lesson for `categorySlug`
@@ -176,6 +204,22 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "શુભ દિન", romanized: "shubh din", english: "Good day", difficulty: 1 },
       { nativeScript: "કૃપા કરીને બેસો", romanized: "krupa kari-ne beso", english: "Please sit down", difficulty: 2 },
       { nativeScript: "આવતા રહો", romanized: "aavta raho", english: "Come again / Keep coming", difficulty: 2 },
+      { nativeScript: "શું ચાલે છે?", romanized: "shu chaale chhe?", english: "What's going on?", difficulty: 1 },
+      { nativeScript: "ઘણા વખતે મળ્યા", romanized: "ghana vakhte malya", english: "Long time no see", difficulty: 2 },
+      { nativeScript: "ફરી મળીશું", romanized: "fari malishu", english: "See you again", difficulty: 2 },
+      { nativeScript: "તમારો દિવસ કેવો રહ્યો?", romanized: "tamaro divas kevo rahyo?", english: "How was your day?", difficulty: 2 },
+      { nativeScript: "બધું બરાબર છે", romanized: "badhu barabar chhe", english: "Everything is fine", difficulty: 1 },
+      { nativeScript: "પધારો", romanized: "padhaaro", english: "Please come in (honorific)", difficulty: 2 },
+      { nativeScript: "મળતા રહેજો", romanized: "malta rahejo", english: "Keep in touch", difficulty: 2 },
+      { nativeScript: "શુભ બપોર", romanized: "shubh bapor", english: "Good afternoon", difficulty: 1 },
+      { nativeScript: "કાલે મળીએ", romanized: "kaale malie", english: "See you tomorrow", difficulty: 2 },
+      { nativeScript: "સાચવીને જજો", romanized: "saachvine jajo", english: "Take care on your way", difficulty: 2 },
+      { nativeScript: "ખૂબ ખૂબ અભિનંદન", romanized: "khoob khoob abhinandan", english: "Congratulations", difficulty: 2 },
+      { nativeScript: "જન્મદિવસની શુભેચ્છા", romanized: "janmadivasni shubhechchha", english: "Happy birthday", difficulty: 3 },
+      { nativeScript: "ઘરે આવો", romanized: "ghare aavo", english: "Come over to our home", difficulty: 1 },
+      { nativeScript: "મહેરબાની", romanized: "maherbaani", english: "Kindness / a favor", difficulty: 2 },
+      { nativeScript: "પ્રણામ", romanized: "pranaam", english: "Respectful greeting", difficulty: 2 },
+      { nativeScript: "ક્ષમા કરો", romanized: "kshama karo", english: "Forgive me", difficulty: 3 },
     ],
     sentences: [
       { nativeScript: "તમારું નામ શું છે?", romanized: "tamaru naam shu chhe?", english: "What is your name?", difficulty: 1 },
@@ -215,6 +259,22 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "જમાઈ", romanized: "jamai", english: "son-in-law", difficulty: 2 },
       { nativeScript: "પૌત્રી", romanized: "pautri", english: "granddaughter", difficulty: 1 },
       { nativeScript: "પૌત્રવધૂ", romanized: "pautra-vadhu", english: "grandson's wife", difficulty: 3 },
+      { nativeScript: "વહુ", romanized: "vahu", english: "daughter-in-law", difficulty: 2 },
+      { nativeScript: "સાસુ", romanized: "saasu", english: "mother-in-law", difficulty: 2 },
+      { nativeScript: "સસરા", romanized: "sasra", english: "father-in-law", difficulty: 2 },
+      { nativeScript: "સાળો", romanized: "saalo", english: "wife's brother", difficulty: 3 },
+      { nativeScript: "બનેવી", romanized: "banevi", english: "sister's husband", difficulty: 3 },
+      { nativeScript: "મોટા ભાઈ", romanized: "mota bhai", english: "elder brother", difficulty: 1 },
+      { nativeScript: "નાની બહેન", romanized: "naani bahen", english: "younger sister", difficulty: 1 },
+      { nativeScript: "ભત્રીજો", romanized: "bhatrijo", english: "nephew (brother's son)", difficulty: 2 },
+      { nativeScript: "ભત્રીજી", romanized: "bhatriji", english: "niece (brother's daughter)", difficulty: 2 },
+      { nativeScript: "ભાણેજ", romanized: "bhaanej", english: "sister's child", difficulty: 3 },
+      { nativeScript: "પિતરાઈ", romanized: "pitarai", english: "cousin", difficulty: 2 },
+      { nativeScript: "માસી", romanized: "maasi", english: "mother's sister", difficulty: 1 },
+      { nativeScript: "માસા", romanized: "maasa", english: "mother's sister's husband", difficulty: 2 },
+      { nativeScript: "કુટુંબીજનો", romanized: "kutumbijano", english: "relatives", difficulty: 3 },
+      { nativeScript: "બાળક", romanized: "baalak", english: "child", difficulty: 1 },
+      { nativeScript: "જોડિયા", romanized: "jodiya", english: "twins", difficulty: 2 },
     ],
     sentences: [
       { nativeScript: "મારા પરિવારમાં પાંચ લોકો છે.", romanized: "maara parivaarma paanch loko chhe.", english: "There are five people in my family.", difficulty: 2 },
@@ -240,6 +300,16 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "આઠ", romanized: "aath", english: "Eight", difficulty: 1 },
       { nativeScript: "નવ", romanized: "nav", english: "Nine", difficulty: 1 },
       { nativeScript: "દસ", romanized: "das", english: "Ten", difficulty: 1 },
+      { nativeScript: "અગિયાર", romanized: "agiyaar", english: "Eleven", difficulty: 2 },
+      { nativeScript: "બાર", romanized: "baar", english: "Twelve", difficulty: 2 },
+      { nativeScript: "તેર", romanized: "ter", english: "Thirteen", difficulty: 2 },
+      { nativeScript: "ચૌદ", romanized: "chaud", english: "Fourteen", difficulty: 2 },
+      { nativeScript: "પંદર", romanized: "pandar", english: "Fifteen", difficulty: 2 },
+      { nativeScript: "સોળ", romanized: "sol", english: "Sixteen", difficulty: 2 },
+      { nativeScript: "સત્તર", romanized: "sattar", english: "Seventeen", difficulty: 2 },
+      { nativeScript: "અઢાર", romanized: "adhaar", english: "Eighteen", difficulty: 2 },
+      { nativeScript: "ઓગણીસ", romanized: "ognis", english: "Nineteen", difficulty: 2 },
+      { nativeScript: "વીસ", romanized: "vees", english: "Twenty", difficulty: 2 },
     ],
     sentences: [
       { nativeScript: "મારી પાસે બે પુસ્તકો છે.", romanized: "maari paase be pustako chhe.", english: "I have two books.", difficulty: 1 },
@@ -279,6 +349,22 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "પરોઠું", romanized: "parothu", english: "Stuffed flatbread", difficulty: 2 },
       { nativeScript: "લોટી", romanized: "loti", english: "Jug", difficulty: 1 },
       { nativeScript: "મીઠાઈ", romanized: "mithai", english: "Sweet (dessert)", difficulty: 1 },
+      { nativeScript: "ચા", romanized: "chaa", english: "Tea", difficulty: 1 },
+      { nativeScript: "છાશ", romanized: "chhaash", english: "Buttermilk", difficulty: 1 },
+      { nativeScript: "ખીચડી", romanized: "khichdi", english: "Khichdi (rice-lentil dish)", difficulty: 1 },
+      { nativeScript: "ઢોકળા", romanized: "dhokla", english: "Dhokla", difficulty: 1 },
+      { nativeScript: "થેપલા", romanized: "thepla", english: "Thepla", difficulty: 1 },
+      { nativeScript: "શીરો", romanized: "shiro", english: "Sweet semolina pudding", difficulty: 2 },
+      { nativeScript: "ખાંડ", romanized: "khaand", english: "Sugar", difficulty: 1 },
+      { nativeScript: "હળદર", romanized: "haldar", english: "Turmeric", difficulty: 2 },
+      { nativeScript: "જીરું", romanized: "jeeru", english: "Cumin", difficulty: 2 },
+      { nativeScript: "ફળ", romanized: "fal", english: "Fruit", difficulty: 1 },
+      { nativeScript: "કેરી", romanized: "keri", english: "Mango", difficulty: 1 },
+      { nativeScript: "કેળું", romanized: "kelu", english: "Banana", difficulty: 1 },
+      { nativeScript: "બટાકા", romanized: "bataka", english: "Potato", difficulty: 1 },
+      { nativeScript: "ડુંગળી", romanized: "dungli", english: "Onion", difficulty: 2 },
+      { nativeScript: "સ્વાદિષ્ટ", romanized: "swaadisht", english: "Delicious", difficulty: 2 },
+      { nativeScript: "પીવું", romanized: "pivu", english: "To drink", difficulty: 1 },
     ],
     sentences: [
       { nativeScript: "કૃપા કરીને મને પાણી આપો.", romanized: "krupa karine mane paani aapo.", english: "Please give me some water.", difficulty: 1 },
@@ -318,6 +404,22 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "ત્યાં", romanized: "tyaan", english: "There", difficulty: 1 },
       { nativeScript: "શુભ સવાર", romanized: "shubh savaar", english: "Good morning", difficulty: 2 },
       { nativeScript: "શુભ રાત્રી", romanized: "shubh raatri", english: "Good night", difficulty: 1 },
+      { nativeScript: "આજે", romanized: "aaje", english: "Today", difficulty: 1 },
+      { nativeScript: "કાલે", romanized: "kaale", english: "Tomorrow", difficulty: 1 },
+      { nativeScript: "અત્યારે", romanized: "atyaare", english: "Right now", difficulty: 1 },
+      { nativeScript: "ધીમે ધીમે", romanized: "dhime dhime", english: "Slowly", difficulty: 1 },
+      { nativeScript: "જલદી", romanized: "jaldi", english: "Quickly", difficulty: 1 },
+      { nativeScript: "ક્યાં?", romanized: "kyaan?", english: "Where?", difficulty: 1 },
+      { nativeScript: "શું?", romanized: "shu?", english: "What?", difficulty: 1 },
+      { nativeScript: "કોણ?", romanized: "kon?", english: "Who?", difficulty: 1 },
+      { nativeScript: "ક્યારે?", romanized: "kyaare?", english: "When?", difficulty: 2 },
+      { nativeScript: "કેટલું?", romanized: "ketlu?", english: "How much?", difficulty: 2 },
+      { nativeScript: "ખુલ્લું", romanized: "khullu", english: "Open", difficulty: 1 },
+      { nativeScript: "બંધ", romanized: "bandh", english: "Closed", difficulty: 1 },
+      { nativeScript: "મોટું", romanized: "motu", english: "Big", difficulty: 1 },
+      { nativeScript: "નાનું", romanized: "naanu", english: "Small", difficulty: 1 },
+      { nativeScript: "પુસ્તક", romanized: "pustak", english: "Book", difficulty: 1 },
+      { nativeScript: "શાળા", romanized: "shaala", english: "School", difficulty: 1 },
     ],
     sentences: [
       { nativeScript: "મને થોડી મદદ જોઈએ છે.", romanized: "mane thodi madad joie chhe.", english: "I need some help.", difficulty: 1 },
@@ -357,6 +459,22 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "પ્રફુલ્લિત છું", romanized: "prafullit chhu", english: "I feel cheerful", difficulty: 3 },
       { nativeScript: "નિરાશ", romanized: "niraash", english: "disappointed", difficulty: 2 },
       { nativeScript: "રાહત થઈ", romanized: "raahat thai", english: "I feel relieved", difficulty: 2 },
+      { nativeScript: "તરસ લાગી છે", romanized: "taras laagi chhe", english: "I am thirsty", difficulty: 1 },
+      { nativeScript: "ઊંઘ આવે છે", romanized: "oongh aave chhe", english: "I feel sleepy", difficulty: 1 },
+      { nativeScript: "શરમ આવે છે", romanized: "sharam aave chhe", english: "I feel shy", difficulty: 2 },
+      { nativeScript: "ઈર્ષ્યા થાય છે", romanized: "irshya thaay chhe", english: "I feel jealous", difficulty: 3 },
+      { nativeScript: "હિંમત", romanized: "himmat", english: "Courage", difficulty: 2 },
+      { nativeScript: "આનંદ", romanized: "aanand", english: "Joy", difficulty: 1 },
+      { nativeScript: "પ્રેમ", romanized: "prem", english: "Love", difficulty: 1 },
+      { nativeScript: "દુઃખ", romanized: "dukh", english: "Grief", difficulty: 2 },
+      { nativeScript: "ગુસ્સો", romanized: "gusso", english: "Anger", difficulty: 1 },
+      { nativeScript: "શાંતિ થાય છે", romanized: "shaanti thaay chhe", english: "I feel at peace", difficulty: 2 },
+      { nativeScript: "મન થાય છે", romanized: "man thaay chhe", english: "I feel like it", difficulty: 2 },
+      { nativeScript: "મન નથી", romanized: "man nathi", english: "I don't feel like it", difficulty: 2 },
+      { nativeScript: "વિશ્વાસ છે", romanized: "vishwaas chhe", english: "I have faith", difficulty: 2 },
+      { nativeScript: "આશા છે", romanized: "aasha chhe", english: "I am hopeful", difficulty: 2 },
+      { nativeScript: "મૂંઝવણ થાય છે", romanized: "moonjhvan thaay chhe", english: "I feel puzzled", difficulty: 3 },
+      { nativeScript: "ખુશખુશાલ", romanized: "khushkhushaal", english: "Overjoyed", difficulty: 2 },
     ],
     sentences: [
       { nativeScript: "આજે હું ખૂબ ખુશ છું.", romanized: "aaje hu khoob khush chhu.", english: "I am very happy today.", difficulty: 1 },

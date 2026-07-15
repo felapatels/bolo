@@ -36,9 +36,101 @@ function loadCuratedLessons(): CuratedLessonsFile {
   return curatedLessonsJson as CuratedLessonsFile;
 }
 
-// Inserts one lesson + its phrases idempotently: if a lesson row already exists
-// for (languageCode, categoryId) it is left untouched (never duplicating
-// phrases). Returns true when a new lesson was seeded.
+// Case/whitespace-insensitive dedup key for a phrase: native script + English.
+function phraseKey(nativeScript: string, english: string): string {
+  return `${nativeScript.trim()}\u0000${english.trim().toLowerCase()}`;
+}
+
+// Tops up an already-seeded lesson with any curated phrases/sentences it does
+// not hold yet. Existing rows are never touched: we dedupe the curated library
+// against what is present (on nativeScript + english) and only INSERT what is
+// missing, keeping each curated entry's index as its sortOrder and deriving
+// premium from the same starter boundary the seeder uses. This is how an
+// environment seeded before the library grew (dev + production) receives the
+// new words at startup. Returns the number of rows inserted.
+async function topUpLesson(
+  lessonId: number,
+  languageCode: string,
+  categoryId: number,
+  lesson: SeedLesson,
+  starterCount: number,
+): Promise<number> {
+  const existingPhrases = await db
+    .select({
+      nativeScript: phrasesTable.nativeScript,
+      english: phrasesTable.english,
+      stage: phrasesTable.stage,
+    })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.lessonId, lessonId));
+
+  // Dedup per stage: a sentence may legitimately reuse a word the phrase list
+  // already teaches, so the phrase list only blocks phrase inserts and the
+  // sentence stage only blocks sentence inserts.
+  const seen = new Set(
+    existingPhrases
+      .filter((p) => p.stage !== "sentence")
+      .map((p) => phraseKey(p.nativeScript, p.english)),
+  );
+  const seenSentences = new Set(
+    existingPhrases
+      .filter((p) => p.stage === "sentence")
+      .map((p) => phraseKey(p.nativeScript, p.english)),
+  );
+
+  const phraseInserts = lesson.phrases
+    .map((p, index) => ({
+      lessonId,
+      languageCode,
+      categoryId,
+      nativeScript: p.nativeScript,
+      romanized: p.romanized,
+      english: p.english,
+      difficulty: p.difficulty,
+      // A curated phrase keeps its index in the full library, so topped-up
+      // premium phrases sort after the starters exactly as a fresh seed would.
+      sortOrder: index,
+      premium: index >= starterCount,
+      stage: "phrase",
+    }))
+    .filter((row) => {
+      const key = phraseKey(row.nativeScript, row.english);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  const sentenceInserts = (lesson.sentences ?? [])
+    .map((s, index) => ({
+      lessonId,
+      languageCode,
+      categoryId,
+      nativeScript: s.nativeScript,
+      romanized: s.romanized,
+      english: s.english,
+      difficulty: s.difficulty,
+      sortOrder: index,
+      premium: true,
+      stage: "sentence",
+    }))
+    .filter((row) => {
+      const key = phraseKey(row.nativeScript, row.english);
+      if (seenSentences.has(key)) return false;
+      seenSentences.add(key);
+      return true;
+    });
+
+  const allInserts = [...phraseInserts, ...sentenceInserts];
+  if (allInserts.length === 0) return 0;
+  await db.insert(phrasesTable).values(allInserts);
+  return allInserts.length;
+}
+
+// Inserts one lesson + its phrases idempotently. If a lesson row already
+// exists for (languageCode, categoryId) its existing phrases are left
+// untouched, but any curated phrases it is missing are topped up (so an
+// already-seeded environment receives library growth). Returns true when a
+// brand-new lesson was seeded.
 async function seedLesson(
   languageCode: string,
   categoryId: number,
@@ -54,7 +146,21 @@ async function seedLesson(
         eq(lessonsTable.categoryId, categoryId),
       ),
     );
-  if (existing.length > 0) return false;
+  if (existing.length > 0) {
+    const added = await topUpLesson(
+      existing[0].id,
+      languageCode,
+      categoryId,
+      lesson,
+      starterCount,
+    );
+    if (added > 0) {
+      console.log(
+        `Topped up ${languageCode} lesson (category ${categoryId}) with ${added} phrase(s).`,
+      );
+    }
+    return false;
+  }
 
   const [insertedLesson] = await db
     .insert(lessonsTable)

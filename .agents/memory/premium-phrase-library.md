@@ -15,8 +15,16 @@ library; everything past the starter is Bolo! Plus content.
   premium. The committed `curatedLessons.json` and `GUJARATI_LESSONS` literals
   carry NO per-phrase premium field — keep them premium-agnostic; change the
   boundary only via `starterPhraseCount`.
-- **`numbers` has zero premium** — its starter and extended counts are both 10
-  (fixed 1..10 sequence), so the whole topic is free.
+- **`numbers` is a fixed gloss sequence, not open vocabulary** — free starter is
+  the 1..10 sequence; the premium extension is the fixed continuation 11..20.
+  `NUMBER_WORDS` in seedData is the single canonical sequence shared by the
+  offline generator and the seed test, and the frozen lessons must carry it in
+  exact order.
+- **Library growth reaches existing DBs via the startup seeder itself**: an
+  existing lesson is topped up in place (insert-only, deduped on native+english,
+  curated index = sortOrder, premium derived from the starter boundary). Never
+  bump `starterPhraseCount` when growing the library — it would shift the
+  free/premium boundary for already-seeded rows; grow only the extended counts.
 - **Runtime-generated phrases** (cache-miss / user-added) are non-premium, which
   is correct — only the pre-seeded library carries premium depth.
 

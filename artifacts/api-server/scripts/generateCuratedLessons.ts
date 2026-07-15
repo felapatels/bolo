@@ -24,6 +24,7 @@ import {
   starterPhraseCount,
   extendedPhraseCount,
   sentenceCount,
+  NUMBER_WORDS,
   validateSeedLesson,
   validateSeedSentences,
   checkLessonQuality,
@@ -41,7 +42,7 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT_FILE = path.resolve(here, "../../../lib/db/src/data/curatedLessons.json");
 const MAX_ATTEMPTS = 4; // per (language, topic) before giving up
-const CONCURRENCY = 4; // parallel AI calls in flight at once
+const CONCURRENCY = 8; // parallel AI calls in flight at once
 
 const force = process.argv.includes("--force");
 
@@ -154,6 +155,60 @@ async function generateOne(job: Job): Promise<SeedLesson> {
       `Failed to build the starter set for ${job.langCode}/${job.categorySlug} ` +
         `(${phrases.length}/${starter}): ${lastError}`,
     );
+  }
+
+  // 2a. The Numbers topic is a fixed gloss sequence, not open vocabulary: the
+  //     free starter set is one..ten and the premium extension continues
+  //     eleven..twenty. Request exactly the number words still missing, keep
+  //     only entries whose gloss is one of them, and re-order the final list to
+  //     the canonical sequence so the frozen lesson always reads 1..20 in order.
+  if (job.categorySlug === "numbers") {
+    const wanted = NUMBER_WORDS.slice(0, target);
+    for (
+      let attempt = 1;
+      attempt <= MAX_ATTEMPTS * 3 && phrases.length < target;
+      attempt++
+    ) {
+      const missing = wanted.filter(
+        (w) => !phrases.some((p) => englishKey(p) === w),
+      );
+      if (missing.length === 0) break;
+      try {
+        const extra = await generateAdditionalPhrases({
+          ...lang,
+          topicTitle: "Number words",
+          topicDescription:
+            `The number words ${missing.join(", ")} — produce exactly one entry per listed word, ` +
+            `each entry's "english" being exactly that single English word.`,
+          existing: phrases.map((p) => ({
+            nativeScript: p.nativeScript,
+            romanized: p.romanized,
+            english: p.english,
+          })),
+          count: missing.length,
+        });
+        const usable = extra.filter((p) =>
+          missing.includes(englishKey(p)),
+        );
+        phrases = dedupeAppend(phrases, usable, target);
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `  ${job.langCode}/numbers attempt ${attempt} failed: ${lastError}`,
+        );
+      }
+    }
+    const ordered: SeedPhrase[] = [];
+    for (const w of wanted) {
+      const match = phrases.find((p) => englishKey(p) === w);
+      if (!match) {
+        throw new Error(
+          `Could not complete ${job.langCode}/numbers: missing "${w}": ${lastError}`,
+        );
+      }
+      ordered.push(match);
+    }
+    phrases = ordered;
   }
 
   // 2. Append premium phrases until the lesson reaches its extended target. Each

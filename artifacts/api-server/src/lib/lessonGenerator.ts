@@ -211,7 +211,7 @@ export type AdditionalPhrasesRequest = LessonRequest & {
 export async function generateAdditionalPhrases(
   req: AdditionalPhrasesRequest,
 ): Promise<GeneratedPhrase[]> {
-  const count = Math.max(1, Math.min(5, Math.round(req.count)));
+  const count = Math.max(1, Math.min(20, Math.round(req.count)));
   const avoidList =
     req.existing.length > 0
       ? req.existing
@@ -253,6 +253,7 @@ Reply as JSON with this exact shape:
 
 Rules:
 - "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
+- Always use ${req.languageName}'s own native word — NEVER an English word transliterated into the native script (e.g. never "नर्वस" for "nervous" or "बोर" for "bored").
 - Every entry must be different from the existing phrases listed above.
 - Return exactly ${count} phrases.`,
       },
