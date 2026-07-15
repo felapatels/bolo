@@ -19,6 +19,7 @@ import {
   usePauseAccountSubscription,
   useAcceptRetentionOffer,
   useResumeAccountSubscription,
+  useUnpauseAccountSubscription,
   getGetEntitlementsQueryKey,
   type SubscriptionDetails,
   type BillingHistoryEntry,
@@ -129,6 +130,7 @@ export default function SubscriptionScreen() {
   const pause = usePauseAccountSubscription();
   const retention = useAcceptRetentionOffer();
   const resume = useResumeAccountSubscription();
+  const unpause = useUnpauseAccountSubscription();
 
   const [retentionOpen, setRetentionOpen] = React.useState(false);
   const [banner, setBanner] = React.useState<{
@@ -251,6 +253,26 @@ export default function SubscriptionScreen() {
     }
   };
 
+  // Clear a pause and restore Plus access immediately. The endpoint is
+  // idempotent — calling it on an already-active plan is a no-op — so a
+  // double-tap is safe.
+  const onUnpause = async () => {
+    setBanner(null);
+    try {
+      const next = await unpause.mutateAsync();
+      applyDetails(next);
+      setBanner({
+        kind: 'success',
+        text: 'Your subscription is active again — welcome back!',
+      });
+    } catch {
+      Alert.alert(
+        "Couldn't resume",
+        "We couldn't resume your subscription. Please try again.",
+      );
+    }
+  };
+
   // Undo a pending cancellation while the plan is still live. Store (RevenueCat)
   // subscriptions un-cancel through the backend resume endpoint — a plain,
   // repeatable status flip with no discount — so the snapshot reads active
@@ -301,7 +323,8 @@ export default function SubscriptionScreen() {
     cancel.isPending ||
     pause.isPending ||
     retention.isPending ||
-    resume.isPending;
+    resume.isPending ||
+    unpause.isPending;
 
   return (
     <Screen>
@@ -379,6 +402,7 @@ export default function SubscriptionScreen() {
             onManage={onManage}
             onCancelPress={() => setRetentionOpen(true)}
             onReactivate={onReactivate}
+            onUnpause={onUnpause}
             busy={busy}
           />
 
@@ -438,6 +462,7 @@ function PlanState({
   onManage,
   onCancelPress,
   onReactivate,
+  onUnpause,
   busy,
 }: {
   details: SubscriptionDetails;
@@ -446,6 +471,7 @@ function PlanState({
   onManage: () => void;
   onCancelPress: () => void;
   onReactivate: () => void;
+  onUnpause: () => void;
   busy: boolean;
 }) {
   const colors = useColors();
@@ -562,7 +588,23 @@ function PlanState({
           onPress={onManage}
           style={{ alignSelf: 'stretch' }}
         />
-        {!canceling ? (
+        {paused ? (
+          <>
+            <ChunkyButton
+              title="Resume subscription"
+              icon="play-circle"
+              onPress={onUnpause}
+              disabled={busy}
+              style={{ alignSelf: 'stretch' }}
+            />
+            <Text
+              style={[styles.cancelingNote, { color: colors.mutedForeground }]}
+            >
+              Your subscription is paused. Resume early to restore Plus access
+              right away.
+            </Text>
+          </>
+        ) : !canceling ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cancel subscription"

@@ -19,6 +19,7 @@ const mockState: Record<string, any> = {
   pause: undefined,
   retention: undefined,
   resume: undefined,
+  unpause: undefined,
   restore: jest.fn(),
   isRestoring: false,
 };
@@ -43,6 +44,7 @@ jest.mock('@workspace/api-client-react', () => ({
   usePauseAccountSubscription: () => mockState.pause,
   useAcceptRetentionOffer: () => mockState.retention,
   useResumeAccountSubscription: () => mockState.resume,
+  useUnpauseAccountSubscription: () => mockState.unpause,
   getGetAccountSubscriptionQueryKey: () => ['account-subscription'],
   getGetEntitlementsQueryKey: () => ['entitlements'],
 }));
@@ -129,6 +131,7 @@ beforeEach(() => {
   mockState.pause = mutation(detailsFixture({ status: 'paused', pauseUntil: '2026-08-01T00:00:00.000Z' }));
   mockState.retention = mutation(detailsFixture({ retentionOfferAcceptedAt: '2026-07-13T00:00:00.000Z' }));
   mockState.resume = mutation(detailsFixture({ status: 'active', cancelAtPeriodEnd: false }));
+  mockState.unpause = mutation(detailsFixture({ status: 'active', pauseUntil: null }));
   mockState.restore = jest.fn().mockResolvedValue(false);
   mockState.isRestoring = false;
   jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
@@ -338,5 +341,27 @@ describe('SubscriptionScreen', () => {
     // The cancel action does not touch the DB-only endpoint for Stripe.
     fireEvent.press(screen.getByLabelText('Continue to cancel'));
     expect(mockState.cancel.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows a Resume subscription CTA for a paused subscriber and calls unpause', async () => {
+    mockState.sub = successQuery(
+      detailsFixture({ status: 'paused', pauseUntil: '2026-08-01T00:00:00.000Z' }),
+    );
+    render(<SubscriptionScreen />);
+
+    // Pause status pill is visible.
+    expect(screen.getByText('Paused')).toBeOnTheScreen();
+    // Resume CTA is shown; cancel link is hidden while paused.
+    expect(screen.getByText('Resume subscription')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Cancel subscription')).toBeNull();
+
+    fireEvent.press(screen.getByText('Resume subscription'));
+
+    await waitFor(() =>
+      expect(mockState.unpause.mutateAsync).toHaveBeenCalled(),
+    );
+    // Entitlements and subscription snapshot are refreshed after unpause.
+    expect(mockQueryClient.setQueryData).toHaveBeenCalled();
+    expect(mockQueryClient.invalidateQueries).toHaveBeenCalled();
   });
 });
