@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateFamilyInviteBody = {
+export interface CreateFamilyInviteInput {
   email: string;
   /** The web app's base path, used to build the join link. */
   basePath?: string;
-};
+}

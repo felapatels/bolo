@@ -83,7 +83,6 @@ export default function AppLayout() {
               <Stack.Screen name="account/password" />
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="chat" />
             </Stack>
             {/* Floating Bolo entry point — appears on every screen except chat */}
             <ParrotFAB />

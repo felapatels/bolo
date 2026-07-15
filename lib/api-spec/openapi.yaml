@@ -1165,14 +1165,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [email]
-              properties:
-                email:
-                  type: string
-                basePath:
-                  type: string
-                  description: The web app's base path, used to build the join link.
+              $ref: "#/components/schemas/CreateFamilyInviteInput"
       responses:
         "201":
           description: The pending invite
@@ -1319,10 +1312,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                code: { type: string }
-                inviteToken: { type: string }
+              $ref: "#/components/schemas/JoinFamilyInput"
       responses:
         "200":
           description: Joined
@@ -1369,6 +1359,22 @@ components:
       properties:
         ok:
           type: boolean
+
+    CreateFamilyInviteInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+        basePath:
+          type: string
+          description: The web app's base path, used to build the join link.
+
+    JoinFamilyInput:
+      type: object
+      properties:
+        code: { type: string }
+        inviteToken: { type: string }
 
     FamilySeat:
       type: object

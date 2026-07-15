@@ -41,12 +41,17 @@ jest.mock('expo-router', () => {
     options,
   }: {
     name: string;
-    options?: { tabBarBadge?: string | number };
+    options?: { tabBarBadge?: string | number; title?: string };
   }) => {
     const badge = options?.tabBarBadge;
     return React.createElement(
       View,
       null,
+      React.createElement(
+        Text,
+        { accessibilityLabel: `tab-${name}` },
+        options?.title ?? name,
+      ),
       badge != null
         ? React.createElement(
             Text,
@@ -77,6 +82,16 @@ function requestsOfLength(n: number): FriendRequest[] {
 
 beforeEach(() => {
   mockState.incoming = { data: [] as FriendRequest[] };
+});
+
+describe('Registered tabs', () => {
+  test('all four tabs are present, including Chat', () => {
+    render(<TabsLayout />);
+    expect(screen.getByLabelText('tab-index')).toHaveTextContent('Home');
+    expect(screen.getByLabelText('tab-chat')).toHaveTextContent('Chat');
+    expect(screen.getByLabelText('tab-friends')).toHaveTextContent('Friends');
+    expect(screen.getByLabelText('tab-progress')).toHaveTextContent('Progress');
+  });
 });
 
 describe('Friends tab badge', () => {

@@ -9,6 +9,17 @@ export interface Ok {
   ok: boolean;
 }
 
+export interface CreateFamilyInviteInput {
+  email: string;
+  /** The web app's base path, used to build the join link. */
+  basePath?: string;
+}
+
+export interface JoinFamilyInput {
+  code?: string;
+  inviteToken?: string;
+}
+
 export type FamilySeatStatus = typeof FamilySeatStatus[keyof typeof FamilySeatStatus];
 
 
@@ -654,12 +665,6 @@ export type SearchFriendByEmailParams = {
 email: string;
 };
 
-export type CreateFamilyInviteBody = {
-  email: string;
-  /** The web app's base path, used to build the join link. */
-  basePath?: string;
-};
-
 export type CreateFamilyInvite201 = {
   id: number;
   status: string;
@@ -668,11 +673,6 @@ export type CreateFamilyInvite201 = {
 
 export type RegenerateFamilyCode200 = {
   joinCode: string;
-};
-
-export type JoinFamilyBody = {
-  code?: string;
-  inviteToken?: string;
 };
 
 export type JoinFamily200 = {

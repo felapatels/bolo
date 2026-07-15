@@ -54,7 +54,7 @@ export function ParrotFAB() {
     >
       <Animated.View style={floatStyle}>
         <PressableScale
-          onPress={() => router.push('/(app)/chat')}
+          onPress={() => router.push('/(app)/(tabs)/chat')}
           accessibilityRole="button"
           accessibilityLabel="Chat with Bolo"
           style={[

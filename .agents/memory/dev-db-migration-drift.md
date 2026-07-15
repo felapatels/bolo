@@ -58,3 +58,6 @@ apply cleanly to a throwaway DB.
 ## When a committed migration's objects already exist
 If tables from a new migration were created out-of-band during dev (push/manual DDL), `drizzle-kit migrate` fails on CREATE TABLE — including in the automatic post-merge setup. Fix: insert the migration record by hand, then re-run migrate + seed:
 `INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('<sha256sum of the .sql file>', <journal "when" ms>)`.
+
+## Merge can duplicate a migration under two tags
+A task-agent merge can commit the SAME DDL under two consecutive migration tags, with the earlier tag's snapshot missing the new tables. Fresh-DB `check-migrations` then fails with "relation already exists" while dev looks fine. Fix: remove the later duplicate (.sql, journal entry, snapshot), make the surviving tag's snapshot actually contain the new tables with `prevId` pointing at its predecessor, and delete the duplicate's hash row from `drizzle.__drizzle_migrations` in envs that recorded it.

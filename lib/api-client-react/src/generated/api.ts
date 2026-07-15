@@ -35,7 +35,7 @@ import type {
   ContactFormInput,
   ContactFormResult,
   CreateFamilyInvite201,
-  CreateFamilyInviteBody,
+  CreateFamilyInviteInput,
   DeleteAccountResult,
   Entitlements,
   Error,
@@ -48,7 +48,7 @@ import type {
   GetProgressSummaryParams,
   HealthStatus,
   JoinFamily200,
-  JoinFamilyBody,
+  JoinFamilyInput,
   Language,
   LeaderboardEntry,
   ListBadgesParams,
@@ -3232,14 +3232,14 @@ export const getCreateFamilyInviteUrl = () => {
  * Reserves a pending seat and emails a personal join link. Duplicate emails are rejected without consuming a seat; a full plan (4 people including pending invites) is rejected with 409.
  * @summary Invite someone to the family plan by email (owner only)
  */
-export const createFamilyInvite = async (createFamilyInviteBody: CreateFamilyInviteBody, options?: RequestInit): Promise<CreateFamilyInvite201> => {
+export const createFamilyInvite = async (createFamilyInviteInput: CreateFamilyInviteInput, options?: RequestInit): Promise<CreateFamilyInvite201> => {
 
   return customFetch<CreateFamilyInvite201>(getCreateFamilyInviteUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(createFamilyInviteBody)
+    body: JSON.stringify(createFamilyInviteInput)
   }
 );}
 
@@ -3248,8 +3248,8 @@ export const createFamilyInvite = async (createFamilyInviteBody: CreateFamilyInv
 
 
 export const getCreateFamilyInviteMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteInput>}, TContext> => {
 
 const mutationKey = ['createFamilyInvite'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3261,7 +3261,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFamilyInvite>>, {data: BodyType<CreateFamilyInviteBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFamilyInvite>>, {data: BodyType<CreateFamilyInviteInput>}> = (props) => {
           const {data} = props ?? {};
 
           return  createFamilyInvite(data,requestOptions)
@@ -3275,18 +3275,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateFamilyInviteMutationResult = NonNullable<Awaited<ReturnType<typeof createFamilyInvite>>>
-    export type CreateFamilyInviteMutationBody = BodyType<CreateFamilyInviteBody>
+    export type CreateFamilyInviteMutationBody = BodyType<CreateFamilyInviteInput>
     export type CreateFamilyInviteMutationError = ErrorType<Error>
 
     /**
  * @summary Invite someone to the family plan by email (owner only)
  */
 export const useCreateFamilyInvite = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyInvite>>, TError,{data: BodyType<CreateFamilyInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createFamilyInvite>>,
         TError,
-        {data: BodyType<CreateFamilyInviteBody>},
+        {data: BodyType<CreateFamilyInviteInput>},
         TContext
       > => {
       return useMutation(getCreateFamilyInviteMutationOptions(options));
@@ -3590,14 +3590,14 @@ export const getJoinFamilyUrl = () => {
  * Joins a family plan. If the caller pays for their own Plus through Stripe, that subscription is canceled with proration credit before the seat is granted (`previousSubscriptionCanceled` is true in that case).
  * @summary Claim a family seat via join code or emailed invite link
  */
-export const joinFamily = async (joinFamilyBody: JoinFamilyBody, options?: RequestInit): Promise<JoinFamily200> => {
+export const joinFamily = async (joinFamilyInput: JoinFamilyInput, options?: RequestInit): Promise<JoinFamily200> => {
 
   return customFetch<JoinFamily200>(getJoinFamilyUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(joinFamilyBody)
+    body: JSON.stringify(joinFamilyInput)
   }
 );}
 
@@ -3606,8 +3606,8 @@ export const joinFamily = async (joinFamilyBody: JoinFamilyBody, options?: Reque
 
 
 export const getJoinFamilyMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyInput>}, TContext> => {
 
 const mutationKey = ['joinFamily'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3619,7 +3619,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinFamily>>, {data: BodyType<JoinFamilyBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinFamily>>, {data: BodyType<JoinFamilyInput>}> = (props) => {
           const {data} = props ?? {};
 
           return  joinFamily(data,requestOptions)
@@ -3633,18 +3633,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type JoinFamilyMutationResult = NonNullable<Awaited<ReturnType<typeof joinFamily>>>
-    export type JoinFamilyMutationBody = BodyType<JoinFamilyBody>
+    export type JoinFamilyMutationBody = BodyType<JoinFamilyInput>
     export type JoinFamilyMutationError = ErrorType<Error>
 
     /**
  * @summary Claim a family seat via join code or emailed invite link
  */
 export const useJoinFamily = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinFamily>>, TError,{data: BodyType<JoinFamilyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof joinFamily>>,
         TError,
-        {data: BodyType<JoinFamilyBody>},
+        {data: BodyType<JoinFamilyInput>},
         TContext
       > => {
       return useMutation(getJoinFamilyMutationOptions(options));

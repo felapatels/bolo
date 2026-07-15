@@ -11,13 +11,13 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
 import { useChatTurn, type ChatTurnMessage } from '@workspace/api-client-react';
 import { ApiError } from '@workspace/api-client-react';
-import { Screen } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { PressableScale } from '@/components/PressableScale';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
@@ -161,6 +161,45 @@ export default function ChatScreen() {
     [],
   );
 
+  // Tab screens stay mounted, so unmount cleanup alone isn't enough: when the
+  // learner switches to another tab mid-recording or while Bolo is speaking,
+  // stop the mic and playback and settle back to idle so nothing keeps running
+  // (or holds the audio session) in the background.
+  // The callback must stay referentially stable across re-renders: if it
+  // changed with volatile state (e.g. recorderState.isRecording), React
+  // Navigation would re-register the effect mid-session and run the previous
+  // cleanup while the learner is still on the tab, cutting off an active turn.
+  const recorderRef = React.useRef(recorder);
+  recorderRef.current = recorder;
+  // Tracks whether the Chat tab is currently focused so a chat turn that is
+  // still in flight when the learner switches tabs can't start playing the
+  // reply audio in the background once the server responds.
+  const isFocusedRef = React.useRef(true);
+  useFocusEffect(
+    React.useCallback(
+      () => {
+        isFocusedRef.current = true;
+        return () => {
+        // Runs only on actual tab blur (or unmount).
+        isFocusedRef.current = false;
+        playbackRef.current?.stop();
+        playbackRef.current = null;
+        try {
+          void recorderRef.current.stop();
+        } catch {
+          // Best-effort: the recorder may already be stopped/idle.
+        }
+        recorderPreparedRef.current = false;
+        finishingRef.current = false;
+        silenceSinceRef.current = null;
+        setPhase('idle');
+        setErrorMsg(null);
+        };
+      },
+      [],
+    ),
+  );
+
   // ── Silence auto-stop ──────────────────────────────────────────────────────
   React.useEffect(() => {
     if (phase !== 'recording') {
@@ -255,6 +294,13 @@ export default function ChatScreen() {
         data: { languageCode: chatLang, audioBase64, history },
       });
 
+      // If the learner left the Chat tab while this turn was in flight, drop
+      // the response silently — never start reply audio on another tab.
+      if (!isFocusedRef.current) {
+        finishingRef.current = false;
+        return;
+      }
+
       // Append both sides of the exchange to the transcript
       setMessages((prev) => [
         ...prev,
@@ -283,6 +329,10 @@ export default function ChatScreen() {
       playbackRef.current = handle;
     } catch (err) {
       finishingRef.current = false;
+
+      // Off-tab failure: the blur cleanup already reset the screen; don't
+      // surface errors or navigate while another tab is active.
+      if (!isFocusedRef.current) return;
 
       // 402 upgrade_required — language locked or weekly cap hit
       const upgrade = asUpgradeRequired(err);
@@ -339,7 +389,7 @@ export default function ChatScreen() {
             ),
           )
         }
-        onBack={() => router.back()}
+        onBack={() => router.push('/(app)/(tabs)')}
       />
     );
   }
@@ -365,24 +415,13 @@ export default function ChatScreen() {
 
   return (
     <Screen>
-      {/* Header */}
+      {/* Header — no back button: the screen now lives in the tab bar */}
       <View style={styles.header}>
-        <PressableScale
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-          style={[
-            styles.backBtn,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Feather name="chevron-left" size={24} color={colors.foreground} />
-        </PressableScale>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
             Chat with Bolo
           </Text>
         </View>
-        <View style={styles.backBtn} />
       </View>
 
       {/* Language pill — tap to switch chat language */}
@@ -794,7 +833,8 @@ const styles = StyleSheet.create({
   },
   controls: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    // Clears the floating tab bar so the record button stays reachable.
+    paddingBottom: TAB_BAR_CLEARANCE - 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
