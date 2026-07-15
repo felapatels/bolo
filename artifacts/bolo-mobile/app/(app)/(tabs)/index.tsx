@@ -30,7 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts, nativeTextStyle } from '@/constants/fonts';
+import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
 import { hapticLight } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
@@ -64,6 +64,7 @@ export default function HomeScreen() {
 
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
+  const nativeTallScript = isTallCascadingScript(activeLanguage);
   const greeting = greetingFor(new Date().getHours());
 
   // A learner already practicing today deserves an encouraging cheer from Bolo.
@@ -131,7 +132,13 @@ export default function HomeScreen() {
               <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>
                 Practicing
               </Text>
-              <Text style={[styles.langName, { color: colors.foreground }]}>
+              <Text
+                style={[
+                  styles.langName,
+                  nativeTallScript && styles.langNameTall,
+                  { color: colors.foreground },
+                ]}
+              >
                 {activeLanguage?.name ?? '...'}
                 {activeLanguage ? (
                   <Text style={[nativeProps, { color: colors.mutedForeground }]}>
@@ -580,6 +587,9 @@ const styles = StyleSheet.create({
   },
   langLabel: { fontFamily: AppFonts.semibold, fontSize: 12 },
   langName: { fontFamily: AppFonts.bold, fontSize: 18, marginTop: 1 },
+  // Nastaliq glyphs cascade above/below the baseline; increase the parent
+  // Text lineHeight so the inline native name renders without clipping.
+  langNameTall: { lineHeight: 36 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
   statCard: {
     flex: 1,

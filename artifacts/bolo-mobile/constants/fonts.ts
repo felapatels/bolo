@@ -160,6 +160,20 @@ const SCRIPT_FONTS: Record<string, { regular: string; bold: string }> = {
   },
 };
 
+// Scripts whose glyphs cascade well beyond the font's nominal ascent/descent
+// (calligraphic Nastaliq styles chain letters diagonally above and below the
+// baseline). Rows rendering these need extra line height / vertical padding
+// so the cascade doesn't overlap neighboring UI (icons, borders, siblings).
+const TALL_CASCADE_SCRIPTS = new Set(['Noto Nastaliq Urdu']);
+
+/**
+ * True when the language's native-script font is a tall-cascading style
+ * (currently Nastaliq) that needs extra vertical room at call sites.
+ */
+export function isTallCascadingScript(language: Language | undefined): boolean {
+  return !!language && TALL_CASCADE_SCRIPTS.has(language.fontFamily);
+}
+
 /**
  * Returns a style fragment to render text in a language's own script:
  * the correct Noto font + right-to-left direction for Perso-Arabic scripts.

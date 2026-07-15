@@ -27,7 +27,7 @@ import {
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts, nativeTextStyle } from '@/constants/fonts';
+import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
 // Hindi is always free, so it is never a One-Language "chosen" language.
@@ -615,6 +615,7 @@ export default function PaywallScreen() {
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
                 const active = item.code === chosenLangCode;
+                const tall = isTallCascadingScript(item);
                 return (
                   <Pressable
                     onPress={() => {
@@ -624,6 +625,7 @@ export default function PaywallScreen() {
                     }}
                     style={[
                       styles.langRow,
+                      tall && styles.langRowTall,
                       {
                         backgroundColor: active
                           ? `${colors.primary}14`
@@ -637,6 +639,7 @@ export default function PaywallScreen() {
                         style={[
                           nativeTextStyle(item, { bold: true }),
                           styles.langRowNative,
+                          tall && styles.langRowNativeTall,
                           { color: colors.foreground },
                         ]}
                       >
@@ -1017,6 +1020,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   langRowNative: { fontSize: 20 },
+  // Nastaliq glyphs cascade above/below baseline; extra lineHeight prevents
+  // the glyph cluster from overlapping the icon or row border.
+  langRowNativeTall: { lineHeight: 44 },
+  langRowTall: { paddingVertical: 20 },
   langRowName: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 3 },
   modalScrim: {
     flex: 1,

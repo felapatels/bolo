@@ -14,7 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { PlusPill } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts, nativeTextStyle } from '@/constants/fonts';
+import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import type { Language } from '@workspace/api-client-react';
 
@@ -99,6 +99,7 @@ function LanguageRow({
   onPress: () => void;
 }) {
   const colors = useColors();
+  const tall = isTallCascadingScript(language);
   return (
     <Pressable
       onPress={() => {
@@ -107,6 +108,7 @@ function LanguageRow({
       }}
       style={[
         styles.row,
+        tall && styles.rowTall,
         {
           backgroundColor: active ? `${colors.primary}14` : colors.card,
           borderColor: active ? colors.primary : colors.border,
@@ -119,6 +121,7 @@ function LanguageRow({
           style={[
             nativeTextStyle(language, { bold: true }),
             styles.native,
+            tall && styles.nativeTall,
             { color: colors.foreground },
           ]}
         >
@@ -169,6 +172,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   native: { fontSize: 22 },
+  // Nastaliq calligraphic glyphs cascade steeply above/below the baseline.
+  // Extra lineHeight gives the cascade room; extra paddingVertical on the row
+  // keeps the icon visually centered in the taller row.
+  nativeTall: { lineHeight: 48 },
+  rowTall: { paddingVertical: 20 },
   name: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 3 },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });
