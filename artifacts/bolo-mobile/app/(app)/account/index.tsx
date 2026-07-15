@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -34,6 +35,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useThemePref, type ThemePref } from '@/contexts/ThemeContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { loadSpokenFeedback, saveSpokenFeedback } from '@/lib/settings';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
 // icon on Home now lives here: profile (name + avatar), identity changes
@@ -58,6 +60,24 @@ export default function AccountScreen() {
   // Local mirror of the server preferences so toggles feel instant. Seeded once
   // from the first successful load; the server response then keeps it in sync.
   const [prefs, setPrefs] = React.useState<Account['preferences'] | null>(null);
+
+  // Device-local practice preference: whether the coach's feedback is read
+  // aloud after scoring. Stored on this device only (same pattern as the
+  // auto-stop setting), so it applies instantly and never syncs.
+  const [spokenFeedback, setSpokenFeedback] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSpokenFeedback().then((enabled) => {
+      if (!cancelled) setSpokenFeedback(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeSpokenFeedback = (enabled: boolean) => {
+    setSpokenFeedback(enabled);
+    void saveSpokenFeedback(enabled);
+  };
   const [name, setName] = React.useState('');
   const [avatarBusy, setAvatarBusy] = React.useState(false);
   const seeded = React.useRef(false);
@@ -324,6 +344,27 @@ export default function AccountScreen() {
               format={(v) => `${v}`}
               onChange={(v) => savePrefs({ dailyGoal: v })}
             />
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="volume-2" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Spoken feedback
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Read the coach's feedback aloud after each score
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Spoken feedback"
+                testID="spoken-feedback-switch"
+                value={spokenFeedback}
+                onValueChange={changeSpokenFeedback}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
             <Divider />
             <View style={styles.themeBlock}>
               <View style={styles.row}>

@@ -29,6 +29,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
+import { loadSpokenFeedback } from "@/lib/spoken-feedback";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
@@ -212,7 +213,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     const spokenText = result
       ? [result.feedback, result.tip].filter(Boolean).join(" ")
       : "";
-    if (state === "result" && spokenText) {
+    // Read the setting fresh each time a result lands, so a toggle flipped on
+    // the Account page applies to the very next score without a reload.
+    if (state === "result" && spokenText && loadSpokenFeedback()) {
       let cancelled = false;
       const speak = async () => {
         try {

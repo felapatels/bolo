@@ -55,6 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { useTheme, type Theme } from "@/lib/theme-context";
+import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -118,6 +119,15 @@ export default function Account() {
   const updateProfile = useUpdateAccountProfile();
   const updatePrefs = useUpdateAccountPreferences();
   const deleteAccount = useDeleteAccount();
+
+  // Device-local practice preference: whether the coach's feedback is read
+  // aloud after scoring. Lives in localStorage (not the account record), so
+  // it applies immediately and never syncs across devices.
+  const [spokenFeedback, setSpokenFeedback] = useState(loadSpokenFeedback);
+  function handleChangeSpokenFeedback(enabled: boolean) {
+    setSpokenFeedback(enabled);
+    saveSpokenFeedback(enabled);
+  }
 
   // Profile form — seeded from the account snapshot once it loads.
   const [displayName, setDisplayName] = useState("");
@@ -468,6 +478,22 @@ export default function Account() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="spokenFeedback" className="text-base">
+                Spoken feedback
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Read the coach's feedback aloud after each score.
+              </p>
+            </div>
+            <Switch
+              id="spokenFeedback"
+              checked={spokenFeedback}
+              onCheckedChange={handleChangeSpokenFeedback}
+            />
           </div>
 
           <div className="space-y-2">

@@ -168,7 +168,7 @@ describe("Account settings", () => {
   test("toggling the daily reminder persists with a default time", async () => {
     const user = userEvent.setup();
     renderAccount(<Account />);
-    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("switch", { name: "Daily reminder" }));
     await waitFor(() =>
       expect(h.updatePrefs.mutateAsync).toHaveBeenCalledWith({
         data: { dailyReminderEnabled: true, dailyReminderTime: "18:00" },

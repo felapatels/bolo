@@ -9,11 +9,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Drives the real practice screen (app/(app)/practice/[id].tsx) through a full
-// record -> result cycle to guard the retry flow:
-//  - the rotate icon on a failed score card is a real, labelled retry control
-//  - retrying replays the coach's pronunciation before the learner re-records
-//  - moving to the next phrase is unaffected
+// Guards the spoken-feedback read-aloud: when a score lands, the coach's
+// feedback + tip are synthesized and played — unless the device-local
+// "Spoken feedback" preference is off, in which case no feedback TTS fires
+// (target-phrase playback is unaffected either way).
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
@@ -26,7 +25,6 @@ jest.mock('expo-router', () => ({
 jest.mock('@workspace/api-client-react', () => ({
   ApiError: class ApiError extends Error {},
   useListCategoryPhrases: () => mockState.phrases,
-  // Sentence stage is idle in these suites (no ?stage=sentences).
   useListCategorySentences: () => ({
     data: undefined,
     isLoading: false,
@@ -108,12 +106,6 @@ const phraseA = {
   romanized: 'namaste',
   english: 'hello',
 };
-const phraseB = {
-  id: 2,
-  nativeScript: 'આભાર',
-  romanized: 'aabhar',
-  english: 'thank you',
-};
 
 function successQuery(data: unknown) {
   return {
@@ -129,90 +121,57 @@ function successQuery(data: unknown) {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
-  // These tests count phrase-model synth/playback calls; keep the (separately
-  // tested) spoken-feedback read-aloud silent so it doesn't skew the counts.
-  await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
-  jest.requireMock('@/lib/audio').playBase64Audio.mockClear();
-  mockState.phrases = successQuery([phraseA, phraseB]);
-  mockState.synth = jest.fn(async () => ({
-    audioBase64: 'AAA',
-    format: 'mp3',
-  }));
+  mockState.phrases = successQuery([phraseA]);
+  mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
   mockState.evaluate = jest.fn(async () => ({
-    score: 42,
-    passed: false,
-    transcript: 'namste',
-    feedback: 'Almost!',
-    tip: 'Slow down.',
+    score: 88,
+    passed: true,
+    transcript: 'namaste',
+    feedback: 'Nice work on that greeting!',
+    tip: 'Soften the t sound.',
     evaluationToken: 'signed-token',
   }));
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
 });
 
-async function recordToResult() {
+async function renderReady() {
   render(<PracticeScreen />);
-  // Coach model auto-plays for the fresh phrase.
+  // The coach model auto-plays once for the phrase.
   await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
+}
 
-  fireEvent.press(screen.getByTestId('record-button')); // start
+async function recordAndScore() {
+  fireEvent.press(screen.getByTestId('record-button'));
   await waitFor(() =>
     expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
   );
   await act(async () => {
-    fireEvent.press(screen.getByTestId('record-button')); // stop -> evaluate
+    fireEvent.press(screen.getByTestId('record-button'));
   });
-  await waitFor(() =>
-    expect(screen.getByText('Keep practicing')).toBeOnTheScreen(),
-  );
+  await waitFor(() => expect(screen.getByText('Great job!')).toBeOnTheScreen());
 }
 
-describe('score card retry', () => {
-  test('the rotate icon on a failed card retries and replays the coach', async () => {
-    await recordToResult();
+describe('spoken feedback after scoring', () => {
+  test('reads the feedback and tip aloud by default', async () => {
+    await renderReady();
+    await recordAndScore();
 
-    const icon = screen.getByTestId('result-retry-icon');
-    expect(
-      screen.getByLabelText('Try this phrase again'),
-    ).toBeOnTheScreen();
-
-    await act(async () => {
-      fireEvent.press(icon);
-    });
-
-    // Back to the recording controls for the SAME phrase...
-    expect(screen.getByTestId('record-button')).toBeOnTheScreen();
-    expect(screen.getByText('નમસ્તે')).toBeOnTheScreen();
-    // ...and the coach model was replayed (initial auto-play + retry). The
-    // retry replays the cached first take instead of re-synthesizing, so the
-    // model can never read a different phrase on replay.
-    expect(mockState.synth).toHaveBeenCalledTimes(1);
-    const { playBase64Audio } = jest.requireMock('@/lib/audio');
-    expect(playBase64Audio).toHaveBeenCalledTimes(2);
-  });
-
-  test('the bottom retry button also replays the coach', async () => {
-    await recordToResult();
-
-    // The bordered retry pressable next to "Next phrase" triggers tryAgain.
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('retry-button'));
-    });
-    expect(screen.getByTestId('record-button')).toBeOnTheScreen();
-    // Replay comes from the per-phrase audio cache, not a fresh synthesis.
-    expect(mockState.synth).toHaveBeenCalledTimes(1);
-    const { playBase64Audio } = jest.requireMock('@/lib/audio');
-    expect(playBase64Audio).toHaveBeenCalledTimes(2);
-  });
-
-  test('Next phrase advances without retry side effects', async () => {
-    await recordToResult();
-
-    await act(async () => {
-      fireEvent.press(screen.getByText('Next phrase'));
-    });
-
-    // New phrase shown; its auto-play effect fires for the phrase change.
-    expect(screen.getByText('આભાર')).toBeOnTheScreen();
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+    expect(mockState.synth).toHaveBeenLastCalledWith({
+      data: { text: 'Nice work on that greeting! Soften the t sound.' },
+    });
+  });
+
+  test('stays silent when the preference is off', async () => {
+    await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
+    await renderReady();
+    await recordAndScore();
+
+    // Give any (wrong) feedback synthesis a chance to fire.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // Only the target-phrase playback happened.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 });

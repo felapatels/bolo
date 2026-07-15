@@ -66,6 +66,7 @@ import {
   saveStopMode,
   type StopMode,
 } from '@/lib/stop-mode';
+import { loadSpokenFeedback } from '@/lib/settings';
 import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
@@ -260,6 +261,43 @@ export default function PracticeScreen() {
   }, [phrase?.id]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
+
+  // Read the coach's feedback + tip aloud when a score lands (mirrors the web
+  // practice flow). The device-local "Spoken feedback" preference is read
+  // fresh each time, so a toggle flipped on the Account screen applies to the
+  // very next score. The playback token guards staleness: moving on, retrying,
+  // or replaying the phrase bumps it and this audio is dropped or stopped.
+  React.useEffect(() => {
+    if (phase !== 'result' || !result) return;
+    const spokenText = [result.feedback, result.tip]
+      .filter(Boolean)
+      .join(' ');
+    if (!spokenText) return;
+    stopPlayback();
+    const token = playTokenRef.current;
+    void (async () => {
+      try {
+        if (!(await loadSpokenFeedback())) return;
+        if (token !== playTokenRef.current) return;
+        // Feedback is English coach-speak — no languageName anchor needed.
+        const res = await synth.mutateAsync({ data: { text: spokenText } });
+        if (token !== playTokenRef.current) return;
+        playbackRef.current = await playBase64Audio(
+          res.audioBase64,
+          res.format || 'mp3',
+          () => {},
+        );
+        if (token !== playTokenRef.current) {
+          playbackRef.current?.stop();
+          playbackRef.current = null;
+        }
+      } catch {
+        // A missed read-aloud shouldn't interrupt practice; stay silent.
+      }
+    })();
+    return () => stopPlayback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, result]);
 
   // Celebrate finishing a whole session with a longer confetti shower.
   React.useEffect(() => {
