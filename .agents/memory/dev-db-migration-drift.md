@@ -54,3 +54,7 @@ wrong path — e.g. `0005` correctly adds `users.stripe_customer_id`; the dev DB
 just hadn't applied it. Fresh DBs (incl. production via post-merge `setup`) get
 the column; `pnpm --filter @workspace/db run check-migrations` proves migrations
 apply cleanly to a throwaway DB.
+
+## When a committed migration's objects already exist
+If tables from a new migration were created out-of-band during dev (push/manual DDL), `drizzle-kit migrate` fails on CREATE TABLE — including in the automatic post-merge setup. Fix: insert the migration record by hand, then re-run migrate + seed:
+`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('<sha256sum of the .sql file>', <journal "when" ms>)`.
