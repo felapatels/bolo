@@ -3,7 +3,7 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray, asc } from "drizzle-orm";
 import {
   openai,
-  textToSpeech,
+  textToSpeechElevenLabs,
   speechToText,
   ensureCompatibleFormat,
 } from "@workspace/integrations-openai-ai-server/audio";
@@ -79,7 +79,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // --- cache miss: synthesize then store ---
   try {
-    const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+    const buffer = await textToSpeechElevenLabs(text, undefined, languageName);
     const audioBase64 = buffer.toString("base64");
 
     // Persist to cache (best-effort; a race between two concurrent requests is

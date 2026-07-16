@@ -1,6 +1,6 @@
 import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-import { textToSpeech } from "@workspace/integrations-openai-ai-server/audio";
+import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { ttsCacheKey } from "./ttsCache";
 import { logger } from "./logger";
 
@@ -161,10 +161,9 @@ export function scheduleTtsPrewarm(): void {
         }
 
         try {
-          const buffer = await textToSpeech(
+          const buffer = await textToSpeechElevenLabs(
             phrase.nativeScript,
-            DEFAULT_VOICE,
-            "mp3",
+            undefined,
             // Pass the language name to match the exact key used at runtime.
             phrase.languageName || undefined,
           );

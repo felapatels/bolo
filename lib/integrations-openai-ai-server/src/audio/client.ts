@@ -198,6 +198,62 @@ export async function textToSpeech(
   return Buffer.from(audioData, "base64");
 }
 
+/**
+ * Text-to-Speech via ElevenLabs eleven_multilingual_v2.
+ *
+ * Purpose-built for multilingual audio including Indian scripts (Gujarati,
+ * Tamil, Hindi, etc.).  Makes a direct HTTPS call to api.elevenlabs.io using
+ * the ELEVENLABS_API_KEY environment variable and returns an MP3 Buffer
+ * decoded from the `audio_base64` field of the `/with-timestamps` JSON
+ * response.
+ *
+ * Voice: "Rachel" (premade, ID 21m00Tcm4TlvDq8ikWAM) — calm, clear,
+ * works well across Latin and non-Latin scripts with eleven_multilingual_v2.
+ * The voiceId parameter lets callers override if needed.
+ */
+export async function textToSpeechElevenLabs(
+  text: string,
+  voiceId = "21m00Tcm4TlvDq8ikWAM",
+  // language parameter kept for API symmetry with textToSpeech; ElevenLabs
+  // auto-detects the script via eleven_multilingual_v2 so it is not sent.
+  _language?: string,
+): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ELEVENLABS_API_KEY must be set. Add it as a Replit Secret to enable ElevenLabs TTS.",
+    );
+  }
+
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      output_format: "mp3_44100_128",
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `ElevenLabs TTS failed with status ${response.status}: ${detail}`,
+    );
+  }
+
+  const json = (await response.json()) as { audio_base64?: string };
+  const audioBase64 = json.audio_base64;
+  if (!audioBase64) {
+    throw new Error("ElevenLabs TTS returned no audio_base64 in response");
+  }
+  return Buffer.from(audioBase64, "base64");
+}
+
 /** Streaming Text-to-Speech. */
 export async function textToSpeechStream(
   text: string,

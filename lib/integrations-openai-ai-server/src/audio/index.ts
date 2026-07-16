@@ -7,6 +7,7 @@ export {
   voiceChat,
   voiceChatStream,
   textToSpeech,
+  textToSpeechElevenLabs,
   textToSpeechStream,
   speechToText,
   type SpeechToTextOptions,
