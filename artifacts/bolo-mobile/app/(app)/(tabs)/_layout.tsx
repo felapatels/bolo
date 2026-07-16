@@ -1,5 +1,15 @@
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 // Inline the tab-button props shape so we don't depend on
@@ -13,16 +23,172 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
-// Elevated center Bolo tab button — the parrot bubble floats 22 px above the
-// tab bar top edge, visually signalling it is the app's primary action.
-// hitSlop extends the touch area upward to cover the overflowing circle.
+// ---------------------------------------------------------------------------
+// Mascot pose assets + type
+// ---------------------------------------------------------------------------
+type MascotPose = 'wave' | 'cheer' | 'thumbsup' | 'thinking' | 'tryagain';
+
+const POSE_SOURCES: Record<MascotPose, number> = {
+  wave: require('../../../assets/images/mascot/mascot-wave.png'),
+  cheer: require('../../../assets/images/mascot/mascot-cheer.png'),
+  thumbsup: require('../../../assets/images/mascot/mascot-thumbsup.png'),
+  thinking: require('../../../assets/images/mascot/mascot-thinking.png'),
+  tryagain: require('../../../assets/images/mascot/mascot-tryagain.png'),
+};
+
+const POSES: MascotPose[] = ['wave', 'cheer', 'thumbsup', 'thinking', 'tryagain'];
+
+function randomOtherPose(current: MascotPose): MascotPose {
+  const others = POSES.filter((p) => p !== current);
+  return others[Math.floor(Math.random() * others.length)];
+}
+
+// ---------------------------------------------------------------------------
+// BoloNavParrot — animated parrot for the bottom nav bubble
+// ---------------------------------------------------------------------------
+function BoloNavParrot({ focused }: { focused: boolean }) {
+  const reduceMotion = useReducedMotion();
+
+  // Current pose state
+  const [pose, setPose] = React.useState<MascotPose>('wave');
+
+  // Shared values for transforms
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const rotate = useSharedValue(0);
+
+  // Keep a ref to track pose for the interval callback (avoid stale closure)
+  const poseRef = React.useRef<MascotPose>('wave');
+  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const burstTicksRef = React.useRef(0);
+
+  // Helper to update pose via both state and ref
+  const nextPose = React.useCallback(() => {
+    const next = randomOtherPose(poseRef.current);
+    poseRef.current = next;
+    setPose(next);
+  }, []);
+
+  // Pose cycling interval — restart whenever focused changes
+  React.useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (focused) {
+      // Burst: cycle fast for 6 ticks then slow down
+      burstTicksRef.current = 0;
+      intervalRef.current = setInterval(() => {
+        nextPose();
+        burstTicksRef.current += 1;
+        if (burstTicksRef.current >= 6) {
+          // Switch to slow cycling
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = setInterval(nextPose, 4000);
+        }
+      }, 1500);
+    } else {
+      // Normal slow cycling
+      intervalRef.current = setInterval(nextPose, 4000);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [focused, nextPose]);
+
+  // Idle float animation — continuous gentle bob
+  React.useEffect(() => {
+    if (reduceMotion) {
+      translateY.value = 0;
+      return;
+    }
+    translateY.value = withRepeat(
+      withTiming(-4, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [reduceMotion, translateY]);
+
+  // Dance burst when focused becomes true
+  React.useEffect(() => {
+    if (reduceMotion) return;
+    if (!focused) {
+      // Return to gentle idle — reset rotate, let scale spring back to 1
+      rotate.value = withTiming(0, { duration: 300 });
+      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+      return;
+    }
+    // Scale pop: 1 → 1.25 → 1
+    scale.value = withSequence(
+      withSpring(1.25, { damping: 6, stiffness: 300 }),
+      withSpring(1, { damping: 10, stiffness: 200 }),
+    );
+    // Wiggle: ±15°
+    rotate.value = withSequence(
+      withTiming(15, { duration: 100 }),
+      withTiming(-15, { duration: 140 }),
+      withTiming(12, { duration: 120 }),
+      withTiming(-12, { duration: 120 }),
+      withTiming(0, { duration: 100 }),
+    );
+  }, [focused, reduceMotion, scale, rotate]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    if (reduceMotion) return {};
+    return {
+      transform: [
+        { translateY: translateY.value },
+        { rotate: `${rotate.value}deg` },
+        { scale: scale.value },
+      ],
+    };
+  });
+
+  return (
+    <Animated.Image
+      source={POSE_SOURCES[pose]}
+      style={[styles.boloImage, animatedStyle]}
+      resizeMode="contain"
+      accessibilityRole="image"
+      accessibilityLabel="Bolo the parrot"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Elevated center Bolo tab button
+// ---------------------------------------------------------------------------
 function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
   const colors = useColors();
   const focused = accessibilityState?.selected ?? false;
+  const reduceMotion = useReducedMotion();
+
+  // Press-in squish shared value
+  const pressScale = useSharedValue(1);
+
+  const pressAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  function handlePressIn() {
+    if (!reduceMotion) {
+      pressScale.value = withTiming(0.88, { duration: 100 });
+    }
+  }
+
+  function handlePressOut() {
+    if (!reduceMotion) {
+      pressScale.value = withSpring(1, { damping: 10, stiffness: 260 });
+    }
+  }
 
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       hitSlop={{ top: 22, bottom: 0, left: 8, right: 8 }}
       style={styles.boloOuter}
       accessibilityRole="button"
@@ -30,9 +196,10 @@ function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
       accessibilityLabel="Bolo"
     >
       {/* Circle — absolutely positioned so it overflows above the tab bar */}
-      <View
+      <Animated.View
         style={[
           styles.boloBubble,
+          pressAnimStyle,
           {
             backgroundColor: colors.card,
             borderColor: colors.primary,
@@ -42,12 +209,8 @@ function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
           },
         ]}
       >
-        <Image
-          source={require('../../../assets/images/mascot/mascot-wave.png')}
-          style={[styles.boloImage, { opacity: focused ? 1 : 0.7 }]}
-          resizeMode="contain"
-        />
-      </View>
+        <BoloNavParrot focused={focused} />
+      </Animated.View>
 
       {/* Label at the bottom of the tab bar slot */}
       <Text
