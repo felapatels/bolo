@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  useChatTurn,
+  getChatTurnUrl,
   type ChatTurnMessage,
+  ApiError,
 } from "@workspace/api-client-react";
-import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,7 +54,6 @@ export default function ChatPage() {
   const [, setLocation] = useLocation();
   const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
-  const chatTurn = useChatTurn();
   const recorder = useVoiceRecorder();
 
   // Per-session chat language — does NOT change the global active language.
@@ -143,61 +142,131 @@ export default function ChatPage() {
         .slice(-HISTORY_WINDOW)
         .map((m) => ({ role: m.role === "parrot" ? "parrot" : "learner", text: m.text }));
 
-      const result = await chatTurn.mutateAsync({
-        data: { languageCode: chatLang, audioBase64, history },
+      // POST with Accept: text/event-stream to get the two-event SSE stream:
+      //   1. `transcript` — fires after Whisper STT (~1 s), shows learner bubble early.
+      //   2. `reply`      — fires after LLM+TTS, carries audio + parrot text.
+      const chatUrl = getChatTurnUrl();
+      const res = await fetch(chatUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
+        body: JSON.stringify({ languageCode: chatLang, audioBase64, history }),
       });
 
-      // A newer turn started while this one was in flight — drop stale result.
-      if (activeTurnRef.current !== myTurn) {
-        finishingRef.current = false;
-        return;
+      // Non-ok responses (400, 402, 404, 502…) come as plain JSON before SSE
+      // headers are set.
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new ApiError(res, errData, { method: "POST", url: chatUrl });
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "learner",
-          text: result.transcript,
-          // Show an English gloss under the learner's bubble only when the
-          // translation differs from the transcript (suppresses it for English
-          // speakers and for unclear/empty transcripts).
-          englishText:
-            result.transcriptEnglish && result.transcriptEnglish !== result.transcript
-              ? result.transcriptEnglish
-              : undefined,
-        },
-        { role: "parrot", text: result.replyText, englishText: result.replyEnglish },
-      ]);
+      // Read the SSE stream line-by-line.
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = "";
 
-      if (result.secondsRemaining !== null) {
-        setSecondsRemaining(result.secondsRemaining);
-      } else {
-        setSecondsRemaining(null);
-      }
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
 
-      // Play the parrot's audio reply (preceded by a real squawk SFX when Bolo
-      // included a squawk token — the TTS voice never pronounces "squawk").
-      setPhase("playing");
+        // Events are delimited by double newlines.
+        const parts = sseBuffer.split("\n\n");
+        sseBuffer = parts.pop() ?? "";
 
-      const playReply = () => {
-        const audio = new Audio(
-          `data:audio/${result.format || "mp3"};base64,${result.replyAudioBase64}`,
-        );
-        playbackRef.current = audio;
-        audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
-        audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
-      };
+        for (const part of parts) {
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of part.split("\n")) {
+            if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataStr = line.slice(6).trim();
+          }
+          if (!dataStr) continue;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const squawkVariant = (result as any).squawkVariant as 0 | 1 | 2 | null;
-      if (squawkVariant !== null && squawkVariant !== undefined) {
-        const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
-        const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
-        sfx.onended = playReply;
-        sfx.onerror = playReply;
-        sfx.play().catch(playReply);
-      } else {
-        playReply();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const payload = JSON.parse(dataStr) as any;
+
+          if (eventName === "transcript") {
+            const transcriptText = (payload.transcript as string) ?? "";
+            // A newer turn started while this one was in flight — drop stale result.
+            if (activeTurnRef.current !== myTurn) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+            // Show the learner's side of the exchange immediately — before
+            // Bolo's reply arrives. English gloss will be added on the reply event.
+            setMessages((prev) => [
+              ...prev,
+              { role: "learner", text: transcriptText },
+            ]);
+
+          } else if (eventName === "reply") {
+            // A newer turn started while LLM+TTS was in flight — drop stale result.
+            if (activeTurnRef.current !== myTurn) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+
+            const replyText = (payload.replyText as string) ?? "";
+            const replyEnglish = (payload.replyEnglish as string) ?? "";
+            const transcriptEnglish = (payload.transcriptEnglish as string) ?? "";
+            const replyAudioBase64 = (payload.replyAudioBase64 as string) ?? "";
+            const format = (payload.format as string) || "mp3";
+            const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
+            const secondsRemaining = payload.secondsRemaining as number | null;
+
+            setMessages((prev) => {
+              const updated = [...prev];
+              // Back-fill the English gloss on the learner bubble we already showed
+              // on the transcript event — transcriptEnglish only comes from the LLM.
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === "learner") {
+                  if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
+                    updated[i] = { ...updated[i], englishText: transcriptEnglish };
+                  }
+                  break;
+                }
+              }
+              return [
+                ...updated,
+                { role: "parrot", text: replyText, englishText: replyEnglish },
+              ];
+            });
+
+            if (secondsRemaining !== null) {
+              setSecondsRemaining(secondsRemaining);
+            } else {
+              setSecondsRemaining(null);
+            }
+
+            // Play the parrot's audio reply (preceded by a squawk SFX when
+            // Bolo included a squawk token).
+            setPhase("playing");
+
+            const playReply = () => {
+              const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
+              playbackRef.current = audio;
+              audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
+              audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
+            };
+
+            if (squawkVariant !== null && squawkVariant !== undefined) {
+              const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
+              const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+              sfx.onended = playReply;
+              sfx.onerror = playReply;
+              sfx.play().catch(playReply);
+            } else {
+              playReply();
+            }
+            break outer; // reply is the final event
+
+          } else if (eventName === "error") {
+            throw new Error((payload.error as string) || "Chat turn failed");
+          }
+        }
       }
     } catch (err) {
       // A newer turn started while this one was in flight — drop this error
@@ -245,7 +314,7 @@ export default function ChatPage() {
         finishingRef.current = false;
       }
     }
-  }, [recorder, chatTurn, chatLang, messages, setLocation]);
+  }, [recorder, chatLang, messages, setLocation]);
 
   const showTimeIndicator =
     !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;

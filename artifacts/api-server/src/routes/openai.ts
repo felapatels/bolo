@@ -370,9 +370,24 @@ router.post(
   },
 );
 
+// Helpers for writing SSE events to an Express response.
+function sseWrite(res: Response, event: string, data: unknown): void {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
 // POST /openai/chat — one turn of a live conversation with Bolo the parrot.
 // Validates language + weekly time cap *before* any AI work, then transcribes,
 // generates an in-character reply, and synthesizes it to speech.
+//
+// When the client sends `Accept: text/event-stream` the response is an SSE
+// stream with two events:
+//   1. `transcript` — fired immediately after Whisper STT completes (~1 s),
+//      so the UI can show "I heard: …" while the LLM+TTS call is in flight.
+//   2. `reply` — fired once the combined LLM+TTS call finishes, carrying the
+//      full reply payload (audio, text, secondsRemaining, etc.).
+//
+// Clients that send `Accept: application/json` (or omit it) receive the
+// original single JSON response for backward compatibility.
 router.post("/openai/chat", async (req: Request, res: Response): Promise<void> => {
   const parsed = ChatTurnBody.safeParse(req.body);
   if (!parsed.success) {
@@ -408,21 +423,47 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       }))
     : [];
 
+  // Determine response mode: SSE when the client explicitly accepts it.
+  const wantsSSE = (req.headers.accept ?? "").includes("text/event-stream");
+
+  if (wantsSSE) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+  }
+
   try {
     const audioBuffer = Buffer.from(audioBase64, "base64");
-    const result = await runParrotTurn({
-      audioBuffer,
-      languageName: language.name,
-      languageCode,
-      history: trimmedHistory,
-    });
+
+    // Capture transcript + duration via onTranscript callback so we can flush
+    // the SSE transcript event before the LLM+TTS call starts.
+    let capturedTranscript = "";
+    let capturedDuration = 0;
+
+    const result = await runParrotTurn(
+      {
+        audioBuffer,
+        languageName: language.name,
+        languageCode,
+        history: trimmedHistory,
+        onTranscript: (transcript, durationSeconds) => {
+          capturedTranscript = transcript;
+          capturedDuration = durationSeconds;
+          if (wantsSSE) {
+            sseWrite(res, "transcript", { transcript });
+          }
+        },
+      },
+    );
 
     // Record usage from the server-measured duration, not any client claim.
-    await recordChatTurn(userId, languageCode, result.durationSeconds);
+    // Use the value captured by onTranscript (same as result.durationSeconds).
+    await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);
     const secondsRemaining = await chatSecondsRemaining(resolvedPlan, userId);
 
-    res.json({
-      transcript: result.transcript,
+    const replyPayload = {
+      transcript: capturedTranscript || result.transcript,
       transcriptEnglish: result.transcriptEnglish,
       replyText: result.replyText,
       replyEnglish: result.replyEnglish,
@@ -431,10 +472,22 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       squawkVariant: result.squawkVariant,
       languageCode,
       secondsRemaining,
-    });
+    };
+
+    if (wantsSSE) {
+      sseWrite(res, "reply", replyPayload);
+      res.end();
+    } else {
+      res.json(replyPayload);
+    }
   } catch (err) {
     req.log.error({ err }, "Chat turn failed");
-    res.status(502).json({ error: "Could not complete that chat turn" });
+    if (wantsSSE) {
+      sseWrite(res, "error", { error: "Could not complete that chat turn" });
+      res.end();
+    } else {
+      res.status(502).json({ error: "Could not complete that chat turn" });
+    }
   }
 });
 

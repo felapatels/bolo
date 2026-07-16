@@ -15,8 +15,13 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
-import { useChatTurn, type ChatTurnMessage } from '@workspace/api-client-react';
-import { ApiError } from '@workspace/api-client-react';
+import {
+  getChatTurnUrl,
+  getConfiguredBaseUrl,
+  getConfiguredAuthToken,
+  type ChatTurnMessage,
+  ApiError,
+} from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
@@ -71,8 +76,6 @@ export default function ChatScreen() {
   const router = useRouter();
   const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
-
-  const chatTurn = useChatTurn();
 
   // Per-session language state — does NOT change the learner's global active language.
   const [chatLang, setChatLang] = React.useState<string>(activeLang);
@@ -350,96 +353,167 @@ export default function ChatScreen() {
       .map((m) => ({ role: m.role === 'parrot' ? 'parrot' : 'learner', text: m.text }));
 
     try {
-      const result = await chatTurn.mutateAsync({
-        data: { languageCode: chatLang, audioBase64, history },
+      // Build the full URL: combine configured base URL with the API path so
+      // the bearer-token fetch works the same as the generated hooks.
+      const baseUrl = getConfiguredBaseUrl() ?? '';
+      const chatUrl = `${baseUrl}${getChatTurnUrl()}`;
+      const token = await getConfiguredAuthToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // POST with SSE accept header — server emits `transcript` then `reply`.
+      const res = await fetch(chatUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ languageCode: chatLang, audioBase64, history }),
       });
 
-      // If the learner left the Chat tab while this turn was in flight, drop
+      // Non-ok responses (400, 402, 404, 502…) come as plain JSON.
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new ApiError(res, errData, { method: 'POST', url: chatUrl });
+      }
+
+      // If the learner left the Chat tab while the request was in flight, drop
       // the response silently — never start reply audio on another tab.
       if (!isFocusedRef.current) {
         finishingRef.current = false;
         return;
       }
 
-      // A newer turn started while this one was in flight — drop stale result.
-      if (activeTurnRef.current !== myTurn) {
-        finishingRef.current = false;
-        return;
-      }
+      // Read the SSE stream line-by-line.
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
 
-      // Append both sides of the exchange to the transcript
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'learner',
-          text: result.transcript,
-          // Show an English gloss under the learner's bubble only when the
-          // translation differs from the transcript (suppresses it for English
-          // speakers and for unclear/empty transcripts).
-          englishText:
-            result.transcriptEnglish && result.transcriptEnglish !== result.transcript
-              ? result.transcriptEnglish
-              : undefined,
-        },
-        {
-          role: 'parrot',
-          text: result.replyText,
-          // Include the English gloss when the server provides it and it
-          // differs from the target-language reply (avoids showing it twice
-          // for English-language conversations).
-          englishText:
-            result.replyEnglish && result.replyEnglish !== result.replyText
-              ? result.replyEnglish
-              : undefined,
-        },
-      ]);
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
 
-      // Update the remaining-time display for free users
-      if (result.secondsRemaining !== null) {
-        setSecondsRemaining(result.secondsRemaining);
-      } else {
-        setSecondsRemaining(null); // unlimited
-      }
+        // Events are delimited by double newlines.
+        const parts = sseBuffer.split('\n\n');
+        sseBuffer = parts.pop() ?? '';
 
-      // Play the parrot's audio reply (preceded by a real squawk SFX when Bolo
-      // included a squawk token — the TTS voice never pronounces "squawk").
-      setPhase('playing');
-      hapticHeavy();
+        for (const part of parts) {
+          let eventName = 'message';
+          let dataStr = '';
+          for (const line of part.split('\n')) {
+            if (line.startsWith('event: ')) eventName = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
+          }
+          if (!dataStr) continue;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const squawkVariant = (result as any).squawkVariant as 0 | 1 | 2 | null;
-      if (squawkVariant !== null && squawkVariant !== undefined) {
-        const sfxAssets = [
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_a.mp3') as number,
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_b.mp3') as number,
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_c.mp3') as number,
-        ];
-        await new Promise<void>((resolve) => {
-          const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
-          const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
-            if (s.didJustFinish) {
-              try { sub.remove(); } catch {}
-              try { sfxPlayer.remove(); } catch {}
-              resolve();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const payload = JSON.parse(dataStr) as any;
+
+          if (eventName === 'transcript') {
+            const transcriptText = (payload.transcript as string) ?? '';
+
+            // A newer turn started or user left — drop stale result.
+            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+              reader.cancel().catch(() => {});
+              return;
             }
-          });
-          sfxPlayer.play();
-          setTimeout(resolve, 1500); // safety timeout
-        });
-      }
 
-      const handle = await playBase64Audio(
-        result.replyAudioBase64,
-        result.format || 'mp3',
-        () => {
-          playbackRef.current = null;
-          setPhase('idle');
-        },
-      );
-      playbackRef.current = handle;
+            // Show the learner's side of the exchange immediately — before
+            // Bolo's reply arrives (~1 s earlier than before).
+            // English gloss is back-filled on the reply event.
+            hapticMedium();
+            setMessages((prev) => [
+              ...prev,
+              { role: 'learner', text: transcriptText },
+            ]);
+
+          } else if (eventName === 'reply') {
+            // A newer turn started or user left — drop stale result.
+            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+
+            const replyText = (payload.replyText as string) ?? '';
+            const replyEnglish = (payload.replyEnglish as string) ?? '';
+            const transcriptEnglish = (payload.transcriptEnglish as string) ?? '';
+            const replyAudioBase64 = (payload.replyAudioBase64 as string) ?? '';
+            const format = (payload.format as string) || 'mp3';
+            const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
+            const secondsRemaining = payload.secondsRemaining as number | null;
+
+            setMessages((prev) => {
+              const updated = [...prev];
+              // Back-fill the English gloss on the learner bubble shown at transcript time.
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === 'learner') {
+                  if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
+                    updated[i] = { ...updated[i], englishText: transcriptEnglish };
+                  }
+                  break;
+                }
+              }
+              return [
+                ...updated,
+                {
+                  role: 'parrot',
+                  text: replyText,
+                  englishText:
+                    replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
+                },
+              ];
+            });
+
+            if (secondsRemaining !== null) {
+              setSecondsRemaining(secondsRemaining);
+            } else {
+              setSecondsRemaining(null);
+            }
+
+            setPhase('playing');
+            hapticHeavy();
+
+            if (squawkVariant !== null && squawkVariant !== undefined) {
+              const sfxAssets = [
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                require('../../../assets/sounds/squawk_a.mp3') as number,
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                require('../../../assets/sounds/squawk_b.mp3') as number,
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                require('../../../assets/sounds/squawk_c.mp3') as number,
+              ];
+              await new Promise<void>((resolve) => {
+                const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
+                const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+                  if (s.didJustFinish) {
+                    try { sub.remove(); } catch {}
+                    try { sfxPlayer.remove(); } catch {}
+                    resolve();
+                  }
+                });
+                sfxPlayer.play();
+                setTimeout(resolve, 1500); // safety timeout
+              });
+            }
+
+            const handle = await playBase64Audio(
+              replyAudioBase64,
+              format,
+              () => {
+                playbackRef.current = null;
+                setPhase('idle');
+              },
+            );
+            playbackRef.current = handle;
+            break outer; // reply is the final event
+
+          } else if (eventName === 'error') {
+            throw new Error((payload.error as string) || 'Chat turn failed');
+          }
+        }
+      }
     } catch (err) {
       // A newer turn started while this one was in flight — drop this error
       // silently so it doesn't disrupt the active turn's UI state.

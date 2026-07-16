@@ -44,6 +44,25 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
+/**
+ * Return the currently configured base URL (without trailing slash), or null
+ * when no base URL has been set. Useful for constructing raw fetch URLs that
+ * bypass `customFetch` (e.g. SSE streams).
+ */
+export function getConfiguredBaseUrl(): string | null {
+  return _baseUrl;
+}
+
+/**
+ * Return the bearer token from the configured auth getter, or null when no
+ * getter is registered or the getter returns null. Useful for attaching auth
+ * headers to raw fetch calls that bypass `customFetch` (e.g. SSE streams).
+ */
+export async function getConfiguredAuthToken(): Promise<string | null> {
+  if (!_authTokenGetter) return null;
+  return _authTokenGetter() ?? null;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
