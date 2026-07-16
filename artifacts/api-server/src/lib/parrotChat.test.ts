@@ -300,6 +300,71 @@ test("runParrotTurn: replyAudio comes from completeWithAudio", async () => {
   assert.deepEqual(result.replyAudio, fakeAudio);
 });
 
+// ---------------------------------------------------------------------------
+// runParrotTurn: Whisper bilingual prompt — no language lock, prompt biases
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: transcribe receives a prompt containing both the target language name and 'English'", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedOptions: Record<string, unknown> = {};
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedOptions = options as Record<string, unknown>;
+        return "kemcho";
+      },
+    }),
+  );
+  const prompt = capturedOptions["prompt"];
+  assert.ok(typeof prompt === "string" && prompt.length > 0,
+    "transcribe options should include a non-empty prompt");
+  assert.ok((prompt as string).includes("Gujarati"),
+    "prompt should contain the target language name");
+  assert.ok((prompt as string).toLowerCase().includes("english"),
+    "prompt should mention 'English' so Whisper allows code-switching");
+});
+
+test("runParrotTurn: transcribe does NOT receive a hard language lock", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedOptions: Record<string, unknown> = {};
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedOptions = options as Record<string, unknown>;
+        return "namaste";
+      },
+    }),
+  );
+  assert.ok(!("language" in capturedOptions),
+    "transcribe options must NOT include a 'language' lock — that would block English");
+});
+
+test("runParrotTurn: prompt changes with the active language (Tamil vs Gujarati)", async () => {
+  const wav = makeWavBuffer(1);
+  const prompts: string[] = [];
+
+  for (const lang of [
+    { languageName: "Tamil", languageCode: "ta" },
+    { languageName: "Gujarati", languageCode: "gu" },
+  ]) {
+    await runParrotTurn(
+      { audioBuffer: wav, ...lang, history: [] },
+      makeDeps({
+        transcribe: async (_buf, _fmt, options) => {
+          prompts.push((options as { prompt?: string }).prompt ?? "");
+          return "hello";
+        },
+      }),
+    );
+  }
+
+  assert.ok(prompts[0].includes("Tamil"), "Tamil turn prompt should mention Tamil");
+  assert.ok(prompts[1].includes("Gujarati"), "Gujarati turn prompt should mention Gujarati");
+  assert.notEqual(prompts[0], prompts[1], "prompts should differ between languages");
+});
+
 test("runParrotTurn: transcriptEnglish is returned from completeWithAudio", async () => {
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(

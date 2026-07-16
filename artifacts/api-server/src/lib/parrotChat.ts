@@ -209,9 +209,14 @@ export async function runParrotTurn(
   // blocks the other.
   const [wavBuffer, transcript] = await Promise.all([
     format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-    // Do NOT lock Whisper to the target language — learners may speak in
-    // English or the target language and Whisper auto-detects both reliably.
-    deps.transcribe(buffer, format, {}).then((t) => t.trim()),
+    // Do NOT pass a hard `language` lock — that would block English entirely.
+    // Instead supply a prompt that explicitly names both valid languages so
+    // Whisper biases toward those two scripts. Short target-language words
+    // (e.g. "kemcho") are otherwise mis-detected as phonetically-similar words
+    // in unrelated scripts (e.g. Belarusian Cyrillic).
+    deps.transcribe(buffer, format, {
+      prompt: `${input.languageName} or English.`,
+    }).then((t) => t.trim()),
   ]);
 
   const durationSeconds = wavDurationSeconds(wavBuffer);
