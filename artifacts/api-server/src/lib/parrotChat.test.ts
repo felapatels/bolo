@@ -481,6 +481,108 @@ test("runParrotTurn: seed words differ between languages", async () => {
   assert.notEqual(prompts[0], prompts[1], "prompts should differ between languages");
 });
 
+// ---------------------------------------------------------------------------
+// runParrotTurn: seedNativeWords in the Whisper transcription prompt
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: seedNativeWords are appended after romanized seed words", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Gujarati",
+      languageCode: "gu",
+      history: [],
+      seedWords: ["kemcho", "shu chhe"],
+      seedNativeWords: ["ગુજરાત", "નમસ્તે"],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "kemcho";
+      },
+    }),
+  );
+  // Romanized words must appear before native-script words.
+  const romanizedIdx = capturedPrompt.indexOf("kemcho");
+  const nativeIdx = capturedPrompt.indexOf("ગુજરાત");
+  assert.ok(capturedPrompt.includes("kemcho"), "prompt should contain romanized seed word");
+  assert.ok(capturedPrompt.includes("shu chhe"), "prompt should contain second romanized seed word");
+  assert.ok(capturedPrompt.includes("ગુજરાત"), "prompt should contain native-script seed word");
+  assert.ok(capturedPrompt.includes("નમસ્તે"), "prompt should contain second native-script seed word");
+  assert.ok(romanizedIdx < nativeIdx, "romanized words should appear before native-script words");
+});
+
+test("runParrotTurn: seedNativeWords alone (no romanized) are appended to the prompt", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Bengali",
+      languageCode: "bn",
+      history: [],
+      seedNativeWords: ["বাংলা", "নমস্তে"],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "namaste";
+      },
+    }),
+  );
+  assert.ok(capturedPrompt.startsWith("Bengali or English."),
+    "prompt should start with the base language declaration");
+  assert.ok(capturedPrompt.includes("বাংলা"), "prompt should contain first native-script word");
+  assert.ok(capturedPrompt.includes("নমস্তে"), "prompt should contain second native-script word");
+});
+
+test("runParrotTurn: empty seedNativeWords with romanized seedWords behaves like romanized only", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Tamil",
+      languageCode: "ta",
+      history: [],
+      seedWords: ["vanakkam", "nandri"],
+      seedNativeWords: [],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "vanakkam";
+      },
+    }),
+  );
+  assert.equal(capturedPrompt, "Tamil or English. vanakkam, nandri",
+    "empty native words should not affect the romanized-only prompt");
+});
+
+test("runParrotTurn: omitting seedNativeWords entirely leaves prompt unchanged", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Punjabi",
+      languageCode: "pa",
+      history: [],
+      seedWords: ["sat sri akal"],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "sat sri akal";
+      },
+    }),
+  );
+  assert.equal(capturedPrompt, "Punjabi or English. sat sri akal",
+    "omitting seedNativeWords should not change the romanized-only prompt");
+});
+
 test("runParrotTurn: transcriptEnglish is returned from reply", async () => {
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(

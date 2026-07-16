@@ -37,6 +37,15 @@ export interface ParrotTurnInput {
    */
   seedWords?: string[];
   /**
+   * Optional short list of high-frequency native-script words from the active
+   * language's phrase library (e.g. Gujarati ગુજરાત, Bengali বাংলা). When
+   * supplied alongside seedWords, they are appended after the romanized words
+   * to give Whisper an additional script-space signal for languages with
+   * distinctive native scripts. Backward-compatible: omitting the field leaves
+   * the prompt unchanged.
+   */
+  seedNativeWords?: string[];
+  /**
    * Recording duration in seconds as measured by the client. When provided the
    * server skips the WAV-conversion step that exists solely for duration
    * measurement, saving ~200–400 ms of ffmpeg overhead per turn.
@@ -144,16 +153,25 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
 };
 
 // Builds the Whisper transcription prompt, optionally seeding it with
-// high-frequency romanized words from the active language's phrase library.
+// high-frequency romanized and/or native-script words from the active
+// language's phrase library.
 // Format mirrors the pronunciation route's anchor strategy:
-//   "Gujarati or English. kemcho, kem cho, shu chhe"
-// Backward-compatible: when seedWords is absent or empty, returns the original
-// bare two-language hint.
-function buildTranscriptionPrompt(languageName: string, seedWords?: string[]): string {
+//   "Gujarati or English. kemcho, kem cho, shu chhe, ગુજરાત, નમસ્તે"
+// Native-script words are appended after romanized ones so Whisper gets both
+// a phonetic anchor (romanized) and a script-space signal (native).
+// Backward-compatible: when neither field is provided or both are empty,
+// returns the original bare two-language hint.
+function buildTranscriptionPrompt(
+  languageName: string,
+  seedWords?: string[],
+  seedNativeWords?: string[],
+): string {
   const base = `${languageName} or English.`;
-  const seeds = (seedWords ?? []).filter(Boolean);
-  if (seeds.length === 0) return base;
-  return `${base} ${seeds.join(", ")}`;
+  const romanized = (seedWords ?? []).filter(Boolean);
+  const native = (seedNativeWords ?? []).filter(Boolean);
+  const all = [...romanized, ...native];
+  if (all.length === 0) return base;
+  return `${base} ${all.join(", ")}`;
 }
 
 function buildSystemPrompt(languageName: string): string {
@@ -230,7 +248,7 @@ export async function runParrotTurn(
     durationSeconds = input.clientDurationSeconds;
     transcript = (
       await deps.transcribe(buffer, format, {
-        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
+        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
       })
     ).trim();
   } else {
@@ -238,7 +256,7 @@ export async function runParrotTurn(
     const [wavBuffer, t] = await Promise.all([
       format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
       deps.transcribe(buffer, format, {
-        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
+        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
       }).then((t) => t.trim()),
     ]);
     durationSeconds = wavDurationSeconds(wavBuffer);

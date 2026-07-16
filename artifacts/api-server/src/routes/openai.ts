@@ -423,22 +423,27 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       }))
     : [];
 
-  // Fetch 5 short, high-frequency romanized words from the language's phrase
-  // library to seed the Whisper transcription prompt. This gives the model
-  // stronger phonetic anchoring for less-resourced languages where a bare
-  // language-name hint can still mis-detect similar-sounding words in other
-  // scripts (e.g. Kashmiri, Santali, Manipuri). Non-fatal: if the query fails
-  // or returns nothing the existing bare-name prompt is used unchanged.
+  // Fetch 5 short, high-frequency phrases from the language's phrase library
+  // to seed the Whisper transcription prompt. Both romanized words and
+  // native-script words are fetched: romanized gives Whisper phonetic
+  // anchoring; native-script gives an additional script-space signal for
+  // languages with distinctive native scripts (e.g. Gujarati ગુજરાત, Bengali
+  // বাংলা, Tamil தமிழ்). Non-fatal: if the query fails or returns nothing the
+  // existing bare-name prompt is used unchanged.
   let seedWords: string[] = [];
+  let seedNativeWords: string[] = [];
   try {
     const seedPhrases = await db.query.phrasesTable.findMany({
       where: eq(phrasesTable.languageCode, languageCode),
-      columns: { romanized: true },
+      columns: { romanized: true, nativeScript: true },
       orderBy: [asc(phrasesTable.difficulty), asc(phrasesTable.sortOrder)],
       limit: 5,
     });
     seedWords = seedPhrases
       .map((p) => p.romanized.trim())
+      .filter(Boolean);
+    seedNativeWords = seedPhrases
+      .map((p) => p.nativeScript.trim())
       .filter(Boolean);
   } catch (err) {
     req.log.warn({ err }, "Could not fetch seed words for chat transcription prompt");
@@ -469,6 +474,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         languageCode,
         history: trimmedHistory,
         seedWords,
+        seedNativeWords,
         clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
         onTranscript: (transcript, durationSeconds) => {
           capturedTranscript = transcript;
