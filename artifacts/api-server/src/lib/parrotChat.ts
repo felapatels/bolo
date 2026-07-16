@@ -28,6 +28,13 @@ export interface ParrotTurnInput {
    */
   onTranscript?: (transcript: string, durationSeconds: number) => void;
   /**
+   * Optional callback fired immediately after the LLM returns — before the TTS
+   * call starts. Used by the SSE route to flush the English translation of the
+   * learner's speech to the client early, so the subtitle appears in sync with
+   * the transcript bubble rather than waiting for audio synthesis to finish.
+   */
+  onTranscriptEnglish?: (transcriptEnglish: string) => void;
+  /**
    * Optional short list of high-frequency romanized words from the active
    * language's phrase library. When supplied, they are appended to the Whisper
    * transcription prompt to give the model stronger phonetic anchoring for
@@ -292,6 +299,10 @@ export async function runParrotTurn(
     buildSystemPrompt(input.languageName),
     buildUserPrompt(input.history, transcript),
   );
+
+  // Fire the early-transcriptEnglish callback so the SSE route can flush
+  // the learner's English subtitle before TTS synthesis begins (~1–3 s early).
+  input.onTranscriptEnglish?.(transcriptEnglish.trim());
 
   const rawText = rawReplyText.trim() || "Say that again?";
 

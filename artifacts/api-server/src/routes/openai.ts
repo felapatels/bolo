@@ -483,6 +483,11 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
             sseWrite(res, "transcript", { transcript });
           }
         },
+        onTranscriptEnglish: (transcriptEnglish) => {
+          if (wantsSSE && transcriptEnglish) {
+            sseWrite(res, "transcriptEnglish", { transcriptEnglish });
+          }
+        },
       },
     );
 

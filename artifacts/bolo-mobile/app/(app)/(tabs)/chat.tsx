@@ -478,6 +478,20 @@ export default function ChatScreen() {
                 return updated;
               });
               setProcessingStep('replying');
+            } else if (eventType === 'transcriptEnglish') {
+              // Fires right after LLM returns, before TTS — attach the English
+              // subtitle to the learner bubble immediately rather than waiting
+              // for the full reply payload.
+              const eng = (parsed.transcriptEnglish as string) ?? '';
+              if (eng) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.role === 'learner' && !m.pending && !m.englishText
+                      ? { ...m, englishText: eng }
+                      : m,
+                  ),
+                );
+              }
             } else if (eventType === 'reply') {
               replyPayload = parsed;
             } else if (eventType === 'error') {
