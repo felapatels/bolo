@@ -74,7 +74,9 @@ async function boloTTS(text: string, languageName: string): Promise<Buffer> {
           "Deliver the text with a bright, high-pitched, bouncy, cheerful voice — " +
           "light and airy like an enthusiastic young bird who loves to chat. " +
           "Keep the energy up and the tone warm and playful. " +
-          "Read the text exactly as written — never add, remove, or change words." +
+          "IMPORTANT: Read the text EXACTLY as written. " +
+          "Do NOT add, improvise, or say any bird sounds, squawks, bawks, awks, chirps, or parrot exclamations — " +
+          "those are played as separate sound effects and must not appear in your speech." +
           langHint,
       },
       { role: "user", content: `Say exactly: ${text}` },

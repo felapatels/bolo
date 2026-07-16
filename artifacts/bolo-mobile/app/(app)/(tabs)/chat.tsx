@@ -137,6 +137,9 @@ export default function ChatScreen() {
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const finishingRef = React.useRef(false);
+  // Set true when the user holds during processing to cancel the in-flight
+  // request and start a new recording immediately.
+  const cancelledRef = React.useRef(false);
 
   // Tracks whether the learner's finger is currently held down on the mascot.
   // Used to resolve the startup race: if pressOut fires before the async
@@ -269,7 +272,14 @@ export default function ChatScreen() {
 
   // ── Recording ──────────────────────────────────────────────────────────────
   const handleStartRecording = async () => {
-    if (phase !== 'idle' && phase !== 'error') return;
+    const wasProcessing = phase === 'processing';
+    if (phase !== 'idle' && phase !== 'error' && !wasProcessing) return;
+
+    if (wasProcessing) {
+      // Cancel the in-flight API request then fall through to start recording.
+      cancelledRef.current = true;
+      finishingRef.current = false;
+    }
 
     // Check weekly cap before even starting
     if (!isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null && secondsRemaining <= 0) {
@@ -341,6 +351,13 @@ export default function ChatScreen() {
       // If the learner left the Chat tab while this turn was in flight, drop
       // the response silently — never start reply audio on another tab.
       if (!isFocusedRef.current) {
+        finishingRef.current = false;
+        return;
+      }
+
+      // User held to cancel during processing — drop this result silently.
+      if (cancelledRef.current) {
+        cancelledRef.current = false;
         finishingRef.current = false;
         return;
       }
@@ -552,7 +569,7 @@ export default function ChatScreen() {
           isPressingRef.current = true;
           // Dismiss the hold-hint on first interaction.
           dismissHoldHint();
-          if (phase === 'idle' || phase === 'error') void handleStartRecording();
+          if (phase === 'idle' || phase === 'error' || phase === 'processing') void handleStartRecording();
         }}
         onPressOut={() => {
           isPressingRef.current = false;
@@ -562,7 +579,7 @@ export default function ChatScreen() {
           // completes and calls handleStopRecording itself.
           if (phase === 'recording') void handleStopRecording();
         }}
-        disabled={phase === 'processing' || phase === 'playing' || capExhausted}
+        disabled={phase === 'playing' || capExhausted}
         style={[styles.mascotArea, messages.length === 0 && styles.mascotAreaFull]}
         accessibilityRole="button"
         accessibilityLabel={

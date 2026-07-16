@@ -71,6 +71,9 @@ export default function ChatPage() {
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const finishingRef = useRef(false);
+  // Set to true when the user holds during processing to cancel the in-flight
+  // request and start recording immediately.
+  const cancelledRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Warm up the mic on mount.
@@ -138,6 +141,13 @@ export default function ChatPage() {
       const result = await chatTurn.mutateAsync({
         data: { languageCode: chatLang, audioBase64, history },
       });
+
+      // User held to cancel during processing — drop this result silently.
+      if (cancelledRef.current) {
+        cancelledRef.current = false;
+        finishingRef.current = false;
+        return;
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -253,7 +263,7 @@ export default function ChatPage() {
   }, [isPlus, isOneLanguage, secondsRemaining, recorder, finishRecording, setLocation]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
-    if (phase === "processing" || capExhausted) return;
+    if (capExhausted) return;
     e.preventDefault(); // suppress context menu on long-press
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -262,10 +272,18 @@ export default function ChatPage() {
       return; // don't start recording on the same gesture
     }
 
+    if (phase === "processing") {
+      // Cancel the in-flight request and start a new recording immediately.
+      cancelledRef.current = true;
+      finishingRef.current = false;
+      void startRecording();
+      return;
+    }
+
     if (phase === "idle" || phase === "error") {
       void startRecording();
     }
-  }, [phase, capExhausted, startRecording]);
+  }, [phase, capExhausted, startRecording, stopPlayback]);
 
   const handleMicPointerUp = useCallback(() => {
     if (phase === "recording") {
@@ -414,7 +432,7 @@ export default function ChatPage() {
         onPointerUp={handleMicPointerUp}
         onPointerCancel={handleMicPointerUp}
         onContextMenu={(e) => e.preventDefault()}
-        disabled={phase === "processing" || capExhausted}
+        disabled={capExhausted}
         aria-label={phase === "recording" ? "Release to send" : phase === "playing" ? "Tap to interrupt" : "Hold to speak"}
         className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none select-none touch-none"
       >
@@ -544,7 +562,7 @@ export default function ChatPage() {
           onPointerUp={handleMicPointerUp}
           onPointerCancel={handleMicPointerUp}
           onContextMenu={(e) => e.preventDefault()}
-          disabled={phase === "processing" || capExhausted}
+          disabled={capExhausted}
           aria-label={
             phase === "recording"
               ? "Release to send"
