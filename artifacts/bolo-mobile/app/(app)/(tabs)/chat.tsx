@@ -573,12 +573,20 @@ export default function ChatScreen() {
 
       setMessages((prev) => {
         const updated = [...prev];
-        const pendingIdx = updated.findIndex((m) => m.pending || (m.role === 'learner' && m.text === transcriptText && !m.englishText));
+        // Find the most recent learner bubble (set by the 'transcript' SSE
+        // event). We use findLastIndex so we don't accidentally match an
+        // earlier turn with the same text, and we don't filter on !englishText
+        // because the 'transcriptEnglish' SSE event may have already filled it.
+        const pendingIdx = updated.findLastIndex((m) => m.pending || m.role === 'learner');
+        // Prefer the englishText already written by the early SSE event; fall
+        // back to the payload value in case the SSE event didn't arrive first.
+        const existingEnglish = pendingIdx >= 0 ? (updated[pendingIdx].englishText ?? '') : '';
+        const resolvedTranscriptEnglish = existingEnglish
+          || (transcriptEnglish && transcriptEnglish !== transcriptText ? transcriptEnglish : '');
         const learnerBubble = {
           role: 'learner' as const,
           text: transcriptText,
-          englishText: transcriptEnglish && transcriptEnglish !== transcriptText
-            ? transcriptEnglish : undefined,
+          englishText: resolvedTranscriptEnglish || undefined,
         };
         if (pendingIdx >= 0) {
           updated[pendingIdx] = learnerBubble;
