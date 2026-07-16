@@ -137,9 +137,11 @@ export default function ChatScreen() {
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const finishingRef = React.useRef(false);
-  // Set true when the user holds during processing to cancel the in-flight
-  // request and start a new recording immediately.
-  const cancelledRef = React.useRef(false);
+  // Incremented each time a new turn starts. handleStopRecording captures its
+  // own snapshot and only applies the result if the counter still matches —
+  // prevents a stale older response from overwriting a newer one when the user
+  // cancels mid-flight and immediately starts again.
+  const activeTurnRef = React.useRef(0);
 
   // Tracks whether the learner's finger is currently held down on the mascot.
   // Used to resolve the startup race: if pressOut fires before the async
@@ -276,8 +278,9 @@ export default function ChatScreen() {
     if (phase !== 'idle' && phase !== 'error' && !wasProcessing) return;
 
     if (wasProcessing) {
-      // Cancel the in-flight API request then fall through to start recording.
-      cancelledRef.current = true;
+      // Supersede the in-flight request by bumping the turn counter; when the
+      // old response arrives its turn ID will no longer match and it is dropped.
+      activeTurnRef.current++;
       finishingRef.current = false;
     }
 
@@ -326,6 +329,9 @@ export default function ChatScreen() {
   const handleStopRecording = async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
+    // Capture this turn's ID before any await — only apply the result if the
+    // ID still matches when the server responds.
+    const myTurn = ++activeTurnRef.current;
     setPhase('processing');
 
     let audioBase64: string;
@@ -355,9 +361,8 @@ export default function ChatScreen() {
         return;
       }
 
-      // User held to cancel during processing — drop this result silently.
-      if (cancelledRef.current) {
-        cancelledRef.current = false;
+      // A newer turn started while this one was in flight — drop stale result.
+      if (activeTurnRef.current !== myTurn) {
         finishingRef.current = false;
         return;
       }
@@ -426,6 +431,13 @@ export default function ChatScreen() {
       );
       playbackRef.current = handle;
     } catch (err) {
+      // A newer turn started while this one was in flight — drop this error
+      // silently so it doesn't disrupt the active turn's UI state.
+      // Only release finishingRef when this is still the active turn; releasing
+      // it from a stale turn would allow a third concurrent invocation to start.
+      if (activeTurnRef.current !== myTurn) {
+        return;
+      }
       finishingRef.current = false;
 
       // Off-tab failure: the blur cleanup already reset the screen; don't

@@ -71,9 +71,11 @@ export default function ChatPage() {
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const finishingRef = useRef(false);
-  // Set to true when the user holds during processing to cancel the in-flight
-  // request and start recording immediately.
-  const cancelledRef = useRef(false);
+  // Incremented each time a new turn starts. finishRecording captures its own
+  // snapshot at invocation time and only applies the result if the counter
+  // still matches — this prevents a stale older response from overwriting a
+  // newer one when the user cancels mid-flight and immediately starts again.
+  const activeTurnRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Warm up the mic on mount.
@@ -114,6 +116,9 @@ export default function ChatPage() {
   const finishRecording = useCallback(async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
+    // Capture this turn's ID before any await — only apply the result if the
+    // ID still matches when the server responds.
+    const myTurn = ++activeTurnRef.current;
     setPhase("processing");
     setErrorMsg(null);
 
@@ -142,9 +147,8 @@ export default function ChatPage() {
         data: { languageCode: chatLang, audioBase64, history },
       });
 
-      // User held to cancel during processing — drop this result silently.
-      if (cancelledRef.current) {
-        cancelledRef.current = false;
+      // A newer turn started while this one was in flight — drop stale result.
+      if (activeTurnRef.current !== myTurn) {
         finishingRef.current = false;
         return;
       }
@@ -186,6 +190,13 @@ export default function ChatPage() {
         playReply();
       }
     } catch (err) {
+      // A newer turn started while this one was in flight — drop this error
+      // silently so it doesn't disrupt the active turn's UI state.
+      if (activeTurnRef.current !== myTurn) {
+        finishingRef.current = false;
+        return;
+      }
+
       const upgrade = asUpgradeRequired(err);
       if (upgrade) {
         const isCap = upgrade.reason === "weekly_cap_exceeded";
@@ -217,7 +228,12 @@ export default function ChatPage() {
       setErrorMsg(msg);
       setPhase("error");
     } finally {
-      finishingRef.current = false;
+      // Only release the guard when this is still the active turn. A stale
+      // turn releasing it while the active turn is in flight would allow a
+      // third concurrent invocation to start.
+      if (activeTurnRef.current === myTurn) {
+        finishingRef.current = false;
+      }
     }
   }, [recorder, chatTurn, chatLang, messages, setLocation]);
 
@@ -273,8 +289,9 @@ export default function ChatPage() {
     }
 
     if (phase === "processing") {
-      // Cancel the in-flight request and start a new recording immediately.
-      cancelledRef.current = true;
+      // Supersede the in-flight request by bumping the turn counter; when the
+      // old response arrives its turn ID will no longer match and it is dropped.
+      activeTurnRef.current++;
       finishingRef.current = false;
       void startRecording();
       return;
