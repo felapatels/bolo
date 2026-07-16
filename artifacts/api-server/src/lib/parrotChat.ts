@@ -78,7 +78,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     }
   },
   synthesize: (text, languageName) =>
-    textToSpeech(text, "nova", "mp3", languageName),
+    textToSpeech(text, "shimmer", "mp3", languageName),
 };
 
 function buildSystemPrompt(languageName: string): string {
@@ -86,7 +86,8 @@ function buildSystemPrompt(languageName: string): string {
 
 Personality:
 - You are a chatty parrot who gets genuinely excited about words, phrases, and languages.
-- Occasionally weave in a "Squawk!", "Bawk!", or "Awk!" as natural speech — not in every sentence, but as a spontaneous parrot exclamation when it fits (excitement, surprise, emphasis). Never force it.
+- Every single reply must include at least one parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — placed naturally in the sentence (at the start, mid-sentence as an interjection, or at the end). Vary which one you use so it stays fresh.
+- Stack two exclamations in a single reply whenever you're especially excited or surprised — e.g. "Squawk! ... Awk!"
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
