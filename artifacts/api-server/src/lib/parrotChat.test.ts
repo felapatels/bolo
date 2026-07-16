@@ -37,12 +37,12 @@ function makeWavBuffer(durationSeconds: number, sampleRate = 16000): Buffer {
 function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
   return {
     transcribe: async () => "Namaste",
-    completeWithAudio: async () => ({
+    reply: async () => ({
       text: "Squawk! Namaste!",
       english: "Squawk! Hello!",
       transcriptEnglish: "Hello",
-      audio: Buffer.from("fake-audio"),
     }),
+    synthesize: async () => Buffer.from("fake-audio"),
     ...overrides,
   };
 }
@@ -78,7 +78,7 @@ test("runParrotTurn: returns transcript, replyText, replyAudio, format, duration
     makeDeps({ transcribe: async () => "Kem cho?" }),
   );
   assert.equal(result.transcript, "Kem cho?");
-  assert.equal(result.replyText, "Namaste!"); // cleaned text — squawk tokens stripped
+  assert.equal(result.replyText, "Squawk! Namaste!"); // raw text with squawk tokens (shown in UI transcript)
   assert.ok(result.replyAudio instanceof Buffer);
   assert.equal(result.audioFormat, "mp3");
   assert.ok(result.durationSeconds > 4 && result.durationSeconds < 6,
@@ -94,20 +94,20 @@ test("runParrotTurn: durationSeconds is 0 for a zero-length WAV clip", async () 
   assert.equal(result.durationSeconds, 0);
 });
 
-test("runParrotTurn: fallback reply when the completeWithAudio stub returns empty string", async () => {
+test("runParrotTurn: fallback reply when reply stub returns empty string", async () => {
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
-    makeDeps({ completeWithAudio: async () => ({ text: "", english: "", transcriptEnglish: "", audio: Buffer.from("") }) }),
+    makeDeps({ reply: async () => ({ text: "", english: "", transcriptEnglish: "" }) }),
   );
   assert.ok(result.replyText.length > 0, "fallback reply should not be empty");
 });
 
 // ---------------------------------------------------------------------------
-// runParrotTurn: onTranscript callback fires before completeWithAudio
+// runParrotTurn: onTranscript callback fires before reply+synthesize
 // ---------------------------------------------------------------------------
 
-test("runParrotTurn: onTranscript fires before completeWithAudio completes", async () => {
+test("runParrotTurn: onTranscript fires before reply completes", async () => {
   const wav = makeWavBuffer(2);
   const events: string[] = [];
 
@@ -123,20 +123,20 @@ test("runParrotTurn: onTranscript fires before completeWithAudio completes", asy
     },
     makeDeps({
       transcribe: async () => "Kem cho?",
-      completeWithAudio: async () => {
-        events.push("completeWithAudio");
-        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "How are you?", audio: Buffer.from("audio") };
+      reply: async () => {
+        events.push("reply");
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "How are you?" };
       },
     }),
   );
 
   assert.ok(events.length >= 2, "should have at least two events");
-  // transcript callback must fire before completeWithAudio returns
+  // transcript callback must fire before reply returns
   const transcriptIdx = events.findIndex((e) => e.startsWith("transcript:"));
-  const completeIdx = events.indexOf("completeWithAudio");
+  const replyIdx = events.indexOf("reply");
   assert.ok(transcriptIdx !== -1, "onTranscript should be called");
-  assert.ok(completeIdx !== -1, "completeWithAudio should be called");
-  assert.ok(transcriptIdx < completeIdx, "onTranscript must fire before completeWithAudio");
+  assert.ok(replyIdx !== -1, "reply should be called");
+  assert.ok(transcriptIdx < replyIdx, "onTranscript must fire before reply");
 });
 
 test("runParrotTurn: onTranscript receives correct transcript text", async () => {
@@ -173,10 +173,10 @@ test("runParrotTurn: works without onTranscript (optional)", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// runParrotTurn: conversation context passed to completeWithAudio
+// runParrotTurn: conversation context passed to reply
 // ---------------------------------------------------------------------------
 
-test("runParrotTurn: history turns are forwarded to completeWithAudio", async () => {
+test("runParrotTurn: history turns are forwarded to reply", async () => {
   const wav = makeWavBuffer(1);
   let capturedUserPrompt = "";
   const history: ChatHistoryTurn[] = [
@@ -187,9 +187,9 @@ test("runParrotTurn: history turns are forwarded to completeWithAudio", async ()
     { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history },
     makeDeps({
       transcribe: async () => "Shu naam chhe?",
-      completeWithAudio: async (_sys, userPrompt) => {
+      reply: async (_sys, userPrompt) => {
         capturedUserPrompt = userPrompt;
-        return { text: "Maru naam Bolo chhe!", english: "My name is Bolo!", transcriptEnglish: "What is your name?", audio: Buffer.from("") };
+        return { text: "Maru naam Bolo chhe!", english: "My name is Bolo!", transcriptEnglish: "What is your name?" };
       },
     }),
   );
@@ -204,9 +204,9 @@ test("runParrotTurn: system prompt contains the language name", async () => {
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Punjabi", languageCode: "pa", history: [] },
     makeDeps({
-      completeWithAudio: async (systemPrompt) => {
+      reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Sat sri akal!", english: "God is truth!", transcriptEnglish: "", audio: Buffer.from("") };
+        return { text: "Sat sri akal!", english: "God is truth!", transcriptEnglish: "" };
       },
     }),
   );
@@ -220,9 +220,9 @@ test("runParrotTurn: system prompt allows general everyday conversation topics",
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
     makeDeps({
-      completeWithAudio: async (systemPrompt) => {
+      reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "", audio: Buffer.from("") };
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
       },
     }),
   );
@@ -244,9 +244,9 @@ test("runParrotTurn: system prompt contains youth-safe guardrails", async () => 
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
     makeDeps({
-      completeWithAudio: async (systemPrompt) => {
+      reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "", audio: Buffer.from("") };
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
       },
     }),
   );
@@ -265,36 +265,32 @@ test("runParrotTurn: system prompt contains youth-safe guardrails", async () => 
 });
 
 // ---------------------------------------------------------------------------
-// runParrotTurn: completeWithAudio receives the language name
+// runParrotTurn: synthesize receives the language name
 // ---------------------------------------------------------------------------
 
-test("runParrotTurn: completeWithAudio is called with the language name", async () => {
+test("runParrotTurn: synthesize is called with the language name", async () => {
   const wav = makeWavBuffer(1);
   let receivedLang = "";
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
     makeDeps({
-      completeWithAudio: async (_sys, _user, languageName) => {
+      synthesize: async (_text, languageName) => {
         receivedLang = languageName;
-        return { text: "Kemon acho?", english: "How are you?", transcriptEnglish: "", audio: Buffer.from("audio") };
+        return Buffer.from("audio");
       },
     }),
   );
   assert.equal(receivedLang, "Bengali");
 });
 
-test("runParrotTurn: replyAudio comes from completeWithAudio", async () => {
+test("runParrotTurn: replyAudio comes from synthesize", async () => {
   const wav = makeWavBuffer(1);
   const fakeAudio = Buffer.from("test-audio-bytes");
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Tamil", languageCode: "ta", history: [] },
     makeDeps({
-      completeWithAudio: async () => ({
-        text: "Vanakkam!",
-        english: "Hello!",
-        transcriptEnglish: "",
-        audio: fakeAudio,
-      }),
+      reply: async () => ({ text: "Vanakkam!", english: "Hello!", transcriptEnglish: "" }),
+      synthesize: async () => fakeAudio,
     }),
   );
   assert.deepEqual(result.replyAudio, fakeAudio);
@@ -365,16 +361,15 @@ test("runParrotTurn: prompt changes with the active language (Tamil vs Gujarati)
   assert.notEqual(prompts[0], prompts[1], "prompts should differ between languages");
 });
 
-test("runParrotTurn: transcriptEnglish is returned from completeWithAudio", async () => {
+test("runParrotTurn: transcriptEnglish is returned from reply", async () => {
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
     makeDeps({
-      completeWithAudio: async () => ({
+      reply: async () => ({
         text: "Maja ma!",
         english: "Great!",
         transcriptEnglish: "How are you?",
-        audio: Buffer.from("audio"),
       }),
     }),
   );

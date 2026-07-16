@@ -72,74 +72,77 @@ export interface ParrotChatDeps {
     format: "wav" | "mp3",
     options: SpeechToTextOptions,
   ) => Promise<string>;
-  /**
-   * Single call that returns the in-language reply, its English gloss, an
-   * English translation of what the learner said, AND synthesized audio —
-   * combining the old `reply` + `synthesize` round-trips into one
-   * gpt-audio completion.
-   */
-  completeWithAudio: (
+  // Returns the in-language reply, its English gloss, and an English
+  // translation of the learner's utterance in a single LLM call.
+  reply: (
     systemPrompt: string,
     userPrompt: string,
-    languageName: string,
-  ) => Promise<{ text: string; english: string; transcriptEnglish: string; audio: Buffer }>;
+  ) => Promise<{ text: string; english: string; transcriptEnglish: string }>;
+  // Synthesizes the cleaned reply text using Bolo's parrot character voice.
+  synthesize: (text: string, languageName: string) => Promise<Buffer>;
+}
+
+// Custom TTS for Bolo — calls gpt-audio with a parrot character voice
+// instruction so the output sounds young, bright, and bird-like rather than
+// like a generic assistant. Kept separate from the LLM reply call so the
+// model never has to juggle JSON output and audio speaking simultaneously.
+async function boloTTS(text: string, languageName: string): Promise<Buffer> {
+  const langHint = languageName ? ` The text is in ${languageName}.` : "";
+  const response = await openai.chat.completions.create({
+    model: "gpt-audio",
+    modalities: ["text", "audio"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    audio: { voice: "shimmer", format: "mp3" } as any,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are voicing Bolo, a young excitable parrot character. " +
+          "Deliver the text with a bright, high-pitched, bouncy, cheerful voice — " +
+          "light and airy like an enthusiastic young bird who loves to chat. " +
+          "Keep the energy up and the tone warm and playful. " +
+          "IMPORTANT: Read the text EXACTLY as written. " +
+          "Do NOT add, improvise, or say any bird sounds, squawks, bawks, awks, chirps, or parrot exclamations — " +
+          "those are played as separate sound effects and must not appear in your speech." +
+          langHint,
+      },
+      { role: "user", content: `Say exactly: ${text}` },
+    ],
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
+  return Buffer.from(audioData, "base64");
 }
 
 export const defaultParrotChatDeps: ParrotChatDeps = {
   transcribe: (buffer, format, options) =>
     speechToText(buffer, format, options),
 
-  completeWithAudio: async (systemPrompt, userPrompt, languageName) => {
-    const langHint = languageName ? ` The text is in ${languageName}.` : "";
-
-    // Single gpt-audio call: the model outputs JSON as its text
-    // content (reply + english + transcript_english) and simultaneously speaks
-    // the native reply as audio. This eliminates the separate TTS round-trip.
+  reply: async (systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
-      model: "gpt-audio",
-      modalities: ["text", "audio"],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audio: { voice: "shimmer", format: "mp3" } as any,
-      max_completion_tokens: 400,
+      model: "gpt-5.4-mini",
+      max_completion_tokens: 200,
+      response_format: { type: "json_object" },
       messages: [
-        {
-          role: "system",
-          content:
-            systemPrompt +
-            "\n\nVoice instructions: Deliver your audio reply with a bright, high-pitched, bouncy, cheerful voice — " +
-            "light and airy like an enthusiastic young bird who loves to chat. " +
-            "Keep the energy up and the tone warm and playful. " +
-            "IMPORTANT: Read ONLY the 'reply' text in your audio output. " +
-            "Do NOT add, improvise, or say any bird sounds, squawks, bawks, awks, chirps, or parrot exclamations " +
-            "in the audio — those are played as separate sound effects and must not appear in your speech." +
-            langHint,
-        },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const message = completion.choices[0]?.message as any;
-    const raw = (message?.content ?? "{}").trim();
+    const raw = (completion.choices[0]?.message?.content ?? "{}").trim();
     let parsed: { reply?: string; english?: string; transcript_english?: string } = {};
     try {
-      parsed = JSON.parse(raw) as {
-        reply?: string;
-        english?: string;
-        transcript_english?: string;
-      };
+      parsed = JSON.parse(raw) as typeof parsed;
     } catch {
-      // If the model didn't return valid JSON, treat the raw text as the reply.
       parsed = { reply: raw, english: "", transcript_english: "" };
     }
-    const audioData: string = message?.audio?.data ?? "";
     return {
       text: parsed.reply?.trim() ?? "",
       english: parsed.english?.trim() ?? "",
       transcriptEnglish: parsed.transcript_english?.trim() ?? "",
-      audio: Buffer.from(audioData, "base64"),
     };
   },
+
+  synthesize: boloTTS,
 };
 
 function buildSystemPrompt(languageName: string): string {
@@ -225,31 +228,30 @@ export async function runParrotTurn(
   // `transcript` event to the client before the LLM+TTS call starts.
   input.onTranscript?.(transcript, durationSeconds);
 
-  // Single gpt-audio call returns the native-language reply, its
-  // English gloss, an English translation of the learner's transcript, AND
-  // synthesized MP3 audio — replacing the two sequential round-trips
-  // (gpt-5.4-mini reply + gpt-audio TTS).
+  // LLM call: returns the in-language reply, its English gloss, and an
+  // English translation of what the learner said — all in one JSON response.
   const {
     text: rawReplyText,
     english: rawReplyEnglish,
     transcriptEnglish,
-    audio: replyAudio,
-  } = await deps.completeWithAudio(
+  } = await deps.reply(
     buildSystemPrompt(input.languageName),
     buildUserPrompt(input.history, transcript),
-    input.languageName,
   );
 
   const rawText = rawReplyText.trim() || "Say that again?";
 
-  // Strip ALL bird-sound tokens before the reply text is shown in the UI.
-  // The audio already has them removed at the prompt level.
+  // Strip ALL bird-sound tokens before synthesis so the voice never says them
+  // aloud — the client plays a real parrot SFX instead.
   const { cleaned: ttsText, squawkVariant } = extractSquawks(rawText);
+
+  // TTS call: speaks only the cleaned reply text using Bolo's character voice.
+  const replyAudio = await deps.synthesize(ttsText, input.languageName);
 
   return {
     transcript,
     transcriptEnglish: transcriptEnglish.trim(),
-    replyText: ttsText,   // cleaned text (matches exactly what TTS speaks)
+    replyText: rawText,   // full text with squawk tokens for the UI transcript
     replyEnglish: rawReplyEnglish.trim() || ttsText,
     replyAudio,
     audioFormat: "mp3",
