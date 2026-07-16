@@ -36,6 +36,12 @@ export interface ParrotTurnInput {
    * scripts. Backward-compatible: omitting the field uses the existing prompt.
    */
   seedWords?: string[];
+  /**
+   * Recording duration in seconds as measured by the client. When provided the
+   * server skips the WAV-conversion step that exists solely for duration
+   * measurement, saving ~200–400 ms of ffmpeg overhead per turn.
+   */
+  clientDurationSeconds?: number;
 }
 
 export interface ParrotTurnResult {
@@ -91,32 +97,19 @@ export interface ParrotChatDeps {
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
-// Custom TTS for Bolo — calls gpt-audio with a voice-quality instruction
-// to sound young, bright, and energetic. Deliberately avoids any mention of
-// birds or parrots so the model has no reason to improvise bird sounds.
-async function boloTTS(text: string, languageName: string): Promise<Buffer> {
-  const langHint = languageName ? ` The text is in ${languageName}.` : "";
-  const response = await openai.chat.completions.create({
-    model: "gpt-audio",
-    modalities: ["text", "audio"],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    audio: { voice: "shimmer", format: "mp3" } as any,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a text-to-speech reader. " +
-          "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
-          "Read the text EXACTLY as written, word for word. " +
-          "Do NOT add, change, or omit any words, sounds, or exclamations." +
-          langHint,
-      },
-      { role: "user", content: `Say exactly: ${text}` },
-    ],
-  });
+// Custom TTS for Bolo — uses the dedicated tts-1 endpoint (much faster than
+// routing through gpt-audio chat completions). shimmer voice is available on
+// both models; tts-1 handles multilingual text natively without a language hint.
+async function boloTTS(text: string, _languageName: string): Promise<Buffer> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
-  return Buffer.from(audioData, "base64");
+  const response = await (openai.audio.speech as any).create({
+    model: "tts-1",
+    voice: "shimmer",
+    input: text,
+    response_format: "mp3",
+  });
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 export const defaultParrotChatDeps: ParrotChatDeps = {
@@ -126,7 +119,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   reply: async (systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
-      max_completion_tokens: 200,
+      max_completion_tokens: 120,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
@@ -225,25 +218,32 @@ export async function runParrotTurn(
 ): Promise<ParrotTurnResult> {
   const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer);
 
-  // Run WAV conversion (needed only for duration measurement) and transcription
-  // in parallel — both operate on the same already-converted buffer, so neither
-  // blocks the other.
-  const [wavBuffer, transcript] = await Promise.all([
-    format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-    // Do NOT pass a hard `language` lock — that would block English entirely.
-    // Instead supply a prompt that explicitly names both valid languages so
-    // Whisper biases toward those two scripts. Short target-language words
-    // (e.g. "kemcho") are otherwise mis-detected as phonetically-similar words
-    // in unrelated scripts (e.g. Belarusian Cyrillic).
-    // When seed words are available, append them to give Whisper stronger
-    // phonetic anchoring — the same strategy the pronunciation route uses by
-    // seeding the prompt with the target phrase text.
-    deps.transcribe(buffer, format, {
-      prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
-    }).then((t) => t.trim()),
-  ]);
+  // When the client supplies its own duration measurement we skip the WAV
+  // conversion step that exists solely for duration measurement — saving
+  // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
+  // measurement (parallel WAV conversion) when the field is absent.
+  let durationSeconds: number;
+  let transcript: string;
 
-  const durationSeconds = wavDurationSeconds(wavBuffer);
+  if (input.clientDurationSeconds != null) {
+    // Fast path: transcribe only, no WAV conversion needed.
+    durationSeconds = input.clientDurationSeconds;
+    transcript = (
+      await deps.transcribe(buffer, format, {
+        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
+      })
+    ).trim();
+  } else {
+    // Legacy path: run WAV conversion and transcription in parallel.
+    const [wavBuffer, t] = await Promise.all([
+      format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
+      deps.transcribe(buffer, format, {
+        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
+      }).then((t) => t.trim()),
+    ]);
+    durationSeconds = wavDurationSeconds(wavBuffer);
+    transcript = t;
+  }
 
   // Fire the early-transcript callback so the SSE route can flush a
   // `transcript` event to the client before the LLM+TTS call starts.

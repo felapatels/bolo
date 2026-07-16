@@ -394,7 +394,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     res.status(400).json({ error: "Invalid chat payload" });
     return;
   }
-  const { languageCode, audioBase64, history } = parsed.data;
+  const { languageCode, audioBase64, history, clientDurationSeconds } = parsed.data;
   const { userId, resolvedPlan } = req as EntitledRequest;
 
   // Language access follows the existing plan-based allowlist (Free/One
@@ -469,6 +469,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         languageCode,
         history: trimmedHistory,
         seedWords,
+        clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
         onTranscript: (transcript, durationSeconds) => {
           capturedTranscript = transcript;
           capturedDuration = durationSeconds;

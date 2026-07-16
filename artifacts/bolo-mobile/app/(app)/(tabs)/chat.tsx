@@ -46,7 +46,9 @@ import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
 import { TipCard } from '@/components/TipCard';
 
 // How many previous turns to include in each request for conversational context.
-const HISTORY_WINDOW = 6;
+// 3 turns gives enough context for a natural exchange while keeping the LLM
+// prompt small (fewer tokens → faster response).
+const HISTORY_WINDOW = 3;
 
 // Free-tier weekly cap in seconds (matches backend constant).
 const FREE_WEEKLY_CAP_SECONDS = 120;
@@ -174,6 +176,10 @@ export default function ChatScreen() {
   // recorder startup completes (phase is still idle), handleStartRecording
   // reads this ref after startup and immediately stops itself.
   const isPressingRef = React.useRef(false);
+
+  // Tracks when the current recording started so we can send the duration to the
+  // server, letting it skip the WAV-conversion step used solely for timing.
+  const recordingStartTimeRef = React.useRef(0);
 
   // Silence auto-stop
   const silenceSinceRef = React.useRef<number | null>(null);
@@ -337,6 +343,7 @@ export default function ChatScreen() {
     }
     try {
       await ensureRecordingMode();
+      recordingStartTimeRef.current = Date.now();
       recorder.record();
       recorderPreparedRef.current = false;
       setPhase('recording');
@@ -382,6 +389,12 @@ export default function ChatScreen() {
       .slice(-HISTORY_WINDOW)
       .map((m) => ({ role: m.role === 'parrot' ? 'parrot' : 'learner', text: m.text }));
 
+    // Client-measured recording duration so the server can skip WAV conversion.
+    const clientDurationSeconds = Math.max(
+      0,
+      (Date.now() - recordingStartTimeRef.current) / 1000,
+    );
+
     try {
       // Build the full URL: combine configured base URL with the API path so
       // the bearer-token fetch works the same as the generated hooks.
@@ -389,25 +402,108 @@ export default function ChatScreen() {
       const chatUrl = `${baseUrl}${getChatTurnUrl()}`;
       const token = await getConfiguredAuthToken();
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        // React Native / Hermes does not support ReadableStream body reading,
-        // so we use the plain JSON path (no SSE). The server returns the same
-        // payload fields when Accept: text/event-stream is absent.
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // SSE streaming via XMLHttpRequest. React Native / Hermes has no
+      // ReadableStream support (res.body.getReader() crashes), but XHR's
+      // onprogress fires as chunks land — giving us the same progressive
+      // transcript-first UX that the web gets via EventSource.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let replyPayload: any = null;
+      let sseError: string | null = null;
+      let httpStatus = 200;
+      let rawResponseText = '';
 
-      const res = await fetch(chatUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ languageCode: chatLang, audioBase64, history }),
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', chatUrl);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        // Request SSE — the server streams transcript first, then reply.
+        xhr.setRequestHeader('Accept', 'text/event-stream');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+        // Accumulate partial SSE lines across onprogress calls.
+        let sseBuffer = '';
+
+        const processBuffer = () => {
+          // SSE events are separated by \n\n; keep any incomplete trailing block.
+          const blocks = sseBuffer.split('\n\n');
+          sseBuffer = blocks.pop() ?? '';
+          for (const block of blocks) {
+            let eventType = '';
+            let dataStr = '';
+            for (const line of block.split('\n')) {
+              if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+              else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
+            }
+            if (!eventType || !dataStr) continue;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let parsed: any;
+            try { parsed = JSON.parse(dataStr); } catch { continue; }
+
+            // Drop events that belong to a superseded turn.
+            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+            if (eventType === 'transcript') {
+              // Transcript arrives ~1–2 s before the reply — fill the pending
+              // bubble immediately so learners see what Bolo heard right away.
+              const transcriptText = (parsed.transcript as string) ?? '';
+              hapticMedium();
+              setMessages((prev) => {
+                const updated = [...prev];
+                const pendingIdx = updated.findIndex((m) => m.pending);
+                const learnerBubble = { role: 'learner' as const, text: transcriptText };
+                if (pendingIdx >= 0) updated[pendingIdx] = learnerBubble;
+                else updated.push(learnerBubble);
+                return updated;
+              });
+              setProcessingStep('replying');
+            } else if (eventType === 'reply') {
+              replyPayload = parsed;
+            } else if (eventType === 'error') {
+              sseError = (parsed.error as string) ?? 'Something went wrong';
+            }
+          }
+        };
+
+        let lastLength = 0;
+        xhr.onprogress = () => {
+          const newChunk = xhr.responseText.slice(lastLength);
+          lastLength = xhr.responseText.length;
+          sseBuffer += newChunk;
+          processBuffer();
+        };
+
+        xhr.onload = () => {
+          httpStatus = xhr.status;
+          rawResponseText = xhr.responseText;
+          // Flush any remaining buffered text (handles cases where onprogress
+          // didn't fire for the final chunk, or the whole body came at once).
+          const remaining = xhr.responseText.slice(lastLength);
+          if (remaining) { sseBuffer += remaining; processBuffer(); }
+          resolve();
+        };
+
+        xhr.onerror = () => reject(new TypeError('Network error'));
+        xhr.ontimeout = () => reject(new TypeError('Request timed out'));
+
+        xhr.send(JSON.stringify({
+          languageCode: chatLang,
+          audioBase64,
+          history,
+          clientDurationSeconds,
+        }));
       });
 
-      // Non-ok responses (400, 402, 404, 502…) come as plain JSON.
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new ApiError(res, errData, { method: 'POST', url: chatUrl });
+      // Non-2xx: server returned a plain JSON error (e.g. 400, 402, 502).
+      // These fire before SSE headers are set, so the body is plain JSON.
+      if (httpStatus < 200 || httpStatus >= 300) {
+        let errData: unknown = null;
+        try { errData = JSON.parse(rawResponseText); } catch {}
+        const fakeRes = { status: httpStatus, ok: false } as Response;
+        throw new ApiError(fakeRes, errData, { method: 'POST', url: chatUrl });
       }
+
+      if (sseError) throw new Error(sseError);
+      if (!replyPayload) throw new Error('No reply received');
 
       // If the learner left the Chat tab while the request was in flight, drop
       // the response silently — never start reply audio on another tab.
@@ -417,8 +513,7 @@ export default function ChatScreen() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payload = await res.json() as any;
-      if (payload.error) throw new Error(payload.error as string);
+      const payload: any = replyPayload;
 
       const transcriptText     = (payload.transcript as string) ?? '';
       const transcriptEnglish  = (payload.transcriptEnglish as string) ?? '';
@@ -432,11 +527,13 @@ export default function ChatScreen() {
       // A newer turn started or user left — drop stale result.
       if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
 
-      // Swap the pending bubble for the real transcript, then add parrot reply.
+      // The transcript bubble was already filled by the SSE transcript event.
+      // Now find it (or the pending bubble if SSE didn't fire progressively)
+      // and attach the englishText, then push the parrot reply.
       hapticMedium();
       setMessages((prev) => {
         const updated = [...prev];
-        const pendingIdx = updated.findIndex((m) => m.pending);
+        const pendingIdx = updated.findIndex((m) => m.pending || (m.role === 'learner' && m.text === transcriptText && !m.englishText));
         const learnerBubble = {
           role: 'learner' as const,
           text: transcriptText,

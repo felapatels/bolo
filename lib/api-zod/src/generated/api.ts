@@ -913,7 +913,8 @@ export const ChatTurnBody = zod.object({
   "history": zod.array(zod.object({
   "role": zod.string().describe('learner | parrot'),
   "text": zod.string()
-}).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.')
+}).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.'),
+  "clientDurationSeconds": zod.number().optional().describe('Recording duration measured by the client; lets the server skip WAV conversion for duration measurement.')
 })
 
 export const ChatTurnResponse = zod.object({

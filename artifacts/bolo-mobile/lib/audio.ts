@@ -8,10 +8,21 @@ import {
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Metering is on so the practice screen can auto-stop on silence when the
-// learner opts in (see lib/stop-mode.ts).
+// Speech-optimised recording preset: 16 kHz mono at 32 kbps.
+// Whisper resamples to 16 kHz internally regardless of input sample rate, so
+// sending 44.1 kHz stereo (HIGH_QUALITY default) wastes ~75 % of the upload
+// bandwidth without improving transcription. Smaller payload → faster upload
+// → Whisper starts sooner. Metering stays on for silence auto-stop.
 export const RECORDING_PRESET = {
   ...RecordingPresets.HIGH_QUALITY,
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 32000,
+  ios: {
+    ...RecordingPresets.HIGH_QUALITY.ios,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+  },
   isMeteringEnabled: true,
 };
 
