@@ -73,8 +73,9 @@ const styles = StyleSheet.create({
   },
   boloBubble: {
     position: 'absolute',
-    // 22 px above the tab bar's top edge
-    top: -22,
+    // 30 px above the tab bar's top edge — keeps the circle clear of the
+    // "Bolo" label even when the tab slot is shortened by safe-area insets.
+    top: -30,
     width: 68,
     height: 68,
     borderRadius: 34,

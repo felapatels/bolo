@@ -55,6 +55,8 @@ type ChatPhase =
 type ChatMessage = {
   role: 'learner' | 'parrot';
   text: string;
+  /** English translation of the parrot's reply, shown in small italic text below */
+  englishText?: string;
 };
 
 /** Format seconds as "1:23" */
@@ -108,13 +110,13 @@ export default function ChatScreen() {
     });
     return () => { cancelled = true; };
   }, []);
-  // Auto-dismiss the hint after 5 s so it never blocks the screen permanently.
+  // Auto-dismiss the hint after 10 s so it never blocks the screen permanently.
   React.useEffect(() => {
     if (holdHintSeen === false) {
       holdHintTimerRef.current = setTimeout(() => {
         setHoldHintSeen(true);
         void saveChatHoldHintSeen();
-      }, 5000);
+      }, 10000);
     }
     return () => {
       if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
@@ -347,7 +349,17 @@ export default function ChatScreen() {
       setMessages((prev) => [
         ...prev,
         { role: 'learner', text: result.transcript },
-        { role: 'parrot', text: result.replyText },
+        {
+          role: 'parrot',
+          text: result.replyText,
+          // Include the English gloss when the server provides it and it
+          // differs from the target-language reply (avoids showing it twice
+          // for English-language conversations).
+          englishText:
+            result.replyEnglish && result.replyEnglish !== result.replyText
+              ? result.replyEnglish
+              : undefined,
+        },
       ]);
 
       // Update the remaining-time display for free users
@@ -554,8 +566,9 @@ export default function ChatScreen() {
                       : ''}
         </Animated.Text>
 
-        {/* First-time instructional hint */}
-        {holdHintSeen === false && (
+        {/* Instructional hint — always visible until the first exchange so
+            learners can't miss it, regardless of their AsyncStorage state. */}
+        {messages.length === 0 && (
           <Animated.View
             entering={appear(FadeInDown.duration(320))}
             style={[styles.holdHint, { backgroundColor: colors.primary }]}
@@ -636,6 +649,16 @@ export default function ChatScreen() {
               >
                 {msg.text}
               </Text>
+              {msg.role === 'parrot' && msg.englishText ? (
+                <Text
+                  style={[
+                    styles.bubbleEnglish,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {msg.englishText}
+                </Text>
+              ) : null}
             </Animated.View>
           ))}
         </ScrollView>
@@ -864,6 +887,13 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.regular,
     fontSize: 15,
     lineHeight: 22,
+  },
+  bubbleEnglish: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   errorBox: {
     flexDirection: 'row',

@@ -149,7 +149,7 @@ test("runParrotTurn: system prompt allows general everyday conversation topics",
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return "Namaste!";
+        return { text: "Namaste!", english: "Hello!" };
       },
     }),
   );
@@ -173,7 +173,7 @@ test("runParrotTurn: system prompt contains youth-safe guardrails", async () => 
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return "Namaste!";
+        return { text: "Namaste!", english: "Hello!" };
       },
     }),
   );
