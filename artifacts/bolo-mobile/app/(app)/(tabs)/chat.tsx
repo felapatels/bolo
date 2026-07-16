@@ -934,10 +934,20 @@ export default function ChatScreen() {
           ]}
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
-            {'Squawk! I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in ' +
+            {'Squawk! I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in English or ' +
               (chatLanguage?.name ?? chatLang) + '! Awk!'}
           </Text>
         </Animated.View>
+      )}
+
+      {/* Bilingual hint — shown before the first message, disappears once the conversation starts */}
+      {messages.length === 0 && (
+        <Animated.Text
+          entering={appear(FadeInUp.duration(320).delay(300))}
+          style={[styles.bilingualHint, { color: colors.mutedForeground }]}
+        >
+          {'💬 Speak in English or ' + (chatLanguage?.name ?? chatLang) + ' — Bolo understands both!'}
+        </Animated.Text>
       )}
 
       {/* Conversation transcript */}
@@ -1291,6 +1301,13 @@ const styles = StyleSheet.create({
   holdHintText: {
     fontFamily: AppFonts.semibold,
     fontSize: 13,
+  },
+  bilingualHint: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    textAlign: 'center',
+    marginHorizontal: 24,
+    marginBottom: 8,
   },
   // Modal / bottom-sheet
   modalBackdrop: {
