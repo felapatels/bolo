@@ -78,3 +78,21 @@ id = "xn4Yhp-0OOldf7czIx7Np"
 uri = "file://attached_assets/generated_audio/parrot_squawk.mp3"
 type = "audio"
 title = "parrot_squawk"
+
+[[outputs]]
+id = "7ek8kIdUAAJVqZ1WCneyE"
+uri = "file://attached_assets/generated_audio/squawk_a.mp3"
+type = "audio"
+title = "squawk_a"
+
+[[outputs]]
+id = "E3Yxn_C6pcCR33XH_40-5"
+uri = "file://attached_assets/generated_audio/squawk_b.mp3"
+type = "audio"
+title = "squawk_b"
+
+[[outputs]]
+id = "FO9mGO6dCpLtVVwvDSdhC"
+uri = "file://attached_assets/generated_audio/squawk_c.mp3"
+type = "audio"
+title = "squawk_c"
