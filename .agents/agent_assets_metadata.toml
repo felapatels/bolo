@@ -96,3 +96,9 @@ id = "FO9mGO6dCpLtVVwvDSdhC"
 uri = "file://attached_assets/generated_audio/squawk_c.mp3"
 type = "audio"
 title = "squawk_c"
+
+[[outputs]]
+id = "yhyfMq68eujGbOzUExhqE"
+uri = "file://artifacts/gujarati-coach/public/bolo-parrot-bundle.zip"
+type = "unspecified"
+title = "bolo-parrot-bundle.zip"
