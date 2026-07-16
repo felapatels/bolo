@@ -41,6 +41,7 @@ type ChatPhase =
 type ChatMessage = {
   role: "learner" | "parrot";
   text: string;
+  englishText?: string;
 };
 
 function formatSeconds(s: number): string {
@@ -141,7 +142,7 @@ export default function ChatPage() {
       setMessages((prev) => [
         ...prev,
         { role: "learner", text: result.transcript },
-        { role: "parrot", text: result.replyText },
+        { role: "parrot", text: result.replyText, englishText: result.replyEnglish },
       ]);
 
       if (result.secondsRemaining !== null) {
@@ -386,9 +387,9 @@ export default function ChatPage() {
       {/* Mascot — tapping the bird starts/stops recording */}
       <button
         type="button"
-        onClick={phase === "processing" || phase === "playing" || capExhausted ? undefined : handleMicPress}
-        disabled={phase === "processing" || phase === "playing" || capExhausted}
-        aria-label={phase === "recording" ? "Stop recording" : "Start recording"}
+        onClick={phase === "processing" || capExhausted ? undefined : phase === "playing" ? stopPlayback : handleMicPress}
+        disabled={phase === "processing" || capExhausted}
+        aria-label={phase === "recording" ? "Stop recording" : phase === "playing" ? "Tap to interrupt" : "Start recording"}
         className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none"
       >
         <Mascot
@@ -414,7 +415,7 @@ export default function ChatPage() {
                   : phase === "processing"
                     ? "Thinking…"
                     : phase === "playing"
-                      ? "Bolo is speaking…"
+                      ? "Tap to interrupt"
                       : phase === "error"
                         ? "Something went wrong"
                         : ""}
@@ -442,7 +443,24 @@ export default function ChatPage() {
                     : "self-start rounded-bl-sm border border-card-border bg-white text-foreground",
                 )}
               >
-                {msg.text}
+                {msg.role === "parrot" ? (() => {
+                  const native = chatLanguage ? nativeTextProps(chatLanguage) : null;
+                  return (
+                    <div className="flex flex-col">
+                      <span
+                        style={native?.style}
+                        dir={native?.dir}
+                      >
+                        {msg.text}
+                      </span>
+                      {msg.englishText && (
+                        <span className="text-xs text-muted-foreground mt-1 italic">
+                          {msg.englishText}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })() : msg.text}
               </motion.div>
             ))}
           </AnimatePresence>

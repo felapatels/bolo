@@ -27,6 +27,7 @@ export interface ParrotTurnInput {
 export interface ParrotTurnResult {
   transcript: string;
   replyText: string;
+  replyEnglish: string;
   replyAudio: Buffer;
   audioFormat: "mp3";
   // Server-measured duration of the learner's submitted audio, in seconds —
@@ -44,6 +45,7 @@ export interface ParrotChatDeps {
     options: SpeechToTextOptions,
   ) => Promise<string>;
   reply: (systemPrompt: string, userPrompt: string) => Promise<string>;
+  translate: (text: string) => Promise<string>;
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
@@ -57,6 +59,21 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
+      ],
+    });
+    return completion.choices[0]?.message?.content?.trim() ?? "";
+  },
+  translate: async (text) => {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.4-mini",
+      max_completion_tokens: 100,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Translate the following text to English in one or two sentences. Reply with only the translation.",
+        },
+        { role: "user", content: text },
       ],
     });
     return completion.choices[0]?.message?.content?.trim() ?? "";
@@ -117,11 +134,17 @@ export async function runParrotTurn(
       )
     ).trim() || "Squawk! Say that again?";
 
-  const replyAudio = await deps.synthesize(replyText, input.languageName);
+  // Translate the reply to English in parallel with synthesis so learners
+  // can follow along without already knowing the language.
+  const [replyAudio, replyEnglish] = await Promise.all([
+    deps.synthesize(replyText, input.languageName),
+    deps.translate(replyText),
+  ]);
 
   return {
     transcript,
     replyText,
+    replyEnglish: replyEnglish.trim() || replyText,
     replyAudio,
     audioFormat: "mp3",
     durationSeconds,

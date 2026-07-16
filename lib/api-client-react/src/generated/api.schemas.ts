@@ -417,6 +417,8 @@ export interface ChatTurnResult {
   transcript: string;
   /** Bolo's in-character reply, in the target language. */
   replyText: string;
+  /** English translation of Bolo's reply, shown as a bilingual caption. */
+  replyEnglish: string;
   /** Ready-to-play synthesized speech of the reply. */
   replyAudioBase64: string;
   format: string;

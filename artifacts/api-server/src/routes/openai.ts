@@ -424,6 +424,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     res.json({
       transcript: result.transcript,
       replyText: result.replyText,
+      replyEnglish: result.replyEnglish,
       replyAudioBase64: result.replyAudio.toString("base64"),
       format: result.audioFormat,
       languageCode,

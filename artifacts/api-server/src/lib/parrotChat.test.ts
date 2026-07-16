@@ -38,6 +38,7 @@ function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
   return {
     transcribe: async () => "Namaste",
     reply: async () => "Squawk! Namaste!",
+    translate: async (text) => `[en] ${text}`,
     synthesize: async () => Buffer.from("fake-audio"),
     ...overrides,
   };

@@ -2199,6 +2199,9 @@ components:
         replyText:
           type: string
           description: Bolo's in-character reply, in the target language.
+        replyEnglish:
+          type: string
+          description: English translation of Bolo's reply, shown as a bilingual caption.
         replyAudioBase64:
           type: string
           description: Ready-to-play synthesized speech of the reply.
@@ -2214,6 +2217,7 @@ components:
       required:
         - transcript
         - replyText
+        - replyEnglish
         - replyAudioBase64
         - format
         - languageCode
