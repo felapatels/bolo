@@ -163,12 +163,15 @@ async function recordToResult() {
     expect(screen.getByTestId('record-button')).not.toBeDisabled(),
   );
 
-  fireEvent.press(screen.getByTestId('record-button')); // start
+  // Hold to record, release to stop and evaluate.
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressIn');
+  });
   await waitFor(() =>
     expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
   );
   await act(async () => {
-    fireEvent.press(screen.getByTestId('record-button')); // stop -> evaluate
+    fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
   await waitFor(() =>
     expect(screen.getByText('Keep practicing')).toBeOnTheScreen(),

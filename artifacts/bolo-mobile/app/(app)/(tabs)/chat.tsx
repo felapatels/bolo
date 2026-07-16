@@ -81,7 +81,7 @@ function getStatusLabel(
   if (phase === 'idle') return hasMessages ? 'Hold to talk again' : 'Hold Bolo to start talking';
   if (phase === 'recording') return 'Listening… release to send';
   if (phase === 'processing') return PROCESSING_STEP_LABELS[processingStep];
-  if (phase === 'playing') return 'Almost ready… 🎵';
+  if (phase === 'playing') return 'Bolo is speaking…';
   if (phase === 'error') return 'Something went wrong — hold to retry';
   return '';
 }
@@ -480,18 +480,18 @@ export default function ChatScreen() {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
           require('../../../assets/sounds/squawk_c.mp3') as number,
         ];
-        await new Promise<void>((resolve) => {
-          const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
-          const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
-            if (s.didJustFinish) {
-              try { sub.remove(); } catch {}
-              try { sfxPlayer.remove(); } catch {}
-              resolve();
-            }
-          });
-          sfxPlayer.play();
-          setTimeout(resolve, 1500); // safety timeout
+        // Play the squawk as a fire-and-forget intro — don't await its full
+        // duration before starting Bolo's voice reply. The squawk acts as a
+        // brief "I'm here!" chirp that overlaps naturally with the start of
+        // speech, rather than a blocker adding 1–1.5 s of silence.
+        const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
+        const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+          if (s.didJustFinish) {
+            try { sub.remove(); } catch {}
+            try { sfxPlayer.remove(); } catch {}
+          }
         });
+        sfxPlayer.play();
       }
 
       const handle = await playBase64Audio(

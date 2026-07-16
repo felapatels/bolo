@@ -152,12 +152,14 @@ async function renderReady() {
 }
 
 async function recordAndScore() {
-  fireEvent.press(screen.getByTestId('record-button'));
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressIn');
+  });
   await waitFor(() =>
     expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
   );
   await act(async () => {
-    fireEvent.press(screen.getByTestId('record-button'));
+    fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
   await waitFor(() => expect(screen.getByText('Great job!')).toBeOnTheScreen());
 }

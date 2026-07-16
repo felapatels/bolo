@@ -154,8 +154,10 @@ describe('mic-gate race: recording starts during silent-mode async gap', () => {
       expect(screen.getByTestId('record-button')).toBeOnTheScreen(),
     );
 
-    // Tap record while loadSilentMode is still in flight.
-    fireEvent.press(screen.getByTestId('record-button'));
+    // Hold record while loadSilentMode is still in flight.
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
     await waitFor(() =>
       expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
     );

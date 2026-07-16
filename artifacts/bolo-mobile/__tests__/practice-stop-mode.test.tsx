@@ -9,11 +9,11 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Guards the recording fixes ported from web (task parity):
-//  - manual/auto stop-mode toggle, defaulting to manual, persisted locally
-//  - auto mode ends the recording after a stretch of silence (metering-based)
-//  - scoring failures show an in-context error card with retry (no silent
-//    reset to idle, no alert-only handling)
+// Guards the hold-to-speak practice interaction and silence auto-stop:
+//  - hold the record button → recording starts
+//  - release → recording stops and evaluation begins
+//  - silence auto-stop fires after sustained quiet (safety net for held button)
+//  - scoring failures show an in-context error card with retry
 //  - a failed attempt-save keeps the score visible with a gentle note
 // ---------------------------------------------------------------------------
 
@@ -148,8 +148,8 @@ beforeEach(async () => {
     evaluationToken: 'signed-token',
   }));
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
-  // Restore the default: call onDone immediately so coachPlaying resets and the
-  // record button becomes enabled without needing a real playback event loop.
+  // Restore the default: call onDone immediately so coachPlaying resets and
+  // the record button becomes enabled without a real playback event loop.
   (playBase64Audio as jest.Mock).mockImplementation(
     async (_b: string, _f: string, onDone?: () => void) => {
       onDone?.();
@@ -167,118 +167,65 @@ async function renderReady() {
   );
 }
 
-async function startRecording() {
-  fireEvent.press(screen.getByTestId('record-button'));
+/** Simulate a hold: pressIn to start, then pressOut to stop. */
+async function holdAndRelease() {
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressIn');
+  });
   await waitFor(() =>
     expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
   );
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressOut');
+  });
 }
 
-describe('stop-mode toggle', () => {
-  test('defaults to manual: silence hint says tap to stop', async () => {
-    await renderReady();
-    await startRecording();
-    expect(screen.getByText('Tap to stop')).toBeOnTheScreen();
-  });
-
-  test('choosing auto persists and changes the recording hint', async () => {
+describe('hold-to-speak', () => {
+  test('pressing in starts recording; releasing stops and scores', async () => {
     await renderReady();
     await act(async () => {
-      fireEvent.press(screen.getByTestId('stop-mode-auto'));
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
     });
-    expect(await AsyncStorage.getItem('bolo.stopMode')).toBe('auto');
-    await startRecording();
-    expect(
-      screen.getByText('Listening... stops on its own'),
-    ).toBeOnTheScreen();
-  });
-
-  test('a saved auto preference is restored on launch', async () => {
-    await AsyncStorage.setItem('bolo.stopMode', 'auto');
-    await renderReady();
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('stop-mode-auto').props.accessibilityState.selected,
-      ).toBe(true),
-    );
-  });
-});
-
-describe('auto-stop starts recording on its own', () => {
-  test('recording begins once the coach model finishes playing, no tap needed', async () => {
-    let coachDone: (() => void) | undefined;
-    (playBase64Audio as jest.Mock).mockImplementation(
-      async (_b64: string, _fmt: string, onDone?: () => void) => {
-        coachDone = onDone;
-        return { stop: jest.fn() };
-      },
-    );
-    await AsyncStorage.setItem('bolo.stopMode', 'auto');
-    render(<PracticeScreen />);
-    await waitFor(() => expect(coachDone).toBeDefined());
-
-    await act(async () => {
-      coachDone?.();
-    });
-
     await waitFor(() =>
       expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
     );
-  });
+    expect(screen.getByText('Release to score')).toBeOnTheScreen();
 
-  test('manual mode does not auto-start after the coach model finishes', async () => {
-    let coachDone: (() => void) | undefined;
-    (playBase64Audio as jest.Mock).mockImplementation(
-      async (_b64: string, _fmt: string, onDone?: () => void) => {
-        coachDone = onDone;
-        return { stop: jest.fn() };
-      },
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
     );
-    render(<PracticeScreen />);
-    await waitFor(() => expect(coachDone).toBeDefined());
+    expect(mockState.evaluate).toHaveBeenCalledTimes(1);
+  });
 
-    await act(async () => {
-      coachDone?.();
-    });
+  test('hint text says "Hold and say it out loud" when idle', async () => {
+    await renderReady();
+    expect(screen.getByText('Hold and say it out loud')).toBeOnTheScreen();
+  });
 
-    expect(screen.queryByLabelText('Stop recording')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('record-button')).toBeOnTheScreen();
+  test('no auto-start toggle is shown', async () => {
+    await renderReady();
+    expect(screen.queryByTestId('stop-mode-auto')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('stop-mode-manual')).not.toBeOnTheScreen();
   });
 });
 
-describe('auto-stop quiet-room disclaimer', () => {
-  test('shows a hint about background noise only when auto-stop is selected', async () => {
-    await renderReady();
-    expect(screen.queryByTestId('auto-stop-disclaimer')).not.toBeOnTheScreen();
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('stop-mode-auto'));
-    });
-    expect(screen.getByTestId('auto-stop-disclaimer')).toBeOnTheScreen();
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('stop-mode-manual'));
-    });
-    expect(screen.queryByTestId('auto-stop-disclaimer')).not.toBeOnTheScreen();
-  });
-});
-
-describe('silence auto-stop', () => {
-  test('auto mode ends the recording after sustained silence', async () => {
-    // Start in manual mode so renderReady completes cleanly, then switch to
-    // auto so silence detection is active without the auto-start race.
+describe('silence auto-stop (safety net)', () => {
+  test('ends recording after sustained silence even without releasing', async () => {
     await renderReady();
     await act(async () => {
-      fireEvent.press(screen.getByTestId('stop-mode-auto'));
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
     });
-    await startRecording();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
 
     const now = Date.now();
     const dateSpy = jest.spyOn(Date, 'now');
     dateSpy.mockReturnValue(now);
-    // Speak first — auto-stop only arms once it has actually heard something,
-    // so a burst of speech has to land before the silence countdown means
-    // anything.
+    // Speak first — auto-stop only arms once it has heard something.
     await act(async () => {
       mockState.setRecorderState({ metering: -20 });
     });
@@ -292,34 +239,14 @@ describe('silence auto-stop', () => {
     await waitFor(() => expect(screen.getByText('Great job!')).toBeOnTheScreen());
   });
 
-  test('quiet room tone alone never arms auto-stop (must hear actual speech first)', async () => {
-    // Start in manual mode so renderReady completes cleanly, then switch to
-    // auto before recording begins.
+  test('quiet room tone alone never arms auto-stop (must hear speech first)', async () => {
     await renderReady();
     await act(async () => {
-      fireEvent.press(screen.getByTestId('stop-mode-auto'));
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
     });
-    await startRecording();
-
-    const now = Date.now();
-    const dateSpy = jest.spyOn(Date, 'now');
-    dateSpy.mockReturnValue(now);
-    await act(async () => {
-      mockState.setRecorderState({ metering: -60 });
-    });
-    dateSpy.mockReturnValue(now + 5000);
-    await act(async () => {
-      mockState.setRecorderState({ metering: -61 });
-    });
-    dateSpy.mockRestore();
-
-    expect(mockState.evaluate).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen();
-  });
-
-  test('manual mode ignores silence entirely', async () => {
-    await renderReady();
-    await startRecording();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
 
     const now = Date.now();
     const dateSpy = jest.spyOn(Date, 'now');
@@ -344,12 +271,11 @@ describe('scoring failure handling', () => {
       throw new Error('boom');
     });
     await renderReady();
-    await startRecording();
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('record-button'));
-    });
+    await holdAndRelease();
 
-    expect(screen.getByTestId('eval-error-card')).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(screen.getByTestId('eval-error-card')).toBeOnTheScreen(),
+    );
     expect(
       screen.getByText('Something went wrong while scoring. Please try again.'),
     ).toBeOnTheScreen();
@@ -367,12 +293,11 @@ describe('scoring failure handling', () => {
       throw new Error('save failed');
     });
     await renderReady();
-    await startRecording();
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('record-button'));
-    });
+    await holdAndRelease();
 
-    expect(screen.getByText('Great job!')).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+    );
     expect(
       screen.getByText(
         "Heads up — this attempt couldn't be saved to your progress.",

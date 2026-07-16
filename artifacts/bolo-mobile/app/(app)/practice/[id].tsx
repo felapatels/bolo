@@ -64,11 +64,6 @@ import {
   SILENCE_DROP_DB,
   type PlaybackHandle,
 } from '@/lib/audio';
-import {
-  loadStopMode,
-  saveStopMode,
-  type StopMode,
-} from '@/lib/stop-mode';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/settings';
 import { scoreColor } from '@/lib/ui';
 
@@ -152,38 +147,11 @@ export default function PracticeScreen() {
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = React.useState(false);
 
-  // How recording stops: manual (default) or auto-stop on silence. Hydrated
-  // once from local storage; the ref is read by the silence watcher so a
-  // mid-recording flip to manual immediately disarms a pending auto-stop.
-  const [stopMode, setStopMode] = React.useState<StopMode>('manual');
-  const stopModeRef = React.useRef<StopMode>('manual');
-  // In auto-stop mode, the learner shouldn't have to tap the mic at all: once
-  // the coach model finishes playing (on a fresh phrase or a retry),
-  // recording starts on its own. This is decided at playback-completion time
-  // (reading the ref, never a value captured earlier) so it isn't racy with
-  // stopMode's async hydration from storage on first mount. A manual
-  // "Hear it" replay tap sets this flag so that one playback is excluded.
-  const manualReplayRef = React.useRef(false);
-  // startRecording is defined below (it needs stopPlayback and other things
-  // declared after this point); the coach-playback-done handler above needs
-  // to call it, so route through a ref assigned once startRecording exists.
-  const startRecordingRef = React.useRef<(() => Promise<void>) | null>(null);
-  React.useEffect(() => {
-    let cancelled = false;
-    loadStopMode().then((mode) => {
-      if (cancelled) return;
-      setStopMode(mode);
-      stopModeRef.current = mode;
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const changeStopMode = (mode: StopMode) => {
-    setStopMode(mode);
-    stopModeRef.current = mode;
-    void saveStopMode(mode);
-  };
+  // Tracks whether the learner's finger is currently held on the record button.
+  // Guards the hold-to-speak startup race: if pressOut fires before the async
+  // recorder startup completes, startRecording reads this after startup and
+  // immediately calls stopRecording itself.
+  const isPressingRef = React.useRef(false);
 
   const celebrateTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -292,15 +260,6 @@ export default function PracticeScreen() {
       if (token !== playTokenRef.current) return;
       const onCoachDone = () => {
         setCoachPlaying(false);
-        const wasManualReplay = manualReplayRef.current;
-        manualReplayRef.current = false;
-        if (
-          !wasManualReplay &&
-          stopModeRef.current === 'auto' &&
-          phaseRef.current === 'idle'
-        ) {
-          void startRecordingRef.current?.();
-        }
       };
       playbackRef.current = await playBase64Audio(
         res.audioBase64,
@@ -465,10 +424,10 @@ export default function PracticeScreen() {
   }, [phase, prepareRecorder]);
 
   // --- Silence auto-stop ---
-  // In auto mode, a continuous stretch of quiet (metering stays below the
-  // threshold) ends the recording on its own; any louder sample resets the
-  // countdown. In manual mode silence never stops the recording. The manual
-  // stop button remains available in both modes.
+  // A continuous stretch of quiet (metering stays below the threshold) ends
+  // the recording on its own — a safety net so the learner never has to
+  // release and re-hold if they paused too long mid-phrase.
+  // The learner's hold-gesture release is still the primary stop action.
   const recorderState = useAudioRecorderState(recorder, 250);
   const silenceSinceRef = React.useRef<number | null>(null);
   // Loudest level heard this recording; the silence threshold adapts to it so
@@ -477,7 +436,7 @@ export default function PracticeScreen() {
   const peakDbRef = React.useRef(-160);
   const metering = recorderState?.metering;
   React.useEffect(() => {
-    if (phase !== 'recording' || stopMode !== 'auto') {
+    if (phase !== 'recording') {
       silenceSinceRef.current = null;
       peakDbRef.current = -160;
       return;
@@ -506,18 +465,16 @@ export default function PracticeScreen() {
     }
     if (now - silenceSinceRef.current >= SILENCE_DURATION_MS) {
       silenceSinceRef.current = null;
-      // The learner may have flipped to manual after recording began; in
-      // that case silence must not end the recording.
-      if (stopModeRef.current !== 'auto') return;
       void stopRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, stopMode, metering, recorderState]);
+  }, [phase, metering, recorderState]);
 
   // Prevents a manual stop and an auto-stop from both firing.
   const finishingRef = React.useRef(false);
 
   const startRecording = async () => {
+    if (phase !== 'idle') return;
     stopPlayback();
     setEvalError(null);
     // Not-yet-prepared edge case (e.g. permission was denied on load, or
@@ -551,12 +508,16 @@ export default function PracticeScreen() {
       // Only show "recording" once capture has actually started.
       setPhaseSync('recording');
       hapticMedium();
+      // Guard: if the finger was lifted while async startup was in flight,
+      // stop immediately so recording never outlasts the hold gesture.
+      if (!isPressingRef.current) {
+        void stopRecording();
+      }
     } catch {
       recorderPreparedRef.current = false;
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };
-  startRecordingRef.current = startRecording;
 
   const stopRecording = async () => {
     if (finishingRef.current) return;
@@ -870,9 +831,6 @@ export default function PracticeScreen() {
 
           <Pressable
             onPress={() => {
-              // A manual replay must never auto-start recording, even in
-              // auto-stop mode.
-              manualReplayRef.current = true;
               playCoach();
             }}
             disabled={coachPlaying}
@@ -1047,18 +1005,18 @@ export default function PracticeScreen() {
             onPress={retryAfterError}
           />
         ) : (
-          <>
-            <RecordButton
-              phase={phase}
-              stopMode={stopMode}
-              coachPlaying={coachPlaying}
-              onStart={startRecording}
-              onStop={stopRecording}
-            />
-            {phase === 'idle' || phase === 'recording' ? (
-              <StopModeToggle mode={stopMode} onChange={changeStopMode} />
-            ) : null}
-          </>
+          <RecordButton
+            phase={phase}
+            coachPlaying={coachPlaying}
+            onPressIn={() => {
+              isPressingRef.current = true;
+              if (phase === 'idle') void startRecording();
+            }}
+            onPressOut={() => {
+              isPressingRef.current = false;
+              if (phase === 'recording') void stopRecording();
+            }}
+          />
         )}
       </View>
       {celebrate ? <Confetti /> : null}
@@ -1095,76 +1053,17 @@ function PracticeHeader({
   );
 }
 
-function StopModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: StopMode;
-  onChange: (mode: StopMode) => void;
-}) {
-  const colors = useColors();
-  const option = (value: StopMode, label: string, testID: string) => {
-    const selected = mode === value;
-    return (
-      <Pressable
-        onPress={() => onChange(value)}
-        accessibilityRole="button"
-        accessibilityState={{ selected }}
-        accessibilityLabel={label}
-        testID={testID}
-        style={[
-          styles.stopModeOption,
-          selected && {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.stopModeText,
-            { color: selected ? colors.foreground : colors.mutedForeground },
-          ]}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
-  return (
-    <View>
-      <View
-        accessibilityLabel="How recording stops"
-        style={[styles.stopModeRow, { backgroundColor: colors.muted }]}
-      >
-        {option('auto', 'Auto-stop', 'stop-mode-auto')}
-        {option('manual', "I'll tap stop", 'stop-mode-manual')}
-      </View>
-      {mode === 'auto' ? (
-        <Text
-          testID="auto-stop-disclaimer"
-          style={[styles.stopModeHint, { color: colors.mutedForeground }]}
-        >
-          Best in a quiet room — background noise can throw off when it
-          stops listening.
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 function RecordButton({
   phase,
-  stopMode,
   coachPlaying,
-  onStart,
-  onStop,
+  onPressIn,
+  onPressOut,
 }: {
   phase: Phase;
-  stopMode: StopMode;
   coachPlaying: boolean;
-  onStart: () => void;
-  onStop: () => void;
+  onPressIn: () => void;
+  onPressOut: () => void;
 }) {
   const colors = useColors();
   const pulse = useSharedValue(0);
@@ -1184,10 +1083,8 @@ function RecordButton({
 
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
-  // Disable the mic while the coach is speaking so a tap can't start
-  // recording over or ahead of the phrase playback. (In silent mode the
-  // coach never auto-plays, so coachPlaying stays false and the mic is
-  // immediately available.)
+  // Disable the mic while the coach is speaking so a hold can't start
+  // recording over or ahead of the phrase playback.
   const blocked = evaluating || coachPlaying;
 
   return (
@@ -1204,8 +1101,9 @@ function RecordButton({
           disabled={blocked}
           testID="record-button"
           accessibilityRole="button"
-          accessibilityLabel={recording ? 'Stop recording' : 'Start recording'}
-          onPress={recording ? onStop : onStart}
+          accessibilityLabel={recording ? 'Stop recording' : 'Hold to record'}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
           style={[
             styles.recordBtn,
             {
@@ -1231,10 +1129,8 @@ function RecordButton({
           : coachPlaying
             ? 'Listen first...'
             : recording
-              ? stopMode === 'auto'
-                ? 'Listening... stops on its own'
-                : 'Tap to stop'
-              : 'Tap and say it out loud'}
+              ? 'Release to score'
+              : 'Hold and say it out loud'}
       </Text>
     </View>
   );
@@ -1379,33 +1275,7 @@ const styles = StyleSheet.create({
   recordHint: { fontFamily: AppFonts.semibold, fontSize: 15 },
   errorTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   saveFailed: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 12 },
-  stopModeRow: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    borderRadius: 999,
-    padding: 3,
-    marginTop: 14,
-  },
-  stopModeOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  stopModeText: {
-    fontFamily: AppFonts.bold,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  stopModeHint: {
-    fontFamily: AppFonts.semibold,
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: 24,
-  },
+
   note: {
     fontFamily: AppFonts.regular,
     fontSize: 16,
