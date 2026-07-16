@@ -391,11 +391,12 @@ export default function ChatScreen() {
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
+        // React Native / Hermes does not support ReadableStream body reading,
+        // so we use the plain JSON path (no SSE). The server returns the same
+        // payload fields when Accept: text/event-stream is absent.
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // POST with SSE accept header — server emits `transcript` then `reply`.
       const res = await fetch(chatUrl, {
         method: 'POST',
         headers,
@@ -415,151 +416,93 @@ export default function ChatScreen() {
         return;
       }
 
-      // Read the SSE stream line-by-line.
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let sseBuffer = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload = await res.json() as any;
+      if (payload.error) throw new Error(payload.error as string);
 
-      outer: while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        sseBuffer += decoder.decode(value, { stream: true });
+      const transcriptText     = (payload.transcript as string) ?? '';
+      const transcriptEnglish  = (payload.transcriptEnglish as string) ?? '';
+      const replyText          = (payload.replyText as string) ?? '';
+      const replyEnglish       = (payload.replyEnglish as string) ?? '';
+      const replyAudioBase64   = (payload.replyAudioBase64 as string) ?? '';
+      const format             = (payload.format as string) || 'mp3';
+      const squawkVariant      = payload.squawkVariant as 0 | 1 | 2 | null;
+      const secondsRemaining   = payload.secondsRemaining as number | null;
 
-        // Events are delimited by double newlines.
-        const parts = sseBuffer.split('\n\n');
-        sseBuffer = parts.pop() ?? '';
+      // A newer turn started or user left — drop stale result.
+      if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
 
-        for (const part of parts) {
-          let eventName = 'message';
-          let dataStr = '';
-          for (const line of part.split('\n')) {
-            if (line.startsWith('event: ')) eventName = line.slice(7).trim();
-            else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
-          }
-          if (!dataStr) continue;
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const payload = JSON.parse(dataStr) as any;
-
-          if (eventName === 'transcript') {
-            const transcriptText = (payload.transcript as string) ?? '';
-
-            // A newer turn started or user left — drop stale result.
-            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
-              reader.cancel().catch(() => {});
-              return;
-            }
-
-            // Replace the pending bubble with the real transcript text.
-            // English gloss is back-filled on the reply event.
-            hapticMedium();
-            setMessages((prev) => {
-              const pendingIdx = prev.findIndex((m) => m.pending);
-              if (pendingIdx >= 0) {
-                const updated = [...prev];
-                updated[pendingIdx] = { role: 'learner', text: transcriptText };
-                return updated;
-              }
-              return [...prev, { role: 'learner', text: transcriptText }];
-            });
-            setProcessingStep('replying');
-
-          } else if (eventName === 'reply') {
-            // A newer turn started or user left — drop stale result.
-            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
-              reader.cancel().catch(() => {});
-              return;
-            }
-
-            const replyText = (payload.replyText as string) ?? '';
-            const replyEnglish = (payload.replyEnglish as string) ?? '';
-            const transcriptEnglish = (payload.transcriptEnglish as string) ?? '';
-            const replyAudioBase64 = (payload.replyAudioBase64 as string) ?? '';
-            const format = (payload.format as string) || 'mp3';
-            const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
-            const secondsRemaining = payload.secondsRemaining as number | null;
-
-            setMessages((prev) => {
-              const updated = [...prev];
-              // Back-fill the English gloss on the learner bubble shown at transcript time.
-              for (let i = updated.length - 1; i >= 0; i--) {
-                if (updated[i].role === 'learner') {
-                  if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
-                    updated[i] = { ...updated[i], englishText: transcriptEnglish };
-                  }
-                  break;
-                }
-              }
-              return [
-                ...updated,
-                {
-                  role: 'parrot',
-                  text: replyText,
-                  englishText:
-                    replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
-                },
-              ];
-            });
-
-            if (secondsRemaining !== null) {
-              setSecondsRemaining(secondsRemaining);
-            } else {
-              setSecondsRemaining(null);
-            }
-
-            // Let React render the parrot bubble before audio starts — learners
-            // reading scripts like Devanagari or Nastaliq get a half-beat to
-            // find their place before audio begins.
-            await new Promise<void>((resolve) => setTimeout(resolve, 80));
-
-            // A newer turn may have started or the user left the tab — drop stale.
-            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
-              reader.cancel().catch(() => {});
-              return;
-            }
-
-            setPhase('playing');
-            hapticHeavy();
-
-            if (squawkVariant !== null && squawkVariant !== undefined) {
-              const sfxAssets = [
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                require('../../../assets/sounds/squawk_a.mp3') as number,
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                require('../../../assets/sounds/squawk_b.mp3') as number,
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                require('../../../assets/sounds/squawk_c.mp3') as number,
-              ];
-              await new Promise<void>((resolve) => {
-                const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
-                const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
-                  if (s.didJustFinish) {
-                    try { sub.remove(); } catch {}
-                    try { sfxPlayer.remove(); } catch {}
-                    resolve();
-                  }
-                });
-                sfxPlayer.play();
-                setTimeout(resolve, 1500); // safety timeout
-              });
-            }
-
-            const handle = await playBase64Audio(
-              replyAudioBase64,
-              format,
-              () => {
-                playbackRef.current = null;
-                setPhase('idle');
-              },
-            );
-            playbackRef.current = handle;
-            break outer; // reply is the final event
-
-          } else if (eventName === 'error') {
-            throw new Error((payload.error as string) || 'Chat turn failed');
-          }
+      // Swap the pending bubble for the real transcript, then add parrot reply.
+      hapticMedium();
+      setMessages((prev) => {
+        const updated = [...prev];
+        const pendingIdx = updated.findIndex((m) => m.pending);
+        const learnerBubble = {
+          role: 'learner' as const,
+          text: transcriptText,
+          englishText: transcriptEnglish && transcriptEnglish !== transcriptText
+            ? transcriptEnglish : undefined,
+        };
+        if (pendingIdx >= 0) {
+          updated[pendingIdx] = learnerBubble;
+        } else {
+          updated.push(learnerBubble);
         }
+        updated.push({
+          role: 'parrot',
+          text: replyText,
+          englishText: replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
+        });
+        return updated;
+      });
+
+      setProcessingStep('replying');
+      if (secondsRemaining !== null) {
+        setSecondsRemaining(secondsRemaining);
+      } else {
+        setSecondsRemaining(null);
       }
+
+      // Half-beat so React renders the parrot bubble before audio starts.
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+      if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+      setPhase('playing');
+      hapticHeavy();
+
+      if (squawkVariant !== null && squawkVariant !== undefined) {
+        const sfxAssets = [
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_a.mp3') as number,
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_b.mp3') as number,
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_c.mp3') as number,
+        ];
+        await new Promise<void>((resolve) => {
+          const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
+          const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+            if (s.didJustFinish) {
+              try { sub.remove(); } catch {}
+              try { sfxPlayer.remove(); } catch {}
+              resolve();
+            }
+          });
+          sfxPlayer.play();
+          setTimeout(resolve, 1500); // safety timeout
+        });
+      }
+
+      const handle = await playBase64Audio(
+        replyAudioBase64,
+        format,
+        () => {
+          playbackRef.current = null;
+          setPhase('idle');
+        },
+      );
+      playbackRef.current = handle;
     } catch (err) {
       // A newer turn started while this one was in flight — drop this error
       // silently so it doesn't disrupt the active turn's UI state.
