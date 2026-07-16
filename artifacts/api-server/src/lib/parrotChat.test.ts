@@ -361,6 +361,126 @@ test("runParrotTurn: prompt changes with the active language (Tamil vs Gujarati)
   assert.notEqual(prompts[0], prompts[1], "prompts should differ between languages");
 });
 
+// ---------------------------------------------------------------------------
+// runParrotTurn: seed words in the Whisper transcription prompt
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: seed words are appended to the transcription prompt", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedOptions: Record<string, unknown> = {};
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Gujarati",
+      languageCode: "gu",
+      history: [],
+      seedWords: ["kemcho", "kem cho", "shu chhe"],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedOptions = options as Record<string, unknown>;
+        return "kemcho";
+      },
+    }),
+  );
+  const prompt = capturedOptions["prompt"] as string;
+  assert.ok(prompt.includes("Gujarati"), "prompt should still contain the language name");
+  assert.ok(prompt.toLowerCase().includes("english"), "prompt should still contain 'English'");
+  assert.ok(prompt.includes("kemcho"), "prompt should contain the first seed word");
+  assert.ok(prompt.includes("kem cho"), "prompt should contain the second seed word");
+  assert.ok(prompt.includes("shu chhe"), "prompt should contain the third seed word");
+});
+
+test("runParrotTurn: seed words are comma-separated after the language declaration", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Kashmiri",
+      languageCode: "ks",
+      history: [],
+      seedWords: ["kyah chhu", "kus", "chu"],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "kyah chhu";
+      },
+    }),
+  );
+  // Expected format: "Kashmiri or English. kyah chhu, kus, chu"
+  assert.ok(capturedPrompt.startsWith("Kashmiri or English."),
+    "prompt should start with the base language declaration");
+  assert.ok(capturedPrompt.includes("kyah chhu, kus, chu"),
+    "seed words should be comma-separated after the base prompt");
+});
+
+test("runParrotTurn: omitting seedWords keeps the existing prompt unchanged", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "namaste";
+      },
+    }),
+  );
+  // Without seedWords, the prompt should be exactly the bare two-language hint.
+  assert.equal(capturedPrompt, "Hindi or English.",
+    "prompt without seed words should be exactly the bare two-language hint");
+});
+
+test("runParrotTurn: empty seedWords array keeps the existing prompt unchanged", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedPrompt = "";
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Tamil",
+      languageCode: "ta",
+      history: [],
+      seedWords: [],
+    },
+    makeDeps({
+      transcribe: async (_buf, _fmt, options) => {
+        capturedPrompt = (options as { prompt?: string }).prompt ?? "";
+        return "vanakkam";
+      },
+    }),
+  );
+  assert.equal(capturedPrompt, "Tamil or English.",
+    "prompt with empty seedWords should be exactly the bare two-language hint");
+});
+
+test("runParrotTurn: seed words differ between languages", async () => {
+  const wav = makeWavBuffer(1);
+  const prompts: string[] = [];
+
+  for (const { languageName, languageCode, seedWords } of [
+    { languageName: "Manipuri", languageCode: "mni", seedWords: ["namaskar", "haiba"] },
+    { languageName: "Santali", languageCode: "sat", seedWords: ["johar", "hola"] },
+  ]) {
+    await runParrotTurn(
+      { audioBuffer: wav, languageName, languageCode, history: [], seedWords },
+      makeDeps({
+        transcribe: async (_buf, _fmt, options) => {
+          prompts.push((options as { prompt?: string }).prompt ?? "");
+          return "hello";
+        },
+      }),
+    );
+  }
+
+  assert.ok(prompts[0].includes("Manipuri") && prompts[0].includes("namaskar"),
+    "Manipuri prompt should contain its seed words");
+  assert.ok(prompts[1].includes("Santali") && prompts[1].includes("johar"),
+    "Santali prompt should contain its seed words");
+  assert.notEqual(prompts[0], prompts[1], "prompts should differ between languages");
+});
+
 test("runParrotTurn: transcriptEnglish is returned from reply", async () => {
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(

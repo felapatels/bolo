@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, asc } from "drizzle-orm";
 import {
   openai,
   textToSpeech,
@@ -423,6 +423,27 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       }))
     : [];
 
+  // Fetch 5 short, high-frequency romanized words from the language's phrase
+  // library to seed the Whisper transcription prompt. This gives the model
+  // stronger phonetic anchoring for less-resourced languages where a bare
+  // language-name hint can still mis-detect similar-sounding words in other
+  // scripts (e.g. Kashmiri, Santali, Manipuri). Non-fatal: if the query fails
+  // or returns nothing the existing bare-name prompt is used unchanged.
+  let seedWords: string[] = [];
+  try {
+    const seedPhrases = await db.query.phrasesTable.findMany({
+      where: eq(phrasesTable.languageCode, languageCode),
+      columns: { romanized: true },
+      orderBy: [asc(phrasesTable.difficulty), asc(phrasesTable.sortOrder)],
+      limit: 5,
+    });
+    seedWords = seedPhrases
+      .map((p) => p.romanized.trim())
+      .filter(Boolean);
+  } catch (err) {
+    req.log.warn({ err }, "Could not fetch seed words for chat transcription prompt");
+  }
+
   // Determine response mode: SSE when the client explicitly accepts it.
   const wantsSSE = (req.headers.accept ?? "").includes("text/event-stream");
 
@@ -447,6 +468,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         languageName: language.name,
         languageCode,
         history: trimmedHistory,
+        seedWords,
         onTranscript: (transcript, durationSeconds) => {
           capturedTranscript = transcript;
           capturedDuration = durationSeconds;

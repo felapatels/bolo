@@ -27,6 +27,15 @@ export interface ParrotTurnInput {
    * to the client ~1 s earlier than the full reply.
    */
   onTranscript?: (transcript: string, durationSeconds: number) => void;
+  /**
+   * Optional short list of high-frequency romanized words from the active
+   * language's phrase library. When supplied, they are appended to the Whisper
+   * transcription prompt to give the model stronger phonetic anchoring for
+   * less-resourced languages (e.g. Kashmiri, Santali, Manipuri) where a bare
+   * language-name hint can still mis-detect similar-sounding words in other
+   * scripts. Backward-compatible: omitting the field uses the existing prompt.
+   */
+  seedWords?: string[];
 }
 
 export interface ParrotTurnResult {
@@ -141,6 +150,19 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   synthesize: boloTTS,
 };
 
+// Builds the Whisper transcription prompt, optionally seeding it with
+// high-frequency romanized words from the active language's phrase library.
+// Format mirrors the pronunciation route's anchor strategy:
+//   "Gujarati or English. kemcho, kem cho, shu chhe"
+// Backward-compatible: when seedWords is absent or empty, returns the original
+// bare two-language hint.
+function buildTranscriptionPrompt(languageName: string, seedWords?: string[]): string {
+  const base = `${languageName} or English.`;
+  const seeds = (seedWords ?? []).filter(Boolean);
+  if (seeds.length === 0) return base;
+  return `${base} ${seeds.join(", ")}`;
+}
+
 function buildSystemPrompt(languageName: string): string {
   return `You are Bolo, a bubbly, rainbow-feathered parrot who is absolutely obsessed with language. You are a learner's ${languageName} conversation buddy and you LOVE this job. You are warm, cheeky, and endlessly enthusiastic. Stay in character at all times.
 
@@ -213,8 +235,11 @@ export async function runParrotTurn(
     // Whisper biases toward those two scripts. Short target-language words
     // (e.g. "kemcho") are otherwise mis-detected as phonetically-similar words
     // in unrelated scripts (e.g. Belarusian Cyrillic).
+    // When seed words are available, append them to give Whisper stronger
+    // phonetic anchoring — the same strategy the pronunciation route uses by
+    // seeding the prompt with the target phrase text.
     deps.transcribe(buffer, format, {
-      prompt: `${input.languageName} or English.`,
+      prompt: buildTranscriptionPrompt(input.languageName, input.seedWords),
     }).then((t) => t.trim()),
   ]);
 
