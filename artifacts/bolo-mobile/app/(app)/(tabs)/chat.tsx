@@ -37,6 +37,7 @@ import {
   SILENCE_DURATION_MS,
   type PlaybackHandle,
 } from '@/lib/audio';
+import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
 
 // How many previous turns to include in each request for conversational context.
 const HISTORY_WINDOW = 6;
@@ -96,6 +97,36 @@ export default function ChatScreen() {
   // If the language is unlocked after a purchase, the screen re-evaluates.
   const [upgradeRequired, setUpgradeRequired] = React.useState(false);
 
+  // First-time hold-to-speak hint — shown until the learner presses or it
+  // auto-dismisses. `null` means "not yet loaded from storage".
+  const [holdHintSeen, setHoldHintSeen] = React.useState<boolean | null>(null);
+  const holdHintTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadChatHoldHintSeen().then((seen) => {
+      if (!cancelled) setHoldHintSeen(seen);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  // Auto-dismiss the hint after 5 s so it never blocks the screen permanently.
+  React.useEffect(() => {
+    if (holdHintSeen === false) {
+      holdHintTimerRef.current = setTimeout(() => {
+        setHoldHintSeen(true);
+        void saveChatHoldHintSeen();
+      }, 5000);
+    }
+    return () => {
+      if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
+    };
+  }, [holdHintSeen]);
+  const dismissHoldHint = React.useCallback(() => {
+    if (holdHintSeen) return;
+    if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
+    setHoldHintSeen(true);
+    void saveChatHoldHintSeen();
+  }, [holdHintSeen]);
+
   // Audio
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const recorderState = useAudioRecorderState(recorder, 250);
@@ -104,6 +135,12 @@ export default function ChatScreen() {
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const finishingRef = React.useRef(false);
+
+  // Tracks whether the learner's finger is currently held down on the mascot.
+  // Used to resolve the startup race: if pressOut fires before the async
+  // recorder startup completes (phase is still idle), handleStartRecording
+  // reads this ref after startup and immediately stops itself.
+  const isPressingRef = React.useRef(false);
 
   // Silence auto-stop
   const silenceSinceRef = React.useRef<number | null>(null);
@@ -190,6 +227,7 @@ export default function ChatScreen() {
         }
         recorderPreparedRef.current = false;
         finishingRef.current = false;
+        isPressingRef.current = false;
         silenceSinceRef.current = null;
         setPhase('idle');
         setErrorMsg(null);
@@ -262,6 +300,11 @@ export default function ChatScreen() {
       recorderPreparedRef.current = false;
       setPhase('recording');
       hapticMedium();
+      // Guard: if the finger was lifted while async startup was in flight,
+      // stop immediately so recording never outlasts the hold gesture.
+      if (!isPressingRef.current) {
+        void handleStopRecording();
+      }
     } catch {
       recorderPreparedRef.current = false;
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
@@ -464,21 +507,29 @@ export default function ChatScreen() {
         </Animated.View>
       )}
 
-      {/* Mascot area — tapping the bird starts/stops recording */}
+      {/* Mascot area — hold the bird to speak, release to send */}
       <Pressable
-        onPress={
-          phase === 'recording'
-            ? handleStopRecording
-            : phase === 'idle' || phase === 'error'
-              ? handleStartRecording
-              : undefined
-        }
+        onPressIn={() => {
+          isPressingRef.current = true;
+          // Dismiss the hold-hint on first interaction.
+          dismissHoldHint();
+          if (phase === 'idle' || phase === 'error') void handleStartRecording();
+        }}
+        onPressOut={() => {
+          isPressingRef.current = false;
+          // If recording is already live, stop immediately.
+          // If startup is still in flight (phase still idle/error), the ref
+          // flip above is enough — handleStartRecording reads it after startup
+          // completes and calls handleStopRecording itself.
+          if (phase === 'recording') void handleStopRecording();
+        }}
         disabled={phase === 'processing' || phase === 'playing' || capExhausted}
         style={[styles.mascotArea, messages.length === 0 && styles.mascotAreaFull]}
         accessibilityRole="button"
         accessibilityLabel={
-          phase === 'recording' ? 'Stop recording' : 'Start recording'
+          phase === 'recording' ? 'Release to send' : 'Hold to speak'
         }
+        accessibilityHint="Hold your finger on Bolo to record, lift to send"
       >
         <TalkingMascot mode={mascotMode} size={messages.length === 0 ? 220 : 130} />
 
@@ -489,19 +540,32 @@ export default function ChatScreen() {
           style={[styles.statusLabel, { color: colors.mutedForeground }]}
         >
           {phase === 'idle' && messages.length === 0
-            ? 'Tap Bolo to start talking'
+            ? 'Hold Bolo to start talking'
             : phase === 'idle'
-              ? 'Tap to talk again'
+              ? 'Hold to talk again'
               : phase === 'recording'
-                ? 'Listening…'
+                ? 'Listening… release to send'
                 : phase === 'processing'
                   ? 'Thinking…'
                   : phase === 'playing'
                     ? 'Bolo is speaking…'
                     : phase === 'error'
-                      ? 'Something went wrong'
+                      ? 'Something went wrong — hold to retry'
                       : ''}
         </Animated.Text>
+
+        {/* First-time instructional hint */}
+        {holdHintSeen === false && (
+          <Animated.View
+            entering={appear(FadeInDown.duration(320))}
+            style={[styles.holdHint, { backgroundColor: colors.primary }]}
+          >
+            <Feather name="mic" size={13} color={colors.primaryForeground ?? '#fff'} />
+            <Text style={[styles.holdHintText, { color: colors.primaryForeground ?? '#fff' }]}>
+              Hold to speak · release to send
+            </Text>
+          </Animated.View>
+        )}
 
         {/* Skip button — only shown while Bolo is speaking */}
         {phase === 'playing' && (
@@ -807,6 +871,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  holdHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    marginTop: 4,
+  },
+  holdHintText: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 13,
   },
   // Modal / bottom-sheet
   modalBackdrop: {

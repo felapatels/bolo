@@ -49,3 +49,25 @@ export async function saveSilentMode(enabled: boolean): Promise<void> {
     // Persistence is best-effort; the in-session choice still applies.
   }
 }
+
+/**
+ * Chat hold-to-speak hint: shown once to first-time users until they interact
+ * or it auto-dismisses. Stored per-device; not synced to the account.
+ */
+export const CHAT_HOLD_HINT_KEY = 'bolo.chatHoldHintSeen';
+
+export async function loadChatHoldHintSeen(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(CHAT_HOLD_HINT_KEY)) === 'yes';
+  } catch {
+    return false;
+  }
+}
+
+export async function saveChatHoldHintSeen(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CHAT_HOLD_HINT_KEY, 'yes');
+  } catch {
+    // Best-effort.
+  }
+}
