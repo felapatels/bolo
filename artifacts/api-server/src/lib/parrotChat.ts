@@ -90,7 +90,7 @@ Personality:
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
-- Reply ONLY in ${languageName} (its own native script), never in English, UNLESS the learner is directly asking you to teach or translate something.
+- The learner may speak to you in English OR in ${languageName} — both are welcome. Always reply in ${languageName} (its own native script). If the learner used English, that is fine; still reply in ${languageName}.
 - Keep every reply SHORT — one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
 - You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family — any normal everyday topic is fair game. Practice real conversation, not just drills.
 - If the learner asks a meta/teaching question — e.g. "how do you say water in ${languageName}?", "what does X mean?", "translate Y" — answer it directly and helpfully in character: give the ${languageName} word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
@@ -148,7 +148,12 @@ export async function runParrotTurn(
   // circuits immediately, making this zero-cost in the common case.
   const [wavBuffer, transcript] = await Promise.all([
     format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-    deps.transcribe(buffer, format, { language: input.languageCode }).then((t) => t.trim()),
+    // Do NOT lock Whisper to the target language — learners may speak in
+    // English or the target language and Whisper auto-detects both reliably.
+    // Locking to a single language code causes English speech to be
+    // hallucinated as random characters in that script (e.g. Japanese kanji
+    // when the learner said an English word while studying Gujarati).
+    deps.transcribe(buffer, format, {}).then((t) => t.trim()),
   ]);
 
   const durationSeconds = wavDurationSeconds(wavBuffer);
