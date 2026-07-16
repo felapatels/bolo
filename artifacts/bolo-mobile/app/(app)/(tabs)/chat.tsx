@@ -948,7 +948,7 @@ export default function ChatScreen() {
                 >
                   {displayText}
                 </Text>
-                {msg.englishText && !isAnimating ? (
+                {msg.englishText ? (
                   <Text
                     style={[
                       styles.bubbleEnglish,
