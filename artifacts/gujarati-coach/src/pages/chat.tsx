@@ -151,21 +151,28 @@ export default function ChatPage() {
         setSecondsRemaining(null);
       }
 
-      // Play the parrot's audio reply.
+      // Play the parrot's audio reply (preceded by a real squawk SFX when Bolo
+      // included a squawk token — the TTS voice never pronounces "squawk").
       setPhase("playing");
-      const audio = new Audio(
-        `data:audio/${result.format || "mp3"};base64,${result.replyAudioBase64}`,
-      );
-      playbackRef.current = audio;
-      audio.onended = () => {
-        playbackRef.current = null;
-        setPhase("idle");
+
+      const playReply = () => {
+        const audio = new Audio(
+          `data:audio/${result.format || "mp3"};base64,${result.replyAudioBase64}`,
+        );
+        playbackRef.current = audio;
+        audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
+        audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
       };
-      audio.play().catch(() => {
-        // Autoplay blocked — just go to idle.
-        playbackRef.current = null;
-        setPhase("idle");
-      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((result as any).hasSquawk) {
+        const sfx = new Audio("/gujarati-coach/sounds/squawk.mp3");
+        sfx.onended = playReply;
+        sfx.onerror = playReply; // gracefully skip if asset missing
+        sfx.play().catch(playReply);
+      } else {
+        playReply();
+      }
     } catch (err) {
       const upgrade = asUpgradeRequired(err);
       if (upgrade) {

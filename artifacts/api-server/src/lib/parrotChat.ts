@@ -30,9 +30,26 @@ export interface ParrotTurnResult {
   replyEnglish: string;
   replyAudio: Buffer;
   audioFormat: "mp3";
+  // True when Bolo's reply contained at least one squawk token. The client
+  // plays a real parrot SFX before the TTS audio so the voice never has to
+  // say the word "squawk" aloud.
+  hasSquawk: boolean;
   // Server-measured duration of the learner's submitted audio, in seconds —
   // what actually gets charged against the weekly chat-time cap.
   durationSeconds: number;
+}
+
+// Squawk tokens the LLM may insert for character. We strip them from the TTS
+// input so the synthesiser doesn't awkwardly pronounce "squawk", and signal
+// the client to play a real parrot sound effect instead.
+const SQUAWK_RE = /\b(Squawk!?|Squawkity!?|Bawk( bawk)?!?|Awk!?|Eeek!?)\s*/gi;
+
+function extractSquawks(text: string): { cleaned: string; hasSquawk: boolean } {
+  SQUAWK_RE.lastIndex = 0;
+  const hasSquawk = SQUAWK_RE.test(text);
+  SQUAWK_RE.lastIndex = 0;
+  const cleaned = text.replace(SQUAWK_RE, "").replace(/\s{2,}/g, " ").trim();
+  return { cleaned: cleaned || text, hasSquawk };
 }
 
 // Injectable AI dependencies so the conversational flow can be unit-tested
@@ -166,16 +183,21 @@ export async function runParrotTurn(
     buildUserPrompt(input.history, transcript),
   );
 
-  const replyText = rawReplyText.trim() || "Squawk! Say that again?";
+  const rawText = rawReplyText.trim() || "Say that again?";
+
+  // Strip squawk tokens before synthesis so the voice never pronounces the
+  // word "squawk" — the client plays a real parrot SFX instead.
+  const { cleaned: replyText, hasSquawk } = extractSquawks(rawText);
 
   const replyAudio = await deps.synthesize(replyText, input.languageName);
 
   return {
     transcript,
-    replyText,
+    replyText: rawText,        // show the full text (with squawk tokens) in the UI
     replyEnglish: rawReplyEnglish.trim() || replyText,
     replyAudio,
     audioFormat: "mp3",
+    hasSquawk,
     durationSeconds,
   };
 }

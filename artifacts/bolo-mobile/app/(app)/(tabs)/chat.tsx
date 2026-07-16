@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
 import { useChatTurn, type ChatTurnMessage } from '@workspace/api-client-react';
@@ -369,9 +369,31 @@ export default function ChatScreen() {
         setSecondsRemaining(null); // unlimited
       }
 
-      // Play the parrot's audio reply
+      // Play the parrot's audio reply (preceded by a real squawk SFX when Bolo
+      // included a squawk token — the TTS voice never pronounces "squawk").
       setPhase('playing');
       hapticHeavy();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((result as any).hasSquawk) {
+        await new Promise<void>((resolve) => {
+          const sfxPlayer = createAudioPlayer(
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            require('../../../assets/sounds/squawk.mp3') as number,
+          );
+          const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+            if (s.didJustFinish) {
+              try { sub.remove(); } catch {}
+              try { sfxPlayer.remove(); } catch {}
+              resolve();
+            }
+          });
+          sfxPlayer.play();
+          // Safety timeout — never block TTS if the SFX hangs
+          setTimeout(resolve, 1500);
+        });
+      }
+
       const handle = await playBase64Audio(
         result.replyAudioBase64,
         result.format || 'mp3',
