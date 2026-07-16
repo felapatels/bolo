@@ -598,7 +598,7 @@ export default function ChatScreen() {
           ]}
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
-            {'Squawk! I\'m Bolo — your feathered language coach! Hold my belly and let\'s practice ' +
+            {'Squawk! I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in ' +
               (chatLanguage?.name ?? chatLang) + '! Awk!'}
           </Text>
         </Animated.View>

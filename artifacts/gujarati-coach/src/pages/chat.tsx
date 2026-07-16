@@ -469,7 +469,7 @@ export default function ChatPage() {
                 transition={{ ...springs.snappy, delay: 0.1 }}
                 className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
               >
-                Squawk! I'm Bolo — your feathered language coach! Hold my belly and let's practice {chatLanguage?.name ?? chatLang}! Awk!
+                Squawk! I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in {chatLanguage?.name ?? chatLang}! Awk!
               </motion.div>
             )}
           </AnimatePresence>

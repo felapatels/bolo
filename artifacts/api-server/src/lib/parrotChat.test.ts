@@ -142,6 +142,56 @@ test("runParrotTurn: system prompt contains the language name", async () => {
     "system prompt should mention the language");
 });
 
+test("runParrotTurn: system prompt allows general everyday conversation topics", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return "Namaste!";
+      },
+    }),
+  );
+  // The prompt should explicitly invite general topics, not restrict to language-only.
+  assert.ok(
+    capturedSystemPrompt.includes("food") || capturedSystemPrompt.includes("hobbies") || capturedSystemPrompt.includes("everyday"),
+    "system prompt should allow general conversation topics",
+  );
+  // The old rigid off-topic deflection list should be gone.
+  assert.ok(
+    !capturedSystemPrompt.includes("sports scores") && !capturedSystemPrompt.includes("tech support"),
+    "system prompt should not contain the old rigid off-topic deflection list",
+  );
+});
+
+test("runParrotTurn: system prompt contains youth-safe guardrails", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return "Namaste!";
+      },
+    }),
+  );
+  // The prompt must instruct the model to refuse harmful/inappropriate content.
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("youth") ||
+    capturedSystemPrompt.toLowerCase().includes("children") ||
+    capturedSystemPrompt.toLowerCase().includes("inappropriate"),
+    "system prompt should contain youth-safe guardrail instructions",
+  );
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("violence") ||
+    capturedSystemPrompt.toLowerCase().includes("adult"),
+    "system prompt should name categories of content to refuse",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // runParrotTurn: synthesize receives the reply text
 // ---------------------------------------------------------------------------
