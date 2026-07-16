@@ -165,10 +165,12 @@ export default function ChatPage() {
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((result as any).hasSquawk) {
-        const sfx = new Audio("/gujarati-coach/sounds/squawk.mp3");
+      const squawkVariant = (result as any).squawkVariant as 0 | 1 | 2 | null;
+      if (squawkVariant !== null && squawkVariant !== undefined) {
+        const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
+        const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
         sfx.onended = playReply;
-        sfx.onerror = playReply; // gracefully skip if asset missing
+        sfx.onerror = playReply;
         sfx.play().catch(playReply);
       } else {
         playReply();

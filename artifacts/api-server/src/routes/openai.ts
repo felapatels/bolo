@@ -427,7 +427,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       replyEnglish: result.replyEnglish,
       replyAudioBase64: result.replyAudio.toString("base64"),
       format: result.audioFormat,
-      hasSquawk: result.hasSquawk,
+      squawkVariant: result.squawkVariant,
       languageCode,
       secondsRemaining,
     });

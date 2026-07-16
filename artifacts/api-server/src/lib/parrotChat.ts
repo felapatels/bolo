@@ -30,26 +30,59 @@ export interface ParrotTurnResult {
   replyEnglish: string;
   replyAudio: Buffer;
   audioFormat: "mp3";
-  // True when Bolo's reply contained at least one squawk token. The client
-  // plays a real parrot SFX before the TTS audio so the voice never has to
-  // say the word "squawk" aloud.
-  hasSquawk: boolean;
+  // Which SFX variant (0-2) the client should play before the TTS audio, or
+  // null when the reply has no bird-sound tokens. Three files — squawk_a,
+  // squawk_b, squawk_c — are bundled in both web and mobile so the sound
+  // rotates each turn instead of repeating.
+  squawkVariant: 0 | 1 | 2 | null;
   // Server-measured duration of the learner's submitted audio, in seconds —
   // what actually gets charged against the weekly chat-time cap.
   durationSeconds: number;
 }
 
-// Squawk tokens the LLM may insert for character. We strip them from the TTS
-// input so the synthesiser doesn't awkwardly pronounce "squawk", and signal
-// the client to play a real parrot sound effect instead.
-const SQUAWK_RE = /\b(Squawk!?|Squawkity!?|Bawk( bawk)?!?|Awk!?|Eeek!?)\s*/gi;
+// ALL bird-sound tokens the LLM may insert. Stripped from TTS so the voice
+// never pronounces them — the client plays a real parrot SFX instead.
+const SQUAWK_RE =
+  /\b(Squawk!?|Squawkity!?|Bawk( bawk)?!?|Awk!?|Eeek!?|Tweet!?|Chirp!?|Screech!?|Caw!?|Squee!?)\s*/gi;
 
-function extractSquawks(text: string): { cleaned: string; hasSquawk: boolean } {
+function extractSquawks(text: string): { cleaned: string; squawkVariant: 0 | 1 | 2 | null } {
   SQUAWK_RE.lastIndex = 0;
   const hasSquawk = SQUAWK_RE.test(text);
   SQUAWK_RE.lastIndex = 0;
   const cleaned = text.replace(SQUAWK_RE, "").replace(/\s{2,}/g, " ").trim();
-  return { cleaned: cleaned || text, hasSquawk };
+  const squawkVariant: 0 | 1 | 2 | null = hasSquawk
+    ? (Math.floor(Math.random() * 3) as 0 | 1 | 2)
+    : null;
+  return { cleaned: cleaned || text, squawkVariant };
+}
+
+// Custom TTS for Bolo — uses the gpt-audio model with a parrot character
+// voice instruction so the output sounds young, bright, and bird-like rather
+// than like a generic assistant.
+async function boloTTS(text: string, languageName: string): Promise<Buffer> {
+  const langHint = languageName ? ` The text is in ${languageName}.` : "";
+  const response = await openai.chat.completions.create({
+    model: "gpt-audio",
+    modalities: ["text", "audio"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    audio: { voice: "shimmer", format: "mp3" } as any,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are voicing Bolo, a young excitable parrot character. " +
+          "Deliver the text with a bright, high-pitched, bouncy, cheerful voice — " +
+          "light and airy like an enthusiastic young bird who loves to chat. " +
+          "Keep the energy up and the tone warm and playful. " +
+          "Read the text exactly as written — never add, remove, or change words." +
+          langHint,
+      },
+      { role: "user", content: `Say exactly: ${text}` },
+    ],
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
+  return Buffer.from(audioData, "base64");
 }
 
 // Injectable AI dependencies so the conversational flow can be unit-tested
@@ -94,8 +127,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
       return { text: raw, english: "" };
     }
   },
-  synthesize: (text, languageName) =>
-    textToSpeech(text, "shimmer", "mp3", languageName),
+  synthesize: boloTTS,
 };
 
 function buildSystemPrompt(languageName: string): string {
@@ -185,19 +217,19 @@ export async function runParrotTurn(
 
   const rawText = rawReplyText.trim() || "Say that again?";
 
-  // Strip squawk tokens before synthesis so the voice never pronounces the
-  // word "squawk" — the client plays a real parrot SFX instead.
-  const { cleaned: replyText, hasSquawk } = extractSquawks(rawText);
+  // Strip ALL bird-sound tokens before synthesis so the voice never says
+  // "squawk" aloud — the client plays one of three real parrot SFX instead.
+  const { cleaned: ttsText, squawkVariant } = extractSquawks(rawText);
 
-  const replyAudio = await deps.synthesize(replyText, input.languageName);
+  const replyAudio = await deps.synthesize(ttsText, input.languageName);
 
   return {
     transcript,
-    replyText: rawText,        // show the full text (with squawk tokens) in the UI
-    replyEnglish: rawReplyEnglish.trim() || replyText,
+    replyText: rawText,   // full text with squawk tokens shown in the UI transcript
+    replyEnglish: rawReplyEnglish.trim() || ttsText,
     replyAudio,
     audioFormat: "mp3",
-    hasSquawk,
+    squawkVariant,
     durationSeconds,
   };
 }

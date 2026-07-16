@@ -375,12 +375,18 @@ export default function ChatScreen() {
       hapticHeavy();
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((result as any).hasSquawk) {
+      const squawkVariant = (result as any).squawkVariant as 0 | 1 | 2 | null;
+      if (squawkVariant !== null && squawkVariant !== undefined) {
+        const sfxAssets = [
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_a.mp3') as number,
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_b.mp3') as number,
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require('../../../assets/sounds/squawk_c.mp3') as number,
+        ];
         await new Promise<void>((resolve) => {
-          const sfxPlayer = createAudioPlayer(
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            require('../../../assets/sounds/squawk.mp3') as number,
-          );
+          const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
           const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
             if (s.didJustFinish) {
               try { sub.remove(); } catch {}
@@ -389,8 +395,7 @@ export default function ChatScreen() {
             }
           });
           sfxPlayer.play();
-          // Safety timeout — never block TTS if the SFX hangs
-          setTimeout(resolve, 1500);
+          setTimeout(resolve, 1500); // safety timeout
         });
       }
 
