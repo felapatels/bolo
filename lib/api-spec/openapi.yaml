@@ -2196,6 +2196,11 @@ components:
         transcript:
           type: string
           description: What the server heard the learner say.
+        transcriptEnglish:
+          type: string
+          description: >-
+            Concise English translation of what the learner said. Empty string
+            when the learner spoke in English or their speech was unclear.
         replyText:
           type: string
           description: Bolo's in-character reply, in the target language.
@@ -2216,6 +2221,7 @@ components:
             unlimited (One Language and Plus).
       required:
         - transcript
+        - transcriptEnglish
         - replyText
         - replyEnglish
         - replyAudioBase64

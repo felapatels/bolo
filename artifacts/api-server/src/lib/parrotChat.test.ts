@@ -37,7 +37,7 @@ function makeWavBuffer(durationSeconds: number, sampleRate = 16000): Buffer {
 function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
   return {
     transcribe: async () => "Namaste",
-    reply: async () => ({ text: "Squawk! Namaste!", english: "Squawk! Hello!" }),
+    reply: async () => ({ text: "Squawk! Namaste!", english: "Squawk! Hello!", transcriptEnglish: "Hello" }),
     synthesize: async () => Buffer.from("fake-audio"),
     ...overrides,
   };
@@ -94,7 +94,7 @@ test("runParrotTurn: fallback reply when the completeReply stub returns empty st
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
-    makeDeps({ reply: async () => ({ text: "", english: "" }) }),
+    makeDeps({ reply: async () => ({ text: "", english: "", transcriptEnglish: "" }) }),
   );
   assert.ok(result.replyText.length > 0, "fallback reply should not be empty");
 });
@@ -116,7 +116,7 @@ test("runParrotTurn: history turns are forwarded to the reply function", async (
       transcribe: async () => "Shu naam chhe?",
       reply: async (_sys, userPrompt) => {
         capturedUserPrompt = userPrompt;
-        return { text: "Maru naam Bolo chhe!", english: "My name is Bolo!" };
+        return { text: "Maru naam Bolo chhe!", english: "My name is Bolo!", transcriptEnglish: "What is your name?" };
       },
     }),
   );
@@ -133,7 +133,7 @@ test("runParrotTurn: system prompt contains the language name", async () => {
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Sat sri akal!", english: "God is truth!" };
+        return { text: "Sat sri akal!", english: "God is truth!", transcriptEnglish: "" };
       },
     }),
   );
@@ -149,7 +149,7 @@ test("runParrotTurn: system prompt allows general everyday conversation topics",
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Namaste!", english: "Hello!" };
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
       },
     }),
   );
@@ -173,7 +173,7 @@ test("runParrotTurn: system prompt contains youth-safe guardrails", async () => 
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return { text: "Namaste!", english: "Hello!" };
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
       },
     }),
   );
@@ -202,7 +202,7 @@ test("runParrotTurn: synthesize is called with the reply text and language name"
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
     makeDeps({
-      reply: async () => ({ text: "Kemon acho?", english: "How are you?" }),
+      reply: async () => ({ text: "Kemon acho?", english: "How are you?", transcriptEnglish: "" }),
       synthesize: async (text, lang) => {
         synthesizedText = text;
         synthesizedLang = lang;

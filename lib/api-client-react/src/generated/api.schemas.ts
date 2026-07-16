@@ -413,6 +413,8 @@ export interface ChatTurnInput {
 }
 
 export interface ChatTurnResult {
+  /** Concise English translation of what the learner said. Empty string when the learner spoke in English or their speech was unclear. */
+  transcriptEnglish: string;
   /** What the server heard the learner say. */
   transcript: string;
   /** Bolo's in-character reply, in the target language. */

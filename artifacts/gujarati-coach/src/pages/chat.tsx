@@ -155,7 +155,17 @@ export default function ChatPage() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "learner", text: result.transcript },
+        {
+          role: "learner",
+          text: result.transcript,
+          // Show an English gloss under the learner's bubble only when the
+          // translation differs from the transcript (suppresses it for English
+          // speakers and for unclear/empty transcripts).
+          englishText:
+            result.transcriptEnglish && result.transcriptEnglish !== result.transcript
+              ? result.transcriptEnglish
+              : undefined,
+        },
         { role: "parrot", text: result.replyText, englishText: result.replyEnglish },
       ]);
 
@@ -548,7 +558,16 @@ export default function ChatPage() {
                       )}
                     </div>
                   );
-                })() : msg.text}
+                })() : (
+                  <div className="flex flex-col">
+                    <span>{msg.text}</span>
+                    {msg.englishText && (
+                      <span className="text-xs text-primary-foreground/70 mt-1 italic">
+                        {msg.englishText}
+                      </span>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>

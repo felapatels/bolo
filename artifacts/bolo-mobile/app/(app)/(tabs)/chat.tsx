@@ -370,7 +370,17 @@ export default function ChatScreen() {
       // Append both sides of the exchange to the transcript
       setMessages((prev) => [
         ...prev,
-        { role: 'learner', text: result.transcript },
+        {
+          role: 'learner',
+          text: result.transcript,
+          // Show an English gloss under the learner's bubble only when the
+          // translation differs from the transcript (suppresses it for English
+          // speakers and for unclear/empty transcripts).
+          englishText:
+            result.transcriptEnglish && result.transcriptEnglish !== result.transcript
+              ? result.transcriptEnglish
+              : undefined,
+        },
         {
           role: 'parrot',
           text: result.replyText,
@@ -705,11 +715,16 @@ export default function ChatScreen() {
               >
                 {msg.text}
               </Text>
-              {msg.role === 'parrot' && msg.englishText ? (
+              {msg.englishText ? (
                 <Text
                   style={[
                     styles.bubbleEnglish,
-                    { color: colors.mutedForeground },
+                    {
+                      color:
+                        msg.role === 'learner'
+                          ? (colors.primaryForeground ?? '#fff') + 'b3'
+                          : colors.mutedForeground,
+                    },
                   ]}
                 >
                   {msg.englishText}

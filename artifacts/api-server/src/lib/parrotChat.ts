@@ -26,6 +26,8 @@ export interface ParrotTurnInput {
 
 export interface ParrotTurnResult {
   transcript: string;
+  /** Concise English translation of what the learner said, or "" if unclear/empty. */
+  transcriptEnglish: string;
   replyText: string;
   replyEnglish: string;
   replyAudio: Buffer;
@@ -96,12 +98,12 @@ export interface ParrotChatDeps {
     format: "wav" | "mp3",
     options: SpeechToTextOptions,
   ) => Promise<string>;
-  // Returns both the in-language reply and its English gloss in a single call,
-  // eliminating the separate translate round-trip.
+  // Returns the in-language reply, its English gloss, and an English
+  // translation of what the learner said — all in a single LLM call.
   reply: (
     systemPrompt: string,
     userPrompt: string,
-  ) => Promise<{ text: string; english: string }>;
+  ) => Promise<{ text: string; english: string; transcriptEnglish: string }>;
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
@@ -111,7 +113,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   reply: async (systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
-      max_completion_tokens: 200,
+      max_completion_tokens: 250,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
@@ -120,13 +122,18 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     });
     const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
     try {
-      const parsed = JSON.parse(raw) as { reply?: string; english?: string };
+      const parsed = JSON.parse(raw) as {
+        reply?: string;
+        english?: string;
+        transcript_english?: string;
+      };
       return {
         text: parsed.reply?.trim() ?? "",
         english: parsed.english?.trim() ?? "",
+        transcriptEnglish: parsed.transcript_english?.trim() ?? "",
       };
     } catch {
-      return { text: raw, english: "" };
+      return { text: raw, english: "", transcriptEnglish: "" };
     }
   },
   synthesize: boloTTS,
@@ -164,9 +171,10 @@ If the message touches any of the above, do NOT engage with the topic. Instead d
 After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
-Always respond with a JSON object with exactly two fields:
+Always respond with a JSON object with exactly three fields:
 - "reply": your response in ${languageName} native script (following all rules above)
 - "english": a brief, natural English translation of your reply (one short sentence)
+- "transcript_english": a concise English translation of what the learner just said (one short phrase or sentence); use an empty string if the learner spoke in English or if their speech was unclear/silent
 Do not include any text outside the JSON object.`;
 }
 
@@ -209,9 +217,9 @@ export async function runParrotTurn(
 
   const durationSeconds = wavDurationSeconds(wavBuffer);
 
-  // Single LLM call returns both the in-language reply and its English gloss,
-  // replacing the previous two-call (reply + translate) sequential pattern.
-  const { text: rawReplyText, english: rawReplyEnglish } = await deps.reply(
+  // Single LLM call returns the in-language reply, its English gloss, and an
+  // English translation of what the learner said.
+  const { text: rawReplyText, english: rawReplyEnglish, transcriptEnglish } = await deps.reply(
     buildSystemPrompt(input.languageName),
     buildUserPrompt(input.history, transcript),
   );
@@ -226,6 +234,7 @@ export async function runParrotTurn(
 
   return {
     transcript,
+    transcriptEnglish: transcriptEnglish.trim(),
     replyText: ttsText,   // cleaned text (matches exactly what TTS speaks)
     replyEnglish: rawReplyEnglish.trim() || ttsText,
     replyAudio,
