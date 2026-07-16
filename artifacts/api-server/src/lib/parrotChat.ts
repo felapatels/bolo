@@ -82,10 +82,9 @@ export interface ParrotChatDeps {
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
-// Custom TTS for Bolo — calls gpt-audio with a parrot character voice
-// instruction so the output sounds young, bright, and bird-like rather than
-// like a generic assistant. Kept separate from the LLM reply call so the
-// model never has to juggle JSON output and audio speaking simultaneously.
+// Custom TTS for Bolo — calls gpt-audio with a voice-quality instruction
+// to sound young, bright, and energetic. Deliberately avoids any mention of
+// birds or parrots so the model has no reason to improvise bird sounds.
 async function boloTTS(text: string, languageName: string): Promise<Buffer> {
   const langHint = languageName ? ` The text is in ${languageName}.` : "";
   const response = await openai.chat.completions.create({
@@ -97,13 +96,10 @@ async function boloTTS(text: string, languageName: string): Promise<Buffer> {
       {
         role: "system",
         content:
-          "You are voicing Bolo, a young excitable parrot character. " +
-          "Deliver the text with a bright, high-pitched, bouncy, cheerful voice — " +
-          "light and airy like an enthusiastic young bird who loves to chat. " +
-          "Keep the energy up and the tone warm and playful. " +
-          "IMPORTANT: Read the text EXACTLY as written. " +
-          "Do NOT add, improvise, or say any bird sounds, squawks, bawks, awks, chirps, or parrot exclamations — " +
-          "those are played as separate sound effects and must not appear in your speech." +
+          "You are a text-to-speech reader. " +
+          "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
+          "Read the text EXACTLY as written, word for word. " +
+          "Do NOT add, change, or omit any words, sounds, or exclamations." +
           langHint,
       },
       { role: "user", content: `Say exactly: ${text}` },
