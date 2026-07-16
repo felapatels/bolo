@@ -37,8 +37,7 @@ function makeWavBuffer(durationSeconds: number, sampleRate = 16000): Buffer {
 function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
   return {
     transcribe: async () => "Namaste",
-    reply: async () => "Squawk! Namaste!",
-    translate: async (text) => `[en] ${text}`,
+    reply: async () => ({ text: "Squawk! Namaste!", english: "Squawk! Hello!" }),
     synthesize: async () => Buffer.from("fake-audio"),
     ...overrides,
   };
@@ -95,7 +94,7 @@ test("runParrotTurn: fallback reply when the completeReply stub returns empty st
   const wav = makeWavBuffer(1);
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
-    makeDeps({ reply: async () => "" }),
+    makeDeps({ reply: async () => ({ text: "", english: "" }) }),
   );
   assert.ok(result.replyText.length > 0, "fallback reply should not be empty");
 });
@@ -117,7 +116,7 @@ test("runParrotTurn: history turns are forwarded to the reply function", async (
       transcribe: async () => "Shu naam chhe?",
       reply: async (_sys, userPrompt) => {
         capturedUserPrompt = userPrompt;
-        return "Maru naam Bolo chhe!";
+        return { text: "Maru naam Bolo chhe!", english: "My name is Bolo!" };
       },
     }),
   );
@@ -134,7 +133,7 @@ test("runParrotTurn: system prompt contains the language name", async () => {
     makeDeps({
       reply: async (systemPrompt) => {
         capturedSystemPrompt = systemPrompt;
-        return "Sat sri akal!";
+        return { text: "Sat sri akal!", english: "God is truth!" };
       },
     }),
   );
@@ -203,7 +202,7 @@ test("runParrotTurn: synthesize is called with the reply text and language name"
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
     makeDeps({
-      reply: async () => "Kemon acho?",
+      reply: async () => ({ text: "Kemon acho?", english: "How are you?" }),
       synthesize: async (text, lang) => {
         synthesizedText = text;
         synthesizedLang = lang;

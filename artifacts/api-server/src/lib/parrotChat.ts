@@ -44,8 +44,12 @@ export interface ParrotChatDeps {
     format: "wav" | "mp3",
     options: SpeechToTextOptions,
   ) => Promise<string>;
-  reply: (systemPrompt: string, userPrompt: string) => Promise<string>;
-  translate: (text: string) => Promise<string>;
+  // Returns both the in-language reply and its English gloss in a single call,
+  // eliminating the separate translate round-trip.
+  reply: (
+    systemPrompt: string,
+    userPrompt: string,
+  ) => Promise<{ text: string; english: string }>;
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
@@ -56,27 +60,22 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
       max_completion_tokens: 200,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });
-    return completion.choices[0]?.message?.content?.trim() ?? "";
-  },
-  translate: async (text) => {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.4-mini",
-      max_completion_tokens: 100,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Translate the following text to English in one or two sentences. Reply with only the translation.",
-        },
-        { role: "user", content: text },
-      ],
-    });
-    return completion.choices[0]?.message?.content?.trim() ?? "";
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+    try {
+      const parsed = JSON.parse(raw) as { reply?: string; english?: string };
+      return {
+        text: parsed.reply?.trim() ?? "",
+        english: parsed.english?.trim() ?? "",
+      };
+    } catch {
+      return { text: raw, english: "" };
+    }
   },
   synthesize: (text, languageName) =>
     textToSpeech(text, "nova", "mp3", languageName),
@@ -111,7 +110,13 @@ If the message touches any of the above, do NOT engage with the topic. Instead d
 - "Bawk! That's not in Bolo's nest! Tell me something happy in ${languageName} instead!"
 - "Ruffles feathers — nope, not going there! What's your favorite food? Say it in ${languageName}!"
 - "Squawk squawk! Wrong topic for this bird! Ask me something nice in ${languageName}!"
-After the deflection, steer back to a friendly, everyday topic.`;
+After the deflection, steer back to a friendly, everyday topic.
+
+Output format:
+Always respond with a JSON object with exactly two fields:
+- "reply": your response in ${languageName} native script (following all rules above)
+- "english": a brief, natural English translation of your reply (one short sentence)
+Do not include any text outside the JSON object.`;
 }
 
 function buildUserPrompt(
@@ -136,35 +141,33 @@ export async function runParrotTurn(
   deps: ParrotChatDeps = defaultParrotChatDeps,
 ): Promise<ParrotTurnResult> {
   const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer);
-  // Duration is measured off a canonical WAV buffer; ensureCompatibleFormat
-  // only returns "mp3" when the raw upload was already MP3, in which case a
-  // one-off conversion gets us a parseable header.
-  const wavBuffer = format === "wav" ? buffer : await convertToWav(buffer);
+
+  // Run WAV conversion (needed only for duration measurement) and transcription
+  // in parallel — both operate on the same already-converted buffer, so neither
+  // blocks the other. When the input is already WAV the Promise.resolve short-
+  // circuits immediately, making this zero-cost in the common case.
+  const [wavBuffer, transcript] = await Promise.all([
+    format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
+    deps.transcribe(buffer, format, { language: input.languageCode }).then((t) => t.trim()),
+  ]);
+
   const durationSeconds = wavDurationSeconds(wavBuffer);
 
-  const transcript = (
-    await deps.transcribe(buffer, format, { language: input.languageCode })
-  ).trim();
+  // Single LLM call returns both the in-language reply and its English gloss,
+  // replacing the previous two-call (reply + translate) sequential pattern.
+  const { text: rawReplyText, english: rawReplyEnglish } = await deps.reply(
+    buildSystemPrompt(input.languageName),
+    buildUserPrompt(input.history, transcript),
+  );
 
-  const replyText =
-    (
-      await deps.reply(
-        buildSystemPrompt(input.languageName),
-        buildUserPrompt(input.history, transcript),
-      )
-    ).trim() || "Squawk! Say that again?";
+  const replyText = rawReplyText.trim() || "Squawk! Say that again?";
 
-  // Translate the reply to English in parallel with synthesis so learners
-  // can follow along without already knowing the language.
-  const [replyAudio, replyEnglish] = await Promise.all([
-    deps.synthesize(replyText, input.languageName),
-    deps.translate(replyText),
-  ]);
+  const replyAudio = await deps.synthesize(replyText, input.languageName);
 
   return {
     transcript,
     replyText,
-    replyEnglish: replyEnglish.trim() || replyText,
+    replyEnglish: rawReplyEnglish.trim() || replyText,
     replyAudio,
     audioFormat: "mp3",
     durationSeconds,
