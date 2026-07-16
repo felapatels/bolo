@@ -87,7 +87,15 @@ function extractSquawks(text: string): { cleaned: string; squawkVariant: 0 | 1 |
   SQUAWK_RE.lastIndex = 0;
   const hasSquawk = SQUAWK_RE.test(text);
   SQUAWK_RE.lastIndex = 0;
-  const cleaned = text.replace(SQUAWK_RE, "").replace(/\s{2,}/g, " ").trim();
+  const stripped = text.replace(SQUAWK_RE, "");
+  const cleaned = stripped
+    // Remove orphaned commas/dashes left behind by a mid-sentence squawk
+    // (e.g. "one more time, !" → "one more time!"; "Go, — try!" → "Go, try!")
+    .replace(/,\s*([!?.])/g, "$1")
+    .replace(/,\s*—\s*/g, " ")
+    // Collapse multiple spaces
+    .replace(/\s{2,}/g, " ")
+    .trim();
   const squawkVariant: 0 | 1 | 2 | null = hasSquawk
     ? (Math.floor(Math.random() * 3) as 0 | 1 | 2)
     : null;
@@ -147,7 +155,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   reply: async (systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
-      max_completion_tokens: 180,
+      max_completion_tokens: 300,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
@@ -228,10 +236,11 @@ If the message touches any of the above, do NOT engage with the topic. Instead d
 After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
-Always respond with a JSON object with exactly three fields:
-- "reply": your response in ${languageName} native script (following all rules above)
-- "english": a brief, natural English translation of your reply (one short sentence)
+Always respond with a JSON object with exactly three fields IN THIS ORDER:
+- "english": a brief, natural English translation of YOUR reply (one short sentence)
 - "transcript_english": a concise English translation of what the learner just said (one short phrase or sentence); use an empty string if the learner spoke in English or if their speech was unclear/silent
+- "reply": your response in ${languageName} native script (following all rules above)
+Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
 Do not include any text outside the JSON object.`;
 }
 
