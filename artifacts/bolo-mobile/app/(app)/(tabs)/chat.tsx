@@ -507,6 +507,17 @@ export default function ChatScreen() {
               setSecondsRemaining(null);
             }
 
+            // Let React render the parrot bubble before audio starts — learners
+            // reading scripts like Devanagari or Nastaliq get a half-beat to
+            // find their place before audio begins.
+            await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+            // A newer turn may have started or the user left the tab — drop stale.
+            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+
             setPhase('playing');
             hapticHeavy();
 

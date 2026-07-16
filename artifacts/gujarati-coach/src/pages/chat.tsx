@@ -278,6 +278,17 @@ export default function ChatPage() {
               setSecondsRemaining(null);
             }
 
+            // Let React render the parrot bubble before audio starts — learners
+            // reading scripts like Devanagari or Nastaliq get a half-beat to
+            // find their place before the audio begins.
+            await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+            // A newer turn may have started during the await — drop stale result.
+            if (activeTurnRef.current !== myTurn) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+
             // Play the parrot's audio reply (preceded by a squawk SFX when
             // Bolo included a squawk token).
             setPhase("playing");
