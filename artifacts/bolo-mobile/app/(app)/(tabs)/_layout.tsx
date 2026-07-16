@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useListIncomingFriendRequests } from '@workspace/api-client-react';
@@ -50,8 +50,12 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Chat',
-          tabBarIcon: ({ color }) => (
-            <Feather name="message-circle" size={22} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={require('../../../../assets/images/mascot/mascot-wave.png')}
+              style={{ width: 26, height: 26, opacity: focused ? 1 : 0.4 }}
+              resizeMode="contain"
+            />
           ),
         }}
       />

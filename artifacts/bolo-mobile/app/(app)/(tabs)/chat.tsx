@@ -18,7 +18,6 @@ import { appear } from '@/lib/entrance';
 import { useChatTurn, type ChatTurnMessage } from '@workspace/api-client-react';
 import { ApiError } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
-import { PressableScale } from '@/components/PressableScale';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -475,13 +474,13 @@ export default function ChatScreen() {
               : undefined
         }
         disabled={phase === 'processing' || phase === 'playing' || capExhausted}
-        style={styles.mascotArea}
+        style={[styles.mascotArea, messages.length === 0 && styles.mascotAreaFull]}
         accessibilityRole="button"
         accessibilityLabel={
           phase === 'recording' ? 'Stop recording' : 'Start recording'
         }
       >
-        <TalkingMascot mode={mascotMode} size={160} />
+        <TalkingMascot mode={mascotMode} size={messages.length === 0 ? 220 : 130} />
 
         {/* Status label under the mascot */}
         <Animated.Text
@@ -503,6 +502,25 @@ export default function ChatScreen() {
                       ? 'Something went wrong'
                       : ''}
         </Animated.Text>
+
+        {/* Skip button — only shown while Bolo is speaking */}
+        {phase === 'playing' && (
+          <Animated.View entering={appear(FadeInDown.duration(200))} style={{ marginTop: 8 }}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                playbackRef.current?.stop();
+                playbackRef.current = null;
+                setPhase('idle');
+              }}
+              style={[styles.skipBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Skip Bolo's reply"
+            >
+              <Feather name="skip-forward" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </Animated.View>
+        )}
       </Pressable>
 
       {/* Conversation transcript */}
@@ -554,74 +572,6 @@ export default function ChatScreen() {
           </Text>
         </Animated.View>
       )}
-
-      {/* Controls */}
-      <View style={styles.controls}>
-        {/* Tap-to-record / tap-to-stop button */}
-        {phase === 'recording' ? (
-          <Pressable
-            onPress={handleStopRecording}
-            style={[
-              styles.recordBtn,
-              styles.recordBtnActive,
-              { backgroundColor: colors.destructive ?? '#EF4444' },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Stop recording"
-          >
-            <Feather name="square" size={26} color="#fff" />
-          </Pressable>
-        ) : (
-          <PressableScale
-            onPress={handleStartRecording}
-            disabled={phase === 'processing' || phase === 'playing' || capExhausted}
-            style={[
-              styles.recordBtn,
-              {
-                backgroundColor:
-                  capExhausted
-                    ? colors.muted
-                    : phase === 'processing' || phase === 'playing'
-                      ? colors.muted
-                      : colors.primary,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={capExhausted ? 'Weekly chat time used' : 'Start recording'}
-          >
-            <Feather
-              name={capExhausted ? 'lock' : 'mic'}
-              size={26}
-              color={
-                capExhausted || phase === 'processing' || phase === 'playing'
-                  ? colors.mutedForeground
-                  : colors.primaryForeground
-              }
-            />
-          </PressableScale>
-        )}
-
-        {/* Stop-playback button (shown while Bolo is speaking) */}
-        {phase === 'playing' && (
-          <Animated.View entering={appear(FadeInDown.duration(200))}>
-            <Pressable
-              onPress={() => {
-                playbackRef.current?.stop();
-                playbackRef.current = null;
-                setPhase('idle');
-              }}
-              style={[
-                styles.skipBtn,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Skip Bolo's reply"
-            >
-              <Feather name="skip-forward" size={18} color={colors.mutedForeground} />
-            </Pressable>
-          </Animated.View>
-        )}
-      </View>
 
       {/* Language picker modal */}
       <Modal
@@ -796,6 +746,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
   },
+  mascotAreaFull: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: TAB_BAR_CLEARANCE,
+  },
   statusLabel: {
     fontFamily: AppFonts.semibold,
     fontSize: 14,
@@ -844,25 +799,6 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.regular,
     fontSize: 14,
     lineHeight: 20,
-  },
-  controls: {
-    paddingHorizontal: 20,
-    // Clears the floating tab bar so the record button stays reachable.
-    paddingBottom: TAB_BAR_CLEARANCE - 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  recordBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordBtnActive: {
-    transform: [{ scale: 1.08 }],
   },
   skipBtn: {
     width: 44,
