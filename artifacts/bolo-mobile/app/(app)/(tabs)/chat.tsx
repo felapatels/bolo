@@ -587,6 +587,23 @@ export default function ChatScreen() {
         )}
       </Pressable>
 
+      {/* Static greeting bubble — shown before the first exchange, client-side only, never sent to the API */}
+      {messages.length === 0 && (
+        <Animated.View
+          entering={appear(FadeInUp.duration(320).delay(200))}
+          style={[
+            styles.bubble,
+            styles.bubbleParrot,
+            { backgroundColor: colors.card, borderColor: colors.border, alignSelf: 'flex-start', marginHorizontal: 16, marginBottom: 8 },
+          ]}
+        >
+          <Text style={[styles.bubbleText, { color: colors.foreground }]}>
+            {'Squawk! I\'m Bolo — your feathered language coach! Hold my belly and let\'s practice ' +
+              (chatLanguage?.name ?? chatLang) + '! Awk!'}
+          </Text>
+        </Animated.View>
+      )}
+
       {/* Conversation transcript */}
       {messages.length > 0 && (
         <ScrollView

@@ -290,7 +290,7 @@ export default function ChatPage() {
         </Link>
 
         <div className="flex-1 text-center">
-          <h1 className="text-lg font-black text-foreground">Chat with Bolo</h1>
+          <h1 className="text-lg font-black text-foreground">Talk to Bolo</h1>
         </div>
 
         {/* Spacer to keep title centered */}
@@ -459,6 +459,20 @@ export default function ChatPage() {
         className="flex-1 overflow-y-auto px-4 py-2"
       >
         <div className="mx-auto flex max-w-lg flex-col gap-2 pb-4">
+          {/* Static greeting bubble — shown before the first exchange, never sent to the API */}
+          <AnimatePresence>
+            {messages.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ ...springs.snappy, delay: 0.1 }}
+                className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
+              >
+                Squawk! I'm Bolo — your feathered language coach! Hold my belly and let's practice {chatLanguage?.name ?? chatLang}! Awk!
+              </motion.div>
+            )}
+          </AnimatePresence>
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <motion.div
