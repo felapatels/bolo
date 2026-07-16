@@ -52,7 +52,7 @@ export default function TabsLayout() {
           title: 'Chat',
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../../../assets/images/mascot/mascot-wave.png')}
+              source={require('../../../assets/images/mascot/mascot-wave.png')}
               style={{ width: 26, height: 26, opacity: focused ? 1 : 0.4 }}
               resizeMode="contain"
             />
