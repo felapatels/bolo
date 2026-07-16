@@ -202,14 +202,22 @@ export default function ChatPage() {
     }
   }, [recorder, chatTurn, chatLang, messages, setLocation]);
 
-  const handleMicPress = async () => {
-    if (phase === "recording") {
-      await finishRecording();
-      return;
+  const showTimeIndicator =
+    !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
+  const timePercent = showTimeIndicator
+    ? Math.max(0, Math.min(1, secondsRemaining! / FREE_WEEKLY_CAP_SECONDS))
+    : 1;
+  const capExhausted = showTimeIndicator && secondsRemaining! <= 0;
+
+  const stopPlayback = useCallback(() => {
+    if (playbackRef.current) {
+      playbackRef.current.pause();
+      playbackRef.current = null;
     }
+    setPhase("idle");
+  }, []);
 
-    if (phase !== "idle" && phase !== "error") return;
-
+  const startRecording = useCallback(async () => {
     // Cap check for free users.
     if (!isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null && secondsRemaining <= 0) {
       setLocation(upgradeHref({ plan: "one_language" }));
@@ -233,22 +241,28 @@ export default function ChatPage() {
       setErrorMsg("We couldn't access your microphone. Allow mic access in your browser, then try again.");
       setPhase("error");
     }
-  };
+  }, [isPlus, isOneLanguage, secondsRemaining, recorder, finishRecording, setLocation]);
 
-  const stopPlayback = () => {
-    if (playbackRef.current) {
-      playbackRef.current.pause();
-      playbackRef.current = null;
+  const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
+    if (phase === "processing" || capExhausted) return;
+    e.preventDefault(); // suppress context menu on long-press
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+    if (phase === "playing") {
+      stopPlayback();
+      return; // don't start recording on the same gesture
     }
-    setPhase("idle");
-  };
 
-  const showTimeIndicator =
-    !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
-  const timePercent = showTimeIndicator
-    ? Math.max(0, Math.min(1, secondsRemaining! / FREE_WEEKLY_CAP_SECONDS))
-    : 1;
-  const capExhausted = showTimeIndicator && secondsRemaining! <= 0;
+    if (phase === "idle" || phase === "error") {
+      void startRecording();
+    }
+  }, [phase, capExhausted, startRecording]);
+
+  const handleMicPointerUp = useCallback(() => {
+    if (phase === "recording") {
+      void finishRecording();
+    }
+  }, [phase, finishRecording]);
 
   const mascotPose =
     phase === "recording"
@@ -384,13 +398,16 @@ export default function ChatPage() {
         </motion.div>
       )}
 
-      {/* Mascot — tapping the bird starts/stops recording */}
+      {/* Mascot — hold to speak, release to send */}
       <button
         type="button"
-        onClick={phase === "processing" || capExhausted ? undefined : phase === "playing" ? stopPlayback : handleMicPress}
+        onPointerDown={handleMicPointerDown}
+        onPointerUp={handleMicPointerUp}
+        onPointerCancel={handleMicPointerUp}
+        onContextMenu={(e) => e.preventDefault()}
         disabled={phase === "processing" || capExhausted}
-        aria-label={phase === "recording" ? "Stop recording" : phase === "playing" ? "Tap to interrupt" : "Start recording"}
-        className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none"
+        aria-label={phase === "recording" ? "Release to send" : phase === "playing" ? "Tap to interrupt" : "Hold to speak"}
+        className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none select-none touch-none"
       >
         <Mascot
           pose={mascotPose}
@@ -407,11 +424,11 @@ export default function ChatPage() {
             className="mt-3 text-sm font-semibold text-muted-foreground"
           >
             {phase === "idle" && messages.length === 0
-              ? "Tap Bolo to start talking"
+              ? "Hold Bolo to speak"
               : phase === "idle"
-                ? "Tap to talk again"
+                ? "Hold to talk again"
                 : phase === "recording"
-                  ? "Listening…"
+                  ? "Release to send"
                   : phase === "processing"
                     ? "Thinking…"
                     : phase === "playing"
@@ -420,6 +437,19 @@ export default function ChatPage() {
                         ? "Something went wrong"
                         : ""}
           </motion.p>
+        </AnimatePresence>
+        <AnimatePresence>
+          {messages.length === 0 && phase === "idle" && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springs.gentle}
+              className="mt-1 text-xs text-muted-foreground text-center"
+            >
+              Hold to speak · release when done
+            </motion.p>
+          )}
         </AnimatePresence>
       </button>
 
@@ -487,17 +517,20 @@ export default function ChatPage() {
       <div className="flex items-center justify-center gap-4 px-4 pb-10 pt-2">
         {/* Mic / stop button */}
         <button
-          onClick={handleMicPress}
+          onPointerDown={handleMicPointerDown}
+          onPointerUp={handleMicPointerUp}
+          onPointerCancel={handleMicPointerUp}
+          onContextMenu={(e) => e.preventDefault()}
           disabled={phase === "processing" || capExhausted}
           aria-label={
             phase === "recording"
-              ? "Stop recording"
+              ? "Release to send"
               : capExhausted
                 ? "Weekly chat time used"
-                : "Start recording"
+                : "Hold to speak"
           }
           className={cn(
-            "flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0] transition-all active:translate-y-1.5 active:shadow-[0_0px_0] disabled:opacity-50",
+            "flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0] transition-all active:translate-y-1.5 active:shadow-[0_0px_0] disabled:opacity-50 select-none touch-none",
             phase === "recording"
               ? "bg-destructive shadow-red-800 text-white scale-110"
               : capExhausted || phase === "processing"
