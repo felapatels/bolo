@@ -1,7 +1,8 @@
 import React from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -69,47 +70,93 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
     setPose(next);
   }, []);
 
-  // Pose cycling interval — restart whenever focused changes
-  React.useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+  // Helper: start the appropriate pose-cycling interval for the current focused state
+  const startInterval = React.useCallback(
+    (isFocused: boolean) => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (isFocused) {
+        // Burst: cycle fast for 6 ticks then slow down
+        burstTicksRef.current = 0;
+        intervalRef.current = setInterval(() => {
+          nextPose();
+          burstTicksRef.current += 1;
+          if (burstTicksRef.current >= 6) {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = setInterval(nextPose, 4000);
+          }
+        }, 1500);
+      } else {
+        // Normal slow cycling
+        intervalRef.current = setInterval(nextPose, 4000);
+      }
+    },
+    [nextPose],
+  );
 
-    if (focused) {
-      // Burst: cycle fast for 6 ticks then slow down
-      burstTicksRef.current = 0;
-      intervalRef.current = setInterval(() => {
-        nextPose();
-        burstTicksRef.current += 1;
-        if (burstTicksRef.current >= 6) {
-          // Switch to slow cycling
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          intervalRef.current = setInterval(nextPose, 4000);
+  // Pose cycling interval — restart whenever focused changes or app foregrounds
+  React.useEffect(() => {
+    const focusedAtMount = focused;
+    startInterval(focusedAtMount);
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        // Resume interval when app returns to foreground
+        startInterval(focusedAtMount);
+      } else {
+        // Clear interval when app is backgrounded / inactive
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
-      }, 1500);
-    } else {
-      // Normal slow cycling
-      intervalRef.current = setInterval(nextPose, 4000);
-    }
+      }
+    });
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      subscription.remove();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [focused, nextPose]);
+  }, [focused, startInterval]);
 
-  // Idle float animation — continuous gentle bob
-  React.useEffect(() => {
-    if (reduceMotion) {
-      translateY.value = 0;
-      return;
-    }
+  // Helper: start the idle float loop
+  const startFloat = React.useCallback(() => {
+    if (reduceMotion) return;
     translateY.value = withRepeat(
       withTiming(-4, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
   }, [reduceMotion, translateY]);
+
+  // Idle float animation — continuous gentle bob, paused in background
+  React.useEffect(() => {
+    if (reduceMotion) {
+      translateY.value = 0;
+      return;
+    }
+    startFloat();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        // App returned to foreground — resume the float loop
+        startFloat();
+      } else {
+        // App went to background / inactive — cancel the worklet to save battery
+        cancelAnimation(translateY);
+        translateY.value = 0;
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      cancelAnimation(translateY);
+    };
+  }, [reduceMotion, translateY, startFloat]);
 
   // Dance burst when focused becomes true
   React.useEffect(() => {
