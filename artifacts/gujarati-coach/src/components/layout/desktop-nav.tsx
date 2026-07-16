@@ -12,14 +12,22 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
   /** Active-state accent, matching the mobile bottom nav's per-tab colors. */
   activeClass: string;
-};
+} & (
+  | { icon: LucideIcon; imageSrc?: never }
+  | { imageSrc: string; icon?: never }
+);
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Home", icon: Home, activeClass: "text-primary" },
   { href: "/friends", label: "Friends", icon: Users, activeClass: "text-accent" },
+  {
+    href: "/chat",
+    label: "Chat with Bolo",
+    imageSrc: `${import.meta.env.BASE_URL}mascot/mascot-wave.png`,
+    activeClass: "text-primary",
+  },
   { href: "/progress", label: "Progress", icon: Trophy, activeClass: "text-secondary" },
 ];
 
@@ -66,7 +74,6 @@ export function DesktopNav() {
       <nav className="flex flex-1 flex-col gap-1.5 px-4">
         {NAV_ITEMS.map((item) => {
           const active = location === item.href;
-          const Icon = item.icon;
           const showBadge = item.href === "/friends" && pendingCount > 0;
           return (
             <Link
@@ -81,10 +88,26 @@ export function DesktopNav() {
               aria-current={active ? "page" : undefined}
             >
               <span className="relative">
-                <Icon
-                  className="h-6 w-6"
-                  strokeWidth={active ? 2.5 : 2}
-                />
+                {item.imageSrc ? (
+                  <img
+                    src={item.imageSrc}
+                    alt=""
+                    className={cn(
+                      "h-6 w-6 object-contain transition-opacity",
+                      active ? "opacity-100" : "opacity-60 group-hover:opacity-80"
+                    )}
+                  />
+                ) : item.icon ? (
+                  (() => {
+                    const Icon = item.icon;
+                    return (
+                      <Icon
+                        className="h-6 w-6"
+                        strokeWidth={active ? 2.5 : 2}
+                      />
+                    );
+                  })()
+                ) : null}
                 {showBadge && (
                   <span
                     aria-label={`${pendingCount} pending friend ${pendingCount === 1 ? "request" : "requests"}`}
