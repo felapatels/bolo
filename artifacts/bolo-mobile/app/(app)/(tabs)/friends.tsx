@@ -38,6 +38,7 @@ import {
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
@@ -83,20 +84,25 @@ export default function FriendsScreen() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const [tab, setTab] = React.useState<Tab>('friends');
+  const { isIdle, onActivity } = useIdleTimer(10);
 
   return (
     <Screen>
-      <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500)} style={styles.head}>
+      <Animated.View
+        entering={skipEnter ? undefined : FadeInDown.duration(500)}
+        style={styles.head}
+        onTouchStart={onActivity}
+      >
         <View style={{ flex: 1 }}>
           <Text style={[styles.h1, { color: colors.foreground }]}>Friends</Text>
           <Text style={[styles.sub, { color: colors.mutedForeground }]}>
             Learn together, climb the ranks
           </Text>
         </View>
-        <Mascot pose="wave" size={76} motion="sway" />
+        <Mascot pose="wave" size={76} motion="sway" isIdle={isIdle} />
       </Animated.View>
 
-      <View style={styles.segmentWrap}>
+      <View style={styles.segmentWrap} onTouchStart={onActivity}>
         <Segment
           label="Friends"
           icon="users"

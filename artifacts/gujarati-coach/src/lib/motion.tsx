@@ -86,6 +86,59 @@ export function floatIdle(
 }
 
 // ---------------------------------------------------------------------------
+// Funny idle variants — played when the screen sits untouched for 10 s.
+// ---------------------------------------------------------------------------
+
+/**
+ * Each entry is an `{ animate, transition }` pair you can spread onto a
+ * `motion.img`. They are intentionally one-shot (no `repeat: Infinity`) so
+ * Bolo snaps back to the normal float after each performance.
+ *
+ * All entries collapse to `undefined` when `reduceMotion` is true — callers
+ * must check for that before indexing this array.
+ */
+export interface FunnyIdleVariant {
+  animate: MotionProps["animate"];
+  transition: Transition;
+}
+
+export function funnyIdleVariants(reduceMotion: boolean | null): FunnyIdleVariant[] {
+  if (reduceMotion) return [];
+  return [
+    // 1. Spin — full 360° rotation
+    {
+      animate: { rotate: [0, 360] },
+      transition: { duration: 0.6, ease: [0.34, 1.56, 0.64, 1] },
+    },
+    // 2. Peek left-right — like a curious bird peering around
+    {
+      animate: { rotate: [0, -20, 20, -20, 20, 0] },
+      transition: { duration: 1.2, ease: "easeInOut" },
+    },
+    // 3. Sneeze-scale — quick puff then settle
+    {
+      animate: { scale: [1, 1.3, 0.85, 1.1, 1] },
+      transition: { duration: 0.5, ease: "easeOut" },
+    },
+    // 4. Jump — bouncy hop with a little afterbounce
+    {
+      animate: { y: [0, -24, 0, -12, 0] },
+      transition: { duration: 0.7, ease: [0.34, 1.56, 0.64, 1] },
+    },
+    // 5. Dizzy spiral — wobble with a subtle float
+    {
+      animate: { rotate: [0, -15, 15, -15, 0], y: [0, -8, 0] },
+      transition: { duration: 1, ease: "easeInOut" },
+    },
+    // 6. Excited shimmy — rapid tiny shakes side to side
+    {
+      animate: { x: [0, -6, 6, -6, 6, -4, 4, 0] },
+      transition: { duration: 0.6, ease: "easeInOut" },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // FloatingTag — a softly bobbing pill, used for language tags in the shell.
 // ---------------------------------------------------------------------------
 

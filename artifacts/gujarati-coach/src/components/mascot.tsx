@@ -1,6 +1,8 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { mascotEntrance, floatIdle } from "@/lib/motion";
+import { mascotEntrance, floatIdle, funnyIdleVariants, type FunnyIdleVariant } from "@/lib/motion";
+import { useIdleTimer } from "@/lib/hooks/useIdleTimer";
 
 // Bolo the Parrot — the friendly face of the app. Each pose maps to a mood so
 // screens can show the right reaction for the moment. See public/mascot/README.md.
@@ -41,10 +43,33 @@ export function Mascot({
   const reduceMotion = useReducedMotion();
   const src = MASCOT_BASE + POSE_SRC[pose];
 
+  const isIdle = useIdleTimer(10);
+
+  // Pick a random funny variant each time idle begins. Variants collapse to []
+  // under reduced motion so funnyVariant stays null and normal bob resumes.
+  const variants = funnyIdleVariants(reduceMotion);
+  const [funnyVariant, setFunnyVariant] = useState<FunnyIdleVariant | null>(null);
+  const lastIdleRef = useRef(false);
+
+  useEffect(() => {
+    if (isIdle && !lastIdleRef.current && variants.length > 0) {
+      const pick = variants[Math.floor(Math.random() * variants.length)];
+      setFunnyVariant(pick);
+    } else if (!isIdle) {
+      setFunnyVariant(null);
+    }
+    lastIdleRef.current = isIdle;
+  }, [isIdle]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Shared motion primitives: the springy entrance + gentle idle bob that the
   // launch video uses. Both collapse to a still frame under reduced motion.
   const entrance = mascotEntrance(reduceMotion);
   const bob = idle === "none" ? undefined : floatIdle(reduceMotion, idle);
+
+  // When idle and we have a funny variant, override the normal bob.
+  const animateProps = funnyVariant
+    ? { animate: funnyVariant.animate, transition: funnyVariant.transition }
+    : { animate: bob?.animate, transition: bob?.transition };
 
   return (
     <motion.div
@@ -59,8 +84,8 @@ export function Mascot({
         alt=""
         draggable={false}
         className="h-full w-full object-contain drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]"
-        animate={bob?.animate}
-        transition={bob?.transition}
+        animate={animateProps.animate}
+        transition={animateProps.transition}
       />
     </motion.div>
   );

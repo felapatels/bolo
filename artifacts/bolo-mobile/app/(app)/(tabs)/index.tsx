@@ -25,6 +25,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -63,6 +64,8 @@ export default function HomeScreen() {
     recent.refetch();
   };
 
+  const { isIdle, onActivity } = useIdleTimer(10);
+
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
   const nativeTallScript = isTallCascadingScript(activeLanguage);
@@ -87,6 +90,7 @@ export default function HomeScreen() {
           paddingBottom: TAB_BAR_CLEARANCE,
         }}
         showsVerticalScrollIndicator={false}
+        onTouchStart={onActivity}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -105,7 +109,7 @@ export default function HomeScreen() {
               {firstName}
             </Text>
           </View>
-          <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" />
+          <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
           <Pressable
             accessibilityLabel="Account settings"
             onPress={() => {

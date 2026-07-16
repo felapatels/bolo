@@ -24,6 +24,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -54,6 +55,8 @@ export default function ProgressScreen() {
   const earnedBadges = (badges.data ?? []).filter((b) => b.earned).length;
   const totalBadges = (badges.data ?? []).length;
 
+  const { isIdle, onActivity } = useIdleTimer(10);
+
   const skipEnter = useAppearSkip();
   const s = summary.data;
   const masteryPct =
@@ -75,6 +78,7 @@ export default function ProgressScreen() {
           paddingBottom: TAB_BAR_CLEARANCE,
         }}
         showsVerticalScrollIndicator={false}
+        onTouchStart={onActivity}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -92,7 +96,7 @@ export default function ProgressScreen() {
               {activeLanguage?.name ?? 'Loading...'}
             </Text>
           </View>
-          <Mascot pose={mascotPose} size={76} motion="float" />
+          <Mascot pose={mascotPose} size={76} motion="float" isIdle={isIdle} />
         </Animated.View>
 
         {summary.isLoading ? (
