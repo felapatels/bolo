@@ -106,19 +106,31 @@ export interface ParrotChatDeps {
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
 }
 
-// Custom TTS for Bolo — uses the dedicated tts-1 endpoint (much faster than
-// routing through gpt-audio chat completions). shimmer voice is available on
-// both models; tts-1 handles multilingual text natively without a language hint.
-async function boloTTS(text: string, _languageName: string): Promise<Buffer> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await (openai.audio.speech as any).create({
-    model: "tts-1",
-    voice: "shimmer",
-    input: text,
-    response_format: "mp3",
+// Custom TTS for Bolo — uses gpt-audio via chat completions (the Replit AI
+// integrations proxy only supports /v1/chat/completions, not /v1/audio/speech).
+async function boloTTS(text: string, languageName: string): Promise<Buffer> {
+  const langHint = languageName ? ` The text is in ${languageName}.` : "";
+  const response = await openai.chat.completions.create({
+    model: "gpt-audio",
+    modalities: ["text", "audio"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    audio: { voice: "shimmer", format: "mp3" } as any,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a text-to-speech reader. " +
+          "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
+          "Read the text EXACTLY as written, word for word. " +
+          "Do NOT add, change, or omit any words, sounds, or exclamations." +
+          langHint,
+      },
+      { role: "user", content: `Say exactly: ${text}` },
+    ],
   });
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
+  return Buffer.from(audioData, "base64");
 }
 
 export const defaultParrotChatDeps: ParrotChatDeps = {
@@ -128,7 +140,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   reply: async (systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
-      max_completion_tokens: 120,
+      max_completion_tokens: 180,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
@@ -144,6 +156,9 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     }
     return {
       text: parsed.reply?.trim() ?? "",
+      // Do not fall back to the target-language text — an empty string is
+      // the correct signal that no English translation was produced, and the
+      // client hides the caption when the value is empty.
       english: parsed.english?.trim() ?? "",
       transcriptEnglish: parsed.transcript_english?.trim() ?? "",
     };
@@ -291,7 +306,10 @@ export async function runParrotTurn(
     transcript,
     transcriptEnglish: transcriptEnglish.trim(),
     replyText: rawText,   // full text with squawk tokens for the UI transcript
-    replyEnglish: rawReplyEnglish.trim() || ttsText,
+    // Empty string when the LLM omitted the English translation (e.g. truncated
+    // JSON) — the client skips the caption rather than showing target-language
+    // text as if it were English.
+    replyEnglish: rawReplyEnglish.trim(),
     replyAudio,
     audioFormat: "mp3",
     squawkVariant,
