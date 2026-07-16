@@ -727,15 +727,26 @@ export default function ChatPage() {
           {/* Static greeting bubble — shown before the first exchange, never sent to the API */}
           <AnimatePresence>
             {messages.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ ...springs.snappy, delay: 0.1 }}
-                className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
-              >
-                Squawk! I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in {chatLanguage?.name ?? chatLang}! Awk!
-              </motion.div>
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ ...springs.snappy, delay: 0.1 }}
+                  className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
+                >
+                  Squawk! I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}! Awk!
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ ...springs.snappy, delay: 0.2 }}
+                  className="self-start pl-1 text-xs text-muted-foreground"
+                >
+                  💬 Speak in English or {chatLanguage?.name ?? chatLang} — Bolo understands both!
+                </motion.p>
+              </>
             )}
           </AnimatePresence>
           <AnimatePresence initial={false}>
