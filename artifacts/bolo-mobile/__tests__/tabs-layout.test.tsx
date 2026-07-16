@@ -85,12 +85,14 @@ beforeEach(() => {
 });
 
 describe('Registered tabs', () => {
-  test('all four tabs are present, including Chat', () => {
+  test('all five tabs are present with correct labels', () => {
     render(<TabsLayout />);
     expect(screen.getByLabelText('tab-index')).toHaveTextContent('Home');
-    expect(screen.getByLabelText('tab-chat')).toHaveTextContent('Chat');
     expect(screen.getByLabelText('tab-friends')).toHaveTextContent('Friends');
+    // Center Bolo tab — title is now "Bolo", not "Chat"
+    expect(screen.getByLabelText('tab-chat')).toHaveTextContent('Bolo');
     expect(screen.getByLabelText('tab-progress')).toHaveTextContent('Progress');
+    expect(screen.getByLabelText('tab-profile')).toHaveTextContent('Profile');
   });
 });
 
