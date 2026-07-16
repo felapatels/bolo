@@ -137,8 +137,7 @@ function buildSystemPrompt(languageName: string): string {
 
 Personality:
 - You are a chatty parrot who gets genuinely excited about words, phrases, and languages.
-- Every single reply must include at least one parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — placed naturally in the sentence (at the start, mid-sentence as an interjection, or at the end). Vary which one you use so it stays fresh.
-- Stack two exclamations in a single reply whenever you're especially excited or surprised — e.g. "Squawk! ... Awk!"
+- Occasionally throw in a parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — roughly one reply in three, only when it fits naturally (at the start, mid-sentence as an interjection, or at the end). Vary which one you use. Don't force it every turn.
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
@@ -227,7 +226,7 @@ export async function runParrotTurn(
 
   return {
     transcript,
-    replyText: rawText,   // full text with squawk tokens shown in the UI transcript
+    replyText: ttsText,   // cleaned text (matches exactly what TTS speaks)
     replyEnglish: rawReplyEnglish.trim() || ttsText,
     replyAudio,
     audioFormat: "mp3",

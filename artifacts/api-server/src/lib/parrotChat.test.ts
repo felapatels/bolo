@@ -74,7 +74,7 @@ test("runParrotTurn: returns transcript, replyText, replyAudio, format, duration
     makeDeps({ transcribe: async () => "Kem cho?" }),
   );
   assert.equal(result.transcript, "Kem cho?");
-  assert.equal(result.replyText, "Squawk! Namaste!");
+  assert.equal(result.replyText, "Namaste!"); // cleaned text — squawk tokens stripped
   assert.ok(result.replyAudio instanceof Buffer);
   assert.equal(result.audioFormat, "mp3");
   assert.ok(result.durationSeconds > 4 && result.durationSeconds < 6,
