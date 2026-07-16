@@ -303,7 +303,7 @@ export default function AccountScreen() {
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
           <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-            We couldn’t load your settings. Check your connection and try again.
+            Bolo couldn't load your settings right now 🥭 — check your connection and try again.
           </Text>
           <ChunkyButton
             title="Retry"

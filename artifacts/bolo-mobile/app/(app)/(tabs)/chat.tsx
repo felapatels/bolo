@@ -450,16 +450,16 @@ export default function ChatScreen() {
       setPhase('error');
       if (err instanceof ApiError) {
         if ((err as { status?: number }).status === 502) {
-          setErrorMsg("We couldn't process that. Give it another try!");
+          setErrorMsg("Bolo couldn't process that squawk 🦜 — give it another try!");
         } else if ((err as { status?: number }).status === 429) {
           setErrorMsg('Slow down a bit! Wait a moment and try again.');
         } else {
-          setErrorMsg('Something went wrong. Please try again.');
+          setErrorMsg('Bolo ran into a snag — hold to try again!');
         }
       } else if (err instanceof TypeError) {
-        setErrorMsg("We couldn't reach the server. Check your connection and try again.");
+        setErrorMsg("Bolo flew out for a mango lassi 🥭 — check your connection and try again!");
       } else {
-        setErrorMsg('Something went wrong. Please try again.');
+        setErrorMsg('Bolo ran into a snag — hold to try again!');
       }
     }
   };

@@ -80,7 +80,7 @@ function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     const status = (error as { status?: number }).status;
     if (status === 502) {
-      return "We couldn't process that recording. Give it another try!";
+      return "Bolo's squawker hit a snag 🦜 — give it another try!";
     }
     if (status === 429) {
       return "Whoa, that's a lot of practice! Wait a moment, then try again.";
@@ -89,7 +89,7 @@ function describeEvaluationError(error: unknown): string {
   }
   if (error instanceof TypeError) {
     // fetch() rejects with a TypeError when the network is unreachable.
-    return "We couldn't reach the server. Check your connection and try again.";
+    return "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
   }
   return 'Something went wrong while scoring. Please try again.';
 }

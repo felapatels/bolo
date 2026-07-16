@@ -732,7 +732,7 @@ function ErrorState({
         <AlertCircle className="w-7 h-7 text-destructive" />
       </div>
       <p className="text-base font-bold text-foreground mb-1">
-        Something went wrong
+        Bolo couldn't load this 🦜
       </p>
       <p className="text-sm text-muted-foreground mb-4">{message}</p>
       <Button

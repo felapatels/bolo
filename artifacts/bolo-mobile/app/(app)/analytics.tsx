@@ -151,7 +151,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
     <View style={styles.centerState}>
       <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
       <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-        We couldn’t load your analytics. Check your connection and try again.
+        Bolo couldn't load your analytics right now 🥭 — check your connection and try again.
       </Text>
       <ChunkyButton
         title="Retry"

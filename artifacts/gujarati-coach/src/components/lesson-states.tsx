@@ -152,11 +152,11 @@ export function LessonErrorScreen({
           </div>
           <div>
             <h2 className="text-xl font-black text-foreground">
-              We couldn't build this lesson
+              Bolo's chef is still cooking 🍳
             </h2>
             <p className="text-muted-foreground font-medium mt-1">
-              Something went wrong while creating your phrases. Let's try that
-              again.
+              The lesson didn't come through — give it another try and Bolo
+              will whip up something fresh!
             </p>
           </div>
           <button

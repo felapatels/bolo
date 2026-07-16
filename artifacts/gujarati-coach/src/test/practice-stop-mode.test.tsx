@@ -227,7 +227,7 @@ describe("evaluation error surfacing", () => {
     await waitFor(() =>
       expect(screen.getByText("Oops, that didn't work")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/couldn't process that recording/i)).toBeInTheDocument();
+    expect(screen.getByText(/squawker hit a snag/i)).toBeInTheDocument();
 
     // Retry recovers cleanly back to the belly zone.
     fireEvent.click(screen.getByText("Try again"));
@@ -240,7 +240,7 @@ describe("evaluation error surfacing", () => {
     await recordAndStop();
 
     await waitFor(() =>
-      expect(screen.getByText(/couldn't reach the server/i)).toBeInTheDocument(),
+      expect(screen.getByText(/mango lassi/i)).toBeInTheDocument(),
     );
   });
 

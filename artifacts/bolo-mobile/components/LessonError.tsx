@@ -51,13 +51,13 @@ export function LessonError({
           entering={skipEnter ? undefined : FadeInDown.duration(450).delay(80)}
           style={[styles.title, { color: colors.foreground }]}
         >
-          We couldn't build this lesson
+          Bolo's chef is still cooking 🍳
         </Animated.Text>
         <Animated.Text
           entering={skipEnter ? undefined : FadeInDown.duration(450).delay(140)}
           style={[styles.message, { color: colors.mutedForeground }]}
         >
-          Something went wrong while creating your phrases. Let's try that again.
+          The lesson didn't come through — give it another try and Bolo will whip up something fresh!
         </Animated.Text>
 
         <Animated.View

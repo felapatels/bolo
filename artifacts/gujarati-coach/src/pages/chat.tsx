@@ -207,12 +207,12 @@ export default function ChatPage() {
         return;
       }
 
-      let msg = "Something went wrong. Please try again.";
+      let msg = "Bolo ran into a snag — hold to try again!";
       if (err instanceof ApiError) {
-        if (err.status === 502) msg = "We couldn't process that. Give it another try!";
+        if (err.status === 502) msg = "Bolo couldn't process that squawk 🦜 — give it another try!";
         else if (err.status === 429) msg = "Slow down a bit! Wait a moment and try again.";
       } else if (err instanceof TypeError) {
-        msg = "We couldn't reach the server. Check your connection and try again.";
+        msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
       }
       setErrorMsg(msg);
       setPhase("error");
