@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  AccessibilityInfo,
   Alert,
   FlatList,
   Modal,
@@ -67,6 +68,12 @@ type ChatMessage = {
   englishText?: string;
   /** True while waiting for the transcript — renders as a greyed sending bubble */
   pending?: boolean;
+  /**
+   * Word-by-word typewriter reveal for parrot bubbles.
+   * undefined = show full text (animation complete or not started).
+   * A number = how many words are currently visible (animation in progress).
+   */
+  revealedWordCount?: number;
 };
 
 const PROCESSING_STEP_LABELS = {
@@ -161,6 +168,7 @@ export default function ChatScreen() {
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const recorderState = useAudioRecorderState(recorder, 250);
   const playbackRef = React.useRef<PlaybackHandle | null>(null);
+  const wordRevealTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionReadyRef = React.useRef(false);
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
@@ -187,15 +195,24 @@ export default function ChatScreen() {
 
   const scrollRef = React.useRef<ScrollView>(null);
 
+  /** Stop any in-progress word-reveal animation immediately. */
+  const clearWordReveal = React.useCallback(() => {
+    if (wordRevealTimerRef.current !== null) {
+      clearInterval(wordRevealTimerRef.current);
+      wordRevealTimerRef.current = null;
+    }
+  }, []);
+
   // Clear conversation history and stop any playback when the chat language changes.
   React.useEffect(() => {
+    clearWordReveal();
     setMessages([]);
     setErrorMsg(null);
     setPhase('idle');
     playbackRef.current?.stop();
     playbackRef.current = null;
     setUpgradeRequired(false);
-  }, [chatLang]);
+  }, [chatLang, clearWordReveal]);
 
   // ── Mic warm-up ────────────────────────────────────────────────────────────
   const prepareRecorder = React.useCallback((): Promise<boolean> => {
@@ -228,12 +245,13 @@ export default function ChatScreen() {
     if (phase === 'idle') void prepareRecorder();
   }, [phase, prepareRecorder]);
 
-  // Clean up playback on unmount
+  // Clean up playback and word-reveal on unmount
   React.useEffect(
     () => () => {
+      clearWordReveal();
       playbackRef.current?.stop();
     },
-    [],
+    [clearWordReveal],
   );
 
   // Tab screens stay mounted, so unmount cleanup alone isn't enough: when the
@@ -257,6 +275,10 @@ export default function ChatScreen() {
         return () => {
         // Runs only on actual tab blur (or unmount).
         isFocusedRef.current = false;
+        if (wordRevealTimerRef.current !== null) {
+          clearInterval(wordRevealTimerRef.current);
+          wordRevealTimerRef.current = null;
+        }
         playbackRef.current?.stop();
         playbackRef.current = null;
         try {
@@ -531,6 +553,10 @@ export default function ChatScreen() {
       // Now find it (or the pending bubble if SSE didn't fire progressively)
       // and attach the englishText, then push the parrot reply.
       hapticMedium();
+      const replyWords = replyText.split(/\s+/).filter(Boolean);
+      const isReducedMotion = await AccessibilityInfo.isReduceMotionEnabled();
+      const shouldAnimate = !isReducedMotion && replyWords.length > 1;
+
       setMessages((prev) => {
         const updated = [...prev];
         const pendingIdx = updated.findIndex((m) => m.pending || (m.role === 'learner' && m.text === transcriptText && !m.englishText));
@@ -549,6 +575,9 @@ export default function ChatScreen() {
           role: 'parrot',
           text: replyText,
           englishText: replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
+          // Start with 0 revealed words when animating; the interval below
+          // will reveal them in sync with the audio playback.
+          revealedWordCount: shouldAnimate ? 0 : undefined,
         });
         return updated;
       });
@@ -564,6 +593,61 @@ export default function ChatScreen() {
       await new Promise<void>((resolve) => setTimeout(resolve, 80));
 
       if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+      // Start the word-reveal animation timed to the audio duration.
+      // On mobile we don't have easy access to audio duration before playback,
+      // so we use a fixed estimate of 350 ms per word (typical conversational pace).
+      if (shouldAnimate) {
+        clearWordReveal();
+        const capturedTurn = myTurn;
+        const msPerWord = Math.max(120, Math.min(800, Math.round(
+          (replyWords.length <= 5 ? 400 : replyWords.length <= 10 ? 350 : 300),
+        )));
+        let revealed = 1;
+
+        // Show first word immediately.
+        setMessages((prev) =>
+          prev.map((m, idx, arr) => {
+            if (m.role === 'parrot' && m.revealedWordCount !== undefined && idx === arr.length - 1) {
+              return { ...m, revealedWordCount: 1 };
+            }
+            return m;
+          }),
+        );
+
+        wordRevealTimerRef.current = setInterval(() => {
+          if (activeTurnRef.current !== capturedTurn) {
+            if (wordRevealTimerRef.current !== null) {
+              clearInterval(wordRevealTimerRef.current);
+              wordRevealTimerRef.current = null;
+            }
+            return;
+          }
+          revealed++;
+          if (revealed >= replyWords.length) {
+            if (wordRevealTimerRef.current !== null) {
+              clearInterval(wordRevealTimerRef.current);
+              wordRevealTimerRef.current = null;
+            }
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.role === 'parrot' && m.revealedWordCount !== undefined
+                  ? { ...m, revealedWordCount: undefined }
+                  : m,
+              ),
+            );
+          } else {
+            setMessages((prev) =>
+              prev.map((m, idx, arr) => {
+                if (m.role === 'parrot' && m.revealedWordCount !== undefined && idx === arr.length - 1) {
+                  return { ...m, revealedWordCount: revealed };
+                }
+                return m;
+              }),
+            );
+          }
+        }, msPerWord);
+      }
 
       setPhase('playing');
       hapticHeavy();
@@ -842,48 +926,79 @@ export default function ChatScreen() {
           contentContainerStyle={styles.transcriptContent}
           showsVerticalScrollIndicator={false}
         >
-          {messages.map((msg, i) => (
-            <Animated.View
-              key={i}
-              entering={appear(FadeInUp.duration(280).delay(40))}
-              style={[
-                styles.bubble,
-                msg.role === 'learner'
-                  ? [styles.bubbleLearner, { backgroundColor: colors.primary, opacity: msg.pending ? 0.55 : 1 }]
-                  : [styles.bubbleParrot, { backgroundColor: colors.card, borderColor: colors.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.bubbleText,
-                  {
-                    color:
-                      msg.role === 'learner'
-                        ? colors.primaryForeground
-                        : colors.foreground,
-                    fontStyle: msg.pending ? 'italic' : 'normal',
-                  },
-                ]}
-              >
-                {msg.pending ? 'Sending…' : msg.text}
-              </Text>
-              {msg.englishText ? (
+          {messages.map((msg, i) => {
+            const isAnimating = msg.role === 'parrot' && msg.revealedWordCount !== undefined;
+            const displayText = isAnimating
+              ? msg.text.split(/\s+/).filter(Boolean).slice(0, msg.revealedWordCount).join(' ')
+              : (msg.pending ? 'Sending…' : msg.text);
+
+            const bubbleContent = (
+              <>
                 <Text
                   style={[
-                    styles.bubbleEnglish,
+                    styles.bubbleText,
                     {
                       color:
                         msg.role === 'learner'
-                          ? (colors.primaryForeground ?? '#fff') + 'b3'
-                          : colors.mutedForeground,
+                          ? colors.primaryForeground
+                          : colors.foreground,
+                      fontStyle: msg.pending ? 'italic' : 'normal',
                     },
                   ]}
                 >
-                  {msg.englishText}
+                  {displayText}
                 </Text>
-              ) : null}
-            </Animated.View>
-          ))}
+                {msg.englishText && !isAnimating ? (
+                  <Text
+                    style={[
+                      styles.bubbleEnglish,
+                      {
+                        color:
+                          msg.role === 'learner'
+                            ? (colors.primaryForeground ?? '#fff') + 'b3'
+                            : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {msg.englishText}
+                  </Text>
+                ) : null}
+              </>
+            );
+
+            return (
+              <Animated.View
+                key={i}
+                entering={appear(FadeInUp.duration(280).delay(40))}
+                style={[
+                  styles.bubble,
+                  msg.role === 'learner'
+                    ? [styles.bubbleLearner, { backgroundColor: colors.primary, opacity: msg.pending ? 0.55 : 1 }]
+                    : [styles.bubbleParrot, { backgroundColor: colors.card, borderColor: colors.border }],
+                ]}
+              >
+                {isAnimating ? (
+                  // Wrap in Pressable so the learner can tap to reveal all words immediately.
+                  <Pressable
+                    onPress={() => {
+                      clearWordReveal();
+                      setMessages((prev) =>
+                        prev.map((m) =>
+                          m.role === 'parrot' && m.revealedWordCount !== undefined
+                            ? { ...m, revealedWordCount: undefined }
+                            : m,
+                        ),
+                      );
+                    }}
+                    accessibilityLabel="Tap to reveal full text"
+                    accessibilityRole="button"
+                  >
+                    {bubbleContent}
+                  </Pressable>
+                ) : bubbleContent}
+              </Animated.View>
+            );
+          })}
         </ScrollView>
       )}
 

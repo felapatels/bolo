@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import {
@@ -45,6 +45,12 @@ type ChatMessage = {
   englishText?: string;
   /** True while we're waiting for the transcript — renders as a greyed sending bubble */
   pending?: boolean;
+  /**
+   * Word-by-word typewriter reveal for parrot bubbles.
+   * undefined = show full text (animation complete or not started).
+   * A number = how many words are currently revealed (animation in progress).
+   */
+  revealedWordCount?: number;
 };
 
 /** Human-readable labels for each phase, shown under the mascot. */
@@ -78,6 +84,7 @@ export default function ChatPage() {
   const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
   const recorder = useVoiceRecorder();
+  const prefersReducedMotion = useReducedMotion();
 
   // Per-session chat language — does NOT change the global active language.
   const [chatLang, setChatLang] = useState<string>(activeLang);
@@ -93,6 +100,7 @@ export default function ChatPage() {
   >(undefined);
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
+  const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const finishingRef = useRef(false);
   // Incremented each time a new turn starts. finishRecording captures its own
   // snapshot at invocation time and only applies the result if the counter
@@ -107,8 +115,17 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Stop any in-progress word-reveal animation immediately. */
+  const clearWordReveal = useCallback(() => {
+    if (wordRevealTimerRef.current !== null) {
+      clearInterval(wordRevealTimerRef.current);
+      wordRevealTimerRef.current = null;
+    }
+  }, []);
+
   // Clear conversation when language changes.
   useEffect(() => {
+    clearWordReveal();
     setMessages([]);
     setErrorMsg(null);
     setPhase("idle");
@@ -116,17 +133,18 @@ export default function ChatPage() {
       playbackRef.current.pause();
       playbackRef.current = null;
     }
-  }, [chatLang]);
+  }, [chatLang, clearWordReveal]);
 
-  // Stop playback on unmount.
+  // Stop playback and word-reveal on unmount.
   useEffect(
     () => () => {
+      clearWordReveal();
       if (playbackRef.current) {
         playbackRef.current.pause();
         playbackRef.current = null;
       }
     },
-    [],
+    [clearWordReveal],
   );
 
   // Scroll to bottom on new messages.
@@ -254,6 +272,9 @@ export default function ChatPage() {
             const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
             const secondsRemaining = payload.secondsRemaining as number | null;
 
+            const replyWords = replyText.split(/\s+/).filter(Boolean);
+            const shouldAnimate = !prefersReducedMotion && replyWords.length > 1;
+
             setMessages((prev) => {
               const updated = [...prev];
               // Back-fill the English gloss on the learner bubble we already showed
@@ -268,7 +289,15 @@ export default function ChatPage() {
               }
               return [
                 ...updated,
-                { role: "parrot", text: replyText, englishText: replyEnglish },
+                {
+                  role: "parrot",
+                  text: replyText,
+                  englishText: replyEnglish,
+                  // Start with 0 revealed words when animating so the bubble
+                  // appears first (giving Devanagari/Nastaliq readers a moment
+                  // to orient), then words reveal in sync with the audio.
+                  revealedWordCount: shouldAnimate ? 0 : undefined,
+                },
               ];
             });
 
@@ -282,6 +311,67 @@ export default function ChatPage() {
             // reading scripts like Devanagari or Nastaliq get a half-beat to
             // find their place before the audio begins.
             await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+            // Start the word-reveal animation timed to the audio duration.
+            if (shouldAnimate && activeTurnRef.current === myTurn) {
+              clearWordReveal();
+              const capturedTurn = myTurn;
+
+              // Probe the audio element for its duration so we can pace reveals.
+              const getAudioDuration = (): Promise<number> =>
+                new Promise((resolve) => {
+                  const probe = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
+                  probe.addEventListener("loadedmetadata", () => resolve(probe.duration), { once: true });
+                  // Fallback: assume ~400 ms per word if metadata never fires.
+                  probe.addEventListener("error", () => resolve(replyWords.length * 0.4), { once: true });
+                  probe.load();
+                });
+
+              getAudioDuration().then((duration) => {
+                if (activeTurnRef.current !== capturedTurn) return;
+                const msPerWord = Math.max(100, Math.min(900, (duration * 1000) / replyWords.length));
+                let revealed = 1;
+
+                // Show the first word immediately.
+                setMessages((prev) =>
+                  prev.map((m, idx, arr) => {
+                    if (m.role === "parrot" && m.revealedWordCount !== undefined && idx === arr.length - 1) {
+                      return { ...m, revealedWordCount: 1 };
+                    }
+                    return m;
+                  }),
+                );
+
+                wordRevealTimerRef.current = setInterval(() => {
+                  if (activeTurnRef.current !== capturedTurn) {
+                    clearWordReveal();
+                    return;
+                  }
+                  revealed++;
+                  if (revealed >= replyWords.length) {
+                    clearWordReveal();
+                    // Animation complete — drop revealedWordCount so the full
+                    // text renders without special handling.
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.role === "parrot" && m.revealedWordCount !== undefined
+                          ? { ...m, revealedWordCount: undefined }
+                          : m,
+                      ),
+                    );
+                  } else {
+                    setMessages((prev) =>
+                      prev.map((m, idx, arr) => {
+                        if (m.role === "parrot" && m.revealedWordCount !== undefined && idx === arr.length - 1) {
+                          return { ...m, revealedWordCount: revealed };
+                        }
+                        return m;
+                      }),
+                    );
+                  }
+                }, msPerWord);
+              });
+            }
 
             // A newer turn may have started during the await — drop stale result.
             if (activeTurnRef.current !== myTurn) {
@@ -362,7 +452,7 @@ export default function ChatPage() {
         finishingRef.current = false;
       }
     }
-  }, [recorder, chatLang, messages, setLocation]);
+  }, [recorder, chatLang, messages, setLocation, clearWordReveal, prefersReducedMotion]);
 
   const showTimeIndicator =
     !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
@@ -418,6 +508,7 @@ export default function ChatPage() {
     if (phase === "processing") {
       // Supersede the in-flight request by bumping the turn counter; when the
       // old response arrives its turn ID will no longer match and it is dropped.
+      clearWordReveal();
       activeTurnRef.current++;
       finishingRef.current = false;
       void startRecording();
@@ -425,9 +516,10 @@ export default function ChatPage() {
     }
 
     if (phase === "idle" || phase === "error") {
+      clearWordReveal();
       void startRecording();
     }
-  }, [phase, capExhausted, startRecording, stopPlayback]);
+  }, [phase, capExhausted, startRecording, stopPlayback, clearWordReveal]);
 
   const handleMicPointerUp = useCallback(() => {
     if (phase === "recording") {
@@ -662,12 +754,32 @@ export default function ChatPage() {
               >
                 {msg.role === "parrot" ? (() => {
                   const native = chatLanguage ? nativeTextProps(chatLanguage) : null;
+                  const isAnimating = msg.revealedWordCount !== undefined;
+                  const displayText = isAnimating
+                    ? msg.text.split(/\s+/).filter(Boolean).slice(0, msg.revealedWordCount).join(" ")
+                    : msg.text;
                   return (
-                    <div className="flex flex-col">
+                    <div
+                      className={cn("flex flex-col", isAnimating && "cursor-pointer select-none")}
+                      onClick={isAnimating ? () => {
+                        clearWordReveal();
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.role === "parrot" && m.revealedWordCount !== undefined
+                              ? { ...m, revealedWordCount: undefined }
+                              : m,
+                          ),
+                        );
+                      } : undefined}
+                      title={isAnimating ? "Tap to show full text" : undefined}
+                    >
                       <span style={native?.style} dir={native?.dir}>
-                        {msg.text}
+                        {displayText}
+                        {isAnimating && (
+                          <span className="ml-0.5 inline-block w-0.5 h-[1em] bg-foreground/50 align-middle animate-pulse" aria-hidden="true" />
+                        )}
                       </span>
-                      {msg.englishText && (
+                      {msg.englishText && !isAnimating && (
                         <span className="text-xs text-muted-foreground mt-1 italic">
                           {msg.englishText}
                         </span>
