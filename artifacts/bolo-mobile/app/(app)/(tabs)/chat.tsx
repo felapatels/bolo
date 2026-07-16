@@ -43,6 +43,7 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
+import { TipCard } from '@/components/TipCard';
 
 // How many previous turns to include in each request for conversational context.
 const HISTORY_WINDOW = 6;
@@ -62,7 +63,28 @@ type ChatMessage = {
   text: string;
   /** English translation of the parrot's reply, shown in small italic text below */
   englishText?: string;
+  /** True while waiting for the transcript — renders as a greyed sending bubble */
+  pending?: boolean;
 };
+
+const PROCESSING_STEP_LABELS = {
+  transcribing: 'Got it! 💬',
+  replying: 'Crafting a reply… 🦜',
+} as const;
+type ProcessingStep = keyof typeof PROCESSING_STEP_LABELS;
+
+function getStatusLabel(
+  phase: 'idle' | 'recording' | 'processing' | 'playing' | 'error',
+  processingStep: ProcessingStep,
+  hasMessages: boolean,
+): string {
+  if (phase === 'idle') return hasMessages ? 'Hold to talk again' : 'Hold Bolo to start talking';
+  if (phase === 'recording') return 'Listening… release to send';
+  if (phase === 'processing') return PROCESSING_STEP_LABELS[processingStep];
+  if (phase === 'playing') return 'Almost ready… 🎵';
+  if (phase === 'error') return 'Something went wrong — hold to retry';
+  return '';
+}
 
 /** Format seconds as "1:23" */
 function formatSeconds(s: number): string {
@@ -92,6 +114,7 @@ export default function ChatScreen() {
   // Conversation history shown in the UI (and sent to the server as context)
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [phase, setPhase] = React.useState<ChatPhase>('idle');
+  const [processingStep, setProcessingStep] = React.useState<ProcessingStep>('transcribing');
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   // Remaining weekly seconds (null = unlimited; undefined = not yet fetched)
@@ -336,6 +359,13 @@ export default function ChatScreen() {
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     setPhase('processing');
+    setProcessingStep('transcribing');
+    // Immediately show a pending learner bubble — gives visual feedback
+    // before Whisper returns the transcript (~1 s later).
+    setMessages((prev) => [
+      ...prev.filter((m) => !m.pending),
+      { role: 'learner', text: '', pending: true },
+    ]);
 
     let audioBase64: string;
     try {
@@ -420,14 +450,19 @@ export default function ChatScreen() {
               return;
             }
 
-            // Show the learner's side of the exchange immediately — before
-            // Bolo's reply arrives (~1 s earlier than before).
+            // Replace the pending bubble with the real transcript text.
             // English gloss is back-filled on the reply event.
             hapticMedium();
-            setMessages((prev) => [
-              ...prev,
-              { role: 'learner', text: transcriptText },
-            ]);
+            setMessages((prev) => {
+              const pendingIdx = prev.findIndex((m) => m.pending);
+              if (pendingIdx >= 0) {
+                const updated = [...prev];
+                updated[pendingIdx] = { role: 'learner', text: transcriptText };
+                return updated;
+              }
+              return [...prev, { role: 'learner', text: transcriptText }];
+            });
+            setProcessingStep('replying');
 
           } else if (eventName === 'reply') {
             // A newer turn started or user left — drop stale result.
@@ -687,23 +722,11 @@ export default function ChatScreen() {
 
         {/* Status label under the mascot */}
         <Animated.Text
-          key={phase}
+          key={phase === 'processing' ? `processing-${processingStep}` : phase}
           entering={appear(FadeInDown.duration(250))}
           style={[styles.statusLabel, { color: colors.mutedForeground }]}
         >
-          {phase === 'idle' && messages.length === 0
-            ? 'Hold Bolo to start talking'
-            : phase === 'idle'
-              ? 'Hold to talk again'
-              : phase === 'recording'
-                ? 'Listening… release to send'
-                : phase === 'processing'
-                  ? 'Thinking…'
-                  : phase === 'playing'
-                    ? 'Bolo is speaking…'
-                    : phase === 'error'
-                      ? 'Something went wrong — hold to retry'
-                      : ''}
+          {getStatusLabel(phase, processingStep, messages.length > 0)}
         </Animated.Text>
 
         {/* Instructional hint — always visible until the first exchange so
@@ -740,6 +763,9 @@ export default function ChatScreen() {
         )}
       </Pressable>
 
+      {/* Tip card — shown while Bolo is processing a reply */}
+      {phase === 'processing' && <TipCard />}
+
       {/* Static greeting bubble — shown before the first exchange, client-side only, never sent to the API */}
       {messages.length === 0 && (
         <Animated.View
@@ -772,7 +798,7 @@ export default function ChatScreen() {
               style={[
                 styles.bubble,
                 msg.role === 'learner'
-                  ? [styles.bubbleLearner, { backgroundColor: colors.primary }]
+                  ? [styles.bubbleLearner, { backgroundColor: colors.primary, opacity: msg.pending ? 0.55 : 1 }]
                   : [styles.bubbleParrot, { backgroundColor: colors.card, borderColor: colors.border }],
               ]}
             >
@@ -784,10 +810,11 @@ export default function ChatScreen() {
                       msg.role === 'learner'
                         ? colors.primaryForeground
                         : colors.foreground,
+                    fontStyle: msg.pending ? 'italic' : 'normal',
                   },
                 ]}
               >
-                {msg.text}
+                {msg.pending ? 'Sending…' : msg.text}
               </Text>
               {msg.englishText ? (
                 <Text

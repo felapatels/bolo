@@ -6,7 +6,7 @@ import {
   ApiError,
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
-import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle } from "lucide-react";
+import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
@@ -25,6 +25,7 @@ import {
   asUpgradeRequired,
 } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
+import { ChatTipCard } from "@/components/chat-tip-card";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -42,7 +43,29 @@ type ChatMessage = {
   role: "learner" | "parrot";
   text: string;
   englishText?: string;
+  /** True while we're waiting for the transcript — renders as a greyed sending bubble */
+  pending?: boolean;
 };
+
+/** Human-readable labels for each phase, shown under the mascot. */
+const PROCESSING_STEP_LABELS = {
+  transcribing: "Got it! 💬",
+  replying: "Crafting a reply… 🦜",
+} as const;
+type ProcessingStep = keyof typeof PROCESSING_STEP_LABELS;
+
+function getStatusLabel(
+  phase: ChatMessage["role"] | "idle" | "recording" | "processing" | "playing" | "error",
+  processingStep: ProcessingStep,
+  hasMessages: boolean,
+): string {
+  if (phase === "idle") return hasMessages ? "Hold to talk again" : "Hold Bolo to speak";
+  if (phase === "recording") return "Release to send";
+  if (phase === "processing") return PROCESSING_STEP_LABELS[processingStep];
+  if (phase === "playing") return "Almost ready… 🎵";
+  if (phase === "error") return "Something went wrong";
+  return "";
+}
 
 function formatSeconds(s: number): string {
   const m = Math.floor(s / 60);
@@ -63,6 +86,7 @@ export default function ChatPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<ChatPhase>("idle");
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>("transcribing");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<
     number | null | undefined
@@ -119,7 +143,14 @@ export default function ChatPage() {
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     setPhase("processing");
+    setProcessingStep("transcribing");
     setErrorMsg(null);
+    // Immediately show a pending learner bubble — gives visual feedback
+    // before Whisper returns the transcript (~1 s later).
+    setMessages((prev) => [
+      ...prev.filter((m) => !m.pending),
+      { role: "learner", text: "", pending: true },
+    ]);
 
     try {
       const blob = await recorder.stopRecording();
@@ -195,12 +226,18 @@ export default function ChatPage() {
               reader.cancel().catch(() => {});
               return;
             }
-            // Show the learner's side of the exchange immediately — before
-            // Bolo's reply arrives. English gloss will be added on the reply event.
-            setMessages((prev) => [
-              ...prev,
-              { role: "learner", text: transcriptText },
-            ]);
+            // Replace the pending bubble with the real transcript text.
+            // English gloss will be back-filled on the reply event.
+            setMessages((prev) => {
+              const pendingIdx = prev.findIndex((m) => m.pending);
+              if (pendingIdx >= 0) {
+                const updated = [...prev];
+                updated[pendingIdx] = { role: "learner", text: transcriptText };
+                return updated;
+              }
+              return [...prev, { role: "learner", text: transcriptText }];
+            });
+            setProcessingStep("replying");
 
           } else if (eventName === "reply") {
             // A newer turn started while LLM+TTS was in flight — drop stale result.
@@ -539,26 +576,14 @@ export default function ChatPage() {
         />
         <AnimatePresence mode="wait">
           <motion.p
-            key={phase}
+            key={phase === "processing" ? `processing-${processingStep}` : phase}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={springs.snappy}
             className="mt-3 text-sm font-semibold text-muted-foreground"
           >
-            {phase === "idle" && messages.length === 0
-              ? "Hold Bolo to speak"
-              : phase === "idle"
-                ? "Hold to talk again"
-                : phase === "recording"
-                  ? "Release to send"
-                  : phase === "processing"
-                    ? "Thinking…"
-                    : phase === "playing"
-                      ? "Tap to interrupt"
-                      : phase === "error"
-                        ? "Something went wrong"
-                        : ""}
+            {getStatusLabel(phase, processingStep, messages.length > 0)}
           </motion.p>
         </AnimatePresence>
         <AnimatePresence>
@@ -575,6 +600,20 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
       </button>
+
+      {/* Tip card — shown while Bolo is processing a reply */}
+      <AnimatePresence>
+        {phase === "processing" && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={springs.gentle}
+          >
+            <ChatTipCard />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Conversation transcript */}
       <div
@@ -601,7 +640,7 @@ export default function ChatPage() {
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={{ opacity: msg.pending ? 0.55 : 1, y: 0 }}
                 transition={{ ...springs.snappy, delay: 0.04 }}
                 className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -614,10 +653,7 @@ export default function ChatPage() {
                   const native = chatLanguage ? nativeTextProps(chatLanguage) : null;
                   return (
                     <div className="flex flex-col">
-                      <span
-                        style={native?.style}
-                        dir={native?.dir}
-                      >
+                      <span style={native?.style} dir={native?.dir}>
                         {msg.text}
                       </span>
                       {msg.englishText && (
@@ -628,13 +664,18 @@ export default function ChatPage() {
                     </div>
                   );
                 })() : (
-                  <div className="flex flex-col">
-                    <span>{msg.text}</span>
-                    {msg.englishText && (
-                      <span className="text-xs text-primary-foreground/70 mt-1 italic">
-                        {msg.englishText}
-                      </span>
-                    )}
+                  <div className="flex items-center gap-2">
+                    {msg.pending ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin opacity-70" />
+                    ) : null}
+                    <div className="flex flex-col min-w-0">
+                      <span>{msg.pending ? "Sending…" : msg.text}</span>
+                      {msg.englishText && (
+                        <span className="text-xs text-primary-foreground/70 mt-1 italic">
+                          {msg.englishText}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </motion.div>
