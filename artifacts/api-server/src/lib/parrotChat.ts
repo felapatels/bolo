@@ -76,7 +76,7 @@ export interface ParrotChatDeps {
    * Single call that returns the in-language reply, its English gloss, an
    * English translation of what the learner said, AND synthesized audio —
    * combining the old `reply` + `synthesize` round-trips into one
-   * gpt-4o-audio-preview completion.
+   * gpt-audio completion.
    */
   completeWithAudio: (
     systemPrompt: string,
@@ -92,11 +92,11 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   completeWithAudio: async (systemPrompt, userPrompt, languageName) => {
     const langHint = languageName ? ` The text is in ${languageName}.` : "";
 
-    // Single gpt-4o-audio-preview call: the model outputs JSON as its text
+    // Single gpt-audio call: the model outputs JSON as its text
     // content (reply + english + transcript_english) and simultaneously speaks
     // the native reply as audio. This eliminates the separate TTS round-trip.
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-audio-preview",
+      model: "gpt-audio",
       modalities: ["text", "audio"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audio: { voice: "shimmer", format: "mp3" } as any,
@@ -225,7 +225,7 @@ export async function runParrotTurn(
   // `transcript` event to the client before the LLM+TTS call starts.
   input.onTranscript?.(transcript, durationSeconds);
 
-  // Single gpt-4o-audio-preview call returns the native-language reply, its
+  // Single gpt-audio call returns the native-language reply, its
   // English gloss, an English translation of the learner's transcript, AND
   // synthesized MP3 audio — replacing the two sequential round-trips
   // (gpt-5.4-mini reply + gpt-audio TTS).
