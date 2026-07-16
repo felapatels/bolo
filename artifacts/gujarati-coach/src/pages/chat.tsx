@@ -383,8 +383,14 @@ export default function ChatPage() {
         </motion.div>
       )}
 
-      {/* Mascot */}
-      <div className="flex flex-col items-center px-4 py-4">
+      {/* Mascot — tapping the bird starts/stops recording */}
+      <button
+        type="button"
+        onClick={phase === "processing" || phase === "playing" || capExhausted ? undefined : handleMicPress}
+        disabled={phase === "processing" || phase === "playing" || capExhausted}
+        aria-label={phase === "recording" ? "Stop recording" : "Start recording"}
+        className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none"
+      >
         <Mascot
           pose={mascotPose}
           size={148}
@@ -400,7 +406,7 @@ export default function ChatPage() {
             className="mt-3 text-sm font-semibold text-muted-foreground"
           >
             {phase === "idle" && messages.length === 0
-              ? "Tap the mic to start talking"
+              ? "Tap Bolo to start talking"
               : phase === "idle"
                 ? "Tap to talk again"
                 : phase === "recording"
@@ -414,7 +420,7 @@ export default function ChatPage() {
                         : ""}
           </motion.p>
         </AnimatePresence>
-      </div>
+      </button>
 
       {/* Conversation transcript */}
       <div

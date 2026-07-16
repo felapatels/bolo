@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "supportsTablet": false,
       "icon": "./assets/images/icon.png",
       "infoPlist": {

@@ -465,8 +465,22 @@ export default function ChatScreen() {
         </Animated.View>
       )}
 
-      {/* Mascot area */}
-      <View style={styles.mascotArea}>
+      {/* Mascot area — tapping the bird starts/stops recording */}
+      <Pressable
+        onPress={
+          phase === 'recording'
+            ? handleStopRecording
+            : phase === 'idle' || phase === 'error'
+              ? handleStartRecording
+              : undefined
+        }
+        disabled={phase === 'processing' || phase === 'playing' || capExhausted}
+        style={styles.mascotArea}
+        accessibilityRole="button"
+        accessibilityLabel={
+          phase === 'recording' ? 'Stop recording' : 'Start recording'
+        }
+      >
         <TalkingMascot mode={mascotMode} size={160} />
 
         {/* Status label under the mascot */}
@@ -489,7 +503,7 @@ export default function ChatScreen() {
                       ? 'Something went wrong'
                       : ''}
         </Animated.Text>
-      </View>
+      </Pressable>
 
       {/* Conversation transcript */}
       {messages.length > 0 && (
