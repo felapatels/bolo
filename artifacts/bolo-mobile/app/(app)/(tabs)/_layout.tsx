@@ -23,7 +23,7 @@ function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={{ top: 30, bottom: 0, left: 10, right: 10 }}
+      hitSlop={{ top: 22, bottom: 0, left: 8, right: 8 }}
       style={styles.boloOuter}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
@@ -73,21 +73,23 @@ const styles = StyleSheet.create({
   },
   boloBubble: {
     position: 'absolute',
-    // 30 px above the tab bar's top edge — keeps the circle clear of the
-    // "Bolo" label even when the tab slot is shortened by safe-area insets.
-    top: -30,
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    // 22 px above the tab bar's top edge. Kept smaller than the slot width
+    // so the circle does not bleed horizontally into adjacent tab columns.
+    top: -22,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
+    // Stays below its own slot's text but above the tab bar background.
+    zIndex: 1,
   },
   boloImage: {
-    width: 52,
-    height: 52,
+    width: 44,
+    height: 44,
   },
   boloLabel: {
     fontFamily: AppFonts.semibold,
