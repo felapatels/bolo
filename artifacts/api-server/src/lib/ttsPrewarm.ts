@@ -8,10 +8,47 @@ import { logger } from "./logger";
 // specific voice — must match the default in routes/openai.ts.
 const DEFAULT_VOICE = "nova" as const;
 
-// Maximum concurrent TTS synthesis calls.  OpenAI's TTS endpoint is not
-// subject to a strict per-second limit, but bursting 100 calls at once is
-// rude and risks 429s.  Five at a time is a safe, polite default.
-const CONCURRENCY = 5;
+// Maximum concurrent TTS synthesis calls. ElevenLabs free-tier keys allow only
+// a couple of concurrent requests, and bursting has been observed to trip the
+// provider's "unusual activity" abuse flag (temporarily disabling the whole
+// account). Two at a time, with pacing, keeps the warm-up under that radar.
+const CONCURRENCY = 2;
+
+// Minimum delay between synthesis calls per worker, for the same reason.
+const PACING_MS = 500;
+
+// Abort the whole run after this many consecutive failures — when the
+// provider has rejected several calls in a row (quota exhausted, account
+// flagged), continuing just hammers a dead endpoint and makes things worse.
+const MAX_CONSECUTIVE_FAILURES = 5;
+
+// The language warmed first and in full: the default catalog every new
+// learner starts with, so its phrases are by far the most-played.
+const PRIORITY_LANGUAGE_CODE = "gu";
+
+/**
+ * Per-run synthesis character budget.
+ *
+ * The ElevenLabs account is on the free plan (~10k credits/month, roughly one
+ * credit per character with eleven_multilingual_v2). The full catalog is
+ * ~58k characters, so re-synthesizing everything at once would blow the
+ * monthly quota several times over. Instead each pre-warm run spends at most
+ * this many characters, in priority order (Gujarati starter phrases first),
+ * and the rest of the catalog fills in lazily on playback and on later runs —
+ * batching the backlog over subsequent months. Old-provider audio remains in
+ * the cache under legacy keys as a fallback, so a learner never gets silence
+ * while a phrase is still waiting for its refresh.
+ *
+ * The default of 4000 comfortably covers the entire Gujarati catalog
+ * (~2.7k chars including sentences) while leaving more than half the monthly
+ * free quota for lazy playback synthesis and the live chat voice.
+ *
+ * Override with the TTS_PREWARM_CHAR_BUDGET env var (0 disables synthesis).
+ */
+function charBudget(): number {
+  const raw = Number(process.env.TTS_PREWARM_CHAR_BUDGET);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 4000;
+}
 
 /**
  * Detects an ElevenLabs quota-exhaustion error from its thrown message.
@@ -40,22 +77,40 @@ async function pool<T>(
 ): Promise<void> {
   const queue = items.slice();
   const active: Promise<void>[] = [];
+  let consecutiveFailures = 0;
 
   async function run(item: T): Promise<void> {
     try {
       await worker(item);
+      consecutiveFailures = 0;
     } catch (err) {
-      // Individual failures are non-fatal — log and continue.
+      // Individual failures are non-fatal — log and continue (until the
+      // circuit breaker below decides the provider is down for good).
+      consecutiveFailures++;
       logger.warn({ err }, "TTS pre-warm: synthesis failed for one phrase");
     }
   }
 
   while (queue.length > 0 || active.length > 0) {
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      // Circuit breaker: the provider is rejecting everything (quota gone or
+      // account flagged). Stop synthesizing; the lazy path + legacy fallback
+      // keeps learners covered, and the next server start retries.
+      logger.warn(
+        { consecutiveFailures, remaining: queue.length },
+        "TTS pre-warm: aborting run after repeated consecutive failures",
+      );
+      queue.length = 0;
+      await Promise.all(active);
+      return;
+    }
     while (active.length < limit && queue.length > 0) {
       const item = queue.shift()!;
-      const p = run(item).then(() => {
-        active.splice(active.indexOf(p), 1);
-      });
+      const p = run(item)
+        .then(() => new Promise<void>((r) => setTimeout(r, PACING_MS)))
+        .then(() => {
+          active.splice(active.indexOf(p), 1);
+        });
       active.push(p);
     }
     if (active.length > 0) {
@@ -67,21 +122,29 @@ async function pool<T>(
 type PhraseWithLanguageName = {
   id: number;
   nativeScript: string;
+  languageCode: string;
+  premium: boolean;
   languageName: string; // display name, e.g. "Gujarati" — matches what clients send
 };
 
 /**
- * Load every phrase together with its language's display name.
- * The display name is what clients supply as `languageName` in TTS requests,
- * so the pre-warm cache key must be computed with it.
+ * Load every phrase together with its language's display name, in warm-up
+ * priority order: the default Gujarati catalog first (free starter phrases
+ * before Plus phrases), then every other language. The display name is what
+ * clients supply as `languageName` in TTS requests, so the pre-warm cache key
+ * must be computed with it.
  */
-async function loadPhrasesWithLanguageNames(): Promise<PhraseWithLanguageName[]> {
-  // Build a map of language code → display name first, then attach it to each
-  // phrase.  Two separate queries keeps it simple and avoids a JOIN on large
-  // tables.
+async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
   const [phrases, languages] = await Promise.all([
     db.query.phrasesTable.findMany({
-      columns: { id: true, nativeScript: true, languageCode: true },
+      columns: {
+        id: true,
+        nativeScript: true,
+        languageCode: true,
+        premium: true,
+        difficulty: true,
+        sortOrder: true,
+      },
     }),
     db.query.languagesTable.findMany({
       columns: { code: true, name: true },
@@ -90,25 +153,45 @@ async function loadPhrasesWithLanguageNames(): Promise<PhraseWithLanguageName[]>
 
   const nameByCode = new Map(languages.map((l) => [l.code, l.name]));
 
-  return phrases.map((p) => ({
-    id: p.id,
-    nativeScript: p.nativeScript,
-    // Fall back to empty string if for some reason the language row is missing;
-    // that matches how the route behaves when languageName is omitted.
-    languageName: nameByCode.get(p.languageCode) ?? "",
-  }));
+  const rank = (p: (typeof phrases)[number]): number =>
+    // 0: Gujarati starter, 1: Gujarati Plus, 2: everything else.
+    p.languageCode === PRIORITY_LANGUAGE_CODE ? (p.premium ? 1 : 0) : 2;
+
+  return phrases
+    .slice()
+    .sort(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        a.languageCode.localeCompare(b.languageCode) ||
+        a.difficulty - b.difficulty ||
+        a.sortOrder - b.sortOrder ||
+        a.id - b.id,
+    )
+    .map((p) => ({
+      id: p.id,
+      nativeScript: p.nativeScript,
+      languageCode: p.languageCode,
+      premium: p.premium,
+      // Fall back to empty string if for some reason the language row is missing;
+      // that matches how the route behaves when languageName is omitted.
+      languageName: nameByCode.get(p.languageCode) ?? "",
+    }));
 }
 
 /**
- * Pre-warms the TTS cache for every phrase in the catalog.
+ * Pre-warms the TTS cache, quota-aware.
  *
- * Cache keys are computed with the language's display name (e.g. "Gujarati"),
- * matching exactly what the runtime /openai/tts route produces for requests
- * that include languageName — so pre-warmed entries are always hit on first
- * playback.
+ * Cache keys are provider-versioned and computed with the language's display
+ * name (e.g. "Gujarati"), matching exactly what the runtime /openai/tts route
+ * produces — so pre-warmed entries are always hit on first playback, and
+ * audio cached by the previous TTS provider (legacy key scheme) is never
+ * counted as warm.
  *
  * - Runs entirely in the background; server startup is never blocked.
- * - Skips phrases that already have a cache entry.
+ * - Skips phrases that already have a current-provider cache entry.
+ * - Warms in priority order (Gujarati starter → Gujarati Plus → the rest)
+ *   and stops once the per-run character budget is spent, so the free
+ *   ElevenLabs quota is never blown in one go.
  * - Uses bounded concurrency to avoid bursting the TTS API.
  */
 export function scheduleTtsPrewarm(): void {
@@ -118,8 +201,8 @@ export function scheduleTtsPrewarm(): void {
     try {
       logger.info("TTS pre-warm: starting background cache warm-up");
 
-      // Load all phrases with their language display name.
-      const phrases = await loadPhrasesWithLanguageNames();
+      // Load all phrases (priority-ordered) with their language display name.
+      const phrases = await loadPhrasesInPriorityOrder();
 
       if (phrases.length === 0) {
         logger.info("TTS pre-warm: no phrases found, nothing to do");
@@ -154,9 +237,38 @@ export function scheduleTtsPrewarm(): void {
         return;
       }
 
+      // Take missing phrases in priority order until the character budget for
+      // this run is spent. The remainder fills in lazily on playback or on a
+      // later run.
+      const budget = charBudget();
+      let spent = 0;
+      const batch: typeof missing = [];
+      for (const item of missing) {
+        const cost = item.phrase.nativeScript.length;
+        if (spent + cost > budget) break;
+        spent += cost;
+        batch.push(item);
+      }
+      const deferred = missing.length - batch.length;
+
+      if (batch.length === 0) {
+        logger.info(
+          { missing: missing.length, budget },
+          "TTS pre-warm: character budget too small for any phrase this run; relying on lazy synthesis",
+        );
+        return;
+      }
+
       logger.info(
-        { total: phrases.length, missing: missing.length },
-        "TTS pre-warm: synthesizing uncached phrases",
+        {
+          total: phrases.length,
+          missing: missing.length,
+          warming: batch.length,
+          deferred,
+          budgetChars: budget,
+          spendingChars: spent,
+        },
+        "TTS pre-warm: synthesizing uncached phrases within quota budget",
       );
 
       let done = 0;
@@ -166,11 +278,12 @@ export function scheduleTtsPrewarm(): void {
       // skipped instead of burning a doomed API call (and a log line) each.
       let quotaExhausted = false;
 
-      await pool(missing, CONCURRENCY, async ({ phrase, key }) => {
+      await pool(batch, CONCURRENCY, async ({ phrase, key }) => {
         if (quotaExhausted) {
           skipped++;
           return;
         }
+
 
         // Double-check inside the worker in case another instance already
         // filled this slot while we were batching.
@@ -213,7 +326,7 @@ export function scheduleTtsPrewarm(): void {
       });
 
       logger.info(
-        { done, failed, skipped, quotaExhausted, total: missing.length },
+        { done, failed, skipped, quotaExhausted, attempted: batch.length, deferred },
         "TTS pre-warm: complete",
       );
     } catch (err) {

@@ -5,7 +5,7 @@ import type { Server } from "node:http";
 import express, { type Express } from "express";
 import { db, pool, ttsCacheTable, phrasesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import openaiRouter, { ttsCacheKey } from "./openai";
+import openaiRouter, { ttsCacheKey, legacyTtsCacheKey } from "./openai";
 
 // Exercises two things:
 //
@@ -187,12 +187,14 @@ after(async () => {
   const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
   for (const v of voices) {
     for (const text of [OLD_TEXT, NEW_TEXT]) {
-      await db
-        .delete(ttsCacheTable)
-        .where(eq(ttsCacheTable.cacheKey, ttsCacheKey(text, v)));
-      await db
-        .delete(ttsCacheTable)
-        .where(eq(ttsCacheTable.cacheKey, ttsCacheKey(text, v, LANG_NAME)));
+      for (const keyFn of [ttsCacheKey, legacyTtsCacheKey]) {
+        await db
+          .delete(ttsCacheTable)
+          .where(eq(ttsCacheTable.cacheKey, keyFn(text, v)));
+        await db
+          .delete(ttsCacheTable)
+          .where(eq(ttsCacheTable.cacheKey, keyFn(text, v, LANG_NAME)));
+      }
     }
   }
   await pool.query(`DELETE FROM phrases WHERE language_code = $1`, [TEST_LANG]);
@@ -250,6 +252,16 @@ test("ttsCacheKey: whitespace in language hint is normalized", () => {
 test("ttsCacheKey: returns a 64-character hex string (SHA-256)", () => {
   const key = ttsCacheKey("test", "nova", "Hindi");
   assert.match(key, /^[0-9a-f]{64}$/, "Cache key should be a SHA-256 hex string");
+});
+
+test("ttsCacheKey: provider-versioned key differs from the legacy key", () => {
+  const current = ttsCacheKey("નમસ્તે", "nova", "Gujarati");
+  const legacy = legacyTtsCacheKey("નમસ્તે", "nova", "Gujarati");
+  assert.notEqual(
+    current,
+    legacy,
+    "Old-provider cache entries (legacy scheme) must never be hit by current-provider lookups",
+  );
 });
 
 // ─── Integration: stale audio is never served after a phrase correction ───────
@@ -336,6 +348,63 @@ test("TTS: corrected text with its own cache entry returns its own audio", async
   );
 });
 
+// ─── Legacy-provider fallback: no learner ever gets silence ──────────────────
+
+test("TTS fallback: serves legacy-provider audio when synthesis is unavailable", async () => {
+  // Only a legacy-scheme entry exists for this text (simulates a phrase whose
+  // audio was cached by the previous provider and has not been refreshed yet).
+  const FALLBACK_TEXT = `${NEW_TEXT}_fallback`;
+  const LEGACY_AUDIO = "b64_LEGACY_AUDIO==";
+  await db
+    .insert(ttsCacheTable)
+    .values({
+      cacheKey: legacyTtsCacheKey(FALLBACK_TEXT, VOICE),
+      audioBase64: LEGACY_AUDIO,
+      format: "mp3",
+    })
+    .onConflictDoNothing();
+
+  // Force ElevenLabs synthesis to fail deterministically (as it would when
+  // the monthly quota is exhausted) by removing the API key for this request.
+  const savedKey = process.env.ELEVENLABS_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  try {
+    const { status, json } = await postJson("/openai/tts", {
+      text: FALLBACK_TEXT,
+      voice: VOICE,
+    });
+    assert.equal(status, 200, "Fallback must return 200, not an error");
+    assert.equal(
+      json.audioBase64,
+      LEGACY_AUDIO,
+      "When synthesis fails, the old-provider cached audio must be served instead of silence",
+    );
+  } finally {
+    if (savedKey !== undefined) process.env.ELEVENLABS_API_KEY = savedKey;
+    await db
+      .delete(ttsCacheTable)
+      .where(eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(FALLBACK_TEXT, VOICE)));
+  }
+});
+
+test("TTS fallback: gpt-audio handles phrases with no legacy cache when ElevenLabs is unavailable", async () => {
+  // Tier 1 (ElevenLabs) fails, Tier 2 (legacy cache) misses, Tier 3 (gpt-audio) succeeds.
+  // The 502 path only fires when all three tiers fail — not easily reproducible in tests
+  // without mocking the gpt-audio client. This test confirms the 3-tier chain returns
+  // audio (200) rather than an error when gpt-audio is available.
+  const savedKey = process.env.ELEVENLABS_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  try {
+    const { status } = await postJson("/openai/tts", {
+      text: `${NEW_TEXT}_no_legacy_cache`,
+      voice: VOICE,
+    });
+    assert.equal(status, 200, "gpt-audio fallback should return audio even without ElevenLabs or legacy cache");
+  } finally {
+    if (savedKey !== undefined) process.env.ELEVENLABS_API_KEY = savedKey;
+  }
+});
+
 // ─── Eviction endpoint ────────────────────────────────────────────────────────
 
 test("POST /openai/tts-cache/evict: requires phraseId or languageCode", async () => {
@@ -388,11 +457,11 @@ test("POST /openai/tts-cache/evict: evicts unhinted and language-hinted keys for
   });
 
   assert.equal(status, 200, "Eviction should succeed");
-  // 6 voices × 2 forms (unhinted + hinted) = 12 keys.
+  // 6 voices × 2 forms (unhinted + hinted) × 2 schemes (current + legacy) = 24 keys.
   assert.equal(
     json.evicted,
-    voices.length * 2,
-    "Should report evicting one unhinted + one hinted key per voice variant",
+    voices.length * 4,
+    "Should report evicting unhinted + hinted keys in both current and legacy schemes per voice",
   );
 
   // Verify all cache entries are gone from the DB.
@@ -435,8 +504,8 @@ test("POST /openai/tts-cache/evict: evicting by languageCode removes unhinted an
   });
 
   assert.equal(status, 200);
-  // 1 phrase × 6 voices × 2 key forms (unhinted + hinted) = 12 keys.
-  assert.equal(json.evicted, 12, "Should evict both hinted and unhinted forms across all voices");
+  // 1 phrase × 6 voices × 2 key forms (unhinted + hinted) × 2 schemes = 24 keys.
+  assert.equal(json.evicted, 24, "Should evict hinted/unhinted forms in both key schemes across all voices");
 
   // Both the unhinted and hinted nova entries should be gone.
   const unhinted = await db.query.ttsCacheTable.findFirst({

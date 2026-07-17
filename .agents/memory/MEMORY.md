@@ -49,6 +49,7 @@
 - [Web silence auto-stop pitfalls](web-silence-autostop.md) — suspended AudioContext makes auto-stop silently never fire (resume it); fake-mic chrome flags fail here, shim getUserMedia via WebAudio instead.
 - [EAS iOS build & submit](eas-ios-submit.md) — EXPO_TOKEN + eas-cli devDep; poll builds/submissions (GraphQL, no --wait); eas submit only uploads — "Submit for Review" is manual in ASC.
 - [TTS replay determinism](tts-replay-determinism.md) — gpt-audio TTS can read the same short phrase differently per call; cache first take per phrase and anchor prompts with the language name.
+- [ElevenLabs prewarm burst flag](elevenlabs-prewarm-burst.md) — free-tier ElevenLabs flags concurrent burst synthesis as unusual activity; use concurrency≤2 + 500ms pacing + circuit breaker (5 consecutive failures = abort).
 - [Prod missing dev-only binaries](prod-ffmpeg-dependency.md) — deployments ship only declared Nix deps; spawned binaries (ffmpeg) must be installed as system deps or prod 502s with ENOENT.
 - [Plus auto-replenishment](phrase-replenishment.md) — background phrase top-ups fire after the response, dedup via in-flight map + pg advisory lock; 0-new is success, not error.
 - [Family plan entitlements](family-plan-entitlements.md) — member Plus derived per-request from the owner (no writes); join's Stripe cancel runs inside the seat transaction; Plus→Family is an in-place price swap.

@@ -27,7 +27,7 @@ import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
-import { ttsCacheKey } from "../lib/ttsCache";
+import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -57,7 +57,7 @@ const VOICES = [
 type Voice = (typeof VOICES)[number];
 
 // Re-export so tests and callers can import ttsCacheKey from this module.
-export { ttsCacheKey } from "../lib/ttsCache";
+export { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 
 
 // POST /openai/tts — speak a phrase aloud in the selected language.
@@ -109,17 +109,33 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.json({ audioBase64, format: "mp3" });
     return;
   } catch (err) {
-    // ElevenLabs failed (quota exhausted, outage, missing key, …). Fall back
-    // to gpt-audio TTS so learners never hit silence — lower fidelity than
-    // eleven_multilingual_v2, so the fallback audio is deliberately NOT
-    // cached: the next request retries ElevenLabs first.
-    req.log.warn(
-      { err },
-      "ElevenLabs TTS failed — falling back to gpt-audio synthesis",
-    );
+    // ElevenLabs failed (quota exhausted, outage, missing key, …).
+    // Log and nudge the quota monitor, then try two fallbacks in order:
+    //   1. Legacy-cached audio (old voice, zero cost, instant) — covers the
+    //      transition period while old tts_cache rows still exist.
+    //   2. gpt-audio synthesis — covers phrases with no legacy entry.
+    // Fallback audio is deliberately NOT cached under the new key so the
+    // next request retries ElevenLabs once it recovers.
+    req.log.warn({ err }, "ElevenLabs TTS failed — attempting fallbacks");
     void elevenLabsQuotaMonitor.maybeCheck();
+
+    // Fallback 1: legacy-provider cached audio.
+    try {
+      const legacy = await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(text, chosen, languageName)),
+      });
+      if (legacy) {
+        req.log.info({}, "TTS fallback: serving legacy-provider cached audio");
+        res.json({ audioBase64: legacy.audioBase64, format: legacy.format });
+        return;
+      }
+    } catch (fallbackErr) {
+      req.log.warn({ err: fallbackErr }, "TTS legacy-cache fallback read failed");
+    }
   }
 
+  // Fallback 2: gpt-audio synthesis (not cached; lower fidelity but always
+  // available regardless of ElevenLabs status).
   try {
     const buffer = await textToSpeech(text, chosen, "mp3", languageName);
     if (buffer.length === 0) {
@@ -771,13 +787,17 @@ router.post(
 
       // For each phrase × voice, generate both the unhinted key (no languageName)
       // and the hinted key (with languageName) so entries cached either way are
-      // removed. Duplicates are harmless — the DB delete is idempotent.
+      // removed. Legacy-scheme keys are evicted too, so corrections also purge
+      // the old-provider fallback audio. Duplicates are harmless — the DB
+      // delete is idempotent.
       const keySet = new Set<string>();
       for (const p of phrases) {
         for (const v of VOICES) {
           keySet.add(ttsCacheKey(p.nativeScript, v));
+          keySet.add(legacyTtsCacheKey(p.nativeScript, v));
           if (p.languageName) {
             keySet.add(ttsCacheKey(p.nativeScript, v, p.languageName));
+            keySet.add(legacyTtsCacheKey(p.nativeScript, v, p.languageName));
           }
         }
       }
