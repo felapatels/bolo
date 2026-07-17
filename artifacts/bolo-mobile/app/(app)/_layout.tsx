@@ -8,7 +8,6 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { TourProvider } from '@/contexts/TourContext';
 import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { GuidedTour } from '@/components/GuidedTour';
-import { ParrotFAB } from '@/components/ParrotFAB';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
@@ -84,8 +83,6 @@ export default function AppLayout() {
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
-            {/* Floating Bolo entry point — appears on every screen except chat */}
-            <ParrotFAB />
           </TourProvider>
         </LanguageProvider>
       </PurchasesProvider>
