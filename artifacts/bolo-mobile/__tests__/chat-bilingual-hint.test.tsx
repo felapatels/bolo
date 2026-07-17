@@ -8,13 +8,14 @@ import {
 } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Guards the bilingual hint on the Bolo chat screen (app/(app)/(tabs)/chat.tsx):
+// Guards the persistent bilingual hint on the Bolo chat screen
+// (app/(app)/(tabs)/chat.tsx):
 //
-//   - "💬 Speak in English or <Language> — Bolo understands both!" is visible
-//     in the rendered tree before the learner has said anything (messages === []).
-//   - The hint disappears from the rendered tree once the first recording
-//     attempt begins — specifically when the pending learner bubble is added to
-//     `messages` inside handleStopRecording, making messages.length > 0.
+//   - "You can respond in English or <Language>" is visible in the rendered
+//     tree before the learner has said anything (messages === []).
+//   - The hint STAYS visible once the first recording attempt begins — it is
+//     persistent, unlike the old empty-state tip that disappeared when the
+//     pending learner bubble made messages.length > 0.
 //
 // Interaction under test — a quick hold-and-release on the Bolo mascot:
 //   1. pressIn  → handleStartRecording fires (async recorder startup).
@@ -197,7 +198,7 @@ const xhrMock = {
 // Imported after all mocks are declared.
 import ChatScreen from '@/app/(app)/(tabs)/chat';
 
-const HINT_TEXT = '💬 Speak in English or Gujarati — Bolo understands both!';
+const HINT_TEXT = 'You can respond in English or Gujarati';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -217,7 +218,7 @@ describe('bilingual hint on the Bolo chat screen', () => {
     expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
   });
 
-  test('hint disappears after the first recording attempt begins', async () => {
+  test('hint stays visible after the first recording attempt begins', async () => {
     render(<ChatScreen />);
 
     // Sanity: hint is present in the initial render.
@@ -235,8 +236,13 @@ describe('bilingual hint on the Bolo chat screen', () => {
       fireEvent(mascot, 'pressOut');
     });
 
+    // The empty-state greeting bubble disappears once a message exists…
     await waitFor(() =>
-      expect(screen.queryByText(HINT_TEXT)).not.toBeOnTheScreen(),
+      expect(
+        screen.queryByText(/Hold my belly and let's chat in English or Gujarati/),
+      ).not.toBeOnTheScreen(),
     );
+    // …but the persistent hint remains visible.
+    expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
   });
 });

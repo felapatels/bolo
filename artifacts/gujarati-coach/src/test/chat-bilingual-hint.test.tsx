@@ -5,12 +5,13 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
 // ---------------------------------------------------------------------------
-// Tests for the bilingual chat hint ("Speak in English or Gujarati…") that
-// appears before the first message is sent.
+// Tests for the persistent bilingual chat hint ("You can respond in English
+// or Gujarati") that stays visible across all chat states.
 //
 // Assertions:
 //   1. Hint is visible when messages = 0
-//   2. Hint disappears after the first message is added (pending learner bubble)
+//   2. Hint STAYS visible after the first message is added (pending learner
+//      bubble) — it is persistent, unlike the old empty-state tip
 //   3. Switching the language via the picker updates the language name in hint
 // ---------------------------------------------------------------------------
 
@@ -209,21 +210,21 @@ describe("bilingual hint — visibility", () => {
   test("hint is visible before any message is sent", () => {
     renderChat();
 
-    // Both parts of the bilingual hint should be in the DOM initially.
+    // Greeting bubble and the persistent hint should be in the DOM initially.
     expect(
       screen.getByText(/Hold my belly and let's chat in English or Gujarati/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Speak in English or Gujarati — Bolo understands both!/),
+      screen.getByText(/You can respond in English or Gujarati/),
     ).toBeInTheDocument();
   });
 
-  test("hint is removed from the DOM after the first message is added", async () => {
+  test("hint stays visible after the first message is added", async () => {
     renderChat();
 
     // Confirm hint is present before we do anything.
     expect(
-      screen.getByText(/Speak in English or Gujarati — Bolo understands both!/),
+      screen.getByText(/You can respond in English or Gujarati/),
     ).toBeInTheDocument();
 
     // Simulate hold-to-talk: pointerDown starts recording.
@@ -240,14 +241,15 @@ describe("bilingual hint — visibility", () => {
       fireEvent.pointerUp(releaseButton());
     });
 
-    // The hint is keyed on messages.length === 0, so it must be gone now.
     await waitFor(() => {
-      expect(
-        screen.queryByText(/Speak in English or Gujarati — Bolo understands both!/),
-      ).not.toBeInTheDocument();
+      // The empty-state greeting bubble goes away…
       expect(
         screen.queryByText(/Hold my belly and let's chat in English or Gujarati/),
       ).not.toBeInTheDocument();
+      // …but the persistent hint remains visible.
+      expect(
+        screen.getByText(/You can respond in English or Gujarati/),
+      ).toBeInTheDocument();
     });
   });
 });
@@ -258,7 +260,7 @@ describe("bilingual hint — language picker", () => {
 
     // Gujarati is the default language.
     expect(
-      screen.getByText(/Speak in English or Gujarati — Bolo understands both!/),
+      screen.getByText(/You can respond in English or Gujarati/),
     ).toBeInTheDocument();
 
     // The Dialog mock renders content inline; find and click the Hindi button.
@@ -275,13 +277,13 @@ describe("bilingual hint — language picker", () => {
     // After switching, the hint should show "Hindi".
     await waitFor(() => {
       expect(
-        screen.getByText(/Speak in English or Hindi — Bolo understands both!/),
+        screen.getByText(/You can respond in English or Hindi/),
       ).toBeInTheDocument();
     });
 
     // And "Gujarati" should no longer appear in the hint.
     expect(
-      screen.queryByText(/Speak in English or Gujarati — Bolo understands both!/),
+      screen.queryByText(/You can respond in English or Gujarati/),
     ).not.toBeInTheDocument();
   });
 });

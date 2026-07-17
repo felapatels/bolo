@@ -967,6 +967,13 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
+      {/* Persistent bilingual hint — always visible so beginners know they
+          don't have to speak only in the target language. Plain text (no
+          entering animation) so it never shifts layout across chat states. */}
+      <Text style={[styles.bilingualHint, { color: colors.mutedForeground }]}>
+        You can respond in English or {chatLanguage?.name ?? chatLang}
+      </Text>
+
       {/* Free-tier time remaining bar */}
       {showTimeIndicator && (
         <Animated.View
@@ -1077,16 +1084,6 @@ export default function ChatScreen() {
               (chatLanguage?.name ?? chatLang) + '! Awk!'}
           </Text>
         </Animated.View>
-      )}
-
-      {/* Bilingual hint — shown before the first message, disappears once the conversation starts */}
-      {messages.length === 0 && (
-        <Animated.Text
-          entering={appear(FadeInUp.duration(320).delay(300))}
-          style={[styles.bilingualHint, { color: colors.mutedForeground }]}
-        >
-          {'💬 Speak in English or ' + (chatLanguage?.name ?? chatLang) + ' — Bolo understands both!'}
-        </Animated.Text>
       )}
 
       {/* Conversation transcript */}

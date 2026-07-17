@@ -846,6 +846,13 @@ export default function ChatPage() {
         </Dialog>
       </div>
 
+      {/* Persistent bilingual hint — always visible so beginners know they
+          don't have to speak only in the target language. Plain text (no
+          animation wrapper) so it never shifts layout across chat states. */}
+      <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
+        You can respond in English or {chatLanguage?.name ?? chatLang}
+      </p>
+
       {/* Free-tier time bar */}
       {showTimeIndicator && (
         <motion.div
@@ -947,15 +954,6 @@ export default function ChatPage() {
                 >
                   Squawk! I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}! Awk!
                 </motion.div>
-                <motion.p
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ ...springs.snappy, delay: 0.2 }}
-                  className="self-start pl-1 text-xs text-muted-foreground"
-                >
-                  💬 Speak in English or {chatLanguage?.name ?? chatLang} — Bolo understands both!
-                </motion.p>
               </>
             )}
           </AnimatePresence>
