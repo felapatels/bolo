@@ -40,3 +40,6 @@ This repl's RevenueCat connector renders `@replit/connectors-sdk`
 **Why:** the connector always resolves a Replit identity token, so a proxy call
 is attempted even when RevenueCat isn't authorized — it would fail per-request
 and slow/hang tests. Gate on the project-id env instead of try/catch alone.
+
+## Live provisioning status (July 2026)
+RevenueCat is now fully provisioned: connector authorized, project `projad047e4e` ("Bolo!"), seed script run (all 4 products × 3 stores, `plus`/`one_language` entitlements, default offering). Public SDK keys + REVENUECAT_PROJECT_ID + entitlement ids set as shared env vars; REVENUECAT_WEBHOOK_AUTH saved as a secret. Remaining manual steps (dashboard webhook, store products, device sandbox test) are in `artifacts/bolo-mobile/DEVICE_PURCHASE_TEST.md`.
