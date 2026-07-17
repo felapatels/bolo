@@ -57,6 +57,7 @@ type ChatMessage = {
 const PROCESSING_STEP_LABELS = {
   transcribing: "Got it! 💬",
   replying: "Crafting a reply… 🦜",
+  voicing: "Warming up my voice… 🎤",
 } as const;
 type ProcessingStep = keyof typeof PROCESSING_STEP_LABELS;
 
@@ -102,6 +103,10 @@ export default function ChatPage() {
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const finishingRef = useRef(false);
+  // True once the early `replyText` SSE event has shown Bolo's bubble for the
+  // current turn — the word-reveal animation is skipped in that case, since
+  // the learner has already been reading the full text during synthesis.
+  const earlyReplyShownRef = useRef(false);
   // Incremented each time a new turn starts. finishRecording captures its own
   // snapshot at invocation time and only applies the result if the counter
   // still matches — this prevents a stale older response from overwriting a
@@ -160,6 +165,7 @@ export default function ChatPage() {
     // Capture this turn's ID before any await — only apply the result if the
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
+    earlyReplyShownRef.current = false;
     setPhase("processing");
     setProcessingStep("transcribing");
     setErrorMsg(null);
@@ -257,6 +263,31 @@ export default function ChatPage() {
             });
             setProcessingStep("replying");
 
+          } else if (eventName === "replyText") {
+            // Early reply-text event — fires as soon as the LLM returns,
+            // before voice synthesis. Show Bolo's bubble immediately (greyed
+            // "pending" style) so the learner can start reading while the
+            // audio is still being synthesized.
+            if (activeTurnRef.current !== myTurn) {
+              reader.cancel().catch(() => {});
+              return;
+            }
+            const earlyText = (payload.replyText as string) ?? "";
+            const earlyEnglish = (payload.replyEnglish as string) ?? "";
+            if (earlyText) {
+              earlyReplyShownRef.current = true;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "parrot",
+                  text: earlyText,
+                  englishText: earlyEnglish || undefined,
+                  pending: true,
+                },
+              ]);
+            }
+            setProcessingStep("voicing");
+
           } else if (eventName === "reply") {
             // A newer turn started while LLM+TTS was in flight — drop stale result.
             if (activeTurnRef.current !== myTurn) {
@@ -273,7 +304,10 @@ export default function ChatPage() {
             const secondsRemaining = payload.secondsRemaining as number | null;
 
             const replyWords = replyText.split(/\s+/).filter(Boolean);
-            const shouldAnimate = !prefersReducedMotion && replyWords.length > 1;
+            // Skip the typewriter reveal when the early replyText bubble was
+            // already shown — the learner has been reading the full text.
+            const shouldAnimate =
+              !prefersReducedMotion && replyWords.length > 1 && !earlyReplyShownRef.current;
 
             setMessages((prev) => {
               const updated = [...prev];
@@ -287,18 +321,23 @@ export default function ChatPage() {
                   break;
                 }
               }
-              return [
-                ...updated,
-                {
-                  role: "parrot",
-                  text: replyText,
-                  englishText: replyEnglish,
-                  // Start with 0 revealed words when animating so the bubble
-                  // appears first (giving Devanagari/Nastaliq readers a moment
-                  // to orient), then words reveal in sync with the audio.
-                  revealedWordCount: shouldAnimate ? 0 : undefined,
-                },
-              ];
+              const parrotBubble = {
+                role: "parrot" as const,
+                text: replyText,
+                englishText: replyEnglish,
+                // Start with 0 revealed words when animating so the bubble
+                // appears first (giving Devanagari/Nastaliq readers a moment
+                // to orient), then words reveal in sync with the audio.
+                revealedWordCount: shouldAnimate ? 0 : undefined,
+              };
+              // If the early replyText event already showed a pending parrot
+              // bubble, finalize it in place instead of appending a duplicate.
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].role === "parrot" && updated[lastIdx].pending) {
+                updated[lastIdx] = parrotBubble;
+                return updated;
+              }
+              return [...updated, parrotBubble];
             });
 
             if (secondsRemaining !== null) {

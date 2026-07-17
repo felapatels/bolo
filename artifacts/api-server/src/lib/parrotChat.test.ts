@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runParrotTurn, type ParrotChatDeps, type ChatHistoryTurn } from "./parrotChat";
+import { runParrotTurn, makeSynthesizeWithFallback, type ParrotChatDeps, type ChatHistoryTurn } from "./parrotChat";
 import { wavDurationSeconds } from "./audioDuration";
 
 // Unit-tests for the conversational turn helper. All OpenAI calls are replaced
@@ -596,4 +596,201 @@ test("runParrotTurn: transcriptEnglish is returned from reply", async () => {
     }),
   );
   assert.equal(result.transcriptEnglish, "How are you?");
+});
+
+// ---------------------------------------------------------------------------
+// runParrotTurn: onReplyReady fires after the LLM, before synthesis
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: onReplyReady fires before synthesize", async () => {
+  const wav = makeWavBuffer(1);
+  const events: string[] = [];
+
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Gujarati",
+      languageCode: "gu",
+      history: [],
+      onReplyReady: (replyText, replyEnglish, squawkVariant) => {
+        events.push(`replyReady:${replyText}:${replyEnglish}:${String(squawkVariant)}`);
+      },
+    },
+    makeDeps({
+      synthesize: async () => {
+        events.push("synthesize");
+        return Buffer.from("audio");
+      },
+    }),
+  );
+
+  const readyIdx = events.findIndex((e) => e.startsWith("replyReady:"));
+  const synthIdx = events.indexOf("synthesize");
+  assert.ok(readyIdx !== -1, "onReplyReady should be called");
+  assert.ok(synthIdx !== -1, "synthesize should be called");
+  assert.ok(readyIdx < synthIdx, "onReplyReady must fire before synthesize");
+});
+
+test("runParrotTurn: onReplyReady carries raw reply text (with squawks), gloss, and squawkVariant", async () => {
+  const wav = makeWavBuffer(1);
+  let readyText = "";
+  let readyEnglish = "";
+  let readyVariant: 0 | 1 | 2 | null = null;
+
+  const result = await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Hindi",
+      languageCode: "hi",
+      history: [],
+      onReplyReady: (t, e, v) => {
+        readyText = t;
+        readyEnglish = e;
+        readyVariant = v;
+      },
+    },
+    makeDeps({
+      reply: async () => ({
+        text: "Squawk! Namaste!",
+        english: "Hello!",
+        transcriptEnglish: "",
+      }),
+    }),
+  );
+
+  assert.equal(readyText, "Squawk! Namaste!", "early text should keep the squawk token for the UI");
+  assert.equal(readyEnglish, "Hello!");
+  assert.ok(readyVariant !== null, "squawk reply should carry a squawkVariant");
+  assert.equal(readyVariant, result.squawkVariant, "early variant must match the final payload");
+  assert.equal(readyText, result.replyText, "early text must match the final payload");
+});
+
+test("runParrotTurn: onReplyReady squawkVariant is null when the reply has no squawk", async () => {
+  const wav = makeWavBuffer(1);
+  let readyVariant: 0 | 1 | 2 | null = 0;
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Tamil",
+      languageCode: "ta",
+      history: [],
+      onReplyReady: (_t, _e, v) => { readyVariant = v; },
+    },
+    makeDeps({
+      reply: async () => ({ text: "Vanakkam!", english: "Hello!", transcriptEnglish: "" }),
+    }),
+  );
+  assert.equal(readyVariant, null);
+});
+
+test("runParrotTurn: works without onReplyReady (optional, plain-JSON path)", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps(),
+  );
+  assert.ok(result.replyText.length > 0);
+  assert.ok(result.replyAudio instanceof Buffer);
+});
+
+// ---------------------------------------------------------------------------
+// runParrotTurn: event ordering — transcript → replyReady → synthesize
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: full event ordering transcript → replyReady → synthesize", async () => {
+  const wav = makeWavBuffer(1);
+  const events: string[] = [];
+
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Gujarati",
+      languageCode: "gu",
+      history: [],
+      onTranscript: () => events.push("transcript"),
+      onTranscriptEnglish: () => events.push("transcriptEnglish"),
+      onReplyReady: () => events.push("replyReady"),
+    },
+    makeDeps({
+      synthesize: async () => { events.push("synthesize"); return Buffer.from("a"); },
+    }),
+  );
+
+  assert.deepEqual(events, ["transcript", "transcriptEnglish", "replyReady", "synthesize"]);
+});
+
+// ---------------------------------------------------------------------------
+// runParrotTurn: onTimings per-stage instrumentation
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: onTimings reports all four stage durations", async () => {
+  const wav = makeWavBuffer(1);
+  let timings: { transcribeMs: number; replyMs: number; ttsMs: number; totalMs: number } | null = null;
+
+  await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Hindi",
+      languageCode: "hi",
+      history: [],
+      onTimings: (t) => { timings = t; },
+    },
+    makeDeps(),
+  );
+
+  assert.ok(timings !== null, "onTimings should be called");
+  const t = timings as unknown as { transcribeMs: number; replyMs: number; ttsMs: number; totalMs: number };
+  for (const key of ["transcribeMs", "replyMs", "ttsMs", "totalMs"] as const) {
+    assert.ok(typeof t[key] === "number" && t[key] >= 0, `${key} should be a non-negative number`);
+  }
+  assert.ok(t.totalMs >= Math.max(t.transcribeMs, t.replyMs, t.ttsMs),
+    "totalMs should cover the individual stages");
+});
+
+// ---------------------------------------------------------------------------
+// makeSynthesizeWithFallback: ElevenLabs → gpt-audio fallback behavior
+// ---------------------------------------------------------------------------
+
+test("makeSynthesizeWithFallback: uses the primary when it succeeds", async () => {
+  let fallbackCalled = false;
+  const synth = makeSynthesizeWithFallback(
+    async () => Buffer.from("primary-audio"),
+    async () => { fallbackCalled = true; return Buffer.from("fallback-audio"); },
+  );
+  const out = await synth("Namaste!", "Hindi");
+  assert.equal(out.toString(), "primary-audio");
+  assert.equal(fallbackCalled, false, "fallback must not run when primary succeeds");
+});
+
+test("makeSynthesizeWithFallback: falls back when the primary throws", async () => {
+  const calls: string[] = [];
+  const synth = makeSynthesizeWithFallback(
+    async () => { calls.push("primary"); throw new Error("ElevenLabs down"); },
+    async (text, lang) => { calls.push(`fallback:${text}:${lang}`); return Buffer.from("fallback-audio"); },
+  );
+  const out = await synth("Namaste!", "Hindi");
+  assert.equal(out.toString(), "fallback-audio");
+  assert.deepEqual(calls, ["primary", "fallback:Namaste!:Hindi"]);
+});
+
+test("makeSynthesizeWithFallback: propagates the fallback's error when both fail", async () => {
+  const synth = makeSynthesizeWithFallback(
+    async () => { throw new Error("primary down"); },
+    async () => { throw new Error("fallback down"); },
+  );
+  await assert.rejects(() => synth("hi", "Hindi"), /fallback down/);
+});
+
+test("runParrotTurn: turn still succeeds when primary TTS fails (fallback audio used)", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      synthesize: makeSynthesizeWithFallback(
+        async () => { throw new Error("ElevenLabs unavailable"); },
+        async () => Buffer.from("gpt-audio-bytes"),
+      ),
+    }),
+  );
+  assert.equal(result.replyAudio.toString(), "gpt-audio-bytes");
 });

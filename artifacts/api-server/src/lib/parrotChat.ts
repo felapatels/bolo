@@ -1,6 +1,7 @@
 import {
   openai,
   speechToText,
+  textToSpeechElevenLabs,
   ensureCompatibleFormat,
   convertToWav,
   type SpeechToTextOptions,
@@ -53,11 +54,37 @@ export interface ParrotTurnInput {
    */
   seedNativeWords?: string[];
   /**
+   * Optional callback fired as soon as the reply LLM returns — before voice
+   * synthesis starts. Carries Bolo's reply text (with squawk tokens, as shown
+   * in the UI transcript), its English gloss, and the squawk SFX variant.
+   * Used by the SSE route to flush a `replyText` event so the client can show
+   * Bolo's bubble while TTS is still in flight.
+   */
+  onReplyReady?: (
+    replyText: string,
+    replyEnglish: string,
+    squawkVariant: 0 | 1 | 2 | null,
+  ) => void;
+  /**
+   * Optional callback fired once at the end of the turn with per-stage
+   * durations (milliseconds), so the route can log how long each AI stage
+   * took and slow stages are visible in production.
+   */
+  onTimings?: (timings: ParrotTurnTimings) => void;
+  /**
    * Recording duration in seconds as measured by the client. When provided the
    * server skips the WAV-conversion step that exists solely for duration
    * measurement, saving ~200–400 ms of ffmpeg overhead per turn.
    */
   clientDurationSeconds?: number;
+}
+
+// Per-stage wall-clock durations for one chat turn, in milliseconds.
+export interface ParrotTurnTimings {
+  transcribeMs: number;
+  replyMs: number;
+  ttsMs: number;
+  totalMs: number;
 }
 
 export interface ParrotTurnResult {
@@ -148,6 +175,44 @@ async function boloTTS(text: string, languageName: string): Promise<Buffer> {
   return Buffer.from(audioData, "base64");
 }
 
+// ElevenLabs voice + model for Bolo's live chat replies.
+// Voice: "Jessica" (premade, cgSgspJ2msm6clMCkdW9) — bright, playful, and
+// expressive; the closest premade match for the cheerful parrot character.
+// Model: eleven_flash_v2_5 — ElevenLabs' low-latency flash model (~75 ms model
+// latency), chosen over multilingual_v2 because chat is latency-sensitive.
+const BOLO_ELEVENLABS_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
+const BOLO_ELEVENLABS_MODEL = "eleven_flash_v2_5";
+
+// Fast ElevenLabs synthesis for Bolo's chat replies.
+async function boloTTSElevenLabs(text: string, languageName: string): Promise<Buffer> {
+  return textToSpeechElevenLabs(
+    text,
+    BOLO_ELEVENLABS_VOICE_ID,
+    languageName,
+    BOLO_ELEVENLABS_MODEL,
+  );
+}
+
+// Wraps a primary synthesizer with an automatic fallback: if the primary
+// throws (ElevenLabs down, key missing, quota exhausted…), the fallback runs
+// instead of failing the whole turn. Exported for unit tests.
+export function makeSynthesizeWithFallback(
+  primary: (text: string, languageName: string) => Promise<Buffer>,
+  fallback: (text: string, languageName: string) => Promise<Buffer>,
+): (text: string, languageName: string) => Promise<Buffer> {
+  return async (text, languageName) => {
+    try {
+      return await primary(text, languageName);
+    } catch (err) {
+      console.warn(
+        "[parrotChat] primary TTS failed, falling back to gpt-audio:",
+        err instanceof Error ? err.message : err,
+      );
+      return fallback(text, languageName);
+    }
+  };
+}
+
 export const defaultParrotChatDeps: ParrotChatDeps = {
   transcribe: (buffer, format, options) =>
     speechToText(buffer, format, options),
@@ -179,7 +244,10 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     };
   },
 
-  synthesize: boloTTS,
+  // Fast ElevenLabs flash voice first; gpt-audio remains an automatic
+  // fallback so a Bolo reply is never silent just because ElevenLabs is
+  // unavailable (mirrors the phrase-audio path's resilience approach).
+  synthesize: makeSynthesizeWithFallback(boloTTSElevenLabs, boloTTS),
 };
 
 // Builds the Whisper transcription prompt, optionally seeding it with
@@ -265,6 +333,7 @@ export async function runParrotTurn(
   input: ParrotTurnInput,
   deps: ParrotChatDeps = defaultParrotChatDeps,
 ): Promise<ParrotTurnResult> {
+  const turnStart = Date.now();
   const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer);
 
   // When the client supplies its own duration measurement we skip the WAV
@@ -274,6 +343,7 @@ export async function runParrotTurn(
   let durationSeconds: number;
   let transcript: string;
 
+  const transcribeStart = Date.now();
   if (input.clientDurationSeconds != null) {
     // Fast path: transcribe only, no WAV conversion needed.
     durationSeconds = input.clientDurationSeconds;
@@ -293,6 +363,7 @@ export async function runParrotTurn(
     durationSeconds = wavDurationSeconds(wavBuffer);
     transcript = t;
   }
+  const transcribeMs = Date.now() - transcribeStart;
 
   // Fire the early-transcript callback so the SSE route can flush a
   // `transcript` event to the client before the LLM+TTS call starts.
@@ -300,6 +371,7 @@ export async function runParrotTurn(
 
   // LLM call: returns the in-language reply, its English gloss, and an
   // English translation of what the learner said — all in one JSON response.
+  const replyStart = Date.now();
   const {
     text: rawReplyText,
     english: rawReplyEnglish,
@@ -308,6 +380,7 @@ export async function runParrotTurn(
     buildSystemPrompt(input.languageName),
     buildUserPrompt(input.history, transcript),
   );
+  const replyMs = Date.now() - replyStart;
 
   // Fire the early-transcriptEnglish callback so the SSE route can flush
   // the learner's English subtitle before TTS synthesis begins (~1–3 s early).
@@ -319,8 +392,21 @@ export async function runParrotTurn(
   // aloud — the client plays a real parrot SFX instead.
   const { cleaned: ttsText, squawkVariant } = extractSquawks(rawText);
 
+  // Fire the early reply-text callback so the SSE route can flush Bolo's
+  // bubble to the client while voice synthesis is still in flight.
+  input.onReplyReady?.(rawText, rawReplyEnglish.trim(), squawkVariant);
+
   // TTS call: speaks only the cleaned reply text using Bolo's character voice.
+  const ttsStart = Date.now();
   const replyAudio = await deps.synthesize(ttsText, input.languageName);
+  const ttsMs = Date.now() - ttsStart;
+
+  input.onTimings?.({
+    transcribeMs,
+    replyMs,
+    ttsMs,
+    totalMs: Date.now() - turnStart,
+  });
 
   return {
     transcript,

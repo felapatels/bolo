@@ -488,6 +488,19 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
             sseWrite(res, "transcriptEnglish", { transcriptEnglish });
           }
         },
+        // Flush Bolo's reply text as soon as the LLM returns — before voice
+        // synthesis — so the client can show the bubble while TTS runs. The
+        // final `reply` event keeps its full payload for backward compat.
+        onReplyReady: (replyText, replyEnglish, squawkVariant) => {
+          if (wantsSSE) {
+            sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
+          }
+        },
+        // Per-stage timings so slow stages are visible in production logs.
+        onTimings: (timings) => {
+          // Optional chain: test apps mount this router without pino-http.
+          req.log?.info({ ...timings, languageCode }, "chat turn stage timings");
+        },
       },
     );
 

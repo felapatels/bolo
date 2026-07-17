@@ -220,6 +220,11 @@ export async function textToSpeechElevenLabs(
   // language parameter kept for API symmetry with textToSpeech; ElevenLabs
   // auto-detects the script via eleven_multilingual_v2 so it is not sent.
   _language?: string,
+  // ElevenLabs model to synthesize with. The default (multilingual v2) is the
+  // highest-quality option; latency-sensitive callers (e.g. live chat) can
+  // pass "eleven_flash_v2_5" for ~75 ms model latency at slightly lower
+  // fidelity. Optional trailing parameter → fully backward compatible.
+  modelId = "eleven_multilingual_v2",
 ): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
@@ -237,7 +242,7 @@ export async function textToSpeechElevenLabs(
     },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      model_id: modelId,
       output_format: "mp3_44100_128",
     }),
   });

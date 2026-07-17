@@ -79,6 +79,7 @@ type ChatMessage = {
 const PROCESSING_STEP_LABELS = {
   transcribing: 'Got it! 💬',
   replying: 'Crafting a reply… 🦜',
+  voicing: 'Warming up my voice… 🎤',
 } as const;
 type ProcessingStep = keyof typeof PROCESSING_STEP_LABELS;
 
@@ -173,6 +174,10 @@ export default function ChatScreen() {
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const finishingRef = React.useRef(false);
+  // True once the early `replyText` SSE event has shown Bolo's bubble for the
+  // current turn — the word-reveal animation is skipped in that case, since
+  // the learner has already been reading the full text during synthesis.
+  const earlyReplyShownRef = React.useRef(false);
   // Incremented each time a new turn starts. handleStopRecording captures its
   // own snapshot and only applies the result if the counter still matches —
   // prevents a stale older response from overwriting a newer one when the user
@@ -387,6 +392,7 @@ export default function ChatScreen() {
     // Capture this turn's ID before any await — only apply the result if the
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
+    earlyReplyShownRef.current = false;
     setPhase('processing');
     setProcessingStep('transcribing');
     // Immediately show a pending learner bubble — gives visual feedback
@@ -492,6 +498,24 @@ export default function ChatScreen() {
                   ),
                 );
               }
+            } else if (eventType === 'replyText') {
+              // Early reply-text event — fires as soon as the LLM returns,
+              // before voice synthesis. Show Bolo's bubble immediately so
+              // the learner can start reading while the audio is in flight.
+              const earlyText = (parsed.replyText as string) ?? '';
+              const earlyEnglish = (parsed.replyEnglish as string) ?? '';
+              if (earlyText) {
+                earlyReplyShownRef.current = true;
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    role: 'parrot',
+                    text: earlyText,
+                    englishText: earlyEnglish && earlyEnglish !== earlyText ? earlyEnglish : undefined,
+                  },
+                ]);
+              }
+              setProcessingStep('voicing');
             } else if (eventType === 'reply') {
               replyPayload = parsed;
             } else if (eventType === 'error') {
@@ -569,7 +593,10 @@ export default function ChatScreen() {
       hapticMedium();
       const replyWords = replyText.split(/\s+/).filter(Boolean);
       const isReducedMotion = await AccessibilityInfo.isReduceMotionEnabled();
-      const shouldAnimate = !isReducedMotion && replyWords.length > 1;
+      // Skip the typewriter reveal when the early replyText bubble was already
+      // shown — the learner has been reading the full text during synthesis.
+      const shouldAnimate =
+        !isReducedMotion && replyWords.length > 1 && !earlyReplyShownRef.current;
 
       setMessages((prev) => {
         const updated = [...prev];
@@ -593,14 +620,22 @@ export default function ChatScreen() {
         } else {
           updated.push(learnerBubble);
         }
-        updated.push({
-          role: 'parrot',
+        const parrotBubble = {
+          role: 'parrot' as const,
           text: replyText,
           englishText: replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
           // Start with 0 revealed words when animating; the interval below
           // will reveal them in sync with the audio playback.
           revealedWordCount: shouldAnimate ? 0 : undefined,
-        });
+        };
+        // If the early replyText event already showed Bolo's bubble, finalize
+        // it in place instead of appending a duplicate.
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].role === 'parrot') {
+          updated[lastIdx] = parrotBubble;
+        } else {
+          updated.push(parrotBubble);
+        }
         return updated;
       });
 
