@@ -254,12 +254,85 @@ export async function textToSpeechElevenLabs(
     );
   }
 
+  // Track per-request character cost from the response header so callers can
+  // surface usage even when the API key cannot read the subscription endpoint.
+  const cost = Number(response.headers.get("character-cost") ?? NaN);
+  if (Number.isFinite(cost)) {
+    usageStats.requests += 1;
+    usageStats.charactersUsed += cost;
+    usageStats.lastCharacterCost = cost;
+  }
+
   const json = (await response.json()) as { audio_base64?: string };
   const audioBase64 = json.audio_base64;
   if (!audioBase64) {
     throw new Error("ElevenLabs TTS returned no audio_base64 in response");
   }
   return Buffer.from(audioBase64, "base64");
+}
+
+export interface ElevenLabsUsageStats {
+  /** ElevenLabs TTS requests made by this process. */
+  requests: number;
+  /** Total characters billed by ElevenLabs since this process started
+   * (summed from the `character-cost` response header). */
+  charactersUsed: number;
+  /** Character cost of the most recent synthesis. */
+  lastCharacterCost: number;
+}
+
+const usageStats: ElevenLabsUsageStats = {
+  requests: 0,
+  charactersUsed: 0,
+  lastCharacterCost: 0,
+};
+
+/** In-process ElevenLabs usage counters (since process start). */
+export function getElevenLabsUsageStats(): ElevenLabsUsageStats {
+  return { ...usageStats };
+}
+
+export interface ElevenLabsQuota {
+  /** Characters consumed so far in the current billing period. */
+  characterCount: number;
+  /** Total characters allowed in the current billing period. */
+  characterLimit: number;
+  /** Characters still available (limit - count, floored at 0). */
+  remaining: number;
+}
+
+/**
+ * Fetch the ElevenLabs subscription quota (character credits) for the
+ * configured API key. Lets callers log / warn about remaining monthly credits
+ * before synthesis starts failing with quota errors.
+ */
+export async function getElevenLabsQuota(): Promise<ElevenLabsQuota> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ELEVENLABS_API_KEY must be set. Add it as a Replit Secret to enable ElevenLabs TTS.",
+    );
+  }
+  const response = await fetch("https://api.elevenlabs.io/v1/user/subscription", {
+    headers: { "xi-api-key": apiKey },
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `ElevenLabs subscription check failed with status ${response.status}: ${detail}`,
+    );
+  }
+  const json = (await response.json()) as {
+    character_count?: number;
+    character_limit?: number;
+  };
+  const characterCount = Number(json.character_count ?? 0);
+  const characterLimit = Number(json.character_limit ?? 0);
+  return {
+    characterCount,
+    characterLimit,
+    remaining: Math.max(0, characterLimit - characterCount),
+  };
 }
 
 /** Streaming Text-to-Speech. */

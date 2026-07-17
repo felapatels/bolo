@@ -3,10 +3,12 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray, asc } from "drizzle-orm";
 import {
   openai,
+  textToSpeech,
   textToSpeechElevenLabs,
   speechToText,
   ensureCompatibleFormat,
 } from "@workspace/integrations-openai-ai-server/audio";
+import { elevenLabsQuotaMonitor } from "../lib/elevenLabsQuotaMonitor";
 import {
   SynthesizeSpeechBody,
   EvaluatePronunciationBody,
@@ -90,9 +92,32 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       .execute()
       .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
 
+    // Throttled, fire-and-forget quota visibility: logs remaining ElevenLabs
+    // credits and warns before the monthly allowance runs out.
+    void elevenLabsQuotaMonitor.maybeCheck();
+
     res.json({ audioBase64, format: "mp3" });
+    return;
   } catch (err) {
-    req.log.error({ err }, "TTS failed");
+    // ElevenLabs failed (quota exhausted, outage, missing key, …). Fall back
+    // to gpt-audio TTS so learners never hit silence — lower fidelity than
+    // eleven_multilingual_v2, so the fallback audio is deliberately NOT
+    // cached: the next request retries ElevenLabs first.
+    req.log.warn(
+      { err },
+      "ElevenLabs TTS failed — falling back to gpt-audio synthesis",
+    );
+    void elevenLabsQuotaMonitor.maybeCheck();
+  }
+
+  try {
+    const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+    if (buffer.length === 0) {
+      throw new Error("gpt-audio fallback returned empty audio");
+    }
+    res.json({ audioBase64: buffer.toString("base64"), format: "mp3" });
+  } catch (err) {
+    req.log.error({ err }, "TTS failed (ElevenLabs and gpt-audio fallback)");
     res.status(502).json({ error: "Could not generate speech" });
   }
 });
