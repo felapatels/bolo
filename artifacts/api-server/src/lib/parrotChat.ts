@@ -565,6 +565,12 @@ export async function runParrotTurn(
         err instanceof Error ? err.message : err,
       );
       replyAudio = await deps.synthesize(ttsText, input.languageName);
+      // Feed the fallback clip through the same streaming channel and mark it
+      // complete: the client's progressive player is already connected to the
+      // stream URL, so this turns "stream aborts → silence risk" into a
+      // normal, trusted playback of the full clip.
+      input.onAudioChunk?.(replyAudio.toString("base64"));
+      input.onAudioDone?.();
     }
   } else {
     replyAudio = await deps.synthesize(ttsText, input.languageName);

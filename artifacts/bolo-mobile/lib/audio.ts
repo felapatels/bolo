@@ -159,6 +159,14 @@ export async function stopAndReadRecording(
 
 export type PlaybackHandle = { stop: () => void };
 
+// Monotonic token guarding the iOS playback/record mode flips. When playback
+// A is stopped right as playback B starts (e.g. a partial voice stream being
+// cut over to the buffered clip), A's deferred `ensureRecordingMode()` must
+// not land AFTER B's `activatePlaybackMode()` — that re-routes B's audio to
+// the earpiece at near-zero volume. Each new playback claims a token; a
+// restore only runs if no newer playback has claimed the mode since.
+let playbackModeToken = 0;
+
 /**
  * Play a progressive (still-being-synthesized) audio stream from a URL.
  * Native only: AVPlayer (iOS) and ExoPlayer (Android) handle chunked HTTP
@@ -175,6 +183,7 @@ export async function playStreamingAudio(
   onDone?: () => void,
 ): Promise<PlaybackHandle> {
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
+  const myToken = ++playbackModeToken;
   if (needsModeFlip) {
     try {
       await activatePlaybackMode();
@@ -183,7 +192,10 @@ export async function playStreamingAudio(
     }
   }
   const restoreMode = () => {
-    if (needsModeFlip) void ensureRecordingMode().catch(() => {});
+    // Skip the restore if a newer playback has claimed the mode since —
+    // otherwise this stale restore re-routes it to the earpiece.
+    if (needsModeFlip && playbackModeToken === myToken)
+      void ensureRecordingMode().catch(() => {});
   };
 
   const player = createAudioPlayer({ uri: url, headers });
@@ -239,6 +251,7 @@ export async function playBase64Audio(
   // earpiece; flip to playback-only mode first and restore recording mode
   // when the clip finishes or is stopped.
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
+  const myToken = ++playbackModeToken;
   if (needsModeFlip) {
     try {
       await activatePlaybackMode();
@@ -247,7 +260,10 @@ export async function playBase64Audio(
     }
   }
   const restoreMode = () => {
-    if (needsModeFlip) void ensureRecordingMode().catch(() => {});
+    // Skip the restore if a newer playback has claimed the mode since —
+    // otherwise this stale restore re-routes it to the earpiece.
+    if (needsModeFlip && playbackModeToken === myToken)
+      void ensureRecordingMode().catch(() => {});
   };
 
   const player = createAudioPlayer({ uri });

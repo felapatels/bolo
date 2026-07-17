@@ -1059,10 +1059,11 @@ test("runParrotTurn: streaming path emits chunks that concatenate to replyAudio,
   assert.deepEqual(events, ["chunk", "chunk", "done"], "onAudioDone fires after all chunks");
 });
 
-test("runParrotTurn: streaming failure falls back to buffered synthesize without onAudioDone", async () => {
+test("runParrotTurn: streaming failure pipes the fallback clip through the stream and completes it", async () => {
   const wav = makeWavBuffer(1);
   let doneFired = false;
   let bufferedCalled = false;
+  const chunks: string[] = [];
 
   const result = await runParrotTurn(
     {
@@ -1070,7 +1071,7 @@ test("runParrotTurn: streaming failure falls back to buffered synthesize without
       languageName: "Hindi",
       languageCode: "hi",
       history: [],
-      onAudioChunk: () => {},
+      onAudioChunk: (c) => { chunks.push(c); },
       onAudioDone: () => { doneFired = true; },
     },
     makeDeps({
@@ -1080,7 +1081,15 @@ test("runParrotTurn: streaming failure falls back to buffered synthesize without
   );
 
   assert.equal(bufferedCalled, true, "buffered synthesize should run as fallback");
-  assert.equal(doneFired, false, "onAudioDone must NOT fire when streaming failed");
+  // The client's progressive player is already connected to the stream URL,
+  // so the fallback clip must ride the same channel and be marked complete —
+  // otherwise the player aborts and the turn risks going silent.
+  assert.equal(doneFired, true, "onAudioDone must fire after the fallback clip is streamed");
+  assert.equal(
+    Buffer.concat(chunks.map((c) => Buffer.from(c, "base64"))).toString(),
+    "buffered-audio",
+    "the full fallback clip must be delivered as stream chunks",
+  );
   assert.equal(result.replyAudio.toString(), "buffered-audio");
 });
 

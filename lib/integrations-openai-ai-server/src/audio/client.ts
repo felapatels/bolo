@@ -449,14 +449,33 @@ export async function speechToText(
   format: "wav" | "mp3" | "webm" = "wav",
   options: SpeechToTextOptions = {}
 ): Promise<string> {
-  const file = await toFile(audioBuffer, `audio.${format}`);
-  const response = await openai.audio.transcriptions.create({
-    file,
-    model: options.highQuality ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe",
-    ...(options.language ? { language: options.language } : {}),
-    ...(options.prompt ? { prompt: options.prompt } : {}),
-  });
-  return response.text;
+  const model = options.highQuality ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe";
+  try {
+    const file = await toFile(audioBuffer, `audio.${format}`);
+    const response = await openai.audio.transcriptions.create({
+      file,
+      model,
+      ...(options.language ? { language: options.language } : {}),
+      ...(options.prompt ? { prompt: options.prompt } : {}),
+    });
+    return response.text;
+  } catch (err) {
+    // The transcribe models accept only a subset of ISO-639-1 codes (e.g.
+    // 'pa' for Punjabi is rejected with a 400 invalid_value on `language`).
+    // Retry without the code — the prompt already names the language, which
+    // is enough of a hint. Any other error propagates unchanged.
+    const e = err as { status?: number; param?: string; code?: string };
+    if (options.language && e?.status === 400 && e?.param === "language") {
+      const file = await toFile(audioBuffer, `audio.${format}`);
+      const response = await openai.audio.transcriptions.create({
+        file,
+        model,
+        ...(options.prompt ? { prompt: options.prompt } : {}),
+      });
+      return response.text;
+    }
+    throw err;
+  }
 }
 
 /** Streaming Speech-to-Text. */

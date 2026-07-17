@@ -283,9 +283,11 @@ const styles = StyleSheet.create({
   },
   boloBubble: {
     position: 'absolute',
-    // 22 px above the tab bar's top edge. Kept smaller than the slot width
-    // so the circle does not bleed horizontally into adjacent tab columns.
-    top: -22,
+    // Anchored from the BOTTOM of the tab slot so the circle always clears
+    // the "Bolo" label regardless of device safe-area insets. (Anchoring from
+    // the top with a negative offset overlapped the label on iPhones, where
+    // the home-indicator inset shrinks the slot's usable height.)
+    bottom: 32,
     width: 58,
     height: 58,
     borderRadius: 29,
