@@ -40,6 +40,8 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetAccountSubscription: () => mockState.sub,
+  useGetFamily: () => mockState.family ?? { data: undefined },
+  getGetFamilyQueryKey: () => ['family'],
   useCancelAccountSubscription: () => mockState.cancel,
   usePauseAccountSubscription: () => mockState.pause,
   useAcceptRetentionOffer: () => mockState.retention,

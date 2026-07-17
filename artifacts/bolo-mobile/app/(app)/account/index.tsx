@@ -580,6 +580,7 @@ function mergePrefs(
 
 const PLAN_LABELS: Record<string, string> = {
   plus: 'Bolo! Plus',
+  family: 'Bolo! Family',
   one_language: 'One Language',
   free: 'Free',
 };

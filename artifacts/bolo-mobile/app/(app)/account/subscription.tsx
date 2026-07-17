@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  useGetFamily,
   useGetAccountSubscription,
   getGetAccountSubscriptionQueryKey,
   useCancelAccountSubscription,
@@ -40,6 +41,7 @@ import {
 
 const PLAN_LABELS: Record<string, string> = {
   plus: 'Bolo! Plus',
+  family: 'Bolo! Family',
   one_language: 'One Language',
   free: 'Free',
 };
@@ -78,6 +80,7 @@ function billingPlanLabel(productId: string): string {
   if (id.includes('one_language') || id.includes('one-language')) {
     return 'One Language';
   }
+  if (id.includes('family')) return 'Bolo! Family';
   if (id.includes('plus')) return 'Bolo! Plus';
   return 'Subscription';
 }
@@ -405,6 +408,10 @@ export default function SubscriptionScreen() {
             busy={busy}
           />
 
+          <FamilySection
+            onOpen={() => router.push('/(app)/account/family')}
+          />
+
           <BillingHistory entries={details.billingHistory} />
 
           {/* Restore is always reachable — a reinstall or new device needs it. */}
@@ -633,6 +640,66 @@ function PlanState({
           </>
         )}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Entry point into the family-plan surface. The caller's family role is
+ * server-resolved: an owner sees live seat usage, a member sees whose plan
+ * they're on, and everyone else gets the Family upsell (which also hosts the
+ * join-code entry for invited learners). Hidden only while the status is
+ * still loading or failed — the family screen handles every role.
+ */
+function FamilySection({ onOpen }: { onOpen: () => void }) {
+  const colors = useColors();
+  const family = useGetFamily();
+  const data = family.data;
+  if (!data) return null;
+
+  let title = 'Bolo! Family';
+  let subtitle = 'Plus for up to 4 people — or join with a code.';
+  if (data.role === 'owner') {
+    const seats = data.seats ?? [];
+    const capacity = data.capacity ?? 4;
+    const inUse = seats.filter((s) => s.status === 'active').length + 1;
+    title = 'Your family plan';
+    subtitle = `${inUse} of ${capacity} seats in use · manage invites & members`;
+  } else if (data.role === 'member') {
+    title = 'Family plan';
+    subtitle = `Shared by ${data.ownerName ?? 'the plan owner'} · you have Plus through it`;
+  }
+
+  return (
+    <View style={styles.historySection}>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+        Family
+      </Text>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel="Family plan"
+        onPress={onOpen}
+        style={[
+          styles.card,
+          styles.familyRow,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View
+          style={[styles.familyIcon, { backgroundColor: `${colors.primary}1A` }]}
+        >
+          <Feather name="users" size={20} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.familyTitle, { color: colors.foreground }]}>
+            {title}
+          </Text>
+          <Text style={[styles.familySub, { color: colors.mutedForeground }]}>
+            {subtitle}
+          </Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+      </PressableScale>
     </View>
   );
 }
@@ -1041,6 +1108,20 @@ const styles = StyleSheet.create({
   },
   restoreText: { fontFamily: AppFonts.semibold, fontSize: 14 },
   historySection: { marginTop: 24 },
+  familyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  familyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  familyTitle: { fontFamily: AppFonts.bold, fontSize: 15 },
+  familySub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
   sectionTitle: {
     fontFamily: AppFonts.extrabold,
     fontSize: 16,
