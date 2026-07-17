@@ -464,8 +464,12 @@ export async function speechToText(
     // 'pa' for Punjabi is rejected with a 400 invalid_value on `language`).
     // Retry without the code — the prompt already names the language, which
     // is enough of a hint. Any other error propagates unchanged.
-    const e = err as { status?: number; param?: string; code?: string };
-    if (options.language && e?.status === 400 && e?.param === "language") {
+    const e = err as { status?: number; param?: string; message?: string };
+    const languageRejected =
+      e?.status === 400 &&
+      (e?.param === "language" ||
+        /language(_| )?code|'language'|unsupported language/i.test(e?.message ?? ""));
+    if (options.language && languageRejected) {
       const file = await toFile(audioBuffer, `audio.${format}`);
       const response = await openai.audio.transcriptions.create({
         file,
