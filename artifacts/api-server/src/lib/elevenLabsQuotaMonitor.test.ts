@@ -21,11 +21,24 @@ function makeLog() {
   };
 }
 
-function quota(count: number, limit: number): ElevenLabsQuota {
+function quota(count: number, limit: number, resetUnix = 1_800_000_000): ElevenLabsQuota {
   return {
     characterCount: count,
     characterLimit: limit,
     remaining: Math.max(0, limit - count),
+    resetUnix,
+  };
+}
+
+function makeAlerts(result: boolean | Error = true) {
+  const sent: ElevenLabsQuota[] = [];
+  return {
+    sent,
+    sendAlert: async (q: ElevenLabsQuota) => {
+      if (result instanceof Error) throw result;
+      sent.push(q);
+      return result;
+    },
   };
 }
 
@@ -57,32 +70,39 @@ test("quota monitor: logs info when plenty of quota remains", async () => {
 
 test("quota monitor: warns when remaining drops below the warn fraction", async () => {
   const { log, warns } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
   const monitor = createQuotaMonitor({
     fetchQuota: async () => quota(8500, 10000), // 1500 left < 20% of 10000
     log,
     now: () => 1_000_000,
     intervalMs: 600_000,
     warnFraction: 0.2,
+    sendAlert,
   });
 
   await monitor.maybeCheck();
   assert.equal(warns.length, 1);
   assert.match(warns[0].msg, /running low/i);
+  assert.equal(sent.length, 1, "low-credit email sent on threshold crossing");
+  assert.deepEqual(sent[0], quota(8500, 10000));
 });
 
 test("quota monitor: warns EXHAUSTED at zero remaining", async () => {
   const { log, warns } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
   const monitor = createQuotaMonitor({
     fetchQuota: async () => quota(10000, 10000),
     log,
     now: () => 1_000_000,
     intervalMs: 600_000,
     warnFraction: 0.2,
+    sendAlert,
   });
 
   await monitor.maybeCheck();
   assert.equal(warns.length, 1);
   assert.match(warns[0].msg, /EXHAUSTED/);
+  assert.equal(sent.length, 1);
 });
 
 test("quota monitor: throttles to one check per interval", async () => {
@@ -98,6 +118,7 @@ test("quota monitor: throttles to one check per interval", async () => {
     now: () => clock,
     intervalMs: 600_000,
     warnFraction: 0.2,
+    sendAlert: async () => true,
   });
 
   await monitor.maybeCheck();
@@ -164,4 +185,139 @@ test("quota monitor: missing user_read permission disables subscription checks a
   assert.equal(warns.length, 1);
   assert.equal(infos.length, 1);
   assert.match(infos[0].msg, /usage since server start/i);
+});
+
+test("quota monitor: alert email fires once per billing cycle, not on every check", async () => {
+  const { log } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
+  let clock = 1_000_000;
+  const monitor = createQuotaMonitor({
+    fetchQuota: async () => quota(8500, 10000, 111),
+    log,
+    now: () => clock,
+    intervalMs: 600_000,
+    warnFraction: 0.2,
+    sendAlert,
+  });
+
+  await monitor.maybeCheck();
+  clock += 600_001;
+  await monitor.maybeCheck();
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 1, "still-below-threshold checks must not re-email");
+});
+
+test("quota monitor: alert re-arms on a new billing cycle (different resetUnix)", async () => {
+  const { log } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
+  let clock = 1_000_000;
+  let resetUnix = 111;
+  const monitor = createQuotaMonitor({
+    fetchQuota: async () => quota(8500, 10000, resetUnix),
+    log,
+    now: () => clock,
+    intervalMs: 600_000,
+    warnFraction: 0.2,
+    sendAlert,
+  });
+
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 1);
+
+  // New cycle: reset timestamp changes (still below threshold, e.g. tiny plan).
+  resetUnix = 222;
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 2, "new cycle re-arms the alert");
+});
+
+test("quota monitor: alert re-arms after credits climb back above the threshold", async () => {
+  const { log } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
+  let clock = 1_000_000;
+  let count = 8500;
+  const monitor = createQuotaMonitor({
+    fetchQuota: async () => quota(count, 10000, 111),
+    log,
+    now: () => clock,
+    intervalMs: 600_000,
+    warnFraction: 0.2,
+    sendAlert,
+  });
+
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 1);
+
+  // Top-up: back above the threshold. Same cycle key.
+  count = 1000;
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 1);
+
+  // Drops below again within the same cycle → alert again.
+  count = 9000;
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 2);
+});
+
+test("quota monitor: a failed email send is retried on the next check and never throws", async () => {
+  const { log, warns } = makeLog();
+  let clock = 1_000_000;
+  let sendResult: boolean | "throw" = false;
+  let attempts = 0;
+  const monitor = createQuotaMonitor({
+    fetchQuota: async () => quota(8500, 10000, 111),
+    log,
+    now: () => clock,
+    intervalMs: 600_000,
+    warnFraction: 0.2,
+    sendAlert: async () => {
+      attempts++;
+      if (sendResult === "throw") throw new Error("resend down");
+      return sendResult;
+    },
+  });
+
+  await monitor.maybeCheck();
+  assert.equal(attempts, 1);
+  assert.ok(
+    warns.some((w) => /alert email was not sent/i.test(w.msg)),
+    "failed send is logged",
+  );
+
+  // A throwing sender must also be swallowed.
+  sendResult = "throw";
+  clock += 600_001;
+  await assert.doesNotReject(() => monitor.maybeCheck());
+  assert.equal(attempts, 2);
+
+  // Once sending succeeds, the alert disarms for the cycle.
+  sendResult = true;
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(attempts, 3);
+  clock += 600_001;
+  await monitor.maybeCheck();
+  assert.equal(attempts, 3, "disarmed after a successful send");
+});
+
+test("quota monitor: unreadable subscription never attempts email", async () => {
+  const { log } = makeLog();
+  const { sent, sendAlert } = makeAlerts();
+  const monitor = createQuotaMonitor({
+    fetchQuota: async () => {
+      throw new Error("missing_permissions user_read");
+    },
+    fetchUsage: () => ({ requests: 1, charactersUsed: 5, lastCharacterCost: 5 }),
+    log,
+    now: () => 1_000_000,
+    intervalMs: 600_000,
+    warnFraction: 0.2,
+    sendAlert,
+  });
+
+  await monitor.maybeCheck();
+  assert.equal(sent.length, 0);
 });

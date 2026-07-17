@@ -5,6 +5,7 @@ import {
   type ElevenLabsUsageStats,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { logger } from "./logger";
+import { sendQuotaAlertEmail } from "./quotaAlertEmail";
 
 // How often the quota may be re-checked. The subscription endpoint is polled
 // at most once per interval, piggybacked on TTS traffic — quiet periods make
@@ -23,6 +24,8 @@ export interface QuotaMonitorDeps {
   now: () => number;
   intervalMs: number;
   warnFraction: number;
+  /** Sends the low-credit alert email; resolves false on failure, never throws. */
+  sendAlert: (quota: ElevenLabsQuota) => Promise<boolean>;
 }
 
 /**
@@ -41,6 +44,7 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
     now: Date.now,
     intervalMs: CHECK_INTERVAL_MS,
     warnFraction: WARN_FRACTION,
+    sendAlert: sendQuotaAlertEmail,
     ...overrides,
   };
 
@@ -51,6 +55,11 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
   // (missing user_read permission) — from then on we only log in-process
   // usage counters instead of retrying a call that will always 401.
   let subscriptionUnreadable = false;
+  // Once-per-billing-cycle email dedup. Keyed on the subscription's reset
+  // timestamp: a new cycle (different resetUnix) re-arms the alert, as does
+  // climbing back above the threshold within a cycle (top-up / plan upgrade).
+  // In-process only — at worst a restart re-sends one email.
+  let alertedResetUnix: number | null = null;
 
   async function maybeCheck(): Promise<void> {
     const now = deps.now();
@@ -76,8 +85,24 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
             ? "ElevenLabs quota EXHAUSTED — phrase audio is falling back to gpt-audio until credits reset"
             : "ElevenLabs quota running low — uncached phrase audio will fall back to gpt-audio when it runs out",
         );
+        // Email the owner once per billing cycle. Send failures are logged
+        // inside sendAlert and leave the alert armed so the next check
+        // retries; only a successful send disarms it for this cycle.
+        if (alertedResetUnix !== quota.resetUnix) {
+          const sent = await deps.sendAlert(quota).catch(() => false);
+          if (sent) {
+            alertedResetUnix = quota.resetUnix;
+          } else {
+            deps.log.warn(
+              fields,
+              "ElevenLabs low-credit alert email was not sent — will retry on the next quota check",
+            );
+          }
+        }
       } else {
         deps.log.info(fields, "ElevenLabs quota check");
+        // Back above the threshold (top-up, upgrade, or new cycle): re-arm.
+        alertedResetUnix = null;
       }
     } catch (err) {
       // Quota visibility is best-effort; never let it disturb the TTS path.

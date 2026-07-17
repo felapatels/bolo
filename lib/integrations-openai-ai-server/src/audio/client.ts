@@ -299,6 +299,9 @@ export interface ElevenLabsQuota {
   characterLimit: number;
   /** Characters still available (limit - count, floored at 0). */
   remaining: number;
+  /** Unix seconds when the character allowance next resets (0 if the API
+   * omitted it). Distinguishes billing cycles for once-per-cycle alerting. */
+  resetUnix: number;
 }
 
 /**
@@ -325,6 +328,7 @@ export async function getElevenLabsQuota(): Promise<ElevenLabsQuota> {
   const json = (await response.json()) as {
     character_count?: number;
     character_limit?: number;
+    next_character_count_reset_unix?: number;
   };
   const characterCount = Number(json.character_count ?? 0);
   const characterLimit = Number(json.character_limit ?? 0);
@@ -332,6 +336,7 @@ export async function getElevenLabsQuota(): Promise<ElevenLabsQuota> {
     characterCount,
     characterLimit,
     remaining: Math.max(0, characterLimit - characterCount),
+    resetUnix: Number(json.next_character_count_reset_unix ?? 0),
   };
 }
 

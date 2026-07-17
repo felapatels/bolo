@@ -10,3 +10,5 @@ description: How remaining ElevenLabs credits are (and aren't) observable, and t
 - **Why:** free-plan credits can exhaust mid-month; before this, uncached phrases 502'd ("Could not generate speech") with zero visibility.
 - Chat (`parrotChat`) uses the same pattern via `makeSynthesizeWithFallback(elevenlabs, gpt-audio)`; chat audio is never cached so no cache-poisoning concern.
 - The startup pre-warm detects quota exhaustion (`isQuotaExhaustedError`: `quota_exceeded` in detail or status 429) and skips all remaining phrases instead of failing each one; missing-key and 5xx errors do NOT trip the early stop.
+
+Update (July 2026): key regenerated WITH user_read — /v1/user/subscription returns 200 (incl. next_character_count_reset_unix). Quota monitor now emails a low-credit alert (Resend) once per billing cycle, keyed on resetUnix; re-arms on new cycle or when back above threshold. Sender must be onboarding@resend.dev — boloapp.in is NOT verified with Resend (403).
