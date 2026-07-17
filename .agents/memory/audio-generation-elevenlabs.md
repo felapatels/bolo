@@ -14,3 +14,7 @@ The media-generation skill's audio callbacks (`generateMusic`, `generateSoundEff
 - `GET /v1/voices` returns >1MB and fails. Use `GET /v2/voices?search=<term>&page_size=N` instead. Search by known premade name (e.g. "George", "Matilda") to confirm a voice_id is enabled in the workspace.
 - File writes must be inside a `"use impure"` function, and that function must return a JSON-serializable value (return the path list, not `undefined`).
 - ffmpeg is available for composing: `adelay=<ms>:all=1` per clip + a low-volume `[bed]` + `amix=inputs=N:normalize=0` + `alimiter` to prevent clipping.
+
+## Free-tier API voice restriction (July 2026)
+The app's own `ELEVENLABS_API_KEY` (user's free-plan key) cannot use *library* voices via the API — e.g. Rachel (21m00Tcm4TlvDq8ikWAM) returns 402 `paid_plan_required`. Default premade voices like George (JBFqnCBsd6RMkjVDRZzb) work on every plan; `textToSpeechElevenLabs` defaults to George for this reason. The key is also TTS-only restricted (no `voices_read`), so `/v1/voices` 401s — test a voice by calling TTS directly.
+**How to apply:** if ElevenLabs TTS starts 402ing, check the voice ID category before suspecting the key.

@@ -102,3 +102,9 @@ id = "yhyfMq68eujGbOzUExhqE"
 uri = "file://artifacts/gujarati-coach/public/bolo-parrot-bundle.zip"
 type = "unspecified"
 title = "bolo-parrot-bundle.zip"
+
+[[outputs]]
+id = "LftcNJgRRsyKb7Zh4QiO-"
+uri = "file://attached_assets/gujarati-tts-sample.mp3"
+type = "audio"
+title = "Gujarati TTS sample — \"કેમ છો?\" (ElevenLabs)"

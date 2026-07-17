@@ -207,13 +207,16 @@ export async function textToSpeech(
  * decoded from the `audio_base64` field of the `/with-timestamps` JSON
  * response.
  *
- * Voice: "Rachel" (premade, ID 21m00Tcm4TlvDq8ikWAM) — calm, clear,
+ * Voice: "George" (default premade, ID JBFqnCBsd6RMkjVDRZzb) — warm, clear,
  * works well across Latin and non-Latin scripts with eleven_multilingual_v2.
+ * Chosen over "Rachel" (21m00Tcm4TlvDq8ikWAM) because Rachel is a *library*
+ * voice that free-tier API keys are not allowed to use (the API returns a 402
+ * paid_plan_required); George is available on every plan.
  * The voiceId parameter lets callers override if needed.
  */
 export async function textToSpeechElevenLabs(
   text: string,
-  voiceId = "21m00Tcm4TlvDq8ikWAM",
+  voiceId = "JBFqnCBsd6RMkjVDRZzb",
   // language parameter kept for API symmetry with textToSpeech; ElevenLabs
   // auto-detects the script via eleven_multilingual_v2 so it is not sent.
   _language?: string,
