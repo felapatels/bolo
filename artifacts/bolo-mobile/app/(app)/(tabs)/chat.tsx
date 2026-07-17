@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +39,7 @@ import {
   ensureRecordingMode,
   stopAndReadRecording,
   playBase64Audio,
+  playStreamingAudio,
   RECORDING_PRESET,
   SILENCE_THRESHOLD_DB,
   SILENCE_DURATION_MS,
@@ -53,6 +55,31 @@ const HISTORY_WINDOW = 3;
 
 // Free-tier weekly cap in seconds (matches backend constant).
 const FREE_WEEKLY_CAP_SECONDS = 120;
+
+// Parrot squawk SFX assets, indexed by the server's squawkVariant.
+const SQUAWK_ASSETS = [
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../assets/sounds/squawk_a.mp3') as number,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../assets/sounds/squawk_b.mp3') as number,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../assets/sounds/squawk_c.mp3') as number,
+];
+
+/**
+ * Play a squawk as a fire-and-forget intro chirp — it overlaps naturally with
+ * the start of Bolo's speech rather than blocking it.
+ */
+function playSquawk(variant: 0 | 1 | 2): void {
+  const sfxPlayer = createAudioPlayer(SQUAWK_ASSETS[variant]);
+  const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+    if (s.didJustFinish) {
+      try { sub.remove(); } catch {}
+      try { sfxPlayer.remove(); } catch {}
+    }
+  });
+  sfxPlayer.play();
+}
 
 type ChatPhase =
   | 'idle'        // waiting for the learner to tap
@@ -440,12 +467,65 @@ export default function ChatScreen() {
       let httpStatus = 200;
       let rawResponseText = '';
 
+      // ── Progressive voice streaming (native only) ────────────────────────
+      // RN/Hermes has no MediaSource, so SSE `audioChunk` playback is out.
+      // Instead the server exposes each turn's voice as a progressive HTTP
+      // audio stream (opt-in via `X-Audio-Stream: url`): an `audioStream`
+      // SSE event carries a streamId, and AVPlayer/ExoPlayer pull the chunked
+      // audio/mpeg response natively — playback starts as soon as the first
+      // synthesized bytes land, before the full clip exists.
+      const wantsStreamingVoice = Platform.OS !== 'web';
+      let streamStarted = false;       // player launch attempted this turn
+      let streamFailed = false;        // player launch threw
+      let streamAudioDone = false;     // server confirmed a complete stream
+      let streamFinishedPlaying = false; // player reached the end of the clip
+      let streamHandle: PlaybackHandle | null = null;
+      let streamPromise: Promise<void> | null = null;
+      let squawkPlayed = false;
+      let turnSquawkVariant: 0 | 1 | 2 | null = null;
+
+      const startStreamingVoice = async (streamId: string): Promise<void> => {
+        streamStarted = true;
+        try {
+          if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+          // Squawk first (fire-and-forget intro), same ordering as the
+          // buffered path — it overlaps the start of speech.
+          if (turnSquawkVariant !== null && !squawkPlayed) {
+            squawkPlayed = true;
+            playSquawk(turnSquawkVariant);
+          }
+          setPhase('playing');
+          hapticHeavy();
+          const handle = await playStreamingAudio(
+            `${chatUrl}/audio/${streamId}`,
+            token ? { Authorization: `Bearer ${token}` } : {},
+            () => {
+              streamFinishedPlaying = true;
+              if (activeTurnRef.current !== myTurn) return;
+              playbackRef.current = null;
+              if (isFocusedRef.current) setPhase('idle');
+            },
+          );
+          if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+            handle.stop();
+            return;
+          }
+          streamHandle = handle;
+          playbackRef.current = handle;
+        } catch {
+          // Launch failed — the buffered clip from the `reply` event takes over.
+          streamFailed = true;
+        }
+      };
+
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', chatUrl);
         xhr.setRequestHeader('Content-Type', 'application/json');
         // Request SSE — the server streams transcript first, then reply.
         xhr.setRequestHeader('Accept', 'text/event-stream');
+        // Ask for a progressive per-turn audio URL (native players only).
+        if (wantsStreamingVoice) xhr.setRequestHeader('X-Audio-Stream', 'url');
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
         // Accumulate partial SSE lines across onprogress calls.
@@ -504,6 +584,12 @@ export default function ChatScreen() {
               // the learner can start reading while the audio is in flight.
               const earlyText = (parsed.replyText as string) ?? '';
               const earlyEnglish = (parsed.replyEnglish as string) ?? '';
+              // Capture the squawk variant now so the streaming path can play
+              // the intro chirp before the `reply` payload arrives.
+              const earlySquawk = parsed.squawkVariant as 0 | 1 | 2 | null | undefined;
+              if (earlySquawk === 0 || earlySquawk === 1 || earlySquawk === 2) {
+                turnSquawkVariant = earlySquawk;
+              }
               if (earlyText) {
                 earlyReplyShownRef.current = true;
                 setMessages((prev) => [
@@ -516,6 +602,17 @@ export default function ChatScreen() {
                 ]);
               }
               setProcessingStep('voicing');
+            } else if (eventType === 'audioStream') {
+              // Server minted a progressive audio stream for this turn —
+              // start the native player now; first chunks land ~300 ms later.
+              const streamId = (parsed.streamId as string) ?? '';
+              if (streamId && wantsStreamingVoice && !streamStarted) {
+                streamPromise = startStreamingVoice(streamId);
+              }
+            } else if (eventType === 'audioDone') {
+              // Commit signal: the progressive stream carried the full clip.
+              // Without it, the buffered clip from `reply` takes over.
+              streamAudioDone = true;
             } else if (eventType === 'reply') {
               replyPayload = parsed;
             } else if (eventType === 'error') {
@@ -706,41 +803,48 @@ export default function ChatScreen() {
         }, msPerWord);
       }
 
-      setPhase('playing');
-      hapticHeavy();
+      // Settle the streaming launch (if any) before deciding how to play.
+      if (streamPromise) await streamPromise;
+      if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
 
-      if (squawkVariant !== null && squawkVariant !== undefined) {
-        const sfxAssets = [
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_a.mp3') as number,
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_b.mp3') as number,
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          require('../../../assets/sounds/squawk_c.mp3') as number,
-        ];
+      // Trust the progressive stream only when the server confirmed it
+      // carried the complete clip (`audioDone`) AND the player launched.
+      // Otherwise stop any partial stream and play the buffered clip.
+      const streamingVoiceActive =
+        streamStarted && !streamFailed && streamAudioDone && streamHandle !== null;
+
+      if (streamingVoiceActive) {
+        // Voice is already playing (or just finished) via the stream.
+        setPhase(streamFinishedPlaying ? 'idle' : 'playing');
+      } else {
+        if (streamHandle !== null) {
+          // Partial/untrusted stream — cut it before the buffered replay.
+          (streamHandle as PlaybackHandle).stop();
+          streamHandle = null;
+          playbackRef.current = null;
+        }
+        setPhase('playing');
+        if (!streamStarted) hapticHeavy();
+
         // Play the squawk as a fire-and-forget intro — don't await its full
         // duration before starting Bolo's voice reply. The squawk acts as a
         // brief "I'm here!" chirp that overlaps naturally with the start of
-        // speech, rather than a blocker adding 1–1.5 s of silence.
-        const sfxPlayer = createAudioPlayer(sfxAssets[squawkVariant]);
-        const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
-          if (s.didJustFinish) {
-            try { sub.remove(); } catch {}
-            try { sfxPlayer.remove(); } catch {}
-          }
-        });
-        sfxPlayer.play();
-      }
+        // speech, rather than a blocker adding 1–1.5 s of silence. Skipped if
+        // the streaming path already chirped this turn.
+        if (squawkVariant !== null && squawkVariant !== undefined && !squawkPlayed) {
+          playSquawk(squawkVariant);
+        }
 
-      const handle = await playBase64Audio(
-        replyAudioBase64,
-        format,
-        () => {
-          playbackRef.current = null;
-          setPhase('idle');
-        },
-      );
-      playbackRef.current = handle;
+        const handle = await playBase64Audio(
+          replyAudioBase64,
+          format,
+          () => {
+            playbackRef.current = null;
+            setPhase('idle');
+          },
+        );
+        playbackRef.current = handle;
+      }
     } catch (err) {
       // A newer turn started while this one was in flight — drop this error
       // silently so it doesn't disrupt the active turn's UI state.

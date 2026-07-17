@@ -159,6 +159,64 @@ export async function stopAndReadRecording(
 
 export type PlaybackHandle = { stop: () => void };
 
+/**
+ * Play a progressive (still-being-synthesized) audio stream from a URL.
+ * Native only: AVPlayer (iOS) and ExoPlayer (Android) handle chunked HTTP
+ * audio natively, so playback starts as soon as enough initial bytes arrive —
+ * callers on web should use the buffered path instead.
+ *
+ * Reuses the same iOS earpiece-routing mode flip as playBase64Audio: while
+ * the mic session is warm, playback must run in playback-only mode or it
+ * comes out of the receiver at phone-call volume.
+ */
+export async function playStreamingAudio(
+  url: string,
+  headers: Record<string, string>,
+  onDone?: () => void,
+): Promise<PlaybackHandle> {
+  const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
+  if (needsModeFlip) {
+    try {
+      await activatePlaybackMode();
+    } catch {
+      // If the flip fails, still play — quiet audio beats no audio.
+    }
+  }
+  const restoreMode = () => {
+    if (needsModeFlip) void ensureRecordingMode().catch(() => {});
+  };
+
+  const player = createAudioPlayer({ uri: url, headers });
+  const sub = player.addListener('playbackStatusUpdate', (s) => {
+    if (s.didJustFinish) {
+      onDone?.();
+      try {
+        sub.remove();
+      } catch {}
+      try {
+        player.remove();
+      } catch {}
+      restoreMode();
+    }
+  });
+  player.play();
+  return {
+    stop: () => {
+      try {
+        sub.remove();
+      } catch {}
+      try {
+        // Pause before releasing (see playBase64Audio for why).
+        player.pause();
+      } catch {}
+      try {
+        player.remove();
+      } catch {}
+      restoreMode();
+    },
+  };
+}
+
 /** Play a base64-encoded audio clip. Resolves the handle immediately. */
 export async function playBase64Audio(
   base64: string,

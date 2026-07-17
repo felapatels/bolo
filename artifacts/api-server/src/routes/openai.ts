@@ -28,6 +28,16 @@ import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey } from "../lib/ttsCache";
+import {
+  createChatAudioStream,
+  getChatAudioStream,
+  appendChatAudioChunk,
+  completeChatAudioStream,
+  failChatAudioStream,
+  releaseChatAudioStream,
+  waitForChatAudioChange,
+  type ChatAudioStream,
+} from "../lib/chatAudioStreams";
 
 const router: IRouter = Router();
 
@@ -480,8 +490,20 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   // clients that can't play partial MP3s (e.g. mobile, which lacks
   // MediaSource) would otherwise pay for every chunk twice — once as
   // `audioChunk` events and again inside the final `reply` payload.
-  const wantsAudioStream =
-    wantsSSE && req.headers["x-audio-stream"] === "1";
+  //
+  // Two streaming modes:
+  //   "1"   — chunks ride the SSE stream as `audioChunk` events (web, which
+  //           can feed them into MediaSource).
+  //   "url" — chunks are teed into a short-lived server-side stream and the
+  //           client gets an `audioStream` event carrying a streamId; the
+  //           native player then pulls GET /openai/chat/audio/:streamId as a
+  //           progressive audio/mpeg response (mobile, where AVPlayer /
+  //           ExoPlayer handle progressive HTTP audio natively but SSE-chunk
+  //           MP3 playback is impossible without MediaSource).
+  const audioStreamMode = req.headers["x-audio-stream"];
+  const wantsAudioStream = wantsSSE && audioStreamMode === "1";
+  const audioStream: ChatAudioStream | null =
+    wantsSSE && audioStreamMode === "url" ? createChatAudioStream(userId) : null;
 
   if (wantsSSE) {
     res.setHeader("Content-Type", "text/event-stream");
@@ -525,6 +547,13 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         onReplyReady: (replyText, replyEnglish, squawkVariant) => {
           if (wantsSSE) {
             sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
+            // TTS starts right after this callback, so this is the earliest
+            // useful moment to hand the client its progressive audio URL —
+            // the native player connects and starts pulling chunks as they
+            // are synthesized.
+            if (audioStream) {
+              sseWrite(res, "audioStream", { streamId: audioStream.id });
+            }
           }
         },
         // Stream raw MP3 chunks as ElevenLabs produces them so SSE clients can
@@ -532,13 +561,25 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         // a complete stream; without it, clients fall back to the full clip
         // carried by the final `reply` event. Non-SSE clients get neither
         // callback and keep the buffered path unchanged.
-        ...(wantsAudioStream
+        ...(wantsAudioStream || audioStream
           ? {
               onAudioChunk: (base64Chunk: string) => {
-                sseWrite(res, "audioChunk", { chunk: base64Chunk });
+                if (wantsAudioStream) {
+                  sseWrite(res, "audioChunk", { chunk: base64Chunk });
+                }
+                if (audioStream) {
+                  appendChatAudioChunk(
+                    audioStream,
+                    Buffer.from(base64Chunk, "base64"),
+                  );
+                }
               },
               onAudioDone: () => {
+                // audioDone doubles as the client's commit signal in "url"
+                // mode: only when it arrives does the client trust the
+                // progressive stream to carry the complete clip.
                 sseWrite(res, "audioDone", {});
+                if (audioStream) completeChatAudioStream(audioStream);
               },
             }
           : {}),
@@ -567,6 +608,12 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       secondsRemaining,
     };
 
+    // A turn whose streaming TTS fell back to buffered synthesis never fired
+    // audioDone — tell the progressive reader to bail out so the native
+    // player errors (and the client plays the buffered clip) instead of
+    // waiting on chunks that will never come. No-op after a complete stream.
+    if (audioStream) failChatAudioStream(audioStream);
+
     if (wantsSSE) {
       sseWrite(res, "reply", replyPayload);
       res.end();
@@ -574,7 +621,9 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       res.json(replyPayload);
     }
   } catch (err) {
-    req.log.error({ err }, "Chat turn failed");
+    // Optional chain: test apps mount this router without pino-http.
+    req.log?.error({ err }, "Chat turn failed");
+    if (audioStream) failChatAudioStream(audioStream);
     if (wantsSSE) {
       sseWrite(res, "error", { error: "Could not complete that chat turn" });
       res.end();
@@ -583,6 +632,67 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     }
   }
 });
+
+// GET /openai/chat/audio/:streamId — progressive audio for one chat turn.
+//
+// Serves the MP3 chunks teed into the in-memory stream registry by a chat
+// turn that opted in with `X-Audio-Stream: url`. The response is chunked
+// audio/mpeg with no Content-Length, which AVPlayer (iOS) and ExoPlayer
+// (Android) treat as a progressive stream — playback starts as soon as
+// enough initial bytes arrive, well before synthesis finishes.
+//
+// Semantics mirror the SSE-chunk protocol's "audioDone is the commit signal":
+// a stream that completes cleanly ends the response normally; a stream whose
+// turn fell back to buffered synthesis destroys the socket so the player
+// surfaces an error rather than passing off a truncated clip as finished.
+router.get(
+  "/openai/chat/audio/:streamId",
+  async (req: Request, res: Response): Promise<void> => {
+    const stream = getChatAudioStream(String(req.params.streamId));
+    const userId = (req as AuthedRequest).userId;
+    if (!stream || stream.userId !== userId) {
+      res.status(404).json({ error: "Unknown audio stream" });
+      return;
+    }
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.flushHeaders();
+
+    let closed = false;
+    let notifyClosed: () => void = () => {};
+    const closedPromise = new Promise<void>((resolve) => {
+      notifyClosed = () => {
+        closed = true;
+        resolve();
+      };
+    });
+    res.on("close", notifyClosed);
+
+    let sent = 0;
+    try {
+      for (;;) {
+        while (sent < stream.chunks.length) {
+          res.write(stream.chunks[sent++]);
+        }
+        if (closed) break;
+        if (stream.failed) {
+          // Abort abruptly: the player must see an error, not a clean end.
+          res.destroy();
+          break;
+        }
+        if (stream.done && sent >= stream.chunks.length) {
+          res.end();
+          break;
+        }
+        await Promise.race([waitForChatAudioChange(stream), closedPromise]);
+      }
+    } finally {
+      // Single-consumer: once a reader detaches, the stream is spent.
+      releaseChatAudioStream(stream.id);
+    }
+  },
+);
 
 // POST /openai/tts-cache/evict — remove stale TTS entries after a phrase correction.
 // Accepts a phraseId (evicts all voice variants for that phrase) or a languageCode
