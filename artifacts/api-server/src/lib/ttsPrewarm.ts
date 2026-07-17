@@ -14,6 +14,20 @@ const DEFAULT_VOICE = "nova" as const;
 const CONCURRENCY = 5;
 
 /**
+ * Detects an ElevenLabs quota-exhaustion error from its thrown message.
+ * The audio client throws `ElevenLabs TTS failed with status <n>: <detail>`;
+ * exhausted credits surface as a 401 with `quota_exceeded` in the detail body
+ * (and rate/credit pressure as 429). Exported for unit tests.
+ */
+export function isQuotaExhaustedError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    /quota_exceeded/i.test(message) ||
+    /ElevenLabs TTS failed with status 429\b/.test(message)
+  );
+}
+
+/**
  * Run a bounded-concurrency pool over an array of async tasks.
  * Each item in `items` is passed to `worker`; at most `limit` tasks run at
  * the same time.  Individual failures are caught and logged so one bad phrase
@@ -147,8 +161,17 @@ export function scheduleTtsPrewarm(): void {
 
       let done = 0;
       let failed = 0;
+      let skipped = 0;
+      // Once a quota-exhaustion error is seen, every remaining phrase is
+      // skipped instead of burning a doomed API call (and a log line) each.
+      let quotaExhausted = false;
 
       await pool(missing, CONCURRENCY, async ({ phrase, key }) => {
+        if (quotaExhausted) {
+          skipped++;
+          return;
+        }
+
         // Double-check inside the worker in case another instance already
         // filled this slot while we were batching.
         const alreadyCached = await db.query.ttsCacheTable.findFirst({
@@ -178,12 +201,19 @@ export function scheduleTtsPrewarm(): void {
           done++;
         } catch (err) {
           failed++;
+          if (!quotaExhausted && isQuotaExhaustedError(err)) {
+            quotaExhausted = true;
+            logger.warn(
+              { err },
+              "TTS pre-warm: ElevenLabs quota exhausted — skipping all remaining phrases (they will be cached on demand once credits refresh)",
+            );
+          }
           throw err; // re-throw so pool() can log it
         }
       });
 
       logger.info(
-        { done, failed, total: missing.length },
+        { done, failed, skipped, quotaExhausted, total: missing.length },
         "TTS pre-warm: complete",
       );
     } catch (err) {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { db, pool, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ttsCacheKey } from "./ttsCache";
+import { isQuotaExhaustedError } from "./ttsPrewarm";
 import { ensureUsersColumns } from "./testDbCompat";
 
 // ---------------------------------------------------------------------------
@@ -110,6 +111,47 @@ test("different voices produce different keys (no cross-voice cache collision)",
   const nova = ttsCacheKey(TEST_NATIVE_SCRIPT, "nova", TEST_LANG_NAME);
   const shimmer = ttsCacheKey(TEST_NATIVE_SCRIPT, "shimmer", TEST_LANG_NAME);
   assert.notEqual(nova, shimmer);
+});
+
+// ---------------------------------------------------------------------------
+// Quota-exhaustion detection (drives the pre-warm early-stop behavior)
+// ---------------------------------------------------------------------------
+
+test("isQuotaExhaustedError matches quota_exceeded detail bodies", () => {
+  assert.ok(
+    isQuotaExhaustedError(
+      new Error(
+        'ElevenLabs TTS failed with status 401: {"detail":{"status":"quota_exceeded","message":"This request exceeds your quota."}}',
+      ),
+    ),
+  );
+});
+
+test("isQuotaExhaustedError matches HTTP 429 responses", () => {
+  assert.ok(
+    isQuotaExhaustedError(
+      new Error("ElevenLabs TTS failed with status 429: too many requests"),
+    ),
+  );
+});
+
+test("isQuotaExhaustedError does NOT match transient/other failures", () => {
+  assert.equal(
+    isQuotaExhaustedError(
+      new Error('ElevenLabs TTS failed with status 500: {"detail":"server error"}'),
+    ),
+    false,
+  );
+  assert.equal(
+    isQuotaExhaustedError(new Error("fetch failed")),
+    false,
+  );
+  assert.equal(
+    isQuotaExhaustedError(
+      new Error("ELEVENLABS_API_KEY must be set. Add it as a Replit Secret to enable ElevenLabs TTS."),
+    ),
+    false,
+  );
 });
 
 // ---------------------------------------------------------------------------
