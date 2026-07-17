@@ -335,6 +335,70 @@ export async function getElevenLabsQuota(): Promise<ElevenLabsQuota> {
   };
 }
 
+/**
+ * Streaming Text-to-Speech via ElevenLabs.
+ *
+ * Calls the `/stream` variant of the text-to-speech endpoint, which returns
+ * raw MP3 bytes progressively as synthesis proceeds. Each chunk is forwarded
+ * to `onChunk` as it arrives (chunk boundaries are arbitrary byte offsets in
+ * the MP3 stream — callers concatenating all chunks in order reconstruct the
+ * exact same file). Resolves with the complete audio Buffer once the stream
+ * ends, so callers can also use the full clip (e.g. for a final payload).
+ */
+export async function textToSpeechElevenLabsStream(
+  text: string,
+  voiceId = "JBFqnCBsd6RMkjVDRZzb",
+  // Kept for API symmetry with textToSpeechElevenLabs; not sent to the API.
+  _language?: string,
+  modelId = "eleven_multilingual_v2",
+  onChunk?: (chunk: Buffer) => void,
+): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ELEVENLABS_API_KEY must be set. Add it as a Replit Secret to enable ElevenLabs TTS.",
+    );
+  }
+
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      text,
+      model_id: modelId,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `ElevenLabs streaming TTS failed with status ${response.status}: ${detail}`,
+    );
+  }
+
+  const chunks: Buffer[] = [];
+  const reader = response.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value && value.length > 0) {
+      const buf = Buffer.from(value);
+      chunks.push(buf);
+      onChunk?.(buf);
+    }
+  }
+
+  const full = Buffer.concat(chunks);
+  if (full.length === 0) {
+    throw new Error("ElevenLabs streaming TTS returned no audio bytes");
+  }
+  return full;
+}
+
 /** Streaming Text-to-Speech. */
 export async function textToSpeechStream(
   text: string,

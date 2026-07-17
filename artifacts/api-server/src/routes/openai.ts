@@ -476,6 +476,12 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
 
   // Determine response mode: SSE when the client explicitly accepts it.
   const wantsSSE = (req.headers.accept ?? "").includes("text/event-stream");
+  // Chunked voice streaming is opt-in via an extra header on top of SSE:
+  // clients that can't play partial MP3s (e.g. mobile, which lacks
+  // MediaSource) would otherwise pay for every chunk twice — once as
+  // `audioChunk` events and again inside the final `reply` payload.
+  const wantsAudioStream =
+    wantsSSE && req.headers["x-audio-stream"] === "1";
 
   if (wantsSSE) {
     res.setHeader("Content-Type", "text/event-stream");
@@ -521,6 +527,21 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
             sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
           }
         },
+        // Stream raw MP3 chunks as ElevenLabs produces them so SSE clients can
+        // start playback before synthesis finishes. `audioDone` fires only on
+        // a complete stream; without it, clients fall back to the full clip
+        // carried by the final `reply` event. Non-SSE clients get neither
+        // callback and keep the buffered path unchanged.
+        ...(wantsAudioStream
+          ? {
+              onAudioChunk: (base64Chunk: string) => {
+                sseWrite(res, "audioChunk", { chunk: base64Chunk });
+              },
+              onAudioDone: () => {
+                sseWrite(res, "audioDone", {});
+              },
+            }
+          : {}),
         // Per-stage timings so slow stages are visible in production logs.
         onTimings: (timings) => {
           // Optional chain: test apps mount this router without pino-http.

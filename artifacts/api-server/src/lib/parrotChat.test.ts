@@ -882,3 +882,75 @@ test("runParrotTurn: turn still succeeds when primary TTS fails (fallback audio 
   );
   assert.equal(result.replyAudio.toString(), "gpt-audio-bytes");
 });
+
+// ---------------------------------------------------------------------------
+// runParrotTurn: streaming synthesis (onAudioChunk / onAudioDone)
+// ---------------------------------------------------------------------------
+
+test("runParrotTurn: streaming path emits chunks that concatenate to replyAudio, then onAudioDone", async () => {
+  const wav = makeWavBuffer(1);
+  const chunks: string[] = [];
+  const events: string[] = [];
+
+  const result = await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Gujarati",
+      languageCode: "gu",
+      history: [],
+      onAudioChunk: (b64) => { chunks.push(b64); events.push("chunk"); },
+      onAudioDone: () => events.push("done"),
+    },
+    makeDeps({
+      synthesizeStream: async (_text, _lang, onChunk) => {
+        onChunk(Buffer.from("part1-"));
+        onChunk(Buffer.from("part2"));
+        return Buffer.from("part1-part2");
+      },
+    }),
+  );
+
+  const reassembled = Buffer.concat(chunks.map((c) => Buffer.from(c, "base64")));
+  assert.equal(reassembled.toString(), "part1-part2");
+  assert.deepEqual(result.replyAudio, Buffer.from("part1-part2"));
+  assert.deepEqual(events, ["chunk", "chunk", "done"], "onAudioDone fires after all chunks");
+});
+
+test("runParrotTurn: streaming failure falls back to buffered synthesize without onAudioDone", async () => {
+  const wav = makeWavBuffer(1);
+  let doneFired = false;
+  let bufferedCalled = false;
+
+  const result = await runParrotTurn(
+    {
+      audioBuffer: wav,
+      languageName: "Hindi",
+      languageCode: "hi",
+      history: [],
+      onAudioChunk: () => {},
+      onAudioDone: () => { doneFired = true; },
+    },
+    makeDeps({
+      synthesizeStream: async () => { throw new Error("elevenlabs down"); },
+      synthesize: async () => { bufferedCalled = true; return Buffer.from("buffered-audio"); },
+    }),
+  );
+
+  assert.equal(bufferedCalled, true, "buffered synthesize should run as fallback");
+  assert.equal(doneFired, false, "onAudioDone must NOT fire when streaming failed");
+  assert.equal(result.replyAudio.toString(), "buffered-audio");
+});
+
+test("runParrotTurn: without onAudioChunk the buffered path runs even when synthesizeStream exists", async () => {
+  const wav = makeWavBuffer(1);
+  let streamCalled = false;
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Tamil", languageCode: "ta", history: [] },
+    makeDeps({
+      synthesizeStream: async (_t, _l, onChunk) => { streamCalled = true; onChunk(Buffer.from("x")); return Buffer.from("x"); },
+      synthesize: async () => Buffer.from("buffered"),
+    }),
+  );
+  assert.equal(streamCalled, false, "streaming synthesizer must not run for non-streaming callers");
+  assert.equal(result.replyAudio.toString(), "buffered");
+});

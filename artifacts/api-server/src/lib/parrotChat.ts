@@ -2,6 +2,7 @@ import {
   openai,
   speechToText,
   textToSpeechElevenLabs,
+  textToSpeechElevenLabsStream,
   ensureCompatibleFormat,
   convertToWav,
   type SpeechToTextOptions,
@@ -66,6 +67,23 @@ export interface ParrotTurnInput {
     replyEnglish: string,
     squawkVariant: 0 | 1 | 2 | null,
   ) => void;
+  /**
+   * Optional callback fired for each raw MP3 chunk as streaming synthesis
+   * produces it (base64-encoded). When provided AND the deps expose a
+   * `synthesizeStream` function, TTS runs in streaming mode: chunks flow to
+   * the client while synthesis is still in progress, and the concatenation of
+   * all chunks (in order) is byte-identical to the final `replyAudio` buffer.
+   * Omitting the callback keeps the existing buffered synthesis path.
+   */
+  onAudioChunk?: (base64Chunk: string) => void;
+  /**
+   * Optional callback fired once after streaming synthesis completes
+   * successfully — i.e. every chunk has been emitted and together they form
+   * the complete clip. NOT fired when streaming failed and the turn fell back
+   * to buffered synthesis; clients treat its absence as "use the full clip
+   * from the final reply payload instead".
+   */
+  onAudioDone?: () => void;
   /**
    * Optional callback fired once at the end of the turn with per-stage
    * durations (milliseconds), so the route can log how long each AI stage
@@ -147,6 +165,16 @@ export interface ParrotChatDeps {
   ) => Promise<{ text: string; english: string; transcriptEnglish: string }>;
   // Synthesizes the cleaned reply text using Bolo's parrot character voice.
   synthesize: (text: string, languageName: string) => Promise<Buffer>;
+  // Optional streaming synthesizer: emits raw MP3 chunks via onChunk as they
+  // are produced and resolves with the complete clip. Used only when the
+  // caller supplied an onAudioChunk callback; a throw falls back to the
+  // buffered `synthesize` path so the turn never fails just because
+  // streaming did.
+  synthesizeStream?: (
+    text: string,
+    languageName: string,
+    onChunk: (chunk: Buffer) => void,
+  ) => Promise<Buffer>;
 }
 
 // Custom TTS for Bolo — uses gpt-audio via chat completions (the Replit AI
@@ -299,6 +327,18 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   // fallback so a Bolo reply is never silent just because ElevenLabs is
   // unavailable (mirrors the phrase-audio path's resilience approach).
   synthesize: makeSynthesizeWithFallback(boloTTSElevenLabs, boloTTS),
+
+  // Streaming variant of the same ElevenLabs flash voice. No fallback baked
+  // in here — runParrotTurn catches a streaming failure and reruns the
+  // buffered `synthesize` (which has its own gpt-audio fallback).
+  synthesizeStream: (text, _languageName, onChunk) =>
+    textToSpeechElevenLabsStream(
+      text,
+      BOLO_ELEVENLABS_VOICE_ID,
+      _languageName,
+      BOLO_ELEVENLABS_MODEL,
+      onChunk,
+    ),
 };
 
 // Builds the Whisper transcription prompt, optionally seeding it with
@@ -448,8 +488,30 @@ export async function runParrotTurn(
   input.onReplyReady?.(rawText, rawReplyEnglish.trim(), squawkVariant);
 
   // TTS call: speaks only the cleaned reply text using Bolo's character voice.
+  // When the caller wants streaming audio (SSE clients) and the deps provide
+  // a streaming synthesizer, chunks are forwarded as they arrive so playback
+  // can start before the clip is finished. Any streaming failure falls back
+  // to the buffered synthesizer — the client then simply plays the full clip
+  // from the final reply payload (onAudioDone is only fired on a complete,
+  // successful stream).
   const ttsStart = Date.now();
-  const replyAudio = await deps.synthesize(ttsText, input.languageName);
+  let replyAudio: Buffer;
+  if (input.onAudioChunk && deps.synthesizeStream) {
+    try {
+      replyAudio = await deps.synthesizeStream(ttsText, input.languageName, (chunk) => {
+        input.onAudioChunk?.(chunk.toString("base64"));
+      });
+      input.onAudioDone?.();
+    } catch (err) {
+      console.warn(
+        "[parrotChat] streaming TTS failed, falling back to buffered synthesis:",
+        err instanceof Error ? err.message : err,
+      );
+      replyAudio = await deps.synthesize(ttsText, input.languageName);
+    }
+  } else {
+    replyAudio = await deps.synthesize(ttsText, input.languageName);
+  }
   const ttsMs = Date.now() - ttsStart;
 
   input.onTimings?.({

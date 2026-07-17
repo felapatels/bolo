@@ -176,6 +176,127 @@ export default function ChatPage() {
       { role: "learner", text: "", pending: true },
     ]);
 
+    // ── Streaming voice playback (MSE) ────────────────────────────────────
+    // When the server streams `audioChunk` SSE events, MP3 bytes are appended
+    // to a MediaSource-backed <audio> element so Bolo's voice starts playing
+    // before synthesis finishes. Browsers without MSE MP3 support (e.g.
+    // Safari) leave `stream` null and play the full clip from the final
+    // `reply` event exactly as before.
+    type StreamPlayer = {
+      audio: HTMLAudioElement;
+      mediaSource: MediaSource;
+      sourceBuffer: SourceBuffer | null;
+      queue: Uint8Array[];
+      /** All chunks received AND appended; safe to endOfStream. */
+      done: boolean;
+      /** Playback has been kicked off (possibly gated behind the squawk SFX). */
+      started: boolean;
+      /** Playback finished naturally. */
+      ended: boolean;
+      failed: boolean;
+      squawkVariant: 0 | 1 | 2 | null;
+      /** Drains the queue into the SourceBuffer; set once sourceopen wiring exists. */
+      pump: () => void;
+    };
+    let stream: StreamPlayer | null = null;
+
+    const canStreamAudio = () =>
+      typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg");
+
+    const teardownStream = () => {
+      if (!stream) return;
+      stream.failed = true;
+      stream.audio.pause();
+      if (playbackRef.current === stream.audio) playbackRef.current = null;
+      stream = null;
+    };
+
+    const createStreamPlayer = (squawkVariant: 0 | 1 | 2 | null): StreamPlayer | null => {
+      if (!canStreamAudio()) return null;
+      const mediaSource = new MediaSource();
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(mediaSource);
+      const s: StreamPlayer = {
+        audio,
+        mediaSource,
+        sourceBuffer: null,
+        queue: [],
+        done: false,
+        started: false,
+        ended: false,
+        failed: false,
+        squawkVariant,
+        pump: () => {},
+      };
+      const pump = () => {
+        if (s.failed || !s.sourceBuffer || s.sourceBuffer.updating) return;
+        const next = s.queue.shift();
+        if (next) {
+          try {
+            s.sourceBuffer.appendBuffer(next as BufferSource);
+          } catch {
+            s.failed = true;
+          }
+        } else if (s.done && s.mediaSource.readyState === "open") {
+          try { s.mediaSource.endOfStream(); } catch { /* already ended */ }
+        }
+      };
+      mediaSource.addEventListener("sourceopen", () => {
+        if (s.failed) return;
+        try {
+          s.sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+          s.sourceBuffer.addEventListener("updateend", pump);
+          s.sourceBuffer.addEventListener("error", () => { s.failed = true; });
+          pump();
+        } catch {
+          s.failed = true;
+        }
+      });
+      s.pump = pump;
+      return s;
+    };
+
+    const streamPushChunk = (s: StreamPlayer, bytes: Uint8Array) => {
+      s.queue.push(bytes);
+      s.pump();
+    };
+
+    const base64ToBytes = (b64: string): Uint8Array => {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    };
+
+    // Kick off audible playback of the streaming element, preceded by the
+    // squawk SFX when Bolo's reply included a squawk token — same ordering as
+    // the buffered path.
+    const startStreamPlayback = (s: StreamPlayer) => {
+      if (s.started || s.failed) return;
+      s.started = true;
+      setPhase("playing");
+      const play = () => {
+        if (s.failed || activeTurnRef.current !== myTurn) return;
+        playbackRef.current = s.audio;
+        s.audio.onended = () => {
+          s.ended = true;
+          if (playbackRef.current === s.audio) playbackRef.current = null;
+          if (activeTurnRef.current === myTurn) setPhase("idle");
+        };
+        s.audio.onerror = () => { s.failed = true; };
+        s.audio.play().catch(() => { s.failed = true; });
+      };
+      if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
+        const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][s.squawkVariant];
+        const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+        sfx.onended = play;
+        sfx.onerror = play;
+        sfx.play().catch(play);
+      } else {
+        play();
+      }
+    };
+
     try {
       const blob = await recorder.stopRecording();
 
@@ -206,6 +327,12 @@ export default function ChatPage() {
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
+          // Opt in to chunked voice streaming (audioChunk SSE events) — only
+          // requested when this browser can actually play a partial MP3 via
+          // MediaSource, so unsupported browsers don't download audio twice.
+          ...(typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg")
+            ? { "X-Audio-Stream": "1" }
+            : {}),
         },
         body: JSON.stringify({ languageCode: chatLang, audioBase64, history }),
       });
@@ -287,10 +414,38 @@ export default function ChatPage() {
               ]);
             }
             setProcessingStep("voicing");
+            // Prepare the streaming voice player now that the squawk variant
+            // is known — audio chunks will start arriving next.
+            const variant = (payload.squawkVariant ?? null) as 0 | 1 | 2 | null;
+            stream = createStreamPlayer(variant);
+
+          } else if (eventName === "audioChunk") {
+            if (activeTurnRef.current !== myTurn) {
+              teardownStream();
+              reader.cancel().catch(() => {});
+              return;
+            }
+            if (stream && !stream.failed) {
+              try {
+                streamPushChunk(stream, base64ToBytes((payload.chunk as string) ?? ""));
+                // Begin playback on the first chunk — the rest keep buffering
+                // while the clip is already audible.
+                startStreamPlayback(stream);
+              } catch {
+                teardownStream();
+              }
+            }
+
+          } else if (eventName === "audioDone") {
+            if (stream && !stream.failed) {
+              stream.done = true;
+              stream.pump();
+            }
 
           } else if (eventName === "reply") {
             // A newer turn started while LLM+TTS was in flight — drop stale result.
             if (activeTurnRef.current !== myTurn) {
+              teardownStream();
               reader.cancel().catch(() => {});
               return;
             }
@@ -414,9 +569,23 @@ export default function ChatPage() {
 
             // A newer turn may have started during the await — drop stale result.
             if (activeTurnRef.current !== myTurn) {
+              teardownStream();
               reader.cancel().catch(() => {});
               return;
             }
+
+            // If the streaming player handled this turn's voice (all chunks
+            // received and playing/played), don't start a second playback of
+            // the full clip — just keep the phase coherent with where the
+            // streamed audio actually is.
+            if (stream && stream.started && stream.done && !stream.failed) {
+              setPhase(stream.ended ? "idle" : "playing");
+              break outer; // reply is the final event
+            }
+            // Streaming unsupported, failed, or the server fell back to
+            // buffered synthesis — discard any partial stream and play the
+            // complete clip exactly as before.
+            teardownStream();
 
             // Play the parrot's audio reply (preceded by a squawk SFX when
             // Bolo included a squawk token).
@@ -446,6 +615,8 @@ export default function ChatPage() {
         }
       }
     } catch (err) {
+      // Stop any half-played streaming audio before surfacing the error.
+      teardownStream();
       // A newer turn started while this one was in flight — drop this error
       // silently so it doesn't disrupt the active turn's UI state.
       if (activeTurnRef.current !== myTurn) {

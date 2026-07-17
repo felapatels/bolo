@@ -12,6 +12,7 @@ export {
   type ElevenLabsQuota,
   getElevenLabsUsageStats,
   type ElevenLabsUsageStats,
+  textToSpeechElevenLabsStream,
   textToSpeechStream,
   speechToText,
   type SpeechToTextOptions,
