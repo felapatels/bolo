@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runParrotTurn, makeSynthesizeWithFallback, type ParrotChatDeps, type ChatHistoryTurn } from "./parrotChat";
+import { runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, type ParrotChatDeps, type ChatHistoryTurn } from "./parrotChat";
 import { wavDurationSeconds } from "./audioDuration";
 
 // Unit-tests for the conversational turn helper. All OpenAI calls are replaced
@@ -659,7 +659,8 @@ test("runParrotTurn: onReplyReady carries raw reply text (with squawks), gloss, 
   );
 
   assert.equal(readyText, "Squawk! Namaste!", "early text should keep the squawk token for the UI");
-  assert.equal(readyEnglish, "Hello!");
+  // Server-side consistency guard mirrors the reply's squawk into the subtitle.
+  assert.equal(readyEnglish, "Squawk! Hello!");
   assert.ok(readyVariant !== null, "squawk reply should carry a squawkVariant");
   assert.equal(readyVariant, result.squawkVariant, "early variant must match the final payload");
   assert.equal(readyText, result.replyText, "early text must match the final payload");
@@ -745,6 +746,148 @@ test("runParrotTurn: onTimings reports all four stage durations", async () => {
   }
   assert.ok(t.totalMs >= Math.max(t.transcribeMs, t.replyMs, t.ttsMs),
     "totalMs should cover the individual stages");
+});
+
+// ---------------------------------------------------------------------------
+// Subtitle faithfulness guard: prompt rules + squawk consistency normalization
+// ---------------------------------------------------------------------------
+
+test("system prompt requires clause-for-clause faithful english + transcript_english", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
+      },
+    }),
+  );
+  assert.ok(capturedSystemPrompt.includes("clause for clause"),
+    "prompt should demand a clause-for-clause translation");
+  assert.ok(capturedSystemPrompt.includes("nothing omitted"),
+    "prompt should forbid dropping clauses");
+  assert.ok(capturedSystemPrompt.includes("SAME exclamation"),
+    "prompt should tell the model to mirror parrot exclamations");
+  assert.ok(capturedSystemPrompt.includes("not a summary"),
+    "prompt should state the subtitle is not a summary");
+  assert.ok(capturedSystemPrompt.includes("Latin script"),
+    "prompt should forbid transliterating exclamations into the target script");
+});
+
+test("normalizeSquawkConsistency: preserves ordinary English words like tweet/chirp when the reply has no squawk", () => {
+  assert.equal(
+    normalizeSquawkConsistency("પક્ષીઓ વિશે વાત કરીએ!", "Birds tweet and chirp in the morning."),
+    "Birds tweet and chirp in the morning.",
+  );
+  assert.equal(
+    normalizeSquawkConsistency("કાગડો કા કા કરે છે.", "The crow's caw is loud, and parrots screech sometimes."),
+    "The crow's caw is loud, and parrots screech sometimes.",
+  );
+});
+
+test("normalizeSquawkConsistency: a lexical 'tweet' does not count as an existing squawk when mirroring", () => {
+  assert.equal(
+    normalizeSquawkConsistency("Squawk! પક્ષીઓ ગાય છે.", "Birds tweet in the morning."),
+    "Squawk! Birds tweet in the morning.",
+  );
+});
+
+test("normalizeSquawkConsistency: mirrors a leading squawk into the english", () => {
+  assert.equal(
+    normalizeSquawkConsistency("Squawk! હું મજામાં છું, આભાર!", "I'm good, thank you!"),
+    "Squawk! I'm good, thank you!",
+  );
+});
+
+test("normalizeSquawkConsistency: mirrors a trailing squawk at the end", () => {
+  assert.equal(
+    normalizeSquawkConsistency("હું મજામાં છું! Bawk!", "I'm good!"),
+    "I'm good! Bawk!",
+  );
+});
+
+test("normalizeSquawkConsistency: leaves english alone when both sides have a squawk", () => {
+  assert.equal(
+    normalizeSquawkConsistency("Squawk! Namaste!", "Squawk! Hello!"),
+    "Squawk! Hello!",
+  );
+});
+
+test("normalizeSquawkConsistency: strips squawks from english when the reply has none", () => {
+  assert.equal(
+    normalizeSquawkConsistency("Namaste!", "Squawk! Hello!"),
+    "Hello!",
+  );
+  assert.equal(
+    normalizeSquawkConsistency("Namaste, dost!", "Bawk! Hello, friend!"),
+    "Hello, friend!",
+  );
+});
+
+test("normalizeSquawkConsistency: empty english stays empty (client hides caption)", () => {
+  assert.equal(normalizeSquawkConsistency("Squawk! Namaste!", ""), "");
+  assert.equal(normalizeSquawkConsistency("Namaste!", ""), "");
+});
+
+test("runParrotTurn: multi-clause english is passed through untouched (no squawks)", async () => {
+  const wav = makeWavBuffer(1);
+  const english = "I'm doing great, thank you! How are you?";
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      reply: async () => ({
+        text: "હું મજામાં છું, આભાર! તમે કેમ છો?",
+        english,
+        transcriptEnglish: "How are you?",
+      }),
+    }),
+  );
+  assert.equal(result.replyEnglish, english);
+});
+
+test("runParrotTurn: replyEnglish gains the squawk when the LLM dropped it", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      reply: async () => ({
+        text: "હું મજામાં છું, આભાર! તમે કેમ છો? Squawk!",
+        english: "I'm doing great, thank you! How are you?",
+        transcriptEnglish: "",
+      }),
+    }),
+  );
+  assert.equal(result.replyEnglish, "I'm doing great, thank you! How are you? Squawk!");
+  assert.ok(result.squawkVariant !== null, "squawk reply should still carry an SFX variant");
+});
+
+test("runParrotTurn: replyEnglish loses stray squawks when the reply has none", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      reply: async () => ({
+        text: "नमस्ते!",
+        english: "Squawk! Hello!",
+        transcriptEnglish: "",
+      }),
+    }),
+  );
+  assert.equal(result.replyEnglish, "Hello!");
+  assert.equal(result.squawkVariant, null);
+});
+
+test("runParrotTurn: empty english stays empty even when the reply squawks", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      reply: async () => ({ text: "Squawk! नमस्ते!", english: "", transcriptEnglish: "" }),
+    }),
+  );
+  assert.equal(result.replyEnglish, "", "missing english must remain empty, not become a bare squawk");
 });
 
 // ---------------------------------------------------------------------------

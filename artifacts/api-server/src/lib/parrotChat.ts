@@ -148,6 +148,59 @@ function extractSquawks(text: string): { cleaned: string; squawkVariant: 0 | 1 |
   return { cleaned: cleaned || text, squawkVariant };
 }
 
+// Strict variant for the English subtitle: only matches unmistakable
+// parrot-exclamation forms (the "!" is required), so ordinary lexical uses of
+// words like "tweet" or "chirp" in an English sentence are never touched.
+const SQUAWK_STRICT_RE =
+  /\b(Squawk!|Squawkity!|Bawk( bawk)?!|Awk!|Eeek!|Tweet!|Chirp!|Screech!|Caw!|Squee!)\s*/gi;
+
+// Returns the squawk tokens (in order) present in the text, e.g. ["Squawk!"].
+function findSquawkTokens(text: string, re: RegExp = SQUAWK_RE): string[] {
+  re.lastIndex = 0;
+  const tokens: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    tokens.push(m[1]);
+  }
+  re.lastIndex = 0;
+  return tokens;
+}
+
+// Makes the English subtitle agree with the displayed reply on squawk
+// presence/placement, so the pair is consistent regardless of what the LLM
+// did. Exported for unit tests.
+// - Reply has no squawk → strip any squawks from the English.
+// - Reply has a squawk but the English doesn't → mirror the reply's squawk
+//   at the same position (start when the reply starts with it, else end).
+// - An empty English stays empty — the client hides the caption entirely,
+//   and injecting a bare "Squawk!" would falsely present it as a translation.
+export function normalizeSquawkConsistency(replyText: string, english: string): string {
+  const replySquawks = findSquawkTokens(replyText);
+  if (replySquawks.length === 0) {
+    if (!english) return english;
+    // Strip only unmistakable exclamation-form squawks ("Tweet!" but never
+    // the word "tweet") and tidy leftover punctuation/spacing.
+    const stripped = english
+      .replace(SQUAWK_STRICT_RE, "")
+      .replace(/,\s*([!?.])/g, "$1")
+      .replace(/,\s*—\s*/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return stripped;
+  }
+  if (!english) return english;
+  const englishSquawks = findSquawkTokens(english, SQUAWK_STRICT_RE);
+  if (englishSquawks.length > 0) return english;
+  // Mirror the reply's first squawk token into the English, matching its
+  // rough placement (leading vs trailing).
+  const token = replySquawks[0].endsWith("!") ? replySquawks[0] : `${replySquawks[0]}!`;
+  const replyStartsWithSquawk = replyText
+    .trimStart()
+    .toLowerCase()
+    .startsWith(replySquawks[0].toLowerCase());
+  return replyStartsWithSquawk ? `${token} ${english}` : `${english} ${token}`;
+}
+
 // Injectable AI dependencies so the conversational flow can be unit-tested
 // without hitting the real OpenAI API, mirroring the injectable-`generate`
 // pattern used by the phrase replenisher.
@@ -368,7 +421,7 @@ function buildSystemPrompt(languageName: string): string {
 
 Personality:
 - You are a chatty parrot who gets genuinely excited about words, phrases, and languages.
-- Occasionally throw in a parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — roughly one reply in three, only when it fits naturally (at the start, mid-sentence as an interjection, or at the end). Vary which one you use. Don't force it every turn.
+- Occasionally throw in a parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — roughly one reply in three, only when it fits naturally (at the start, mid-sentence as an interjection, or at the end). Vary which one you use. Don't force it every turn. ALWAYS write the exclamation in Latin script exactly as shown (e.g. "Squawk!") — NEVER transliterate it into ${languageName} script.
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
@@ -396,8 +449,8 @@ After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
 Always respond with a JSON object with exactly three fields IN THIS ORDER:
-- "english": a brief, natural English translation of YOUR reply (one short sentence)
-- "transcript_english": a concise English translation of what the learner just said (one short phrase or sentence); use an empty string if the learner spoke in English or if their speech was unclear/silent
+- "english": a complete, faithful English translation of YOUR reply — translate it clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. If your reply includes a parrot exclamation like "Squawk!", include the SAME exclamation in the SAME position in "english". This is a subtitle, not a summary.
+- "transcript_english": a complete, faithful English translation of what the learner just said — every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
 - "reply": your response in ${languageName} native script (following all rules above)
 Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
 Do not include any text outside the JSON object.`;
@@ -483,9 +536,13 @@ export async function runParrotTurn(
   // aloud — the client plays a real parrot SFX instead.
   const { cleaned: ttsText, squawkVariant } = extractSquawks(rawText);
 
+  // Server-side consistency guard: the English subtitle must agree with the
+  // displayed reply on squawk presence/placement, whatever the LLM produced.
+  const replyEnglish = normalizeSquawkConsistency(rawText, rawReplyEnglish.trim());
+
   // Fire the early reply-text callback so the SSE route can flush Bolo's
   // bubble to the client while voice synthesis is still in flight.
-  input.onReplyReady?.(rawText, rawReplyEnglish.trim(), squawkVariant);
+  input.onReplyReady?.(rawText, replyEnglish, squawkVariant);
 
   // TTS call: speaks only the cleaned reply text using Bolo's character voice.
   // When the caller wants streaming audio (SSE clients) and the deps provide
@@ -528,7 +585,7 @@ export async function runParrotTurn(
     // Empty string when the LLM omitted the English translation (e.g. truncated
     // JSON) — the client skips the caption rather than showing target-language
     // text as if it were English.
-    replyEnglish: rawReplyEnglish.trim(),
+    replyEnglish,
     replyAudio,
     audioFormat: "mp3",
     squawkVariant,
