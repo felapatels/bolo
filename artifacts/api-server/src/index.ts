@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
 import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
+import { scheduleStripeReconcileSweep } from "./lib/stripeReconcile";
 
 const rawPort = process.env["PORT"];
 
@@ -33,4 +34,9 @@ app.listen(port, (err) => {
   // Pre-warm the TTS cache in the background after the server is up.
   // This is fire-and-forget: a failure here never affects request handling.
   scheduleTtsPrewarm();
+
+  // Periodically reconcile stored subscription tiers against Stripe so a
+  // missed webhook (endpoint drift, secret rotation, outage) self-heals
+  // instead of silently desyncing learners' Plus status.
+  scheduleStripeReconcileSweep();
 });
