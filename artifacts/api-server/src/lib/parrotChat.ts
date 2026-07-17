@@ -8,6 +8,7 @@ import {
 } from "@workspace/integrations-openai-ai-server/audio";
 import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
+import { isQuotaExhaustedError } from "./ttsPrewarm";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -193,21 +194,71 @@ async function boloTTSElevenLabs(text: string, languageName: string): Promise<Bu
   );
 }
 
+// How long the chat synthesizer skips ElevenLabs after seeing a
+// quota-exhaustion error, before re-probing it. 15 minutes balances "don't
+// burn a doomed API call + its latency on every turn for the rest of the
+// month" against "recover the premium voice promptly once credits refresh".
+const QUOTA_COOLDOWN_MS = 15 * 60 * 1000;
+
+// Optional knobs for makeSynthesizeWithFallback — injectable for unit tests.
+export interface SynthesizeFallbackOptions {
+  /** Returns true when an error means the primary's quota is exhausted. */
+  isQuotaError?: (err: unknown) => boolean;
+  /** Cool-down duration (ms) before re-probing the primary after quota exhaustion. */
+  cooldownMs?: number;
+  /** Clock, injectable for tests. */
+  now?: () => number;
+}
+
 // Wraps a primary synthesizer with an automatic fallback: if the primary
 // throws (ElevenLabs down, key missing, quota exhausted…), the fallback runs
-// instead of failing the whole turn. Exported for unit tests.
+// instead of failing the whole turn.
+//
+// Quota-exhaustion errors additionally trip a cool-down: for `cooldownMs`
+// after such an error, calls skip the primary entirely (no doomed API call,
+// no added latency) and go straight to the fallback. Once the cool-down
+// elapses, the next call re-probes the primary — success clears the state,
+// another quota error re-arms it. Non-quota failures (transient 5xx,
+// network) never trip the cool-down. Exported for unit tests.
 export function makeSynthesizeWithFallback(
   primary: (text: string, languageName: string) => Promise<Buffer>,
   fallback: (text: string, languageName: string) => Promise<Buffer>,
+  options: SynthesizeFallbackOptions = {},
 ): (text: string, languageName: string) => Promise<Buffer> {
+  const {
+    isQuotaError = isQuotaExhaustedError,
+    cooldownMs = QUOTA_COOLDOWN_MS,
+    now = Date.now,
+  } = options;
+
+  // Timestamp until which the primary is skipped, or null when healthy.
+  let skipPrimaryUntil: number | null = null;
+
   return async (text, languageName) => {
+    if (skipPrimaryUntil !== null && now() < skipPrimaryUntil) {
+      // Quota cool-down active — go straight to the fallback voice.
+      return fallback(text, languageName);
+    }
+
     try {
-      return await primary(text, languageName);
+      const audio = await primary(text, languageName);
+      // A successful call (including a re-probe after the cool-down elapsed)
+      // clears the quota state.
+      skipPrimaryUntil = null;
+      return audio;
     } catch (err) {
-      console.warn(
-        "[parrotChat] primary TTS failed, falling back to gpt-audio:",
-        err instanceof Error ? err.message : err,
-      );
+      if (isQuotaError(err)) {
+        skipPrimaryUntil = now() + cooldownMs;
+        console.warn(
+          `[parrotChat] primary TTS quota exhausted — skipping it for ${Math.round(cooldownMs / 60000)} min, using gpt-audio:`,
+          err instanceof Error ? err.message : err,
+        );
+      } else {
+        console.warn(
+          "[parrotChat] primary TTS failed, falling back to gpt-audio:",
+          err instanceof Error ? err.message : err,
+        );
+      }
       return fallback(text, languageName);
     }
   };

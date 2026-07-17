@@ -773,6 +773,94 @@ test("makeSynthesizeWithFallback: falls back when the primary throws", async () 
   assert.deepEqual(calls, ["primary", "fallback:Namaste!:Hindi"]);
 });
 
+test("makeSynthesizeWithFallback: quota error trips the cool-down — primary is skipped until it elapses", async () => {
+  let clock = 0;
+  let primaryCalls = 0;
+  let primaryFails = true;
+  const synth = makeSynthesizeWithFallback(
+    async () => {
+      primaryCalls++;
+      if (primaryFails) throw new Error("ElevenLabs TTS failed with status 401: quota_exceeded");
+      return Buffer.from("primary-audio");
+    },
+    async () => Buffer.from("fallback-audio"),
+    { cooldownMs: 1000, now: () => clock },
+  );
+
+  // First call: quota error → fallback, cool-down armed.
+  assert.equal((await synth("a", "Hindi")).toString(), "fallback-audio");
+  assert.equal(primaryCalls, 1);
+
+  // During the cool-down: primary is NOT called at all.
+  clock = 500;
+  assert.equal((await synth("b", "Hindi")).toString(), "fallback-audio");
+  assert.equal(primaryCalls, 1, "primary must be skipped during the cool-down");
+
+  // After the cool-down elapses: primary is re-probed and succeeds → recovered.
+  clock = 1000;
+  primaryFails = false;
+  assert.equal((await synth("c", "Hindi")).toString(), "primary-audio");
+  assert.equal(primaryCalls, 2);
+
+  // Recovery cleared the state — primary keeps being used.
+  assert.equal((await synth("d", "Hindi")).toString(), "primary-audio");
+  assert.equal(primaryCalls, 3);
+});
+
+test("makeSynthesizeWithFallback: failed re-probe after cool-down re-arms it", async () => {
+  let clock = 0;
+  let primaryCalls = 0;
+  const synth = makeSynthesizeWithFallback(
+    async () => {
+      primaryCalls++;
+      throw new Error("ElevenLabs TTS failed with status 401: quota_exceeded");
+    },
+    async () => Buffer.from("fallback-audio"),
+    { cooldownMs: 1000, now: () => clock },
+  );
+
+  await synth("a", "Hindi"); // trips cool-down
+  clock = 1500;
+  await synth("b", "Hindi"); // re-probe, fails again → re-armed
+  assert.equal(primaryCalls, 2);
+  clock = 2000; // still inside the new cool-down (until 2500)
+  await synth("c", "Hindi");
+  assert.equal(primaryCalls, 2, "primary must stay skipped after a failed re-probe");
+});
+
+test("makeSynthesizeWithFallback: non-quota failures do NOT trip the cool-down", async () => {
+  let primaryCalls = 0;
+  const synth = makeSynthesizeWithFallback(
+    async () => {
+      primaryCalls++;
+      throw new Error("ElevenLabs TTS failed with status 500: internal error");
+    },
+    async () => Buffer.from("fallback-audio"),
+    { cooldownMs: 1000, now: () => 0 },
+  );
+
+  await synth("a", "Hindi");
+  await synth("b", "Hindi");
+  assert.equal(primaryCalls, 2, "transient failures must keep retrying the primary each turn");
+});
+
+test("makeSynthesizeWithFallback: 429 rate/credit pressure also trips the cool-down (default detector)", async () => {
+  let clock = 0;
+  let primaryCalls = 0;
+  const synth = makeSynthesizeWithFallback(
+    async () => {
+      primaryCalls++;
+      throw new Error("ElevenLabs TTS failed with status 429: too many requests");
+    },
+    async () => Buffer.from("fallback-audio"),
+    { cooldownMs: 1000, now: () => clock },
+  );
+  await synth("a", "Hindi");
+  clock = 10;
+  await synth("b", "Hindi");
+  assert.equal(primaryCalls, 1);
+});
+
 test("makeSynthesizeWithFallback: propagates the fallback's error when both fail", async () => {
   const synth = makeSynthesizeWithFallback(
     async () => { throw new Error("primary down"); },
