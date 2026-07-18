@@ -12,8 +12,9 @@ import { randomBytes } from "node:crypto";
 // synthesis finishes.
 //
 // Streams are strictly single-turn and short-lived: they are created when a
-// chat turn opts in (X-Audio-Stream: url), consumed by at most one GET, and
-// swept after a TTL so an abandoned stream never leaks memory. This registry
+// chat turn opts in (X-Audio-Stream: url), served to any number of GETs while
+// alive (iOS's AVPlayer fetches the same URL more than once), and swept after
+// a TTL so an abandoned stream never leaks memory. This registry
 // is process-local by design — the GET always lands on the same process that
 // ran the POST because the audio URL is minted by that very response.
 

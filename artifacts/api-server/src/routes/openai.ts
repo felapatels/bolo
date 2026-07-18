@@ -704,8 +704,13 @@ router.get(
         await Promise.race([waitForChatAudioChange(stream), closedPromise]);
       }
     } finally {
-      // Single-consumer: once a reader detaches, the stream is spent.
-      releaseChatAudioStream(stream.id);
+      // A failed stream is spent — release it so a retry can't replay a
+      // truncated clip. A completed (or still-filling) stream stays
+      // registered until the TTL sweep: iOS's AVPlayer routinely requests
+      // the same URL more than once (e.g. a probe fetch followed by the
+      // real one), and releasing after the first read made the second
+      // request 404, which silently killed chat audio on iOS.
+      if (stream.failed) releaseChatAudioStream(stream.id);
     }
   },
 );

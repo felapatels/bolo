@@ -67,8 +67,16 @@ test("completed stream serves the exact concatenated bytes and ends cleanly", as
   const body = Buffer.from(await res.arrayBuffer());
   assert.equal(body.toString(), Buffer.concat(parts).toString());
 
-  // Single-consumer: the stream is released after the read.
-  assert.equal(getChatAudioStream(stream.id), undefined);
+  // Re-servable: a completed stream survives the first read so a native
+  // player's second request for the same URL (AVPlayer does this) still
+  // gets the full clip instead of a 404.
+  assert.notEqual(getChatAudioStream(stream.id), undefined);
+  const again = await fetch(`${baseUrl}/openai/chat/audio/${stream.id}`);
+  assert.equal(again.status, 200);
+  assert.equal(
+    Buffer.from(await again.arrayBuffer()).toString(),
+    Buffer.concat(parts).toString(),
+  );
 });
 
 test("bytes appended AFTER the reader connects are delivered progressively", async () => {
