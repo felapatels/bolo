@@ -51,6 +51,8 @@ interface GameCard {
   pairId: number;
   type: 'native' | 'english';
   label: string;
+  /** Romanization shown below native script on the back face so learners can read it. */
+  romanized?: string;
   state: 'hidden' | 'flipped' | 'matched' | 'error';
 }
 
@@ -69,7 +71,7 @@ function buildCards(phrases: Phrase[], pairCount: number): GameCard[] {
   const pool = shuffleArray([...phrases]).slice(0, pairCount);
   const cards: GameCard[] = [];
   for (const p of pool) {
-    cards.push({ id: `${p.id}-n`, pairId: p.id, type: 'native', label: p.nativeScript, state: 'hidden' });
+    cards.push({ id: `${p.id}-n`, pairId: p.id, type: 'native', label: p.nativeScript, romanized: p.romanized ?? undefined, state: 'hidden' });
     cards.push({ id: `${p.id}-e`, pairId: p.id, type: 'english', label: p.english, state: 'hidden' });
   }
   return shuffleArray(cards);
@@ -154,7 +156,7 @@ function FlipCard({
       disabled={card.state !== 'hidden'}
       style={styles.cardContainer}
     >
-      {/* Front (hidden face) */}
+      {/* Front (hidden face) — shows a "?" so it looks intentional, not broken */}
       <Animated.View
         style={[
           styles.cardFace,
@@ -162,7 +164,7 @@ function FlipCard({
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Feather name="link" size={18} color={colors.mutedForeground} style={{ opacity: 0.4 }} />
+        <Text style={[styles.cardHidden, { color: colors.mutedForeground }]}>?</Text>
       </Animated.View>
 
       {/* Back (revealed face) */}
@@ -173,17 +175,36 @@ function FlipCard({
           { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
         ]}
       >
-        <Text
-          style={[
-            styles.cardLabel,
-            card.type === 'native' ? nativeProps : undefined,
-            { color: textColor },
-          ]}
-          numberOfLines={3}
-          adjustsFontSizeToFit
-        >
-          {card.label}
-        </Text>
+        {card.type === 'native' ? (
+          /* Native card: script on top, romanization below so learners can read it */
+          <>
+            <Text
+              style={[styles.cardLabel, nativeProps, { color: textColor }]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+            >
+              {card.label}
+            </Text>
+            {card.romanized ? (
+              <Text
+                style={[styles.cardRomanized, { color: textColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {card.romanized}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          /* English card: just the meaning */
+          <Text
+            style={[styles.cardLabel, { color: textColor }]}
+            numberOfLines={3}
+            adjustsFontSizeToFit
+          >
+            {card.label}
+          </Text>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -719,6 +740,18 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.semibold,
     fontSize: 12,
     textAlign: 'center',
+  },
+  cardRomanized: {
+    fontFamily: AppFonts.regular,
+    fontSize: 9,
+    textAlign: 'center',
+    opacity: 0.75,
+    marginTop: 2,
+  },
+  cardHidden: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 22,
+    opacity: 0.25,
   },
   statsGrid: { flexDirection: 'row', gap: 12, width: '100%' },
   statCard: {
