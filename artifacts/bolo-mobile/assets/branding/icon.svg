@@ -1,32 +1,122 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bolo">
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bolo – Bolo Bird holding an India flag">
   <defs>
-    <clipPath id="bubbleClip">
-      <path d="M12 10h40a6 6 0 0 1 6 6v24a6 6 0 0 1-6 6H30l-12 10V46h-6a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z"/>
-    </clipPath>
     <radialGradient id="bg" cx="50%" cy="42%" r="72%">
-      <stop offset="0%" stop-color="#fff4e2"/>
+      <stop offset="0%" stop-color="#fff8e4"/>
       <stop offset="60%" stop-color="#fffdf0"/>
       <stop offset="100%" stop-color="#fef9e6"/>
     </radialGradient>
-    <filter id="bubbleShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#0f1729" flood-opacity="0.16"/>
+    <filter id="shadow" x="-25%" y="-15%" width="150%" height="145%">
+      <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#1a3a1a" flood-opacity="0.18"/>
     </filter>
+    <filter id="flagShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="2" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <clipPath id="flagClip">
+      <rect x="355" y="195" width="170" height="132" rx="2"/>
+    </clipPath>
   </defs>
 
-  <!-- background matches the mobile splash / app palette -->
-  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <!-- flag-infused speech bubble mark (same geometry as the web logo) -->
-  <g transform="translate(64,50) scale(14)" filter="url(#bubbleShadow)">
-    <g clip-path="url(#bubbleClip)">
-      <rect x="0" y="0" width="64" height="22" fill="#F5871F"/>
-      <rect x="0" y="22" width="64" height="12" fill="#FFFFFF"/>
-      <rect x="0" y="34" width="64" height="30" fill="#0FA6A0"/>
+  <!-- ── Parrot ── -->
+  <g filter="url(#shadow)">
+
+    <!-- Tail feathers (behind body) -->
+    <ellipse cx="510" cy="870" rx="38" ry="115" fill="#0FA6A0" transform="rotate(12 510 870)"/>
+    <ellipse cx="480" cy="875" rx="52" ry="130" fill="#2EA855" transform="rotate(0 480 875)"/>
+    <ellipse cx="450" cy="868" rx="36" ry="110" fill="#0FA6A0" transform="rotate(-12 450 868)"/>
+
+    <!-- Body -->
+    <ellipse cx="490" cy="640" rx="158" ry="198" fill="#3DB862"/>
+
+    <!-- Belly highlight -->
+    <ellipse cx="475" cy="670" rx="80" ry="120" fill="#6EDD88" opacity="0.35"/>
+
+    <!-- Left wing (raised – holds flag) -->
+    <path d="M 345 590 Q 285 500 305 380 Q 315 330 355 310 Q 375 300 390 340 Q 400 370 390 440 L 415 560 Z" fill="#2EA855"/>
+    <path d="M 355 590 Q 300 510 318 400 Q 328 355 362 345 Q 375 340 380 370 Q 388 400 378 465 L 400 560 Z" fill="#0FA6A0" opacity="0.6"/>
+
+    <!-- Right wing (folded at side) -->
+    <path d="M 635 580 Q 710 550 730 650 Q 740 710 700 750 Q 670 770 630 720 L 635 580 Z" fill="#2EA855"/>
+    <path d="M 640 590 Q 700 565 720 650 Q 728 700 695 738 L 645 700 Z" fill="#0FA6A0" opacity="0.5"/>
+
+    <!-- Head -->
+    <circle cx="478" cy="398" r="148" fill="#3DB862"/>
+
+    <!-- Head highlight -->
+    <ellipse cx="452" cy="370" rx="80" ry="65" fill="#6EDD88" opacity="0.28"/>
+
+    <!-- Forehead tuft feathers -->
+    <ellipse cx="438" cy="255" rx="22" ry="52" fill="#2EA855" transform="rotate(-18 438 255)"/>
+    <ellipse cx="470" cy="248" rx="18" ry="46" fill="#0FA6A0" transform="rotate(-4 470 248)"/>
+    <ellipse cx="500" cy="255" rx="16" ry="40" fill="#2EA855" transform="rotate(12 500 255)"/>
+
+    <!-- Eye: white ring -->
+    <circle cx="530" cy="378" r="42" fill="white"/>
+    <!-- Iris -->
+    <circle cx="530" cy="378" r="28" fill="#1a1a2e"/>
+    <!-- Pupil highlight -->
+    <circle cx="540" cy="369" r="10" fill="white"/>
+
+    <!-- Beak (upper mandible) -->
+    <path d="M 570 415 Q 635 435 628 462 Q 622 480 580 468 Q 565 462 560 445 Z" fill="#FF9933"/>
+    <!-- Beak (lower mandible) -->
+    <path d="M 572 448 Q 620 462 610 480 Q 600 495 572 482 Z" fill="#E07000"/>
+    <!-- Beak ridge line -->
+    <path d="M 570 415 Q 622 445 580 468" stroke="#CC6000" stroke-width="2" fill="none" opacity="0.5"/>
+
+    <!-- Feet / talons -->
+    <g stroke="#FF9933" stroke-width="16" stroke-linecap="round">
+      <line x1="440" y1="818" x2="418" y2="862"/>
+      <line x1="440" y1="818" x2="442" y2="866"/>
+      <line x1="440" y1="818" x2="464" y2="858"/>
     </g>
-    <path d="M12 10h40a6 6 0 0 1 6 6v24a6 6 0 0 1-6 6H30l-12 10V46h-6a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.5"/>
-    <path d="M12 10h40a6 6 0 0 1 6 6v24a6 6 0 0 1-6 6H30l-12 10V46h-6a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z" fill="none" stroke="#06038D" stroke-width="0.6" stroke-opacity="0.12"/>
-    <g stroke="#06038D" stroke-width="0.9" stroke-linecap="round"><line x1="40.40" y1="28.00" x2="45.20" y2="28.00"/><line x1="40.35" y1="28.36" x2="44.99" y2="29.60"/><line x1="40.21" y1="28.70" x2="44.37" y2="31.10"/><line x1="39.99" y1="28.99" x2="43.38" y2="32.38"/><line x1="39.70" y1="29.21" x2="42.10" y2="33.37"/><line x1="39.36" y1="29.35" x2="40.60" y2="33.99"/><line x1="39.00" y1="29.40" x2="39.00" y2="34.20"/><line x1="38.64" y1="29.35" x2="37.40" y2="33.99"/><line x1="38.30" y1="29.21" x2="35.90" y2="33.37"/><line x1="38.01" y1="28.99" x2="34.62" y2="32.38"/><line x1="37.79" y1="28.70" x2="33.63" y2="31.10"/><line x1="37.65" y1="28.36" x2="33.01" y2="29.60"/><line x1="37.60" y1="28.00" x2="32.80" y2="28.00"/><line x1="37.65" y1="27.64" x2="33.01" y2="26.40"/><line x1="37.79" y1="27.30" x2="33.63" y2="24.90"/><line x1="38.01" y1="27.01" x2="34.62" y2="23.62"/><line x1="38.30" y1="26.79" x2="35.90" y2="22.63"/><line x1="38.64" y1="26.65" x2="37.40" y2="22.01"/><line x1="39.00" y1="26.60" x2="39.00" y2="21.80"/><line x1="39.36" y1="26.65" x2="40.60" y2="22.01"/><line x1="39.70" y1="26.79" x2="42.10" y2="22.63"/><line x1="39.99" y1="27.01" x2="43.38" y2="23.62"/><line x1="40.21" y1="27.30" x2="44.37" y2="24.90"/><line x1="40.35" y1="27.64" x2="44.99" y2="26.40"/></g>
-    <circle cx="39" cy="28" r="6.2" fill="none" stroke="#06038D" stroke-width="1.3"/>
-    <circle cx="39" cy="28" r="1.2" fill="#06038D"/>
+    <g stroke="#FF9933" stroke-width="16" stroke-linecap="round">
+      <line x1="535" y1="822" x2="513" y2="866"/>
+      <line x1="535" y1="822" x2="537" y2="868"/>
+      <line x1="535" y1="822" x2="558" y2="862"/>
+    </g>
+
   </g>
+
+  <!-- ── Flag stick ── -->
+  <line x1="348" y1="580" x2="348" y2="200" stroke="#7B5E2A" stroke-width="14" stroke-linecap="round"/>
+  <!-- Stick ferrule/tip -->
+  <circle cx="348" cy="197" r="8" fill="#A0792F"/>
+
+  <!-- ── Indian tricolor flag ── -->
+  <g filter="url(#flagShadow)">
+    <!-- Flag white base (with slight shadow) -->
+    <rect x="354" y="195" width="172" height="134" rx="3" fill="white"/>
+    <!-- Saffron stripe (top third) -->
+    <rect x="354" y="195" width="172" height="44" fill="#FF9933" rx="2"/>
+    <!-- White stripe (middle) stays white -->
+    <!-- Green stripe (bottom third) -->
+    <rect x="354" y="283" width="172" height="46" fill="#138808" rx="2"/>
+    <!-- Flag border (subtle) -->
+    <rect x="354" y="195" width="172" height="134" rx="3" fill="none" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Ashoka Chakra (navy blue wheel on white stripe) -->
+    <!-- Outer ring -->
+    <circle cx="440" cy="262" r="22" fill="none" stroke="#06038D" stroke-width="3.5"/>
+    <!-- Hub -->
+    <circle cx="440" cy="262" r="4" fill="#06038D"/>
+    <!-- 24 spokes – rendered as 12 lines through center -->
+    <g stroke="#06038D" stroke-width="1.8" stroke-linecap="round">
+      <line x1="440" y1="240" x2="440" y2="284"/>
+      <line x1="418" y1="262" x2="462" y2="262"/>
+      <line x1="424.4" y1="246.4" x2="455.6" y2="277.6"/>
+      <line x1="455.6" y1="246.4" x2="424.4" y2="277.6"/>
+      <line x1="418.5" y1="251.5" x2="461.5" y2="272.5"/>
+      <line x1="461.5" y1="251.5" x2="418.5" y2="272.5"/>
+      <line x1="422" y1="244" x2="458" y2="280"/>
+      <line x1="458" y1="244" x2="422" y2="280"/>
+      <line x1="418" y1="256" x2="462" y2="268"/>
+      <line x1="462" y1="256" x2="418" y2="268"/>
+      <line x1="421" y1="248" x2="459" y2="276"/>
+      <line x1="459" y1="248" x2="421" y2="276"/>
+    </g>
+  </g>
+
 </svg>
