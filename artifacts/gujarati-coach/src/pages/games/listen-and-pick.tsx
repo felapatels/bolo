@@ -12,6 +12,7 @@ import {
   Trophy,
   Headphones,
 } from "lucide-react";
+import { CategoryIcon } from "@/lib/category-icons";
 import {
   useListCategories,
   useListCategoryPhrases,
@@ -106,8 +107,8 @@ function TopicPicker({
                 cat.phraseCount < GAME_CONFIG.listenAndPick.choiceCount && "cursor-not-allowed opacity-50",
               )}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl">
-                {cat.iconName ?? "📚"}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <CategoryIcon iconName={cat.iconName} />
               </div>
               <div className="min-w-0">
                 <p className="truncate font-bold text-foreground">{cat.title}</p>

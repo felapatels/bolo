@@ -55,6 +55,7 @@ function SetupScreen({
   onStart: (categoryId: number, hardMode: boolean) => void;
 }) {
   const { activeLang } = useLanguage();
+  const { isPlus } = useEntitlements();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hardMode, setHardMode] = useState(false);
@@ -144,7 +145,7 @@ function SetupScreen({
             <p className="text-xs text-muted-foreground">Streak bonus</p>
           </div>
           <div className="py-3">
-            <p className="text-xl font-extrabold text-foreground">Free</p>
+            <p className="text-xl font-extrabold text-primary">{isPlus ? "Plus" : "Free"}</p>
             <p className="text-xs text-muted-foreground">Plan</p>
           </div>
         </div>

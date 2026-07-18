@@ -2544,6 +2544,12 @@ components:
             Whether the caller has no weekly ceiling on Bolo Parrot
             conversational chat time. Free is capped at 2 minutes/week; One
             Language and Plus are unlimited.
+        phraseBuilder:
+          type: boolean
+          description: Whether the caller can access the Phrase Builder game. Plus only.
+        speedRound:
+          type: boolean
+          description: Whether the caller can access the Speed Round game. Plus only.
       required:
         - allLanguages
         - unlimitedLessons
@@ -2551,6 +2557,8 @@ components:
         - advancedAnalytics
         - extendedLibrary
         - unlimitedChatTime
+        - phraseBuilder
+        - speedRound
 
     DailyLessonAllowance:
       type: object

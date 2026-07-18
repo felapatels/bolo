@@ -359,7 +359,9 @@ export const GetEntitlementsResponse = zod.object({
   "review": zod.boolean(),
   "advancedAnalytics": zod.boolean(),
   "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.'),
-  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.')
+  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.'),
+  "phraseBuilder": zod.boolean().describe('Whether the caller can access the Phrase Builder game. Plus only.'),
+  "speedRound": zod.boolean().describe('Whether the caller can access the Speed Round game. Plus only.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
@@ -397,7 +399,9 @@ export const SetChosenLanguageResponse = zod.object({
   "review": zod.boolean(),
   "advancedAnalytics": zod.boolean(),
   "extendedLibrary": zod.boolean().describe('Whether the caller can access the deep, pre-seeded premium phrase library beyond each topic\'s free starter set. Plus only.'),
-  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.')
+  "unlimitedChatTime": zod.boolean().describe('Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes\/week; One Language and Plus are unlimited.'),
+  "phraseBuilder": zod.boolean().describe('Whether the caller can access the Phrase Builder game. Plus only.'),
+  "speedRound": zod.boolean().describe('Whether the caller can access the Speed Round game. Plus only.')
 }),
   "limits": zod.object({
   "dailyNewLessons": zod.object({

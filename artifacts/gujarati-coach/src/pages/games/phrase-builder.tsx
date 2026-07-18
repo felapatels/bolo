@@ -56,6 +56,7 @@ function pickPhrases(all: Phrase[]): Phrase[] {
 
 function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
   const { activeLang } = useLanguage();
+  const { isPlus } = useEntitlements();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -119,7 +120,7 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
             <p className="text-xs text-muted-foreground">Tap to place</p>
           </div>
           <div className="py-3">
-            <p className="text-xl font-extrabold text-foreground">Free</p>
+            <p className="text-xl font-extrabold text-primary">{isPlus ? "Plus" : "Free"}</p>
             <p className="text-xs text-muted-foreground">Plan</p>
           </div>
         </div>

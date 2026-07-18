@@ -693,7 +693,6 @@ const styles = StyleSheet.create({
   cardContainer: {
     height: 72,
     borderRadius: 14,
-    overflow: 'hidden',
   },
   cardFace: {
     position: 'absolute',
