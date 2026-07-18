@@ -18,7 +18,7 @@ import {
   getGetProgressSummaryQueryKey,
   type Category,
 } from '@workspace/api-client-react';
-import { Screen } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Mascot } from '@/components/Mascot';
 import { PressableScale } from '@/components/PressableScale';
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  setupContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 12 },
+  setupContent: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 12 },
   heroArea: { alignItems: 'center', gap: 10, paddingVertical: 16 },
   heroBubble: {
     width: 80, height: 80, borderRadius: 24,
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   phraseText: { fontFamily: AppFonts.bold, fontSize: 30, textAlign: 'center' },
   romanized: { fontFamily: AppFonts.regular, fontSize: 14 },
   promptHint: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 4 },
-  optionsGrid: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
+  optionsGrid: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE, gap: 10 },
   optionBtn: {
     borderWidth: 1, borderRadius: 16, padding: 14,
     alignItems: 'center', justifyContent: 'center',

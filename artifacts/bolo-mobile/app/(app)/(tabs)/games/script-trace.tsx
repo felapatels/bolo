@@ -15,7 +15,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Screen } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -618,15 +618,16 @@ function TraceSession({
 export default function ScriptTraceScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { isPlus } = useEntitlements();
+  const { isPlus, isLoading } = useEntitlements();
   const [activeChapter, setActiveChapter] = useState<TraceChapter | null>(null);
 
   React.useEffect(() => {
-    if (!isPlus) {
+    if (!isLoading && !isPlus) {
       router.replace('/(app)/paywall');
     }
-  }, [isPlus, router]);
+  }, [isLoading, isPlus, router]);
 
+  if (isLoading) return null;
   if (!isPlus) return null;
 
   if (!activeChapter) {
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
   subtitle: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
-  chapterList: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
+  chapterList: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE, gap: 10 },
   chapterCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
   chapterChar: { fontFamily: 'serif', fontSize: 36, width: 48, textAlign: 'center' },
   chapterTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
   chapterMeta: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
-  session: { paddingHorizontal: 20, paddingBottom: 32, gap: 20 },
+  session: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 20 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressLabel: { fontFamily: AppFonts.semibold, fontSize: 12, width: 40 },
   progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },

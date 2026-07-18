@@ -16,7 +16,7 @@ import {
   useRecordGameSession,
   getGetProgressSummaryQueryKey,
 } from '@workspace/api-client-react';
-import { Screen } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Mascot } from '@/components/Mascot';
 import { PressableScale } from '@/components/PressableScale';
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 8,
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
-  setupContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 12 },
+  setupContent: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 12 },
   heroArea: { alignItems: 'center', gap: 10, paddingVertical: 16 },
   heroBubble: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontFamily: AppFonts.extrabold, fontSize: 22 },
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   phraseCounter: { fontFamily: AppFonts.semibold, fontSize: 13 },
   correctCounter: { fontFamily: AppFonts.bold, fontSize: 13 },
-  playContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 8 },
+  playContent: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE, gap: 8 },
   hintArea: { alignItems: 'center', paddingVertical: 12 },
   hintLabel: { fontFamily: AppFonts.regular, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 },
   hintEnglish: { fontFamily: AppFonts.bold, fontSize: 20, marginTop: 4, textAlign: 'center' },

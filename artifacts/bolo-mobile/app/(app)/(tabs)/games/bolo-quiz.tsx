@@ -11,7 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { Screen } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
@@ -679,10 +679,10 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
   headerSubtitle: { fontFamily: AppFonts.regular, fontSize: 12 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 24, paddingBottom: 24 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 24, paddingBottom: TAB_BAR_CLEARANCE },
   loadingText: { fontFamily: AppFonts.regular, fontSize: 14 },
 
-  playingScroll: { paddingHorizontal: 20, paddingBottom: 40, gap: 16 },
+  playingScroll: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 16 },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
