@@ -175,7 +175,7 @@ export function buildGreetingTexts(
  * the emoji is kept for display but stripped before TTS synthesis.
  */
 export function buildGreetingDisplayText(languageName: string): string {
-  return `Hi, before we chat, I want you to know… Squawk! You can chat with me in English or ${languageName}! 🦜`;
+  return `Hi! I'm Bolo, your language coach! Squawk! You can chat with me in English or ${languageName}! 🦜`;
 }
 
 /**
@@ -183,7 +183,7 @@ export function buildGreetingDisplayText(languageName: string): string {
  * removed so the voice speaks naturally.
  */
 export function buildGreetingTtsText(languageName: string): string {
-  return `Hi, before we chat, I want you to know… You can chat with me in English or ${languageName}!`;
+  return `Hi! I'm Bolo, your language coach! You can chat with me in English or ${languageName}!`;
 }
 
 /**
