@@ -1320,6 +1320,14 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   // Free is limited to Hindi; other languages require Bolo! Plus.
   if (denyLockedLanguage(req, res, languageCode)) return;
 
+  // Phrase Builder and Speed Round are Plus-only games; free users get 402.
+  if (game === "phrase-builder") {
+    if (denyLockedFeature(req, res, "phraseBuilder", "Phrase Builder is a Bolo! Plus feature. Upgrade to play.")) return;
+  }
+  if (game === "speed-round") {
+    if (denyLockedFeature(req, res, "speedRound", "Speed Round is a Bolo! Plus feature. Upgrade to play.")) return;
+  }
+
   // Enforce per-game-mode result cap (defence-in-depth beyond schema .max(120)).
   const cap = MAX_RESULTS[game] ?? 40;
   const capped = phraseResults.slice(0, cap);

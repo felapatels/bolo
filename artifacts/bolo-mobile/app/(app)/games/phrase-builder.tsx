@@ -21,6 +21,7 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import { Mascot } from '@/components/Mascot';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import * as Haptics from 'expo-haptics';
@@ -491,6 +492,15 @@ function DoneScreen({
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function PhraseBuilderScreen() {
+  const { isPlus, isLoading } = useEntitlements();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isPlus) {
+      router.replace('/(app)/paywall' as never);
+    }
+  }, [isLoading, isPlus, router]);
+
   const [phase, setPhase] = useState<GamePhase>('setup');
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);

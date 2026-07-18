@@ -38,6 +38,13 @@ vi.mock("@/lib/language-context", () => ({
   useNativeText: () => ({ dir: "ltr", style: {} }),
 }));
 
+vi.mock("@/lib/entitlements", () => ({
+  useEntitlements: () => ({ isPlus: true, isLoading: false }),
+  asUpgradeRequired: () => null,
+  upgradeHref: () => "/upgrade",
+  upgradeHrefForDenial: () => "/upgrade",
+}));
+
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
 vi.mock("@/components/ui/confetti", () => ({ Confetti: () => null }));
 vi.mock("@/components/layout/bottom-nav", () => ({ BottomNav: () => null }));

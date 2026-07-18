@@ -40,7 +40,7 @@ const GAMES: GameDef[] = [
     title: "Phrase Builder",
     description: "Arrange word tiles into correct phrases",
     difficulty: "Intermediate",
-    plusOnly: false,
+    plusOnly: true,
     Icon: Layers,
   },
   {
@@ -49,7 +49,7 @@ const GAMES: GameDef[] = [
     title: "Speed Round",
     description: "Race against the clock to answer as many as you can",
     difficulty: "Intermediate",
-    plusOnly: false,
+    plusOnly: true,
     Icon: Zap,
   },
   {

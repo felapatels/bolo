@@ -518,6 +518,10 @@ export interface PlanFeatures {
   extendedLibrary: boolean;
   /** Whether the caller has no weekly ceiling on Bolo Parrot conversational chat time. Free is capped at 2 minutes/week; One Language and Plus are unlimited. */
   unlimitedChatTime: boolean;
+  /** Whether the caller can play the Phrase Builder mini-game. Plus only. */
+  phraseBuilder?: boolean;
+  /** Whether the caller can play the Speed Round mini-game. Plus only. */
+  speedRound?: boolean;
 }
 
 export interface DailyLessonAllowance {

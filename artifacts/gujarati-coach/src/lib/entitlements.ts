@@ -20,6 +20,8 @@ const LOCKED_FEATURES: PlanFeatures = {
   advancedAnalytics: false,
   extendedLibrary: false,
   unlimitedChatTime: false,
+  phraseBuilder: false,
+  speedRound: false,
 };
 
 const UNKNOWN_ALLOWANCE: DailyLessonAllowance = {

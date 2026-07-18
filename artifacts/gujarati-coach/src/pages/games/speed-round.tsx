@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
+import { useEntitlements } from "@/lib/entitlements";
 import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
 import { useListCategories, useListCategoryPhrases, useRecordGameSession, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -494,12 +495,17 @@ function StatCard({
 // ─── Root ────────────────────────────────────────────────────────────────────
 
 export default function SpeedRoundPage() {
+  const { isPlus, isLoading } = useEntitlements();
   const [phase, setPhase] = useState<GamePhase>("setup");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [hardMode, setHardMode] = useState(false);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalStats, setFinalStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
   const [gameKey, setGameKey] = useState(0); // reset key
+
+  if (!isLoading && !isPlus) {
+    return <Redirect to="/upgrade" />;
+  }
 
   const handleStart = (catId: number, hard: boolean) => {
     setCategoryId(catId);

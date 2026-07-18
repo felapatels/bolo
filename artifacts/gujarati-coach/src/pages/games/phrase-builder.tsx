@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { ArrowLeft, Layers, RotateCcw, Home, Check, X, ChevronRight } from "lucide-react";
+import { useEntitlements } from "@/lib/entitlements";
 import {
   useListCategories,
   useListCategoryPhrases,
@@ -492,11 +493,16 @@ function DoneScreen({
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function PhraseBuilderPage() {
+  const { isPlus, isLoading } = useEntitlements();
   const [phase, setPhase] = useState<GamePhase>("setup");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalCorrect, setFinalCorrect] = useState(0);
   const [gameKey, setGameKey] = useState(0);
+
+  if (!isLoading && !isPlus) {
+    return <Redirect to="/upgrade" />;
+  }
 
   const handleDone = (results: PhraseResult[], correctCount: number) => {
     setFinalResults(results);

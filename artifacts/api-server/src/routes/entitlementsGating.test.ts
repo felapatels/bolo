@@ -12,6 +12,9 @@ import {
   lessonsTable,
   phrasesTable,
   lessonGenerationsTable,
+  attemptsTable,
+  gameSessionsTable,
+  badgesTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -287,6 +290,10 @@ after(async () => {
     server.close((err) => (err ? reject(err) : resolve())),
   );
   // Tear down the premium topic's phrases → lesson → category, in FK order.
+  // Clean up any attempts/sessions/badges created by the game-session success tests.
+  await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
+  await db.delete(gameSessionsTable).where(eq(gameSessionsTable.userId, TEST_USER_ID));
   await db
     .delete(phrasesTable)
     .where(eq(phrasesTable.categoryId, premiumCategoryId));
@@ -580,4 +587,58 @@ test("the chosen language is locked once set while on the one_language tier", as
     language: "__nope",
   });
   assert.equal(unknown.status, 404);
+});
+
+// ─── Game-session gating (Phrase Builder + Speed Round) ────────────────────
+
+test("free is denied phrase-builder game sessions (Plus-only feature)", async () => {
+  const { status, json } = await post("/game-sessions", {
+    languageCode: FREE_LANGUAGE,
+    game: "phrase-builder",
+    categoryId: premiumCategoryId,
+    phraseResults: [{ phraseId: starterPhraseId, submittedText: "test" }],
+  });
+  assert.equal(status, 402);
+  assert.equal(json.error, "upgrade_required");
+  assert.equal(json.reason, "feature_locked");
+  assert.equal(json.feature, "phraseBuilder");
+  assert.equal(json.requiredPlan, "plus");
+});
+
+test("free is denied speed-round game sessions (Plus-only feature)", async () => {
+  const { status, json } = await post("/game-sessions", {
+    languageCode: FREE_LANGUAGE,
+    game: "speed-round",
+    categoryId: premiumCategoryId,
+    phraseResults: [{ phraseId: starterPhraseId, selectedPhraseId: starterPhraseId }],
+  });
+  assert.equal(status, 402);
+  assert.equal(json.error, "upgrade_required");
+  assert.equal(json.reason, "feature_locked");
+  assert.equal(json.feature, "speedRound");
+  assert.equal(json.requiredPlan, "plus");
+});
+
+test("plus can record phrase-builder game sessions", async () => {
+  await setPlanPlus();
+  // A single correct phrase-builder result using a real phrase from the test category.
+  const { status } = await post("/game-sessions", {
+    languageCode: FREE_LANGUAGE,
+    game: "phrase-builder",
+    categoryId: premiumCategoryId,
+    phraseResults: [{ phraseId: starterPhraseId, submittedText: "स्टार्टर0" }],
+  });
+  // 201 = session recorded; any non-402 proves the feature gate passed.
+  assert.equal(status, 201);
+});
+
+test("plus can record speed-round game sessions", async () => {
+  await setPlanPlus();
+  const { status } = await post("/game-sessions", {
+    languageCode: FREE_LANGUAGE,
+    game: "speed-round",
+    categoryId: premiumCategoryId,
+    phraseResults: [{ phraseId: starterPhraseId, selectedPhraseId: starterPhraseId }],
+  });
+  assert.equal(status, 201);
 });

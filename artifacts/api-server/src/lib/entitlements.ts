@@ -55,6 +55,10 @@ export interface PlanFeatures {
   unlimitedChatTime: boolean;
   // The Script Trace character-writing mini-game. Plus-only.
   scriptTrace: boolean;
+  // Phrase Builder mini-game (arrange word tiles into correct phrases). Plus-only.
+  phraseBuilder: boolean;
+  // Speed Round mini-game (race against the clock). Plus-only.
+  speedRound: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -215,6 +219,8 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       sentences: true,
       unlimitedChatTime: true,
       scriptTrace: true,
+      phraseBuilder: true,
+      speedRound: true,
     };
   }
   if (plan === "one_language") {
@@ -230,6 +236,8 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       sentences: false,
       unlimitedChatTime: true,
       scriptTrace: false,
+      phraseBuilder: false,
+      speedRound: false,
     };
   }
   return {
@@ -241,6 +249,8 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     sentences: false,
     unlimitedChatTime: false,
     scriptTrace: false,
+    phraseBuilder: false,
+    speedRound: false,
   };
 }
 
