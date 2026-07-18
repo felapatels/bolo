@@ -1,15 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Users } from "lucide-react";
-import { useListIncomingFriendRequests } from "@workspace/api-client-react";
+import { Home, Trophy, Gamepad2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
   const [location] = useLocation();
-
-  // Shares the react-query cache with the Friends page, so accepting or
-  // declining a request there invalidates this and the badge updates live.
-  const { data: incoming } = useListIncomingFriendRequests();
-  const pendingCount = incoming?.length ?? 0;
 
   const chatActive = location === "/chat";
 
@@ -27,24 +21,14 @@ export function BottomNav() {
           <span className="text-[10px] font-bold tracking-wide">Home</span>
         </Link>
         <Link 
-          href="/friends" 
+          href="/games" 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors button-spring",
-            location === "/friends" ? "text-accent" : "text-muted-foreground hover:text-foreground"
+            location.startsWith("/games") ? "text-primary" : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <div className="relative">
-            <Users className="w-6 h-6" strokeWidth={location === "/friends" ? 2.5 : 2} />
-            {pendingCount > 0 && (
-              <span
-                aria-label={`${pendingCount} pending friend ${pendingCount === 1 ? "request" : "requests"}`}
-                className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black leading-none text-primary-foreground shadow-sm ring-2 ring-card"
-              >
-                {pendingCount > 9 ? "9+" : pendingCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] font-bold tracking-wide">Friends</span>
+          <Gamepad2 className="w-6 h-6" strokeWidth={location.startsWith("/games") ? 2.5 : 2} />
+          <span className="text-[10px] font-bold tracking-wide">Games</span>
         </Link>
 
         {/* Centre elevated Bolo parrot button */}

@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Users, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
-import { useListIncomingFriendRequests } from "@workspace/api-client-react";
+import { Home, Trophy, Gamepad2, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
@@ -21,7 +20,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Home", icon: Home, activeClass: "text-primary" },
-  { href: "/friends", label: "Friends", icon: Users, activeClass: "text-accent" },
+  { href: "/games", label: "Games", icon: Gamepad2, activeClass: "text-primary" },
   {
     href: "/chat",
     label: "Chat with Bolo",
@@ -46,9 +45,6 @@ export function DesktopNav() {
 
   // Shares the react-query cache with the Friends page and the mobile bottom
   // nav, so accepting/declining a request updates every badge live.
-  const { data: incoming } = useListIncomingFriendRequests();
-  const pendingCount = incoming?.length ?? 0;
-
   const nativeProps = nativeTextProps(activeLanguage);
   const upgradeActive = location === "/upgrade";
 
@@ -73,8 +69,7 @@ export function DesktopNav() {
       {/* Primary destinations */}
       <nav className="flex flex-1 flex-col gap-1.5 px-4">
         {NAV_ITEMS.map((item) => {
-          const active = location === item.href;
-          const showBadge = item.href === "/friends" && pendingCount > 0;
+          const active = location === item.href || (item.href === "/games" && location.startsWith("/games"));
           return (
             <Link
               key={item.href}
@@ -108,14 +103,6 @@ export function DesktopNav() {
                     );
                   })()
                 ) : null}
-                {showBadge && (
-                  <span
-                    aria-label={`${pendingCount} pending friend ${pendingCount === 1 ? "request" : "requests"}`}
-                    className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black leading-none text-primary-foreground shadow-sm ring-2 ring-card"
-                  >
-                    {pendingCount > 9 ? "9+" : pendingCount}
-                  </span>
-                )}
               </span>
               {item.label}
             </Link>

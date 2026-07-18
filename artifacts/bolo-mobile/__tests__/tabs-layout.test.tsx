@@ -5,15 +5,17 @@ import type { FriendRequest } from '@workspace/api-client-react';
 // ---------------------------------------------------------------------------
 // Guards two things:
 //
-//  1. Friends-tab badge — driven by useListIncomingFriendRequests. A regression
-//     here (badge missing, or lingering after requests clear) would ship
-//     silently, so cover the layout's badge logic directly.  This complements
-//     friends.test.tsx, which exercises the Friends screen itself.
+//  1. Friend-request badge — driven by useListIncomingFriendRequests. The badge
+//     moved from the Friends tab to the Profile tab when Friends was relocated
+//     into the Account/Profile screen. A regression here (badge missing, or
+//     lingering after requests clear) would ship silently, so cover the layout's
+//     badge logic directly.  This complements friends.test.tsx, which exercises
+//     the Friends screen itself.
 //
 //  2. Orientation stability — the BoloTabButton receives its slot width via the
 //     `style` prop forwarded by the tab bar renderer.  When the device rotates,
 //     the tab bar remeasures and passes a new width.  The tests below confirm
-//     all five tabs remain visible and the Bolo button renders correctly after
+//     all visible tabs remain present and the Bolo button renders correctly after
 //     a portrait → landscape → portrait cycle.
 // ---------------------------------------------------------------------------
 
@@ -128,6 +130,7 @@ jest.mock('expo-router', () => {
   }: {
     name: string;
     options?: {
+      href?: null;
       tabBarBadge?: string | number;
       title?: string;
       tabBarButton?: (props: Record<string, unknown>) => React.ReactNode;
@@ -203,13 +206,20 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('Registered tabs', () => {
-  test('all five tabs are present with correct labels', () => {
+  test('all visible tabs are present with correct labels', () => {
     render(<TabsLayout />);
     expect(screen.getByLabelText('tab-index')).toBeTruthy();
-    expect(screen.getByLabelText('tab-friends')).toBeTruthy();
+    expect(screen.getByLabelText('tab-games')).toBeTruthy();
     expect(screen.getByLabelText('tab-chat')).toBeTruthy();
     expect(screen.getByLabelText('tab-progress')).toBeTruthy();
     expect(screen.getByLabelText('tab-profile')).toBeTruthy();
+  });
+
+  test('Friends is still registered (hidden) for navigation access from Profile', () => {
+    render(<TabsLayout />);
+    // Friends route remains registered so router.push('/(app)/(tabs)/friends') works;
+    // it is just hidden from the tab bar via href: null.
+    expect(screen.getByLabelText('tab-friends')).toBeTruthy();
   });
 });
 
@@ -223,12 +233,12 @@ describe('Registered tabs', () => {
 // ---------------------------------------------------------------------------
 
 describe('Orientation changes', () => {
-  test('all five tabs are present in portrait orientation', () => {
+  test('all visible tabs are present in portrait orientation', () => {
     mockState.slotWidth = 72; // ~375px screen ÷ 5 tabs
     render(<TabsLayout />);
 
     expect(screen.getByLabelText('tab-index')).toBeTruthy();
-    expect(screen.getByLabelText('tab-friends')).toBeTruthy();
+    expect(screen.getByLabelText('tab-games')).toBeTruthy();
     expect(screen.getByLabelText('tab-chat')).toBeTruthy();
     expect(screen.getByLabelText('tab-progress')).toBeTruthy();
     expect(screen.getByLabelText('tab-profile')).toBeTruthy();
@@ -244,7 +254,7 @@ describe('Orientation changes', () => {
     expect(screen.getByText('Bolo')).toBeTruthy();
   });
 
-  test('all five tabs remain visible after rotating to landscape', () => {
+  test('all visible tabs remain present after rotating to landscape', () => {
     mockState.slotWidth = 72; // portrait
     const { rerender } = render(<TabsLayout />);
 
@@ -253,7 +263,7 @@ describe('Orientation changes', () => {
     rerender(<TabsLayout />);
 
     expect(screen.getByLabelText('tab-index')).toBeTruthy();
-    expect(screen.getByLabelText('tab-friends')).toBeTruthy();
+    expect(screen.getByLabelText('tab-games')).toBeTruthy();
     expect(screen.getByLabelText('tab-chat')).toBeTruthy();
     expect(screen.getByLabelText('tab-progress')).toBeTruthy();
     expect(screen.getByLabelText('tab-profile')).toBeTruthy();
@@ -270,7 +280,7 @@ describe('Orientation changes', () => {
     expect(screen.getByText('Bolo')).toBeTruthy();
   });
 
-  test('all five tabs remain visible after rotating back to portrait', () => {
+  test('all visible tabs remain present after rotating back to portrait', () => {
     mockState.slotWidth = 72; // portrait
     const { rerender } = render(<TabsLayout />);
 
@@ -281,7 +291,7 @@ describe('Orientation changes', () => {
     rerender(<TabsLayout />);
 
     expect(screen.getByLabelText('tab-index')).toBeTruthy();
-    expect(screen.getByLabelText('tab-friends')).toBeTruthy();
+    expect(screen.getByLabelText('tab-games')).toBeTruthy();
     expect(screen.getByLabelText('tab-chat')).toBeTruthy();
     expect(screen.getByLabelText('tab-progress')).toBeTruthy();
     expect(screen.getByLabelText('tab-profile')).toBeTruthy();
@@ -303,29 +313,32 @@ describe('Orientation changes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Friends tab badge
+// Friend-request badge on the Profile tab
+//
+// Friends moved into the Profile/Account screen; the pending-request badge now
+// surfaces on the Profile tab so learners still notice incoming requests.
 // ---------------------------------------------------------------------------
 
-describe('Friends tab badge', () => {
+describe('Profile tab friend-request badge', () => {
   test('shows no badge when there are no incoming requests', () => {
     mockState.incoming = { data: [] };
     render(<TabsLayout />);
 
-    expect(screen.queryByLabelText('friends-badge')).toBeNull();
+    expect(screen.queryByLabelText('profile-badge')).toBeNull();
   });
 
   test('shows no badge while the request list is still loading (undefined data)', () => {
     mockState.incoming = { data: undefined };
     render(<TabsLayout />);
 
-    expect(screen.queryByLabelText('friends-badge')).toBeNull();
+    expect(screen.queryByLabelText('profile-badge')).toBeNull();
   });
 
   test('shows the exact count when there are pending requests', () => {
     mockState.incoming = { data: requestsOfLength(3) };
     render(<TabsLayout />);
 
-    const badge = screen.getByLabelText('friends-badge');
+    const badge = screen.getByLabelText('profile-badge');
     expect(badge).toHaveTextContent('3');
   });
 
@@ -333,17 +346,17 @@ describe('Friends tab badge', () => {
     mockState.incoming = { data: requestsOfLength(12) };
     render(<TabsLayout />);
 
-    const badge = screen.getByLabelText('friends-badge');
+    const badge = screen.getByLabelText('profile-badge');
     expect(badge).toHaveTextContent('9+');
   });
 
   test('clears the badge when the request list becomes empty', () => {
     mockState.incoming = { data: requestsOfLength(2) };
     const { rerender } = render(<TabsLayout />);
-    expect(screen.getByLabelText('friends-badge')).toHaveTextContent('2');
+    expect(screen.getByLabelText('profile-badge')).toHaveTextContent('2');
 
     mockState.incoming = { data: [] };
     rerender(<TabsLayout />);
-    expect(screen.queryByLabelText('friends-badge')).toBeNull();
+    expect(screen.queryByLabelText('profile-badge')).toBeNull();
   });
 });

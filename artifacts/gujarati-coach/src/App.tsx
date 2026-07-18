@@ -27,6 +27,13 @@ import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
 import Progress from '@/pages/progress';
 import Friends from '@/pages/friends';
+import Games from '@/pages/games/index';
+import GamesWordMatch from '@/pages/games/word-match';
+import GamesSpeedRound from '@/pages/games/speed-round';
+import GamesListenAndPick from '@/pages/games/listen-and-pick';
+import GamesPhraseBuilder from '@/pages/games/phrase-builder';
+import GamesScriptTrace from '@/pages/games/script-trace';
+import GamesBoloQuiz from '@/pages/games/bolo-quiz';
 import Account from '@/pages/account';
 import Contact from '@/pages/contact';
 import Subscription from '@/pages/subscription';
@@ -206,6 +213,43 @@ function AppRouter() {
           <AppShell>
             <Friends />
           </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/games">
+        <Guard>
+          <AppShell>
+            <Games />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/games/word-match">
+        <Guard>
+          <GamesWordMatch />
+        </Guard>
+      </Route>
+      <Route path="/games/speed-round">
+        <Guard>
+          <GamesSpeedRound />
+        </Guard>
+      </Route>
+      <Route path="/games/listen-and-pick">
+        <Guard>
+          <GamesListenAndPick />
+        </Guard>
+      </Route>
+      <Route path="/games/phrase-builder">
+        <Guard>
+          <GamesPhraseBuilder />
+        </Guard>
+      </Route>
+      <Route path="/games/script-trace">
+        <Guard>
+          <GamesScriptTrace />
+        </Guard>
+      </Route>
+      <Route path="/games/bolo-quiz">
+        <Guard>
+          <GamesBoloQuiz />
         </Guard>
       </Route>
       <Route path="/account">

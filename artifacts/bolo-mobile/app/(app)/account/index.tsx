@@ -505,6 +505,17 @@ export default function AccountScreen() {
             />
           </View>
 
+          {/* Social */}
+          <SectionLabel>SOCIAL</SectionLabel>
+          <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <NavRow
+              icon="users"
+              label="Friends"
+              value="Add friends and compete on the leaderboard"
+              onPress={() => router.push('/(app)/(tabs)/friends')}
+            />
+          </View>
+
           {/* Support */}
           <SectionLabel>SUPPORT</SectionLabel>
           <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>

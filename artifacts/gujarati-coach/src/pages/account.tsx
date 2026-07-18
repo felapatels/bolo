@@ -17,6 +17,7 @@ import {
   Moon,
   Monitor,
   Mail,
+  Users,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -563,6 +564,22 @@ export default function Account() {
             </div>
             <Map className="h-5 w-5 shrink-0 text-muted-foreground" />
           </button>
+        </Section>
+
+        {/* Social */}
+        <Section icon={Users} title="Social" subtitle="Friends and leaderboard">
+          <Link
+            href="/friends"
+            className="flex w-full items-center justify-between rounded-2xl border border-card-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
+          >
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground">Friends</p>
+              <p className="truncate text-sm text-muted-foreground">
+                Add friends and compete on the leaderboard.
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </Link>
         </Section>
 
         {/* Contact Us */}

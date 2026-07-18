@@ -356,24 +356,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="games"
+        options={{
+          title: 'Games',
+          tabBarIcon: ({ color }) => (
+            <Feather name="grid" size={22} color={color} />
+          ),
+        }}
+      />
+      {/* Friends tab — hidden from the tab bar; accessible from Profile/Account */}
+      <Tabs.Screen
         name="friends"
         options={{
-          title: 'Friends',
-          tabBarIcon: ({ color }) => (
-            <Feather name="users" size={22} color={color} />
-          ),
-          tabBarBadge:
-            pendingCount > 0
-              ? pendingCount > 9
-                ? '9+'
-                : pendingCount
-              : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
-            color: colors.primaryForeground,
-            fontFamily: AppFonts.bold,
-            fontSize: 11,
-          },
+          href: null,
         }}
       />
       {/* Center elevated tab — custom button handles all rendering */}
@@ -400,6 +395,20 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Feather name="user" size={22} color={color} />
           ),
+          // Friend-request badge surfaces on the Profile tab now that Friends
+          // lives inside the Account/Profile screen.
+          tabBarBadge:
+            pendingCount > 0
+              ? pendingCount > 9
+                ? '9+'
+                : pendingCount
+              : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: colors.primaryForeground,
+            fontFamily: AppFonts.bold,
+            fontSize: 11,
+          },
         }}
       />
     </Tabs>
