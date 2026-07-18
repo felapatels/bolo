@@ -55,5 +55,6 @@
 - [Family plan entitlements](family-plan-entitlements.md) — member Plus derived per-request from the owner (no writes); join's Stripe cancel runs inside the seat transaction; Plus→Family is an in-place price swap.
 - [Stripe drift reconcile sweep](stripe-drift-reconcile.md) — periodic list-all sweep self-heals missed webhooks; downgrades only touch stripe-managed rows; new state fields must join the unchanged-compare.
 - [Stripe webhook endpoint hygiene](stripe-webhook-endpoints.md) — live-mode-only setup, one prod endpoint; sandbox needs its own key; audit via signed benign POST + events pending_webhooks.
+- [AVPlayer double-fetch](avplayer-double-fetch.md) — iOS AVPlayer requests the same audio URL twice; one-shot streams must stay re-servable or playback is silently dropped.
 - [Chat voice streaming](chat-voice-streaming.md) — SSE audioChunk protocol is opt-in via X-Audio-Stream header; audioDone is the commit signal; MSE audio/mpeg on web, Safari/mobile fall back to full clip.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
