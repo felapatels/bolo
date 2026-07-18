@@ -160,13 +160,12 @@ function FlipCard({
       disabled={card.state !== 'hidden'}
       style={{ width, height, borderRadius: 14 }}
     >
-      {/* Front (hidden face) — pointerEvents="none" so touches pass through to the Pressable */}
+      {/* Front (hidden face) — pointerEvents in style (RN 0.76 New Arch; prop form was removed) */}
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.cardFace,
           frontStyle,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { backgroundColor: colors.card, borderColor: colors.border, pointerEvents: 'none' },
         ]}
       >
         <Image
@@ -176,13 +175,12 @@ function FlipCard({
         />
       </Animated.View>
 
-      {/* Back (revealed face) — pointerEvents="none" for the same reason */}
+      {/* Back (revealed face) — same, pointerEvents in style */}
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.cardFace,
           backStyle,
-          { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
+          { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2, pointerEvents: 'none' },
         ]}
       >
         {card.type === 'native' ? (
