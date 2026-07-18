@@ -989,6 +989,72 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 
+  /games/script-trace/progress:
+    get:
+      operationId: getScriptTraceProgress
+      tags: [learning]
+      summary: Get Script Trace chapter progress
+      description: >-
+        Returns the caller's per-character tracing progress for the requested
+        Script Trace chapter. Plus-only — non-Plus callers receive a 402.
+      parameters:
+        - name: chapter
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - gujarati-vowels
+              - gujarati-consonants
+              - hindi-vowels
+              - hindi-consonants
+      responses:
+        "200":
+          description: List of per-character progress entries for the chapter
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScriptTraceCharacterProgress"
+        "400":
+          description: Invalid or missing chapter parameter
+        "402":
+          description: Upgrade required (Script Trace is a Bolo! Plus feature)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+    post:
+      operationId: recordScriptTraceProgress
+      tags: [learning]
+      summary: Record a Script Trace attempt
+      description: >-
+        Saves the result of a single character trace. Upserts so the best score
+        is preserved and the `passed` flag is sticky (never reverted once true).
+        Plus-only — non-Plus callers receive a 402.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScriptTraceProgressInput"
+      responses:
+        "201":
+          description: The updated character progress after the attempt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScriptTraceCharacterProgress"
+        "400":
+          description: Validation error
+        "402":
+          description: Upgrade required (Script Trace is a Bolo! Plus feature)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+
   /contact:
     post:
       operationId: submitContactForm
@@ -2186,6 +2252,12 @@ components:
             server-side) so replies stay contextual.
           items:
             $ref: "#/components/schemas/ChatTurnMessage"
+        clientDurationSeconds:
+          type: number
+          description: >-
+            Client-measured duration (in seconds) of the recorded audio clip.
+            When present the server uses this value to debit the caller's weekly
+            chat-time allowance instead of inferring it from audio length.
       required:
         - languageCode
         - audioBase64
@@ -2567,6 +2639,61 @@ components:
         - id
         - displayName
         - email
+
+    ScriptTraceCharacterProgress:
+      type: object
+      description: A learner's tracing progress for a single character in a Script Trace chapter.
+      properties:
+        characterId:
+          type: string
+          description: The character's stable identifier within the chapter (e.g. "gu_a").
+        passed:
+          type: boolean
+          description: Whether the learner has ever achieved a passing score (≥70%) for this character.
+        bestScore:
+          type: integer
+          nullable: true
+          description: Highest accuracy score (0–100) achieved across all traces. Null until the first trace.
+        attemptCount:
+          type: integer
+          description: Total number of traces submitted for this character.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When this progress row was last updated.
+      required:
+        - characterId
+        - passed
+        - bestScore
+        - attemptCount
+        - updatedAt
+
+    ScriptTraceProgressInput:
+      type: object
+      description: The result of a single character trace attempt.
+      properties:
+        chapter:
+          type: string
+          enum:
+            - gujarati-vowels
+            - gujarati-consonants
+            - hindi-vowels
+            - hindi-consonants
+        characterId:
+          type: string
+          minLength: 1
+          maxLength: 30
+        passed:
+          type: boolean
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+      required:
+        - chapter
+        - characterId
+        - passed
+        - score
 
     ContactFormInput:
       type: object

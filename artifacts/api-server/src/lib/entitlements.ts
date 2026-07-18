@@ -53,6 +53,8 @@ export interface PlanFeatures {
   // No weekly ceiling on Bolo Parrot conversational chat audio time. Free is
   // capped (FREE_WEEKLY_CHAT_SECONDS_CAP); One Language and Plus are unlimited.
   unlimitedChatTime: boolean;
+  // The Script Trace character-writing mini-game. Plus-only.
+  scriptTrace: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -212,6 +214,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       extendedLibrary: true,
       sentences: true,
       unlimitedChatTime: true,
+      scriptTrace: true,
     };
   }
   if (plan === "one_language") {
@@ -226,6 +229,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       extendedLibrary: false,
       sentences: false,
       unlimitedChatTime: true,
+      scriptTrace: false,
     };
   }
   return {
@@ -236,6 +240,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     extendedLibrary: false,
     sentences: false,
     unlimitedChatTime: false,
+    scriptTrace: false,
   };
 }
 

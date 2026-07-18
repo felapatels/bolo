@@ -814,6 +814,51 @@ export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResp
 
 
 /**
+ * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only — non-Plus callers receive a 402.
+ * @summary Get Script Trace chapter progress
+ */
+export const GetScriptTraceProgressQueryParams = zod.object({
+  "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants'])
+})
+
+export const GetScriptTraceProgressResponseItem = zod.object({
+  "characterId": zod.string().describe('The character\'s stable identifier within the chapter (e.g. \"gu_a\").'),
+  "passed": zod.boolean().describe('Whether the learner has ever achieved a passing score (≥70%) for this character.'),
+  "bestScore": zod.number().nullable().describe('Highest accuracy score (0–100) achieved across all traces. Null until the first trace.'),
+  "attemptCount": zod.number().describe('Total number of traces submitted for this character.'),
+  "updatedAt": zod.coerce.date().describe('When this progress row was last updated.')
+}).describe('A learner\'s tracing progress for a single character in a Script Trace chapter.')
+export const GetScriptTraceProgressResponse = zod.array(GetScriptTraceProgressResponseItem)
+
+
+/**
+ * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only — non-Plus callers receive a 402.
+ * @summary Record a Script Trace attempt
+ */
+export const recordScriptTraceProgressBodyCharacterIdMax = 30;
+
+export const recordScriptTraceProgressBodyScoreMin = 0;
+export const recordScriptTraceProgressBodyScoreMax = 100;
+
+
+
+export const RecordScriptTraceProgressBody = zod.object({
+  "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants']),
+  "characterId": zod.string().min(1).max(recordScriptTraceProgressBodyCharacterIdMax),
+  "passed": zod.boolean(),
+  "score": zod.number().min(recordScriptTraceProgressBodyScoreMin).max(recordScriptTraceProgressBodyScoreMax)
+}).describe('The result of a single character trace attempt.')
+
+export const RecordScriptTraceProgressResponse = zod.object({
+  "characterId": zod.string().describe('The character\'s stable identifier within the chapter (e.g. \"gu_a\").'),
+  "passed": zod.boolean().describe('Whether the learner has ever achieved a passing score (≥70%) for this character.'),
+  "bestScore": zod.number().nullable().describe('Highest accuracy score (0–100) achieved across all traces. Null until the first trace.'),
+  "attemptCount": zod.number().describe('Total number of traces submitted for this character.'),
+  "updatedAt": zod.coerce.date().describe('When this progress row was last updated.')
+}).describe('A learner\'s tracing progress for a single character in a Script Trace chapter.')
+
+
+/**
  * Saves the message to the contact_submissions table and sends a notification email to the support inbox via Resend. The DB row is always saved; if the email send fails email_sent stays false and the caller still receives { success: true }. Rate-limited to 3 submissions per 10 minutes per user/IP.
  * @summary Submit a support message via the Contact Us form
  */
@@ -914,12 +959,14 @@ export const ChatTurnBody = zod.object({
   "role": zod.string().describe('learner | parrot'),
   "text": zod.string()
 }).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.'),
-  "clientDurationSeconds": zod.number().optional().describe('Recording duration measured by the client; lets the server skip WAV conversion for duration measurement.')
+  "clientDurationSeconds": zod.number().optional().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length.')
 })
 
 export const ChatTurnResponse = zod.object({
   "transcript": zod.string().describe('What the server heard the learner say.'),
+  "transcriptEnglish": zod.string().describe('Concise English translation of what the learner said. Empty string when the learner spoke in English or their speech was unclear.'),
   "replyText": zod.string().describe('Bolo\'s in-character reply, in the target language.'),
+  "replyEnglish": zod.string().describe('English translation of Bolo\'s reply, shown as a bilingual caption.'),
   "replyAudioBase64": zod.string().describe('Ready-to-play synthesized speech of the reply.'),
   "format": zod.string(),
   "languageCode": zod.string(),

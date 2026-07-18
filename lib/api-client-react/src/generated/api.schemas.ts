@@ -410,13 +410,15 @@ export interface ChatTurnInput {
   audioBase64: string;
   /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
   history?: ChatTurnMessage[];
+  /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. */
+  clientDurationSeconds?: number;
 }
 
 export interface ChatTurnResult {
-  /** Concise English translation of what the learner said. Empty string when the learner spoke in English or their speech was unclear. */
-  transcriptEnglish: string;
   /** What the server heard the learner say. */
   transcript: string;
+  /** Concise English translation of what the learner said. Empty string when the learner spoke in English or their speech was unclear. */
+  transcriptEnglish: string;
   /** Bolo's in-character reply, in the target language. */
   replyText: string;
   /** English translation of Bolo's reply, shown as a bilingual caption. */
@@ -591,6 +593,50 @@ export interface Friend {
   email: string | null;
 }
 
+/**
+ * A learner's tracing progress for a single character in a Script Trace chapter.
+ */
+export interface ScriptTraceCharacterProgress {
+  /** The character's stable identifier within the chapter (e.g. "gu_a"). */
+  characterId: string;
+  /** Whether the learner has ever achieved a passing score (≥70%) for this character. */
+  passed: boolean;
+  /** Highest accuracy score (0–100) achieved across all traces. Null until the first trace. */
+  bestScore: number | null;
+  /** Total number of traces submitted for this character. */
+  attemptCount: number;
+  /** When this progress row was last updated. */
+  updatedAt: string;
+}
+
+export type ScriptTraceProgressInputChapter = typeof ScriptTraceProgressInputChapter[keyof typeof ScriptTraceProgressInputChapter];
+
+
+export const ScriptTraceProgressInputChapter = {
+  'gujarati-vowels': 'gujarati-vowels',
+  'gujarati-consonants': 'gujarati-consonants',
+  'hindi-vowels': 'hindi-vowels',
+  'hindi-consonants': 'hindi-consonants',
+} as const;
+
+/**
+ * The result of a single character trace attempt.
+ */
+export interface ScriptTraceProgressInput {
+  chapter: ScriptTraceProgressInputChapter;
+  /**
+     * @minLength 1
+     * @maxLength 30
+     */
+  characterId: string;
+  passed: boolean;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  score: number;
+}
+
 export type ContactFormInputCategory = typeof ContactFormInputCategory[keyof typeof ContactFormInputCategory];
 
 
@@ -668,6 +714,20 @@ lang: string;
 export type SearchFriendByEmailParams = {
 email: string;
 };
+
+export type GetScriptTraceProgressParams = {
+chapter: GetScriptTraceProgressChapter;
+};
+
+export type GetScriptTraceProgressChapter = typeof GetScriptTraceProgressChapter[keyof typeof GetScriptTraceProgressChapter];
+
+
+export const GetScriptTraceProgressChapter = {
+  'gujarati-vowels': 'gujarati-vowels',
+  'gujarati-consonants': 'gujarati-consonants',
+  'hindi-vowels': 'hindi-vowels',
+  'hindi-consonants': 'hindi-consonants',
+} as const;
 
 export type CreateFamilyInvite201 = {
   id: number;

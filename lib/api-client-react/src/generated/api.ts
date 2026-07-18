@@ -46,6 +46,7 @@ import type {
   GeneratedPhrase,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
+  GetScriptTraceProgressParams,
   HealthStatus,
   JoinFamily200,
   JoinFamilyInput,
@@ -64,6 +65,8 @@ import type {
   PronunciationInput,
   PronunciationResult,
   RegenerateFamilyCode200,
+  ScriptTraceCharacterProgress,
+  ScriptTraceProgressInput,
   SearchFriendByEmailParams,
   SendFriendInviteInput,
   SendFriendRequestInput,
@@ -2784,6 +2787,163 @@ export function useGetFriendsLeaderboard<TData = Awaited<ReturnType<typeof getFr
 
 
 
+
+export const getGetScriptTraceProgressUrl = (params: GetScriptTraceProgressParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/games/script-trace/progress?${stringifiedParams}` : `/api/games/script-trace/progress`
+}
+
+/**
+ * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only — non-Plus callers receive a 402.
+ * @summary Get Script Trace chapter progress
+ */
+export const getScriptTraceProgress = async (params: GetScriptTraceProgressParams, options?: RequestInit): Promise<ScriptTraceCharacterProgress[]> => {
+
+  return customFetch<ScriptTraceCharacterProgress[]>(getGetScriptTraceProgressUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScriptTraceProgressQueryKey = (params?: GetScriptTraceProgressParams,) => {
+    return [
+    `/api/games/script-trace/progress`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetScriptTraceProgressQueryOptions = <TData = Awaited<ReturnType<typeof getScriptTraceProgress>>, TError = ErrorType<void | UpgradeRequired>>(params: GetScriptTraceProgressParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScriptTraceProgress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScriptTraceProgressQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScriptTraceProgress>>> = ({ signal }) => getScriptTraceProgress(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScriptTraceProgress>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScriptTraceProgressQueryResult = NonNullable<Awaited<ReturnType<typeof getScriptTraceProgress>>>
+export type GetScriptTraceProgressQueryError = ErrorType<void | UpgradeRequired>
+
+
+/**
+ * @summary Get Script Trace chapter progress
+ */
+
+export function useGetScriptTraceProgress<TData = Awaited<ReturnType<typeof getScriptTraceProgress>>, TError = ErrorType<void | UpgradeRequired>>(
+ params: GetScriptTraceProgressParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScriptTraceProgress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScriptTraceProgressQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordScriptTraceProgressUrl = () => {
+
+
+
+
+  return `/api/games/script-trace/progress`
+}
+
+/**
+ * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only — non-Plus callers receive a 402.
+ * @summary Record a Script Trace attempt
+ */
+export const recordScriptTraceProgress = async (scriptTraceProgressInput: ScriptTraceProgressInput, options?: RequestInit): Promise<ScriptTraceCharacterProgress> => {
+
+  return customFetch<ScriptTraceCharacterProgress>(getRecordScriptTraceProgressUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scriptTraceProgressInput)
+  }
+);}
+
+
+
+
+
+export const getRecordScriptTraceProgressMutationOptions = <TError = ErrorType<void | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordScriptTraceProgress>>, TError,{data: BodyType<ScriptTraceProgressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordScriptTraceProgress>>, TError,{data: BodyType<ScriptTraceProgressInput>}, TContext> => {
+
+const mutationKey = ['recordScriptTraceProgress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordScriptTraceProgress>>, {data: BodyType<ScriptTraceProgressInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordScriptTraceProgress(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordScriptTraceProgressMutationResult = NonNullable<Awaited<ReturnType<typeof recordScriptTraceProgress>>>
+    export type RecordScriptTraceProgressMutationBody = BodyType<ScriptTraceProgressInput>
+    export type RecordScriptTraceProgressMutationError = ErrorType<void | UpgradeRequired>
+
+    /**
+ * @summary Record a Script Trace attempt
+ */
+export const useRecordScriptTraceProgress = <TError = ErrorType<void | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordScriptTraceProgress>>, TError,{data: BodyType<ScriptTraceProgressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordScriptTraceProgress>>,
+        TError,
+        {data: BodyType<ScriptTraceProgressInput>},
+        TContext
+      > => {
+      return useMutation(getRecordScriptTraceProgressMutationOptions(options));
+    }
 
 export const getSubmitContactFormUrl = () => {
 

@@ -10,6 +10,7 @@ import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
 import familyRouter from "./family";
 import contactRouter from "./contact";
+import gamesRouter from "./games";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -45,6 +46,7 @@ router.use(stripeRouter);
 // authenticated learner — joining must work for Free users.
 router.use(familyRouter);
 router.use(learningRouter);
+router.use(gamesRouter);
 router.use(openaiRouter);
 
 export default router;

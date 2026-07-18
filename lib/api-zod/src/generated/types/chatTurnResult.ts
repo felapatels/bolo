@@ -9,8 +9,12 @@
 export interface ChatTurnResult {
   /** What the server heard the learner say. */
   transcript: string;
+  /** Concise English translation of what the learner said. Empty string when the learner spoke in English or their speech was unclear. */
+  transcriptEnglish: string;
   /** Bolo's in-character reply, in the target language. */
   replyText: string;
+  /** English translation of Bolo's reply, shown as a bilingual caption. */
+  replyEnglish: string;
   /** Ready-to-play synthesized speech of the reply. */
   replyAudioBase64: string;
   format: string;
