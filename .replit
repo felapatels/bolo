@@ -129,3 +129,11 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_CoJRNhxxYYGOoJiLpibCLhQxyvc"
 EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "appl_yoQNlJYsUmpxjPpPxfCguovDWyd"
 EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = "test_NMSyWVolgRhDCNffsFpwsxEOLdM"
 REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID = "one_language"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 20259
+externalPort = 3000
