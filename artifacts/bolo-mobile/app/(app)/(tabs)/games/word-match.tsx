@@ -103,14 +103,23 @@ function FlipCard({
     });
   }, [card.state, progress]);
 
+  // backfaceVisibility:'hidden' is unreliable on iOS with Reanimated.
+  // Instead we snap opacity at the halfway point so only one face is visible at
+  // a time, and add perspective so the rotation looks 3-D.
   const frontStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
-    backfaceVisibility: 'hidden',
+    transform: [
+      { perspective: 800 },
+      { rotateY: `${interpolate(progress.value, [0, 1], [0, 180])}deg` },
+    ],
+    opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
   }));
 
   const backStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` }],
-    backfaceVisibility: 'hidden',
+    transform: [
+      { perspective: 800 },
+      { rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` },
+    ],
+    opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [0, 0, 1, 1]),
     position: 'absolute',
     top: 0,
     left: 0,
