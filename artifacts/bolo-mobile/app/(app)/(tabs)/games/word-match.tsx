@@ -127,11 +127,10 @@ function FlipCard({
       { rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` },
     ],
     opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [0, 0, 1, 1]),
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    // position/top/left/right/bottom intentionally omitted here —
+    // they live in styles.cardFace. Setting layout props inside
+    // useAnimatedStyle on iOS can detach the view from the Pressable's
+    // JS-thread responder chain, silently eating touches.
   }));
 
   const isMatched = card.state === 'matched';
@@ -161,8 +160,9 @@ function FlipCard({
       disabled={card.state !== 'hidden'}
       style={{ width, height, borderRadius: 14 }}
     >
-      {/* Front (hidden face) — Bolo bird so the card feels alive before it's flipped */}
+      {/* Front (hidden face) — pointerEvents="none" so touches pass through to the Pressable */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.cardFace,
           frontStyle,
@@ -176,8 +176,9 @@ function FlipCard({
         />
       </Animated.View>
 
-      {/* Back (revealed face) */}
+      {/* Back (revealed face) — pointerEvents="none" for the same reason */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.cardFace,
           backStyle,
