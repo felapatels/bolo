@@ -8,6 +8,7 @@ import React, {
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -160,7 +161,7 @@ function FlipCard({
       disabled={card.state !== 'hidden'}
       style={{ width, height, borderRadius: 14 }}
     >
-      {/* Front (hidden face) — shows a "?" so it looks intentional, not broken */}
+      {/* Front (hidden face) — Bolo bird so the card feels alive before it's flipped */}
       <Animated.View
         style={[
           styles.cardFace,
@@ -168,7 +169,11 @@ function FlipCard({
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <Text style={[styles.cardHidden, { color: colors.mutedForeground }]}>?</Text>
+        <Image
+          source={require('../../../../assets/images/mascot/mascot-wave.png')}
+          style={styles.cardBird}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       {/* Back (revealed face) */}
@@ -765,10 +770,9 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     marginTop: 2,
   },
-  cardHidden: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 22,
-    opacity: 0.25,
+  cardBird: {
+    width: '70%',
+    height: '70%',
   },
   statsGrid: { flexDirection: 'row', gap: 12, width: '100%' },
   statCard: {
