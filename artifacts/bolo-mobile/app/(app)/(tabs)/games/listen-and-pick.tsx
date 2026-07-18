@@ -13,7 +13,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { categoryIcon } from '@/lib/ui';
 import { useRouter } from 'expo-router';
@@ -382,9 +381,8 @@ function GameRound({
           const isWrong = answerState === 'wrong' && idx === pickedIdx;
 
           return (
-            <Animated.View
+            <View
               key={`${q.phrase.id}-${idx}`}
-              entering={FadeInDown.delay(idx * 60).duration(300)}
               style={{ width: '48%' }}
             >
               <PressableScale
@@ -451,7 +449,7 @@ function GameRound({
                   </View>
                 )}
               </PressableScale>
-            </Animated.View>
+            </View>
           );
         })}
       </View>
