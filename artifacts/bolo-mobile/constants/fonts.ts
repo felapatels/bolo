@@ -142,10 +142,10 @@ const SCRIPT_FONTS: Record<string, { regular: string; bold: string }> = {
     regular: 'NotoSansTelugu_400Regular',
     bold: 'NotoSansTelugu_700Bold',
   },
-  'Noto Sans Meetei Mayek': {
-    regular: 'NotoSansMeeteiMayek_400Regular',
-    bold: 'NotoSansMeeteiMayek_400Regular',
-  },
+  // Meetei Mayek: intentionally omitted — the Expo-loaded Noto font bypasses
+  // iOS's OpenType shaper for this script, so combining vowel marks render as
+  // separate glyphs. iOS's built-in Unicode fallback shaping is correct, so we
+  // let the system pick the right font automatically.
   'Noto Sans Ol Chiki': {
     regular: 'NotoSansOlChiki_400Regular',
     bold: 'NotoSansOlChiki_400Regular',

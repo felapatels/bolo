@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     marginBottom: 10,
   },
-  native: { fontSize: 22 },
+  native: { fontSize: 22, textAlign: 'left' },
   // Nastaliq calligraphic glyphs cascade steeply above/below the baseline.
   // Extra lineHeight gives the cascade room; extra paddingVertical on the row
   // keeps the icon visually centered in the taller row.
