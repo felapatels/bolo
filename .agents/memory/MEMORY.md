@@ -40,6 +40,7 @@
 - [Transliterated-loanword seed guard](loanword-guard.md) — gloss blocklist + phonetic match; allowlist PIE cognates (bharaa/sūnuḥ), blind to mis-glossed loanwords; probe data before growing the list.
 - [VO offsets via cross-correlation](vo-offset-cross-correlation.md) — measure VO start times in a composite mix with ffmpeg+Node cross-correlation instead of guessing; timed headless-chromium shots verify sync.
 - [Expo Go native-module crashes](expo-go-native-module-crashes.md) — "ViewManagerAdapter…undefined"/silent crash = native module missing from Expo Go; expo-doctor + prefer RN Image for avatars.
+- [Reanimated layout props crash (New Arch)](reanimated-layout-props-crash.md) — position/top/left/right/bottom in useAnimatedStyle crashes Expo Go at bundle init; use GestureDetector not Pressable under animated faces.
 - [Local daily reminders (Expo)](local-reminders.md) — reschedule-on-open pattern (local notifs can't check conditions at fire time); prefs device-authoritative; use `expo install`, not `pnpm add`.
 - [Mic pre-warm pattern](mic-prewarm.md) — recorder streams/prepare run ahead of the tap; don't stop pre-warmed tracks on stopRecording or clipping returns; indicator flips only when capture is live.
 - [iOS earpiece routing with warm mic](ios-earpiece-routing.md) — expo-audio playAndRecord has no defaultToSpeaker; flip to playback-only mode around coach audio, serialized with recorder prepares.
