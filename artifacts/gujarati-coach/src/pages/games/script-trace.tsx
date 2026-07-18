@@ -51,9 +51,10 @@ function samplePath(points: Point[], n: number): Point[] {
   return result;
 }
 
-/** Parse an SVG path string into a polyline of sampled points. */
-function parseSvgPath(d: string, samples = 80): Point[] {
-  const points: Point[] = [];
+/** Parse an SVG path string into one polyline per subpath (per M command). */
+function parseSvgSubpaths(d: string): Point[][] {
+  const subpaths: Point[][] = [];
+  let points: Point[] = [];
   const cmds = d.trim().match(/[MLQC][^MLQC]*/g) ?? [];
   let cx = 0, cy = 0;
 
@@ -66,6 +67,8 @@ function parseSvgPath(d: string, samples = 80): Point[] {
       .map(Number);
 
     if (type === "M") {
+      if (points.length > 0) subpaths.push(points);
+      points = [];
       cx = nums[0]; cy = nums[1];
       points.push({ x: cx, y: cy });
     } else if (type === "L") {
@@ -99,7 +102,34 @@ function parseSvgPath(d: string, samples = 80): Point[] {
     }
   }
 
-  return samplePath(points, samples);
+  if (points.length > 0) subpaths.push(points);
+  return subpaths;
+}
+
+/**
+ * Parse an SVG path into ~`samples` evenly spaced points. Samples are
+ * distributed across subpaths proportionally to their length and each subpath
+ * is sampled independently, so separate glyph contours never contribute
+ * phantom "connector" geometry between an M boundary and the previous point.
+ */
+export function parseSvgPath(d: string, samples = 80): Point[] {
+  const subpaths = parseSvgSubpaths(d).filter((sp) => sp.length > 1);
+  if (subpaths.length === 0) return [];
+  const lengths = subpaths.map((sp) => {
+    let len = 0;
+    for (let i = 1; i < sp.length; i++) {
+      len += Math.hypot(sp[i].x - sp[i - 1].x, sp[i].y - sp[i - 1].y);
+    }
+    return len;
+  });
+  const total = lengths.reduce((a, b) => a + b, 0);
+  if (total === 0) return [subpaths[0][0]];
+  const out: Point[] = [];
+  subpaths.forEach((sp, i) => {
+    const n = Math.max(2, Math.round((lengths[i] / total) * samples));
+    out.push(...samplePath(sp, n));
+  });
+  return out;
 }
 
 /** Normalise a set of points so they fit inside a 0-100 box. */
@@ -116,31 +146,43 @@ function normalise(pts: Point[]): Point[] {
   }));
 }
 
-/** 0-100 accuracy score: higher is better. */
-function scoreTrace(drawn: Point[], guide: Point[]): number {
-  if (drawn.length < 5) return 0;
-  const n = 60;
-  const dNorm = normalise(samplePath(drawn, n));
-  const gNorm = normalise(samplePath(guide, n));
-
-  // Average nearest-point distance between the two point sets
+/** Average nearest-point distance from every point in `from` to the set `to`. */
+function avgNearestDist(from: Point[], to: Point[]): number {
   let total = 0;
-  for (let i = 0; i < n; i++) {
-    const d = dNorm[i];
+  for (const p of from) {
     let minDist = Infinity;
-    for (let j = Math.max(0, i - 10); j < Math.min(n, i + 10); j++) {
-      const dist = Math.hypot(d.x - gNorm[j].x, d.y - gNorm[j].y);
+    for (const q of to) {
+      const dist = Math.hypot(p.x - q.x, p.y - q.y);
       if (dist < minDist) minDist = dist;
     }
     total += minDist;
   }
-  const avgDist = total / n;
-  // avgDist of 0 = perfect, 50 = terrible (across a 100-unit space)
-  const score = Math.max(0, Math.min(100, Math.round(100 - avgDist * 2)));
-  return score;
+  return total / from.length;
 }
 
-const PASS_THRESHOLD = 70;
+/**
+ * 0-100 accuracy score: higher is better.
+ *
+ * Guides are now closed glyph outlines extracted from the font, so the old
+ * index-windowed comparison (which assumed the user traces the guide in the
+ * same direction and order) no longer applies. Instead we use a symmetric
+ * nearest-point (Chamfer) distance: the drawn path must stay close to the
+ * outline AND cover it — taking the worse of the two directions punishes both
+ * stray marks and missing sections, regardless of stroke order.
+ */
+export function scoreTrace(drawn: Point[], guide: Point[]): number {
+  if (drawn.length < 5) return 0;
+  const n = 60;
+  const dNorm = normalise(samplePath(drawn, n));
+  // Guide points are already sampled per-subpath by parseSvgPath — do NOT
+  // resample here, or interpolation would bridge separate glyph contours.
+  const gNorm = normalise(guide);
+  const avgDist = Math.max(avgNearestDist(dNorm, gNorm), avgNearestDist(gNorm, dNorm));
+  // avgDist of 0 = perfect, 50 = terrible (across a 100-unit space)
+  return Math.max(0, Math.min(100, Math.round(100 - avgDist * 2)));
+}
+
+export const PASS_THRESHOLD = 70;
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
@@ -235,19 +277,20 @@ function ScriptTraceCanvas({
 
     ctx.clearRect(0, 0, W, H);
 
-    // Draw guide path (faint)
-    if (guidePoints.length > 1) {
+    // Draw guide glyph outline (faint). The guide is a font-accurate glyph
+    // outline path, so render the raw SVG path data directly via Path2D —
+    // this preserves separate contours (no connecting lines between them).
+    if (character.guide) {
       ctx.save();
+      ctx.scale(W / 100, H / 100);
+      const glyph = new Path2D(character.guide);
+      ctx.fillStyle = pulseGuide ? "#fde68a" : "#e5e7eb";
+      ctx.fill(glyph);
       ctx.strokeStyle = pulseGuide ? "#f59e0b" : "#d1d5db";
-      ctx.lineWidth = W * 0.05;
+      ctx.lineWidth = 1.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo((guidePoints[0].x / 100) * W, (guidePoints[0].y / 100) * H);
-      for (let i = 1; i < guidePoints.length; i++) {
-        ctx.lineTo((guidePoints[i].x / 100) * W, (guidePoints[i].y / 100) * H);
-      }
-      ctx.stroke();
+      ctx.stroke(glyph);
       ctx.restore();
     }
 
@@ -267,7 +310,7 @@ function ScriptTraceCanvas({
       ctx.stroke();
       ctx.restore();
     }
-  }, [guidePoints, pulseGuide]);
+  }, [character.guide, pulseGuide]);
 
   useEffect(() => {
     drawCanvas();

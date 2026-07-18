@@ -226,7 +226,8 @@ function PlayingScreen({
   const handleNext = () => {
     const next = phraseIdx + 1;
     if (next >= round.length) {
-      onDone(results, correctCount + (pState.status === 'correct' ? 1 : 0));
+      // correctCount was already incremented in handleCheck for this phrase.
+      onDone(results, correctCount);
       return;
     }
     setPhraseIdx(next);

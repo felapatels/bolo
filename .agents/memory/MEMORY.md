@@ -57,4 +57,5 @@
 - [Stripe webhook endpoint hygiene](stripe-webhook-endpoints.md) — live-mode-only setup, one prod endpoint; sandbox needs its own key; audit via signed benign POST + events pending_webhooks.
 - [AVPlayer double-fetch](avplayer-double-fetch.md) — iOS AVPlayer requests the same audio URL twice; one-shot streams must stay re-servable or playback is silently dropped.
 - [Chat voice streaming](chat-voice-streaming.md) — SSE audioChunk protocol is opt-in via X-Audio-Stream header; audioDone is the commit signal; MSE audio/mpeg on web, Safari/mobile fall back to full clip.
+- [Script Trace glyph guides](script-trace-glyph-guides.md) — guides are generated font outlines (M/L/Q/C only); scorer must be direction-independent Chamfer; render raw d, not sampled polyline.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
