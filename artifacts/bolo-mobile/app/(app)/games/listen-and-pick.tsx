@@ -34,7 +34,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
-import { GAME_CONFIG } from './game-config';
+import { GAME_CONFIG } from '@/lib/game-config';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

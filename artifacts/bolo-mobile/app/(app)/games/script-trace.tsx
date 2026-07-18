@@ -23,7 +23,7 @@ import {
   SCRIPT_TRACE_CHAPTERS,
   type TraceChapter,
   type TraceCharacter,
-} from './data/script-trace-chapters';
+} from '@/lib/game-data/script-trace-chapters';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
