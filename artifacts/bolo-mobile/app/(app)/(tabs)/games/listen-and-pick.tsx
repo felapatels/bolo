@@ -419,10 +419,26 @@ function GameRound({
                         : colors.foreground,
                     },
                   ]}
-                  numberOfLines={3}
+                  numberOfLines={2}
                   adjustsFontSizeToFit
                 >
                   {choice.nativeScript}
+                </Text>
+                <Text
+                  style={[
+                    styles.choiceEnglish,
+                    {
+                      color: isCorrect
+                        ? '#10B981'
+                        : isWrong
+                        ? '#EF4444'
+                        : colors.mutedForeground,
+                    },
+                  ]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                >
+                  {choice.english}
                 </Text>
                 {isCorrect && (
                   <View style={styles.feedbackIcon}>
@@ -644,6 +660,13 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.bold,
     fontSize: 16,
     textAlign: 'center',
+  },
+  choiceEnglish: {
+    fontFamily: AppFonts.regular,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 3,
+    opacity: 0.85,
   },
   feedbackIcon: { position: 'absolute', top: 8, right: 8 },
   emptyText: { fontFamily: AppFonts.regular, fontSize: 15, textAlign: 'center', paddingHorizontal: 32 },
