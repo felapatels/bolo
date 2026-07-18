@@ -224,6 +224,31 @@ export const CreateAttemptResponse = zod.object({
 
 
 /**
+ * @summary Record the results of a mini-game session and award XP
+ */
+
+export const recordGameSessionBodyPhraseResultsMax = 120;
+
+
+
+export const RecordGameSessionBody = zod.object({
+  "languageCode": zod.string().min(1).describe('Language code for the phrases practiced (e.g. \"gu\", \"hi\").'),
+  "game": zod.enum(['speed-round', 'phrase-builder', 'word-match', 'listen-and-pick']).describe('Identifier for the mini game played.'),
+  "categoryId": zod.number().describe('The category the phrases were drawn from. Used for server-side phrase validation.'),
+  "phraseResults": zod.array(zod.object({
+  "phraseId": zod.number().describe('The database ID of the question phrase.'),
+  "selectedPhraseId": zod.number().nullish().describe('Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId.'),
+  "submittedText": zod.string().nullish().describe('Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase\'s nativeScript exactly.')
+}).describe('The learner\'s submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase\'s nativeScript.')).max(recordGameSessionBodyPhraseResultsMax).describe('One entry per question attempted during the game session. The server determines correctness from the submitted answer — clients never self-report a correct\/incorrect flag.')
+})
+
+export const RecordGameSessionResponse = zod.object({
+  "xpEarned": zod.number().describe('XP earned in this game session.'),
+  "totalXp": zod.number().describe('Learner\'s cumulative XP for this language after the session.')
+})
+
+
+/**
  * @summary Recent practice attempts feed for a language
  */
 export const listRecentAttemptsQueryLimitDefault = 12;
@@ -959,7 +984,7 @@ export const ChatTurnBody = zod.object({
   "role": zod.string().describe('learner | parrot'),
   "text": zod.string()
 }).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.'),
-  "clientDurationSeconds": zod.number().optional().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length.')
+  "clientDurationSeconds": zod.number().nullish().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients.')
 })
 
 export const ChatTurnResponse = zod.object({

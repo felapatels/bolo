@@ -264,6 +264,55 @@ export interface Phrase {
   attemptCount: number;
 }
 
+/**
+ * Identifier for the mini game played.
+ */
+export type GameSessionInputGame = typeof GameSessionInputGame[keyof typeof GameSessionInputGame];
+
+
+export const GameSessionInputGame = {
+  'speed-round': 'speed-round',
+  'phrase-builder': 'phrase-builder',
+  'word-match': 'word-match',
+  'listen-and-pick': 'listen-and-pick',
+} as const;
+
+/**
+ * The learner's submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase's nativeScript.
+ */
+export interface GamePhraseResult {
+  /** The database ID of the question phrase. */
+  phraseId: number;
+  /** Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId. */
+  selectedPhraseId?: number | null;
+  /** Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase's nativeScript exactly. */
+  submittedText?: string | null;
+}
+
+export interface GameSessionInput {
+  /**
+     * Language code for the phrases practiced (e.g. "gu", "hi").
+     * @minLength 1
+     */
+  languageCode: string;
+  /** Identifier for the mini game played. */
+  game: GameSessionInputGame;
+  /** The category the phrases were drawn from. Used for server-side phrase validation. */
+  categoryId: number;
+  /**
+     * One entry per question attempted during the game session. The server determines correctness from the submitted answer — clients never self-report a correct/incorrect flag.
+     * @maxItems 120
+     */
+  phraseResults: GamePhraseResult[];
+}
+
+export interface GameSessionResult {
+  /** XP earned in this game session. */
+  xpEarned: number;
+  /** Learner's cumulative XP for this language after the session. */
+  totalXp: number;
+}
+
 export interface AttemptInput {
   /**
      * Opaque, server-signed token returned by /openai/pronunciation. It carries the authoritative language, score, feedback, transcript and target phrase, so clients cannot forge or inflate their own progress.
@@ -410,8 +459,8 @@ export interface ChatTurnInput {
   audioBase64: string;
   /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
   history?: ChatTurnMessage[];
-  /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. */
-  clientDurationSeconds?: number;
+  /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients. */
+  clientDurationSeconds?: number | null;
 }
 
 export interface ChatTurnResult {

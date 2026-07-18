@@ -43,6 +43,8 @@ import type {
   Friend,
   FriendInviteResult,
   FriendRequest,
+  GameSessionInput,
+  GameSessionResult,
   GeneratedPhrase,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
@@ -817,6 +819,77 @@ export const useCreateAttempt = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateAttemptMutationOptions(options));
+    }
+
+export const getRecordGameSessionUrl = () => {
+
+
+
+
+  return `/api/game-sessions`
+}
+
+/**
+ * @summary Record the results of a mini-game session and award XP
+ */
+export const recordGameSession = async (gameSessionInput: GameSessionInput, options?: RequestInit): Promise<GameSessionResult> => {
+
+  return customFetch<GameSessionResult>(getRecordGameSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(gameSessionInput)
+  }
+);}
+
+
+
+
+
+export const getRecordGameSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordGameSession>>, TError,{data: BodyType<GameSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordGameSession>>, TError,{data: BodyType<GameSessionInput>}, TContext> => {
+
+const mutationKey = ['recordGameSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordGameSession>>, {data: BodyType<GameSessionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordGameSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordGameSessionMutationResult = NonNullable<Awaited<ReturnType<typeof recordGameSession>>>
+    export type RecordGameSessionMutationBody = BodyType<GameSessionInput>
+    export type RecordGameSessionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record the results of a mini-game session and award XP
+ */
+export const useRecordGameSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordGameSession>>, TError,{data: BodyType<GameSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordGameSession>>,
+        TError,
+        {data: BodyType<GameSessionInput>},
+        TContext
+      > => {
+      return useMutation(getRecordGameSessionMutationOptions(options));
     }
 
 export const getListRecentAttemptsUrl = (params: ListRecentAttemptsParams,) => {

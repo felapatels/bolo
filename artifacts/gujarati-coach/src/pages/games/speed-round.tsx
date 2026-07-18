@@ -1,16 +1,549 @@
-import { Zap } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "wouter";
+import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
+import { useListCategories, useListCategoryPhrases, useRecordGameSession, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { GameComingSoon } from "./_coming-soon";
+import { Mascot } from "@/components/mascot";
+import { Confetti } from "@/components/ui/confetti";
+import { cn } from "@/lib/utils";
+
+const GAME_DURATION = 60; // seconds
+const STREAK_BONUS_THRESHOLD = 3;
+const STREAK_MULTIPLIER = 1.5;
+
+type GamePhase = "setup" | "playing" | "done";
+
+// selectedPhraseId is what the learner tapped; the server checks
+// selectedPhraseId === phraseId to determine correctness.
+type PhraseResult = { phraseId: number; selectedPhraseId: number };
+type QuestionStats = { correct: number; total: number; streak: number; bestStreak: number; points: number };
+
+interface Phrase {
+  id: number;
+  nativeScript: string;
+  romanized: string;
+  english: string;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildOptions(correct: Phrase, pool: Phrase[], hardMode: boolean): { label: string; phraseId: number; isCorrect: boolean }[] {
+  const distractors = shuffle(pool.filter((p) => p.id !== correct.id)).slice(0, 3);
+  const all = shuffle([correct, ...distractors]);
+  return all.map((p) => ({
+    label: hardMode ? p.nativeScript : p.english,
+    phraseId: p.id,
+    isCorrect: p.id === correct.id,
+  }));
+}
+
+// ─── Setup Screen ────────────────────────────────────────────────────────────
+
+function SetupScreen({
+  onStart,
+}: {
+  onStart: (categoryId: number, hardMode: boolean) => void;
+}) {
+  const { activeLang } = useLanguage();
+  const { data: categories = [] } = useListCategories({ lang: activeLang });
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [hardMode, setHardMode] = useState(false);
+  const nativeText = useNativeText();
+
+  const chosen = selectedId ?? categories[0]?.id ?? null;
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-background pb-24 lg:pb-8">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-4">
+        <Link
+          href="/games"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+          aria-label="Back to Games"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-lg font-extrabold text-foreground">Speed Round</h1>
+      </div>
+
+      <div className="mx-auto w-full max-w-md flex-1 space-y-6 px-4 pt-8">
+        {/* Hero */}
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-100 dark:bg-amber-950/40">
+            <Zap className="h-10 w-10 text-amber-500" strokeWidth={1.75} />
+          </div>
+          <h2 className="text-2xl font-extrabold text-foreground">Ready to race?</h2>
+          <p className="text-sm text-muted-foreground">
+            60 seconds. One phrase. Four choices. How many can you get?
+          </p>
+        </div>
+
+        {/* Category picker */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">Topic</label>
+          <div className="grid max-h-52 gap-2 overflow-y-auto">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedId(cat.id)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                  (chosen === cat.id)
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card text-foreground hover:bg-muted/50",
+                )}
+              >
+                <span className="text-base font-semibold">{cat.title}</span>
+                {chosen === cat.id && <ChevronRight className="ml-auto h-4 w-4 shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hard mode toggle */}
+        <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
+          <div>
+            <p className="font-semibold text-foreground">Hard Mode</p>
+            <p className="text-xs text-muted-foreground">Answer options show native script only</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={hardMode}
+            onClick={() => setHardMode((v) => !v)}
+            className={cn(
+              "relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              hardMode ? "bg-primary" : "bg-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                hardMode && "translate-x-5",
+              )}
+            />
+          </button>
+        </div>
+
+        {/* Stats preview */}
+        <div className="grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-card text-center">
+          <div className="py-3">
+            <p className="text-xl font-extrabold text-amber-500">60s</p>
+            <p className="text-xs text-muted-foreground">Time</p>
+          </div>
+          <div className="py-3">
+            <p className="text-xl font-extrabold text-primary">×1.5</p>
+            <p className="text-xs text-muted-foreground">Streak bonus</p>
+          </div>
+          <div className="py-3">
+            <p className="text-xl font-extrabold text-foreground">Free</p>
+            <p className="text-xs text-muted-foreground">Plan</p>
+          </div>
+        </div>
+
+        {/* Start button */}
+        <button
+          disabled={!chosen}
+          onClick={() => chosen !== null && onStart(chosen, hardMode)}
+          className="w-full rounded-xl bg-primary px-6 py-4 font-extrabold text-primary-foreground transition-opacity disabled:opacity-50"
+        >
+          Start Game
+        </button>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}
+
+// ─── Playing Screen ───────────────────────────────────────────────────────────
+
+function PlayingScreen({
+  categoryId,
+  hardMode,
+  onDone,
+}: {
+  categoryId: number;
+  hardMode: boolean;
+  onDone: (results: PhraseResult[], stats: QuestionStats) => void;
+}) {
+  const { activeLang } = useLanguage();
+  const nativeText = useNativeText();
+  const { data: phrases = [], isLoading } = useListCategoryPhrases(categoryId, activeLang);
+
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const [queue, setQueue] = useState<Phrase[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [options, setOptions] = useState<{ label: string; phraseId: number; isCorrect: boolean }[]>([]);
+  const [selected, setSelected] = useState<number | null>(null); // phraseId of selected option
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [results, setResults] = useState<PhraseResult[]>([]);
+  const [stats, setStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  const [started, setStarted] = useState(false);
+
+  // Build question queue once phrases load
+  useEffect(() => {
+    if (phrases.length === 0) return;
+    const q = shuffle(phrases as Phrase[]);
+    setQueue(q);
+    setCurrentIndex(0);
+    setStarted(true);
+  }, [phrases]);
+
+  // Update options when question changes
+  useEffect(() => {
+    if (queue.length === 0) return;
+    const phrase = queue[currentIndex % queue.length];
+    setOptions(buildOptions(phrase, queue as Phrase[], hardMode));
+    setSelected(null);
+    setFeedback(null);
+  }, [queue, currentIndex, hardMode]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!started) return;
+    const id = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [started]);
+
+  // When timer hits 0, finalize
+  const resultsRef = useRef(results);
+  const statsRef = useRef(stats);
+  resultsRef.current = results;
+  statsRef.current = stats;
+
+  useEffect(() => {
+    if (timeLeft === 0 && started) {
+      onDone(resultsRef.current, statsRef.current);
+    }
+  }, [timeLeft, started, onDone]);
+
+  const handleAnswer = useCallback(
+    (opt: { phraseId: number; isCorrect: boolean }) => {
+      if (selected !== null) return; // already answered
+      setSelected(opt.phraseId);
+      const correct = opt.isCorrect;
+      setFeedback(correct ? "correct" : "wrong");
+
+      const phrase = queue[currentIndex % queue.length];
+      // Send the tapped option's phraseId; server determines correct = (selectedPhraseId === phraseId)
+      const newResult: PhraseResult = { phraseId: phrase.id, selectedPhraseId: opt.phraseId };
+      setResults((prev) => [...prev, newResult]);
+
+      setStats((prev) => {
+        const newStreak = correct ? prev.streak + 1 : 0;
+        const multiplier = newStreak >= STREAK_BONUS_THRESHOLD ? STREAK_MULTIPLIER : 1;
+        const gained = correct ? Math.round(100 * multiplier) : 0;
+        return {
+          correct: prev.correct + (correct ? 1 : 0),
+          total: prev.total + 1,
+          streak: newStreak,
+          bestStreak: Math.max(prev.bestStreak, newStreak),
+          points: prev.points + gained,
+        };
+      });
+
+      // Advance after brief feedback delay
+      setTimeout(() => {
+        setCurrentIndex((i) => i + 1);
+      }, correct ? 400 : 1000);
+    },
+    [selected, queue, currentIndex],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+        <div className="space-y-3 text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading phrases…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const phrase = queue.length > 0 ? queue[currentIndex % queue.length] : null;
+  const timerPct = (timeLeft / GAME_DURATION) * 100;
+  const isLowTime = timeLeft <= 10;
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-background">
+      {/* Timer bar */}
+      <div className="h-1.5 w-full bg-muted">
+        <div
+          className={cn(
+            "h-full transition-all duration-1000",
+            isLowTime ? "bg-red-500" : "bg-amber-500",
+          )}
+          style={{ width: `${timerPct}%` }}
+        />
+      </div>
+
+      {/* Header row */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className={cn("flex items-center gap-1.5 text-sm font-bold tabular-nums", isLowTime ? "text-red-500" : "text-foreground")}>
+          <Timer className="h-4 w-4" />
+          {timeLeft}s
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-sm font-bold text-amber-500">
+            <Flame className="h-4 w-4" />
+            {stats.streak}
+          </div>
+          <div className="flex items-center gap-1 text-sm font-bold text-primary">
+            <Trophy className="h-4 w-4" />
+            {stats.points}
+          </div>
+        </div>
+      </div>
+
+      {/* Question area */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
+        {phrase && (
+          <>
+            <div className="text-center">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {stats.total + 1} answered
+              </p>
+              <p
+                className="text-3xl font-bold leading-snug text-foreground"
+                style={nativeText.style}
+                dir={nativeText.dir}
+              >
+                {phrase.nativeScript}
+              </p>
+              {!hardMode && phrase.romanized && (
+                <p className="mt-1 text-sm text-muted-foreground">{phrase.romanized}</p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                {hardMode ? "Pick the correct native-script translation" : "Pick the correct English translation"}
+              </p>
+            </div>
+
+            <div className="grid w-full max-w-sm gap-3">
+              {options.map((opt) => {
+                const isSelected = selected === opt.phraseId;
+                const showCorrect = feedback !== null && opt.isCorrect;
+                const showWrong = isSelected && feedback === "wrong";
+                return (
+                  <button
+                    key={opt.phraseId}
+                    onClick={() => handleAnswer(opt)}
+                    disabled={selected !== null}
+                    className={cn(
+                      "rounded-xl border px-4 py-3 text-left font-semibold transition-all",
+                      showCorrect
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40"
+                        : showWrong
+                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40"
+                        : selected !== null
+                        ? "border-border bg-card/50 text-muted-foreground opacity-60"
+                        : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]",
+                    )}
+                    style={hardMode ? nativeText.style : undefined}
+                    dir={hardMode ? nativeText.dir : undefined}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Done Screen ─────────────────────────────────────────────────────────────
+
+function DoneScreen({
+  categoryId,
+  stats,
+  results,
+  onPlayAgain,
+  onChangeTopic,
+}: {
+  categoryId: number;
+  stats: QuestionStats;
+  results: PhraseResult[];
+  onPlayAgain: () => void;
+  onChangeTopic: () => void;
+}) {
+  const { activeLang } = useLanguage();
+  const queryClient = useQueryClient();
+  const recordSession = useRecordGameSession();
+  const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (submitted || results.length === 0) return;
+    setSubmitted(true);
+    recordSession.mutate(
+      {
+        data: {
+          languageCode: activeLang,
+          game: "speed-round",
+          categoryId,
+          phraseResults: results,
+        },
+      },
+      {
+        onSuccess: (data) => {
+          setXpEarned(data.xpEarned);
+          queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+        },
+      },
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 pb-8 pt-12">
+      <Confetti active={stats.correct > 0} />
+
+      <Mascot pose={stats.correct >= 5 ? "cheer" : stats.correct >= 2 ? "thumbsup" : "tryagain"} size={100} />
+
+      <h2 className="mt-4 text-2xl font-extrabold text-foreground">
+        {stats.correct === 0 ? "Nice try!" : stats.correct >= 10 ? "Incredible!" : "Great round!"}
+      </h2>
+
+      {/* Stats grid */}
+      <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">
+        <StatCard label="Correct" value={`${stats.correct}/${stats.total}`} color="text-emerald-600" />
+        <StatCard label="Accuracy" value={`${accuracy}%`} color="text-primary" />
+        <StatCard label="Best Streak" value={String(stats.bestStreak)} color="text-amber-500" icon={<Flame className="h-3.5 w-3.5" />} />
+        <StatCard
+          label="XP Earned"
+          value={xpEarned !== null ? `+${xpEarned}` : "…"}
+          color="text-violet-600"
+        />
+      </div>
+
+      {stats.bestStreak >= STREAK_BONUS_THRESHOLD && (
+        <p className="mt-4 text-sm text-amber-600 dark:text-amber-400">
+          🔥 ×1.5 streak bonus applied!
+        </p>
+      )}
+
+      {/* Actions */}
+      <div className="mt-8 flex w-full max-w-xs flex-col gap-3">
+        <button
+          onClick={onPlayAgain}
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-primary-foreground"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Play Again
+        </button>
+        <button
+          onClick={onChangeTopic}
+          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3.5 font-bold text-foreground hover:bg-muted/50"
+        >
+          <Home className="h-4 w-4" />
+          Change Topic
+        </button>
+        <Link
+          href="/games"
+          className="text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
+        >
+          Back to Games
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  color,
+  icon,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4">
+      <p className={cn("flex items-center gap-1 text-2xl font-extrabold", color)}>
+        {icon}
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+// ─── Root ────────────────────────────────────────────────────────────────────
 
 export default function SpeedRoundPage() {
-  return (
-    <GameComingSoon
-      title="Speed Round"
-      description="Race against the clock to answer as many as you can."
-      Icon={Zap}
-      backHref="/games"
-    >
-      <BottomNav />
-    </GameComingSoon>
-  );
+  const [phase, setPhase] = useState<GamePhase>("setup");
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [hardMode, setHardMode] = useState(false);
+  const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
+  const [finalStats, setFinalStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  const [gameKey, setGameKey] = useState(0); // reset key
+
+  const handleStart = (catId: number, hard: boolean) => {
+    setCategoryId(catId);
+    setHardMode(hard);
+    setPhase("playing");
+  };
+
+  const handleDone = useCallback((results: PhraseResult[], stats: QuestionStats) => {
+    setFinalResults(results);
+    setFinalStats(stats);
+    setPhase("done");
+  }, []);
+
+  const handlePlayAgain = () => {
+    setGameKey((k) => k + 1);
+    setPhase("playing");
+  };
+
+  const handleChangeTopic = () => {
+    setPhase("setup");
+    setCategoryId(null);
+  };
+
+  if (phase === "setup") return <SetupScreen onStart={handleStart} />;
+  if (phase === "playing" && categoryId !== null) {
+    return (
+      <PlayingScreen
+        key={gameKey}
+        categoryId={categoryId}
+        hardMode={hardMode}
+        onDone={handleDone}
+      />
+    );
+  }
+  if (phase === "done" && categoryId !== null) {
+    return (
+      <DoneScreen
+        categoryId={categoryId}
+        stats={finalStats}
+        results={finalResults}
+        onPlayAgain={handlePlayAgain}
+        onChangeTopic={handleChangeTopic}
+      />
+    );
+  }
+  return <SetupScreen onStart={handleStart} />;
 }

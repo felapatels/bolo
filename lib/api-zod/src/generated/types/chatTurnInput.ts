@@ -17,6 +17,6 @@ export interface ChatTurnInput {
   audioBase64: string;
   /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
   history?: ChatTurnMessage[];
-  /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. */
-  clientDurationSeconds?: number;
+  /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients. */
+  clientDurationSeconds?: number | null;
 }

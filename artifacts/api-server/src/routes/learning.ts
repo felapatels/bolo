@@ -9,6 +9,30 @@ import {
 } from "@workspace/db";
 import { asc, desc, eq, and, inArray } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
+import { z } from "zod";
+
+// ─── Game session schema (validated inline; generated after orval runs) ──────
+// Server computes correctness from the submitted answer — clients never
+// self-report correct/incorrect, closing the client-forgery attack surface.
+const GamePhraseResult = z.object({
+  phraseId: z.number().int(),
+  // Speed Round: the phraseId of the option the learner tapped
+  selectedPhraseId: z.number().int().nullable().optional(),
+  // Phrase Builder: the assembled word tokens joined by a single space
+  submittedText: z.string().nullable().optional(),
+});
+const MAX_RESULTS: Record<string, number> = {
+  "speed-round": 60,    // 60 s / ~1 s per question absolute max
+  "phrase-builder": 8,
+  "word-match": 40,
+  "listen-and-pick": 40,
+};
+const GameSessionBody = z.object({
+  languageCode: z.string().min(1),
+  game: z.enum(["speed-round", "phrase-builder", "word-match", "listen-and-pick"]),
+  categoryId: z.number().int(),
+  phraseResults: z.array(GamePhraseResult).min(1).max(120),
+});
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { verifyEvaluation } from "../lib/evaluationToken";
@@ -1267,5 +1291,123 @@ router.get(
     });
   },
 );
+
+// ─── POST /game-sessions ──────────────────────────────────────────────────────
+// Records the results of a mini-game session and awards XP by inserting one
+// attempt per answered phrase. The server determines correctness from the
+// submitted answer — clients never self-report correct/incorrect, preventing
+// XP farming via forged payloads.
+const gameSessionRateLimit = createRateLimit({ windowMs: 60_000, max: 30 });
+
+router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Response): Promise<void> => {
+  const parsed = GameSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid game session payload" });
+    return;
+  }
+
+  const { languageCode, game, categoryId, phraseResults } = parsed.data;
+  const userId = getUserId(req);
+
+  // Free is limited to Hindi; other languages require Bolo! Plus.
+  if (denyLockedLanguage(req, res, languageCode)) return;
+
+  // Enforce per-game-mode result cap (defence-in-depth beyond schema .max(120)).
+  const cap = MAX_RESULTS[game] ?? 40;
+  const capped = phraseResults.slice(0, cap);
+
+  // Deduplicate by phraseId — each phrase can award XP at most once per session.
+  const seen = new Set<number>();
+  const deduped = capped.filter((r) => {
+    if (seen.has(r.phraseId)) return false;
+    seen.add(r.phraseId);
+    return true;
+  });
+
+  // Fetch only the phrases that (a) exist, (b) belong to this language, AND
+  // (c) belong to this category — rejects any phrase IDs the client invented.
+  const phraseIds = deduped.map((r) => r.phraseId);
+  const phrases =
+    phraseIds.length > 0
+      ? await db
+          .select({
+            id: phrasesTable.id,
+            nativeScript: phrasesTable.nativeScript,
+            romanized: phrasesTable.romanized,
+            english: phrasesTable.english,
+          })
+          .from(phrasesTable)
+          .where(
+            and(
+              inArray(phrasesTable.id, phraseIds),
+              eq(phrasesTable.languageCode, languageCode),
+              eq(phrasesTable.categoryId, categoryId),
+            ),
+          )
+      : [];
+
+  const phraseMap = new Map(phrases.map((p) => [p.id, p]));
+
+  // Server-side correctness: derived from the submitted answer, never from a
+  // client-asserted flag.
+  function isCorrect(r: (typeof deduped)[number], phrase: { nativeScript: string }): boolean {
+    if (game === "speed-round" || game === "word-match" || game === "listen-and-pick") {
+      // Correct when the learner tapped the option whose phraseId matches the question.
+      return r.selectedPhraseId === r.phraseId;
+    }
+    if (game === "phrase-builder") {
+      // Correct when the assembled text matches the phrase's native script exactly.
+      if (!r.submittedText) return false;
+      return r.submittedText.trim() === phrase.nativeScript.trim();
+    }
+    return false;
+  }
+
+  // Build attempt rows — only for phrase IDs the server verified above.
+  const toInsert = deduped
+    .map((r) => {
+      const p = phraseMap.get(r.phraseId);
+      if (!p) return null; // unknown or wrong category — silently skip
+      const correct = isCorrect(r, p);
+      const score = correct ? 100 : 0;
+      return {
+        userId,
+        languageCode,
+        phraseId: p.id,
+        nativeScript: p.nativeScript,
+        romanized: p.romanized ?? "",
+        english: p.english,
+        transcript: "",
+        score,
+        passed: correct,
+        feedback: "",
+      };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
+
+  let xpEarned = 0;
+  if (toInsert.length > 0) {
+    await db.insert(attemptsTable).values(toInsert);
+    xpEarned = toInsert.reduce((sum, a) => sum + a.score, 0);
+  }
+
+  // Compute the learner's updated cumulative XP for this language.
+  const allAttempts = await db
+    .select({ phraseId: attemptsTable.phraseId, score: attemptsTable.score, createdAt: attemptsTable.createdAt })
+    .from(attemptsTable)
+    .where(
+      and(
+        eq(attemptsTable.userId, userId),
+        eq(attemptsTable.languageCode, languageCode),
+      ),
+    );
+
+  const metrics = computeProgressMetrics(allAttempts, getUserTimezone(req));
+
+  res.status(201).json({
+    xpEarned,
+    totalXp: metrics.xp,
+  });
+});
 
 export default router;

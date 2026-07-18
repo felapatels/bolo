@@ -282,6 +282,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AttemptResult"
 
+  /game-sessions:
+    post:
+      operationId: recordGameSession
+      tags: [learning]
+      summary: Record the results of a mini-game session and award XP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameSessionInput"
+      responses:
+        "201":
+          description: Game session recorded and XP awarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSessionResult"
+
   /attempts/recent:
     get:
       operationId: listRecentAttempts
@@ -1936,6 +1955,74 @@ components:
         - mastered
         - attemptCount
 
+    GameSessionInput:
+      type: object
+      properties:
+        languageCode:
+          type: string
+          minLength: 1
+          description: Language code for the phrases practiced (e.g. "gu", "hi").
+        game:
+          type: string
+          enum: [speed-round, phrase-builder, word-match, listen-and-pick]
+          description: Identifier for the mini game played.
+        categoryId:
+          type: integer
+          description: The category the phrases were drawn from. Used for server-side phrase validation.
+        phraseResults:
+          type: array
+          description: >-
+            One entry per question attempted during the game session. The server
+            determines correctness from the submitted answer — clients never
+            self-report a correct/incorrect flag.
+          maxItems: 120
+          items:
+            $ref: "#/components/schemas/GamePhraseResult"
+      required:
+        - languageCode
+        - game
+        - categoryId
+        - phraseResults
+
+    GamePhraseResult:
+      type: object
+      description: >-
+        The learner's submitted answer for one game question. The server
+        computes correctness from the answer, depending on game mode.
+        For speed-round: selectedPhraseId must equal phraseId to be correct.
+        For phrase-builder: submittedText must match the phrase's nativeScript.
+      properties:
+        phraseId:
+          type: integer
+          description: The database ID of the question phrase.
+        selectedPhraseId:
+          type: integer
+          nullable: true
+          description: >-
+            Speed Round — the phraseId of the option the learner tapped.
+            Correct when selectedPhraseId === phraseId.
+        submittedText:
+          type: string
+          nullable: true
+          description: >-
+            Phrase Builder — the assembled word tokens joined by a single space.
+            Correct when it matches the phrase's nativeScript exactly.
+      required:
+        - phraseId
+
+    GameSessionResult:
+      type: object
+      properties:
+        xpEarned:
+          type: integer
+          description: XP earned in this game session.
+        totalXp:
+          type: integer
+          description: Learner's cumulative XP for this language after the session.
+      required:
+        - xpEarned
+        - totalXp
+
     AttemptInput:
       type: object
       properties:
@@ -2254,10 +2341,12 @@ components:
             $ref: "#/components/schemas/ChatTurnMessage"
         clientDurationSeconds:
           type: number
+          nullable: true
           description: >-
             Client-measured duration (in seconds) of the recorded audio clip.
             When present the server uses this value to debit the caller's weekly
             chat-time allowance instead of inferring it from audio length.
+            Optional; omitted by older clients.
       required:
         - languageCode
         - audioBase64
