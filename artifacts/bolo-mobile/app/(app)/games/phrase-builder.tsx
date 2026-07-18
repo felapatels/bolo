@@ -83,7 +83,9 @@ function initPhraseState(words: string[]): PhraseBuilderState {
 
 function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
   const colors = useColors();
+  const router = useRouter();
   const { activeLang } = useLanguage();
+  const { isPlus } = useEntitlements();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -92,7 +94,15 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <View style={{ width: 44 }} />
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Phrase Builder</Text>
         <View style={{ width: 44 }} />
       </View>
@@ -140,7 +150,7 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: colors.foreground }]}>Free</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{isPlus ? 'Plus' : 'Free'}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Plan</Text>
           </View>
         </View>
@@ -551,6 +561,7 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: AppFonts.extrabold, fontSize: 18 },
   statLabel: { fontFamily: AppFonts.regular, fontSize: 11, marginTop: 2 },
   startBtn: { marginTop: 8 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   // Playing
   progressBg: { height: 4, width: '100%' },
   progressFill: { height: 4 },
