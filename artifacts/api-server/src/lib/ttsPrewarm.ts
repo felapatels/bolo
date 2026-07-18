@@ -3,6 +3,10 @@ import { eq, inArray } from "drizzle-orm";
 import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { ttsCacheKey } from "./ttsCache";
 import { logger } from "./logger";
+import {
+  greetingAudioCacheKey,
+  buildGreetingTtsText,
+} from "./greetingStrings";
 
 // Default voice used when learners tap the speaker button without selecting a
 // specific voice — must match the default in routes/openai.ts.
@@ -329,10 +333,79 @@ export function scheduleTtsPrewarm(): void {
         { done, failed, skipped, quotaExhausted, attempted: batch.length, deferred },
         "TTS pre-warm: complete",
       );
+
+      // After phrase prewarm, synthesize greeting audio for each language.
+      // These use Bolo's chat voice (Jessica/flash) rather than the default
+      // phrase voice, so they're cached under dedicated greeting keys.
+      await warmGreetings();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
       // Log and swallow — pre-warm is best-effort, never critical.
       logger.warn({ err }, "TTS pre-warm: unexpected error, skipping warm-up");
     }
   })();
+}
+
+// Voice/model for Bolo's chat voice — must match what parrotChat.ts uses.
+const BOLO_GREETING_VOICE_ID = "cgSgspJ2msm6clMCkdW9"; // Jessica
+const BOLO_GREETING_MODEL = "eleven_flash_v2_5";
+
+/**
+ * Pre-synthesizes a greeting audio clip for every language in the database
+ * using Bolo's chat voice. Runs after the phrase prewarm. Best-effort: a
+ * failure for one language never aborts the others.
+ */
+async function warmGreetings(): Promise<void> {
+  try {
+    const languages = await db.query.languagesTable.findMany({
+      columns: { code: true, name: true },
+    });
+
+    if (languages.length === 0) return;
+
+    logger.info({ count: languages.length }, "TTS pre-warm: warming greeting audio");
+
+    let done = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    await pool(languages, CONCURRENCY, async (lang) => {
+      const cacheKey = greetingAudioCacheKey(lang.code);
+
+      // Skip if already cached.
+      const existing = await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, cacheKey),
+        columns: { cacheKey: true },
+      });
+      if (existing) {
+        skipped++;
+        return;
+      }
+
+      const ttsText = buildGreetingTtsText(lang.name);
+      try {
+        const buffer = await textToSpeechElevenLabs(
+          ttsText,
+          BOLO_GREETING_VOICE_ID,
+          lang.name,
+          BOLO_GREETING_MODEL,
+        );
+        const audioBase64 = buffer.toString("base64");
+        await db
+          .insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: "mp3" })
+          .onConflictDoNothing()
+          .execute();
+        done++;
+      } catch (err) {
+        failed++;
+        logger.warn({ err, languageCode: lang.code }, "TTS pre-warm: greeting synthesis failed");
+        throw err; // re-throw so pool() circuit breaker counts it
+      }
+    });
+
+    logger.info({ done, skipped, failed }, "TTS pre-warm: greeting warm-up complete");
+  } catch (err) {
+    logger.warn({ err }, "TTS pre-warm: greeting warm-up error (non-fatal)");
+  }
 }

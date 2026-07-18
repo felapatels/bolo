@@ -114,6 +114,18 @@ export default function ChatPage() {
   const activeTurnRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Pre-fetched first-turn greeting for the active chat language. Populated on
+  // mount and whenever chatLang changes. Stored in a ref so reads never trigger
+  // re-renders and the value is always current inside finishRecording.
+  type GreetingData = {
+    text: string;
+    english: string;
+    audioBase64: string;
+    format: string;
+    squawkVariant: 0 | 1 | 2 | null;
+  };
+  const greetingRef = useRef<GreetingData | null>(null);
+
   // Warm up the mic on mount.
   useEffect(() => {
     recorder.prepare().catch(() => {});
@@ -134,11 +146,35 @@ export default function ChatPage() {
     setMessages([]);
     setErrorMsg(null);
     setPhase("idle");
+    greetingRef.current = null; // invalidate cached greeting for old language
     if (playbackRef.current) {
       playbackRef.current.pause();
       playbackRef.current = null;
     }
   }, [chatLang, clearWordReveal]);
+
+  // Pre-fetch the first-turn greeting audio for the active chat language so it
+  // is always ready by the time the learner first presses Bolo's belly.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchGreeting = async () => {
+      try {
+        const res = await fetch(
+          `/api/openai/chat-greeting?languageCode=${encodeURIComponent(chatLang)}`,
+          { credentials: "include" },
+        );
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as GreetingData;
+        if (!cancelled && data.audioBase64) {
+          greetingRef.current = data;
+        }
+      } catch {
+        // Non-fatal: first turn falls back to normal flow
+      }
+    };
+    void fetchGreeting();
+    return () => { cancelled = true; };
+  }, [chatLang]);
 
   // Stop playback and word-reveal on unmount.
   useEffect(
@@ -166,15 +202,24 @@ export default function ChatPage() {
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     earlyReplyShownRef.current = false;
-    setPhase("processing");
-    setProcessingStep("transcribing");
     setErrorMsg(null);
-    // Immediately show a pending learner bubble — gives visual feedback
-    // before Whisper returns the transcript (~1 s later).
-    setMessages((prev) => [
-      ...prev.filter((m) => !m.pending),
-      { role: "learner", text: "", pending: true },
-    ]);
+
+    // First-turn greeting: if the greeting is prefetched and this is the very
+    // first turn, show and speak it immediately while the real API call runs
+    // in the background — eliminating the 2–3 s blank wait.
+    const isFirstTurn = messages.length === 0;
+    const greeting = greetingRef.current;
+    const useGreeting = isFirstTurn && greeting !== null;
+
+    if (!useGreeting) {
+      // Normal path: show a spinner and pending learner bubble right away.
+      setPhase("processing");
+      setProcessingStep("transcribing");
+      setMessages((prev) => [
+        ...prev.filter((m) => !m.pending),
+        { role: "learner", text: "", pending: true },
+      ]);
+    }
 
     // ── Streaming voice playback (MSE) ────────────────────────────────────
     // When the server streams `audioChunk` SSE events, MP3 bytes are appended
@@ -313,6 +358,181 @@ export default function ChatPage() {
       let binary = "";
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const audioBase64 = btoa(binary);
+
+      // ── First-turn greeting path ───────────────────────────────────────────
+      // Show Bolo's pre-synthesized welcome message immediately, eliminating
+      // the 2–3 s blank wait while STT→LLM→TTS completes. The real API call
+      // runs concurrently; its reply queues to play the moment the greeting ends.
+      if (useGreeting) {
+        // Inject the greeting bubble instantly — no spinner.
+        setPhase("playing");
+        earlyReplyShownRef.current = true; // skip word-reveal on real reply
+        setMessages([{
+          role: "parrot",
+          text: greeting!.text,
+          englishText: greeting!.english || undefined,
+        }]);
+
+        // Coordinate greeting audio with the real reply that arrives later.
+        let greetingEnded = false;
+        let pendingPlay: (() => void) | null = null;
+
+        const onGreetingEnded = () => {
+          if (activeTurnRef.current !== myTurn) return;
+          greetingEnded = true;
+          if (pendingPlay) {
+            pendingPlay();
+            pendingPlay = null;
+          } else {
+            // Real reply still in flight — show brief wait indicator.
+            setPhase("processing");
+            setProcessingStep("voicing");
+          }
+        };
+
+        // Play greeting audio (squawk SFX intro, then the voice clip).
+        const greetingAudio = new Audio(`data:audio/${greeting!.format};base64,${greeting!.audioBase64}`);
+        playbackRef.current = greetingAudio;
+        greetingAudio.onended = onGreetingEnded;
+        greetingAudio.onerror = () => onGreetingEnded();
+
+        const startGreetingAudio = () => {
+          if (activeTurnRef.current !== myTurn) return;
+          greetingAudio.play().catch(() => onGreetingEnded());
+        };
+
+        const gSfxIdx = greeting!.squawkVariant ?? 0;
+        const gSfxFile = ["squawk_a", "squawk_b", "squawk_c"][gSfxIdx];
+        const gSfx = new Audio(`/gujarati-coach/sounds/${gSfxFile}.mp3`);
+        gSfx.onended = startGreetingAudio;
+        gSfx.onerror = startGreetingAudio;
+        gSfx.play().catch(startGreetingAudio);
+
+        // Fire the real API call (no streaming audio — we just need the reply).
+        const chatUrl = getChatTurnUrl();
+        let gRes: Response;
+        try {
+          gRes = await fetch(chatUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+            body: JSON.stringify({ languageCode: chatLang, audioBase64, history: [] }),
+          });
+        } catch {
+          // Network error — greeting already playing, let it finish naturally.
+          return;
+        }
+
+        if (!gRes.ok) {
+          // Server error — greeting already playing, just let it end gracefully.
+          return;
+        }
+
+        // Parse SSE events from the real chat call.
+        const gReader = gRes.body!.getReader();
+        const gDecoder = new TextDecoder();
+        let gSseBuffer = "";
+        let transcriptAdded = false;
+
+        gOuter: while (true) {
+          const { done, value } = await gReader.read();
+          if (done) break;
+          if (activeTurnRef.current !== myTurn) { gReader.cancel().catch(() => {}); return; }
+          gSseBuffer += gDecoder.decode(value, { stream: true });
+          const gParts = gSseBuffer.split("\n\n");
+          gSseBuffer = gParts.pop() ?? "";
+
+          for (const part of gParts) {
+            let evtName = "message";
+            let dataStr = "";
+            for (const line of part.split("\n")) {
+              if (line.startsWith("event: ")) evtName = line.slice(7).trim();
+              else if (line.startsWith("data: ")) dataStr = line.slice(6).trim();
+            }
+            if (!dataStr) continue;
+            if (activeTurnRef.current !== myTurn) { gReader.cancel().catch(() => {}); return; }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const gPayload = JSON.parse(dataStr) as any;
+
+            if (evtName === "transcript" && !transcriptAdded) {
+              // Add learner bubble below the greeting bubble.
+              transcriptAdded = true;
+              const t = (gPayload.transcript as string) ?? "";
+              setMessages((prev) => [...prev, { role: "learner", text: t }]);
+            } else if (evtName === "reply") {
+              const rText = (gPayload.replyText as string) ?? "";
+              const rEnglish = (gPayload.replyEnglish as string) ?? "";
+              const rTranscriptEnglish = (gPayload.transcriptEnglish as string) ?? "";
+              const rAudio = (gPayload.replyAudioBase64 as string) ?? "";
+              const rFmt = (gPayload.format as string) || "mp3";
+              const rSquawk = gPayload.squawkVariant as 0 | 1 | 2 | null;
+              const rSecs = gPayload.secondsRemaining as number | null;
+
+              if (rSecs !== null) setSecondsRemaining(rSecs);
+              else setSecondsRemaining(null);
+
+              const showRealReply = () => {
+                if (activeTurnRef.current !== myTurn) return;
+                // Back-fill English gloss on the learner bubble.
+                if (rTranscriptEnglish) {
+                  setMessages((prev) => {
+                    const u = [...prev];
+                    for (let i = u.length - 1; i >= 0; i--) {
+                      if (u[i].role === "learner") {
+                        if (rTranscriptEnglish !== u[i].text) {
+                          u[i] = { ...u[i], englishText: rTranscriptEnglish };
+                        }
+                        break;
+                      }
+                    }
+                    return u;
+                  });
+                }
+                // Add real parrot reply bubble.
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "parrot", text: rText, englishText: rEnglish || undefined },
+                ]);
+                setPhase("playing");
+                const playRealAudio = () => {
+                  if (activeTurnRef.current !== myTurn) return;
+                  const ra = new Audio(`data:audio/${rFmt};base64,${rAudio}`);
+                  playbackRef.current = ra;
+                  ra.onended = () => {
+                    if (playbackRef.current === ra) playbackRef.current = null;
+                    if (activeTurnRef.current === myTurn) setPhase("idle");
+                  };
+                  ra.play().catch(() => {
+                    if (playbackRef.current === ra) playbackRef.current = null;
+                    if (activeTurnRef.current === myTurn) setPhase("idle");
+                  });
+                };
+                if (rSquawk !== null && rSquawk !== undefined) {
+                  const rSfxFile = ["squawk_a", "squawk_b", "squawk_c"][rSquawk];
+                  const rSfx = new Audio(`/gujarati-coach/sounds/${rSfxFile}.mp3`);
+                  rSfx.onended = playRealAudio;
+                  rSfx.onerror = playRealAudio;
+                  rSfx.play().catch(playRealAudio);
+                } else {
+                  playRealAudio();
+                }
+              };
+
+              if (greetingEnded) {
+                showRealReply();
+              } else {
+                pendingPlay = showRealReply;
+              }
+              break gOuter;
+            } else if (evtName === "error") {
+              // Real reply failed — greeting already plays; just let it end.
+              break gOuter;
+            }
+          }
+        }
+        // Function returns here; finally block releases finishingRef.
+        return;
+      }
+      // ── End greeting path ─────────────────────────────────────────────────
 
       const history: ChatTurnMessage[] = messages
         .slice(-HISTORY_WINDOW)

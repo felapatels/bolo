@@ -38,6 +38,12 @@ import {
   waitForChatAudioChange,
   type ChatAudioStream,
 } from "../lib/chatAudioStreams";
+import {
+  greetingAudioCacheKey,
+  buildGreetingDisplayText,
+  buildGreetingTtsText,
+  GREETING_SQUAWK_VARIANT,
+} from "../lib/greetingStrings";
 
 const router: IRouter = Router();
 
@@ -717,6 +723,102 @@ router.get(
 
 // POST /openai/tts-cache/evict — remove stale TTS entries after a phrase correction.
 // Accepts a phraseId (evicts all voice variants for that phrase) or a languageCode
+// GET /openai/chat-greeting?languageCode=gu — returns a pre-synthesized Bolo
+// welcome message for the given language, to be played immediately when the
+// user finishes their first recording so there is zero silent wait.
+//
+// The greeting audio is pre-warmed by scheduleTtsPrewarm() at server startup.
+// If the prewarm hasn't run yet (or failed), we synthesize on-demand so
+// clients always get a response.
+//
+// Requires auth (same as other chat endpoints) to prevent unauthenticated
+// scraping of audio.
+router.get(
+  "/openai/chat-greeting",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const languageCode = String(req.query.languageCode ?? "").trim();
+    if (!languageCode) {
+      res.status(400).json({ error: "languageCode is required" });
+      return;
+    }
+
+    // Look up the language display name (used in the greeting text).
+    const language = await db.query.languagesTable.findFirst({
+      where: eq(languagesTable.code, languageCode),
+    });
+    const languageName = language?.name ?? languageCode;
+
+    const cacheKey = greetingAudioCacheKey(languageCode);
+    const displayText = buildGreetingDisplayText(languageName);
+    const ttsText = buildGreetingTtsText(languageName);
+
+    // --- cache hit ---
+    try {
+      const cached = await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, cacheKey),
+      });
+      if (cached) {
+        res.json({
+          text: displayText,
+          english: "",
+          audioBase64: cached.audioBase64,
+          format: cached.format,
+          squawkVariant: GREETING_SQUAWK_VARIANT,
+        });
+        return;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "Greeting cache read failed, synthesizing fresh");
+    }
+
+    // --- cache miss: synthesize on-demand using Bolo's chat voice ---
+    const BOLO_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
+    const BOLO_MODEL = "eleven_flash_v2_5";
+    try {
+      const buffer = await textToSpeechElevenLabs(ttsText, BOLO_VOICE_ID, languageName, BOLO_MODEL);
+      const audioBase64 = buffer.toString("base64");
+
+      // Cache for future requests (best-effort, race-safe).
+      db.insert(ttsCacheTable)
+        .values({ cacheKey, audioBase64, format: "mp3" })
+        .onConflictDoNothing()
+        .execute()
+        .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+
+      res.json({
+        text: displayText,
+        english: "",
+        audioBase64,
+        format: "mp3",
+        squawkVariant: GREETING_SQUAWK_VARIANT,
+      });
+    } catch (err) {
+      // ElevenLabs failed — fall back to gpt-audio.
+      req.log.warn({ err }, "Greeting ElevenLabs synthesis failed, falling back to gpt-audio");
+      try {
+        const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
+        if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+        res.json({
+          text: displayText,
+          english: "",
+          audioBase64: buffer.toString("base64"),
+          format: "mp3",
+          squawkVariant: GREETING_SQUAWK_VARIANT,
+        });
+      } catch (fallbackErr) {
+        req.log.error({ err: fallbackErr }, "Greeting synthesis failed (both providers)");
+        res.status(502).json({ error: "Could not generate greeting audio" });
+      }
+    }
+  },
+);
+
 // (evicts all cached entries for every phrase in that language). Intended for
 // admin use after native-speaker corrections ship in bulk; safe to call repeatedly
 // since a missing cache key is just a cache miss on next request.
