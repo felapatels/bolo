@@ -6,8 +6,9 @@ import {
   phrasesTable,
   attemptsTable,
   badgesTable,
+  gameSessionsTable,
 } from "@workspace/db";
-import { asc, desc, eq, and, inArray } from "drizzle-orm";
+import { asc, desc, eq, and, inArray, sql } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -47,9 +48,8 @@ import { SENTENCES_PER_LESSON } from "@workspace/db/seed-data";
 import {
   BADGE_CATALOG,
   badgeProgress,
-  type ProgressMetrics,
 } from "../lib/badges";
-import { awardNewlyEarnedBadges } from "../lib/badgeAward";
+import { awardNewlyEarnedBadges, loadExtendedMetrics } from "../lib/badgeAward";
 import {
   buildPhraseStats,
   buildReviewSchedule,
@@ -923,23 +923,14 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
 
   // Re-evaluate the badge catalog against this user's now-current per-language
   // progress (the attempt above is already persisted, so it's included) and
-  // award any newly-satisfied badges. The award path guarantees each badge is
-  // granted at most once per (user, language) and never leaks across languages.
-  const langAttempts = await db
-    .select({
-      phraseId: attemptsTable.phraseId,
-      score: attemptsTable.score,
-      createdAt: attemptsTable.createdAt,
-    })
-    .from(attemptsTable)
-    .where(
-      and(
-        eq(attemptsTable.userId, userId),
-        eq(attemptsTable.languageCode, claims.languageCode),
-      ),
-    );
-
-  const metrics = computeProgressMetrics(langAttempts, getUserTimezone(req));
+  // award any newly-satisfied badges. Extended metrics include game-session
+  // counters so that practice sessions can also trigger game achievement badges
+  // (e.g. if the learner played games before their first pronunciation attempt).
+  const metrics = await loadExtendedMetrics(
+    userId,
+    claims.languageCode,
+    getUserTimezone(req),
+  );
   const newlyEarnedBadges = await awardNewlyEarnedBadges(
     userId,
     claims.languageCode,
@@ -976,7 +967,7 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
   // languages require Bolo! Plus.
   if (denyLockedLanguage(req, res, lang)) return;
 
-  const [earned, attempts] = await Promise.all([
+  const [earned, metrics] = await Promise.all([
     db
       .select({
         badgeKey: badgesTable.badgeKey,
@@ -986,25 +977,12 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
       .where(
         and(eq(badgesTable.userId, userId), eq(badgesTable.languageCode, lang)),
       ),
-    db
-      .select({
-        phraseId: attemptsTable.phraseId,
-        score: attemptsTable.score,
-        createdAt: attemptsTable.createdAt,
-      })
-      .from(attemptsTable)
-      .where(
-        and(
-          eq(attemptsTable.userId, userId),
-          eq(attemptsTable.languageCode, lang),
-        ),
-      ),
+    // Extended metrics include game-session counters so badge progress for
+    // game achievements is accurately reflected in the catalogue response.
+    loadExtendedMetrics(userId, lang, getUserTimezone(req)),
   ]);
 
   const earnedAtByKey = new Map(earned.map((e) => [e.badgeKey, e.earnedAt]));
-  // The same server-authoritative per-language metrics used for awarding badges,
-  // so the progress a learner sees always matches what actually unlocks them.
-  const metrics = computeProgressMetrics(attempts, getUserTimezone(req));
 
   res.json(
     BADGE_CATALOG.map((def) => {
@@ -1015,6 +993,7 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
         title: def.title,
         description: def.description,
         iconName: def.iconName,
+        plusOnly: def.plusOnly ?? false,
         earned: earnedAt != null,
         earnedAt: earnedAt ? earnedAt.toISOString() : null,
         progressCurrent: current,
@@ -1088,7 +1067,9 @@ router.get(
     // Bolo! Plus. (Advanced analytics live at /progress/analytics.)
     if (denyLockedLanguage(req, res, lang)) return;
 
-    const [attempts, phrases] = await Promise.all([
+    const timezone = getUserTimezone(req);
+
+    const [attempts, phrases, [gameXpRow]] = await Promise.all([
       db
         .select()
         .from(attemptsTable)
@@ -1109,11 +1090,22 @@ router.get(
             eq(phrasesTable.stage, "phrase"),
           ),
         ),
+      // Sum all game-session XP so the progress screen reflects the learner's
+      // full effort, not just pronunciation-attempt scores.
+      db
+        .select({ total: sql<number>`COALESCE(SUM(${gameSessionsTable.xpAwarded}), 0)` })
+        .from(gameSessionsTable)
+        .where(
+          and(
+            eq(gameSessionsTable.userId, userId),
+            eq(gameSessionsTable.languageCode, lang),
+          ),
+        ),
     ]);
 
     const totalPhrases = phrases.length;
-    const timezone = getUserTimezone(req);
     const metrics = computeProgressMetrics(attempts, timezone);
+    const totalXp = metrics.xp + Number(gameXpRow?.total ?? 0);
 
     const scores = attempts.map((a) => a.score);
     const averageScore =
@@ -1137,7 +1129,7 @@ router.get(
       bestScore: metrics.bestScore,
       currentStreakDays: metrics.currentStreakDays,
       attemptsToday,
-      xp: metrics.xp,
+      xp: totalXp,
     });
   },
 );
@@ -1293,10 +1285,26 @@ router.get(
 );
 
 // ─── POST /game-sessions ──────────────────────────────────────────────────────
-// Records the results of a mini-game session and awards XP by inserting one
-// attempt per answered phrase. The server determines correctness from the
-// submitted answer — clients never self-report correct/incorrect, preventing
-// XP farming via forged payloads.
+// Records the results of a mini-game session. XP is awarded at the session
+// level (not per-phrase) so the totals are calibrated relative to a standard
+// pronunciation practice session. The server verifies correctness from the
+// submitted answers — clients never self-report correct/incorrect.
+//
+// XP schedule (per completed session):
+//   Word Match      → 15 XP
+//   Speed Round     → 25 XP  (+10 bonus when accuracy ≥ 80%)
+//   Listen & Pick   → 15 XP
+//   Phrase Builder  → 20 XP
+const GAME_XP: Record<string, number> = {
+  "word-match": 15,
+  "speed-round": 25,
+  "listen-and-pick": 15,
+  "phrase-builder": 20,
+};
+const GAME_XP_BONUS: Record<string, { accuracyThreshold: number; bonus: number }> = {
+  "speed-round": { accuracyThreshold: 0.8, bonus: 10 },
+};
+
 const gameSessionRateLimit = createRateLimit({ windowMs: 60_000, max: 30 });
 
 router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Response): Promise<void> => {
@@ -1316,7 +1324,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   const cap = MAX_RESULTS[game] ?? 40;
   const capped = phraseResults.slice(0, cap);
 
-  // Deduplicate by phraseId — each phrase can award XP at most once per session.
+  // Deduplicate by phraseId — each phrase counts at most once per session.
   const seen = new Set<number>();
   const deduped = capped.filter((r) => {
     if (seen.has(r.phraseId)) return false;
@@ -1363,50 +1371,69 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     return false;
   }
 
-  // Build attempt rows — only for phrase IDs the server verified above.
-  const toInsert = deduped
-    .map((r) => {
-      const p = phraseMap.get(r.phraseId);
-      if (!p) return null; // unknown or wrong category — silently skip
-      const correct = isCorrect(r, p);
-      const score = correct ? 100 : 0;
-      return {
-        userId,
-        languageCode,
-        phraseId: p.id,
-        nativeScript: p.nativeScript,
-        romanized: p.romanized ?? "",
-        english: p.english,
-        transcript: "",
-        score,
-        passed: correct,
-        feedback: "",
-      };
-    })
-    .filter((v): v is NonNullable<typeof v> => v !== null);
-
-  let xpEarned = 0;
-  if (toInsert.length > 0) {
-    await db.insert(attemptsTable).values(toInsert);
-    xpEarned = toInsert.reduce((sum, a) => sum + a.score, 0);
+  // Count verified correct / total answers for XP + badge evaluation.
+  // Only phrases the server confirmed belong to this language+category count —
+  // any client-invented or wrong-category IDs are silently excluded.
+  let correctCount = 0;
+  let totalCount = 0;
+  for (const r of deduped) {
+    const p = phraseMap.get(r.phraseId);
+    if (!p) continue; // unknown or wrong category — skip
+    totalCount += 1;
+    if (isCorrect(r, p)) correctCount += 1;
   }
 
-  // Compute the learner's updated cumulative XP for this language.
-  const allAttempts = await db
-    .select({ phraseId: attemptsTable.phraseId, score: attemptsTable.score, createdAt: attemptsTable.createdAt })
-    .from(attemptsTable)
-    .where(
-      and(
-        eq(attemptsTable.userId, userId),
-        eq(attemptsTable.languageCode, languageCode),
-      ),
-    );
+  // Require at least one server-validated phrase result. A session where no
+  // submitted phraseId maps to a real phrase in this language/category is
+  // meaningless (and a potential forgery) — reject it before any write.
+  if (totalCount === 0) {
+    res.status(422).json({ error: "No valid phrase results for this game session" });
+    return;
+  }
 
-  const metrics = computeProgressMetrics(allAttempts, getUserTimezone(req));
+  // Session-level XP (calibrated, not per-phrase).
+  let xpEarned = GAME_XP[game] ?? 15;
+  const bonusConfig = GAME_XP_BONUS[game];
+  if (bonusConfig && totalCount > 0) {
+    const accuracy = correctCount / totalCount;
+    if (accuracy >= bonusConfig.accuracyThreshold) xpEarned += bonusConfig.bonus;
+  }
+
+  // Persist the session and a phantom attempt in parallel. The phantom attempt
+  // (phraseId=null, score=0) contributes to streak continuity — a game session
+  // counts as an active day — without inflating phrase mastery or bestScore.
+  await Promise.all([
+    db.insert(gameSessionsTable).values({
+      userId,
+      languageCode,
+      game,
+      correctCount,
+      totalCount,
+      xpAwarded: xpEarned,
+    }),
+    db.insert(attemptsTable).values({
+      userId,
+      languageCode,
+      phraseId: null,
+      nativeScript: "",
+      romanized: "",
+      english: "",
+      transcript: "",
+      score: 0,
+      passed: false,
+      feedback: "",
+    }),
+  ]);
+
+  // Badge evaluation uses extended metrics so game-achievement badges unlock
+  // as soon as the session that satisfies their condition is recorded.
+  const metrics = await loadExtendedMetrics(userId, languageCode, getUserTimezone(req));
+  const newlyEarnedBadges = await awardNewlyEarnedBadges(userId, languageCode, metrics);
 
   res.status(201).json({
     xpEarned,
     totalXp: metrics.xp,
+    newlyEarnedBadges,
   });
 });
 

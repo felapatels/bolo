@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { db, pool, badgesTable, usersTable, languagesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { awardNewlyEarnedBadges } from "./badgeAward";
-import type { ProgressMetrics } from "./badges";
+import type { ExtendedProgressMetrics } from "./badges";
 import { ensureUsersColumns } from "./testDbCompat";
 
 // These tests exercise the real award path — the code-defined badge catalog plus
@@ -23,14 +23,21 @@ const LANG_A = "__test_lang_a";
 const LANG_B = "__test_lang_b";
 
 // A metrics object satisfying the "getting started" badges: first_phrase
-// (>=1 attempt) and mastery_1 (>=1 mastered phrase).
-const STARTER_METRICS: ProgressMetrics = {
+// (>=1 attempt) and mastery_1 (>=1 mastered phrase). Game-specific counters
+// default to 0 so no game achievement badges are unexpectedly unlocked.
+const STARTER_METRICS: ExtendedProgressMetrics = {
   totalAttempts: 1,
   phrasesPracticed: 1,
   phrasesMastered: 1,
   bestScore: 90,
   xp: 90,
   currentStreakDays: 1,
+  wordMatchGames: 0,
+  speedRoundPerfectGames: 0,
+  listenPickGames: 0,
+  phraseBuilderGames: 0,
+  scriptTraceChaptersCompleted: 0,
+  dailyQuizStreak: 0,
 };
 
 // The badge keys STARTER_METRICS unlocks, in no particular order.

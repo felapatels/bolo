@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -16,6 +17,8 @@ import {
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
   useSynthesizeSpeech,
+  useRecordGameSession,
+  getGetProgressSummaryQueryKey,
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -129,7 +132,7 @@ function EndScreen({
 }: {
   score: number;
   total: number;
-  xpEarned: number;
+  xpEarned: number | null;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
 }) {
@@ -156,7 +159,7 @@ function EndScreen({
         </div>
         <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
           <Zap className="h-5 w-5 text-amber-500" />
-          <span className="text-xl font-extrabold text-foreground">+{xpEarned}</span>
+          <span className="text-xl font-extrabold text-foreground">{xpEarned !== null ? `+${xpEarned}` : "…"}</span>
           <span className="text-xs text-muted-foreground">XP Earned</span>
         </div>
       </div>
@@ -190,6 +193,8 @@ function EndScreen({
 
 // ─── Game Round ───────────────────────────────────────────────────────────────
 
+type PhraseResult = { phraseId: number; selectedPhraseId: number };
+
 function GameRound({
   phrases,
   activeLang,
@@ -199,7 +204,7 @@ function GameRound({
   phrases: Phrase[];
   activeLang: string;
   activeLanguageName: string | undefined;
-  onEnd: (score: number, xp: number) => void;
+  onEnd: (score: number, results: PhraseResult[]) => void;
 }) {
   const native = useNativeText();
   const synthesize = useSynthesizeSpeech();
@@ -212,6 +217,8 @@ function GameRound({
   const [answerState, setAnswerState] = useState<AnswerState>("idle");
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  // Track per-question answer selections so the server can verify correctness.
+  const phraseResultsRef = useRef<PhraseResult[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Cache synthesized audio per phrase id so replaying costs nothing extra
@@ -272,6 +279,12 @@ function GameRound({
     setAnswerState(isCorrect ? "correct" : "wrong");
     if (isCorrect) setScore(s => s + 1);
 
+    // Record the selected phraseId so the server can verify correctness.
+    phraseResultsRef.current.push({
+      phraseId: q.phrase.id,
+      selectedPhraseId: q.choices[choiceIdx].id,
+    });
+
     // If wrong, play the correct phrase so learner hears it
     if (!isCorrect) {
       setTimeout(() => playPhrase(q.phrase), 200);
@@ -282,8 +295,7 @@ function GameRound({
       setPickedIdx(null);
       if (qIdx + 1 >= total) {
         const finalScore = isCorrect ? score + 1 : score;
-        const xp = finalScore * GAME_CONFIG.listenAndPick.xpPerCorrect;
-        onEnd(finalScore, xp);
+        onEnd(finalScore, phraseResultsRef.current);
       } else {
         setQIdx(i => i + 1);
       }
@@ -380,10 +392,13 @@ function GameRound({
 
 export default function ListenAndPickPage() {
   const { activeLang, activeLanguage } = useLanguage();
+  const queryClient = useQueryClient();
+  const recordSession = useRecordGameSession();
   const [phase, setPhase] = useState<Phase>("picker");
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
   const [finalScore, setFinalScore] = useState(0);
-  const [finalXp, setFinalXp] = useState(0);
+  const [finalXp, setFinalXp] = useState<number | null>(null);
+  const [finalPhraseResults, setFinalPhraseResults] = useState<PhraseResult[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -404,10 +419,29 @@ export default function ListenAndPickPage() {
     setPhase("game");
   };
 
-  const handleEnd = (score: number, xp: number) => {
+  const handleEnd = (score: number, results: PhraseResult[]) => {
     setFinalScore(score);
-    setFinalXp(xp);
+    setFinalPhraseResults(results);
     setPhase("end");
+    // Post session to server for XP + badge evaluation; use server-returned XP.
+    if (selectedCategory && results.length > 0) {
+      recordSession.mutate(
+        {
+          data: {
+            languageCode: activeLang,
+            game: "listen-and-pick",
+            categoryId: selectedCategory.id,
+            phraseResults: results,
+          },
+        },
+        {
+          onSuccess: (data) => {
+            setFinalXp(data.xpEarned);
+            queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+          },
+        },
+      );
+    }
   };
 
   const handlePlayAgain = () => {
@@ -477,6 +511,7 @@ export default function ListenAndPickPage() {
           onChooseTopic={handleChooseTopic}
         />
       )}
+      {/* phraseResults tracked in finalPhraseResults for API submission */}
 
       <BottomNav />
     </div>

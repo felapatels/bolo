@@ -113,6 +113,13 @@
       "when": 1784390207286,
       "tag": "0015_daily_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784392326584,
+      "tag": "0016_mushy_switch",
+      "breakpoints": true
     }
   ]
 }

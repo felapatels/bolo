@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
   Pressable,
@@ -26,6 +27,8 @@ import {
   useListCategories,
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
+  useRecordGameSession,
+  getGetProgressSummaryQueryKey,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -308,7 +311,7 @@ function GameBoard({
   phrases: Phrase[];
   difficulty: Difficulty;
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
-  onEnd: (elapsed: number) => void;
+  onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const nativeProps = nativeTextStyle(activeLanguage);
@@ -335,7 +338,8 @@ function GameBoard({
     if (allMatched) {
       if (timerRef.current) clearInterval(timerRef.current);
       const total = Math.floor((Date.now() - startRef.current) / 1000);
-      setTimeout(() => onEnd(total), 600);
+      const usedPhraseIds = [...new Set(cards.map(c => c.pairId))];
+      setTimeout(() => onEnd(total, usedPhraseIds), 600);
     }
   }, [allMatched, onEnd]);
 
@@ -418,20 +422,49 @@ function GameBoard({
 
 function EndScreen({
   elapsed,
-  xpEarned,
   difficulty,
+  categoryId,
+  usedPhraseIds,
+  activeLang,
   onPlayAgain,
   onChooseTopic,
   colors,
 }: {
   elapsed: number;
-  xpEarned: number;
   difficulty: Difficulty;
+  categoryId: number;
+  usedPhraseIds: number[];
+  activeLang: string;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const recordSession = useRecordGameSession();
+  const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const submitted = useRef(false);
+
+  useEffect(() => {
+    if (submitted.current || usedPhraseIds.length === 0) return;
+    submitted.current = true;
+    recordSession.mutate(
+      {
+        data: {
+          languageCode: activeLang,
+          game: 'word-match',
+          categoryId,
+          phraseResults: usedPhraseIds.map((id) => ({ phraseId: id, selectedPhraseId: id })),
+        },
+      },
+      {
+        onSuccess: (data) => {
+          setXpEarned(data.xpEarned);
+          queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+        },
+      },
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.centerPad}>
@@ -449,7 +482,7 @@ function EndScreen({
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="zap" size={20} color="#F59E0B" />
-          <Text style={[styles.statCardValue, { color: colors.foreground }]}>+{xpEarned}</Text>
+          <Text style={[styles.statCardValue, { color: colors.foreground }]}>{xpEarned !== null ? `+${xpEarned}` : '…'}</Text>
           <Text style={[styles.statCardLabel, { color: colors.mutedForeground }]}>XP Earned</Text>
         </View>
       </View>
@@ -485,6 +518,7 @@ export default function WordMatchScreen() {
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string; count: number } | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [elapsed, setElapsed] = useState(0);
+  const [usedPhraseIds, setUsedPhraseIds] = useState<number[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -510,14 +544,11 @@ export default function WordMatchScreen() {
     setPhase('game');
   };
 
-  const handleEnd = (t: number) => {
+  const handleEnd = (t: number, ids: number[]) => {
     setElapsed(t);
+    setUsedPhraseIds(ids);
     setPhase('end');
   };
-
-  const xpEarned = difficulty === 'easy'
-    ? GAME_CONFIG.wordMatch.xpEasy
-    : GAME_CONFIG.wordMatch.xpNormal;
 
   return (
     <Screen>
@@ -574,11 +605,13 @@ export default function WordMatchScreen() {
         )
       )}
 
-      {phase === 'end' && (
+      {phase === 'end' && selectedCategory && (
         <EndScreen
           elapsed={elapsed}
-          xpEarned={xpEarned}
           difficulty={difficulty}
+          categoryId={selectedCategory.id}
+          usedPhraseIds={usedPhraseIds}
+          activeLang={activeLang}
           onPlayAgain={() => { setGameKey(k => k + 1); setPhase('game'); }}
           onChooseTopic={() => { setSelectedCategory(null); setPhase('picker'); }}
           colors={colors}

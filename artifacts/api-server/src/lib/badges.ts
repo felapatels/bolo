@@ -17,6 +17,24 @@ export interface ProgressMetrics {
   currentStreakDays: number;
 }
 
+// Extended metrics that also include game-session-specific counters used by
+// the game achievement badges. The badge catalog uses this superset so that
+// both practice and game criteria can be expressed uniformly.
+export interface ExtendedProgressMetrics extends ProgressMetrics {
+  // Count of completed Word Match sessions.
+  wordMatchGames: number;
+  // Count of Speed Round sessions where accuracy was ≥ 80%.
+  speedRoundPerfectGames: number;
+  // Count of completed Listen & Pick sessions.
+  listenPickGames: number;
+  // Count of completed Phrase Builder sessions.
+  phraseBuilderGames: number;
+  // Count of Script Trace chapters the learner has completed (all 10 chars passed).
+  scriptTraceChaptersCompleted: number;
+  // Consecutive days the learner has completed the Bolo Quiz.
+  dailyQuizStreak: number;
+}
+
 export interface BadgeDefinition {
   key: string;
   title: string;
@@ -26,8 +44,10 @@ export interface BadgeDefinition {
   // The progress metric this badge tracks, and the value that unlocks it. Every
   // badge unlocks when its metric reaches `target` (metric >= target), so a
   // learner's progress toward it is simply `min(metric, target) / target`.
-  metric: keyof ProgressMetrics;
+  metric: keyof ExtendedProgressMetrics;
   target: number;
+  // If true, the badge is only reachable with a Bolo! Plus subscription.
+  plusOnly?: boolean;
 }
 
 export const BADGE_CATALOG: BadgeDefinition[] = [
@@ -165,12 +185,63 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     metric: "bestScore",
     target: 100,
   },
+  // ── Game achievements ────────────────────────────────────────────────────────
+  {
+    key: "card_shark",
+    title: "Card Shark",
+    description: "Complete 3 Word Match games.",
+    iconName: "Layers",
+    metric: "wordMatchGames",
+    target: 3,
+  },
+  {
+    key: "speed_demon",
+    title: "Speed Demon",
+    description: "Finish a Speed Round with ≥ 80% accuracy.",
+    iconName: "Timer",
+    metric: "speedRoundPerfectGames",
+    target: 1,
+  },
+  {
+    key: "ear_trained",
+    title: "Ear Trained",
+    description: "Complete 5 Listen & Pick rounds.",
+    iconName: "Headphones",
+    metric: "listenPickGames",
+    target: 5,
+  },
+  {
+    key: "sentence_architect",
+    title: "Sentence Architect",
+    description: "Complete 3 Phrase Builder rounds.",
+    iconName: "PenTool",
+    metric: "phraseBuilderGames",
+    target: 3,
+  },
+  {
+    key: "scribe",
+    title: "Scribe",
+    description: "Complete one Script Trace chapter.",
+    iconName: "Edit3",
+    metric: "scriptTraceChaptersCompleted",
+    target: 1,
+    plusOnly: true,
+  },
+  {
+    key: "daily_devotee",
+    title: "Daily Devotee",
+    description: "Complete the Bolo Quiz 7 days in a row.",
+    iconName: "CalendarCheck2",
+    metric: "dailyQuizStreak",
+    target: 7,
+    plusOnly: true,
+  },
 ];
 
 // True when the learner's current metrics satisfy a badge.
 export function isBadgeEarned(
   def: BadgeDefinition,
-  metrics: ProgressMetrics,
+  metrics: ExtendedProgressMetrics,
 ): boolean {
   return metrics[def.metric] >= def.target;
 }
@@ -179,7 +250,7 @@ export function isBadgeEarned(
 // target so already-earned badges read as complete) alongside the target.
 export function badgeProgress(
   def: BadgeDefinition,
-  metrics: ProgressMetrics,
+  metrics: ExtendedProgressMetrics,
 ): { current: number; target: number } {
   return {
     current: Math.min(metrics[def.metric], def.target),
@@ -188,7 +259,7 @@ export function badgeProgress(
 }
 
 // Returns the keys of every badge the metrics currently satisfy.
-export function earnedBadgeKeys(metrics: ProgressMetrics): string[] {
+export function earnedBadgeKeys(metrics: ExtendedProgressMetrics): string[] {
   return BADGE_CATALOG.filter((b) => isBadgeEarned(b, metrics)).map(
     (b) => b.key,
   );

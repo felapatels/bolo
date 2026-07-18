@@ -1,7 +1,7 @@
 // Pure per-language progress math shared by the progress summary and badge
 // evaluation. Kept free of any database or Express dependency so it can be
 // unit-tested in isolation — the DB-touching award path lives elsewhere.
-import type { ProgressMetrics } from "./badges";
+import type { ProgressMetrics, ExtendedProgressMetrics } from "./badges";
 
 export const MASTERY_THRESHOLD = 80;
 
@@ -146,6 +146,22 @@ export function computeStreakDays(
   return streak;
 }
 
+// Computes consecutive-day streak from UTC date strings "YYYY-MM-DD" (quiz
+// completion dates). The streak counts backward from today (UTC); if today has
+// no completion the anchor backs up to yesterday. Each quiz date counts at most
+// once regardless of how many completions share the same date.
+export function computeDailyQuizStreak(quizDates: string[]): number {
+  const days = new Set(quizDates);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  let streak = 0;
+  let cursor = days.has(todayKey) ? todayKey : previousDayKey(todayKey);
+  while (days.has(cursor)) {
+    streak += 1;
+    cursor = previousDayKey(cursor);
+  }
+  return streak;
+}
+
 // Derives the server-authoritative per-language progress metrics used by both
 // the progress summary and badge evaluation, from the learner's full set of
 // attempts for one language.
@@ -158,6 +174,10 @@ export function computeProgressMetrics(
   for (const s of stats.values()) {
     if (s.mastered) phrasesMastered += 1;
   }
+  // Include all attempt scores in XP and bestScore. Phantom streak-only
+  // attempts inserted by game sessions have score=0 and phraseId=null; they
+  // never inflate XP (0 added) or bestScore (max doesn't decrease), so no
+  // special filter is needed here — the math works out naturally.
   const scores = attempts.map((a) => a.score);
   return {
     totalAttempts: attempts.length,
@@ -169,5 +189,59 @@ export function computeProgressMetrics(
       attempts.map((a) => a.createdAt),
       timeZone,
     ),
+  };
+}
+
+// Game session summary shape for extended metrics computation.
+export type GameSessionSummary = {
+  game: string;
+  correctCount: number;
+  totalCount: number;
+  xpAwarded: number;
+};
+
+// Derives the full extended per-language metrics, combining pronunciation
+// attempt data with game-session counters, script-trace chapter completions,
+// and daily quiz streak. Used for badge evaluation wherever game badges may
+// be relevant (after any game session, quiz, or practice attempt).
+export function computeExtendedProgressMetrics(
+  attempts: { phraseId: number | null; score: number; createdAt: Date }[],
+  gameSessions: GameSessionSummary[],
+  gameXp: number,
+  scriptTraceChaptersCompleted: number,
+  quizDates: string[],
+  timeZone?: string | null,
+): ExtendedProgressMetrics {
+  const base = computeProgressMetrics(attempts, timeZone);
+
+  // Game XP supplements pronunciation XP in the total shown on the progress
+  // screen, so XP-milestone badges reflect all earning activity.
+  const xp = base.xp + gameXp;
+
+  // Count game sessions by type.
+  let wordMatchGames = 0;
+  let speedRoundPerfectGames = 0;
+  let listenPickGames = 0;
+  let phraseBuilderGames = 0;
+  for (const s of gameSessions) {
+    if (s.game === "word-match") wordMatchGames += 1;
+    if (s.game === "listen-and-pick") listenPickGames += 1;
+    if (s.game === "phrase-builder") phraseBuilderGames += 1;
+    if (s.game === "speed-round") {
+      // Perfect = accuracy ≥ 80 % (at least 80 % of questions answered correctly).
+      const accuracy = s.totalCount > 0 ? s.correctCount / s.totalCount : 0;
+      if (accuracy >= 0.8) speedRoundPerfectGames += 1;
+    }
+  }
+
+  return {
+    ...base,
+    xp,
+    wordMatchGames,
+    speedRoundPerfectGames,
+    listenPickGames,
+    phraseBuilderGames,
+    scriptTraceChaptersCompleted,
+    dailyQuizStreak: computeDailyQuizStreak(quizDates),
   };
 }

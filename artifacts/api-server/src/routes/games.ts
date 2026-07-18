@@ -1,10 +1,23 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { db, scriptTraceProgressTable, dailyQuizzesTable, dailyQuizCompletionsTable, phrasesTable } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  db,
+  scriptTraceProgressTable,
+  dailyQuizzesTable,
+  dailyQuizCompletionsTable,
+  phrasesTable,
+  attemptsTable,
+  gameSessionsTable,
+} from "@workspace/db";
+import { and, count, eq, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { denyLockedFeature } from "../lib/gating";
 import type { QuizQuestion } from "@workspace/db";
+import {
+  awardNewlyEarnedBadges,
+  loadExtendedMetrics,
+  languageCodeFromChapter,
+} from "../lib/badgeAward";
 
 const router: IRouter = Router();
 
@@ -284,12 +297,92 @@ router.post(
       })
       .returning();
 
+    // ── Chapter-completion check ───────────────────────────────────────────
+    // A chapter is "complete" when all characters in it have been passed.
+    // All current chapters contain exactly 10 characters.
+    const CHAPTER_SIZE = 10;
+    const SCRIPT_TRACE_XP = 30;
+    let chapterComplete = false;
+    let scriptTraceXpAwarded = 0;
+    let newlyEarnedBadges: Array<{ key: string; title: string; description: string; iconName: string; earnedAt: string }> = [];
+
+    if (row.passed) {
+      const langCode = languageCodeFromChapter(chapter);
+      if (langCode) {
+        // Count how many distinct characters in this chapter the learner has passed.
+        const [{ passedCount }] = await db
+          .select({ passedCount: count() })
+          .from(scriptTraceProgressTable)
+          .where(
+            and(
+              eq(scriptTraceProgressTable.userId, userId),
+              eq(scriptTraceProgressTable.chapter, chapter),
+              eq(scriptTraceProgressTable.passed, true),
+            ),
+          );
+
+        if (passedCount >= CHAPTER_SIZE) {
+          // Check if this chapter completion has already been recorded (idempotent).
+          const existing = await db
+            .select({ id: gameSessionsTable.id })
+            .from(gameSessionsTable)
+            .where(
+              and(
+                eq(gameSessionsTable.userId, userId),
+                eq(gameSessionsTable.game, "script-trace"),
+                eq(gameSessionsTable.context, chapter),
+              ),
+            )
+            .limit(1);
+
+          if (existing.length === 0) {
+            // First time completing this chapter — record session + phantom attempt.
+            await Promise.all([
+              db.insert(gameSessionsTable).values({
+                userId,
+                languageCode: langCode,
+                game: "script-trace",
+                correctCount: CHAPTER_SIZE,
+                totalCount: CHAPTER_SIZE,
+                xpAwarded: SCRIPT_TRACE_XP,
+                context: chapter,
+              }),
+              db.insert(attemptsTable).values({
+                userId,
+                languageCode: langCode,
+                phraseId: null,
+                nativeScript: "",
+                romanized: "",
+                english: "",
+                transcript: "",
+                score: 0,
+                passed: false,
+                feedback: "",
+              }),
+            ]);
+
+            scriptTraceXpAwarded = SCRIPT_TRACE_XP;
+            chapterComplete = true;
+
+            const metrics = await loadExtendedMetrics(userId, langCode);
+            newlyEarnedBadges = await awardNewlyEarnedBadges(userId, langCode, metrics);
+          } else {
+            // Already recorded as complete (e.g., learner is replaying for fun).
+            chapterComplete = true;
+          }
+        }
+      }
+    }
+
     res.status(201).json({
       characterId: row.characterId,
       passed: row.passed,
       bestScore: row.bestScore,
       attemptCount: row.attemptCount,
       updatedAt: row.updatedAt,
+      chapterComplete,
+      xpAwarded: scriptTraceXpAwarded,
+      newlyEarnedBadges,
     });
   },
 );
@@ -482,11 +575,41 @@ router.post(
         return;
       }
 
+      // Record a game_session row so quiz XP is included in the extended
+      // progress metrics (streak, XP milestones, Daily Devotee badge).
+      // A phantom attempt (phraseId=null, score=0) keeps the day's streak alive.
+      await Promise.all([
+        db.insert(gameSessionsTable).values({
+          userId,
+          languageCode: lang,
+          game: "daily-quiz",
+          correctCount: score,
+          totalCount: 5,
+          xpAwarded,
+        }),
+        db.insert(attemptsTable).values({
+          userId,
+          languageCode: lang,
+          phraseId: null,
+          nativeScript: "",
+          romanized: "",
+          english: "",
+          transcript: "",
+          score: 0,
+          passed: false,
+          feedback: "",
+        }),
+      ]);
+
+      const metrics = await loadExtendedMetrics(userId, lang);
+      const newlyEarnedBadges = await awardNewlyEarnedBadges(userId, lang, metrics);
+
       res.json({
         score,
         total: 5,
         xpAwarded,
         perfect: score === 5,
+        newlyEarnedBadges,
       });
     } catch (err) {
       req.log.error({ err }, "Quiz completion failed");

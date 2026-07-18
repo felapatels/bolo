@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArrowLeft, Link2, RefreshCw, Home, Clock, Zap, Trophy } from "lucide-react";
-import { useListCategories, useListCategoryPhrases, getListCategoryPhrasesQueryKey, type Phrase } from "@workspace/api-client-react";
+import {
+  useListCategories,
+  useListCategoryPhrases,
+  getListCategoryPhrasesQueryKey,
+  useRecordGameSession,
+  getGetProgressSummaryQueryKey,
+  type Phrase,
+} from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -232,17 +240,47 @@ function DifficultyPicker({
 
 function EndScreen({
   elapsed,
-  xpEarned,
   difficulty,
+  categoryId,
+  usedPhraseIds,
+  activeLang,
   onPlayAgain,
   onChooseTopic,
 }: {
   elapsed: number;
-  xpEarned: number;
   difficulty: Difficulty;
+  categoryId: number;
+  usedPhraseIds: number[];
+  activeLang: string;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const recordSession = useRecordGameSession();
+  const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const submitted = useRef(false);
+
+  useEffect(() => {
+    if (submitted.current || usedPhraseIds.length === 0) return;
+    submitted.current = true;
+    recordSession.mutate(
+      {
+        data: {
+          languageCode: activeLang,
+          game: "word-match",
+          categoryId,
+          phraseResults: usedPhraseIds.map((id) => ({ phraseId: id, selectedPhraseId: id })),
+        },
+      },
+      {
+        onSuccess: (data) => {
+          setXpEarned(data.xpEarned);
+          queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+        },
+      },
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
       <Mascot pose="cheer" size={100} />
@@ -261,7 +299,7 @@ function EndScreen({
         </div>
         <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
           <Zap className="h-5 w-5 text-amber-500" />
-          <span className="text-xl font-extrabold text-foreground">+{xpEarned}</span>
+          <span className="text-xl font-extrabold text-foreground">{xpEarned !== null ? `+${xpEarned}` : "…"}</span>
           <span className="text-xs text-muted-foreground">XP Earned</span>
         </div>
       </div>
@@ -302,7 +340,7 @@ function GameBoard({
 }: {
   phrases: Phrase[];
   difficulty: Difficulty;
-  onEnd: (elapsed: number) => void;
+  onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
 }) {
   const native = useNativeText();
   const pairCount = difficulty === "easy" ? 6 : 8;
@@ -330,8 +368,11 @@ function GameBoard({
     if (allMatched) {
       if (timerRef.current) clearInterval(timerRef.current);
       const total = Math.floor((Date.now() - startRef.current) / 1000);
+      // Collect unique phrase IDs used in the board — all are "correct" since
+      // matching is the only way to complete a pair.
+      const usedPhraseIds = [...new Set(cards.map(c => c.pairId))];
       // Short delay so the final matched animation is visible
-      setTimeout(() => onEnd(total), 600);
+      setTimeout(() => onEnd(total, usedPhraseIds), 600);
     }
   }, [allMatched, onEnd]);
 
@@ -415,6 +456,7 @@ export default function WordMatchPage() {
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [elapsed, setElapsed] = useState(0);
+  const [usedPhraseIds, setUsedPhraseIds] = useState<number[]>([]);
   const [gameKey, setGameKey] = useState(0); // remount game board for play-again
 
   const phraseQuery = useListCategoryPhrases(
@@ -440,8 +482,9 @@ export default function WordMatchPage() {
     setPhase("game");
   };
 
-  const handleEnd = (t: number) => {
+  const handleEnd = (t: number, ids: number[]) => {
     setElapsed(t);
+    setUsedPhraseIds(ids);
     setPhase("end");
   };
 
@@ -531,11 +574,13 @@ export default function WordMatchPage() {
         )
       )}
 
-      {phase === "end" && (
+      {phase === "end" && selectedCategory && (
         <EndScreen
           elapsed={elapsed}
-          xpEarned={xpEarned}
           difficulty={difficulty}
+          categoryId={selectedCategory.id}
+          usedPhraseIds={usedPhraseIds}
+          activeLang={activeLang}
           onPlayAgain={handlePlayAgain}
           onChooseTopic={handleChooseTopic}
         />

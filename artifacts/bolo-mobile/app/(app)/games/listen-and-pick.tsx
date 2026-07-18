@@ -4,6 +4,7 @@ import React, {
   useRef,
   useCallback,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +20,8 @@ import {
   useListCategories,
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
+  useRecordGameSession,
+  getGetProgressSummaryQueryKey,
   useSynthesizeSpeech,
   type Phrase,
 } from '@workspace/api-client-react';
@@ -151,7 +154,7 @@ function EndScreen({
 }: {
   score: number;
   total: number;
-  xpEarned: number;
+  xpEarned: number | null;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
   colors: ReturnType<typeof useColors>;
@@ -175,7 +178,7 @@ function EndScreen({
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="zap" size={20} color="#F59E0B" />
-          <Text style={[styles.statCardValue, { color: colors.foreground }]}>+{xpEarned}</Text>
+          <Text style={[styles.statCardValue, { color: colors.foreground }]}>{xpEarned !== null ? `+${xpEarned}` : '…'}</Text>
           <Text style={[styles.statCardLabel, { color: colors.mutedForeground }]}>XP Earned</Text>
         </View>
       </View>
@@ -202,6 +205,8 @@ function EndScreen({
 
 // ─── Game Round ───────────────────────────────────────────────────────────────
 
+type PhraseResult = { phraseId: number; selectedPhraseId: number };
+
 function GameRound({
   phrases,
   activeLanguage,
@@ -210,7 +215,7 @@ function GameRound({
 }: {
   phrases: Phrase[];
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
-  onEnd: (score: number, xp: number) => void;
+  onEnd: (score: number, results: PhraseResult[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const nativeProps = nativeTextStyle(activeLanguage);
@@ -227,6 +232,7 @@ function GameRound({
 
   const playbackRef = useRef<PlaybackHandle | null>(null);
   const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
+  const phraseResultsRef = useRef<PhraseResult[]>([]);
   // Track the current question index in a ref so the async playback callback
   // can detect if we've already moved on (unmounted/advanced).
   const qIdxRef = useRef(0);
@@ -297,6 +303,12 @@ function GameRound({
     const newScore = isCorrect ? score + 1 : score;
     if (isCorrect) setScore(newScore);
 
+    // Record the selected phraseId for server-side correctness verification.
+    phraseResultsRef.current.push({
+      phraseId: q.phrase.id,
+      selectedPhraseId: q.choices[choiceIdx].id,
+    });
+
     if (!isCorrect) {
       setTimeout(() => playPhrase(q.phrase), 200);
     }
@@ -305,8 +317,7 @@ function GameRound({
       setAnswerState('idle');
       setPickedIdx(null);
       if (qIdx + 1 >= total) {
-        const xp = newScore * GAME_CONFIG.listenAndPick.xpPerCorrect;
-        onEnd(newScore, xp);
+        onEnd(newScore, phraseResultsRef.current);
       } else {
         setQIdx(i => i + 1);
       }
@@ -432,11 +443,13 @@ export default function ListenAndPickScreen() {
   const colors = useColors();
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
+  const queryClient = useQueryClient();
+  const recordSession = useRecordGameSession();
 
   const [phase, setPhase] = useState<Phase>('picker');
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
   const [finalScore, setFinalScore] = useState(0);
-  const [finalXp, setFinalXp] = useState(0);
+  const [finalXp, setFinalXp] = useState<number | null>(null);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -457,10 +470,27 @@ export default function ListenAndPickScreen() {
     setPhase('game');
   };
 
-  const handleEnd = (score: number, xp: number) => {
+  const handleEnd = (score: number, results: PhraseResult[]) => {
     setFinalScore(score);
-    setFinalXp(xp);
     setPhase('end');
+    if (selectedCategory && results.length > 0) {
+      recordSession.mutate(
+        {
+          data: {
+            languageCode: activeLang,
+            game: 'listen-and-pick',
+            categoryId: selectedCategory.id,
+            phraseResults: results,
+          },
+        },
+        {
+          onSuccess: (data) => {
+            setFinalXp(data.xpEarned);
+            queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+          },
+        },
+      );
+    }
   };
 
   return (
