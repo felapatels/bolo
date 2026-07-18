@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -26,6 +26,7 @@ import {
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
+import { useTour, TOUR_STEP_INDEX } from '@/contexts/TourContext';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -65,6 +66,16 @@ export default function HomeScreen() {
   };
 
   const { isIdle, onActivity } = useIdleTimer(10);
+
+  // Spotlight targets for the welcome tour — the stats row ("watch yourself
+  // grow") and the Topics section header ("pick a topic").
+  const { registerHighlightRef } = useTour();
+  const statsRowRef = useRef<View>(null);
+  const topicsRef = useRef<View>(null);
+  useEffect(() => {
+    registerHighlightRef(TOUR_STEP_INDEX.topics, topicsRef);
+    registerHighlightRef(TOUR_STEP_INDEX.progress, statsRowRef);
+  }, [registerHighlightRef]);
 
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
@@ -159,7 +170,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Stats */}
-        <View style={styles.statsRow}>
+        <View ref={statsRowRef} collapsable={false} style={styles.statsRow}>
           <StatCard
             index={0}
             icon="zap"
@@ -242,12 +253,14 @@ export default function HomeScreen() {
         ) : null}
 
         {/* Topics */}
-        <Animated.Text
-          entering={skipEnter ? undefined : FadeInDown.duration(500).delay(380)}
-          style={[styles.sectionTitle, { color: colors.foreground }]}
-        >
-          Topics
-        </Animated.Text>
+        <View ref={topicsRef} collapsable={false}>
+          <Animated.Text
+            entering={skipEnter ? undefined : FadeInDown.duration(500).delay(380)}
+            style={[styles.sectionTitle, { color: colors.foreground }]}
+          >
+            Topics
+          </Animated.Text>
+        </View>
 
         {categories.isLoading ? (
           <FunFactLoader color={colors.primary} style={{ marginVertical: 24 }} />

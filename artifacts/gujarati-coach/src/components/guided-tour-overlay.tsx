@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTour } from "@/lib/tour-context";
@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 export function GuidedTourOverlay() {
   const { isOpen, currentStep, steps, nextStep, prevStep, skipTour } =
     useTour();
+  // Respect the OS-level reduced-motion preference: framer-motion springs keep
+  // playing under the global CSS reset, so gate them explicitly here.
+  const reduceMotion = useReducedMotion();
 
   const step = steps[currentStep];
   const isFirst = currentStep === 0;
@@ -51,10 +54,10 @@ export function GuidedTourOverlay() {
               "rounded-3xl border border-card-border bg-card p-6 shadow-2xl",
               "sm:bottom-1/2 sm:translate-y-1/2",
             )}
-            initial={{ opacity: 0, y: 32, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.97 }}
-            transition={springs.bouncy}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 32, scale: 0.96 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
+            transition={reduceMotion ? { duration: 0.15 } : springs.bouncy}
           >
             {/* Header row */}
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -91,10 +94,10 @@ export function GuidedTourOverlay() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStep}
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={springs.snappy}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                transition={reduceMotion ? { duration: 0.1 } : springs.snappy}
               >
                 <h2
                   id="tour-title"

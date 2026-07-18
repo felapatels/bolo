@@ -15,6 +15,7 @@
 
 import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react-native';
+import { TOUR_STEPS } from '@/contexts/TourContext';
 
 // ─── mutable state controlled per-test ──────────────────────────────────────
 
@@ -188,16 +189,13 @@ describe('TourBootstrapper', () => {
 
     expect(screen.getByTestId('tour-overlay')).toBeTruthy();
 
-    // TourContext has 2 steps; tapping Next twice reaches the end and triggers
-    // closeAndNotify → onDone → mutateAsync.
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('next-tour'));
-    });
-    // Second Next: on the final step, goNext schedules closeAndNotify via
-    // setTimeout — flush it with an additional act.
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('next-tour'));
-    });
+    // Tap Next once per step — on the final step, goNext schedules
+    // closeAndNotify via setTimeout, flushed below.
+    for (let i = 0; i < TOUR_STEPS.length; i++) {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('next-tour'));
+      });
+    }
     await act(async () => {
       // Flush the setTimeout(closeAndNotify, 0) queued by goNext.
       await new Promise((r) => setTimeout(r, 0));

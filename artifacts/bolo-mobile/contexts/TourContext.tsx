@@ -16,24 +16,50 @@ export interface TourStep {
    * rest of the screen. Steps without a ref fall back to the full-screen
    * caption card.
    */
-  highlightRef?: React.RefObject<View>;
+  highlightRef?: React.RefObject<View | null>;
 }
 
 /**
- * Placeholder step list — replace with real content once individual product
- * features stabilize. Two trivial steps so the scaffold is obviously
- * unfinished and the tour still exercises the full open → next → done flow.
+ * The real welcome tour — a quick feature walkthrough for first-time learners.
+ * Steps whose subject lives on the home screen get a spotlight highlight,
+ * registered from the home screen via `registerHighlightRef` (see the
+ * TOUR_STEP_INDEX map below for the stable indices).
  */
 export const TOUR_STEPS: TourStep[] = [
   {
-    title: 'Welcome to Bolo! 🙏',
-    body: 'Bolo helps you speak Indian languages through short, daily practice sessions.',
+    title: 'Welcome to Bolo! 👋',
+    body: "Bolo helps you reconnect with your heritage language through short, enjoyable daily sessions. Here's a quick look around!",
   },
   {
-    title: "You're all set!",
-    body: 'Tap around to explore. You can replay this tour anytime from Settings.',
+    title: 'Pick a topic 🗂️',
+    body: 'These cards are bite-sized lessons — greetings, family, food and more. Tap one to learn real phrases, then practice saying them out loud.',
+  },
+  {
+    title: 'Chat with Bolo 🦜',
+    body: 'On the Chat tab you can have a real conversation with your parrot coach. Speak (or listen) at your own pace — Bolo keeps it friendly and simple.',
+  },
+  {
+    title: 'Play your way to fluency 🎮',
+    body: 'The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.',
+  },
+  {
+    title: 'Watch yourself grow 📈',
+    body: 'Your streak, mastered phrases and badges live right here and on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases.',
+  },
+  {
+    title: "You're all set! 🎉",
+    body: "That's the grand tour! Start with any topic that catches your eye — a few minutes a day is all it takes. Happy learning!",
   },
 ];
+
+/**
+ * Stable indices into TOUR_STEPS for screens that register spotlight
+ * highlights. Keep in sync with the step list above.
+ */
+export const TOUR_STEP_INDEX = {
+  topics: 1,
+  progress: 4,
+} as const;
 
 interface TourContextValue {
   isOpen: boolean;
@@ -67,7 +93,10 @@ interface TourContextValue {
    * <View ref={streakRef}>…</View>
    * ```
    */
-  registerHighlightRef: (stepIndex: number, ref: React.RefObject<View>) => void;
+  registerHighlightRef: (
+    stepIndex: number,
+    ref: React.RefObject<View | null>,
+  ) => void;
 }
 
 const TourContext = createContext<TourContextValue | null>(null);
@@ -125,7 +154,7 @@ export function TourProvider({
   }, [closeAndNotify]);
 
   const registerHighlightRef = useCallback(
-    (stepIndex: number, ref: React.RefObject<View>) => {
+    (stepIndex: number, ref: React.RefObject<View | null>) => {
       if (stepIndex < 0 || stepIndex >= stepsRef.current.length) return;
       stepsRef.current[stepIndex] = {
         ...stepsRef.current[stepIndex],

@@ -19,19 +19,34 @@ export interface TourStep {
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder steps — real content is deferred until product features settle.
-// Replace these with actual step descriptions once the relevant features are
-// stable and ready for new-user orientation.
-// ⚠️  PLACEHOLDER — do not ship these as real tour content.
+// The real welcome tour — a quick feature walkthrough for first-time learners.
+// Keep copy short, warm, and in Bolo's friendly voice. Plus-only features are
+// labelled honestly so free learners aren't surprised later.
 // ---------------------------------------------------------------------------
 export const TOUR_STEPS: TourStep[] = [
   {
     title: "Welcome to Bolo! 👋",
-    body: "Bolo! helps you reconnect with your heritage language through short, enjoyable daily sessions.",
+    body: "Bolo! helps you reconnect with your heritage language through short, enjoyable daily sessions. Here's a quick look around!",
   },
   {
-    title: "You're all set!",
-    body: "Explore at your own pace. You can replay this tour any time from Account → Learning.",
+    title: "Pick a topic 🗂️",
+    body: "The cards on your home screen are bite-sized lessons — greetings, family, food and more. Tap one to learn real phrases, then practice saying them out loud.",
+  },
+  {
+    title: "Chat with Bolo 🦜",
+    body: "Tap \"Chat with Bolo\" to have a real conversation with your parrot coach. Speak (or listen) at your own pace — Bolo keeps it friendly and simple.",
+  },
+  {
+    title: "Play your way to fluency 🎮",
+    body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
+  },
+  {
+    title: "Watch yourself grow 📈",
+    body: "Your streak, XP and badges live on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases right when you need them.",
+  },
+  {
+    title: "You're all set! 🎉",
+    body: "That's the grand tour! Start with any topic that catches your eye — a few minutes a day is all it takes. Happy learning!",
   },
 ];
 
