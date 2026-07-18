@@ -90,11 +90,15 @@ function FlipCard({
   onFlip,
   nativeProps,
   colors,
+  width,
+  height,
 }: {
   card: GameCard;
   onFlip: (id: string) => void;
   nativeProps: ReturnType<typeof nativeTextStyle>;
   colors: ReturnType<typeof useColors>;
+  width: number;
+  height: number;
 }) {
   const progress = useSharedValue(card.state !== 'hidden' ? 1 : 0);
 
@@ -154,7 +158,7 @@ function FlipCard({
     <Pressable
       onPress={() => card.state === 'hidden' && onFlip(card.id)}
       disabled={card.state !== 'hidden'}
-      style={styles.cardContainer}
+      style={{ width, height, borderRadius: 14 }}
     >
       {/* Front (hidden face) — shows a "?" so it looks intentional, not broken */}
       <Animated.View
@@ -422,10 +426,16 @@ function GameBoard({
     });
   }, [locked]);
 
-  const cols = 4;
+  const COLS = 4;
+  const ROWS = difficulty === 'easy' ? 3 : 4;
+  const GAP = 8;
+
+  const [gridSize, setGridSize] = useState<{ width: number; height: number } | null>(null);
+  const cardWidth  = gridSize ? (gridSize.width  - GAP * (COLS - 1)) / COLS : null;
+  const cardHeight = gridSize ? (gridSize.height - GAP * (ROWS - 1)) / ROWS : null;
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 16, gap: 8 }}>
+    <View style={{ flex: 1, paddingHorizontal: 16, gap: GAP }}>
       {/* Stats row */}
       <View style={[styles.statsRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.statItem}>
@@ -437,18 +447,29 @@ function GameBoard({
         </Text>
       </View>
 
-      {/* Card grid */}
-      <View style={[styles.grid, { gap: 8 }]}>
-        {cards.map((card, i) => (
-          <View key={card.id} style={{ width: `${100 / cols}%`, paddingHorizontal: 2 }}>
-            <FlipCard
-              card={card}
-              onFlip={handleFlip}
-              nativeProps={nativeProps}
-              colors={colors}
-            />
-          </View>
-        ))}
+      {/* Card grid — flex:1 so it takes all remaining height; onLayout measures actual size */}
+      <View
+        style={[styles.grid, { gap: GAP, flex: 1 }]}
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout;
+          setGridSize(prev =>
+            prev?.width === width && prev?.height === height ? prev : { width, height },
+          );
+        }}
+      >
+        {cardWidth && cardHeight
+          ? cards.map(card => (
+              <FlipCard
+                key={card.id}
+                card={card}
+                onFlip={handleFlip}
+                nativeProps={nativeProps}
+                colors={colors}
+                width={cardWidth}
+                height={cardHeight}
+              />
+            ))
+          : null}
       </View>
     </View>
   );
@@ -720,10 +741,6 @@ const styles = StyleSheet.create({
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statText: { fontFamily: AppFonts.semibold, fontSize: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 },
-  cardContainer: {
-    height: 72,
-    borderRadius: 14,
-  },
   cardFace: {
     position: 'absolute',
     top: 0,
