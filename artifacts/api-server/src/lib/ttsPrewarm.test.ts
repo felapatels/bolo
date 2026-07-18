@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { db, pool, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ttsCacheKey } from "./ttsCache";
-import { isQuotaExhaustedError } from "./ttsPrewarm";
+import { isQuotaExhaustedError, warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
+import { greetingAudioCacheKey } from "./greetingStrings";
 import { ensureUsersColumns } from "./testDbCompat";
 
 // ---------------------------------------------------------------------------
@@ -222,4 +223,174 @@ test("onConflictDoNothing preserves the existing entry when pre-warm runs a seco
 
   // Tidy up.
   await db.delete(ttsCacheTable).where(eq(ttsCacheTable.cacheKey, key));
+});
+
+// ---------------------------------------------------------------------------
+// warmGreetings — injectable-deps unit tests
+//
+// These drive warmGreetings() directly via its injectable-deps interface so
+// no real DB connection or ElevenLabs account is needed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a minimal WarmGreetingsDeps stub. Override individual functions as
+ * needed per test.
+ */
+function makeGreetingDeps(
+  overrides: Partial<WarmGreetingsDeps> & {
+    cache?: Map<string, string>; // cacheKey → audioBase64
+    languages?: { code: string; name: string }[];
+  } = {},
+): WarmGreetingsDeps & { cache: Map<string, string> } {
+  const cache: Map<string, string> =
+    overrides.cache ?? new Map<string, string>();
+  const languages = overrides.languages ?? [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+  ];
+
+  return {
+    cache,
+    getLanguages: overrides.getLanguages ?? (() => Promise.resolve(languages)),
+    findCached:
+      overrides.findCached ??
+      ((key) =>
+        Promise.resolve(
+          cache.has(key) ? { cacheKey: key } : undefined,
+        )),
+    insertCache:
+      overrides.insertCache ??
+      (({ cacheKey, audioBase64 }) => {
+        if (!cache.has(cacheKey)) cache.set(cacheKey, audioBase64);
+        return Promise.resolve();
+      }),
+    synthesize:
+      overrides.synthesize ??
+      ((_text, _voiceId, _langName, _model) =>
+        Promise.resolve(Buffer.from("fake-audio"))),
+  };
+}
+
+test("warmGreetings writes a tts_cache row keyed by greetingAudioCacheKey for each language", async () => {
+  const languages = [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+    { code: "mr", name: "Marathi" },
+  ];
+  const deps = makeGreetingDeps({ languages });
+
+  await warmGreetings(deps);
+
+  for (const lang of languages) {
+    const expectedKey = greetingAudioCacheKey(lang.code);
+    assert.ok(
+      deps.cache.has(expectedKey),
+      `Expected greeting cache entry for language "${lang.code}" (key: ${expectedKey})`,
+    );
+    assert.equal(
+      deps.cache.get(expectedKey),
+      Buffer.from("fake-audio").toString("base64"),
+      `Cached audio for "${lang.code}" must be the base64-encoded synthesized output`,
+    );
+  }
+});
+
+test("warmGreetings skips languages whose greeting is already cached", async () => {
+  const languages = [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+  ];
+
+  // Pre-populate the cache for Gujarati so it should be skipped.
+  const prePopulated = new Map<string, string>([
+    [greetingAudioCacheKey("gu"), "already-cached"],
+  ]);
+
+  let synthesizeCalls = 0;
+  const deps = makeGreetingDeps({
+    languages,
+    cache: prePopulated,
+    synthesize: (_text, _voiceId, _langName, _model) => {
+      synthesizeCalls++;
+      return Promise.resolve(Buffer.from("new-audio"));
+    },
+  });
+
+  await warmGreetings(deps);
+
+  // Gujarati was pre-cached — synthesize must NOT be called for it.
+  assert.equal(
+    synthesizeCalls,
+    1,
+    "synthesize must be called only for languages not already in the cache",
+  );
+
+  // The pre-cached Gujarati entry must be untouched.
+  assert.equal(
+    deps.cache.get(greetingAudioCacheKey("gu")),
+    "already-cached",
+    "Pre-cached entry must not be overwritten",
+  );
+
+  // Hindi must have been synthesized and cached.
+  assert.ok(
+    deps.cache.has(greetingAudioCacheKey("hi")),
+    "Hindi greeting must be cached after warmGreetings",
+  );
+});
+
+test("warmGreetings logs a quota-exhaustion error and continues warming the remaining languages", async () => {
+  const languages = [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+    { code: "mr", name: "Marathi" },
+  ];
+
+  // Gujarati synthesis throws a quota error; the other two must still be cached.
+  const synthesized: string[] = [];
+  const deps = makeGreetingDeps({
+    languages,
+    synthesize: (_text, _voiceId, langName, _model) => {
+      if (langName === "Gujarati") {
+        return Promise.reject(
+          new Error(
+            'ElevenLabs TTS failed with status 401: {"detail":{"status":"quota_exceeded","message":"Quota exceeded."}}',
+          ),
+        );
+      }
+      synthesized.push(langName);
+      return Promise.resolve(Buffer.from("audio-" + langName));
+    },
+  });
+
+  // warmGreetings must not throw even when one language fails.
+  await assert.doesNotReject(
+    () => warmGreetings(deps),
+    "warmGreetings must not throw when a single language synthesis fails",
+  );
+
+  // The two languages that did not fail must have been cached.
+  assert.ok(
+    synthesized.includes("Hindi"),
+    "Hindi must be synthesized despite the Gujarati quota error",
+  );
+  assert.ok(
+    synthesized.includes("Marathi"),
+    "Marathi must be synthesized despite the Gujarati quota error",
+  );
+  assert.ok(
+    deps.cache.has(greetingAudioCacheKey("hi")),
+    "Hindi greeting must be in cache",
+  );
+  assert.ok(
+    deps.cache.has(greetingAudioCacheKey("mr")),
+    "Marathi greeting must be in cache",
+  );
+
+  // Gujarati must not have been cached (it failed).
+  assert.equal(
+    deps.cache.has(greetingAudioCacheKey("gu")),
+    false,
+    "Gujarati greeting must not be cached when synthesis failed",
+  );
 });

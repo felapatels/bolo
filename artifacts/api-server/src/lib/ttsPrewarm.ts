@@ -350,16 +350,62 @@ export function scheduleTtsPrewarm(): void {
 const BOLO_GREETING_VOICE_ID = "cgSgspJ2msm6clMCkdW9"; // Jessica
 const BOLO_GREETING_MODEL = "eleven_flash_v2_5";
 
+/** Injectable dependencies for warmGreetings — real implementations are the defaults. */
+export type WarmGreetingsDeps = {
+  /** Returns all language rows to warm greetings for. */
+  getLanguages: () => Promise<{ code: string; name: string }[]>;
+  /**
+   * Returns a cached row if the greeting is already stored, or undefined if
+   * it still needs to be synthesized.
+   */
+  findCached: (cacheKey: string) => Promise<{ cacheKey: string } | undefined>;
+  /** Persists synthesized greeting audio to the TTS cache. */
+  insertCache: (row: {
+    cacheKey: string;
+    audioBase64: string;
+    format: string;
+  }) => Promise<void>;
+  /** Synthesizes speech audio and returns it as a Buffer. */
+  synthesize: (
+    text: string,
+    voiceId: string,
+    langName: string,
+    model: string,
+  ) => Promise<Buffer>;
+};
+
+const defaultWarmGreetingsDeps: WarmGreetingsDeps = {
+  getLanguages: () =>
+    db.query.languagesTable.findMany({ columns: { code: true, name: true } }),
+  findCached: (cacheKey) =>
+    db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+      columns: { cacheKey: true },
+    }),
+  insertCache: (row) =>
+    db
+      .insert(ttsCacheTable)
+      .values(row)
+      .onConflictDoNothing()
+      .execute()
+      .then(() => undefined),
+  synthesize: (text, voiceId, langName, model) =>
+    textToSpeechElevenLabs(text, voiceId, langName, model),
+};
+
 /**
  * Pre-synthesizes a greeting audio clip for every language in the database
  * using Bolo's chat voice. Runs after the phrase prewarm. Best-effort: a
  * failure for one language never aborts the others.
+ *
+ * Exported with injectable deps so unit tests can drive it without a real DB
+ * or ElevenLabs account (injectable-deps pattern, same as the phrase prewarm).
  */
-async function warmGreetings(): Promise<void> {
+export async function warmGreetings(
+  deps: WarmGreetingsDeps = defaultWarmGreetingsDeps,
+): Promise<void> {
   try {
-    const languages = await db.query.languagesTable.findMany({
-      columns: { code: true, name: true },
-    });
+    const languages = await deps.getLanguages();
 
     if (languages.length === 0) return;
 
@@ -373,10 +419,7 @@ async function warmGreetings(): Promise<void> {
       const cacheKey = greetingAudioCacheKey(lang.code);
 
       // Skip if already cached.
-      const existing = await db.query.ttsCacheTable.findFirst({
-        where: eq(ttsCacheTable.cacheKey, cacheKey),
-        columns: { cacheKey: true },
-      });
+      const existing = await deps.findCached(cacheKey);
       if (existing) {
         skipped++;
         return;
@@ -384,18 +427,14 @@ async function warmGreetings(): Promise<void> {
 
       const ttsText = buildGreetingTtsText(lang.name);
       try {
-        const buffer = await textToSpeechElevenLabs(
+        const buffer = await deps.synthesize(
           ttsText,
           BOLO_GREETING_VOICE_ID,
           lang.name,
           BOLO_GREETING_MODEL,
         );
         const audioBase64 = buffer.toString("base64");
-        await db
-          .insert(ttsCacheTable)
-          .values({ cacheKey, audioBase64, format: "mp3" })
-          .onConflictDoNothing()
-          .execute();
+        await deps.insertCache({ cacheKey, audioBase64, format: "mp3" });
         done++;
       } catch (err) {
         failed++;
