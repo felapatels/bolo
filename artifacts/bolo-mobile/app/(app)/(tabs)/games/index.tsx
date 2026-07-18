@@ -94,7 +94,7 @@ export default function GamesScreen() {
       router.push('/(app)/paywall');
       return;
     }
-    router.push(`/(app)/games/${game.id}` as never);
+    router.push(`/(app)/(tabs)/games/${game.id}` as never);
   };
 
   return (

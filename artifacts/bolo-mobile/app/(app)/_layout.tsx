@@ -80,12 +80,6 @@ export default function AppLayout() {
               <Stack.Screen name="account/subscription" />
               <Stack.Screen name="account/email" />
               <Stack.Screen name="account/password" />
-              <Stack.Screen name="games/word-match" />
-              <Stack.Screen name="games/speed-round" />
-              <Stack.Screen name="games/listen-and-pick" />
-              <Stack.Screen name="games/phrase-builder" />
-              <Stack.Screen name="games/script-trace" />
-              <Stack.Screen name="games/bolo-quiz" />
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
