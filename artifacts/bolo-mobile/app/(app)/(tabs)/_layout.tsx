@@ -15,9 +15,13 @@ import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 // Inline the tab-button props shape so we don't depend on
 // @react-navigation/bottom-tabs being a direct dep of this package.
+// style is forwarded from the tab bar renderer and carries the correct slot width.
 type BoloTabButtonProps = {
   onPress?: React.ComponentProps<typeof Pressable>['onPress'];
+  onLongPress?: React.ComponentProps<typeof Pressable>['onLongPress'];
   accessibilityState?: { selected?: boolean; disabled?: boolean };
+  style?: React.ComponentProps<typeof Pressable>['style'];
+  children?: React.ReactNode;
 };
 import { useListIncomingFriendRequests } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -207,7 +211,7 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 // ---------------------------------------------------------------------------
 // Elevated center Bolo tab button
 // ---------------------------------------------------------------------------
-function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
+function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: BoloTabButtonProps) {
   const colors = useColors();
   const focused = accessibilityState?.selected ?? false;
   const reduceMotion = useReducedMotion();
@@ -234,10 +238,14 @@ function BoloTabButton({ onPress, accessibilityState }: BoloTabButtonProps) {
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       hitSlop={{ top: 22, bottom: 0, left: 8, right: 8 }}
-      style={styles.boloOuter}
+      style={(state) => [
+        typeof style === 'function' ? style(state) : style,
+        styles.boloOuter,
+      ]}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
       accessibilityLabel="Bolo"
