@@ -884,6 +884,68 @@ export const RecordScriptTraceProgressResponse = zod.object({
 
 
 /**
+ * Returns today's 5-question daily quiz for the learner's active language. If the quiz hasn't been generated yet it is created on-demand. If the learner has already completed today's quiz, `completed` is true and their score is included. The same questions are served to every learner (shared daily experience). Requires Bolo! Plus.
+ * @summary Get today's daily quiz for a language (Plus only)
+ */
+export const GetDailyQuizQueryParams = zod.object({
+  "lang": zod.coerce.string().describe('Language code (e.g. \"gu\")')
+})
+
+export const GetDailyQuizResponse = zod.object({
+  "quizDate": zod.string().describe('ISO date string for today (UTC), e.g. \"2026-07-18\"'),
+  "completed": zod.boolean().describe('Whether the learner has already submitted today\'s quiz'),
+  "questions": zod.array(zod.union([zod.object({
+  "type": zod.enum(['mcq_translation']),
+  "phraseId": zod.number(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "correctEnglish": zod.string(),
+  "distractors": zod.array(zod.string()).describe('3 wrong English glosses')
+}).describe('See native script, pick correct English gloss from 4 choices.'),zod.object({
+  "type": zod.enum(['listen_identify']),
+  "phraseId": zod.number(),
+  "correctNativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "distractors": zod.array(zod.string()).describe('3 wrong native-script strings')
+}).describe('Hear audio for a phrase, pick the correct native-script card.'),zod.object({
+  "type": zod.enum(['order_words']),
+  "phraseId": zod.number(),
+  "nativeScript": zod.string().describe('The correct answer (space-separated words)'),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "tiles": zod.array(zod.string()).describe('Shuffled word tiles to arrange')
+}).describe('Arrange shuffled word\/token tiles into the correct phrase.')])).describe('The 5 quiz questions'),
+  "score": zod.number().nullish().describe('Learner\'s score (0-5), only present when completed=true'),
+  "total": zod.number().nullish().describe('Total questions (always 5), only present when completed=true'),
+  "xpAwarded": zod.number().nullish().describe('XP awarded, only present when completed=true'),
+  "completedAt": zod.coerce.date().nullish().describe('When the learner completed the quiz')
+}).describe('Today\'s quiz state for a learner.')
+
+
+/**
+ * Records the learner's score for today's quiz. Enforces one submission per user per language per UTC day. Returns the score and XP awarded (10 XP per correct answer, +20 bonus for a perfect 5/5). Requires Bolo! Plus.
+ * @summary Submit the learner's answers for today's daily quiz (Plus only)
+ */
+export const completeDailyQuizBodyAnswersMin = 5;
+export const completeDailyQuizBodyAnswersMax = 5;
+
+
+
+export const CompleteDailyQuizBody = zod.object({
+  "lang": zod.string().describe('Language code (e.g. \"gu\")'),
+  "answers": zod.array(zod.string().nullable()).min(completeDailyQuizBodyAnswersMin).max(completeDailyQuizBodyAnswersMax).describe('Array of 5 selected answers (one per question). For mcq_translation supply the chosen English string; for listen_identify supply the chosen nativeScript string; for order_words supply the tiles joined by spaces. null means the question was skipped or unanswered.')
+})
+
+export const CompleteDailyQuizResponse = zod.object({
+  "score": zod.number().describe('Number of correct answers (0-5)'),
+  "total": zod.number().describe('Total questions (always 5)'),
+  "xpAwarded": zod.number().describe('XP awarded for this attempt'),
+  "perfect": zod.boolean().describe('Whether the learner scored 5\/5')
+})
+
+
+/**
  * Saves the message to the contact_submissions table and sends a notification email to the support inbox via Resend. The DB row is always saved; if the email send fails email_sent stays false and the caller still receives { success: true }. Rate-limited to 3 submissions per 10 minutes per user/IP.
  * @summary Submit a support message via the Contact Us form
  */

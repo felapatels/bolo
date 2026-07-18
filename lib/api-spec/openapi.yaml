@@ -1074,6 +1074,92 @@ paths:
               schema:
                 $ref: "#/components/schemas/UpgradeRequired"
 
+  /games/daily-quiz/today:
+    get:
+      operationId: getDailyQuiz
+      tags: [learning]
+      summary: Get today's daily quiz for a language (Plus only)
+      description: >-
+        Returns today's 5-question daily quiz for the learner's active language.
+        If the quiz hasn't been generated yet it is created on-demand.
+        If the learner has already completed today's quiz, `completed` is true
+        and their score is included. The same questions are served to every
+        learner (shared daily experience). Requires Bolo! Plus.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Language code (e.g. "gu")
+      responses:
+        "200":
+          description: Today's quiz (and completion state if already played)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyQuizResponse"
+        "400":
+          description: Missing lang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Upgrade required (Bolo! Plus only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "502":
+          description: Quiz generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /games/daily-quiz/complete:
+    post:
+      operationId: completeDailyQuiz
+      tags: [learning]
+      summary: Submit the learner's answers for today's daily quiz (Plus only)
+      description: >-
+        Records the learner's score for today's quiz. Enforces one submission
+        per user per language per UTC day. Returns the score and XP awarded
+        (10 XP per correct answer, +20 bonus for a perfect 5/5). Requires
+        Bolo! Plus.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteDailyQuizInput"
+      responses:
+        "200":
+          description: Quiz completed — score and XP awarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyQuizResult"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Upgrade required (Bolo! Plus only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "409":
+          description: Already completed today's quiz
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /contact:
     post:
       operationId: submitContactForm
@@ -2815,6 +2901,179 @@ components:
           type: boolean
       required:
         - success
+
+    McqTranslationQuestion:
+      type: object
+      description: See native script, pick correct English gloss from 4 choices.
+      properties:
+        type:
+          type: string
+          enum: [mcq_translation]
+        phraseId:
+          type: integer
+        nativeScript:
+          type: string
+        romanized:
+          type: string
+        correctEnglish:
+          type: string
+        distractors:
+          type: array
+          items:
+            type: string
+          description: 3 wrong English glosses
+      required:
+        - type
+        - phraseId
+        - nativeScript
+        - romanized
+        - correctEnglish
+        - distractors
+
+    ListenIdentifyQuestion:
+      type: object
+      description: Hear audio for a phrase, pick the correct native-script card.
+      properties:
+        type:
+          type: string
+          enum: [listen_identify]
+        phraseId:
+          type: integer
+        correctNativeScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+        distractors:
+          type: array
+          items:
+            type: string
+          description: 3 wrong native-script strings
+      required:
+        - type
+        - phraseId
+        - correctNativeScript
+        - romanized
+        - english
+        - distractors
+
+    OrderWordsQuestion:
+      type: object
+      description: Arrange shuffled word/token tiles into the correct phrase.
+      properties:
+        type:
+          type: string
+          enum: [order_words]
+        phraseId:
+          type: integer
+        nativeScript:
+          type: string
+          description: The correct answer (space-separated words)
+        romanized:
+          type: string
+        english:
+          type: string
+        tiles:
+          type: array
+          items:
+            type: string
+          description: Shuffled word tiles to arrange
+      required:
+        - type
+        - phraseId
+        - nativeScript
+        - romanized
+        - english
+        - tiles
+
+    QuizQuestion:
+      oneOf:
+        - $ref: "#/components/schemas/McqTranslationQuestion"
+        - $ref: "#/components/schemas/ListenIdentifyQuestion"
+        - $ref: "#/components/schemas/OrderWordsQuestion"
+      discriminator:
+        propertyName: type
+
+    DailyQuizResponse:
+      type: object
+      description: Today's quiz state for a learner.
+      properties:
+        quizDate:
+          type: string
+          description: ISO date string for today (UTC), e.g. "2026-07-18"
+        completed:
+          type: boolean
+          description: Whether the learner has already submitted today's quiz
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+          description: The 5 quiz questions
+        score:
+          type: integer
+          nullable: true
+          description: Learner's score (0-5), only present when completed=true
+        total:
+          type: integer
+          nullable: true
+          description: Total questions (always 5), only present when completed=true
+        xpAwarded:
+          type: integer
+          nullable: true
+          description: XP awarded, only present when completed=true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the learner completed the quiz
+      required:
+        - quizDate
+        - completed
+        - questions
+
+    CompleteDailyQuizInput:
+      type: object
+      properties:
+        lang:
+          type: string
+          description: Language code (e.g. "gu")
+        answers:
+          type: array
+          items:
+            type: string
+            nullable: true
+          description: >-
+            Array of 5 selected answers (one per question). For mcq_translation
+            supply the chosen English string; for listen_identify supply the
+            chosen nativeScript string; for order_words supply the tiles joined
+            by spaces. null means the question was skipped or unanswered.
+          minItems: 5
+          maxItems: 5
+      required:
+        - lang
+        - answers
+
+    DailyQuizResult:
+      type: object
+      properties:
+        score:
+          type: integer
+          description: Number of correct answers (0-5)
+        total:
+          type: integer
+          description: Total questions (always 5)
+        xpAwarded:
+          type: integer
+          description: XP awarded for this attempt
+        perfect:
+          type: boolean
+          description: Whether the learner scored 5/5
+      required:
+        - score
+        - total
+        - xpAwarded
+        - perfect
 
     LeaderboardEntry:
       type: object

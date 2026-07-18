@@ -32,10 +32,13 @@ import type {
   Category,
   ChatTurnInput,
   ChatTurnResult,
+  CompleteDailyQuizInput,
   ContactFormInput,
   ContactFormResult,
   CreateFamilyInvite201,
   CreateFamilyInviteInput,
+  DailyQuizResponse,
+  DailyQuizResult,
   DeleteAccountResult,
   Entitlements,
   Error,
@@ -46,6 +49,7 @@ import type {
   GameSessionInput,
   GameSessionResult,
   GeneratedPhrase,
+  GetDailyQuizParams,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
   GetScriptTraceProgressParams,
@@ -3016,6 +3020,163 @@ export const useRecordScriptTraceProgress = <TError = ErrorType<void | UpgradeRe
         TContext
       > => {
       return useMutation(getRecordScriptTraceProgressMutationOptions(options));
+    }
+
+export const getGetDailyQuizUrl = (params: GetDailyQuizParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/games/daily-quiz/today?${stringifiedParams}` : `/api/games/daily-quiz/today`
+}
+
+/**
+ * Returns today's 5-question daily quiz for the learner's active language. If the quiz hasn't been generated yet it is created on-demand. If the learner has already completed today's quiz, `completed` is true and their score is included. The same questions are served to every learner (shared daily experience). Requires Bolo! Plus.
+ * @summary Get today's daily quiz for a language (Plus only)
+ */
+export const getDailyQuiz = async (params: GetDailyQuizParams, options?: RequestInit): Promise<DailyQuizResponse> => {
+
+  return customFetch<DailyQuizResponse>(getGetDailyQuizUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDailyQuizQueryKey = (params?: GetDailyQuizParams,) => {
+    return [
+    `/api/games/daily-quiz/today`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDailyQuizQueryOptions = <TData = Awaited<ReturnType<typeof getDailyQuiz>>, TError = ErrorType<Error | UpgradeRequired>>(params: GetDailyQuizParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyQuiz>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyQuizQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyQuiz>>> = ({ signal }) => getDailyQuiz(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyQuiz>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDailyQuizQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyQuiz>>>
+export type GetDailyQuizQueryError = ErrorType<Error | UpgradeRequired>
+
+
+/**
+ * @summary Get today's daily quiz for a language (Plus only)
+ */
+
+export function useGetDailyQuiz<TData = Awaited<ReturnType<typeof getDailyQuiz>>, TError = ErrorType<Error | UpgradeRequired>>(
+ params: GetDailyQuizParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyQuiz>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDailyQuizQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCompleteDailyQuizUrl = () => {
+
+
+
+
+  return `/api/games/daily-quiz/complete`
+}
+
+/**
+ * Records the learner's score for today's quiz. Enforces one submission per user per language per UTC day. Returns the score and XP awarded (10 XP per correct answer, +20 bonus for a perfect 5/5). Requires Bolo! Plus.
+ * @summary Submit the learner's answers for today's daily quiz (Plus only)
+ */
+export const completeDailyQuiz = async (completeDailyQuizInput: CompleteDailyQuizInput, options?: RequestInit): Promise<DailyQuizResult> => {
+
+  return customFetch<DailyQuizResult>(getCompleteDailyQuizUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(completeDailyQuizInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteDailyQuizMutationOptions = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDailyQuiz>>, TError,{data: BodyType<CompleteDailyQuizInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeDailyQuiz>>, TError,{data: BodyType<CompleteDailyQuizInput>}, TContext> => {
+
+const mutationKey = ['completeDailyQuiz'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeDailyQuiz>>, {data: BodyType<CompleteDailyQuizInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  completeDailyQuiz(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteDailyQuizMutationResult = NonNullable<Awaited<ReturnType<typeof completeDailyQuiz>>>
+    export type CompleteDailyQuizMutationBody = BodyType<CompleteDailyQuizInput>
+    export type CompleteDailyQuizMutationError = ErrorType<Error | UpgradeRequired>
+
+    /**
+ * @summary Submit the learner's answers for today's daily quiz (Plus only)
+ */
+export const useCompleteDailyQuiz = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDailyQuiz>>, TError,{data: BodyType<CompleteDailyQuizInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeDailyQuiz>>,
+        TError,
+        {data: BodyType<CompleteDailyQuizInput>},
+        TContext
+      > => {
+      return useMutation(getCompleteDailyQuizMutationOptions(options));
     }
 
 export const getSubmitContactFormUrl = () => {

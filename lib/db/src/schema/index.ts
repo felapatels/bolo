@@ -13,3 +13,4 @@ export * from "./friendInvites";
 export * from "./familyPlans";
 export * from "./contactSubmissions";
 export * from "./scriptTraceProgress";
+export * from "./dailyQuizzes";

@@ -1,3 +1,0 @@
--- family_plans and family_seats were already created in migration 0013.
--- This migration is intentionally empty to preserve the drizzle migration
--- chain without duplicating the DDL.

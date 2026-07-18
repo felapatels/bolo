@@ -720,6 +720,111 @@ export interface ContactFormResult {
   success: boolean;
 }
 
+export type McqTranslationQuestionType = typeof McqTranslationQuestionType[keyof typeof McqTranslationQuestionType];
+
+
+export const McqTranslationQuestionType = {
+  mcq_translation: 'mcq_translation',
+} as const;
+
+/**
+ * See native script, pick correct English gloss from 4 choices.
+ */
+export interface McqTranslationQuestion {
+  type: McqTranslationQuestionType;
+  phraseId: number;
+  nativeScript: string;
+  romanized: string;
+  correctEnglish: string;
+  /** 3 wrong English glosses */
+  distractors: string[];
+}
+
+export type ListenIdentifyQuestionType = typeof ListenIdentifyQuestionType[keyof typeof ListenIdentifyQuestionType];
+
+
+export const ListenIdentifyQuestionType = {
+  listen_identify: 'listen_identify',
+} as const;
+
+/**
+ * Hear audio for a phrase, pick the correct native-script card.
+ */
+export interface ListenIdentifyQuestion {
+  type: ListenIdentifyQuestionType;
+  phraseId: number;
+  correctNativeScript: string;
+  romanized: string;
+  english: string;
+  /** 3 wrong native-script strings */
+  distractors: string[];
+}
+
+export type OrderWordsQuestionType = typeof OrderWordsQuestionType[keyof typeof OrderWordsQuestionType];
+
+
+export const OrderWordsQuestionType = {
+  order_words: 'order_words',
+} as const;
+
+/**
+ * Arrange shuffled word/token tiles into the correct phrase.
+ */
+export interface OrderWordsQuestion {
+  type: OrderWordsQuestionType;
+  phraseId: number;
+  /** The correct answer (space-separated words) */
+  nativeScript: string;
+  romanized: string;
+  english: string;
+  /** Shuffled word tiles to arrange */
+  tiles: string[];
+}
+
+export type QuizQuestion = McqTranslationQuestion | ListenIdentifyQuestion | OrderWordsQuestion;
+
+/**
+ * Today's quiz state for a learner.
+ */
+export interface DailyQuizResponse {
+  /** ISO date string for today (UTC), e.g. "2026-07-18" */
+  quizDate: string;
+  /** Whether the learner has already submitted today's quiz */
+  completed: boolean;
+  /** The 5 quiz questions */
+  questions: QuizQuestion[];
+  /** Learner's score (0-5), only present when completed=true */
+  score?: number | null;
+  /** Total questions (always 5), only present when completed=true */
+  total?: number | null;
+  /** XP awarded, only present when completed=true */
+  xpAwarded?: number | null;
+  /** When the learner completed the quiz */
+  completedAt?: string | null;
+}
+
+export interface CompleteDailyQuizInput {
+  /** Language code (e.g. "gu") */
+  lang: string;
+  /**
+     * Array of 5 selected answers (one per question). For mcq_translation supply the chosen English string; for listen_identify supply the chosen nativeScript string; for order_words supply the tiles joined by spaces. null means the question was skipped or unanswered.
+     * @minItems 5
+     * @maxItems 5
+     */
+  answers: (string | null)[];
+}
+
+export interface DailyQuizResult {
+  /** Number of correct answers (0-5) */
+  score: number;
+  /** Total questions (always 5) */
+  total: number;
+  /** XP awarded for this attempt */
+  xpAwarded: number;
+  /** Whether the learner scored 5/5 */
+  perfect: boolean;
+}
+
 /**
  * One learner's standing on the friends leaderboard.
  */
@@ -777,6 +882,13 @@ export const GetScriptTraceProgressChapter = {
   'hindi-vowels': 'hindi-vowels',
   'hindi-consonants': 'hindi-consonants',
 } as const;
+
+export type GetDailyQuizParams = {
+/**
+ * Language code (e.g. "gu")
+ */
+lang: string;
+};
 
 export type CreateFamilyInvite201 = {
   id: number;

@@ -10,7 +10,7 @@ import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
 import familyRouter from "./family";
 import contactRouter from "./contact";
-import gamesRouter from "./games";
+import gamesRouter, { gamesPublicRouter } from "./games";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -25,6 +25,10 @@ router.use(languagesRouter);
 // so it lives in the public section and authenticates itself with a shared
 // secret rather than a session.
 router.use(revenuecatRouter);
+
+// Cron/internal endpoints that must be reachable without a user session.
+// Each route inside validates its own X-Cron-Secret header.
+router.use(gamesPublicRouter);
 
 // Everything below requires an authenticated user. loadEntitlements resolves the
 // caller's effective plan onto the request so every gated route reads it from a
