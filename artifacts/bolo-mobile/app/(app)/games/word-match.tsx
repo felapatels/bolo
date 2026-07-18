@@ -22,6 +22,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
+import { categoryIcon } from '@/lib/ui';
 import { useRouter } from 'expo-router';
 import {
   useListCategories,
@@ -226,7 +227,12 @@ function TopicPicker({
               { backgroundColor: colors.card, borderColor: colors.border, opacity: disabled ? 0.5 : 1 },
             ]}
           >
-            <Text style={styles.topicIcon}>{cat.iconName ?? '📚'}</Text>
+            <Feather
+              name={categoryIcon(cat.iconName)}
+              size={24}
+              color={colors.primary}
+              style={styles.topicIcon}
+            />
             <View style={{ flex: 1 }}>
               <Text style={[styles.topicTitle, { color: colors.foreground }]} numberOfLines={1}>
                 {cat.title}
