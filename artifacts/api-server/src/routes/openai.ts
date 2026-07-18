@@ -40,8 +40,7 @@ import {
 } from "../lib/chatAudioStreams";
 import {
   greetingAudioCacheKey,
-  buildGreetingDisplayText,
-  buildGreetingTtsText,
+  buildGreetingTexts,
   GREETING_SQUAWK_VARIANT,
 } from "../lib/greetingStrings";
 
@@ -755,8 +754,8 @@ router.get(
     const languageName = language?.name ?? languageCode;
 
     const cacheKey = greetingAudioCacheKey(languageCode);
-    const displayText = buildGreetingDisplayText(languageName);
-    const ttsText = buildGreetingTtsText(languageName);
+    const { display: displayText, tts: ttsText, english: englishText } =
+      buildGreetingTexts(languageCode, languageName);
 
     // --- cache hit ---
     try {
@@ -766,7 +765,7 @@ router.get(
       if (cached) {
         res.json({
           text: displayText,
-          english: "",
+          english: englishText,
           audioBase64: cached.audioBase64,
           format: cached.format,
           squawkVariant: GREETING_SQUAWK_VARIANT,
@@ -793,7 +792,7 @@ router.get(
 
       res.json({
         text: displayText,
-        english: "",
+        english: englishText,
         audioBase64,
         format: "mp3",
         squawkVariant: GREETING_SQUAWK_VARIANT,
@@ -806,7 +805,7 @@ router.get(
         if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
         res.json({
           text: displayText,
-          english: "",
+          english: englishText,
           audioBase64: buffer.toString("base64"),
           format: "mp3",
           squawkVariant: GREETING_SQUAWK_VARIANT,

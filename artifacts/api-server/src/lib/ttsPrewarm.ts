@@ -5,7 +5,7 @@ import { ttsCacheKey } from "./ttsCache";
 import { logger } from "./logger";
 import {
   greetingAudioCacheKey,
-  buildGreetingTtsText,
+  buildGreetingTexts,
 } from "./greetingStrings";
 
 // Default voice used when learners tap the speaker button without selecting a
@@ -425,7 +425,7 @@ export async function warmGreetings(
         return;
       }
 
-      const ttsText = buildGreetingTtsText(lang.name);
+      const { tts: ttsText } = buildGreetingTexts(lang.code, lang.name);
       try {
         const buffer = await deps.synthesize(
           ttsText,
