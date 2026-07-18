@@ -2,6 +2,7 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { ttsCacheKey } from "./ttsCache";
+import { getVoiceIdForLanguage } from "./languageVoice";
 import { logger } from "./logger";
 import {
   greetingAudioCacheKey,
@@ -128,7 +129,8 @@ type PhraseWithLanguageName = {
   nativeScript: string;
   languageCode: string;
   premium: boolean;
-  languageName: string; // display name, e.g. "Gujarati" — matches what clients send
+  languageName: string;    // display name, e.g. "Gujarati" — matches what clients send
+  elevenLabsVoiceId: string; // resolved per-language voice ID for synthesis + cache key
 };
 
 /**
@@ -179,6 +181,10 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       // Fall back to empty string if for some reason the language row is missing;
       // that matches how the route behaves when languageName is omitted.
       languageName: nameByCode.get(p.languageCode) ?? "",
+      // Resolve the per-language ElevenLabs voice ID so both the cache key and
+      // the synthesis call use the same voice — matching what /openai/tts does
+      // at runtime when a client passes languageCode.
+      elevenLabsVoiceId: getVoiceIdForLanguage(p.languageCode),
     }));
 }
 
@@ -213,11 +219,12 @@ export function scheduleTtsPrewarm(): void {
         return;
       }
 
-      // Compute what keys we would need.  languageName is included so the key
-      // is byte-for-byte identical to what /openai/tts produces at runtime.
+      // Compute what keys we would need.  languageName and elevenLabsVoiceId
+      // are both included so the key is byte-for-byte identical to what
+      // /openai/tts produces at runtime when the client passes languageCode.
       const keyed = phrases.map((p) => ({
         phrase: p,
-        key: ttsCacheKey(p.nativeScript, DEFAULT_VOICE, p.languageName),
+        key: ttsCacheKey(p.nativeScript, DEFAULT_VOICE, p.languageName, p.elevenLabsVoiceId),
       }));
 
       // Find which keys are already cached in a single query.
@@ -303,8 +310,9 @@ export function scheduleTtsPrewarm(): void {
         try {
           const buffer = await textToSpeechElevenLabs(
             phrase.nativeScript,
-            undefined,
-            // Pass the language name to match the exact key used at runtime.
+            // Use the per-language voice so pre-warmed audio matches what
+            // /openai/tts synthesizes at runtime for the same languageCode.
+            phrase.elevenLabsVoiceId,
             phrase.languageName || undefined,
           );
           const audioBase64 = buffer.toString("base64");

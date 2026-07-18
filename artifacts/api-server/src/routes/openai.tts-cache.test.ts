@@ -6,6 +6,7 @@ import express, { type Express } from "express";
 import { db, pool, ttsCacheTable, phrasesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import openaiRouter, { ttsCacheKey, legacyTtsCacheKey } from "./openai";
+import { DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
 
 // Exercises two things:
 //
@@ -184,6 +185,8 @@ before(async () => {
 after(async () => {
   // Clean up all test-seeded TTS cache entries — both hinted and unhinted forms
   // for every voice so the shared dev DB stays clean for other suites.
+  // Also clean up new-style voiceId-keyed entries (DEFAULT_MULTILINGUAL_VOICE_ID
+  // since TEST_LANG is not in LANGUAGE_VOICE_MAP).
   const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
   for (const v of voices) {
     for (const text of [OLD_TEXT, NEW_TEXT]) {
@@ -195,6 +198,13 @@ after(async () => {
           .delete(ttsCacheTable)
           .where(eq(ttsCacheTable.cacheKey, keyFn(text, v, LANG_NAME)));
       }
+      // New-style voiceId-keyed entries (written by /openai/tts when languageCode is passed).
+      await db
+        .delete(ttsCacheTable)
+        .where(eq(ttsCacheTable.cacheKey, ttsCacheKey(text, v, undefined, DEFAULT_MULTILINGUAL_VOICE_ID)));
+      await db
+        .delete(ttsCacheTable)
+        .where(eq(ttsCacheTable.cacheKey, ttsCacheKey(text, v, LANG_NAME, DEFAULT_MULTILINGUAL_VOICE_ID)));
     }
   }
   await pool.query(`DELETE FROM phrases WHERE language_code = $1`, [TEST_LANG]);
@@ -267,11 +277,13 @@ test("ttsCacheKey: provider-versioned key differs from the legacy key", () => {
 // ─── Integration: stale audio is never served after a phrase correction ───────
 
 test("TTS cache hit: returns pre-seeded audio for the original phrase text", async () => {
-  // Seed the cache entry that simulates audio generated for the original text.
+  // The route resolves getVoiceIdForLanguage(undefined) = DEFAULT_MULTILINGUAL_VOICE_ID
+  // when no languageCode is supplied. Seed the entry under the matching key so the
+  // cache hit path fires instead of falling through to synthesis.
   await db
     .insert(ttsCacheTable)
     .values({
-      cacheKey: ttsCacheKey(OLD_TEXT, VOICE),
+      cacheKey: ttsCacheKey(OLD_TEXT, VOICE, undefined, DEFAULT_MULTILINGUAL_VOICE_ID),
       audioBase64: OLD_AUDIO,
       format: "mp3",
     })
@@ -318,10 +330,11 @@ test("TTS: corrected text with its own cache entry returns its own audio", async
   // after a correction has been cached). Use onConflictDoUpdate rather than
   // onConflictDoNothing so the expected audio wins even if the previous test's
   // successful synthesis already wrote a real entry under this key.
+  // Route resolves DEFAULT_MULTILINGUAL_VOICE_ID when no languageCode is sent.
   await db
     .insert(ttsCacheTable)
     .values({
-      cacheKey: ttsCacheKey(NEW_TEXT, VOICE),
+      cacheKey: ttsCacheKey(NEW_TEXT, VOICE, undefined, DEFAULT_MULTILINGUAL_VOICE_ID),
       audioBase64: NEW_AUDIO,
       format: "mp3",
     })
@@ -457,11 +470,14 @@ test("POST /openai/tts-cache/evict: evicts unhinted and language-hinted keys for
   });
 
   assert.equal(status, 200, "Eviction should succeed");
-  // 6 voices × 2 forms (unhinted + hinted) × 2 schemes (current + legacy) = 24 keys.
+  // 6 voices × 3 forms (unhinted + hinted + voiceId-unhinted + voiceId-hinted + legacy-unhinted + legacy-hinted)
+  // = 6 voices × 6 = 36 keys.
+  // (old no-hint, old hinted, old legacy no-hint, old legacy hinted,
+  //  new voiceId no-hint, new voiceId hinted)
   assert.equal(
     json.evicted,
-    voices.length * 4,
-    "Should report evicting unhinted + hinted keys in both current and legacy schemes per voice",
+    voices.length * 6,
+    "Should report evicting old-style (unhinted+hinted+legacy×2) and new-style voiceId-keyed (unhinted+hinted) keys per voice",
   );
 
   // Verify all cache entries are gone from the DB.
@@ -504,8 +520,10 @@ test("POST /openai/tts-cache/evict: evicting by languageCode removes unhinted an
   });
 
   assert.equal(status, 200);
-  // 1 phrase × 6 voices × 2 key forms (unhinted + hinted) × 2 schemes = 24 keys.
-  assert.equal(json.evicted, 24, "Should evict hinted/unhinted forms in both key schemes across all voices");
+  // 1 phrase × 6 voices × 6 key forms:
+  //   old no-hint, old hinted, old legacy no-hint, old legacy hinted,
+  //   new voiceId no-hint, new voiceId hinted = 36 keys.
+  assert.equal(json.evicted, 36, "Should evict old-style and new voiceId-keyed forms in both schemes across all voices");
 
   // Both the unhinted and hinted nova entries should be gone.
   const unhinted = await db.query.ttsCacheTable.findFirst({

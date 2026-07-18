@@ -391,6 +391,12 @@ export interface SpeechInput {
   text: string;
   voice?: string;
   languageName?: string;
+  /**
+   * ISO-639-1 code of the language being synthesized (e.g. "gu", "hi", "ta").
+   * When provided the server selects a voice that sounds more authentic for
+   * that language family instead of always defaulting to the English voice.
+   */
+  languageCode?: string;
 }
 
 export interface SpeechResult {

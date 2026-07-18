@@ -980,7 +980,8 @@ export const SubmitContactFormResponse = zod.object({
 export const SynthesizeSpeechBody = zod.object({
   "text": zod.string().min(1),
   "voice": zod.string().optional(),
-  "languageName": zod.string().optional()
+  "languageName": zod.string().optional(),
+  "languageCode": zod.string().optional().describe('ISO-639-1 code of the language being synthesized (e.g. "gu", "hi", "ta"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice.')
 })
 
 export const SynthesizeSpeechResponse = zod.object({

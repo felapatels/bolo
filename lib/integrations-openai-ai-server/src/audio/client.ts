@@ -244,6 +244,16 @@ export async function textToSpeechElevenLabs(
       text,
       model_id: modelId,
       output_format: "mp3_44100_128",
+      // Improve clarity and consistency for non-Latin scripts. stability=0.7
+      // keeps the voice steady without sounding robotic; similarity_boost=0.8
+      // preserves the chosen voice's character; use_speaker_boost adds a final
+      // audio enhancement pass that helps non-Latin phonemes come through more
+      // clearly on device speakers.
+      voice_settings: {
+        stability: 0.7,
+        similarity_boost: 0.8,
+        use_speaker_boost: true,
+      },
     }),
   });
 
@@ -375,6 +385,12 @@ export async function textToSpeechElevenLabsStream(
     body: JSON.stringify({
       text,
       model_id: modelId,
+      // Same voice_settings as the non-streaming endpoint for consistent output.
+      voice_settings: {
+        stability: 0.7,
+        similarity_boost: 0.8,
+        use_speaker_boost: true,
+      },
     }),
   });
 

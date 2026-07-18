@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { db, pool, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ttsCacheKey } from "./ttsCache";
+import { getVoiceIdForLanguage, DEFAULT_MULTILINGUAL_VOICE_ID } from "./languageVoice";
 import { isQuotaExhaustedError, warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
 import { greetingAudioCacheKey } from "./greetingStrings";
 import { ensureUsersColumns } from "./testDbCompat";
@@ -27,8 +28,13 @@ const TEST_LANG_NAME = "TestLang (prewarm suite)";
 const TEST_NATIVE_SCRIPT = "परीक्षण";
 const DEFAULT_VOICE = "nova" as const;
 
+// The resolved ElevenLabs voice ID for the test language (not in LANGUAGE_VOICE_MAP →
+// falls back to the default multilingual voice, same as /openai/tts would use at runtime).
+const TEST_VOICE_ID = getVoiceIdForLanguage(TEST_LANG_CODE);
+
 // The key that both pre-warm and runtime route should produce for our fixture.
-const EXPECTED_KEY = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
+// Voice ID is now baked into the key so different languages never collide.
+const EXPECTED_KEY = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, TEST_VOICE_ID);
 
 async function cleanupTestData(): Promise<void> {
   await db
@@ -66,31 +72,32 @@ after(async () => {
 // ---------------------------------------------------------------------------
 
 test("ttsCacheKey is deterministic: same inputs always produce the same key", () => {
-  const k1 = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
-  const k2 = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
+  const k1 = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, TEST_VOICE_ID);
+  const k2 = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, TEST_VOICE_ID);
   assert.equal(k1, k2);
   assert.match(k1, /^[0-9a-f]{64}$/, "Key must be a 64-char SHA-256 hex string");
 });
 
-test("pre-warm key equals runtime route key when both use the same language display name", () => {
-  // Pre-warm path: uses language.name read from the languages table.
-  const prewarmKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
+test("pre-warm key equals runtime route key when both use the same language display name and voice ID", () => {
+  // Pre-warm path: resolves voiceId via getVoiceIdForLanguage(languageCode) and
+  // passes it as the 4th arg to ttsCacheKey, alongside language.name.
+  const resolvedVoice = getVoiceIdForLanguage(TEST_LANG_CODE);
+  const prewarmKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, resolvedVoice);
 
-  // Runtime /openai/tts path: uses languageName received from the client,
-  // which equals the display name shown to — and sent back by — the learner's
-  // app (e.g. "Gujarati").
-  const runtimeKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
+  // Runtime /openai/tts path: also resolves voiceId from languageCode then
+  // calls ttsCacheKey(text, voice, languageName, elevenLabsVoiceId).
+  const runtimeKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, resolvedVoice);
 
   assert.equal(
     prewarmKey,
     runtimeKey,
-    "Pre-warm and runtime route must produce the same cache key for the same phrase + language",
+    "Pre-warm and runtime route must produce the same cache key for the same phrase + language + voice",
   );
 });
 
 test("omitting languageName produces a different key than supplying it", () => {
-  const withName = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME);
-  const withoutName = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE);
+  const withName = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, TEST_LANG_NAME, TEST_VOICE_ID);
+  const withoutName = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, undefined, TEST_VOICE_ID);
   assert.notEqual(
     withName,
     withoutName,
@@ -99,8 +106,8 @@ test("omitting languageName produces a different key than supplying it", () => {
 });
 
 test("undefined and empty-string languageName are equivalent (no silent mismatch)", () => {
-  const undefinedKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, undefined);
-  const emptyKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "");
+  const undefinedKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, undefined, TEST_VOICE_ID);
+  const emptyKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "", TEST_VOICE_ID);
   assert.equal(
     undefinedKey,
     emptyKey,
@@ -109,9 +116,40 @@ test("undefined and empty-string languageName are equivalent (no silent mismatch
 });
 
 test("different voices produce different keys (no cross-voice cache collision)", () => {
-  const nova = ttsCacheKey(TEST_NATIVE_SCRIPT, "nova", TEST_LANG_NAME);
-  const shimmer = ttsCacheKey(TEST_NATIVE_SCRIPT, "shimmer", TEST_LANG_NAME);
+  const nova = ttsCacheKey(TEST_NATIVE_SCRIPT, "nova", TEST_LANG_NAME, TEST_VOICE_ID);
+  const shimmer = ttsCacheKey(TEST_NATIVE_SCRIPT, "shimmer", TEST_LANG_NAME, TEST_VOICE_ID);
   assert.notEqual(nova, shimmer);
+});
+
+test("different language codes that map to different ElevenLabs voices produce different cache keys", () => {
+  // Hindi (hi) → Brian, Tamil (ta) → Eric — these are distinct voice IDs in
+  // LANGUAGE_VOICE_MAP, so the same phrase text must never collide across them.
+  const hiVoice = getVoiceIdForLanguage("hi");
+  const taVoice = getVoiceIdForLanguage("ta");
+  assert.notEqual(
+    hiVoice,
+    taVoice,
+    "Test pre-condition: hi and ta must map to different voice IDs",
+  );
+
+  const hiKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "Hindi", hiVoice);
+  const taKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "Tamil", taVoice);
+  assert.notEqual(
+    hiKey,
+    taKey,
+    "Same phrase text in different languages must not share a cache entry when voices differ",
+  );
+});
+
+test("unmapped language codes fall back to the default multilingual voice", () => {
+  const unknownVoice = getVoiceIdForLanguage("xx");
+  assert.equal(
+    unknownVoice,
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Unknown language codes must resolve to the default multilingual voice (George)",
+  );
+  // Must not throw or return undefined.
+  assert.ok(typeof unknownVoice === "string" && unknownVoice.length > 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -161,24 +199,25 @@ test("isQuotaExhaustedError does NOT match transient/other failures", () => {
 
 test("a cache entry written with the pre-warm key is found by the runtime route key lookup", async () => {
   // Step 1: pre-warm writes an entry.
-  // The pre-warm loads language.name from the DB, then calls:
-  //   ttsCacheKey(phrase.nativeScript, "nova", language.name)
+  // The pre-warm resolves the ElevenLabs voice for the language, then calls:
+  //   ttsCacheKey(phrase.nativeScript, "nova", language.name, elevenLabsVoiceId)
   const language = await db.query.languagesTable.findFirst({
     where: eq(languagesTable.code, TEST_LANG_CODE),
     columns: { name: true },
   });
   assert.ok(language, "Test language row must exist");
 
-  const prewarmKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, language.name);
+  const resolvedVoice = getVoiceIdForLanguage(TEST_LANG_CODE);
+  const prewarmKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, language.name, resolvedVoice);
 
   await db
     .insert(ttsCacheTable)
     .values({ cacheKey: prewarmKey, audioBase64: "dGVzdA==", format: "mp3" })
     .onConflictDoNothing();
 
-  // Step 2: runtime /openai/tts receives the same languageName from the client
-  // and looks up:  ttsCacheKey(text, voice, languageName)
-  const runtimeKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, language.name);
+  // Step 2: runtime /openai/tts resolves the same voice from languageCode and
+  // looks up:  ttsCacheKey(text, voice, languageName, elevenLabsVoiceId)
+  const runtimeKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, language.name, resolvedVoice);
   const cached = await db.query.ttsCacheTable.findFirst({
     where: eq(ttsCacheTable.cacheKey, runtimeKey),
   });

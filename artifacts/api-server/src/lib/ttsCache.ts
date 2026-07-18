@@ -10,13 +10,22 @@ import { createHash } from "node:crypto";
  * then lazily re-synthesized. Bump this string whenever the provider or its
  * voice/model changes in a way learners can hear.
  */
-export const TTS_PROVIDER_VERSION = "elevenlabs:JBFqnCBsd6RMkjVDRZzb:eleven_multilingual_v2";
+export const TTS_PROVIDER_VERSION = "elevenlabs:v2:eleven_multilingual_v2";
 
-/** Stable cache key: SHA-256 hex of the synthesis inputs + provider version. */
+/**
+ * Stable cache key: SHA-256 hex of the synthesis inputs + provider version.
+ *
+ * @param elevenLabsVoiceId - The resolved ElevenLabs voice ID used for
+ *   synthesis (e.g. "nPczCjzI2devNBz1zQrb" for Brian). Including this ensures
+ *   that two requests for the same text in different languages — which map to
+ *   different ElevenLabs voices — never collide on the same cache entry and
+ *   serve audio synthesized with the wrong voice.
+ */
 export function ttsCacheKey(
   text: string,
   voice: string,
   languageName?: string,
+  elevenLabsVoiceId?: string,
 ): string {
   return createHash("sha256")
     .update(text)
@@ -24,6 +33,8 @@ export function ttsCacheKey(
     .update(voice)
     .update("\x00")
     .update(languageName?.trim() ?? "")
+    .update("\x00")
+    .update(elevenLabsVoiceId ?? "")
     .update("\x00")
     .update(TTS_PROVIDER_VERSION)
     .digest("hex");

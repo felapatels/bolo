@@ -241,7 +241,7 @@ function GameRound({
         const res =
           cached ??
           (await synthesize.mutateAsync({
-            data: { text: phrase.nativeScript, languageName: activeLanguageName },
+            data: { text: phrase.nativeScript, languageName: activeLanguageName, languageCode: activeLang },
           }));
         audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
@@ -252,7 +252,7 @@ function GameRound({
         setIsPlaying(false);
       }
     },
-    [synthesize, activeLanguageName],
+    [synthesize, activeLanguageName, activeLang],
   );
 
   // Auto-play the phrase when the question changes
@@ -266,7 +266,7 @@ function GameRound({
     const next = questions[qIdx + 1];
     if (!next || audioCache.current.has(next.phrase.id)) return;
     synthesize
-      .mutateAsync({ data: { text: next.phrase.nativeScript, languageName: activeLanguageName } })
+      .mutateAsync({ data: { text: next.phrase.nativeScript, languageName: activeLanguageName, languageCode: activeLang } })
       .then((res) => audioCache.current.set(next.phrase.id, { audioBase64: res.audioBase64, format: res.format }))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

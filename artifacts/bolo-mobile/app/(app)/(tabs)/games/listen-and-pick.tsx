@@ -257,7 +257,7 @@ function GameRound({
         const res =
           cached ??
           (await synthesize.mutateAsync({
-            data: { text: phrase.nativeScript, languageName: activeLanguage?.name },
+            data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
           }));
         audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
         // Guard: don't play if we've advanced to the next question
@@ -284,7 +284,7 @@ function GameRound({
     const next = questions[qIdx + 1];
     if (!next || audioCache.current.has(next.phrase.id)) return;
     synthesize
-      .mutateAsync({ data: { text: next.phrase.nativeScript, languageName: activeLanguage?.name } })
+      .mutateAsync({ data: { text: next.phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code } })
       .then(res => audioCache.current.set(next.phrase.id, { audioBase64: res.audioBase64, format: res.format }))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

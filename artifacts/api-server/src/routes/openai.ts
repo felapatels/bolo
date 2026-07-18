@@ -28,6 +28,7 @@ import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
+import { getVoiceIdForLanguage } from "../lib/languageVoice";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -72,13 +73,19 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.status(400).json({ error: "Invalid speech payload" });
     return;
   }
-  const { text, voice, languageName } = parsed.data;
+  const { text, voice, languageName, languageCode } = parsed.data;
   const chosen: Voice =
     voice && (VOICES as readonly string[]).includes(voice)
       ? (voice as Voice)
       : "nova";
 
-  const cacheKey = ttsCacheKey(text, chosen, languageName);
+  // Select the ElevenLabs voice that best matches the requested language.
+  // Falls back to the default multilingual voice for unmapped codes.
+  const elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
+
+  // Include the resolved ElevenLabs voice ID in the cache key so entries for
+  // different languages (which map to different voices) never collide.
+  const cacheKey = ttsCacheKey(text, chosen, languageName, elevenLabsVoiceId);
 
   // --- cache hit ---
   try {
@@ -96,7 +103,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // --- cache miss: synthesize then store ---
   try {
-    const buffer = await textToSpeechElevenLabs(text, undefined, languageName);
+    const buffer = await textToSpeechElevenLabs(text, elevenLabsVoiceId, languageName);
     const audioBase64 = buffer.toString("base64");
 
     // Persist to cache (best-effort; a race between two concurrent requests is
@@ -844,7 +851,7 @@ router.post(
       // (e.g. "Gujarati") have a different key than those without. We evict
       // both forms to ensure corrections propagate regardless of how the entry
       // was originally cached.
-      let phrases: Array<{ nativeScript: string; languageName: string }> = [];
+      let phrases: Array<{ nativeScript: string; languageName: string; languageCode: string }> = [];
 
       if (phraseId != null) {
         const id = Number(phraseId);
@@ -864,7 +871,7 @@ router.post(
           where: eq(languagesTable.code, row.languageCode),
           columns: { name: true },
         });
-        phrases = [{ nativeScript: row.nativeScript, languageName: lang?.name ?? "" }];
+        phrases = [{ nativeScript: row.nativeScript, languageName: lang?.name ?? "", languageCode: row.languageCode }];
       } else {
         const code = String(languageCode).trim();
         if (!code) {
@@ -888,22 +895,34 @@ router.post(
           return;
         }
         const langName = lang?.name ?? "";
-        phrases = rows.map((r) => ({ nativeScript: r.nativeScript, languageName: langName }));
+        phrases = rows.map((r) => ({ nativeScript: r.nativeScript, languageName: langName, languageCode: code as string }));
       }
 
       // For each phrase × voice, generate both the unhinted key (no languageName)
       // and the hinted key (with languageName) so entries cached either way are
       // removed. Legacy-scheme keys are evicted too, so corrections also purge
-      // the old-provider fallback audio. Duplicates are harmless — the DB
-      // delete is idempotent.
+      // the old-provider fallback audio.
+      //
+      // We also generate voiceId-keyed variants (new scheme: language-specific
+      // ElevenLabs voice baked into the key) so corrections also flush the
+      // per-language-voice entries written by /openai/tts when clients pass
+      // languageCode. Duplicates in keySet are harmless — the DB delete is idempotent.
       const keySet = new Set<string>();
       for (const p of phrases) {
+        const elevenLabsVoiceId = getVoiceIdForLanguage(p.languageCode);
         for (const v of VOICES) {
+          // Old-style keys (no ElevenLabs voiceId in hash) — backwards compat
           keySet.add(ttsCacheKey(p.nativeScript, v));
           keySet.add(legacyTtsCacheKey(p.nativeScript, v));
           if (p.languageName) {
             keySet.add(ttsCacheKey(p.nativeScript, v, p.languageName));
             keySet.add(legacyTtsCacheKey(p.nativeScript, v, p.languageName));
+          }
+          // New-style keys (ElevenLabs voiceId baked in) — cached by /openai/tts
+          // when clients supply languageCode for language-specific synthesis.
+          keySet.add(ttsCacheKey(p.nativeScript, v, undefined, elevenLabsVoiceId));
+          if (p.languageName) {
+            keySet.add(ttsCacheKey(p.nativeScript, v, p.languageName, elevenLabsVoiceId));
           }
         }
       }
