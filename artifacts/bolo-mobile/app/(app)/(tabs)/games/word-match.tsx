@@ -160,12 +160,12 @@ function FlipCard({
       disabled={card.state !== 'hidden'}
       style={{ width, height, borderRadius: 14 }}
     >
-      {/* Front (hidden face) — pointerEvents in style (RN 0.76 New Arch; prop form was removed) */}
+      {/* Front (hidden face) */}
       <Animated.View
         style={[
           styles.cardFace,
           frontStyle,
-          { backgroundColor: colors.card, borderColor: colors.border, pointerEvents: 'none' },
+          { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
         <Image
@@ -175,12 +175,12 @@ function FlipCard({
         />
       </Animated.View>
 
-      {/* Back (revealed face) — same, pointerEvents in style */}
+      {/* Back (revealed face) */}
       <Animated.View
         style={[
           styles.cardFace,
           backStyle,
-          { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2, pointerEvents: 'none' },
+          { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
         ]}
       >
         {card.type === 'native' ? (
@@ -770,8 +770,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cardBird: {
-    width: '70%',
-    height: '70%',
+    width: 48,
+    height: 48,
   },
   statsGrid: { flexDirection: 'row', gap: 12, width: '100%' },
   statCard: {
