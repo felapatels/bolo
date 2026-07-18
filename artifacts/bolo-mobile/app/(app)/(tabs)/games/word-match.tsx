@@ -18,10 +18,12 @@ import {
 import Animated, {
   Easing,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import { categoryIcon } from '@/lib/ui';
 import { useRouter } from 'expo-router';
@@ -127,10 +129,11 @@ function FlipCard({
       { rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` },
     ],
     opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [0, 0, 1, 1]),
-    // position/top/left/right/bottom intentionally omitted here —
-    // they live in styles.cardFace. Setting layout props inside
-    // useAnimatedStyle on iOS can detach the view from the Pressable's
-    // JS-thread responder chain, silently eating touches.
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   }));
 
   const isMatched = card.state === 'matched';
@@ -154,67 +157,70 @@ function FlipCard({
     ? '#EF4444'
     : colors.foreground;
 
-  return (
-    <Pressable
-      onPress={() => card.state === 'hidden' && onFlip(card.id)}
-      disabled={card.state !== 'hidden'}
-      style={{ width, height, borderRadius: 14 }}
-    >
-      {/* Front (hidden face) */}
-      <Animated.View
-        style={[
-          styles.cardFace,
-          frontStyle,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Image
-          source={require('../../../../assets/images/mascot/mascot-wave.png')}
-          style={styles.cardBird}
-          resizeMode="contain"
-        />
-      </Animated.View>
+  // GestureDetector sits above both absolutely-positioned animated faces so it
+  // receives taps regardless of which face is on top — no pointerEvents needed.
+  const tap = Gesture.Tap()
+    .enabled(card.state === 'hidden')
+    .onEnd(() => runOnJS(onFlip)(card.id));
 
-      {/* Back (revealed face) */}
-      <Animated.View
-        style={[
-          styles.cardFace,
-          backStyle,
-          { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
-        ]}
-      >
-        {card.type === 'native' ? (
-          /* Native card: script on top, romanization below so learners can read it */
-          <>
+  return (
+    <GestureDetector gesture={tap}>
+      <View style={{ width, height, borderRadius: 14 }}>
+        {/* Front (hidden face) */}
+        <Animated.View
+          style={[
+            styles.cardFace,
+            frontStyle,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Image
+            source={require('../../../../assets/images/mascot/mascot-wave.png')}
+            style={styles.cardBird}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        {/* Back (revealed face) */}
+        <Animated.View
+          style={[
+            { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2, borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 6 },
+            backStyle,
+          ]}
+        >
+          {card.type === 'native' ? (
+            /* Native card: script on top, romanization below so learners can read it */
+            <>
+              <Text
+                style={[styles.cardLabel, nativeProps, { color: textColor }]}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+              >
+                {card.label}
+              </Text>
+              {card.romanized ? (
+                <Text
+                  style={[styles.cardRomanized, { color: textColor }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {card.romanized}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            /* English card: just the meaning */
             <Text
-              style={[styles.cardLabel, nativeProps, { color: textColor }]}
-              numberOfLines={2}
+              style={[styles.cardLabel, { color: textColor }]}
+              numberOfLines={3}
               adjustsFontSizeToFit
             >
               {card.label}
             </Text>
-            {card.romanized ? (
-              <Text
-                style={[styles.cardRomanized, { color: textColor }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {card.romanized}
-              </Text>
-            ) : null}
-          </>
-        ) : (
-          /* English card: just the meaning */
-          <Text
-            style={[styles.cardLabel, { color: textColor }]}
-            numberOfLines={3}
-            adjustsFontSizeToFit
-          >
-            {card.label}
-          </Text>
-        )}
-      </Animated.View>
-    </Pressable>
+          )}
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
