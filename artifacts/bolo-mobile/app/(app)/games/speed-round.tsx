@@ -97,13 +97,15 @@ function SetupScreen({
   return (
     <Screen>
       <View style={styles.header}>
-        <ChunkyButton
-          title=""
-          icon="arrow-left"
-          variant="secondary"
+        <Pressable
           onPress={() => router.back()}
           style={styles.backBtn}
-        />
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Speed Round</Text>
         <View style={{ width: 44 }} />
       </View>
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
-  backBtn: { width: 44, height: 44, minWidth: 0 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   setupContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 12 },
   heroArea: { alignItems: 'center', gap: 10, paddingVertical: 16 },
   heroBubble: {

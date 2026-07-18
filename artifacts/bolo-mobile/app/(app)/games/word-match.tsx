@@ -560,17 +560,19 @@ export default function WordMatchScreen() {
     <Screen>
       {/* Header */}
       <View style={styles.header}>
-        <ChunkyButton
-          title=""
-          icon="arrow-left"
-          variant="secondary"
+        <Pressable
           onPress={() => {
             if (phase === 'picker') router.back();
             else if (phase === 'difficulty') setPhase('picker');
             else setPhase('picker');
           }}
           style={styles.backBtn}
-        />
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>Word Match</Text>
         <View style={{ width: 44 }} />
       </View>
@@ -637,7 +639,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  backBtn: { width: 44, height: 44, minWidth: 0 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerPad: {

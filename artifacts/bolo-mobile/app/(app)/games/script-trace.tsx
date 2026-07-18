@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -15,7 +16,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { ChunkyButton } from '@/components/ChunkyButton';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -213,13 +213,15 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
   return (
     <Screen>
       <View style={styles.header}>
-        <ChunkyButton
-          title=""
-          icon="arrow-left"
-          variant="secondary"
+        <Pressable
           onPress={() => router.back()}
           style={styles.backBtn}
-        />
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground }]}>Script Trace</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -634,13 +636,15 @@ export default function ScriptTraceScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <ChunkyButton
-          title=""
-          icon="arrow-left"
-          variant="secondary"
+        <Pressable
           onPress={() => setActiveChapter(null)}
           style={styles.backBtn}
-        />
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground }]}>
             {activeChapter.title}
@@ -667,7 +671,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  backBtn: { width: 44, height: 44, minWidth: 0 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
   subtitle: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   chapterList: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
