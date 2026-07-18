@@ -123,17 +123,16 @@ function FlipCard({
     opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
   }));
 
+  // Layout props (position/top/left/right/bottom) must NOT go inside
+  // useAnimatedStyle on Reanimated 3 + New Architecture — they crash the native
+  // runtime at worklet init time. Keep only animatable props here; layout lives
+  // in styles.cardFace (applied as a separate static style below).
   const backStyle = useAnimatedStyle(() => ({
     transform: [
       { perspective: 800 },
       { rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` },
     ],
     opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [0, 0, 1, 1]),
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   }));
 
   const isMatched = card.state === 'matched';
@@ -181,10 +180,12 @@ function FlipCard({
           />
         </Animated.View>
 
-        {/* Back (revealed face) */}
+        {/* Back (revealed face) — styles.cardFace provides layout (position/inset);
+            backStyle provides only animatable props (transform + opacity). */}
         <Animated.View
           style={[
-            { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2, borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 6 },
+            styles.cardFace,
+            { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
             backStyle,
           ]}
         >
