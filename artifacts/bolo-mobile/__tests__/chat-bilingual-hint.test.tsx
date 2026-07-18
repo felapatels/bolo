@@ -130,6 +130,7 @@ jest.mock('@/components/Screen', () => {
     Screen: ({ children }: { children: unknown }) =>
       React.createElement(View, null, children),
     TAB_BAR_CLEARANCE: 0,
+    RAISED_PARROT_CLEARANCE: 0,
   };
 });
 

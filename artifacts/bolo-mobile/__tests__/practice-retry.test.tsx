@@ -101,6 +101,7 @@ jest.mock('@/components/Screen', () => {
       <View>{children}</View>
     ),
     TAB_BAR_CLEARANCE: 0,
+    RAISED_PARROT_CLEARANCE: 0,
   };
 });
 

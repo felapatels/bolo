@@ -24,7 +24,7 @@ import {
   type ChatTurnMessage,
   ApiError,
 } from '@workspace/api-client-react';
-import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
+import { Screen, TAB_BAR_CLEARANCE, RAISED_PARROT_CLEARANCE } from '@/components/Screen';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -1334,7 +1334,9 @@ export default function ChatScreen() {
           style={[
             styles.bubble,
             styles.bubbleParrot,
-            { backgroundColor: colors.card, borderColor: colors.border, alignSelf: 'flex-start', marginHorizontal: 16, marginBottom: 8 },
+            // RAISED_PARROT_CLEARANCE keeps the last line of the intro text
+            // above the raised parrot tab button, which pokes over the bar.
+            { backgroundColor: colors.card, borderColor: colors.border, alignSelf: 'flex-start', marginHorizontal: 16, marginBottom: RAISED_PARROT_CLEARANCE },
           ]}
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
@@ -1629,7 +1631,11 @@ const styles = StyleSheet.create({
   },
   transcriptContent: {
     gap: 8,
-    paddingVertical: 8,
+    paddingTop: 8,
+    // Clears the raised parrot tab button so the newest message is never
+    // covered when scrolled to the end. Only visible at the scroll end, so a
+    // filling chat gains no dead gap mid-conversation.
+    paddingBottom: RAISED_PARROT_CLEARANCE,
   },
   bubble: {
     maxWidth: '82%',
@@ -1664,7 +1670,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginHorizontal: 20,
-    marginBottom: 8,
+    // Bottom-most element when shown — keep it clear of the raised parrot.
+    marginBottom: RAISED_PARROT_CLEARANCE,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
