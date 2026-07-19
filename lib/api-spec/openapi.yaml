@@ -2129,6 +2129,9 @@ components:
           type: integer
         phraseId:
           type: ["integer", "null"]
+        categoryId:
+          type: ["integer", "null"]
+          description: The category this phrase belongs to; null for attempts with no linked phrase.
         languageCode:
           type: string
         nativeScript:
@@ -2151,6 +2154,7 @@ components:
       required:
         - id
         - phraseId
+        - categoryId
         - languageCode
         - nativeScript
         - romanized

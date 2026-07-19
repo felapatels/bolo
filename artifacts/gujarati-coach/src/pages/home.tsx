@@ -165,22 +165,44 @@ export default function Home() {
     <section>
       <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Recent plays</h2>
       <div className="space-y-3">
-        {attempts.map((attempt) => (
-          <div key={attempt.id} className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
-            <div className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full text-lg font-black",
-              attempt.score >= 80 ? "bg-success/15 text-success" :
-              attempt.score >= 60 ? "bg-primary/15 text-primary" :
-              "bg-destructive/15 text-destructive"
-            )}>
-              {Math.round(attempt.score)}
+        {attempts.map((attempt) => {
+          const canRetake = attempt.phraseId != null && attempt.categoryId != null;
+          const cardContent = (
+            <>
+              <div className={cn(
+                "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-black",
+                attempt.score >= 80 ? "bg-success/15 text-success" :
+                attempt.score >= 60 ? "bg-primary/15 text-primary" :
+                "bg-destructive/15 text-destructive"
+              )}>
+                {Math.round(attempt.score)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">{attempt.english}</p>
+              </div>
+              {canRetake && (
+                <span className="shrink-0 text-sm font-black text-primary">
+                  Retake
+                </span>
+              )}
+            </>
+          );
+
+          return canRetake ? (
+            <Link
+              key={attempt.id}
+              href={`/practice/${attempt.categoryId}?phrase=${attempt.phraseId}`}
+              className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:translate-y-0"
+            >
+              {cardContent}
+            </Link>
+          ) : (
+            <div key={attempt.id} className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
+              {cardContent}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-lg leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
-              <p className="mt-0.5 truncate text-sm text-muted-foreground">{attempt.english}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

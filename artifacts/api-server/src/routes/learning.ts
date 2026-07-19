@@ -1023,8 +1023,22 @@ router.get(
     if (denyLockedLanguage(req, res, lang)) return;
 
     const rows = await db
-      .select()
+      .select({
+        id: attemptsTable.id,
+        phraseId: attemptsTable.phraseId,
+        languageCode: attemptsTable.languageCode,
+        nativeScript: attemptsTable.nativeScript,
+        romanized: attemptsTable.romanized,
+        english: attemptsTable.english,
+        transcript: attemptsTable.transcript,
+        score: attemptsTable.score,
+        passed: attemptsTable.passed,
+        feedback: attemptsTable.feedback,
+        createdAt: attemptsTable.createdAt,
+        categoryId: phrasesTable.categoryId,
+      })
       .from(attemptsTable)
+      .leftJoin(phrasesTable, eq(attemptsTable.phraseId, phrasesTable.id))
       .where(
         and(
           eq(attemptsTable.userId, userId),
@@ -1041,6 +1055,7 @@ router.get(
       rows.map((row) => ({
         id: row.id,
         phraseId: row.phraseId,
+        categoryId: row.categoryId ?? null,
         languageCode: row.languageCode,
         nativeScript: row.nativeScript,
         romanized: row.romanized,
