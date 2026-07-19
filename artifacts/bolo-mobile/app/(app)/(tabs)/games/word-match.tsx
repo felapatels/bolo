@@ -165,8 +165,9 @@ function FlipCard({
   return (
     <GestureDetector gesture={tap}>
       <View style={{ width, height, borderRadius: 14 }}>
-        {/* Front (hidden face) */}
+        {/* Front (hidden face) — pointerEvents="none" so touches reach GestureDetector */}
         <Animated.View
+          pointerEvents="none"
           style={[
             styles.cardFace,
             frontStyle,
@@ -180,9 +181,11 @@ function FlipCard({
           />
         </Animated.View>
 
-        {/* Back (revealed face) — styles.cardFace provides layout (position/inset);
+        {/* Back (revealed face) — pointerEvents="none" so touches reach GestureDetector.
+            styles.cardFace provides layout (position/inset);
             backStyle provides only animatable props (transform + opacity). */}
         <Animated.View
+          pointerEvents="none"
           style={[
             styles.cardFace,
             { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
