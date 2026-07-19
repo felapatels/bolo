@@ -1,23 +1,29 @@
 ---
 name: Reanimated layout props crash (New Architecture)
-description: Layout props in useAnimatedStyle cause a hard native crash on Reanimated 3 + Expo Go SDK 54 New Architecture
+description: Layout props in useAnimatedStyle cause a hard native crash on Reanimated 3 + Expo Go SDK 54 New Architecture; Reanimated Animated.View also ignores pointerEvents entirely on New Arch
 ---
 
-## Rule
+## Rule 1: No layout props in useAnimatedStyle
 Never put layout/geometry props (`position`, `top`, `left`, `right`, `bottom`, `width`, `height`) inside a `useAnimatedStyle` worklet on the New Architecture. They must live in a static `style` prop.
 
-**Why:** On Reanimated 3 + New Architecture (Fabric), worklets run on the UI thread at init time. Layout props are processed by the layout system, not the animation layer — passing them through a worklet causes a hard native crash that takes down the entire Expo Go app. The crash happens at 100% bundle load (worklet initialization), not at render time.
+**Why:** On Reanimated 3 + New Architecture (Fabric), worklets run on the UI thread at init time. Layout props are processed by the layout system, not the animation layer — passing them through a worklet causes a hard native crash that takes down the entire Expo Go app at bundle load, not at render time.
 
 **How to apply:**
 - Split the style array: `style={[styles.staticLayout, animatedStyle, { colorOverrides }]}`
 - `styles.staticLayout` holds `position`, `top`, `left`, `right`, `bottom`, `borderRadius`, etc.
 - `animatedStyle` (from `useAnimatedStyle`) holds only `transform`, `opacity`, and other animatable props.
-- This applies to both `Animated.View` from Reanimated and any Reanimated-wrapped component.
 
-## Related: Pressable + Animated.View touch swallowing
-Absolutely-positioned `Animated.View` faces inside a `Pressable` intercept touches before the `Pressable` sees them — cards appear to work but never respond to taps. Fix: use `GestureDetector` + `Gesture.Tap()` from `react-native-gesture-handler` (already a dep) which handles taps at the native gesture layer above all animated views. Use `runOnJS(callback)(arg)` to invoke JS-thread handlers from the gesture worklet.
+## Rule 2: Reanimated Animated.View ignores pointerEvents on New Architecture
+`pointerEvents="none"` (JSX prop) on a Reanimated `Animated.View` is completely ignored on New Architecture (Fabric). The view intercepts every touch regardless — making anything underneath it (Pressable, GestureDetector) completely untappable.
 
-## Related: pointerEvents on Animated.View
-- `pointerEvents` as a **JSX prop** on `Animated.View` (Reanimated) → native crash on New Arch (prop form removed in RN 0.76)
-- `pointerEvents` in **style** on `Animated.View` (Reanimated) → also crashes (Reanimated doesn't forward style-based pointerEvents through the worklet layer)
-- Correct fix: restructure to avoid needing pointerEvents entirely (use GestureDetector above the animated views)
+**Why:** Reanimated 3 Fabric components run through a different prop pipeline that does not forward `pointerEvents` to the native layer on New Arch. Both JSX-prop and style-prop forms fail.
+
+**How to apply:**
+- Never rely on `pointerEvents="none"` on a Reanimated `Animated.View` to let touches through.
+- The correct fix is to restructure so no Reanimated `Animated.View` sits on top of a touch target.
+- For flip cards / overlapping faces: **render only ONE face at a time** (conditional rendering) instead of two overlapping `position:absolute` animated views. This eliminates the problem entirely.
+- Use React Native's built-in `Animated` (not Reanimated) when you need animation + touch on the same component — RN's `Animated.View` honours `pointerEvents` correctly on New Arch.
+- `GestureDetector` + `Gesture.Tap()` also fails when Reanimated `Animated.View` children are on top — same root cause.
+
+## Rule 3: entering/exiting animations make views invisible on New Arch
+`Animated.View` with `entering={FadeInDown}` (or any Reanimated layout animation) starts invisible on New Architecture and never animates in — leaving the view permanently hidden. Replace with a plain `View`.
