@@ -313,58 +313,71 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               Recent plays
             </Text>
-            {(recent.data ?? []).map((a, i) => (
-              <Animated.View
-                key={a.id}
-                entering={skipEnter ? undefined : FadeInDown.duration(400).delay(i * 60)}
-                style={[
-                  styles.recentRow,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      nativeTextStyle(activeLanguage, { bold: true }),
-                      styles.recentNative,
-                      { color: colors.foreground },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {a.nativeScript}
-                  </Text>
-                  <Text
-                    style={[styles.recentEng, { color: colors.mutedForeground }]}
-                    numberOfLines={1}
-                  >
-                    {a.english}
-                  </Text>
-                </View>
-                <View
+            {(recent.data ?? []).map((a, i) => {
+              const canRetake = a.phraseId != null && a.categoryId != null;
+              return (
+                <Animated.View
+                  key={a.id}
+                  entering={skipEnter ? undefined : FadeInDown.duration(400).delay(i * 60)}
                   style={[
-                    styles.scorePill,
-                    {
-                      backgroundColor: a.passed
-                        ? colors.success
-                        : colors.muted,
-                    },
+                    styles.recentRow,
+                    { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.scoreText,
-                      {
-                        color: a.passed
-                          ? colors.successForeground
-                          : colors.mutedForeground,
-                      },
-                    ]}
+                  <Pressable
+                    onPress={canRetake ? () => {
+                      hapticLight();
+                      router.push(`/(app)/practice/${a.categoryId}?phrase=${a.phraseId}`);
+                    } : undefined}
+                    accessibilityRole={canRetake ? 'button' : 'text'}
+                    accessibilityLabel={canRetake ? `Retake ${a.english}` : a.english}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
                   >
-                    {a.score}
-                  </Text>
-                </View>
-              </Animated.View>
-            ))}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          nativeTextStyle(activeLanguage, { bold: true }),
+                          styles.recentNative,
+                          { color: colors.foreground },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {a.nativeScript}
+                      </Text>
+                      <Text
+                        style={[styles.recentEng, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {a.english}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.scorePill,
+                        {
+                          backgroundColor: a.passed
+                            ? colors.success
+                            : colors.muted,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.scoreText,
+                          {
+                            color: a.passed
+                              ? colors.successForeground
+                              : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {a.score}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
           </>
         ) : null}
 

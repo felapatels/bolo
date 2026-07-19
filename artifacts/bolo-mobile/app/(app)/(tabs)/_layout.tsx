@@ -28,6 +28,7 @@ import { useListIncomingFriendRequests } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -319,9 +320,12 @@ const styles = StyleSheet.create({
 });
 
 // Globe icon button for tab headers — navigates to the language selector modal.
+// Shows the active language code below the icon so learners always know which
+// language they are practising without opening the picker.
 function GlobeHeaderButton() {
   const router = useRouter();
   const colors = useColors();
+  const { activeLang } = useLanguage();
   return (
     <Pressable
       onPress={() => {
@@ -331,9 +335,20 @@ function GlobeHeaderButton() {
       accessibilityLabel="Change language"
       accessibilityRole="button"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 16 }}
-      style={{ marginRight: 12 }}
+      style={{ marginRight: 12, alignItems: 'center', gap: 1 }}
     >
-      <Feather name="globe" size={22} color={colors.mutedForeground} />
+      <Feather name="globe" size={20} color={colors.mutedForeground} />
+      <Text
+        style={{
+          fontFamily: AppFonts.extrabold,
+          fontSize: 9,
+          letterSpacing: 0.5,
+          color: colors.mutedForeground,
+          textTransform: 'uppercase',
+        }}
+      >
+        {activeLang}
+      </Text>
     </Pressable>
   );
 }
