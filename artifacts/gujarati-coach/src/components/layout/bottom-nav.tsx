@@ -2,9 +2,11 @@ import { Link, useLocation } from "wouter";
 import { Home, Trophy, Gamepad2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguagePicker } from "@/components/language-picker";
+import { useLanguage } from "@/lib/language-context";
 
 export function BottomNav() {
   const [location] = useLocation();
+  const { activeLang } = useLanguage();
 
   const chatActive = location === "/chat";
 
@@ -84,7 +86,7 @@ export function BottomNav() {
                 aria-label="Change language"
               >
                 <Globe className="w-5 h-5" strokeWidth={1.75} />
-                <span className="text-[9px] font-bold tracking-wide">Lang</span>
+                <span className="text-[9px] font-bold tracking-wide uppercase">{activeLang}</span>
               </button>
             }
           />

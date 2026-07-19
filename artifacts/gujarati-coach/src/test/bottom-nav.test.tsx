@@ -10,6 +10,11 @@ vi.mock("@/components/language-picker", () => ({
   LanguagePicker: () => null,
 }));
 
+// BottomNav now reads activeLang directly — stub the context so no provider is needed.
+vi.mock("@/lib/language-context", () => ({
+  useLanguage: () => ({ activeLang: "gu", activeLanguage: undefined, languages: [], setActiveLang: () => {}, isLoading: false }),
+}));
+
 // BottomNav shows Home, Games, Bolo (chat), and Progress tabs.
 // Friends moved to the Account/Profile page so is no longer in the bottom nav.
 // Imported after the mock is declared.
