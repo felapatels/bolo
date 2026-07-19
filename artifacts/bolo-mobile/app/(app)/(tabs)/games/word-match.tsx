@@ -18,12 +18,10 @@ import {
 import Animated, {
   Easing,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import { categoryIcon } from '@/lib/ui';
 import { useRouter } from 'expo-router';
@@ -156,16 +154,12 @@ function FlipCard({
     ? '#EF4444'
     : colors.foreground;
 
-  // GestureDetector sits above both absolutely-positioned animated faces so it
-  // receives taps regardless of which face is on top — no pointerEvents needed.
-  const tap = Gesture.Tap()
-    .enabled(card.state === 'hidden')
-    .onEnd(() => runOnJS(onFlip)(card.id));
-
   return (
-    <GestureDetector gesture={tap}>
-      <View style={{ width, height, borderRadius: 14 }}>
-        {/* Front (hidden face) — pointerEvents="none" so touches reach GestureDetector */}
+    <Pressable
+      onPress={() => { if (card.state === 'hidden') onFlip(card.id); }}
+      style={{ width, height, borderRadius: 14 }}
+    >
+      {/* Front (hidden face) — pointerEvents="none" so Pressable receives the tap */}
         <Animated.View
           pointerEvents="none"
           style={[
@@ -181,7 +175,7 @@ function FlipCard({
           />
         </Animated.View>
 
-        {/* Back (revealed face) — pointerEvents="none" so touches reach GestureDetector.
+        {/* Back (revealed face) — pointerEvents="none" so Pressable receives the tap.
             styles.cardFace provides layout (position/inset);
             backStyle provides only animatable props (transform + opacity). */}
         <Animated.View
@@ -223,8 +217,7 @@ function FlipCard({
             </Text>
           )}
         </Animated.View>
-      </View>
-    </GestureDetector>
+    </Pressable>
   );
 }
 
