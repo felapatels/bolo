@@ -15,13 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Animated as RNAnimated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { categoryIcon } from '@/lib/ui';
 import { useRouter } from 'expo-router';
@@ -101,122 +95,85 @@ function FlipCard({
   width: number;
   height: number;
 }) {
-  const progress = useSharedValue(card.state !== 'hidden' ? 1 : 0);
+  // Use RN's built-in Animated (NOT Reanimated) for the flip.
+  // Reanimated's Animated.View does not honour pointerEvents="none" on New
+  // Architecture — it intercepts every touch regardless, making the card
+  // untappable whether we use GestureDetector or Pressable as the outer wrapper.
+  // RN's native Animated.View honours pointerEvents correctly.
+  const scaleAnim = useRef(new RNAnimated.Value(1)).current;
 
-  useEffect(() => {
-    progress.value = withTiming(card.state !== 'hidden' ? 1 : 0, {
-      duration: GAME_CONFIG.wordMatch.mismatchDelay < 900 ? 300 : 350,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [card.state, progress]);
-
-  // backfaceVisibility:'hidden' is unreliable on iOS with Reanimated.
-  // Instead we snap opacity at the halfway point so only one face is visible at
-  // a time, and add perspective so the rotation looks 3-D.
-  const frontStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 800 },
-      { rotateY: `${interpolate(progress.value, [0, 1], [0, 180])}deg` },
-    ],
-    opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
-  }));
-
-  // Layout props (position/top/left/right/bottom) must NOT go inside
-  // useAnimatedStyle on Reanimated 3 + New Architecture — they crash the native
-  // runtime at worklet init time. Keep only animatable props here; layout lives
-  // in styles.cardFace (applied as a separate static style below).
-  const backStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 800 },
-      { rotateY: `${interpolate(progress.value, [0, 1], [180, 360])}deg` },
-    ],
-    opacity: interpolate(progress.value, [0, 0.49, 0.5, 1], [0, 0, 1, 1]),
-  }));
-
+  const isHidden  = card.state === 'hidden';
   const isMatched = card.state === 'matched';
-  const isError = card.state === 'error';
+  const isError   = card.state === 'error';
 
-  const backBg = isMatched
-    ? '#10B98120'
-    : isError
-    ? '#EF444420'
-    : `${colors.primary}18`;
+  // Tiny press-in scale pulse so the tap feels responsive.
+  const handlePressIn = () => {
+    RNAnimated.timing(scaleAnim, { toValue: 0.93, duration: 80, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    RNAnimated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+  };
 
-  const backBorder = isMatched
-    ? '#10B981'
-    : isError
-    ? '#EF4444'
-    : colors.primary;
+  const backBg     = isMatched ? '#10B98120' : isError ? '#EF444420' : `${colors.primary}18`;
+  const backBorder = isMatched ? '#10B981'   : isError ? '#EF4444'   : colors.primary;
+  const textColor  = isMatched ? '#10B981'   : isError ? '#EF4444'   : colors.foreground;
 
-  const textColor = isMatched
-    ? '#10B981'
-    : isError
-    ? '#EF4444'
-    : colors.foreground;
-
+  // Render only ONE face at a time — no overlapping views, no pointerEvents
+  // battles. The Pressable is the sole touch target with nothing on top of it.
   return (
     <Pressable
-      onPress={() => { if (card.state === 'hidden') onFlip(card.id); }}
-      style={{ width, height, borderRadius: 14 }}
+      onPress={() => { if (isHidden) onFlip(card.id); }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={{ width, height }}
     >
-      {/* Front (hidden face) — pointerEvents="none" so Pressable receives the tap */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.cardFace,
-            frontStyle,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
+      <RNAnimated.View
+        style={[
+          styles.cardFace,
+          isHidden
+            ? { backgroundColor: colors.card, borderColor: colors.border }
+            : { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
+          { transform: [{ scale: scaleAnim }] },
+        ]}
+      >
+        {isHidden ? (
+          /* Front face — bird mascot */
           <Image
             source={require('../../../../assets/images/mascot/mascot-wave.png')}
             style={styles.cardBird}
             resizeMode="contain"
           />
-        </Animated.View>
-
-        {/* Back (revealed face) — pointerEvents="none" so Pressable receives the tap.
-            styles.cardFace provides layout (position/inset);
-            backStyle provides only animatable props (transform + opacity). */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.cardFace,
-            { backgroundColor: backBg, borderColor: backBorder, borderWidth: 2 },
-            backStyle,
-          ]}
-        >
-          {card.type === 'native' ? (
-            /* Native card: script on top, romanization below so learners can read it */
-            <>
-              <Text
-                style={[styles.cardLabel, nativeProps, { color: textColor }]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-              >
-                {card.label}
-              </Text>
-              {card.romanized ? (
-                <Text
-                  style={[styles.cardRomanized, { color: textColor }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {card.romanized}
-                </Text>
-              ) : null}
-            </>
-          ) : (
-            /* English card: just the meaning */
+        ) : card.type === 'native' ? (
+          /* Back face — native script + romanization */
+          <>
             <Text
-              style={[styles.cardLabel, { color: textColor }]}
-              numberOfLines={3}
+              style={[styles.cardLabel, nativeProps, { color: textColor }]}
+              numberOfLines={2}
               adjustsFontSizeToFit
             >
               {card.label}
             </Text>
-          )}
-        </Animated.View>
+            {card.romanized ? (
+              <Text
+                style={[styles.cardRomanized, { color: textColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {card.romanized}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          /* Back face — English meaning */
+          <Text
+            style={[styles.cardLabel, { color: textColor }]}
+            numberOfLines={3}
+            adjustsFontSizeToFit
+          >
+            {card.label}
+          </Text>
+        )}
+      </RNAnimated.View>
     </Pressable>
   );
 }
