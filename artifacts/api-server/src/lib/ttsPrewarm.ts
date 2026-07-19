@@ -354,8 +354,8 @@ export function scheduleTtsPrewarm(): void {
   })();
 }
 
-// Voice/model for Bolo's chat voice — must match what parrotChat.ts uses.
-const BOLO_GREETING_VOICE_ID = "cgSgspJ2msm6clMCkdW9"; // Jessica
+// Model for greeting synthesis — flash tier for speed; the voice is selected
+// per-language via getVoiceIdForLanguage so each language gets authentic audio.
 const BOLO_GREETING_MODEL = "eleven_flash_v2_5";
 
 /** Injectable dependencies for warmGreetings — real implementations are the defaults. */
@@ -437,7 +437,7 @@ export async function warmGreetings(
       try {
         const buffer = await deps.synthesize(
           ttsText,
-          BOLO_GREETING_VOICE_ID,
+          getVoiceIdForLanguage(lang.code),
           lang.name,
           BOLO_GREETING_MODEL,
         );

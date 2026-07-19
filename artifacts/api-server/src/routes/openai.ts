@@ -783,11 +783,11 @@ router.get(
       req.log.warn({ err }, "Greeting cache read failed, synthesizing fresh");
     }
 
-    // --- cache miss: synthesize on-demand using Bolo's chat voice ---
-    const BOLO_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
+    // --- cache miss: synthesize on-demand using the language-appropriate voice ---
+    const greetingVoiceId = getVoiceIdForLanguage(languageCode);
     const BOLO_MODEL = "eleven_flash_v2_5";
     try {
-      const buffer = await textToSpeechElevenLabs(ttsText, BOLO_VOICE_ID, languageName, BOLO_MODEL);
+      const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL);
       const audioBase64 = buffer.toString("base64");
 
       // Cache for future requests (best-effort, race-safe).
