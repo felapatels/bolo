@@ -84,7 +84,7 @@ function initPhraseState(words: string[]): PhraseBuilderState {
 function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
   const colors = useColors();
   const router = useRouter();
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const { isPlus } = useEntitlements();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -103,7 +103,12 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Phrase Builder</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Phrase Builder</Text>
+          {activeLanguage && (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
+          )}
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -547,6 +552,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 8,
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
+  headerSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   setupContent: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 12 },
   heroArea: { alignItems: 'center', gap: 10, paddingVertical: 16 },
   heroBubble: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },

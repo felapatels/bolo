@@ -88,7 +88,7 @@ function SetupScreen({
 }) {
   const router = useRouter();
   const colors = useColors();
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hardMode, setHardMode] = useState(false);
@@ -107,7 +107,12 @@ function SetupScreen({
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Speed Round</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Speed Round</Text>
+          {activeLanguage && (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
+          )}
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -561,6 +566,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: { fontFamily: AppFonts.bold, fontSize: 18 },
+  headerSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   setupContent: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 12 },
   heroArea: { alignItems: 'center', gap: 10, paddingVertical: 16 },

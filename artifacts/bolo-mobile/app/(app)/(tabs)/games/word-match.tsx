@@ -635,7 +635,12 @@ export default function WordMatchScreen() {
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Word Match</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Word Match</Text>
+          {activeLanguage && (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
+          )}
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -703,6 +708,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
+  headerSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerPad: {
     flex: 1,

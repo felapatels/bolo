@@ -233,7 +233,10 @@ function GameRound({
   const [score, setScore] = useState(0);
   const [answerState, setAnswerState] = useState<AnswerState>('idle');
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // 'loading' = synthesis in progress (button disabled + spinner)
+  // 'playing' = audio is outputting (button enabled so user can replay)
+  // 'idle'    = nothing happening
+  const [audioState, setAudioState] = useState<'idle' | 'loading' | 'playing'>('idle');
 
   const playbackRef = useRef<PlaybackHandle | null>(null);
   const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
@@ -245,12 +248,12 @@ function GameRound({
 
   const playPhrase = useCallback(
     async (phrase: Phrase) => {
-      // Stop any currently playing audio
+      // Stop any currently playing audio first
       if (playbackRef.current) {
         playbackRef.current.stop();
         playbackRef.current = null;
       }
-      setIsPlaying(true);
+      setAudioState('loading');
       const capturedQIdx = qIdxRef.current;
       try {
         const cached = audioCache.current.get(phrase.id);
@@ -260,13 +263,19 @@ function GameRound({
             data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
           }));
         audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
-        // Guard: don't play if we've advanced to the next question
-        if (qIdxRef.current !== capturedQIdx) return;
-        const handle = await playBase64Audio(res.audioBase64, res.format);
+        // Guard: don't play if we've already moved to the next question
+        if (qIdxRef.current !== capturedQIdx) {
+          setAudioState('idle');
+          return;
+        }
+        setAudioState('playing');
+        const handle = await playBase64Audio(res.audioBase64, res.format, () => {
+          // Called when the clip naturally finishes (not on stop())
+          setAudioState('idle');
+        });
         playbackRef.current = handle;
-        setIsPlaying(false);
       } catch {
-        setIsPlaying(false);
+        setAudioState('idle');
       }
     },
     [synthesize, activeLanguage],
@@ -360,17 +369,22 @@ function GameRound({
           Listen and pick the matching word
         </Text>
         <PressableScale
-          onPress={() => playPhrase(q.phrase)}
-          disabled={isPlaying}
+          onPress={() => { if (audioState !== 'loading') playPhrase(q.phrase); }}
+          disabled={audioState === 'loading'}
           style={[
             styles.playBtn,
-            { backgroundColor: colors.primary, opacity: isPlaying ? 0.7 : 1 },
+            { backgroundColor: colors.primary, opacity: audioState === 'loading' ? 0.7 : 1 },
           ]}
         >
-          <Feather name="volume-2" size={32} color="#FFFFFF" />
+          {audioState === 'loading'
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <Feather name="volume-2" size={32} color="#FFFFFF" />}
         </PressableScale>
-        {isPlaying && (
+        {audioState === 'playing' && (
           <Text style={[styles.playingLabel, { color: colors.mutedForeground }]}>Playing…</Text>
+        )}
+        {audioState === 'loading' && (
+          <Text style={[styles.playingLabel, { color: colors.mutedForeground }]}>Loading…</Text>
         )}
       </View>
 
@@ -529,7 +543,12 @@ export default function ListenAndPickScreen() {
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Listen &amp; Pick</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Listen &amp; Pick</Text>
+          {activeLanguage && (
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
+          )}
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -583,6 +602,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
+  subtitle: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerPad: {
     flex: 1,
