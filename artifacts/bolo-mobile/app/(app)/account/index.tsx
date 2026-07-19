@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 // versions, hard-crashing the whole Account screen.
 import { Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { useUser, useClerk } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -205,11 +206,23 @@ export default function AccountScreen() {
   const uploadAvatar = async (uri: string) => {
     setAvatarBusy(true);
     try {
-      // Pass the local URI directly — Clerk's setProfileImage accepts a string URI
-      // on React Native (Blob | File | string | null). Converting via fetch().blob()
-      // is unreliable on local file:// URIs in Expo Go and is unnecessary.
+      // Clerk's string overload requires a base64 data URL, not a file:// URI.
+      // Read the picked image via expo-file-system and build one.
+      let dataUrl: string;
       try {
-        await user?.setProfileImage({ file: uri });
+        const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: 'base64',
+        });
+        dataUrl = `data:${mime};base64,${base64}`;
+      } catch (err) {
+        console.error('[account] failed to read picked image as base64', err);
+        Alert.alert('Something went wrong', "We couldn't read that photo. Please try a different image.");
+        return;
+      }
+      try {
+        await user?.setProfileImage({ file: dataUrl });
         await user?.reload();
       } catch (err) {
         console.error('[account] Clerk setProfileImage failed', err);
