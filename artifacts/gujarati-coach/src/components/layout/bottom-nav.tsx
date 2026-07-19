@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Gamepad2 } from "lucide-react";
+import { Home, Trophy, Gamepad2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LanguagePicker } from "@/components/language-picker";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -73,6 +74,21 @@ export function BottomNav() {
           <Trophy className="w-6 h-6" strokeWidth={location === "/progress" ? 2.5 : 2} />
           <span className="text-[10px] font-bold tracking-wide">Progress</span>
         </Link>
+
+        {/* Globe language switcher — smaller/muted so it doesn't compete with the four primary tabs */}
+        <div className="flex flex-col items-center justify-center w-full h-full">
+          <LanguagePicker
+            trigger={
+              <button
+                className="flex flex-col items-center gap-1 text-muted-foreground/70 hover:text-muted-foreground transition-colors button-spring"
+                aria-label="Change language"
+              >
+                <Globe className="w-5 h-5" strokeWidth={1.75} />
+                <span className="text-[9px] font-bold tracking-wide">Lang</span>
+              </button>
+            }
+          />
+        </div>
       </div>
     </div>
   );

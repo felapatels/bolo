@@ -2,9 +2,10 @@ import { Link, useLocation } from "wouter";
 import { Home, Trophy, Gamepad2, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
-import { useLanguage, nativeTextProps } from "@/lib/language-context";
+import { useLanguage } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
-import { FloatingTag, SoundWavePulse } from "@/lib/motion";
+import { SoundWavePulse } from "@/lib/motion";
+import { LanguagePicker } from "@/components/language-picker";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -45,7 +46,6 @@ export function DesktopNav() {
 
   // Shares the react-query cache with the Friends page and the mobile bottom
   // nav, so accepting/declining a request updates every badge live.
-  const nativeProps = nativeTextProps(activeLanguage);
   const upgradeActive = location === "/upgrade";
 
   return (
@@ -127,16 +127,10 @@ export function DesktopNav() {
         )}
       </nav>
 
-      {/* Active language tag — a bit of launch-video life in the shell. */}
+      {/* Language switcher — Globe icon + current language name, opens picker dialog. */}
       {activeLanguage && (
-        <div className="px-6 pb-4">
-          <FloatingTag
-            className="bg-secondary/10 text-secondary"
-            style={nativeProps.style}
-            dir={nativeProps.dir}
-          >
-            {activeLanguage.nativeName}
-          </FloatingTag>
+        <div className="px-4 pb-4">
+          <LanguagePicker />
         </div>
       )}
 

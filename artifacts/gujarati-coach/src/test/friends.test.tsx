@@ -4,6 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
+
+// LanguagePicker calls useLanguage (needs LanguageProvider + API mocks).
+// Friends tests render the full page which includes BottomNav; stub out the
+// picker so tests stay focused on friends functionality.
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: () => null,
+}));
 import type {
   Friend,
   FriendRequest,

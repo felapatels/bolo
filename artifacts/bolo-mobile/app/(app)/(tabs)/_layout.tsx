@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -317,6 +318,26 @@ const styles = StyleSheet.create({
   },
 });
 
+// Globe icon button for tab headers — navigates to the language selector modal.
+function GlobeHeaderButton() {
+  const router = useRouter();
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={() => {
+        hapticLight();
+        router.push('/(app)/language');
+      }}
+      accessibilityLabel="Change language"
+      accessibilityRole="button"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 16 }}
+      style={{ marginRight: 12 }}
+    >
+      <Feather name="globe" size={22} color={colors.mutedForeground} />
+    </Pressable>
+  );
+}
+
 export default function TabsLayout() {
   const colors = useColors();
 
@@ -350,6 +371,11 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
+          headerShown: true,
+          headerRight: () => <GlobeHeaderButton />,
+          headerStyle: { backgroundColor: colors.card },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
           tabBarIcon: ({ color }) => (
             <Feather name="home" size={22} color={color} />
           ),
@@ -359,6 +385,11 @@ export default function TabsLayout() {
         name="games"
         options={{
           title: 'Games',
+          headerShown: true,
+          headerRight: () => <GlobeHeaderButton />,
+          headerStyle: { backgroundColor: colors.card },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
           tabBarIcon: ({ color }) => (
             <Feather name="grid" size={22} color={color} />
           ),
@@ -371,7 +402,7 @@ export default function TabsLayout() {
           href: null,
         }}
       />
-      {/* Center elevated tab — custom button handles all rendering */}
+      {/* Center elevated tab — custom button handles all rendering; no header needed */}
       <Tabs.Screen
         name="chat"
         options={{
@@ -383,6 +414,11 @@ export default function TabsLayout() {
         name="progress"
         options={{
           title: 'Progress',
+          headerShown: true,
+          headerRight: () => <GlobeHeaderButton />,
+          headerStyle: { backgroundColor: colors.card },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
           tabBarIcon: ({ color }) => (
             <Feather name="bar-chart-2" size={22} color={color} />
           ),
@@ -392,6 +428,11 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: true,
+          headerRight: () => <GlobeHeaderButton />,
+          headerStyle: { backgroundColor: colors.card },
+          headerShadowVisible: false,
+          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
           tabBarIcon: ({ color }) => (
             <Feather name="user" size={22} color={color} />
           ),

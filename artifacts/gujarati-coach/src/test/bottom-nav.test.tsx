@@ -4,6 +4,12 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 
+// LanguagePicker calls useLanguage (needs LanguageProvider + API mocks).
+// In BottomNav tests we only care about navigation structure, so stub it out.
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: () => null,
+}));
+
 // BottomNav shows Home, Games, Bolo (chat), and Progress tabs.
 // Friends moved to the Account/Profile page so is no longer in the bottom nav.
 // Imported after the mock is declared.

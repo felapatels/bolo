@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { Check, ChevronDown, Globe, Lock } from "lucide-react";
 import {
@@ -13,25 +13,44 @@ import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
 
-export function LanguagePicker() {
+type LanguagePickerProps = {
+  /** Optional external open state — pass both open + onOpenChange to control from outside. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Optional custom trigger element. Falls back to the default Globe button. */
+  trigger?: ReactNode;
+};
+
+export function LanguagePicker({ open: openProp, onOpenChange, trigger }: LanguagePickerProps = {}) {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
   const { isLanguageAllowed } = useEntitlements();
   const [, setLocation] = useLocation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Support both controlled (open + onOpenChange passed in) and uncontrolled usage.
+  const open = openProp !== undefined ? openProp : internalOpen;
+  const setOpen = (val: boolean) => {
+    setInternalOpen(val);
+    onOpenChange?.(val);
+  };
+
+  const defaultTrigger = (
+    <button
+      className="flex items-center gap-2 rounded-2xl bg-white border border-card-border px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
+      title="Change language"
+    >
+      <Globe className="w-5 h-5 text-primary" />
+      <span className="font-bold text-foreground text-sm max-w-[7rem] truncate">
+        {activeLanguage?.name ?? "Language"}
+      </span>
+      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+    </button>
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button
-          className="flex items-center gap-2 rounded-2xl bg-white border border-card-border px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
-          title="Change language"
-        >
-          <Globe className="w-5 h-5 text-primary" />
-          <span className="font-bold text-foreground text-sm max-w-[7rem] truncate">
-            {activeLanguage?.name ?? "Language"}
-          </span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {trigger ?? defaultTrigger}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
