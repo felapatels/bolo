@@ -208,6 +208,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   false,
                   {
@@ -317,6 +318,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   {
                     "lineHeight": 48,
@@ -426,6 +428,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   false,
                   {
@@ -688,6 +691,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   false,
                   {
@@ -797,6 +801,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   {
                     "lineHeight": 48,
@@ -906,6 +911,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   },
                   {
                     "fontSize": 22,
+                    "textAlign": "left",
                   },
                   false,
                   {
