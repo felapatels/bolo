@@ -16,7 +16,7 @@ import { Feather } from '@expo/vector-icons';
 // versions, hard-crashing the whole Account screen.
 import { Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { useUser, useClerk } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
