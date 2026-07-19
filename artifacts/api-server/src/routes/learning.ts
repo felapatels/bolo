@@ -8,7 +8,7 @@ import {
   badgesTable,
   gameSessionsTable,
 } from "@workspace/db";
-import { asc, desc, eq, and, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, and, ne, inArray, sql } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -1029,6 +1029,9 @@ router.get(
         and(
           eq(attemptsTable.userId, userId),
           eq(attemptsTable.languageCode, lang),
+          // Exclude phantom game-session attempts (empty nativeScript inserted
+          // for streak continuity). They have no phrase text to display.
+          ne(attemptsTable.nativeScript, ""),
         ),
       )
       .orderBy(desc(attemptsTable.createdAt))
