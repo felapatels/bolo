@@ -29,7 +29,7 @@ export default function Progress() {
 
   return (
     <div className="min-h-[100dvh] pb-24 lg:pb-12 bg-background">
-      <header className="mx-auto w-full max-w-6xl pt-12 px-6 pb-6 text-center flex flex-col items-center lg:pt-10">
+      <header className="mx-auto w-full max-w-6xl pt-6 px-6 pb-6 text-center flex flex-col items-center lg:pt-6">
         <Mascot pose="cheer" size={104} idle="cheer" className="mb-2" />
         <h1 className="text-3xl font-extrabold text-foreground mb-1 lg:text-4xl">Your Progress</h1>
         <p className="text-muted-foreground text-lg font-medium">

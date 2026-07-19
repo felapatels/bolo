@@ -16,6 +16,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { PressableScale } from '@/components/PressableScale';
 import { Mascot } from '@/components/Mascot';
+import { GlobeButton } from '@/components/GlobeButton';
 
 type GameDef = {
   id: string;
@@ -109,6 +110,7 @@ export default function GamesScreen() {
             Play your way to fluency
           </Text>
         </View>
+        <GlobeButton style={{ marginRight: 8 }} />
         <Mascot pose="cheer" size={76} motion="sway" />
       </Animated.View>
 

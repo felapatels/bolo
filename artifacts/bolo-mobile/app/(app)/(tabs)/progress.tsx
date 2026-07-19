@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { GlobeButton } from '@/components/GlobeButton';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
@@ -96,6 +97,7 @@ export default function ProgressScreen() {
               {activeLanguage?.name ?? 'Loading...'}
             </Text>
           </View>
+          <GlobeButton style={{ marginRight: 8 }} />
           <Mascot pose={mascotPose} size={76} motion="float" isIdle={isIdle} />
         </Animated.View>
 

@@ -29,6 +29,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { GlobeButton } from '@/components/GlobeButton';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -319,39 +320,9 @@ const styles = StyleSheet.create({
   },
 });
 
-// Globe icon button for tab headers — navigates to the language selector modal.
-// Shows the active language code below the icon so learners always know which
-// language they are practising without opening the picker.
-function GlobeHeaderButton() {
-  const router = useRouter();
-  const colors = useColors();
-  const { activeLang } = useLanguage();
-  return (
-    <Pressable
-      onPress={() => {
-        hapticLight();
-        router.push('/(app)/language');
-      }}
-      accessibilityLabel="Change language"
-      accessibilityRole="button"
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 16 }}
-      style={{ marginRight: 12, alignItems: 'center', gap: 1 }}
-    >
-      <Feather name="globe" size={20} color={colors.mutedForeground} />
-      <Text
-        style={{
-          fontFamily: AppFonts.extrabold,
-          fontSize: 9,
-          letterSpacing: 0.5,
-          color: colors.mutedForeground,
-          textTransform: 'uppercase',
-        }}
-      >
-        {activeLang}
-      </Text>
-    </Pressable>
-  );
-}
+// GlobeButton lives in components/GlobeButton.tsx and is imported above.
+// Each tab screen embeds it directly in its own header row so no system
+// navigation header is needed on any tab.
 
 export default function TabsLayout() {
   const colors = useColors();
@@ -396,11 +367,7 @@ export default function TabsLayout() {
         name="games"
         options={{
           title: 'Games',
-          headerShown: true,
-          headerRight: () => <GlobeHeaderButton />,
-          headerStyle: { backgroundColor: colors.card },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Feather name="grid" size={22} color={color} />
           ),
@@ -425,11 +392,7 @@ export default function TabsLayout() {
         name="progress"
         options={{
           title: 'Progress',
-          headerShown: true,
-          headerRight: () => <GlobeHeaderButton />,
-          headerStyle: { backgroundColor: colors.card },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Feather name="bar-chart-2" size={22} color={color} />
           ),
@@ -439,11 +402,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          headerShown: true,
-          headerRight: () => <GlobeHeaderButton />,
-          headerStyle: { backgroundColor: colors.card },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Feather name="user" size={22} color={color} />
           ),
