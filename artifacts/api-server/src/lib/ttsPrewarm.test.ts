@@ -433,3 +433,76 @@ test("warmGreetings logs a quota-exhaustion error and continues warming the rema
     "Gujarati greeting must not be cached when synthesis failed",
   );
 });
+
+// ─── Voice-ID selection in warmGreetings ─────────────────────────────────────
+//
+// warmGreetings must pass getVoiceIdForLanguage(lang.code) as the voiceId
+// argument to synthesize — not a hardcoded Bolo ID.  The injectable-deps
+// interface makes this verifiable without a real ElevenLabs account.
+
+test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthesize — not a hardcoded ID", async () => {
+  const languages = [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+  ];
+
+  // Capture the (voiceId) passed for each language.
+  const capturedVoiceIds: Record<string, string> = {};
+
+  const deps = makeGreetingDeps({
+    languages,
+    synthesize: (_text, voiceId, langName, _model) => {
+      capturedVoiceIds[langName] = voiceId;
+      return Promise.resolve(Buffer.from("audio"));
+    },
+  });
+
+  await warmGreetings(deps);
+
+  // Each captured voice ID must equal what getVoiceIdForLanguage returns for
+  // that language code — proving warmGreetings resolves the voice per-language
+  // rather than hard-coding a single Bolo voice for every greeting.
+  const expectedGu = getVoiceIdForLanguage("gu");
+  const expectedHi = getVoiceIdForLanguage("hi");
+
+  assert.equal(
+    capturedVoiceIds["Gujarati"],
+    expectedGu,
+    `warmGreetings must synthesize Gujarati with voice ${expectedGu} (from getVoiceIdForLanguage("gu")), got: ${capturedVoiceIds["Gujarati"]}`,
+  );
+  assert.equal(
+    capturedVoiceIds["Hindi"],
+    expectedHi,
+    `warmGreetings must synthesize Hindi with voice ${expectedHi} (from getVoiceIdForLanguage("hi")), got: ${capturedVoiceIds["Hindi"]}`,
+  );
+});
+
+test("warmGreetings uses different voice IDs for Gujarati (gu) and Hindi (hi)", async () => {
+  const languages = [
+    { code: "gu", name: "Gujarati" },
+    { code: "hi", name: "Hindi" },
+  ];
+
+  const capturedVoiceIds: Record<string, string> = {};
+
+  const deps = makeGreetingDeps({
+    languages,
+    synthesize: (_text, voiceId, langName, _model) => {
+      capturedVoiceIds[langName] = voiceId;
+      return Promise.resolve(Buffer.from("audio"));
+    },
+  });
+
+  await warmGreetings(deps);
+
+  assert.ok(
+    capturedVoiceIds["Gujarati"] && capturedVoiceIds["Hindi"],
+    "Both Gujarati and Hindi greetings must have been synthesized",
+  );
+  assert.notEqual(
+    capturedVoiceIds["Gujarati"],
+    capturedVoiceIds["Hindi"],
+    "Gujarati and Hindi must be synthesized with different ElevenLabs voice IDs — " +
+      "same voice would mean language-specific voice selection is silently bypassed",
+  );
+});

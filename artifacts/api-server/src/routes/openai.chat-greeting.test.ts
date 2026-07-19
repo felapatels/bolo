@@ -7,6 +7,7 @@ import { db, pool, ttsCacheTable, languagesTable, usersTable } from "@workspace/
 import { eq } from "drizzle-orm";
 import openaiRouter from "./openai";
 import { greetingAudioCacheKey, buildGreetingDisplayText, GREETING_SQUAWK_VARIANT } from "../lib/greetingStrings";
+import { getVoiceIdForLanguage, LANGUAGE_VOICE_MAP, DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Tests for GET /openai/chat-greeting?languageCode=<code>
@@ -344,5 +345,80 @@ test("GET /openai/chat-greeting — second hit after a cache-miss is served from
     second.json.audioBase64,
     SYNTHESIZED_AUDIO,
     "Second request must return the same cached audio without re-synthesizing",
+  );
+});
+
+// ─── Voice-ID selection: route uses per-language voice, not a hardcoded ID ───
+//
+// The cache-miss path calls:
+//   getVoiceIdForLanguage(languageCode) → greetingVoiceId
+//   textToSpeechElevenLabs(ttsText, greetingVoiceId, ...)
+//
+// These unit tests verify the building block (getVoiceIdForLanguage) resolves
+// the correct per-language voice and that two distinct languages never collapse
+// onto the same voice — catching a regression where voice selection is silently
+// bypassed in favour of a hardcoded ID.
+
+test("getVoiceIdForLanguage returns a non-empty string for Gujarati (gu)", () => {
+  const voiceId = getVoiceIdForLanguage("gu");
+  assert.ok(
+    typeof voiceId === "string" && voiceId.length > 0,
+    "Gujarati must resolve to a non-empty ElevenLabs voice ID",
+  );
+  // Must be an explicitly mapped ID, not the generic fallback.
+  assert.ok(
+    voiceId in Object.fromEntries(Object.values(LANGUAGE_VOICE_MAP).map((v) => [v, true])),
+    "Gujarati voice ID must be one of the known premade ElevenLabs voice IDs",
+  );
+});
+
+test("getVoiceIdForLanguage returns a non-empty string for Hindi (hi)", () => {
+  const voiceId = getVoiceIdForLanguage("hi");
+  assert.ok(
+    typeof voiceId === "string" && voiceId.length > 0,
+    "Hindi must resolve to a non-empty ElevenLabs voice ID",
+  );
+});
+
+test("greeting voice IDs differ between Gujarati (gu) and Hindi (hi)", () => {
+  const guVoiceId = getVoiceIdForLanguage("gu");
+  const hiVoiceId = getVoiceIdForLanguage("hi");
+  assert.notEqual(
+    guVoiceId,
+    hiVoiceId,
+    "Gujarati and Hindi must be assigned different ElevenLabs voice IDs — " +
+      "same voice would indicate voice selection is being silently bypassed",
+  );
+});
+
+test("greeting voice ID for a known language differs from the default multilingual fallback", () => {
+  // Gujarati and Hindi both have explicit map entries — their voice IDs must
+  // not silently fall through to the generic George fallback that unmapped
+  // language codes receive.
+  const guVoiceId = getVoiceIdForLanguage("gu");
+  const hiVoiceId = getVoiceIdForLanguage("hi");
+  assert.notEqual(
+    guVoiceId,
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Gujarati voice must not silently fall back to the default multilingual voice",
+  );
+  assert.notEqual(
+    hiVoiceId,
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Hindi voice must not silently fall back to the default multilingual voice",
+  );
+});
+
+test("getVoiceIdForLanguage is idempotent: same language code always returns the same voice ID", () => {
+  // Calling it multiple times must never produce a different result — the
+  // greeting handler calls it once per cache-miss request and the pre-warm
+  // calls it once per language, so any non-determinism would cause a
+  // cache-key / synthesis mismatch.
+  const first = getVoiceIdForLanguage("gu");
+  const second = getVoiceIdForLanguage("gu");
+  assert.equal(
+    first,
+    second,
+    "getVoiceIdForLanguage must return the same voice ID on every call for the same language code",
   );
 });
