@@ -205,20 +205,15 @@ export default function AccountScreen() {
   const uploadAvatar = async (uri: string) => {
     setAvatarBusy(true);
     try {
-      let blob: Blob;
+      // Pass the local URI directly — Clerk's setProfileImage accepts a string URI
+      // on React Native (Blob | File | string | null). Converting via fetch().blob()
+      // is unreliable on local file:// URIs in Expo Go and is unnecessary.
       try {
-        blob = await (await fetch(uri)).blob();
-      } catch (err) {
-        console.error('[account] failed to read picked image', err);
-        Alert.alert('Something went wrong', 'We couldn’t read that photo. Please try a different image.');
-        return;
-      }
-      try {
-        await user?.setProfileImage({ file: blob });
+        await user?.setProfileImage({ file: uri });
         await user?.reload();
       } catch (err) {
         console.error('[account] Clerk setProfileImage failed', err);
-        Alert.alert('Something went wrong', 'We couldn’t upload your photo. Please try again.');
+        Alert.alert('Something went wrong', "We couldn't upload your photo. Please try again.");
         return;
       }
       try {
