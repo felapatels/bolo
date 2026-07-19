@@ -371,11 +371,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          headerShown: true,
-          headerRight: () => <GlobeHeaderButton />,
-          headerStyle: { backgroundColor: colors.card },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: AppFonts.extrabold, color: colors.foreground },
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Feather name="home" size={22} color={color} />
           ),
