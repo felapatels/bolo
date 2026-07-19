@@ -217,6 +217,7 @@ export default function HomeScreen() {
             isPlus={isPlus}
             quizDone={quizData?.completed === true}
             quizLoading={quizLoading}
+            quizStreak={quizData?.quizStreak ?? 0}
             onPress={() => router.push('/(app)/(tabs)/games/bolo-quiz')}
             onUpgrade={() => router.push('/(app)/paywall')}
           />
@@ -394,12 +395,14 @@ function DailyQuizCard({
   isPlus,
   quizDone,
   quizLoading,
+  quizStreak,
   onPress,
   onUpgrade,
 }: {
   isPlus: boolean;
   quizDone: boolean;
   quizLoading: boolean;
+  quizStreak: number;
   onPress: () => void;
   onUpgrade: () => void;
 }) {
@@ -446,7 +449,13 @@ function DailyQuizCard({
         <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
         <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Fresh questions, every day</Text>
       </View>
-      <Feather name="chevron-right" size={20} color={colors.primary} />
+      {quizStreak >= 2 ? (
+        <View style={styles.quizStreakBadge}>
+          <Text style={styles.quizStreakText}>🔥 {quizStreak}</Text>
+        </View>
+      ) : (
+        <Feather name="chevron-right" size={20} color={colors.primary} />
+      )}
     </PressableScale>
   );
 }
@@ -743,6 +752,17 @@ const styles = StyleSheet.create({
   },
   quizTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
   quizSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
+  quizStreakBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#fff7ed',
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1.5,
+    borderColor: '#fb923c',
+  },
+  quizStreakText: { fontFamily: AppFonts.bold, fontSize: 13, color: '#c2410c' },
   capNote: {
     flexDirection: 'row',
     alignItems: 'center',

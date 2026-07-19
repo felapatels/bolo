@@ -9,7 +9,7 @@ import {
   attemptsTable,
   gameSessionsTable,
 } from "@workspace/db";
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { denyLockedFeature } from "../lib/gating";
 import type { QuizQuestion } from "@workspace/db";
@@ -192,6 +192,59 @@ function isCorrectAnswer(q: QuizQuestion, answer: string | null | undefined): bo
   if (q.type === "listen_identify") return answer === q.correctNativeScript;
   if (q.type === "order_words") return answer.trim() === q.nativeScript.trim();
   return false;
+}
+
+/**
+ * Computes how many consecutive UTC days (ending today or yesterday) the user
+ * has completed the daily quiz for a given language.
+ *
+ * Returns 0 when the most-recent completion is older than yesterday (broken
+ * streak), so the learner always sees an accurate, motivating number.
+ */
+async function computeQuizStreak(userId: string, languageCode: string): Promise<number> {
+  const completions = await db
+    .select({ quizDate: dailyQuizCompletionsTable.quizDate })
+    .from(dailyQuizCompletionsTable)
+    .where(
+      and(
+        eq(dailyQuizCompletionsTable.userId, userId),
+        eq(dailyQuizCompletionsTable.languageCode, languageCode),
+      ),
+    )
+    .orderBy(desc(dailyQuizCompletionsTable.quizDate));
+
+  if (completions.length === 0) return 0;
+
+  const today = todayUtc();
+  const yesterday = (() => {
+    const d = new Date(today + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const mostRecent = completions[0]!.quizDate;
+  // If the most recent completion is older than yesterday, the streak is broken.
+  if (mostRecent !== today && mostRecent !== yesterday) return 0;
+
+  let streak = 1;
+  let prevDate = mostRecent;
+
+  for (let i = 1; i < completions.length; i++) {
+    const curr = completions[i]!.quizDate;
+    // Calculate the date one day before prevDate.
+    const dt = new Date(prevDate + "T00:00:00Z");
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    const expectedPrev = dt.toISOString().slice(0, 10);
+
+    if (curr === expectedPrev) {
+      streak++;
+      prevDate = curr;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 // ---------------------------------------------------------------------------
@@ -462,6 +515,7 @@ router.get(
     }
 
     if (completion) {
+      const quizStreak = await computeQuizStreak(userId, lang);
       res.json({
         quizDate: today,
         completed: true,
@@ -470,14 +524,17 @@ router.get(
         xpAwarded: completion.xpAwarded,
         completedAt: completion.completedAt,
         questions: quiz.questions,
+        quizStreak,
       });
       return;
     }
 
+    const quizStreak = await computeQuizStreak(userId, lang);
     res.json({
       quizDate: today,
       completed: false,
       questions: quiz.questions,
+      quizStreak,
     });
   },
 );
@@ -601,7 +658,10 @@ router.post(
         }),
       ]);
 
-      const metrics = await loadExtendedMetrics(userId, lang);
+      const [metrics, quizStreak] = await Promise.all([
+        loadExtendedMetrics(userId, lang),
+        computeQuizStreak(userId, lang),
+      ]);
       const newlyEarnedBadges = await awardNewlyEarnedBadges(userId, lang, metrics);
 
       res.json({
@@ -609,6 +669,7 @@ router.post(
         total: 5,
         xpAwarded,
         perfect: score === 5,
+        quizStreak,
         newlyEarnedBadges,
       });
     } catch (err) {

@@ -311,18 +311,41 @@ function OrderQuestion({
 }
 
 // ---------------------------------------------------------------------------
+// Streak badge (shown on results/already-done when streak >= 1)
+// ---------------------------------------------------------------------------
+function StreakBadge({
+  streak,
+  colors,
+}: {
+  streak: number;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (streak < 1) return null;
+  return (
+    <View style={[s.streakBadge, { backgroundColor: '#fff7ed', borderColor: '#fb923c' }]}>
+      <Text style={s.streakFlame}>🔥</Text>
+      <Text style={[s.streakText, { color: '#c2410c' }]}>
+        {streak}-day streak!
+      </Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Results screen
 // ---------------------------------------------------------------------------
 function ResultsScreen({
   score,
   total,
   xp,
+  quizStreak,
   onBack,
   colors,
 }: {
   score: number;
   total: number;
   xp: number;
+  quizStreak: number;
   onBack: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
@@ -330,9 +353,10 @@ function ResultsScreen({
   const perfect = score === total;
 
   const handleShare = async () => {
+    const streakSuffix = quizStreak >= 2 ? ` 🔥 ${quizStreak}-day streak!` : '';
     const msg = perfect
-      ? `I scored ${score}/${total} on today's Bolo Quiz! 🦜🎉 Perfect score!`
-      : `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
+      ? `I scored ${score}/${total} on today's Bolo Quiz! 🦜🎉 Perfect score!${streakSuffix}`
+      : `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage${streakSuffix}`;
     try {
       await Share.share({ message: msg });
     } catch {
@@ -348,6 +372,8 @@ function ResultsScreen({
         {perfect ? 'Perfect! 🎉' : score >= 3 ? 'Nice work!' : 'Keep it up!'}
       </Text>
       <Text style={[s.resultsSubtitle, { color: colors.mutedForeground }]}>Today's quiz complete</Text>
+
+      <StreakBadge streak={quizStreak} colors={colors} />
 
       <View style={s.scoreRow}>
         <View style={s.scoreCol}>
@@ -397,18 +423,21 @@ function AlreadyDoneScreen({
   total,
   xp,
   completedAt,
+  quizStreak,
   colors,
 }: {
   score: number;
   total: number;
   xp: number;
   completedAt: string | Date;
+  quizStreak: number;
   colors: ReturnType<typeof useColors>;
 }) {
   const countdown = useCountdown(secondsUntilMidnightUtc());
 
   const handleShare = async () => {
-    const msg = `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
+    const streakSuffix = quizStreak >= 2 ? ` 🔥 ${quizStreak}-day streak!` : '';
+    const msg = `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage${streakSuffix}`;
     try {
       await Share.share({ message: msg });
     } catch {
@@ -424,6 +453,8 @@ function AlreadyDoneScreen({
       <Text style={[s.resultsSubtitle, { color: colors.mutedForeground }]}>
         Completed at {new Date(completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </Text>
+
+      <StreakBadge streak={quizStreak} colors={colors} />
 
       <View style={s.scoreRow}>
         <View style={s.scoreCol}>
@@ -489,6 +520,7 @@ export default function BoloQuizScreen() {
   const [currentAnswered, setCurrentAnswered] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState(0);
+  const [finalStreak, setFinalStreak] = useState(0);
 
   // Auto-advance timer — cleared on unmount or when quiz leaves 'playing'.
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -523,6 +555,7 @@ export default function BoloQuizScreen() {
         });
         setFinalScore(result.score);
         setFinalXp(result.xpAwarded);
+        setFinalStreak(result.quizStreak ?? 0);
       } catch {
         /* non-fatal */
       }
@@ -602,6 +635,7 @@ export default function BoloQuizScreen() {
             total={data.total ?? 5}
             xp={data.xpAwarded ?? 0}
             completedAt={data.completedAt ?? new Date()}
+            quizStreak={data.quizStreak ?? 0}
             colors={colors}
           />
         </ScrollView>
@@ -669,6 +703,7 @@ export default function BoloQuizScreen() {
             score={finalScore}
             total={5}
             xp={finalXp}
+            quizStreak={finalStreak}
             onBack={() => router.back()}
             colors={colors}
           />
@@ -758,4 +793,9 @@ const s = StyleSheet.create({
   primaryBtnText: { fontFamily: AppFonts.bold, fontSize: 15, color: '#fff' },
   secondaryBtn: { flex: 1, flexDirection: 'row', borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 6 },
   secondaryBtnText: { fontFamily: AppFonts.bold, fontSize: 15 },
+
+  // Streak badge
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 6 },
+  streakFlame: { fontSize: 16 },
+  streakText: { fontFamily: AppFonts.bold, fontSize: 14 },
 });

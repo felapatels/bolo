@@ -3042,6 +3042,12 @@ components:
           format: date-time
           nullable: true
           description: When the learner completed the quiz
+        quizStreak:
+          type: integer
+          nullable: true
+          description: >-
+            Number of consecutive days (ending today or yesterday) the learner
+            has completed the daily quiz. null when the streak is unknown or zero.
       required:
         - quizDate
         - completed
@@ -3084,11 +3090,17 @@ components:
         perfect:
           type: boolean
           description: Whether the learner scored 5/5
+        quizStreak:
+          type: integer
+          description: >-
+            Number of consecutive days (including today) the learner has
+            completed the daily quiz for this language.
       required:
         - score
         - total
         - xpAwarded
         - perfect
+        - quizStreak
 
     LeaderboardEntry:
       type: object
