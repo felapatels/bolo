@@ -89,6 +89,7 @@ function SetupScreen({
   const router = useRouter();
   const colors = useColors();
   const { activeLang, activeLanguage } = useLanguage();
+  const { isPlus } = useEntitlements();
   const { data: categories = [] } = useListCategories({ lang: activeLang });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hardMode, setHardMode] = useState(false);
@@ -177,7 +178,7 @@ function SetupScreen({
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: colors.foreground }]}>Free</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{isPlus ? 'Plus' : 'Free'}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Plan</Text>
           </View>
         </View>
