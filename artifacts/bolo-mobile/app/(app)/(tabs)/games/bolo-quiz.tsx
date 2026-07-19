@@ -490,6 +490,11 @@ export default function BoloQuizScreen() {
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState(0);
 
+  // Auto-advance timer — cleared on unmount or when quiz leaves 'playing'.
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep a stable ref to handleNext so the timeout always calls the latest version.
+  const handleNextRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (!data) return;
     if (data.completed) {
@@ -498,15 +503,6 @@ export default function BoloQuizScreen() {
       setQuizState('playing');
     }
   }, [data]);
-
-  const handleAnswer = useCallback(
-    (selected: string) => {
-      if (currentAnswered) return;
-      setCurrentAnswered(true);
-      setAnswers((a) => [...a, selected]);
-    },
-    [currentAnswered],
-  );
 
   const handleNext = useCallback(async () => {
     const questions = data?.questions ?? [];
@@ -535,6 +531,41 @@ export default function BoloQuizScreen() {
       setCurrentAnswered(false);
     }
   }, [currentIndex, answers, data, activeLang, completeMutation]);
+
+  // Keep the ref current so the setTimeout below always sees the latest closure.
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  });
+
+  // Clear the auto-advance timer whenever the quiz leaves 'playing' or on unmount.
+  useEffect(() => {
+    if (quizState !== 'playing') {
+      if (autoAdvanceTimer.current != null) {
+        clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = null;
+      }
+    }
+    return () => {
+      if (autoAdvanceTimer.current != null) {
+        clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = null;
+      }
+    };
+  }, [quizState]);
+
+  const handleAnswer = useCallback(
+    (selected: string) => {
+      if (currentAnswered) return;
+      setCurrentAnswered(true);
+      setAnswers((a) => [...a, selected]);
+      // Auto-advance after 1.2 s so the learner can see the correct-answer highlight.
+      if (autoAdvanceTimer.current != null) clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = setTimeout(() => {
+        handleNextRef.current();
+      }, 1200);
+    },
+    [currentAnswered],
+  );
 
   if (!isPlus) return null;
 
@@ -628,19 +659,7 @@ export default function BoloQuizScreen() {
             <OrderQuestion key={currentIndex} q={currentQ} onAnswer={handleAnswer} answered={currentAnswered} colors={colors} />
           )}
 
-          {currentAnswered && (
-            <Animated.View entering={FadeInDown.duration(300)}>
-              <Pressable
-                onPress={handleNext}
-                style={[s.nextBtn, { backgroundColor: colors.primary }]}
-              >
-                <Text style={s.nextBtnText}>
-                  {currentIndex + 1 < questions.length ? 'Next' : 'See results'}
-                </Text>
-                <Feather name="chevron-right" size={16} color="#fff" />
-              </Pressable>
-            </Animated.View>
-          )}
+          {/* Auto-advance fires after 1.2 s — no manual Next button needed. */}
         </ScrollView>
       )}
 

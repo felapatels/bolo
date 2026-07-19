@@ -21,6 +21,8 @@ import {
   useListCategories,
   useGetProgressSummary,
   useListRecentAttempts,
+  useGetDailyQuiz,
+  getGetDailyQuizQueryKey,
   type Category,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -55,6 +57,14 @@ export default function HomeScreen() {
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
   const recent = useListRecentAttempts({ lang: activeLang, limit: 5 });
+
+  const quizParams = { lang: activeLang };
+  const { data: quizData, isLoading: quizLoading } = useGetDailyQuiz(quizParams, {
+    query: {
+      enabled: !!isPlus && !!activeLang,
+      queryKey: getGetDailyQuizQueryKey(quizParams),
+    },
+  });
 
   const refreshing =
     summary.isRefetching || categories.isRefetching || recent.isRefetching;
@@ -200,6 +210,17 @@ export default function HomeScreen() {
             loading={summary.isLoading}
           />
         </View>
+
+        {/* Daily quiz card */}
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(220)}>
+          <DailyQuizCard
+            isPlus={isPlus}
+            quizDone={quizData?.completed === true}
+            quizLoading={quizLoading}
+            onPress={() => router.push('/(app)/(tabs)/games/bolo-quiz')}
+            onUpgrade={() => router.push('/(app)/paywall')}
+          />
+        </Animated.View>
 
         {/* Daily practice CTA */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}>
@@ -366,6 +387,67 @@ export default function HomeScreen() {
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+function DailyQuizCard({
+  isPlus,
+  quizDone,
+  quizLoading,
+  onPress,
+  onUpgrade,
+}: {
+  isPlus: boolean;
+  quizDone: boolean;
+  quizLoading: boolean;
+  onPress: () => void;
+  onUpgrade: () => void;
+}) {
+  const colors = useColors();
+
+  // While the quiz status is loading for Plus users, show nothing to avoid
+  // a jarring pop-in once the data arrives.
+  if (isPlus && quizLoading) return null;
+
+  // Quiz already done today — hide the card so it doesn't clutter the screen.
+  if (isPlus && quizDone) return null;
+
+  // Non-Plus: show a locked teaser that routes to the paywall.
+  if (!isPlus) {
+    return (
+      <PressableScale
+        onPress={() => { hapticLight(); onUpgrade(); }}
+        scaleTo={0.98}
+        style={[styles.quizCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      >
+        <View style={[styles.quizIconBox, { backgroundColor: `${colors.gold}22` }]}>
+          <Feather name="lock" size={22} color={colors.gold} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
+          <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Upgrade to Plus to unlock</Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+      </PressableScale>
+    );
+  }
+
+  // Plus user, quiz not yet done today.
+  return (
+    <PressableScale
+      onPress={() => { hapticLight(); onPress(); }}
+      scaleTo={0.98}
+      style={[styles.quizCard, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}
+    >
+      <View style={[styles.quizIconBox, { backgroundColor: `${colors.primary}22` }]}>
+        <Feather name="zap" size={22} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
+        <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Fresh questions, every day</Text>
+      </View>
+      <Feather name="chevron-right" size={20} color={colors.primary} />
+    </PressableScale>
   );
 }
 
@@ -643,6 +725,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quizCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  quizIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quizTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
+  quizSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
   capNote: {
     flexDirection: 'row',
     alignItems: 'center',
