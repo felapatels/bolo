@@ -378,15 +378,29 @@ function QuestionCard({
 // Results screen
 // ---------------------------------------------------------------------------
 
+function StreakBadge({ streak }: { streak: number }) {
+  if (streak < 1) return null;
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 px-4 py-2">
+      <span className="text-xl" aria-hidden="true">🔥</span>
+      <span className="text-sm font-bold text-orange-700 dark:text-orange-300">
+        {streak}-day streak!
+      </span>
+    </div>
+  );
+}
+
 function ResultsScreen({
   score,
   total,
   xp,
+  quizStreak,
   onReturnToGames,
 }: {
   score: number;
   total: number;
   xp: number;
+  quizStreak: number;
   onReturnToGames: () => void;
 }) {
   const perfect = score === total;
@@ -443,6 +457,9 @@ function ResultsScreen({
         ))}
       </div>
 
+      {/* Streak badge */}
+      <StreakBadge streak={quizStreak} />
+
       {/* Next quiz countdown */}
       <NextQuizCountdown />
 
@@ -487,11 +504,13 @@ function AlreadyDoneScreen({
   total,
   xp,
   completedAt,
+  quizStreak,
 }: {
   score: number;
   total: number;
   xp: number;
   completedAt: string;
+  quizStreak: number;
 }) {
   const shareText = `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
 
@@ -546,6 +565,9 @@ function AlreadyDoneScreen({
         ))}
       </div>
 
+      {/* Streak badge */}
+      <StreakBadge streak={quizStreak} />
+
       <NextQuizCountdown />
 
       <div className="flex w-full gap-3">
@@ -590,6 +612,7 @@ export default function BoloQuizPage() {
   const [currentAnswered, setCurrentAnswered] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState(0);
+  const [finalQuizStreak, setFinalQuizStreak] = useState(0);
 
   // Transition state machine when data arrives.
   useEffect(() => {
@@ -633,6 +656,7 @@ export default function BoloQuizPage() {
         // Update with server-authoritative score in case they differ.
         setFinalScore(result.score);
         setFinalXp(result.xpAwarded);
+        setFinalQuizStreak(result.quizStreak ?? 0);
       } catch {
         // Non-fatal: user sees results regardless.
       }
@@ -684,6 +708,7 @@ export default function BoloQuizPage() {
             total={data.total ?? 5}
             xp={data.xpAwarded ?? 0}
             completedAt={String(data.completedAt ?? new Date().toISOString())}
+            quizStreak={data.quizStreak ?? 0}
           />
         )}
 
@@ -719,6 +744,7 @@ export default function BoloQuizPage() {
             score={finalScore}
             total={5}
             xp={finalXp}
+            quizStreak={finalQuizStreak}
             onReturnToGames={() => window.history.back()}
           />
         )}
