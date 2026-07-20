@@ -372,6 +372,15 @@ export default function TabsLayout() {
             <Feather name="grid" size={22} color={color} />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Always pop the nested games stack back to the list so tapping
+            // the tab while inside a game (e.g. bolo-quiz) returns to the
+            // games index rather than staying on the current game screen.
+            e.preventDefault();
+            navigation.navigate('games', { screen: 'index' });
+          },
+        })}
       />
       {/* Friends tab — hidden from the tab bar; accessible from Profile/Account */}
       <Tabs.Screen
