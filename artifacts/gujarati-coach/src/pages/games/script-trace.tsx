@@ -3,6 +3,7 @@ import { Redirect } from "wouter";
 import { ArrowLeft, ChevronRight, RotateCcw, CheckCircle2, XCircle, Trophy, Play } from "lucide-react";
 import { Link } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
+import { useLanguage } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { cn } from "@/lib/utils";
 import {
@@ -196,6 +197,27 @@ function splitGuideSubpaths(d: string): string[] {
   return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
 }
 
+// ── Language → chapter mapping ────────────────────────────────────────────────
+
+/** Maps a language code to the Script Trace chapter IDs for its script. */
+const LANG_CHAPTER_IDS: Record<string, string[]> = {
+  gu: ["gujarati-vowels", "gujarati-consonants"],
+  // Devanagari script languages
+  hi:  ["hindi-vowels", "hindi-consonants"],
+  mr:  ["hindi-vowels", "hindi-consonants"],
+  ne:  ["hindi-vowels", "hindi-consonants"],
+  sa:  ["hindi-vowels", "hindi-consonants"],
+  mai: ["hindi-vowels", "hindi-consonants"],
+  kok: ["hindi-vowels", "hindi-consonants"],
+  doi: ["hindi-vowels", "hindi-consonants"],
+  brx: ["hindi-vowels", "hindi-consonants"],
+};
+
+function chaptersForLang(langCode: string): TraceChapter[] {
+  const ids = LANG_CHAPTER_IDS[langCode] ?? [];
+  return SCRIPT_TRACE_CHAPTERS.filter((c) => ids.includes(c.id));
+}
+
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
 function ChapterGrid({
@@ -203,6 +225,9 @@ function ChapterGrid({
 }: {
   onSelect: (chapter: TraceChapter) => void;
 }) {
+  const { activeLang, activeLanguage } = useLanguage();
+  const chapters = chaptersForLang(activeLang);
+
   return (
     <div className="min-h-[100dvh] bg-background pb-24 lg:pb-8">
       {/* Header */}
@@ -217,34 +242,53 @@ function ChapterGrid({
             <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
               Script Trace
             </h1>
-            <p className="text-sm text-muted-foreground">Choose a chapter to practice</p>
+            <p className="text-sm text-muted-foreground">
+              {chapters.length > 0
+                ? "Choose a chapter to practice"
+                : activeLanguage?.name ?? activeLang}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-2xl px-4 pt-6 lg:px-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {SCRIPT_TRACE_CHAPTERS.map((chapter) => (
-            <button
-              key={chapter.id}
-              onClick={() => onSelect(chapter)}
-              className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-left transition-all hover:border-primary/30 hover:bg-muted/40 hover:shadow-md active:scale-[0.98]"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-3xl font-bold text-foreground" style={{ fontFamily: "serif", lineHeight: 1 }}>
-                  {chapter.characters[0]?.char}
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <h3 className="font-bold text-foreground">{chapter.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {chapter.characters.length} characters · {chapter.scriptName} script
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
+        {chapters.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 py-20 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+              <span className="text-3xl">✏️</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Coming soon</h2>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                Script Trace for {activeLanguage?.name ?? activeLang} is on its way.
+                Switch to Gujarati or Hindi to practise now.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {chapters.map((chapter) => (
+              <button
+                key={chapter.id}
+                onClick={() => onSelect(chapter)}
+                className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-left transition-all hover:border-primary/30 hover:bg-muted/40 hover:shadow-md active:scale-[0.98]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-3xl font-bold text-foreground" style={{ fontFamily: "serif", lineHeight: 1 }}>
+                    {chapter.characters[0]?.char}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">{chapter.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {chapter.characters.length} characters · {chapter.scriptName} script
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <BottomNav />

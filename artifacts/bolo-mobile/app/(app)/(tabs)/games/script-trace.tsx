@@ -19,6 +19,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   SCRIPT_TRACE_CHAPTERS,
   type TraceChapter,
@@ -217,11 +218,34 @@ function splitGuideSubpaths(d: string): string[] {
   return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
 }
 
+// ── Language → chapter mapping ────────────────────────────────────────────────
+
+/** Maps a language code to the Script Trace chapter IDs for its script. */
+const LANG_CHAPTER_IDS: Record<string, string[]> = {
+  gu: ['gujarati-vowels', 'gujarati-consonants'],
+  // Devanagari script languages
+  hi:  ['hindi-vowels', 'hindi-consonants'],
+  mr:  ['hindi-vowels', 'hindi-consonants'],
+  ne:  ['hindi-vowels', 'hindi-consonants'],
+  sa:  ['hindi-vowels', 'hindi-consonants'],
+  mai: ['hindi-vowels', 'hindi-consonants'],
+  kok: ['hindi-vowels', 'hindi-consonants'],
+  doi: ['hindi-vowels', 'hindi-consonants'],
+  brx: ['hindi-vowels', 'hindi-consonants'],
+};
+
+function chaptersForLang(langCode: string): TraceChapter[] {
+  const ids = LANG_CHAPTER_IDS[langCode] ?? [];
+  return SCRIPT_TRACE_CHAPTERS.filter((c) => ids.includes(c.id));
+}
+
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
 function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }) {
   const colors = useColors();
   const router = useRouter();
+  const { activeLang, activeLanguage } = useLanguage();
+  const chapters = chaptersForLang(activeLang);
 
   return (
     <Screen>
@@ -238,7 +262,7 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground }]}>Script Trace</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Choose a chapter
+            {chapters.length > 0 ? 'Choose a chapter' : activeLanguage?.name ?? activeLang}
           </Text>
         </View>
       </View>
@@ -247,30 +271,43 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
         contentContainerStyle={styles.chapterList}
         showsVerticalScrollIndicator={false}
       >
-        {SCRIPT_TRACE_CHAPTERS.map((chapter) => (
-          <TouchableOpacity
-            key={chapter.id}
-            onPress={() => onSelect(chapter)}
-            style={[
-              styles.chapterCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.chapterChar, { color: colors.foreground }]}>
-              {chapter.characters[0]?.char}
+        {chapters.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Feather name="edit-3" size={40} color={colors.mutedForeground} style={{ marginBottom: 16 }} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              Coming soon
             </Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
-                {chapter.title}
+            <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+              Script Trace for {activeLanguage?.name ?? activeLang} is on its way.
+              {'\n'}Try switching to Gujarati or Hindi to practise now.
+            </Text>
+          </View>
+        ) : (
+          chapters.map((chapter) => (
+            <TouchableOpacity
+              key={chapter.id}
+              onPress={() => onSelect(chapter)}
+              style={[
+                styles.chapterCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.chapterChar, { color: colors.foreground }]}>
+                {chapter.characters[0]?.char}
               </Text>
-              <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
-                {chapter.characters.length} characters · {chapter.scriptName} script
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        ))}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
+                  {chapter.title}
+                </Text>
+                <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
+                  {chapter.characters.length} characters · {chapter.scriptName} script
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </Screen>
   );
@@ -826,6 +863,9 @@ const styles = StyleSheet.create({
   chapterChar: { fontFamily: 'serif', fontSize: 36, width: 48, textAlign: 'center' },
   chapterTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
   chapterMeta: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 80 },
+  emptyTitle: { fontFamily: AppFonts.bold, fontSize: 20, marginTop: 16, textAlign: 'center' },
+  emptyBody: { fontFamily: AppFonts.regular, fontSize: 15, marginTop: 8, textAlign: 'center', lineHeight: 22 },
   session: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 20 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressLabel: { fontFamily: AppFonts.semibold, fontSize: 12, width: 40 },
