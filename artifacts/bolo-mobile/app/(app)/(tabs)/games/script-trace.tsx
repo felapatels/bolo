@@ -12,7 +12,7 @@ import {
   GestureDetector,
   Gesture,
 } from 'react-native-gesture-handler';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -326,33 +326,29 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
         contentContainerStyle={styles.chapterList}
         showsVerticalScrollIndicator={false}
       >
-        {SCRIPT_TRACE_CHAPTERS.map((chapter, i) => (
-          <Animated.View
+        {SCRIPT_TRACE_CHAPTERS.map((chapter) => (
+          <TouchableOpacity
             key={chapter.id}
-            entering={FadeInDown.duration(300).delay(i * 60)}
+            onPress={() => onSelect(chapter)}
+            style={[
+              styles.chapterCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            activeOpacity={0.7}
           >
-            <TouchableOpacity
-              onPress={() => onSelect(chapter)}
-              style={[
-                styles.chapterCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chapterChar, { color: colors.foreground }]}>
-                {chapter.characters[0]?.char}
+            <Text style={[styles.chapterChar, { color: colors.foreground }]}>
+              {chapter.characters[0]?.char}
+            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
+                {chapter.title}
               </Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
-                  {chapter.title}
-                </Text>
-                <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
-                  {chapter.characters.length} characters · {chapter.scriptName} script
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </Animated.View>
+              <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
+                {chapter.characters.length} characters · {chapter.scriptName} script
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </Screen>
@@ -821,7 +817,6 @@ function TraceSession({
       {/* Result feedback */}
       {result && (
         <Animated.View
-          entering={FadeInDown.duration(250)}
           style={[
             styles.resultCard,
             {
@@ -906,8 +901,9 @@ export default function ScriptTraceScreen() {
     }
   }, [isLoading, isPlus, router]);
 
-  if (isLoading) return null;
-  if (!isPlus) return null;
+  // While entitlements load, show the chapter grid immediately (static data).
+  // The useEffect above will redirect non-Plus users once loading finishes.
+  if (!isPlus && !isLoading) return null;
 
   if (!activeChapter) {
     return <ChapterGrid onSelect={setActiveChapter} />;
