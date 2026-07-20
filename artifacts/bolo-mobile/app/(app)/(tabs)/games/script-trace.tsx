@@ -376,6 +376,11 @@ function TraceCanvas({
   const [guidePulsed, setGuidePulsed] = useState(false);
   const drawnRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
+  // All strokes the user has drawn so far (completed pen-down → pen-up segments).
+  // Kept across finger lifts so multi-stroke characters work correctly.
+  const allStrokesRef = useRef<Point[][]>([]);
+  // Pending debounce: score fires 1.2 s after the last finger lift.
+  const scoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Stroke-order animation state ──
   const animFrameRef = useRef<number | null>(null);
@@ -428,11 +433,12 @@ function TraceCanvas({
     if (isAnimating) startAnim();
   }, [isAnimating, startAnim]);
 
-  // Auto-play on mount
+  // Auto-play on mount; clean up animation frame and any pending score timer on unmount.
   useEffect(() => {
     startAnim();
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+      if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -447,10 +453,27 @@ function TraceCanvas({
     setTimeout(() => setGuidePulsed(false), 600);
   }, []);
 
+  // Helpers: build the combined SVG path string for all strokes visible so far.
+  // Each stroke is a separate M…L subpath so no line connects across pen-lifts.
+  const buildAllPath = (extraStroke?: Point[]) => {
+    const segs = allStrokesRef.current
+      .map(s => s.length >= 2 ? pointsToPath(s, CANVAS_SIZE) : '')
+      .filter(Boolean);
+    if (extraStroke && extraStroke.length >= 2) {
+      segs.push(pointsToPath(extraStroke, CANVAS_SIZE));
+    }
+    return segs.join(' ');
+  };
+
   const pan = Gesture.Pan()
     .runOnJS(true)
     .onBegin((e) => {
-      // Stop animation when user starts drawing
+      // Cancel any pending score debounce — user is adding another stroke.
+      if (scoreTimerRef.current !== null) {
+        clearTimeout(scoreTimerRef.current);
+        scoreTimerRef.current = null;
+      }
+      // Stop stroke-order animation when user starts drawing.
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
       setAnimProgress(null);
@@ -461,7 +484,8 @@ function TraceCanvas({
         { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 },
       ];
       setGuidePulsed(false);
-      setDrawnPath('');
+      // Note: drawnPath and allStrokesRef are intentionally preserved so all
+      // previous strokes remain visible as the user adds the new one.
     })
     .onUpdate((e) => {
       if (!isDrawingRef.current) return;
@@ -469,24 +493,46 @@ function TraceCanvas({
         x: (e.x / CANVAS_SIZE) * 100,
         y: (e.y / CANVAS_SIZE) * 100,
       });
-      setDrawnPath(pointsToPath(drawnRef.current, CANVAS_SIZE));
+      // Re-render: all completed strokes + current in-progress stroke.
+      setDrawnPath(buildAllPath(drawnRef.current));
     })
     .onFinalize(() => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
-      // Text-mode characters (guide="") have no SVG guide to score against —
-      // any completed trace auto-passes so the learner can move forward.
+
+      // Stash the completed stroke so it stays visible when the finger lifts.
+      if (drawnRef.current.length >= 2) {
+        allStrokesRef.current = [...allStrokesRef.current, [...drawnRef.current]];
+      }
+      drawnRef.current = [];
+      setDrawnPath(buildAllPath());
+
+      // Text-mode: any completed trace auto-passes (no SVG guide to score).
       if (!character.guide) {
         onResult(100, true);
         return;
       }
-      const score = scoreTrace(drawnRef.current, guidePoints);
-      const passed = score >= PASS_THRESHOLD;
-      if (!passed) triggerPulse();
-      onResult(score, passed);
+
+      // Debounce: score the full accumulated drawing 1.2 s after the last lift.
+      // If the user touches down again before the timer fires, onBegin cancels
+      // it — so the score only triggers when they're genuinely done drawing.
+      scoreTimerRef.current = setTimeout(() => {
+        scoreTimerRef.current = null;
+        const allPoints = allStrokesRef.current.flat();
+        if (allPoints.length < 5) return;
+        const score = scoreTrace(allPoints, guidePoints);
+        const passed = score >= PASS_THRESHOLD;
+        if (!passed) triggerPulse();
+        onResult(score, passed);
+      }, 1200);
     });
 
   const handleClear = () => {
+    if (scoreTimerRef.current !== null) {
+      clearTimeout(scoreTimerRef.current);
+      scoreTimerRef.current = null;
+    }
+    allStrokesRef.current = [];
     drawnRef.current = [];
     setDrawnPath('');
     setGuidePulsed(false);
@@ -659,6 +705,7 @@ function TraceSession({
 }) {
   const colors = useColors();
   const [charIndex, setCharIndex] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   const [result, setResult] = useState<SessionResult>(null);
   const [passedSet, setPassedSet] = useState<Set<string>>(new Set());
   const [sessionDone, setSessionDone] = useState(false);
@@ -696,11 +743,15 @@ function TraceSession({
       setSessionDone(true);
     } else {
       setCharIndex((i) => i + 1);
+      setRetryCount(0);
       setResult(null);
     }
   };
 
-  const handleRetry = () => setResult(null);
+  const handleRetry = () => {
+    setResult(null);
+    setRetryCount((c) => c + 1);
+  };
 
   if (sessionDone) {
     const total = chapter.characters.length;
@@ -771,7 +822,7 @@ function TraceSession({
       {/* Trace canvas */}
       {character && (
         <TraceCanvas
-          key={`${chapter.id}-${charIndex}`}
+          key={`${chapter.id}-${charIndex}-${retryCount}`}
           character={character}
           onResult={handleResult}
           guidePoints={guidePoints}

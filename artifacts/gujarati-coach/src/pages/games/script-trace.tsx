@@ -360,6 +360,11 @@ function ScriptTraceCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawnRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
+  // All strokes the user has drawn so far (completed pen-down → pen-up segments).
+  // Kept across finger/mouse lifts so multi-stroke characters work correctly.
+  const allStrokesRef = useRef<Point[][]>([]);
+  // Pending debounce timer: score fires 1.2 s after the last stroke ends.
+  const scoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [pulseGuide, setPulseGuide] = useState(false);
   const PRIMARY = "#6366f1";
@@ -439,20 +444,25 @@ function ScriptTraceCanvas({
       }
     }
 
-    // Draw user's traced path
-    const drawn = drawnRef.current;
-    if (drawn.length > 1) {
+    // Draw all completed strokes + the current in-progress stroke.
+    // Each stroke is rendered as its own independent subpath so there is no
+    // connecting line drawn between the end of one stroke and the start of the
+    // next (i.e. lifting the pen between strokes renders correctly).
+    const allStrokes = [...allStrokesRef.current, drawnRef.current].filter(s => s.length > 1);
+    if (allStrokes.length > 0) {
       ctx.save();
       ctx.strokeStyle = PRIMARY;
       ctx.lineWidth = W * 0.045;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo((drawn[0].x / 100) * W, (drawn[0].y / 100) * H);
-      for (let i = 1; i < drawn.length; i++) {
-        ctx.lineTo((drawn[i].x / 100) * W, (drawn[i].y / 100) * H);
+      for (const stroke of allStrokes) {
+        ctx.beginPath();
+        ctx.moveTo((stroke[0].x / 100) * W, (stroke[0].y / 100) * H);
+        for (let i = 1; i < stroke.length; i++) {
+          ctx.lineTo((stroke[i].x / 100) * W, (stroke[i].y / 100) * H);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.restore();
     }
   }, [character.guide, pulseGuide]);
@@ -526,11 +536,17 @@ function ScriptTraceCanvas({
     const onStart = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
       stopAnim();
+      // Cancel any pending score debounce — user is adding another stroke.
+      if (scoreTimerRef.current !== null) {
+        clearTimeout(scoreTimerRef.current);
+        scoreTimerRef.current = null;
+      }
       const rect = canvas.getBoundingClientRect();
       isDrawingRef.current = true;
       drawnRef.current = [getPos(e, rect)];
       setPulseGuide(false);
       setHasDrawn(true);
+      // allStrokesRef is intentionally preserved so previous strokes stay visible.
     };
 
     const onMove = (e: MouseEvent | TouchEvent) => {
@@ -544,16 +560,34 @@ function ScriptTraceCanvas({
     const onEnd = () => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
+
+      // Stash the completed stroke so it stays visible when the user lifts.
+      if (drawnRef.current.length >= 2) {
+        allStrokesRef.current = [...allStrokesRef.current, [...drawnRef.current]];
+      }
+      drawnRef.current = [];
+      drawCanvas();
+
       // Text-mode characters (guide="") have no SVG guide to score against —
       // any completed trace auto-passes so the learner can move forward.
       if (!character.guide) {
         onResult(100, true);
         return;
       }
-      const score = scoreTrace(drawnRef.current, guidePoints);
-      const passed = score >= PASS_THRESHOLD;
-      if (!passed) setPulseGuide(true);
-      onResult(score, passed);
+
+      // Debounce: score the full accumulated drawing 1.2 s after the last lift.
+      // If the user puts their finger down again before the timer fires, onStart
+      // cancels it — so scoring only happens when they're genuinely done.
+      if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
+      scoreTimerRef.current = setTimeout(() => {
+        scoreTimerRef.current = null;
+        const allPoints = allStrokesRef.current.flat();
+        if (allPoints.length < 5) return;
+        const score = scoreTrace(allPoints, guidePoints);
+        const passed = score >= PASS_THRESHOLD;
+        if (!passed) setPulseGuide(true);
+        onResult(score, passed);
+      }, 1200);
     };
 
     canvas.addEventListener("mousedown", onStart);
@@ -572,10 +606,16 @@ function ScriptTraceCanvas({
       canvas.removeEventListener("touchstart", onStart);
       canvas.removeEventListener("touchmove", onMove);
       canvas.removeEventListener("touchend", onEnd);
+      if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
     };
   }, [guidePoints, onResult, drawCanvas]);
 
   const handleReset = () => {
+    if (scoreTimerRef.current !== null) {
+      clearTimeout(scoreTimerRef.current);
+      scoreTimerRef.current = null;
+    }
+    allStrokesRef.current = [];
     drawnRef.current = [];
     setPulseGuide(false);
     setHasDrawn(false);
@@ -649,6 +689,7 @@ function TraceSession({
   onBack: () => void;
 }) {
   const [charIndex, setCharIndex] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   const [result, setResult] = useState<SessionResult>(null);
   const [passedSet, setPassedSet] = useState<Set<string>>(new Set());
   const [sessionDone, setSessionDone] = useState(false);
@@ -683,12 +724,14 @@ function TraceSession({
       setSessionDone(true);
     } else {
       setCharIndex((i) => i + 1);
+      setRetryCount(0);
       setResult(null);
     }
   };
 
   const handleRetry = () => {
     setResult(null);
+    setRetryCount((c) => c + 1);
   };
 
   if (sessionDone) {
@@ -746,7 +789,7 @@ function TraceSession({
       {/* Trace canvas */}
       {character && (
         <ScriptTraceCanvas
-          key={`${chapter.id}-${charIndex}`}
+          key={`${chapter.id}-${charIndex}-${retryCount}`}
           character={character}
           onResult={handleResult}
           guidePoints={guidePoints}
