@@ -184,108 +184,16 @@ export function scoreTrace(drawn: Point[], guide: Point[]): number {
 
 export const PASS_THRESHOLD = 70;
 
-// ── Stroke-order animation helpers ────────────────────────────────────────────
-
-/** Compute the subpath lengths array and total length. */
-function computeSubpathLengths(subpaths: Point[][]): { segLengths: number[][]; totalLen: number } {
-  let totalLen = 0;
-  const segLengths = subpaths.map((sp) => {
-    const lens: number[] = [];
-    for (let i = 1; i < sp.length; i++) {
-      const d = Math.hypot(sp[i].x - sp[i - 1].x, sp[i].y - sp[i - 1].y);
-      lens.push(d);
-      totalLen += d;
-    }
-    return lens;
-  });
-  return { segLengths, totalLen };
-}
+// ── Animation helper ───────────────────────────────────────────────────────────
 
 /**
- * Given subpaths + their lengths, return the (x,y) position at progress t (0–1)
- * travelling through each subpath in document order, with jumps between them.
+ * Split the composite guide path into individual per-stroke subpath strings.
+ * Each returned string is one closed stroke shape (starts with M, self-contained).
+ * The fill-reveal animation paints these shapes in one at a time so the user
+ * sees each ink region appear, not a dot tracing the letter's outer edge.
  */
-function getPointAtProgress(
-  subpaths: Point[][],
-  segLengths: number[][],
-  totalLen: number,
-  t: number,
-): Point | null {
-  if (subpaths.length === 0 || totalLen === 0) return null;
-  const target = t * totalLen;
-  let walked = 0;
-  for (let si = 0; si < subpaths.length; si++) {
-    const sp = subpaths[si];
-    const lens = segLengths[si];
-    for (let i = 0; i < lens.length; i++) {
-      const d = lens[i];
-      if (walked + d >= target) {
-        const frac = d > 0 ? (target - walked) / d : 0;
-        return {
-          x: sp[i].x + frac * (sp[i + 1].x - sp[i].x),
-          y: sp[i].y + frac * (sp[i + 1].y - sp[i].y),
-        };
-      }
-      walked += d;
-    }
-    // Jump to next subpath (no contribution to walked)
-  }
-  const lastSp = subpaths[subpaths.length - 1];
-  return lastSp[lastSp.length - 1];
-}
-
-/**
- * Draw the already-traced portion of the glyph up to progress t (0–1)
- * as a semi-transparent primary trail.
- */
-function drawAnimTrail(
-  ctx: CanvasRenderingContext2D,
-  subpaths: Point[][],
-  segLengths: number[][],
-  totalLen: number,
-  t: number,
-  W: number,
-  H: number,
-  color: string,
-) {
-  if (totalLen === 0) return;
-  const target = t * totalLen;
-  let walked = 0;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = W * 0.03;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.globalAlpha = 0.6;
-
-  for (let si = 0; si < subpaths.length; si++) {
-    const sp = subpaths[si];
-    const lens = segLengths[si];
-    if (walked >= target) break;
-
-    ctx.beginPath();
-    ctx.moveTo((sp[0].x / 100) * W, (sp[0].y / 100) * H);
-
-    for (let i = 0; i < lens.length; i++) {
-      const d = lens[i];
-      if (walked + d >= target) {
-        // Partial segment
-        const frac = d > 0 ? (target - walked) / d : 0;
-        const px = sp[i].x + frac * (sp[i + 1].x - sp[i].x);
-        const py = sp[i].y + frac * (sp[i + 1].y - sp[i].y);
-        ctx.lineTo((px / 100) * W, (py / 100) * H);
-        walked += d;
-        break;
-      }
-      ctx.lineTo((sp[i + 1].x / 100) * W, (sp[i + 1].y / 100) * H);
-      walked += d;
-    }
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = 1;
-  ctx.restore();
+function splitGuideSubpaths(d: string): string[] {
+  return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
 }
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
@@ -365,24 +273,11 @@ function ScriptTraceCanvas({
   const PRIMARY = "#6366f1";
 
   // ── Stroke-order animation state ──
-  // Parsed subpaths for the current guide
-  const subpathsRef = useRef<Point[][]>([]);
-  const segLengthsRef = useRef<number[][]>([]);
-  const totalLenRef = useRef(0);
   // RAF progress refs
   const animFrameRef = useRef<number | null>(null);
   const animStartRef = useRef<number | null>(null);
   const animProgressRef = useRef<number | null>(0); // null = not playing
   const [isAnimating, setIsAnimating] = useState(false);
-
-  // Parse guide into subpaths whenever the character changes
-  useEffect(() => {
-    const subpaths = parseSvgSubpaths(character.guide).filter((sp) => sp.length > 1);
-    subpathsRef.current = subpaths;
-    const { segLengths, totalLen } = computeSubpathLengths(subpaths);
-    segLengthsRef.current = segLengths;
-    totalLenRef.current = totalLen;
-  }, [character.guide]);
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -416,64 +311,30 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
 
-    // ── Stroke-order animation overlay ──
+    // ── Fill-reveal animation: each stroke shape fills in sequentially ──
+    // This paints each ink region (M-subpath) with the primary colour one at a
+    // time, so the user sees the strokes of the character appearing rather than
+    // a dot travelling around the letter's outer contour edge.
     const animT = animProgressRef.current;
-    if (animT !== null && subpathsRef.current.length > 0 && totalLenRef.current > 0) {
-      // Draw the already-covered trail
-      drawAnimTrail(
-        ctx,
-        subpathsRef.current,
-        segLengthsRef.current,
-        totalLenRef.current,
-        animT,
-        W,
-        H,
-        PRIMARY,
-      );
-
-      // Draw the leading dot
-      const pt = getPointAtProgress(
-        subpathsRef.current,
-        segLengthsRef.current,
-        totalLenRef.current,
-        animT,
-      );
-      if (pt) {
+    if (animT !== null && animT > 0) {
+      const subStrs = splitGuideSubpaths(character.guide);
+      const n = subStrs.length;
+      if (n > 0) {
         ctx.save();
-        // Outer glow
-        ctx.beginPath();
-        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, (W * 0.05), 0, Math.PI * 2);
-        ctx.fillStyle = PRIMARY + "30";
-        ctx.fill();
-        // Inner dot
-        ctx.beginPath();
-        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, (W * 0.028), 0, Math.PI * 2);
-        ctx.fillStyle = PRIMARY;
-        ctx.fill();
+        ctx.scale(W / 100, H / 100);
+        subStrs.forEach((subStr, idx) => {
+          const segStart = idx / n;
+          const segEnd = (idx + 1) / n;
+          if (animT <= segStart) return;
+          const alpha =
+            Math.min((animT - segStart) / Math.max(segEnd - segStart, 0.001), 1) * 0.72;
+          const path = new Path2D(subStr);
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = PRIMARY;
+          ctx.fill(path, "nonzero");
+        });
         ctx.restore();
       }
-
-      // Draw subpath start markers (numbered circles at each M)
-      subpathsRef.current.forEach((sp, idx) => {
-        if (sp.length === 0) return;
-        const startPt = sp[0];
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc((startPt.x / 100) * W, (startPt.y / 100) * H, W * 0.022, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-        ctx.strokeStyle = PRIMARY;
-        ctx.lineWidth = W * 0.012;
-        ctx.stroke();
-
-        // Number label
-        ctx.fillStyle = PRIMARY;
-        ctx.font = `bold ${Math.round(W * 0.022)}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(idx + 1), (startPt.x / 100) * W, (startPt.y / 100) * H);
-        ctx.restore();
-      });
     }
 
     // Draw user's traced path
@@ -626,10 +487,10 @@ function ScriptTraceCanvas({
       {/* Trace hint / animation state */}
       {isAnimating ? (
         <p className="text-xs font-medium text-primary/80">
-          Watch the stroke order…
+          Watch the strokes appear…
         </p>
       ) : (
-        <p className="text-xs text-muted-foreground">Trace the grey outline below</p>
+        <p className="text-xs text-muted-foreground">Trace the character below</p>
       )}
 
       {/* Canvas */}

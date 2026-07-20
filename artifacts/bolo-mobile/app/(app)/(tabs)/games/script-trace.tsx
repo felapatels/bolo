@@ -24,7 +24,7 @@ import {
   type TraceChapter,
   type TraceCharacter,
 } from '@/lib/game-data/script-trace-chapters';
-import Svg, { Path as SvgPath, Circle, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Path as SvgPath } from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
@@ -205,95 +205,16 @@ const CANVAS_SIZE = Math.min(Dimensions.get('window').width - 48, 300);
 const PASS_THRESHOLD = 70;
 const ANIM_DURATION_MS = 2200;
 
-// ── Stroke-order animation helpers ────────────────────────────────────────────
-
-function computeSubpathLengths(
-  subpaths: Point[][],
-): { segLengths: number[][]; totalLen: number } {
-  let totalLen = 0;
-  const segLengths = subpaths.map((sp) => {
-    const lens: number[] = [];
-    for (let i = 1; i < sp.length; i++) {
-      const d = Math.hypot(sp[i].x - sp[i - 1].x, sp[i].y - sp[i - 1].y);
-      lens.push(d);
-      totalLen += d;
-    }
-    return lens;
-  });
-  return { segLengths, totalLen };
-}
-
-function getPointAtProgress(
-  subpaths: Point[][],
-  segLengths: number[][],
-  totalLen: number,
-  t: number,
-): Point | null {
-  if (subpaths.length === 0 || totalLen === 0) return null;
-  const target = t * totalLen;
-  let walked = 0;
-  for (let si = 0; si < subpaths.length; si++) {
-    const sp = subpaths[si];
-    const lens = segLengths[si];
-    for (let i = 0; i < lens.length; i++) {
-      const d = lens[i];
-      if (walked + d >= target) {
-        const frac = d > 0 ? (target - walked) / d : 0;
-        return {
-          x: sp[i].x + frac * (sp[i + 1].x - sp[i].x),
-          y: sp[i].y + frac * (sp[i + 1].y - sp[i].y),
-        };
-      }
-      walked += d;
-    }
-  }
-  const lastSp = subpaths[subpaths.length - 1];
-  return lastSp[lastSp.length - 1];
-}
+// ── Animation helper ───────────────────────────────────────────────────────────
 
 /**
- * Build a partial SVG path string covering the outline from t=0 to t=progress,
- * broken into per-subpath <path> elements so contours don't bleed together.
+ * Split the composite guide path into individual per-stroke subpath strings.
+ * Each returned string is one closed stroke shape (starts with M, self-contained).
+ * The fill-reveal animation paints these shapes in one at a time so the user
+ * sees each ink region appear, not a dot tracing the letter's outer edge.
  */
-function buildTrailPaths(
-  subpaths: Point[][],
-  segLengths: number[][],
-  totalLen: number,
-  progress: number,
-  scale: number,
-): string[] {
-  if (totalLen === 0) return [];
-  const target = progress * totalLen;
-  const paths: string[] = [];
-  let walked = 0;
-
-  for (let si = 0; si < subpaths.length; si++) {
-    if (walked >= target) break;
-    const sp = subpaths[si];
-    const lens = segLengths[si];
-    let d = `M ${(sp[0].x * scale).toFixed(1)},${(sp[0].y * scale).toFixed(1)}`;
-    let done = false;
-
-    for (let i = 0; i < lens.length; i++) {
-      const segLen = lens[i];
-      if (walked + segLen >= target) {
-        const frac = segLen > 0 ? (target - walked) / segLen : 0;
-        const px = sp[i].x + frac * (sp[i + 1].x - sp[i].x);
-        const py = sp[i].y + frac * (sp[i + 1].y - sp[i].y);
-        d += ` L ${(px * scale).toFixed(1)},${(py * scale).toFixed(1)}`;
-        walked += segLen;
-        done = true;
-        break;
-      }
-      d += ` L ${(sp[i + 1].x * scale).toFixed(1)},${(sp[i + 1].y * scale).toFixed(1)}`;
-      walked += segLen;
-    }
-
-    paths.push(d);
-    if (done) break;
-  }
-
-  return paths;
+function splitGuideSubpaths(d: string): string[] {
+  return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
 }
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
@@ -374,9 +295,6 @@ function TraceCanvas({
   const isDrawingRef = useRef(false);
 
   // ── Stroke-order animation state ──
-  const subpathsRef = useRef<Point[][]>([]);
-  const segLengthsRef = useRef<number[][]>([]);
-  const totalLenRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const animStartRef = useRef<number | null>(null);
   // progress: null = not playing, 0–1 = playing
@@ -386,14 +304,11 @@ function TraceCanvas({
   const animSpeedRef = useRef<number>(1);
   const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
 
-  // Parse guide into subpaths whenever character changes (component is re-keyed per character)
-  useEffect(() => {
-    const subpaths = parseSvgSubpaths(character.guide).filter((sp) => sp.length > 1);
-    subpathsRef.current = subpaths;
-    const { segLengths, totalLen } = computeSubpathLengths(subpaths);
-    segLengthsRef.current = segLengths;
-    totalLenRef.current = totalLen;
-  }, [character.guide]);
+  // Split the guide into per-stroke subpath strings for the fill-reveal animation.
+  const guideSubpaths = React.useMemo(
+    () => splitGuideSubpaths(character.guide),
+    [character.guide],
+  );
 
   const startAnim = useCallback(() => {
     if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
@@ -488,39 +403,6 @@ function TraceCanvas({
     setGuidePulsed(false);
   };
 
-  // Guide stroke colour flips between muted grey and amber on a failed attempt.
-  const guideColor = guidePulsed ? '#f59e0b' : colors.mutedForeground;
-
-  // Build animation overlay elements
-  const trailPaths =
-    animProgress !== null &&
-    subpathsRef.current.length > 0 &&
-    totalLenRef.current > 0
-      ? buildTrailPaths(
-          subpathsRef.current,
-          segLengthsRef.current,
-          totalLenRef.current,
-          animProgress,
-          guideScale,
-        )
-      : [];
-
-  const dotPos =
-    animProgress !== null &&
-    subpathsRef.current.length > 0 &&
-    totalLenRef.current > 0
-      ? getPointAtProgress(
-          subpathsRef.current,
-          segLengthsRef.current,
-          totalLenRef.current,
-          animProgress,
-        )
-      : null;
-
-  const dotX = dotPos ? dotPos.x * guideScale : 0;
-  const dotY = dotPos ? dotPos.y * guideScale : 0;
-  const dotR = CANVAS_SIZE * 0.028;
-  const glowR = CANVAS_SIZE * 0.05;
 
   return (
     <View style={styles.canvasSection}>
@@ -536,11 +418,11 @@ function TraceCanvas({
 
       {isAnimating ? (
         <Text style={[styles.traceHint, { color: colors.primary }]}>
-          Watch the stroke order…
+          Watch the strokes appear…
         </Text>
       ) : (
         <Text style={[styles.traceHint, { color: colors.mutedForeground }]}>
-          Trace over the guide
+          Trace the character
         </Text>
       )}
 
@@ -568,75 +450,32 @@ function TraceCanvas({
               stroke="none"
             />
 
-            {/* Stroke-order animation overlay */}
-            {animProgress !== null && (
-              <G>
-                {/* Trail paths */}
-                {trailPaths.map((d, i) => (
-                  <SvgPath
-                    key={i}
-                    d={d}
-                    stroke={colors.primary}
-                    strokeWidth={CANVAS_SIZE * 0.03}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                    opacity={0.6}
-                  />
-                ))}
-
-                {/* Leading dot glow */}
-                {dotPos && (
-                  <Circle
-                    cx={dotX}
-                    cy={dotY}
-                    r={glowR}
-                    fill={colors.primary}
-                    opacity={0.18}
-                  />
-                )}
-
-                {/* Leading dot */}
-                {dotPos && (
-                  <Circle
-                    cx={dotX}
-                    cy={dotY}
-                    r={dotR}
-                    fill={colors.primary}
-                  />
-                )}
-
-                {/* Numbered start markers for each subpath */}
-                {subpathsRef.current.map((sp, idx) => {
-                  if (sp.length === 0) return null;
-                  const sx = sp[0].x * guideScale;
-                  const sy = sp[0].y * guideScale;
-                  const markerR = CANVAS_SIZE * 0.022;
-                  return (
-                    <G key={idx}>
-                      <Circle
-                        cx={sx}
-                        cy={sy}
-                        r={markerR}
-                        fill="white"
-                        stroke={colors.primary}
-                        strokeWidth={CANVAS_SIZE * 0.012}
-                      />
-                      <SvgText
-                        x={sx}
-                        y={sy + markerR * 0.4}
-                        fontSize={markerR * 1.1}
-                        fontWeight="bold"
-                        fill={colors.primary}
-                        textAnchor="middle"
-                      >
-                        {String(idx + 1)}
-                      </SvgText>
-                    </G>
-                  );
-                })}
-              </G>
-            )}
+            {/* Fill-reveal animation: each stroke shape fills in sequentially.
+                Paints each ink region with primary colour one at a time so the
+                user sees the strokes of the character appearing, not a dot
+                travelling around the letter's outer contour edge. */}
+            {animProgress !== null && guideSubpaths.map((subStr, idx) => {
+              const n = guideSubpaths.length;
+              const segStart = idx / n;
+              const segEnd = (idx + 1) / n;
+              if (animProgress <= segStart) return null;
+              const alpha =
+                Math.min(
+                  (animProgress - segStart) / Math.max(segEnd - segStart, 0.001),
+                  1,
+                ) * 0.72;
+              return (
+                <SvgPath
+                  key={idx}
+                  d={subStr}
+                  scale={guideScale}
+                  fill={colors.primary}
+                  fillOpacity={alpha}
+                  fillRule="nonzero"
+                  stroke="none"
+                />
+              );
+            })}
 
             {/* User's traced path */}
             {drawnPath ? (
