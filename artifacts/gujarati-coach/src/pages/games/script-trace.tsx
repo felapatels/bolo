@@ -392,6 +392,9 @@ function ScriptTraceCanvas({
     if (!ctx) return;
     const W = canvas.width;
     const H = canvas.height;
+    // Snapshot refs so the rest of this function sees consistent values
+    const isDrawing = isDrawingRef.current;
+    const hasStrokes = allStrokesRef.current.length > 0 || isDrawing;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -444,6 +447,100 @@ function ScriptTraceCanvas({
       }
     }
 
+    // ── Moving pen tip ────────────────────────────────────────────────────────
+    // For SVG-guide characters: animate a dot along the guide outline so the
+    // learner can see where the pen travels, not just the filled shape.
+    if (animT !== null && animT > 0 && character.guide && guidePoints.length > 0) {
+      const n = guidePoints.length;
+      const i = Math.min(Math.floor(animT * n), n - 1);
+      const pt = guidePoints[i];
+      const cx = (pt.x / 100) * W;
+      const cy = (pt.y / 100) * H;
+      const r = W * 0.028;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = PRIMARY;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      // White pupil so it reads as a cursor
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.38, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ── Text-mode animation ───────────────────────────────────────────────────
+    // No SVG guide available, so animate a pulsing border so the learner can
+    // see the canvas is the tracing target, and the character text brightens.
+    if (animT !== null && !character.guide) {
+      const pulse = 0.18 + 0.18 * Math.sin(animT * Math.PI * 8);
+      ctx.save();
+      ctx.strokeStyle = PRIMARY;
+      ctx.lineWidth = W * 0.018;
+      ctx.globalAlpha = pulse;
+      const pad = W * 0.025;
+      const r = W * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(pad + r, pad);
+      ctx.lineTo(W - pad - r, pad);
+      ctx.arcTo(W - pad, pad, W - pad, pad + r, r);
+      ctx.lineTo(W - pad, H - pad - r);
+      ctx.arcTo(W - pad, H - pad, W - pad - r, H - pad, r);
+      ctx.lineTo(pad + r, H - pad);
+      ctx.arcTo(pad, H - pad, pad, H - pad - r, r);
+      ctx.lineTo(pad, pad + r);
+      ctx.arcTo(pad, pad, pad + r, pad, r);
+      ctx.closePath();
+      ctx.stroke();
+      // Also repaint the guide text brighter during animation
+      ctx.globalAlpha = 0.15 + 0.20 * Math.sin(animT * Math.PI * 8 + Math.PI / 2);
+      ctx.fillStyle = PRIMARY;
+      const fontSize = Math.max(W * 0.45, 30);
+      ctx.font = `bold ${fontSize}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(character.char, W / 2, H / 2);
+      ctx.restore();
+    }
+
+    // ── Start indicator ───────────────────────────────────────────────────────
+    // A green dot at the approximate stroke-start position so the learner
+    // knows where to put their pen. Hidden once they begin drawing.
+    if (animT === null && character.guide && guidePoints.length > 0 && !hasStrokes) {
+      // Use topmost-leftmost guide point as the approximate writing start.
+      const startPt = guidePoints.reduce(
+        (best, p) => p.y + p.x < best.y + best.x ? p : best,
+        guidePoints[0],
+      );
+      const cx = (startPt.x / 100) * W;
+      const cy = (startPt.y / 100) * H;
+      const r = W * 0.038;
+      ctx.save();
+      // Soft outer glow
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#22c55e";
+      ctx.globalAlpha = 0.22;
+      ctx.fill();
+      // Main dot
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#22c55e";
+      ctx.globalAlpha = 0.90;
+      ctx.fill();
+      // Play triangle to indicate "start here"
+      ctx.fillStyle = "#ffffff";
+      ctx.globalAlpha = 1.0;
+      ctx.font = `bold ${r * 1.1}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("▶", cx + 1, cy + 1);
+      ctx.restore();
+    }
+
     // Draw all completed strokes + the current in-progress stroke.
     // Each stroke is rendered as its own independent subpath so there is no
     // connecting line drawn between the end of one stroke and the start of the
@@ -465,7 +562,7 @@ function ScriptTraceCanvas({
       }
       ctx.restore();
     }
-  }, [character.guide, pulseGuide]);
+  }, [character.guide, character.char, pulseGuide, guidePoints]);
 
   // Start the stroke-order animation
   const startAnim = useCallback(() => {
@@ -635,10 +732,12 @@ function ScriptTraceCanvas({
       {/* Trace hint / animation state */}
       {isAnimating ? (
         <p className="text-xs font-medium text-primary/80">
-          Watch the strokes appear…
+          {character.guide ? 'Watch where the pen moves…' : 'Study this shape, then trace it'}
         </p>
       ) : (
-        <p className="text-xs text-muted-foreground">Trace the character below</p>
+        <p className="text-xs text-muted-foreground">
+          {character.guide && !hasDrawn ? 'Start at the green dot' : 'Trace the character'}
+        </p>
       )}
 
       {/* Canvas */}

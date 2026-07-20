@@ -26,7 +26,7 @@ import {
   type TraceCharacter,
   type ChapterStage,
 } from '@/lib/game-data/script-trace-chapters';
-import Svg, { Path as SvgPath, Text as SvgText } from 'react-native-svg';
+import Svg, { Path as SvgPath, Text as SvgText, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
@@ -553,11 +553,11 @@ function TraceCanvas({
 
       {isAnimating ? (
         <Text style={[styles.traceHint, { color: colors.primary }]}>
-          Watch the strokes appear…
+          {character.guide ? 'Watch where the pen moves…' : 'Study this shape, then trace it'}
         </Text>
       ) : (
         <Text style={[styles.traceHint, { color: colors.mutedForeground }]}>
-          Trace the character
+          {character.guide && !drawnPath ? 'Start at the green dot' : 'Trace the character'}
         </Text>
       )}
 
@@ -625,6 +625,61 @@ function TraceCanvas({
                 />
               );
             })}
+
+            {/* Moving pen tip during fill-reveal animation (SVG guide chars only).
+                Travels along guidePoints so the learner sees where the pen goes. */}
+            {animProgress !== null && character.guide && guidePoints.length > 0 && (() => {
+              const n = guidePoints.length;
+              const i = Math.min(Math.floor(animProgress * n), n - 1);
+              const pt = guidePoints[i];
+              const r = CANVAS_SIZE * 0.028;
+              return (
+                <SvgCircle
+                  cx={pt.x * guideScale}
+                  cy={pt.y * guideScale}
+                  r={r}
+                  fill={colors.primary}
+                  fillOpacity={0.92}
+                />
+              );
+            })()}
+
+            {/* Text-mode animation: pulsing border shows the canvas is the tracing
+                target when there is no SVG guide path to animate. */}
+            {animProgress !== null && !character.guide && (
+              <SvgRect
+                x={4}
+                y={4}
+                width={CANVAS_SIZE - 8}
+                height={CANVAS_SIZE - 8}
+                rx={16}
+                ry={16}
+                stroke={colors.primary}
+                strokeWidth={2.5}
+                fill="none"
+                strokeOpacity={0.18 + 0.18 * Math.sin(animProgress * Math.PI * 8)}
+              />
+            )}
+
+            {/* Start indicator: green dot at the approximate writing start.
+                Shown after animation ends, disappears once the user draws. */}
+            {animProgress === null && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
+              // Topmost-leftmost guide point approximates the stroke-start position.
+              const startPt = guidePoints.reduce(
+                (best: { x: number; y: number }, p: { x: number; y: number }) =>
+                  p.y + p.x < best.y + best.x ? p : best,
+                guidePoints[0],
+              );
+              const cx = startPt.x * guideScale;
+              const cy = startPt.y * guideScale;
+              const r = CANVAS_SIZE * 0.038;
+              return (
+                <>
+                  <SvgCircle cx={cx} cy={cy} r={r * 1.5} fill="#22c55e" fillOpacity={0.22} />
+                  <SvgCircle cx={cx} cy={cy} r={r} fill="#22c55e" fillOpacity={0.90} />
+                </>
+              );
+            })()}
 
             {/* User's traced path */}
             {drawnPath ? (
