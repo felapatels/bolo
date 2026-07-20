@@ -556,13 +556,15 @@ function TraceCanvas({
           ]}
         >
           <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
-            {/* Guide path — filled glyph shape, no stroke outline */}
+            {/* Guide path — filled glyph shape, no stroke outline.
+                fillRule="nonzero" matches TrueType winding conventions so
+                enclosed counters (holes in letters) render correctly. */}
             <SvgPath
               d={character.guide}
               scale={guideScale}
               fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
-              fillOpacity={guidePulsed ? 0.55 : 0.35}
-              fillRule="evenodd"
+              fillOpacity={guidePulsed ? 0.6 : 0.35}
+              fillRule="nonzero"
               stroke="none"
             />
 

@@ -403,20 +403,16 @@ function ScriptTraceCanvas({
 
     ctx.clearRect(0, 0, W, H);
 
-    // Draw guide glyph outline (faint). The guide is a font-accurate glyph
-    // outline path, so render the raw SVG path data directly via Path2D —
-    // this preserves separate contours (no connecting lines between them).
+    // Draw guide glyph — filled shape only (no stroke outline, which makes it
+    // look like hollow box letters). The guide is a font-accurate glyph outline
+    // so fill it as a solid shape; the stroke paths are the visible ink areas.
     if (character.guide) {
       ctx.save();
       ctx.scale(W / 100, H / 100);
       const glyph = new Path2D(character.guide);
-      ctx.fillStyle = pulseGuide ? "#fde68a" : "#e5e7eb";
-      ctx.fill(glyph);
-      ctx.strokeStyle = pulseGuide ? "#f59e0b" : "#d1d5db";
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.stroke(glyph);
+      ctx.globalAlpha = pulseGuide ? 0.6 : 0.35;
+      ctx.fillStyle = pulseGuide ? "#f59e0b" : "#64748b";
+      ctx.fill(glyph, "nonzero");
       ctx.restore();
     }
 
