@@ -374,6 +374,11 @@ export default function HomeScreen() {
                         {a.score}
                       </Text>
                     </View>
+                    {canRetake ? (
+                      <Text style={[styles.retakeLabel, { color: colors.primary }]}>
+                        Retake
+                      </Text>
+                    ) : null}
                   </Pressable>
                 </Animated.View>
               );
@@ -843,6 +848,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
+  retakeLabel: { fontFamily: AppFonts.bold, fontSize: 13 },
   errorNote: {
     fontFamily: AppFonts.regular,
     fontSize: 14,
