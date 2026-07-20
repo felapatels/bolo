@@ -24,8 +24,9 @@ import {
   SCRIPT_TRACE_CHAPTERS,
   type TraceChapter,
   type TraceCharacter,
+  type ChapterStage,
 } from '@/lib/game-data/script-trace-chapters';
-import Svg, { Path as SvgPath } from 'react-native-svg';
+import Svg, { Path as SvgPath, Text as SvgText } from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
@@ -222,16 +223,40 @@ function splitGuideSubpaths(d: string): string[] {
 
 /** Maps a language code to the Script Trace chapter IDs for its script. */
 const LANG_CHAPTER_IDS: Record<string, string[]> = {
-  gu: ['gujarati-vowels', 'gujarati-consonants'],
+  // Gujarati
+  gu:  ['gujarati-vowels', 'gujarati-consonants', 'gujarati-words', 'gujarati-sentences'],
   // Devanagari script languages
-  hi:  ['hindi-vowels', 'hindi-consonants'],
-  mr:  ['hindi-vowels', 'hindi-consonants'],
-  ne:  ['hindi-vowels', 'hindi-consonants'],
-  sa:  ['hindi-vowels', 'hindi-consonants'],
-  mai: ['hindi-vowels', 'hindi-consonants'],
-  kok: ['hindi-vowels', 'hindi-consonants'],
-  doi: ['hindi-vowels', 'hindi-consonants'],
-  brx: ['hindi-vowels', 'hindi-consonants'],
+  hi:  ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  mr:  ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  ne:  ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  sa:  ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  mai: ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  kok: ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  doi: ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  brx: ['hindi-vowels', 'hindi-consonants', 'hindi-words', 'hindi-sentences'],
+  // Bengali / Assamese
+  bn:  ['bengali-vowels', 'bengali-consonants', 'bengali-words', 'bengali-sentences'],
+  as:  ['bengali-vowels', 'bengali-consonants', 'bengali-words', 'bengali-sentences'],
+  // Punjabi / Gurmukhi
+  pa:  ['gurmukhi-vowels', 'gurmukhi-consonants', 'gurmukhi-words', 'gurmukhi-sentences'],
+  // Odia
+  or:  ['odia-vowels', 'odia-consonants', 'odia-words', 'odia-sentences'],
+  // Tamil
+  ta:  ['tamil-vowels', 'tamil-consonants', 'tamil-words', 'tamil-sentences'],
+  // Telugu
+  te:  ['telugu-vowels', 'telugu-consonants', 'telugu-words', 'telugu-sentences'],
+  // Kannada
+  kn:  ['kannada-vowels', 'kannada-consonants', 'kannada-words', 'kannada-sentences'],
+  // Malayalam
+  ml:  ['malayalam-vowels', 'malayalam-consonants', 'malayalam-words', 'malayalam-sentences'],
+  // Urdu / Sindhi / Kashmiri (Nastaliq)
+  ur:  ['urdu-letters', 'urdu-words', 'urdu-sentences'],
+  sd:  ['urdu-letters', 'sindhi-additional', 'urdu-words', 'urdu-sentences'],
+  ks:  ['urdu-letters', 'kashmiri-additional', 'urdu-words', 'urdu-sentences'],
+  // Santali / Ol Chiki
+  sat: ['olchiki-vowels', 'olchiki-consonants', 'olchiki-words', 'olchiki-sentences'],
+  // Meitei / Meitei Mayek
+  mni: ['meitei-letters', 'meitei-words', 'meitei-sentences'],
 };
 
 function chaptersForLang(langCode: string): TraceChapter[] {
@@ -241,11 +266,25 @@ function chaptersForLang(langCode: string): TraceChapter[] {
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
+const STAGE_LABELS: Record<ChapterStage, string> = {
+  alphabet: '🔤 Alphabet',
+  words: '📝 Words',
+  sentences: '💬 Phrases',
+  'full-sentences': '📖 Full Sentences',
+};
+const STAGE_ORDER: ChapterStage[] = ['alphabet', 'words', 'sentences', 'full-sentences'];
+
 function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }) {
   const colors = useColors();
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
   const chapters = chaptersForLang(activeLang);
+
+  // Group by stage in display order
+  const grouped = STAGE_ORDER.flatMap((stage) => {
+    const stageChapters = chapters.filter((c) => c.stage === stage);
+    return stageChapters.length > 0 ? [{ stage, chapters: stageChapters }] : [];
+  });
 
   return (
     <Screen>
@@ -283,29 +322,36 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
             </Text>
           </View>
         ) : (
-          chapters.map((chapter) => (
-            <TouchableOpacity
-              key={chapter.id}
-              onPress={() => onSelect(chapter)}
-              style={[
-                styles.chapterCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chapterChar, { color: colors.foreground }]}>
-                {chapter.characters[0]?.char}
+          grouped.map(({ stage, chapters: stageChapters }) => (
+            <View key={stage}>
+              <Text style={[styles.stageHeader, { color: colors.mutedForeground }]}>
+                {STAGE_LABELS[stage]}
               </Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
-                  {chapter.title}
-                </Text>
-                <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
-                  {chapter.characters.length} characters · {chapter.scriptName} script
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
+              {stageChapters.map((chapter) => (
+                <TouchableOpacity
+                  key={chapter.id}
+                  onPress={() => onSelect(chapter)}
+                  style={[
+                    styles.chapterCard,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chapterChar, { color: colors.foreground }]}>
+                    {chapter.characters[0]?.char}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.chapterTitle, { color: colors.foreground }]}>
+                      {chapter.title}
+                    </Text>
+                    <Text style={[styles.chapterMeta, { color: colors.mutedForeground }]}>
+                      {chapter.characters.length} {stage === 'alphabet' ? 'characters' : 'items'} · {chapter.scriptName} script
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              ))}
+            </View>
           ))
         )}
       </ScrollView>
@@ -428,6 +474,12 @@ function TraceCanvas({
     .onFinalize(() => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
+      // Text-mode characters (guide="") have no SVG guide to score against —
+      // any completed trace auto-passes so the learner can move forward.
+      if (!character.guide) {
+        onResult(100, true);
+        return;
+      }
       const score = scoreTrace(drawnRef.current, guidePoints);
       const passed = score >= PASS_THRESHOLD;
       if (!passed) triggerPulse();
@@ -475,23 +527,37 @@ function TraceCanvas({
           ]}
         >
           <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
-            {/* Guide path — filled glyph shape, no stroke outline.
+            {/* Guide: filled glyph path when available, or character text for text-mode.
                 fillRule="nonzero" matches TrueType winding conventions so
                 enclosed counters (holes in letters) render correctly. */}
-            <SvgPath
-              d={character.guide}
-              scale={guideScale}
-              fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
-              fillOpacity={guidePulsed ? 0.6 : 0.35}
-              fillRule="nonzero"
-              stroke="none"
-            />
+            {character.guide ? (
+              <SvgPath
+                d={character.guide}
+                scale={guideScale}
+                fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
+                fillOpacity={guidePulsed ? 0.6 : 0.35}
+                fillRule="nonzero"
+                stroke="none"
+              />
+            ) : (
+              <SvgText
+                x={CANVAS_SIZE / 2}
+                y={CANVAS_SIZE * 0.70}
+                fontSize={CANVAS_SIZE * 0.55}
+                textAnchor="middle"
+                fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
+                fillOpacity={guidePulsed ? 0.5 : 0.20}
+                fontFamily="serif"
+              >
+                {character.char}
+              </SvgText>
+            )}
 
             {/* Fill-reveal animation: each stroke shape fills in sequentially.
                 Paints each ink region with primary colour one at a time so the
-                user sees the strokes of the character appearing, not a dot
-                travelling around the letter's outer contour edge. */}
-            {animProgress !== null && guideSubpaths.map((subStr, idx) => {
+                user sees the strokes of the character appearing. Hidden for
+                text-mode characters (guide="") since there are no SVG subpaths. */}
+            {animProgress !== null && character.guide && guideSubpaths.map((subStr, idx) => {
               const n = guideSubpaths.length;
               const segStart = idx / n;
               const segEnd = (idx + 1) / n;
@@ -612,11 +678,8 @@ function TraceSession({
         // applies the configured base URL and auth token automatically, so this
         // works both on web and native without a hard-coded '/api' prefix.
         recordScriptTraceProgress({
-          chapter: chapter.id as
-            | 'gujarati-vowels'
-            | 'gujarati-consonants'
-            | 'hindi-vowels'
-            | 'hindi-consonants',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          chapter: chapter.id as any,
           characterId: character.id,
           passed: true,
           score,
@@ -929,4 +992,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   doneButtons: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  stageHeader: {
+    fontSize: 11,
+    fontFamily: AppFonts.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: 16,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+    opacity: 0.55,
+  },
 });

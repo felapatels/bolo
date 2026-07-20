@@ -10,6 +10,7 @@ import {
   SCRIPT_TRACE_CHAPTERS,
   type TraceChapter,
   type TraceCharacter,
+  type ChapterStage,
 } from "@/data/script-trace-chapters";
 
 // ── Accuracy scoring ─────────────────────────────────────────────────────────
@@ -201,16 +202,40 @@ function splitGuideSubpaths(d: string): string[] {
 
 /** Maps a language code to the Script Trace chapter IDs for its script. */
 const LANG_CHAPTER_IDS: Record<string, string[]> = {
-  gu: ["gujarati-vowels", "gujarati-consonants"],
+  // Gujarati
+  gu:  ["gujarati-vowels", "gujarati-consonants", "gujarati-words", "gujarati-sentences"],
   // Devanagari script languages
-  hi:  ["hindi-vowels", "hindi-consonants"],
-  mr:  ["hindi-vowels", "hindi-consonants"],
-  ne:  ["hindi-vowels", "hindi-consonants"],
-  sa:  ["hindi-vowels", "hindi-consonants"],
-  mai: ["hindi-vowels", "hindi-consonants"],
-  kok: ["hindi-vowels", "hindi-consonants"],
-  doi: ["hindi-vowels", "hindi-consonants"],
-  brx: ["hindi-vowels", "hindi-consonants"],
+  hi:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  mr:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  ne:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  sa:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  mai: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  kok: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  doi: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  brx: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  // Bengali / Assamese
+  bn:  ["bengali-vowels", "bengali-consonants", "bengali-words", "bengali-sentences"],
+  as:  ["bengali-vowels", "bengali-consonants", "bengali-words", "bengali-sentences"],
+  // Punjabi / Gurmukhi
+  pa:  ["gurmukhi-vowels", "gurmukhi-consonants", "gurmukhi-words", "gurmukhi-sentences"],
+  // Odia
+  or:  ["odia-vowels", "odia-consonants", "odia-words", "odia-sentences"],
+  // Tamil
+  ta:  ["tamil-vowels", "tamil-consonants", "tamil-words", "tamil-sentences"],
+  // Telugu
+  te:  ["telugu-vowels", "telugu-consonants", "telugu-words", "telugu-sentences"],
+  // Kannada
+  kn:  ["kannada-vowels", "kannada-consonants", "kannada-words", "kannada-sentences"],
+  // Malayalam
+  ml:  ["malayalam-vowels", "malayalam-consonants", "malayalam-words", "malayalam-sentences"],
+  // Urdu / Sindhi / Kashmiri (Nastaliq)
+  ur:  ["urdu-letters", "urdu-words", "urdu-sentences"],
+  sd:  ["urdu-letters", "sindhi-additional", "urdu-words", "urdu-sentences"],
+  ks:  ["urdu-letters", "kashmiri-additional", "urdu-words", "urdu-sentences"],
+  // Santali / Ol Chiki
+  sat: ["olchiki-vowels", "olchiki-consonants", "olchiki-words", "olchiki-sentences"],
+  // Meitei / Meitei Mayek
+  mni: ["meitei-letters", "meitei-words", "meitei-sentences"],
 };
 
 function chaptersForLang(langCode: string): TraceChapter[] {
@@ -220,6 +245,14 @@ function chaptersForLang(langCode: string): TraceChapter[] {
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
+const STAGE_LABELS: Record<ChapterStage, string> = {
+  alphabet: "🔤 Alphabet",
+  words: "📝 Words",
+  sentences: "💬 Phrases",
+  "full-sentences": "📖 Full Sentences",
+};
+const STAGE_ORDER: ChapterStage[] = ["alphabet", "words", "sentences", "full-sentences"];
+
 function ChapterGrid({
   onSelect,
 }: {
@@ -227,6 +260,12 @@ function ChapterGrid({
 }) {
   const { activeLang, activeLanguage } = useLanguage();
   const chapters = chaptersForLang(activeLang);
+
+  // Group by stage in display order
+  const grouped = STAGE_ORDER.flatMap((stage) => {
+    const stageChapters = chapters.filter((c) => c.stage === stage);
+    return stageChapters.length > 0 ? [{ stage, chapters: stageChapters }] : [];
+  });
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24 lg:pb-8">
@@ -266,26 +305,35 @@ function ChapterGrid({
             </div>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {chapters.map((chapter) => (
-              <button
-                key={chapter.id}
-                onClick={() => onSelect(chapter)}
-                className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-left transition-all hover:border-primary/30 hover:bg-muted/40 hover:shadow-md active:scale-[0.98]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-3xl font-bold text-foreground" style={{ fontFamily: "serif", lineHeight: 1 }}>
-                    {chapter.characters[0]?.char}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          <div className="flex flex-col gap-6">
+            {grouped.map(({ stage, chapters: stageChapters }) => (
+              <div key={stage}>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {STAGE_LABELS[stage]}
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {stageChapters.map((chapter) => (
+                    <button
+                      key={chapter.id}
+                      onClick={() => onSelect(chapter)}
+                      className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-left transition-all hover:border-primary/30 hover:bg-muted/40 hover:shadow-md active:scale-[0.98]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-3xl font-bold text-foreground" style={{ fontFamily: "serif", lineHeight: 1 }}>
+                          {chapter.characters[0]?.char}
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground">{chapter.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {chapter.characters.length} {stage === "alphabet" ? "characters" : "items"} · {chapter.scriptName} script
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <h3 className="font-bold text-foreground">{chapter.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {chapter.characters.length} characters · {chapter.scriptName} script
-                  </p>
-                </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -342,9 +390,8 @@ function ScriptTraceCanvas({
 
     ctx.clearRect(0, 0, W, H);
 
-    // Draw guide glyph — filled shape only (no stroke outline, which makes it
-    // look like hollow box letters). The guide is a font-accurate glyph outline
-    // so fill it as a solid shape; the stroke paths are the visible ink areas.
+    // Draw guide: filled glyph path when available (guide has SVG path data),
+    // or the character rendered as large text for text-mode chapters (guide="").
     if (character.guide) {
       ctx.save();
       ctx.scale(W / 100, H / 100);
@@ -352,6 +399,17 @@ function ScriptTraceCanvas({
       ctx.globalAlpha = pulseGuide ? 0.6 : 0.35;
       ctx.fillStyle = pulseGuide ? "#f59e0b" : "#64748b";
       ctx.fill(glyph, "nonzero");
+      ctx.restore();
+    } else {
+      // Text-mode: render the character(s) as large guide text to trace over
+      ctx.save();
+      ctx.globalAlpha = pulseGuide ? 0.50 : 0.20;
+      ctx.fillStyle = pulseGuide ? "#f59e0b" : "#64748b";
+      const fontSize = Math.max(W * 0.45, 30);
+      ctx.font = `bold ${fontSize}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(character.char, W / 2, H / 2);
       ctx.restore();
     }
 
@@ -486,6 +544,12 @@ function ScriptTraceCanvas({
     const onEnd = () => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
+      // Text-mode characters (guide="") have no SVG guide to score against —
+      // any completed trace auto-passes so the learner can move forward.
+      if (!character.guide) {
+        onResult(100, true);
+        return;
+      }
       const score = scoreTrace(drawnRef.current, guidePoints);
       const passed = score >= PASS_THRESHOLD;
       if (!passed) setPulseGuide(true);
