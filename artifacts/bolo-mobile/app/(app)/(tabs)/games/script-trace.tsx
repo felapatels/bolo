@@ -540,7 +540,7 @@ function TraceCanvas({
         </Text>
       ) : (
         <Text style={[styles.traceHint, { color: colors.mutedForeground }]}>
-          Trace the grey outline
+          Trace over the guide
         </Text>
       )}
 
@@ -556,17 +556,14 @@ function TraceCanvas({
           ]}
         >
           <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
-            {/* Guide path — plain SVG element */}
+            {/* Guide path — filled glyph shape, no stroke outline */}
             <SvgPath
               d={character.guide}
               scale={guideScale}
-              stroke={guideColor}
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill={guideColor}
-              fillOpacity={0.25}
-              opacity={0.45}
+              fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
+              fillOpacity={guidePulsed ? 0.55 : 0.35}
+              fillRule="evenodd"
+              stroke="none"
             />
 
             {/* Stroke-order animation overlay */}
