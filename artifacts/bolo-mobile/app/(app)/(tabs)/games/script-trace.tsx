@@ -382,6 +382,9 @@ function TraceCanvas({
   // progress: null = not playing, 0–1 = playing
   const [animProgress, setAnimProgress] = useState<number | null>(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  // Speed: 1 = normal (ANIM_DURATION_MS), 0.5 = slow (2× longer)
+  const animSpeedRef = useRef<number>(1);
+  const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
 
   // Parse guide into subpaths whenever character changes (component is re-keyed per character)
   useEffect(() => {
@@ -398,10 +401,12 @@ function TraceCanvas({
     setAnimProgress(0);
     setIsAnimating(true);
 
+    const duration = ANIM_DURATION_MS / animSpeedRef.current;
+
     const tick = (ts: number) => {
       if (animStartRef.current === null) animStartRef.current = ts;
       const elapsed = ts - animStartRef.current;
-      const progress = Math.min(elapsed / ANIM_DURATION_MS, 1);
+      const progress = Math.min(elapsed / duration, 1);
       setAnimProgress(progress);
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(tick);
@@ -416,6 +421,14 @@ function TraceCanvas({
     };
     animFrameRef.current = requestAnimationFrame(tick);
   }, []);
+
+  const toggleSpeed = useCallback(() => {
+    const next: 1 | 0.5 = animSpeedRef.current === 1 ? 0.5 : 1;
+    animSpeedRef.current = next;
+    setAnimSpeed(next);
+    // Restart the animation at the new speed if it's currently playing
+    if (isAnimating) startAnim();
+  }, [isAnimating, startAnim]);
 
   // Auto-play on mount
   useEffect(() => {
@@ -672,6 +685,19 @@ function TraceCanvas({
           <Feather name="play" size={14} color={colors.primary} />
           <Text style={[styles.controlText, { color: colors.primary }]}>
             {isAnimating ? 'Playing…' : 'Watch again'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={toggleSpeed}
+          style={[
+            styles.controlBtn,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+          activeOpacity={0.7}
+        >
+          <Feather name="clock" size={14} color={colors.mutedForeground} />
+          <Text style={[styles.controlText, { color: colors.mutedForeground }]}>
+            {animSpeed === 1 ? '1×' : '½×'}
           </Text>
         </TouchableOpacity>
       </View>
