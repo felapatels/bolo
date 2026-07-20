@@ -626,24 +626,6 @@ function TraceCanvas({
               );
             })}
 
-            {/* Moving pen tip during fill-reveal animation (SVG guide chars only).
-                Travels along guidePoints so the learner sees where the pen goes. */}
-            {animProgress !== null && character.guide && guidePoints.length > 0 && (() => {
-              const n = guidePoints.length;
-              const i = Math.min(Math.floor(animProgress * n), n - 1);
-              const pt = guidePoints[i];
-              const r = CANVAS_SIZE * 0.028;
-              return (
-                <SvgCircle
-                  cx={pt.x * guideScale}
-                  cy={pt.y * guideScale}
-                  r={r}
-                  fill={colors.primary}
-                  fillOpacity={0.92}
-                />
-              );
-            })()}
-
             {/* Text-mode animation: pulsing border shows the canvas is the tracing
                 target when there is no SVG guide path to animate. */}
             {animProgress !== null && !character.guide && (
@@ -665,9 +647,11 @@ function TraceCanvas({
                 Shown after animation ends, disappears once the user draws. */}
             {animProgress === null && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
               // Topmost-leftmost guide point approximates the stroke-start position.
+              // Use the topmost guide point (min Y) as the approximate writing start.
+              // Most Indian scripts begin at the top of the character (the headline).
               const startPt = guidePoints.reduce(
                 (best: { x: number; y: number }, p: { x: number; y: number }) =>
-                  p.y + p.x < best.y + best.x ? p : best,
+                  p.y < best.y ? p : best,
                 guidePoints[0],
               );
               const cx = startPt.x * guideScale;

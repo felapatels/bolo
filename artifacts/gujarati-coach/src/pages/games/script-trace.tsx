@@ -447,31 +447,6 @@ function ScriptTraceCanvas({
       }
     }
 
-    // ── Moving pen tip ────────────────────────────────────────────────────────
-    // For SVG-guide characters: animate a dot along the guide outline so the
-    // learner can see where the pen travels, not just the filled shape.
-    if (animT !== null && animT > 0 && character.guide && guidePoints.length > 0) {
-      const n = guidePoints.length;
-      const i = Math.min(Math.floor(animT * n), n - 1);
-      const pt = guidePoints[i];
-      const cx = (pt.x / 100) * W;
-      const cy = (pt.y / 100) * H;
-      const r = W * 0.028;
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = PRIMARY;
-      ctx.globalAlpha = 0.92;
-      ctx.fill();
-      // White pupil so it reads as a cursor
-      ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.38, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.globalAlpha = 0.9;
-      ctx.fill();
-      ctx.restore();
-    }
-
     // ── Text-mode animation ───────────────────────────────────────────────────
     // No SVG guide available, so animate a pulsing border so the learner can
     // see the canvas is the tracing target, and the character text brightens.
@@ -510,9 +485,10 @@ function ScriptTraceCanvas({
     // A green dot at the approximate stroke-start position so the learner
     // knows where to put their pen. Hidden once they begin drawing.
     if (animT === null && character.guide && guidePoints.length > 0 && !hasStrokes) {
-      // Use topmost-leftmost guide point as the approximate writing start.
+      // Use the topmost guide point (min Y) as the approximate writing start.
+      // Most Indian scripts begin at the top of the character (the headline).
       const startPt = guidePoints.reduce(
-        (best, p) => p.y + p.x < best.y + best.x ? p : best,
+        (best, p) => p.y < best.y ? p : best,
         guidePoints[0],
       );
       const cx = (startPt.x / 100) * W;
