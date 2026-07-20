@@ -17,6 +17,15 @@ export interface TourStep {
    * caption card.
    */
   highlightRef?: React.RefObject<View | null>;
+  /**
+   * Optional callback invoked by the tour overlay *before* it measures the
+   * highlight target. Use this to scroll the target element into view so that
+   * `measureInWindow` returns up-to-date on-screen coordinates.
+   *
+   * The overlay waits ~350 ms after calling this (long enough for the default
+   * animated scroll to settle) before taking the measurement.
+   */
+  scrollIntoView?: () => void;
 }
 
 /**
@@ -97,6 +106,24 @@ interface TourContextValue {
     stepIndex: number,
     ref: React.RefObject<View | null>,
   ) => void;
+  /**
+   * Register a scroll-into-view callback for a specific step by index.
+   *
+   * The tour overlay calls this function before measuring the spotlight target,
+   * then waits ~350 ms for the scroll animation to settle. Use it to bring
+   * an off-screen element into the visible area so `measureInWindow` returns
+   * accurate on-screen coordinates.
+   *
+   * Example:
+   * ```tsx
+   * const scrollRef = useRef<ScrollView>(null);
+   * const { registerScrollIntoView } = useTour();
+   * useEffect(() => {
+   *   registerScrollIntoView(1, () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+   * }, []);
+   * ```
+   */
+  registerScrollIntoView: (stepIndex: number, fn: () => void) => void;
 }
 
 const TourContext = createContext<TourContextValue | null>(null);
@@ -166,6 +193,18 @@ export function TourProvider({
     [],
   );
 
+  const registerScrollIntoView = useCallback(
+    (stepIndex: number, fn: () => void) => {
+      if (stepIndex < 0 || stepIndex >= stepsRef.current.length) return;
+      stepsRef.current[stepIndex] = {
+        ...stepsRef.current[stepIndex],
+        scrollIntoView: fn,
+      };
+      setRefVersion((v) => v + 1);
+    },
+    [],
+  );
+
   return (
     <TourContext.Provider
       value={{
@@ -176,6 +215,7 @@ export function TourProvider({
         goNext,
         skip,
         registerHighlightRef,
+        registerScrollIntoView,
       }}
     >
       {children}

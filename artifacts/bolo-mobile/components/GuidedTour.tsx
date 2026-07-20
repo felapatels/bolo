@@ -40,23 +40,44 @@ export function GuidedTour() {
   const step = steps[currentIndex];
 
   // Measure the highlighted element whenever the step or open state changes.
+  // If the step provides a `scrollIntoView` callback, call it first and wait
+  // for the scroll animation to settle before taking the measurement —
+  // otherwise `measureInWindow` can return stale or off-screen coordinates.
   useEffect(() => {
     setSpotRect(null);
     if (!isOpen || !step?.highlightRef?.current) return;
 
-    // measureInWindow gives absolute screen coords — exactly what we need for
-    // the overlay which sits in a full-screen Modal over everything.
-    step.highlightRef.current.measureInWindow((x, y, width, height) => {
-      if (width > 0 && height > 0) {
-        setSpotRect({
-          x: x - PADDING,
-          y: y - PADDING,
-          width: width + PADDING * 2,
-          height: height + PADDING * 2,
-        });
-      }
-    });
-  }, [isOpen, currentIndex, step?.highlightRef]);
+    let cancelled = false;
+
+    const doMeasure = () => {
+      if (cancelled || !step.highlightRef?.current) return;
+      // measureInWindow gives absolute screen coords — exactly what we need for
+      // the overlay which sits in a full-screen Modal over everything.
+      step.highlightRef.current.measureInWindow((x, y, width, height) => {
+        if (!cancelled && width > 0 && height > 0) {
+          setSpotRect({
+            x: x - PADDING,
+            y: y - PADDING,
+            width: width + PADDING * 2,
+            height: height + PADDING * 2,
+          });
+        }
+      });
+    };
+
+    if (step.scrollIntoView) {
+      // Scroll the target into view, then wait 350 ms for the animated scroll
+      // to settle before we measure its on-screen position.
+      step.scrollIntoView();
+      const t = setTimeout(doMeasure, 350);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    } else {
+      doMeasure();
+    }
+  }, [isOpen, currentIndex, step?.highlightRef, step?.scrollIntoView]);
 
   if (!isOpen || steps.length === 0) return null;
 

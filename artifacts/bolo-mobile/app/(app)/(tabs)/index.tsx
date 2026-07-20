@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  findNodeHandle,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -79,13 +80,49 @@ export default function HomeScreen() {
 
   // Spotlight targets for the welcome tour — the stats row ("watch yourself
   // grow") and the Topics section header ("pick a topic").
-  const { registerHighlightRef } = useTour();
+  const { registerHighlightRef, registerScrollIntoView } = useTour();
+  const scrollViewRef = useRef<ScrollView>(null);
   const statsRowRef = useRef<View>(null);
   const topicsRef = useRef<View>(null);
   useEffect(() => {
     registerHighlightRef(TOUR_STEP_INDEX.topics, topicsRef);
     registerHighlightRef(TOUR_STEP_INDEX.progress, statsRowRef);
   }, [registerHighlightRef]);
+
+  useEffect(() => {
+    // Stats row is near the top of the page — scrolling to 0 ensures it is
+    // fully visible before the spotlight is measured.
+    registerScrollIntoView(TOUR_STEP_INDEX.progress, () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+
+    // Topics header may be below the fold.  Measure its position relative to
+    // the ScrollView so we can scroll exactly to it (minus a small margin so
+    // the element isn't right at the very top edge).
+    registerScrollIntoView(TOUR_STEP_INDEX.topics, () => {
+      const scrollNode = findNodeHandle(scrollViewRef.current);
+      if (!topicsRef.current || !scrollNode) {
+        // Fallback: just scroll a reasonable distance to reveal the Topics
+        // section, which typically starts around 450–600 dp from the top.
+        scrollViewRef.current?.scrollTo({ y: 500, animated: true });
+        return;
+      }
+      topicsRef.current.measureLayout(
+        scrollNode,
+        (_, y) => {
+          // Scroll so the element sits 24 dp below the top of the viewport.
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, y - 24),
+            animated: true,
+          });
+        },
+        () => {
+          // measureLayout failed (element not yet laid out) — use the fallback.
+          scrollViewRef.current?.scrollTo({ y: 500, animated: true });
+        },
+      );
+    });
+  }, [registerScrollIntoView]);
 
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
@@ -106,6 +143,7 @@ export default function HomeScreen() {
   return (
     <Screen>
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: TAB_BAR_CLEARANCE,
