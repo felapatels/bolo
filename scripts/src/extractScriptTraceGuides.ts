@@ -5,7 +5,7 @@
 // each character used by the four Script Trace chapters, normalises the
 // outline into a 0-100 viewBox (with a margin), and rewrites both data files:
 //   - artifacts/gujarati-coach/src/data/script-trace-chapters.ts
-//   - artifacts/bolo-mobile/app/(app)/games/data/script-trace-chapters.ts
+//   - artifacts/bolo-mobile/lib/game-data/script-trace-chapters.ts
 //
 // The emitted path strings use only absolute M/L/Q/C commands (no Z), because
 // the in-game parseSvgPath implementation only understands those. Closed
@@ -294,7 +294,7 @@ const data = buildChapterData();
 const webPath = resolve(ROOT, "artifacts/gujarati-coach/src/data/script-trace-chapters.ts");
 const mobilePath = resolve(
   ROOT,
-  "artifacts/bolo-mobile/app/(app)/games/data/script-trace-chapters.ts",
+  "artifacts/bolo-mobile/lib/game-data/script-trace-chapters.ts",
 );
 writeFileSync(webPath, renderFile(data, false));
 writeFileSync(mobilePath, renderFile(data, true));
