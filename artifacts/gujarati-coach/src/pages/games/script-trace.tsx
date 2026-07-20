@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Redirect } from "wouter";
-import { ArrowLeft, ChevronRight, RotateCcw, CheckCircle2, XCircle, Trophy } from "lucide-react";
+import { ArrowLeft, ChevronRight, RotateCcw, CheckCircle2, XCircle, Trophy, Play } from "lucide-react";
 import { Link } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -184,6 +184,110 @@ export function scoreTrace(drawn: Point[], guide: Point[]): number {
 
 export const PASS_THRESHOLD = 70;
 
+// ── Stroke-order animation helpers ────────────────────────────────────────────
+
+/** Compute the subpath lengths array and total length. */
+function computeSubpathLengths(subpaths: Point[][]): { segLengths: number[][]; totalLen: number } {
+  let totalLen = 0;
+  const segLengths = subpaths.map((sp) => {
+    const lens: number[] = [];
+    for (let i = 1; i < sp.length; i++) {
+      const d = Math.hypot(sp[i].x - sp[i - 1].x, sp[i].y - sp[i - 1].y);
+      lens.push(d);
+      totalLen += d;
+    }
+    return lens;
+  });
+  return { segLengths, totalLen };
+}
+
+/**
+ * Given subpaths + their lengths, return the (x,y) position at progress t (0–1)
+ * travelling through each subpath in document order, with jumps between them.
+ */
+function getPointAtProgress(
+  subpaths: Point[][],
+  segLengths: number[][],
+  totalLen: number,
+  t: number,
+): Point | null {
+  if (subpaths.length === 0 || totalLen === 0) return null;
+  const target = t * totalLen;
+  let walked = 0;
+  for (let si = 0; si < subpaths.length; si++) {
+    const sp = subpaths[si];
+    const lens = segLengths[si];
+    for (let i = 0; i < lens.length; i++) {
+      const d = lens[i];
+      if (walked + d >= target) {
+        const frac = d > 0 ? (target - walked) / d : 0;
+        return {
+          x: sp[i].x + frac * (sp[i + 1].x - sp[i].x),
+          y: sp[i].y + frac * (sp[i + 1].y - sp[i].y),
+        };
+      }
+      walked += d;
+    }
+    // Jump to next subpath (no contribution to walked)
+  }
+  const lastSp = subpaths[subpaths.length - 1];
+  return lastSp[lastSp.length - 1];
+}
+
+/**
+ * Draw the already-traced portion of the glyph up to progress t (0–1)
+ * as a semi-transparent primary trail.
+ */
+function drawAnimTrail(
+  ctx: CanvasRenderingContext2D,
+  subpaths: Point[][],
+  segLengths: number[][],
+  totalLen: number,
+  t: number,
+  W: number,
+  H: number,
+  color: string,
+) {
+  if (totalLen === 0) return;
+  const target = t * totalLen;
+  let walked = 0;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = W * 0.03;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.globalAlpha = 0.6;
+
+  for (let si = 0; si < subpaths.length; si++) {
+    const sp = subpaths[si];
+    const lens = segLengths[si];
+    if (walked >= target) break;
+
+    ctx.beginPath();
+    ctx.moveTo((sp[0].x / 100) * W, (sp[0].y / 100) * H);
+
+    for (let i = 0; i < lens.length; i++) {
+      const d = lens[i];
+      if (walked + d >= target) {
+        // Partial segment
+        const frac = d > 0 ? (target - walked) / d : 0;
+        const px = sp[i].x + frac * (sp[i + 1].x - sp[i].x);
+        const py = sp[i].y + frac * (sp[i + 1].y - sp[i].y);
+        ctx.lineTo((px / 100) * W, (py / 100) * H);
+        walked += d;
+        break;
+      }
+      ctx.lineTo((sp[i + 1].x / 100) * W, (sp[i + 1].y / 100) * H);
+      walked += d;
+    }
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
 function ChapterGrid({
@@ -242,6 +346,8 @@ function ChapterGrid({
 
 // ── Canvas tracing component ──────────────────────────────────────────────────
 
+const ANIM_DURATION_MS = 2200;
+
 function ScriptTraceCanvas({
   character,
   onResult,
@@ -257,6 +363,26 @@ function ScriptTraceCanvas({
   const [hasDrawn, setHasDrawn] = useState(false);
   const [pulseGuide, setPulseGuide] = useState(false);
   const PRIMARY = "#6366f1";
+
+  // ── Stroke-order animation state ──
+  // Parsed subpaths for the current guide
+  const subpathsRef = useRef<Point[][]>([]);
+  const segLengthsRef = useRef<number[][]>([]);
+  const totalLenRef = useRef(0);
+  // RAF progress refs
+  const animFrameRef = useRef<number | null>(null);
+  const animStartRef = useRef<number | null>(null);
+  const animProgressRef = useRef<number | null>(0); // null = not playing
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Parse guide into subpaths whenever the character changes
+  useEffect(() => {
+    const subpaths = parseSvgSubpaths(character.guide).filter((sp) => sp.length > 1);
+    subpathsRef.current = subpaths;
+    const { segLengths, totalLen } = computeSubpathLengths(subpaths);
+    segLengthsRef.current = segLengths;
+    totalLenRef.current = totalLen;
+  }, [character.guide]);
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -294,6 +420,66 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
 
+    // ── Stroke-order animation overlay ──
+    const animT = animProgressRef.current;
+    if (animT !== null && subpathsRef.current.length > 0 && totalLenRef.current > 0) {
+      // Draw the already-covered trail
+      drawAnimTrail(
+        ctx,
+        subpathsRef.current,
+        segLengthsRef.current,
+        totalLenRef.current,
+        animT,
+        W,
+        H,
+        PRIMARY,
+      );
+
+      // Draw the leading dot
+      const pt = getPointAtProgress(
+        subpathsRef.current,
+        segLengthsRef.current,
+        totalLenRef.current,
+        animT,
+      );
+      if (pt) {
+        ctx.save();
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, (W * 0.05), 0, Math.PI * 2);
+        ctx.fillStyle = PRIMARY + "30";
+        ctx.fill();
+        // Inner dot
+        ctx.beginPath();
+        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, (W * 0.028), 0, Math.PI * 2);
+        ctx.fillStyle = PRIMARY;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Draw subpath start markers (numbered circles at each M)
+      subpathsRef.current.forEach((sp, idx) => {
+        if (sp.length === 0) return;
+        const startPt = sp[0];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc((startPt.x / 100) * W, (startPt.y / 100) * H, W * 0.022, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.strokeStyle = PRIMARY;
+        ctx.lineWidth = W * 0.012;
+        ctx.stroke();
+
+        // Number label
+        ctx.fillStyle = PRIMARY;
+        ctx.font = `bold ${Math.round(W * 0.022)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(idx + 1), (startPt.x / 100) * W, (startPt.y / 100) * H);
+        ctx.restore();
+      });
+    }
+
     // Draw user's traced path
     const drawn = drawnRef.current;
     if (drawn.length > 1) {
@@ -311,6 +497,42 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
   }, [character.guide, pulseGuide]);
+
+  // Start the stroke-order animation
+  const startAnim = useCallback(() => {
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    animProgressRef.current = 0;
+    animStartRef.current = null;
+    setIsAnimating(true);
+
+    const tick = (ts: number) => {
+      if (animStartRef.current === null) animStartRef.current = ts;
+      const elapsed = ts - animStartRef.current;
+      const progress = Math.min(elapsed / ANIM_DURATION_MS, 1);
+      animProgressRef.current = progress;
+      drawCanvas();
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        // Hold the completed trail briefly then clear
+        setTimeout(() => {
+          animProgressRef.current = null;
+          setIsAnimating(false);
+          drawCanvas();
+        }, 600);
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+  }, [drawCanvas]);
+
+  // Auto-play on mount
+  useEffect(() => {
+    startAnim();
+    return () => {
+      if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // only on mount (character key resets the whole component)
 
   useEffect(() => {
     drawCanvas();
@@ -335,8 +557,16 @@ function ScriptTraceCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const stopAnim = () => {
+      if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+      animProgressRef.current = null;
+      setIsAnimating(false);
+    };
+
     const onStart = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
+      stopAnim();
       const rect = canvas.getBoundingClientRect();
       isDrawingRef.current = true;
       drawnRef.current = [getPos(e, rect)];
@@ -397,8 +627,14 @@ function ScriptTraceCanvas({
         <span className="text-sm text-muted-foreground font-medium">/{character.label}/</span>
       </div>
 
-      {/* Trace hint */}
-      <p className="text-xs text-muted-foreground">Trace the grey outline below</p>
+      {/* Trace hint / animation state */}
+      {isAnimating ? (
+        <p className="text-xs font-medium text-primary/80">
+          Watch the stroke order…
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">Trace the grey outline below</p>
+      )}
 
       {/* Canvas */}
       <div className="relative">
@@ -407,21 +643,31 @@ function ScriptTraceCanvas({
           className="h-64 w-64 cursor-crosshair touch-none rounded-2xl border-2 border-border bg-muted/20 sm:h-72 sm:w-72"
           style={{ imageRendering: "pixelated" }}
         />
-        {!hasDrawn && (
+        {!hasDrawn && !isAnimating && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <p className="text-xs text-muted-foreground/60">Start tracing here</p>
           </div>
         )}
       </div>
 
-      {/* Reset button */}
-      <button
-        onClick={handleReset}
-        className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors"
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-        Clear
-      </button>
+      {/* Controls */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Clear
+        </button>
+        <button
+          onClick={startAnim}
+          disabled={isAnimating}
+          className="flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Play className="h-3.5 w-3.5" />
+          {isAnimating ? "Playing…" : "Watch again"}
+        </button>
+      </div>
     </div>
   );
 }

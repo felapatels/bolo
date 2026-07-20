@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -24,7 +24,7 @@ import {
   type TraceChapter,
   type TraceCharacter,
 } from '@/lib/game-data/script-trace-chapters';
-import Svg, { Path as SvgPath } from 'react-native-svg';
+import Svg, { Path as SvgPath, Circle, G, Text as SvgText } from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
@@ -203,6 +203,98 @@ function pointsToPath(points: Point[], size: number): string {
 
 const CANVAS_SIZE = Math.min(Dimensions.get('window').width - 48, 300);
 const PASS_THRESHOLD = 70;
+const ANIM_DURATION_MS = 2200;
+
+// ── Stroke-order animation helpers ────────────────────────────────────────────
+
+function computeSubpathLengths(
+  subpaths: Point[][],
+): { segLengths: number[][]; totalLen: number } {
+  let totalLen = 0;
+  const segLengths = subpaths.map((sp) => {
+    const lens: number[] = [];
+    for (let i = 1; i < sp.length; i++) {
+      const d = Math.hypot(sp[i].x - sp[i - 1].x, sp[i].y - sp[i - 1].y);
+      lens.push(d);
+      totalLen += d;
+    }
+    return lens;
+  });
+  return { segLengths, totalLen };
+}
+
+function getPointAtProgress(
+  subpaths: Point[][],
+  segLengths: number[][],
+  totalLen: number,
+  t: number,
+): Point | null {
+  if (subpaths.length === 0 || totalLen === 0) return null;
+  const target = t * totalLen;
+  let walked = 0;
+  for (let si = 0; si < subpaths.length; si++) {
+    const sp = subpaths[si];
+    const lens = segLengths[si];
+    for (let i = 0; i < lens.length; i++) {
+      const d = lens[i];
+      if (walked + d >= target) {
+        const frac = d > 0 ? (target - walked) / d : 0;
+        return {
+          x: sp[i].x + frac * (sp[i + 1].x - sp[i].x),
+          y: sp[i].y + frac * (sp[i + 1].y - sp[i].y),
+        };
+      }
+      walked += d;
+    }
+  }
+  const lastSp = subpaths[subpaths.length - 1];
+  return lastSp[lastSp.length - 1];
+}
+
+/**
+ * Build a partial SVG path string covering the outline from t=0 to t=progress,
+ * broken into per-subpath <path> elements so contours don't bleed together.
+ */
+function buildTrailPaths(
+  subpaths: Point[][],
+  segLengths: number[][],
+  totalLen: number,
+  progress: number,
+  scale: number,
+): string[] {
+  if (totalLen === 0) return [];
+  const target = progress * totalLen;
+  const paths: string[] = [];
+  let walked = 0;
+
+  for (let si = 0; si < subpaths.length; si++) {
+    if (walked >= target) break;
+    const sp = subpaths[si];
+    const lens = segLengths[si];
+    let d = `M ${(sp[0].x * scale).toFixed(1)},${(sp[0].y * scale).toFixed(1)}`;
+    let done = false;
+
+    for (let i = 0; i < lens.length; i++) {
+      const segLen = lens[i];
+      if (walked + segLen >= target) {
+        const frac = segLen > 0 ? (target - walked) / segLen : 0;
+        const px = sp[i].x + frac * (sp[i + 1].x - sp[i].x);
+        const py = sp[i].y + frac * (sp[i + 1].y - sp[i].y);
+        d += ` L ${(px * scale).toFixed(1)},${(py * scale).toFixed(1)}`;
+        walked += segLen;
+        done = true;
+        break;
+      }
+      d += ` L ${(sp[i + 1].x * scale).toFixed(1)},${(sp[i + 1].y * scale).toFixed(1)}`;
+      walked += segLen;
+    }
+
+    paths.push(d);
+    if (done) break;
+  }
+
+  return paths;
+}
 
 // ── Chapter selection ─────────────────────────────────────────────────────────
 
@@ -280,11 +372,63 @@ function TraceCanvas({
 }) {
   const colors = useColors();
   const [drawnPath, setDrawnPath] = useState('');
-  // Controls whether the guide pulses amber on a failed trace (plain state, no
-  // Animated.View inside <Svg> which is not supported by react-native-svg).
+  // Controls whether the guide pulses amber on a failed trace.
   const [guidePulsed, setGuidePulsed] = useState(false);
   const drawnRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
+
+  // ── Stroke-order animation state ──
+  const subpathsRef = useRef<Point[][]>([]);
+  const segLengthsRef = useRef<number[][]>([]);
+  const totalLenRef = useRef(0);
+  const animFrameRef = useRef<number | null>(null);
+  const animStartRef = useRef<number | null>(null);
+  // progress: null = not playing, 0–1 = playing
+  const [animProgress, setAnimProgress] = useState<number | null>(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Parse guide into subpaths whenever character changes (component is re-keyed per character)
+  useEffect(() => {
+    const subpaths = parseSvgSubpaths(character.guide).filter((sp) => sp.length > 1);
+    subpathsRef.current = subpaths;
+    const { segLengths, totalLen } = computeSubpathLengths(subpaths);
+    segLengthsRef.current = segLengths;
+    totalLenRef.current = totalLen;
+  }, [character.guide]);
+
+  const startAnim = useCallback(() => {
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    animStartRef.current = null;
+    setAnimProgress(0);
+    setIsAnimating(true);
+
+    const tick = (ts: number) => {
+      if (animStartRef.current === null) animStartRef.current = ts;
+      const elapsed = ts - animStartRef.current;
+      const progress = Math.min(elapsed / ANIM_DURATION_MS, 1);
+      setAnimProgress(progress);
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        // Hold the completed trail briefly then clear
+        setTimeout(() => {
+          setAnimProgress(null);
+          setIsAnimating(false);
+        }, 600);
+        animFrameRef.current = null;
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  // Auto-play on mount
+  useEffect(() => {
+    startAnim();
+    return () => {
+      if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Guide is a font-accurate glyph outline in a 0-100 viewBox; render the raw
   // path data and scale it to the canvas so separate contours stay separate.
@@ -299,6 +443,12 @@ function TraceCanvas({
   const pan = Gesture.Pan()
     .runOnJS(true)
     .onBegin((e) => {
+      // Stop animation when user starts drawing
+      if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+      setAnimProgress(null);
+      setIsAnimating(false);
+
       isDrawingRef.current = true;
       drawnRef.current = [
         { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 },
@@ -332,6 +482,37 @@ function TraceCanvas({
   // Guide stroke colour flips between muted grey and amber on a failed attempt.
   const guideColor = guidePulsed ? '#f59e0b' : colors.mutedForeground;
 
+  // Build animation overlay elements
+  const trailPaths =
+    animProgress !== null &&
+    subpathsRef.current.length > 0 &&
+    totalLenRef.current > 0
+      ? buildTrailPaths(
+          subpathsRef.current,
+          segLengthsRef.current,
+          totalLenRef.current,
+          animProgress,
+          guideScale,
+        )
+      : [];
+
+  const dotPos =
+    animProgress !== null &&
+    subpathsRef.current.length > 0 &&
+    totalLenRef.current > 0
+      ? getPointAtProgress(
+          subpathsRef.current,
+          segLengthsRef.current,
+          totalLenRef.current,
+          animProgress,
+        )
+      : null;
+
+  const dotX = dotPos ? dotPos.x * guideScale : 0;
+  const dotY = dotPos ? dotPos.y * guideScale : 0;
+  const dotR = CANVAS_SIZE * 0.028;
+  const glowR = CANVAS_SIZE * 0.05;
+
   return (
     <View style={styles.canvasSection}>
       {/* Character display */}
@@ -343,9 +524,16 @@ function TraceCanvas({
           /{character.label}/
         </Text>
       </View>
-      <Text style={[styles.traceHint, { color: colors.mutedForeground }]}>
-        Trace the grey outline
-      </Text>
+
+      {isAnimating ? (
+        <Text style={[styles.traceHint, { color: colors.primary }]}>
+          Watch the stroke order…
+        </Text>
+      ) : (
+        <Text style={[styles.traceHint, { color: colors.mutedForeground }]}>
+          Trace the grey outline
+        </Text>
+      )}
 
       {/* SVG canvas with gesture detector */}
       <GestureDetector gesture={pan}>
@@ -359,7 +547,7 @@ function TraceCanvas({
           ]}
         >
           <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
-            {/* Guide path — plain SVG element, no Animated wrapper */}
+            {/* Guide path — plain SVG element */}
             <SvgPath
               d={character.guide}
               scale={guideScale}
@@ -371,6 +559,77 @@ function TraceCanvas({
               fillOpacity={0.25}
               opacity={0.45}
             />
+
+            {/* Stroke-order animation overlay */}
+            {animProgress !== null && (
+              <G>
+                {/* Trail paths */}
+                {trailPaths.map((d, i) => (
+                  <SvgPath
+                    key={i}
+                    d={d}
+                    stroke={colors.primary}
+                    strokeWidth={CANVAS_SIZE * 0.03}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                    opacity={0.6}
+                  />
+                ))}
+
+                {/* Leading dot glow */}
+                {dotPos && (
+                  <Circle
+                    cx={dotX}
+                    cy={dotY}
+                    r={glowR}
+                    fill={colors.primary}
+                    opacity={0.18}
+                  />
+                )}
+
+                {/* Leading dot */}
+                {dotPos && (
+                  <Circle
+                    cx={dotX}
+                    cy={dotY}
+                    r={dotR}
+                    fill={colors.primary}
+                  />
+                )}
+
+                {/* Numbered start markers for each subpath */}
+                {subpathsRef.current.map((sp, idx) => {
+                  if (sp.length === 0) return null;
+                  const sx = sp[0].x * guideScale;
+                  const sy = sp[0].y * guideScale;
+                  const markerR = CANVAS_SIZE * 0.022;
+                  return (
+                    <G key={idx}>
+                      <Circle
+                        cx={sx}
+                        cy={sy}
+                        r={markerR}
+                        fill="white"
+                        stroke={colors.primary}
+                        strokeWidth={CANVAS_SIZE * 0.012}
+                      />
+                      <SvgText
+                        x={sx}
+                        y={sy + markerR * 0.4}
+                        fontSize={markerR * 1.1}
+                        fontWeight="bold"
+                        fill={colors.primary}
+                        textAnchor="middle"
+                      >
+                        {String(idx + 1)}
+                      </SvgText>
+                    </G>
+                  );
+                })}
+              </G>
+            )}
+
             {/* User's traced path */}
             {drawnPath ? (
               <SvgPath
@@ -386,20 +645,40 @@ function TraceCanvas({
         </View>
       </GestureDetector>
 
-      {/* Clear button */}
-      <TouchableOpacity
-        onPress={handleClear}
-        style={[
-          styles.clearBtn,
-          { borderColor: colors.border, backgroundColor: colors.card },
-        ]}
-        activeOpacity={0.7}
-      >
-        <Feather name="rotate-ccw" size={14} color={colors.mutedForeground} />
-        <Text style={[styles.clearText, { color: colors.mutedForeground }]}>
-          Clear
-        </Text>
-      </TouchableOpacity>
+      {/* Controls */}
+      <View style={styles.controlRow}>
+        <TouchableOpacity
+          onPress={handleClear}
+          style={[
+            styles.controlBtn,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+          activeOpacity={0.7}
+        >
+          <Feather name="rotate-ccw" size={14} color={colors.mutedForeground} />
+          <Text style={[styles.controlText, { color: colors.mutedForeground }]}>
+            Clear
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={startAnim}
+          disabled={isAnimating}
+          style={[
+            styles.controlBtn,
+            {
+              borderColor: colors.primary + '60',
+              backgroundColor: colors.primary + '18',
+              opacity: isAnimating ? 0.4 : 1,
+            },
+          ]}
+          activeOpacity={0.7}
+        >
+          <Feather name="play" size={14} color={colors.primary} />
+          <Text style={[styles.controlText, { color: colors.primary }]}>
+            {isAnimating ? 'Playing…' : 'Watch again'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -704,7 +983,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     overflow: 'hidden',
   },
-  clearBtn: {
+  controlRow: { flexDirection: 'row', gap: 8 },
+  controlBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -713,7 +993,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  clearText: { fontFamily: AppFonts.semibold, fontSize: 13 },
+  controlText: { fontFamily: AppFonts.semibold, fontSize: 13 },
   resultCard: {
     borderWidth: 1,
     borderRadius: 16,
