@@ -11,11 +11,12 @@ import { SCRIPT_TRACE_CHAPTERS } from "@/data/script-trace-chapters";
 // ---------------------------------------------------------------------------
 // Guides are font-accurate glyph outlines (filled shapes, multiple contours).
 //
-// Scoring is INTERIOR COVERAGE: what fraction of the glyph's filled interior
-// (a grid of reference points) the user's strokes reached, with a tolerance
-// radius around each drawn point. Drawing through the middle of the letter
-// scores well; scribbles outside the shape score poorly. PASS_THRESHOLD is
-// the minimum coverage % to pass.
+// Scoring is INTERIOR COVERAGE × PRECISION: what fraction of the glyph's
+// filled interior (a grid of reference points) the user's strokes reached,
+// multiplied by the fraction of the drawn ink that lands on/near the
+// character (looser tolerance). Drawing through the middle of the letter
+// scores well; stray tails lower the score; scribbles outside the shape
+// score poorly. PASS_THRESHOLD is the minimum score % to pass.
 //
 // The demo animation follows PEN STROKES extracted by skeletonizing the
 // glyph (rasterize → Zhang-Suen thinning → trace polylines → order strokes).
@@ -138,6 +139,20 @@ describe("scoreCoverage on a synthetic two-bar glyph", () => {
       Array.from({ length: 36 }, (_, i) => ({ x, y: 15 + i * 2 }));
     const drawn = [jitterPath(bar(20), 2, 7), jitterPath(bar(60), 2, 11)];
     expect(scoreCoverage(drawn, interior)).toBeGreaterThanOrEqual(PASS_THRESHOLD);
+  });
+
+  test("stray tails outside the glyph lower the score below a clean trace", () => {
+    const bar = (x: number): Point[] =>
+      Array.from({ length: 36 }, (_, i) => ({ x, y: 15 + i * 2 }));
+    const clean = [bar(20), bar(60)];
+    const cleanScore = scoreCoverage(clean, interior);
+    // Same full coverage plus a long tail wandering into empty canvas.
+    const tail: Point[] = Array.from({ length: 30 }, (_, i) => ({ x: 75 + (i * 20) / 29, y: 3 }));
+    const sloppyScore = scoreCoverage([bar(20), bar(60), tail], interior);
+    expect(sloppyScore).toBeLessThan(cleanScore);
+    expect(sloppyScore).toBeLessThan(100);
+    // Precision tempers the score — it must not fail otherwise-honest work.
+    expect(sloppyScore).toBeGreaterThanOrEqual(PASS_THRESHOLD);
   });
 
   test("an off-target stroke along the canvas top edge fails", () => {

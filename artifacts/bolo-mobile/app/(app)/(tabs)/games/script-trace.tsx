@@ -12,7 +12,15 @@ import {
   GestureDetector,
   Gesture,
 } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  runOnJS,
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -237,8 +245,16 @@ function getTextReferencePoints(gridN = 10): Point[] {
 const COVERAGE_TOLERANCE = 9;
 
 /**
- * Coverage score (0-100): fraction of interior reference points reached by
- * at least one user stroke point within COVERAGE_TOLERANCE.
+ * Accuracy score (0-100) = coverage × precision.
+ *
+ * Coverage: fraction of interior reference points reached by at least one
+ * user stroke point within COVERAGE_TOLERANCE — did they draw the whole
+ * character?
+ *
+ * Precision: fraction of the drawn ink that lands on (or near) the character,
+ * judged with a looser tolerance so honest wobble along the glyph edge is not
+ * punished. Long tails and scribbles outside the shape pull the score down —
+ * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   if (referencePoints.length === 0 || strokes.length === 0) return 0;
@@ -253,7 +269,26 @@ function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
       }
     }
   }
-  return Math.round((covered / referencePoints.length) * 100);
+  const coverage = covered / referencePoints.length;
+
+  const strayTolerance = COVERAGE_TOLERANCE * 1.5;
+  // Subsample the drawn points so precision stays cheap on long traces.
+  const step = Math.max(1, Math.floor(allPts.length / 400));
+  let sampled = 0;
+  let onTarget = 0;
+  for (let i = 0; i < allPts.length; i += step) {
+    sampled++;
+    const pt = allPts[i];
+    for (const ref of referencePoints) {
+      if (Math.hypot(pt.x - ref.x, pt.y - ref.y) < strayTolerance) {
+        onTarget++;
+        break;
+      }
+    }
+  }
+  const precision = sampled > 0 ? onTarget / sampled : 1;
+
+  return Math.round(coverage * precision * 100);
 }
 
 // Convert an array of points to an SVG path string for live drawing.
@@ -503,6 +538,29 @@ function orientStroke(pts: Point[]): Point[] {
 }
 
 /**
+ * Chaikin corner-cutting smoothing. The RDP-simplified skeleton strokes are
+ * angular polylines; two rounds of corner cutting turn them into the smooth
+ * curves a hand actually draws, without ever leaving the hull of the original
+ * points (so smoothed strokes stay inside the glyph). Endpoints are preserved
+ * so stroke ordering and the start dot are unaffected.
+ */
+function chaikinSmooth(points: Point[], iterations = 2): Point[] {
+  let pts = points;
+  for (let iter = 0; iter < iterations; iter++) {
+    if (pts.length < 3) return pts;
+    const out: Point[] = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+      out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+    }
+    out.push(pts[pts.length - 1]);
+    pts = out;
+  }
+  return pts;
+}
+
+/**
  * Extract ordered pen strokes (centerline polylines, 0-100 space) from a
  * glyph outline path. Returns [] when the glyph is degenerate.
  */
@@ -542,7 +600,8 @@ function extractStrokes(guideD: string): Point[][] {
     }
     cur = remaining.splice(bestIdx, 1)[0];
   }
-  return ordered;
+  // Round the angular RDP polylines into the smooth curves a hand draws.
+  return ordered.map((s) => chaikinSmooth(s));
 }
 
 /** Per-stroke [start,end] time fractions, proportional to stroke length. */
@@ -557,30 +616,111 @@ function strokeTimeFractions(strokes: Point[][]): { start: number; end: number }
   });
 }
 
-/** Point at arc-distance `dist` along a polyline. */
-function pointAtLength(pts: Point[], dist: number): Point {
-  if (pts.length === 0) return { x: 0, y: 0 };
-  let acc = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    if (seg > 0 && acc + seg >= dist) {
-      const t = (dist - acc) / seg;
-      return {
-        x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t,
-        y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t,
-      };
-    }
-    acc += seg;
-  }
-  return pts[pts.length - 1];
-}
-
 /** Convert a stroke polyline to an SVG path "d" string. */
 function strokeToPathD(pts: Point[]): string {
   if (pts.length === 0) return '';
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 1; i < pts.length; i++) d += ` L ${pts[i].x} ${pts[i].y}`;
   return d;
+}
+
+// ── UI-thread demo animation components ──────────────────────────────────────
+
+type PenTipStroke = {
+  xs: number[];
+  ys: number[];
+  cum: number[];
+  len: number;
+  start: number;
+  end: number;
+};
+
+const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
+const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
+
+/**
+ * One demo pen stroke revealed by animating strokeDashoffset from the full
+ * path length down to 0 across the stroke's [start, end] time window. A
+ * single shared progress value drives every stroke ON THE UI THREAD — the
+ * old rAF + setState driver re-rendered the whole SVG tree over the bridge
+ * every frame, which is what made the demo choppy.
+ */
+function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
+  progress: SharedValue<number>;
+  d: string;
+  len: number;
+  start: number;
+  end: number;
+  scale: number;
+  color: string;
+}) {
+  const animatedProps = useAnimatedProps(() => {
+    const t = progress.value;
+    const frac = t <= start ? 0 : t >= end ? 1 : (t - start) / Math.max(end - start, 0.0001);
+    return {
+      strokeDashoffset: len * (1 - frac),
+      // Hide untouched strokes entirely so the round line cap can't paint a
+      // phantom dot at the stroke start before the pen reaches it.
+      strokeOpacity: frac > 0 ? 0.9 : 0,
+    };
+  });
+  return (
+    <AnimatedSvgPath
+      d={d}
+      scale={scale}
+      fill="none"
+      stroke={color}
+      strokeWidth={3.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeDasharray={`${len}`}
+      strokeDashoffset={len}
+      strokeOpacity={0}
+      animatedProps={animatedProps}
+    />
+  );
+}
+
+/** The moving pen dot, positioned along the active stroke on the UI thread. */
+function AnimPenTip({ progress, strokes, r, color }: {
+  progress: SharedValue<number>;
+  strokes: PenTipStroke[];
+  r: number;
+  color: string;
+}) {
+  const animatedProps = useAnimatedProps(() => {
+    const t = progress.value;
+    let cx = -100;
+    let cy = -100;
+    let opacity = 0;
+    if (t > 0 && t < 1) {
+      for (let i = 0; i < strokes.length; i++) {
+        const s = strokes[i];
+        if (t < s.start || t >= s.end || s.cum.length < 2) continue;
+        const frac = (t - s.start) / Math.max(s.end - s.start, 0.0001);
+        const target = s.len * frac;
+        let j = 1;
+        while (j < s.cum.length - 1 && s.cum[j] < target) j++;
+        const seg = Math.max(s.cum[j] - s.cum[j - 1], 0.0001);
+        const u = Math.min(Math.max((target - s.cum[j - 1]) / seg, 0), 1);
+        cx = s.xs[j - 1] + (s.xs[j] - s.xs[j - 1]) * u;
+        cy = s.ys[j - 1] + (s.ys[j] - s.ys[j - 1]) * u;
+        opacity = 1;
+        break;
+      }
+    }
+    return { cx, cy, opacity };
+  });
+  return (
+    <AnimatedSvgCircle
+      cx={-100}
+      cy={-100}
+      r={r}
+      fill={color}
+      opacity={0}
+      animatedProps={animatedProps}
+    />
+  );
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -754,11 +894,18 @@ function TraceCanvas({
   const lastCoverageTimeRef = useRef<number>(0);
 
   // ── Stroke-order animation state ──
+  // Pen-mode (glyph guide) demos run on the UI thread via a Reanimated shared
+  // value — no per-frame React re-renders. Text-mode fallback keeps the rAF
+  // driver. `penAnimVisible` mounts the animated stroke layer; `isAnimating`
+  // covers both drivers for the hint text and the Watch-again button.
   const animFrameRef = useRef<number | null>(null);
   const animStartRef = useRef<number | null>(null);
-  // progress: null = not playing, 0–1 = playing
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Text-mode progress: null = not playing, 0–1 = playing
   const [animProgress, setAnimProgress] = useState<number | null>(0);
+  const [penAnimVisible, setPenAnimVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
+  const penProgress = useSharedValue(0);
   // Speed: 1 = normal (ANIM_DURATION_MS), 0.5 = slow (2× longer)
   const animSpeedRef = useRef<number>(1);
   const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
@@ -772,15 +919,66 @@ function TraceCanvas({
   const penStrokeFracs = React.useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
   const penStrokeDs = React.useMemo(() => penStrokes.map(strokeToPathD), [penStrokes]);
   const penStrokeLens = React.useMemo(() => penStrokes.map(polylineLength), [penStrokes]);
+  const penMode = !!character.guide && penStrokes.length > 0;
+  // Plain-array stroke geometry (canvas px) captured by the pen-tip worklet.
+  const penTipData = React.useMemo<PenTipStroke[]>(
+    () =>
+      penStrokes.map((stroke, i) => {
+        const xs = stroke.map((p) => p.x * (CANVAS_SIZE / 100));
+        const ys = stroke.map((p) => p.y * (CANVAS_SIZE / 100));
+        const cum = [0];
+        for (let j = 1; j < xs.length; j++) {
+          cum.push(cum[j - 1] + Math.hypot(xs[j] - xs[j - 1], ys[j] - ys[j - 1]));
+        }
+        return {
+          xs,
+          ys,
+          cum,
+          len: cum[cum.length - 1] ?? 0,
+          start: penStrokeFracs[i].start,
+          end: penStrokeFracs[i].end,
+        };
+      }),
+    [penStrokes, penStrokeFracs],
+  );
+
+  const finishPenAnim = useCallback(() => {
+    // Hold the completed character briefly, then clear back to tracing state.
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      setPenAnimVisible(false);
+      setIsAnimating(false);
+    }, 600);
+  }, []);
 
   const startAnim = useCallback(() => {
+    // Reset any previous run on either driver.
     if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
-    animStartRef.current = null;
-    setAnimProgress(0);
-    setIsAnimating(true);
+    animFrameRef.current = null;
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    cancelAnimation(penProgress);
 
     const duration = ANIM_DURATION_MS / animSpeedRef.current;
 
+    if (penMode) {
+      // Smooth UI-thread animation: one shared value drives every stroke's
+      // dash reveal plus the pen tip (see AnimPenStroke / AnimPenTip).
+      penProgress.value = 0;
+      setPenAnimVisible(true);
+      setIsAnimating(true);
+      penProgress.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
+        if (finished) runOnJS(finishPenAnim)();
+      });
+      return;
+    }
+
+    // Text-mode fallback: progressive reveal driven by rAF state updates.
+    animStartRef.current = null;
+    setAnimProgress(0);
+    setIsAnimating(true);
     const tick = (ts: number) => {
       if (animStartRef.current === null) animStartRef.current = ts;
       const elapsed = ts - animStartRef.current;
@@ -798,7 +996,7 @@ function TraceCanvas({
       }
     };
     animFrameRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [penMode, penProgress, finishPenAnim]);
 
   const toggleSpeed = useCallback(() => {
     const next: 1 | 0.5 = animSpeedRef.current === 1 ? 0.5 : 1;
@@ -814,6 +1012,8 @@ function TraceCanvas({
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
       if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
+      if (holdTimerRef.current !== null) clearTimeout(holdTimerRef.current);
+      cancelAnimation(penProgress);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -851,6 +1051,12 @@ function TraceCanvas({
       // Stop stroke-order animation when user starts drawing.
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
+      if (holdTimerRef.current !== null) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      cancelAnimation(penProgress);
+      setPenAnimVisible(false);
       setAnimProgress(null);
       setIsAnimating(false);
 
@@ -992,48 +1198,34 @@ function TraceCanvas({
 
             {/* Pen-stroke writing animation: the pen draws each centerline
                 stroke in sequence — completed strokes stay visible, the active
-                stroke draws on progressively (dashoffset) with a pen dot at
-                its tip, exactly how the letter is written by hand. */}
-            {animProgress !== null && character.guide && penStrokes.length > 0 && (() => {
-              const t = animProgress ?? 0;
-              const els: React.ReactNode[] = [];
-              let penPos: Point | null = null;
-              penStrokes.forEach((stroke, i) => {
-                const { start, end } = penStrokeFracs[i];
-                if (t <= start || stroke.length < 2) return;
-                const frac = Math.min((t - start) / Math.max(end - start, 0.0001), 1);
-                const len = penStrokeLens[i];
-                els.push(
-                  <SvgPath
-                    key={`pen-${i}`}
-                    d={penStrokeDs[i]}
-                    scale={guideScale}
-                    fill="none"
-                    stroke={colors.primary}
-                    strokeWidth={3.2}
-                    strokeOpacity={0.9}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray={`${len}`}
-                    strokeDashoffset={len * (1 - frac)}
-                  />,
-                );
-                if (frac < 1) penPos = pointAtLength(stroke, len * frac);
-              });
-              if (penPos !== null) {
-                const p: Point = penPos;
-                els.push(
-                  <SvgCircle
-                    key="pen-tip"
-                    cx={p.x * guideScale}
-                    cy={p.y * guideScale}
-                    r={CANVAS_SIZE * 0.028}
-                    fill={colors.primary}
-                  />,
-                );
-              }
-              return els;
-            })()}
+                stroke draws on progressively (dash reveal) with a pen dot at
+                its tip, exactly how the letter is written by hand. All strokes
+                mount once; a single shared value animates them on the UI
+                thread for a smooth, continuous drawing motion. */}
+            {penMode && penAnimVisible && (
+              <>
+                {penStrokes.map((stroke, i) =>
+                  stroke.length < 2 ? null : (
+                    <AnimPenStroke
+                      key={`pen-${i}`}
+                      progress={penProgress}
+                      d={penStrokeDs[i]}
+                      len={penStrokeLens[i]}
+                      start={penStrokeFracs[i].start}
+                      end={penStrokeFracs[i].end}
+                      scale={guideScale}
+                      color={colors.primary}
+                    />
+                  ),
+                )}
+                <AnimPenTip
+                  progress={penProgress}
+                  strokes={penTipData}
+                  r={CANVAS_SIZE * 0.028}
+                  color={colors.primary}
+                />
+              </>
+            )}
 
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
                 with a cursor dot at the leading edge, mimicking a finger writing. */}
@@ -1080,7 +1272,7 @@ function TraceCanvas({
 
             {/* Start indicator: green dot at the approximate writing start.
                 Shown after animation ends, disappears once the user draws. */}
-            {animProgress === null && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
+            {(penMode ? !penAnimVisible : animProgress === null) && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
               // Start of the first pen stroke — exactly where the writing demo
               // begins. Falls back to the topmost outline point for degenerate
               // glyphs (most Indian scripts begin at the top of the character).
@@ -1184,7 +1376,7 @@ function TraceCanvas({
           color: liveCoverage >= PASS_THRESHOLD ? '#22c55e' : colors.mutedForeground,
           fontFamily: AppFonts.semibold,
         }]}>
-          {liveCoverage}% covered{liveCoverage >= PASS_THRESHOLD ? ' ✓' : ''}
+          {liveCoverage}% accuracy{liveCoverage >= PASS_THRESHOLD ? ' ✓' : ''}
         </Text>
       )}
     </View>
@@ -1308,7 +1500,7 @@ function TraceSession({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Progress bar */}
+      {/* Progress bar + skip-ahead */}
       <View style={styles.progressRow}>
         <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
           {charIndex + 1} / {chapter.characters.length}
@@ -1324,6 +1516,17 @@ function TraceSession({
             ]}
           />
         </View>
+        <TouchableOpacity
+          onPress={handleNext}
+          style={styles.skipBtn}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Skip this character"
+        >
+          <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
+          <Feather name="chevrons-right" size={14} color={colors.mutedForeground} />
+        </TouchableOpacity>
       </View>
 
       {/* Trace canvas */}
@@ -1368,7 +1571,7 @@ function TraceSession({
           <View style={styles.resultButtons}>
             {!result.passed && (
               <TouchableOpacity
-                onPress={handleRetry}
+                onPress={handleNext}
                 style={[
                   styles.btn,
                   {
@@ -1379,7 +1582,7 @@ function TraceSession({
                 activeOpacity={0.7}
               >
                 <Text style={[styles.btnText, { color: colors.foreground }]}>
-                  Retry
+                  {charIndex >= chapter.characters.length - 1 ? 'Skip & Finish' : 'Skip'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1493,6 +1696,8 @@ const styles = StyleSheet.create({
   progressLabel: { fontFamily: AppFonts.semibold, fontSize: 12, width: 40 },
   progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 3 },
+  skipBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingLeft: 6 },
+  skipText: { fontFamily: AppFonts.semibold, fontSize: 12 },
   canvasSection: { alignItems: 'center', gap: 12 },
   charDisplay: { alignItems: 'center', gap: 4 },
   bigChar: { fontSize: 80, fontFamily: 'serif', lineHeight: 96 },

@@ -243,8 +243,16 @@ function getTextFallbackPoints(gridN = 10): Point[] {
 const COVERAGE_TOLERANCE = 9;
 
 /**
- * Coverage score (0-100): fraction of interior reference points reached by
- * at least one user stroke point within COVERAGE_TOLERANCE.
+ * Accuracy score (0-100) = coverage × precision.
+ *
+ * Coverage: fraction of interior reference points reached by at least one
+ * user stroke point within COVERAGE_TOLERANCE — did they draw the whole
+ * character?
+ *
+ * Precision: fraction of the drawn ink that lands on (or near) the character,
+ * judged with a looser tolerance so honest wobble along the glyph edge is not
+ * punished. Long tails and scribbles outside the shape pull the score down —
+ * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   if (referencePoints.length === 0 || strokes.length === 0) return 0;
@@ -259,7 +267,26 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
       }
     }
   }
-  return Math.round((covered / referencePoints.length) * 100);
+  const coverage = covered / referencePoints.length;
+
+  const strayTolerance = COVERAGE_TOLERANCE * 1.5;
+  // Subsample the drawn points so precision stays cheap on long traces.
+  const step = Math.max(1, Math.floor(allPts.length / 400));
+  let sampled = 0;
+  let onTarget = 0;
+  for (let i = 0; i < allPts.length; i += step) {
+    sampled++;
+    const pt = allPts[i];
+    for (const ref of referencePoints) {
+      if (Math.hypot(pt.x - ref.x, pt.y - ref.y) < strayTolerance) {
+        onTarget++;
+        break;
+      }
+    }
+  }
+  const precision = sampled > 0 ? onTarget / sampled : 1;
+
+  return Math.round(coverage * precision * 100);
 }
 
 // ── Animation helper ───────────────────────────────────────────────────────────
@@ -497,6 +524,29 @@ function orientStroke(pts: Point[]): Point[] {
 }
 
 /**
+ * Chaikin corner-cutting smoothing. The RDP-simplified skeleton strokes are
+ * angular polylines; two rounds of corner cutting turn them into the smooth
+ * curves a hand actually draws, without ever leaving the hull of the original
+ * points (so smoothed strokes stay inside the glyph). Endpoints are preserved
+ * so stroke ordering and the start dot are unaffected.
+ */
+function chaikinSmooth(points: Point[], iterations = 2): Point[] {
+  let pts = points;
+  for (let iter = 0; iter < iterations; iter++) {
+    if (pts.length < 3) return pts;
+    const out: Point[] = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+      out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+    }
+    out.push(pts[pts.length - 1]);
+    pts = out;
+  }
+  return pts;
+}
+
+/**
  * Extract ordered pen strokes (centerline polylines, 0-100 space) from a
  * glyph outline path. Returns [] when the glyph is degenerate.
  */
@@ -536,7 +586,8 @@ export function extractStrokes(guideD: string): Point[][] {
     }
     cur = remaining.splice(bestIdx, 1)[0];
   }
-  return ordered;
+  // Round the angular RDP polylines into the smooth curves a hand draws.
+  return ordered.map((s) => chaikinSmooth(s));
 }
 
 /** Per-stroke [start,end] time fractions, proportional to stroke length. */
@@ -1198,7 +1249,7 @@ function ScriptTraceCanvas({
       {/* Live coverage feedback — shown while drawing and after scoring */}
       {liveCoverage !== null && (
         <p className={`text-xs font-semibold ${liveCoverage >= PASS_THRESHOLD ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-          {liveCoverage}% covered{liveCoverage >= PASS_THRESHOLD ? " ✓" : ""}
+          {liveCoverage}% accuracy{liveCoverage >= PASS_THRESHOLD ? " ✓" : ""}
         </p>
       )}
     </div>
@@ -1309,7 +1360,7 @@ function TraceSession({
 
   return (
     <div className="flex flex-1 flex-col gap-6 px-4 pb-6">
-      {/* Progress bar */}
+      {/* Progress bar + skip-ahead */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">
           {charIndex + 1} / {chapter.characters.length}
@@ -1320,6 +1371,14 @@ function TraceSession({
             style={{ width: `${((charIndex) / chapter.characters.length) * 100}%` }}
           />
         </div>
+        <button
+          onClick={handleNext}
+          aria-label="Skip this character"
+          className="flex items-center gap-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Skip
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Trace canvas */}
@@ -1361,10 +1420,10 @@ function TraceSession({
           <div className="mt-3 flex justify-center gap-3">
             {!result.passed && (
               <button
-                onClick={handleRetry}
+                onClick={handleNext}
                 className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition-colors"
               >
-                Retry
+                {charIndex >= chapter.characters.length - 1 ? "Skip & Finish" : "Skip"}
               </button>
             )}
             <button
