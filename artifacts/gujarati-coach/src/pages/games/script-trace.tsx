@@ -447,38 +447,41 @@ function ScriptTraceCanvas({
       }
     }
 
-    // ── Text-mode animation ───────────────────────────────────────────────────
-    // No SVG guide available, so animate a pulsing border so the learner can
-    // see the canvas is the tracing target, and the character text brightens.
+    // ── Text-mode "writing" animation ────────────────────────────────────────
+    // Progressive left-to-right reveal so the learner watches the character
+    // being drawn rather than seeing a static or pulsing placeholder.
     if (animT !== null && !character.guide) {
-      const pulse = 0.18 + 0.18 * Math.sin(animT * Math.PI * 8);
-      ctx.save();
-      ctx.strokeStyle = PRIMARY;
-      ctx.lineWidth = W * 0.018;
-      ctx.globalAlpha = pulse;
-      const pad = W * 0.025;
-      const r = W * 0.05;
-      ctx.beginPath();
-      ctx.moveTo(pad + r, pad);
-      ctx.lineTo(W - pad - r, pad);
-      ctx.arcTo(W - pad, pad, W - pad, pad + r, r);
-      ctx.lineTo(W - pad, H - pad - r);
-      ctx.arcTo(W - pad, H - pad, W - pad - r, H - pad, r);
-      ctx.lineTo(pad + r, H - pad);
-      ctx.arcTo(pad, H - pad, pad, H - pad - r, r);
-      ctx.lineTo(pad, pad + r);
-      ctx.arcTo(pad, pad, pad + r, pad, r);
-      ctx.closePath();
-      ctx.stroke();
-      // Also repaint the guide text brighter during animation
-      ctx.globalAlpha = 0.15 + 0.20 * Math.sin(animT * Math.PI * 8 + Math.PI / 2);
-      ctx.fillStyle = PRIMARY;
       const fontSize = Math.max(W * 0.45, 30);
       ctx.font = `bold ${fontSize}px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+
+      // Compute how far across the canvas the "pen" has travelled.
+      // Hold at the right edge for the last 15 % of the animation so the
+      // fully-written character is visible for a moment before the guide fades.
+      const revealFraction = Math.min(animT / 0.85, 1);
+      const revealX = revealFraction * W;
+
+      // Colored text revealed progressively by a left-to-right clip rect
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, revealX, H);
+      ctx.clip();
+      ctx.globalAlpha = 0.82;
+      ctx.fillStyle = PRIMARY;
       ctx.fillText(character.char, W / 2, H / 2);
       ctx.restore();
+
+      // Cursor dot at the leading edge — mimics a fingertip writing the word
+      if (revealFraction < 1) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(revealX, H / 2, W * 0.028, 0, Math.PI * 2);
+        ctx.fillStyle = PRIMARY;
+        ctx.globalAlpha = 0.92;
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     // ── Start indicator ───────────────────────────────────────────────────────

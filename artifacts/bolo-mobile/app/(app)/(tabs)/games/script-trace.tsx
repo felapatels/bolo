@@ -26,7 +26,14 @@ import {
   type TraceCharacter,
   type ChapterStage,
 } from '@/lib/game-data/script-trace-chapters';
-import Svg, { Path as SvgPath, Text as SvgText, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
+import Svg, {
+  Path as SvgPath,
+  Text as SvgText,
+  Circle as SvgCircle,
+  Rect as SvgRect,
+  Defs,
+  ClipPath,
+} from 'react-native-svg';
 import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
@@ -626,22 +633,48 @@ function TraceCanvas({
               );
             })}
 
-            {/* Text-mode animation: pulsing border shows the canvas is the tracing
-                target when there is no SVG guide path to animate. */}
-            {animProgress !== null && !character.guide && (
-              <SvgRect
-                x={4}
-                y={4}
-                width={CANVAS_SIZE - 8}
-                height={CANVAS_SIZE - 8}
-                rx={16}
-                ry={16}
-                stroke={colors.primary}
-                strokeWidth={2.5}
-                fill="none"
-                strokeOpacity={0.18 + 0.18 * Math.sin(animProgress * Math.PI * 8)}
-              />
-            )}
+            {/* Text-mode "writing" animation: progressive left-to-right clip reveal
+                with a cursor dot at the leading edge, mimicking a finger writing. */}
+            {animProgress !== null && !character.guide && (() => {
+              const clipId = 'trace-write-reveal';
+              // Hold fully revealed for the last 15 % so the word is visible briefly.
+              const revealFraction = Math.min(animProgress / 0.85, 1);
+              const revealX = revealFraction * CANVAS_SIZE;
+              // Vertical centre of the text (baseline at 70 %, fontSize 55 %)
+              const cursorY = CANVAS_SIZE * 0.42;
+              return (
+                <>
+                  <Defs>
+                    <ClipPath id={clipId}>
+                      <SvgRect x={0} y={0} width={revealX} height={CANVAS_SIZE} />
+                    </ClipPath>
+                  </Defs>
+                  {/* Colored text progressively revealed by the clip */}
+                  <SvgText
+                    x={CANVAS_SIZE / 2}
+                    y={CANVAS_SIZE * 0.70}
+                    fontSize={CANVAS_SIZE * 0.55}
+                    textAnchor="middle"
+                    fill={colors.primary}
+                    fillOpacity={0.82}
+                    fontFamily="serif"
+                    clipPath={`url(#${clipId})`}
+                  >
+                    {character.char}
+                  </SvgText>
+                  {/* Cursor dot at the leading edge */}
+                  {revealFraction < 1 && (
+                    <SvgCircle
+                      cx={revealX}
+                      cy={cursorY}
+                      r={CANVAS_SIZE * 0.028}
+                      fill={colors.primary}
+                      fillOpacity={0.92}
+                    />
+                  )}
+                </>
+              );
+            })()}
 
             {/* Start indicator: green dot at the approximate writing start.
                 Shown after animation ends, disappears once the user draws. */}
