@@ -200,6 +200,108 @@ function scoreTrace(drawn: Point[], guide: Point[]): number {
   return Math.max(0, Math.min(100, Math.round(100 - avgDist * 2)));
 }
 
+// ── Interior coverage scoring ─────────────────────────────────────────────────
+//
+// The old Chamfer metric compared user strokes against the *outline* of the
+// filled glyph.  Font outlines are the PERIMETER of a filled shape — a stroke
+// drawn naturally through the centre of a letter has high distance to the
+// outline and therefore a low (wrong) score.
+//
+// Coverage scoring asks instead: what fraction of the character's filled
+// interior did the user's strokes reach?  Drawing through the middle scores
+// well; random scribbles outside the shape score poorly.
+
+/** Cross product used by the winding-number inside test. */
+function cross2(a: Point, b: Point, pt: Point): number {
+  return (b.x - a.x) * (pt.y - a.y) - (pt.x - a.x) * (b.y - a.y);
+}
+
+/**
+ * Winding number test over multiple polygon subpaths (nonzero fill rule,
+ * matching TrueType / font-outline winding).  Returns non-zero when `pt` is
+ * inside the combined shape.
+ */
+function windingInSubpaths(pt: Point, subpaths: Point[][]): number {
+  let wn = 0;
+  for (const poly of subpaths) {
+    const n = poly.length;
+    for (let i = 0; i < n - 1; i++) {
+      const a = poly[i], b = poly[i + 1];
+      if (a.y <= pt.y) {
+        if (b.y > pt.y && cross2(a, b, pt) > 0) wn++;
+      } else {
+        if (b.y <= pt.y && cross2(a, b, pt) < 0) wn--;
+      }
+    }
+  }
+  return wn;
+}
+
+/**
+ * Sample a grid of points from INSIDE the filled glyph shape using a
+ * winding-number test against the parsed subpath polylines.
+ * Coordinates are in the same 0-100 space as the guide SVG path.
+ */
+function getInteriorPoints(svgPathD: string, gridN = 16): Point[] {
+  const subpaths = parseSvgSubpaths(svgPathD).filter((sp) => sp.length > 2);
+  if (subpaths.length === 0) return [];
+  const allPts = subpaths.flat();
+  const minX = Math.min(...allPts.map((p) => p.x));
+  const maxX = Math.max(...allPts.map((p) => p.x));
+  const minY = Math.min(...allPts.map((p) => p.y));
+  const maxY = Math.max(...allPts.map((p) => p.y));
+  const interior: Point[] = [];
+  for (let i = 0; i <= gridN; i++) {
+    for (let j = 0; j <= gridN; j++) {
+      const x = minX + (maxX - minX) * (i / gridN);
+      const y = minY + (maxY - minY) * (j / gridN);
+      if (windingInSubpaths({ x, y }, subpaths) !== 0) interior.push({ x, y });
+    }
+  }
+  return interior;
+}
+
+/**
+ * For text-mode characters (guide = ""), approximate the reference region as
+ * a centre-weighted grid covering where the character text is rendered.
+ * (SvgText baseline at 70 %, fontSize 55 % → cap-top ≈ 18 % of canvas height.)
+ */
+function getTextReferencePoints(gridN = 10): Point[] {
+  const pts: Point[] = [];
+  for (let i = 0; i <= gridN; i++) {
+    for (let j = 0; j <= gridN; j++) {
+      pts.push({
+        x: 10 + (i / gridN) * 80,  // 10–90 % of canvas width
+        y: 18 + (j / gridN) * 58,  // 18–76 % (cap-top → baseline)
+      });
+    }
+  }
+  return pts;
+}
+
+/** In 0-100 canvas units: how close a stroke must come to "cover" a ref point. */
+const COVERAGE_TOLERANCE = 9;
+
+/**
+ * Coverage score (0-100): fraction of interior reference points reached by
+ * at least one user stroke point within COVERAGE_TOLERANCE.
+ */
+function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
+  if (referencePoints.length === 0 || strokes.length === 0) return 0;
+  const allPts = strokes.flat();
+  if (allPts.length < 3) return 0;
+  let covered = 0;
+  outer: for (const ref of referencePoints) {
+    for (const pt of allPts) {
+      if (Math.hypot(pt.x - ref.x, pt.y - ref.y) < COVERAGE_TOLERANCE) {
+        covered++;
+        continue outer;
+      }
+    }
+  }
+  return Math.round((covered / referencePoints.length) * 100);
+}
+
 // Convert an array of points to an SVG path string for live drawing.
 function pointsToPath(points: Point[], size: number): string {
   if (points.length < 2) return '';
@@ -211,7 +313,7 @@ function pointsToPath(points: Point[], size: number): string {
 }
 
 const CANVAS_SIZE = Math.min(Dimensions.get('window').width - 48, 300);
-const PASS_THRESHOLD = 70;
+const PASS_THRESHOLD = 40; // % interior coverage needed to pass
 const ANIM_DURATION_MS = 2200;
 
 // ── Animation helper ───────────────────────────────────────────────────────────
@@ -372,10 +474,12 @@ function TraceCanvas({
   character,
   onResult,
   guidePoints,
+  interiorPoints,
 }: {
   character: TraceCharacter;
   onResult: (score: number, passed: boolean) => void;
   guidePoints: Point[];
+  interiorPoints: Point[];
 }) {
   const colors = useColors();
   const [drawnPath, setDrawnPath] = useState('');
@@ -388,6 +492,11 @@ function TraceCanvas({
   const allStrokesRef = useRef<Point[][]>([]);
   // Pending debounce: score fires 1.2 s after the last finger lift.
   const scoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Amber dots for uncovered interior regions shown after a failed attempt.
+  const [failedPoints, setFailedPoints] = useState<Point[] | null>(null);
+  // Live coverage % shown below the canvas while drawing.
+  const [liveCoverage, setLiveCoverage] = useState<number | null>(null);
+  const lastCoverageTimeRef = useRef<number>(0);
 
   // ── Stroke-order animation state ──
   const animFrameRef = useRef<number | null>(null);
@@ -399,10 +508,21 @@ function TraceCanvas({
   const animSpeedRef = useRef<number>(1);
   const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
 
-  // Split the guide into per-stroke subpath strings for the fill-reveal animation.
+  // Split the guide into per-stroke subpath strings for the dashoffset animation.
   const guideSubpaths = React.useMemo(
     () => splitGuideSubpaths(character.guide),
     [character.guide],
+  );
+  // Pre-compute each subpath's arc length (0-100 space) for the dash animation.
+  const guideSubpathLengths = React.useMemo(
+    () => guideSubpaths.map((subStr) => {
+      const pts = parseSvgSubpaths(subStr)[0] ?? [];
+      let len = 0;
+      for (let i = 1; i < pts.length; i++)
+        len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      return len;
+    }),
+    [guideSubpaths],
   );
 
   const startAnim = useCallback(() => {
@@ -502,6 +622,13 @@ function TraceCanvas({
       });
       // Re-render: all completed strokes + current in-progress stroke.
       setDrawnPath(buildAllPath(drawnRef.current));
+      // Throttled live coverage update (at most every 150 ms).
+      const now = Date.now();
+      if (now - lastCoverageTimeRef.current > 150) {
+        lastCoverageTimeRef.current = now;
+        const partial = [...allStrokesRef.current, [...drawnRef.current]];
+        setLiveCoverage(scoreCoverage(partial, interiorPoints));
+      }
     })
     .onFinalize(() => {
       if (!isDrawingRef.current) return;
@@ -514,22 +641,28 @@ function TraceCanvas({
       drawnRef.current = [];
       setDrawnPath(buildAllPath());
 
-      // Text-mode: any completed trace auto-passes (no SVG guide to score).
-      if (!character.guide) {
-        onResult(100, true);
-        return;
-      }
-
       // Debounce: score the full accumulated drawing 1.2 s after the last lift.
       // If the user touches down again before the timer fires, onBegin cancels
       // it — so the score only triggers when they're genuinely done drawing.
+      // Text-mode characters use the same coverage scoring (no more auto-pass).
       scoreTimerRef.current = setTimeout(() => {
         scoreTimerRef.current = null;
-        const allPoints = allStrokesRef.current.flat();
-        if (allPoints.length < 5) return;
-        const score = scoreTrace(allPoints, guidePoints);
+        if (allStrokesRef.current.every(s => s.length < 2)) return;
+        const score = scoreCoverage(allStrokesRef.current, interiorPoints);
         const passed = score >= PASS_THRESHOLD;
-        if (!passed) triggerPulse();
+        setLiveCoverage(score);
+        if (!passed) {
+          triggerPulse();
+          // Mark the uncovered interior points as amber dots.
+          const allPts = allStrokesRef.current.flat();
+          const uncovered = interiorPoints.filter(ref =>
+            allPts.every(pt => Math.hypot(pt.x - ref.x, pt.y - ref.y) >= COVERAGE_TOLERANCE)
+          );
+          const toShow = uncovered.length > 80 ? uncovered.filter((_, i) => i % 2 === 0) : uncovered;
+          setFailedPoints(toShow.length > 0 ? toShow : null);
+        } else {
+          setFailedPoints(null);
+        }
         onResult(score, passed);
       }, 1200);
     });
@@ -543,6 +676,9 @@ function TraceCanvas({
     drawnRef.current = [];
     setDrawnPath('');
     setGuidePulsed(false);
+    setFailedPoints(null);
+    setLiveCoverage(null);
+    lastCoverageTimeRef.current = 0;
   };
 
 
@@ -606,29 +742,31 @@ function TraceCanvas({
               </SvgText>
             )}
 
-            {/* Fill-reveal animation: each stroke shape fills in sequentially.
-                Paints each ink region with primary colour one at a time so the
-                user sees the strokes of the character appearing. Hidden for
-                text-mode characters (guide="") since there are no SVG subpaths. */}
+            {/* Stroke-dashoffset animation: each subpath contour is drawn in
+                progressively so the learner sees the shape forming through
+                motion rather than just filling in. */}
             {animProgress !== null && character.guide && guideSubpaths.map((subStr, idx) => {
               const n = guideSubpaths.length;
               const segStart = idx / n;
               const segEnd = (idx + 1) / n;
-              if (animProgress <= segStart) return null;
-              const alpha =
-                Math.min(
-                  (animProgress - segStart) / Math.max(segEnd - segStart, 0.001),
-                  1,
-                ) * 0.72;
+              if ((animProgress ?? 0) <= segStart) return null;
+              const segProgress = Math.min(
+                ((animProgress ?? 0) - segStart) / Math.max(segEnd - segStart, 0.001),
+                1,
+              );
+              const subLen = guideSubpathLengths[idx] ?? 200;
               return (
                 <SvgPath
                   key={idx}
                   d={subStr}
                   scale={guideScale}
-                  fill={colors.primary}
-                  fillOpacity={alpha}
-                  fillRule="nonzero"
-                  stroke="none"
+                  fill="none"
+                  stroke={colors.primary}
+                  strokeWidth={3.5}
+                  strokeDasharray={subLen}
+                  strokeDashoffset={subLen * (1 - segProgress)}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               );
             })}
@@ -709,6 +847,19 @@ function TraceCanvas({
                 fill="none"
               />
             ) : null}
+
+            {/* Missed-region dots: amber circles on uncovered interior points
+                after a failed attempt — shows exactly where to focus next. */}
+            {failedPoints && failedPoints.map((pt, i) => (
+              <SvgCircle
+                key={`fp-${i}`}
+                cx={pt.x * guideScale}
+                cy={pt.y * guideScale}
+                r={CANVAS_SIZE * 0.016}
+                fill="#f59e0b"
+                fillOpacity={0.65}
+              />
+            ))}
           </Svg>
         </View>
       </GestureDetector>
@@ -760,6 +911,16 @@ function TraceCanvas({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Live coverage feedback — shown while drawing and after scoring */}
+      {liveCoverage !== null && (
+        <Text style={[styles.traceHint, {
+          color: liveCoverage >= PASS_THRESHOLD ? '#22c55e' : colors.mutedForeground,
+          fontFamily: AppFonts.semibold,
+        }]}>
+          {liveCoverage}% covered{liveCoverage >= PASS_THRESHOLD ? ' ✓' : ''}
+        </Text>
+      )}
     </View>
   );
 }
@@ -785,6 +946,14 @@ function TraceSession({
   const character = chapter.characters[charIndex];
   const guidePoints = React.useMemo(
     () => (character ? parseSvgPath(character.guide) : []),
+    [character],
+  );
+  const interiorPoints = React.useMemo(
+    () => (character
+      ? character.guide
+        ? getInteriorPoints(character.guide)
+        : getTextReferencePoints()
+      : []),
     [character],
   );
 
@@ -898,6 +1067,7 @@ function TraceSession({
           character={character}
           onResult={handleResult}
           guidePoints={guidePoints}
+          interiorPoints={interiorPoints}
         />
       )}
 
