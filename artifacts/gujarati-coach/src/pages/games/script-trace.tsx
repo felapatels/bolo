@@ -317,11 +317,41 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
 /**
  * Split the composite guide path into individual per-stroke subpath strings.
  * Each returned string is one closed stroke shape (starts with M, self-contained).
- * The fill-reveal animation paints these shapes in one at a time so the user
- * sees each ink region appear, not a dot tracing the letter's outer edge.
  */
 function splitGuideSubpaths(d: string): string[] {
   return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
+}
+
+/**
+ * Build a boustrophedon (snake-scan) set of paths through interior reference points.
+ * Groups points into horizontal rows (within ±4 units of Y), alternating L→R and
+ * R→L so the animated "pen" sweeps continuously through the character's interior —
+ * instead of tracing the outer boundary of the glyph outline.
+ */
+function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> {
+  if (pts.length === 0) return [];
+  const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows: Point[][] = [];
+  let row: Point[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].y - row[0].y > 4) { rows.push(row); row = []; }
+    row.push(sorted[i]);
+  }
+  if (row.length > 0) rows.push(row);
+
+  return rows.map((r, i) => {
+    const ordered = i % 2 === 0
+      ? [...r].sort((a, b) => a.x - b.x)
+      : [...r].sort((a, b) => b.x - a.x);
+    let d = `M ${ordered[0].x} ${ordered[0].y}`;
+    let length = 0;
+    for (let j = 1; j < ordered.length; j++) {
+      length += Math.hypot(ordered[j].x - ordered[j - 1].x, ordered[j].y - ordered[j - 1].y);
+      d += ` L ${ordered[j].x} ${ordered[j].y}`;
+    }
+    if (ordered.length === 1) { d += ` L ${ordered[0].x + 0.5} ${ordered[0].y}`; length = 0.5; }
+    return { d, length: Math.max(length, 0.5) };
+  });
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -509,17 +539,12 @@ function ScriptTraceCanvas({
   const animProgressRef = useRef<number | null>(0); // null = not playing
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Pre-compute each subpath's arc length (0-100 space) for the dashoffset animation.
-  const guideSubpathLengths = useMemo(() => {
-    if (!character.guide) return [];
-    return splitGuideSubpaths(character.guide).map((subStr) => {
-      const pts = parseSvgSubpaths(subStr)[0] ?? [];
-      let len = 0;
-      for (let i = 1; i < pts.length; i++)
-        len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      return len;
-    });
-  }, [character.guide]);
+  // Build scanline paths through the character's interior for the demo animation.
+  // Sweeps row-by-row so the animated pen moves inside the letter, not around its edge.
+  const scanlinePaths = useMemo(
+    () => buildScanlinePaths(interiorPoints),
+    [interiorPoints],
+  );
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -566,17 +591,17 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
 
-    // ── Stroke-dashoffset animation: each subpath contour is "drawn in" progressively ──
-    // The outline of each ink region appears to be traced by a moving pen so
-    // the learner sees the shape forming through motion rather than filling in.
+    // ── Interior scanline animation ──────────────────────────────────────────────
+    // Each horizontal row of the character's filled region is drawn in sequence
+    // so the animated "pen" sweeps through the inside of the letter rather than
+    // tracing its outer boundary.
     const animT = animProgressRef.current;
     if (animT !== null && animT > 0 && character.guide) {
-      const subStrs = splitGuideSubpaths(character.guide);
-      const n = subStrs.length;
+      const n = scanlinePaths.length;
       if (n > 0) {
         ctx.save();
         ctx.scale(W / 100, H / 100);
-        subStrs.forEach((subStr, idx) => {
+        scanlinePaths.forEach(({ d, length }, idx) => {
           const segStart = idx / n;
           const segEnd = (idx + 1) / n;
           if (animT <= segStart) return;
@@ -584,12 +609,11 @@ function ScriptTraceCanvas({
             (animT - segStart) / Math.max(segEnd - segStart, 0.001),
             1,
           );
-          const subLen = guideSubpathLengths[idx] ?? 200;
-          const path = new Path2D(subStr);
-          ctx.setLineDash([subLen]);
-          ctx.lineDashOffset = subLen * (1 - segProgress);
+          const path = new Path2D(d);
+          ctx.setLineDash([length]);
+          ctx.lineDashOffset = length * (1 - segProgress);
           ctx.strokeStyle = PRIMARY;
-          ctx.lineWidth = 3.5;
+          ctx.lineWidth = 4;
           ctx.lineCap = "round";
           ctx.lineJoin = "round";
           ctx.globalAlpha = 0.85;
@@ -710,7 +734,7 @@ function ScriptTraceCanvas({
       }
       ctx.restore();
     }
-  }, [character.guide, character.char, pulseGuide, guidePoints, guideSubpathLengths]);
+  }, [character.guide, character.char, pulseGuide, guidePoints, scanlinePaths]);
 
   // Start the stroke-order animation
   const startAnim = useCallback(() => {

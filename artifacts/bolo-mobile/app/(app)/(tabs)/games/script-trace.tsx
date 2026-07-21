@@ -321,11 +321,41 @@ const ANIM_DURATION_MS = 2200;
 /**
  * Split the composite guide path into individual per-stroke subpath strings.
  * Each returned string is one closed stroke shape (starts with M, self-contained).
- * The fill-reveal animation paints these shapes in one at a time so the user
- * sees each ink region appear, not a dot tracing the letter's outer edge.
  */
 function splitGuideSubpaths(d: string): string[] {
   return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
+}
+
+/**
+ * Build a boustrophedon (snake-scan) set of paths through interior reference points.
+ * Groups points into horizontal rows (within ±4 units of Y), alternating L→R and
+ * R→L so the animated "pen" sweeps continuously through the character's interior —
+ * instead of tracing the outer boundary of the glyph outline.
+ */
+function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> {
+  if (pts.length === 0) return [];
+  const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows: Point[][] = [];
+  let row: Point[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].y - row[0].y > 4) { rows.push(row); row = []; }
+    row.push(sorted[i]);
+  }
+  if (row.length > 0) rows.push(row);
+
+  return rows.map((r, i) => {
+    const ordered = i % 2 === 0
+      ? [...r].sort((a, b) => a.x - b.x)
+      : [...r].sort((a, b) => b.x - a.x);
+    let d = `M ${ordered[0].x} ${ordered[0].y}`;
+    let length = 0;
+    for (let j = 1; j < ordered.length; j++) {
+      length += Math.hypot(ordered[j].x - ordered[j - 1].x, ordered[j].y - ordered[j - 1].y);
+      d += ` L ${ordered[j].x} ${ordered[j].y}`;
+    }
+    if (ordered.length === 1) { d += ` L ${ordered[0].x + 0.5} ${ordered[0].y}`; length = 0.5; }
+    return { d, length: Math.max(length, 0.5) };
+  });
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -508,21 +538,12 @@ function TraceCanvas({
   const animSpeedRef = useRef<number>(1);
   const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
 
-  // Split the guide into per-stroke subpath strings for the dashoffset animation.
-  const guideSubpaths = React.useMemo(
-    () => splitGuideSubpaths(character.guide),
-    [character.guide],
-  );
-  // Pre-compute each subpath's arc length (0-100 space) for the dash animation.
-  const guideSubpathLengths = React.useMemo(
-    () => guideSubpaths.map((subStr) => {
-      const pts = parseSvgSubpaths(subStr)[0] ?? [];
-      let len = 0;
-      for (let i = 1; i < pts.length; i++)
-        len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      return len;
-    }),
-    [guideSubpaths],
+  // Build scanline paths through the character's interior for the demo animation.
+  // These sweep row-by-row through the filled region so the "pen" moves inside
+  // the letter rather than tracing its outer boundary.
+  const scanlinePaths = React.useMemo(
+    () => buildScanlinePaths(interiorPoints),
+    [interiorPoints],
   );
 
   const startAnim = useCallback(() => {
@@ -742,11 +763,11 @@ function TraceCanvas({
               </SvgText>
             )}
 
-            {/* Stroke-dashoffset animation: each subpath contour is drawn in
-                progressively so the learner sees the shape forming through
-                motion rather than just filling in. */}
-            {animProgress !== null && character.guide && guideSubpaths.map((subStr, idx) => {
-              const n = guideSubpaths.length;
+            {/* Interior scanline animation: each horizontal row of the character's
+                filled region is drawn in sequence so the "pen" sweeps through the
+                inside of the letter rather than tracing its outer boundary. */}
+            {animProgress !== null && character.guide && scanlinePaths.map(({ d, length }, idx) => {
+              const n = scanlinePaths.length;
               const segStart = idx / n;
               const segEnd = (idx + 1) / n;
               if ((animProgress ?? 0) <= segStart) return null;
@@ -754,17 +775,16 @@ function TraceCanvas({
                 ((animProgress ?? 0) - segStart) / Math.max(segEnd - segStart, 0.001),
                 1,
               );
-              const subLen = guideSubpathLengths[idx] ?? 200;
               return (
                 <SvgPath
                   key={idx}
-                  d={subStr}
+                  d={d}
                   scale={guideScale}
                   fill="none"
                   stroke={colors.primary}
-                  strokeWidth={3.5}
-                  strokeDasharray={subLen}
-                  strokeDashoffset={subLen * (1 - segProgress)}
+                  strokeWidth={4}
+                  strokeDasharray={length}
+                  strokeDashoffset={length * (1 - segProgress)}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
