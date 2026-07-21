@@ -620,6 +620,67 @@ function pointAtLength(pts: Point[], dist: number): Point {
   return pts[pts.length - 1];
 }
 
+// ── Word/phrase animation helpers ─────────────────────────────────────────────
+//
+// For word-stage entries (guide = ""), decompose the string into grapheme
+// clusters, look up each letter's guide path from the alphabet chapters, and
+// tile their skeleton strokes side-by-side in the 0-100 canvas space so the
+// existing pen-stroke drawing code works without modification.
+
+function splitGraphemeClustersWeb(str: string): string[] {
+  try {
+    if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
+      return Array.from(
+        new (Intl as any).Segmenter().segment(str),
+      ).map((s: any) => s.segment as string);
+    }
+  } catch {}
+  return [...str];
+}
+
+const CHAR_GUIDE_MAP_WEB: Map<string, string> = new Map(
+  SCRIPT_TRACE_CHAPTERS.flatMap((ch) =>
+    ch.characters
+      .filter((c) => c.guide)
+      .map((c) => [c.char, c.guide] as [string, string]),
+  ),
+);
+
+/**
+ * Build 0-100-space pen strokes for a word/phrase by tiling each letter's
+ * skeleton strokes in equal horizontal slots.  The result plugs directly into
+ * the existing penStrokes / penStrokeFracs / canvas-drawing pipeline so the
+ * word animation is the same quality as the single-letter demo.
+ */
+function buildWordPenStrokesWeb(word: string): Point[][] {
+  const clusters = splitGraphemeClustersWeb(word).filter((c) => c.trim() !== '');
+  const guided = clusters
+    .map((c) => ({ cluster: c, guide: CHAR_GUIDE_MAP_WEB.get(c) ?? '' }))
+    .filter((x) => x.guide);
+  if (guided.length === 0) return [];
+
+  const n = guided.length;
+  // Each slot is 100/n wide in the 0-100 canvas space.
+  const slotW = 100 / n;
+  const charScale = (slotW / 100) * 0.82;
+  const yOffset = (100 - charScale * 100) / 2;
+
+  const result: Point[][] = [];
+  for (let ci = 0; ci < n; ci++) {
+    const xOffset = ci * slotW + (slotW - charScale * 100) / 2;
+    for (const stroke of extractStrokes(guided[ci].guide)) {
+      if (stroke.length < 2) continue;
+      result.push(
+        stroke.map((p) => ({
+          x: xOffset + p.x * charScale,
+          y: yOffset + p.y * charScale,
+        })),
+      );
+    }
+  }
+  return result;
+}
+
 // ── Language → chapter mapping ────────────────────────────────────────────────
 
 /** Maps a language code to the Script Trace chapter IDs for its script. */
@@ -810,8 +871,10 @@ function ScriptTraceCanvas({
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // time fractions proportional to stroke length.
   const penStrokes = useMemo(
-    () => (character.guide ? extractStrokes(character.guide) : []),
-    [character.guide],
+    () => character.guide
+      ? extractStrokes(character.guide)
+      : buildWordPenStrokesWeb(character.char),
+    [character.guide, character.char],
   );
   const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
 
@@ -865,7 +928,7 @@ function ScriptTraceCanvas({
     // visible, the active stroke draws on progressively with a pen dot at its
     // tip — exactly how the letter is written by hand.
     const animT = animProgressRef.current;
-    if (animT !== null && animT > 0 && character.guide && penStrokes.length > 0) {
+    if (animT !== null && animT > 0 && penStrokes.length > 0) {
       ctx.save();
       ctx.strokeStyle = PRIMARY;
       ctx.lineWidth = W * 0.032;
@@ -911,7 +974,7 @@ function ScriptTraceCanvas({
     // ── Text-mode "writing" animation ────────────────────────────────────────
     // Progressive left-to-right reveal so the learner watches the character
     // being drawn rather than seeing a static or pulsing placeholder.
-    if (animT !== null && !character.guide) {
+    if (animT !== null && !character.guide && penStrokes.length === 0) {
       const fontSize = Math.max(W * 0.45, 30);
       ctx.font = `bold ${fontSize}px serif`;
       ctx.textAlign = "center";

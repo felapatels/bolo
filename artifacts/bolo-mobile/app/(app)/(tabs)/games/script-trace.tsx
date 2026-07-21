@@ -635,6 +635,123 @@ type PenTipStroke = {
   end: number;
 };
 
+// ── Word/phrase animation helpers ─────────────────────────────────────────────
+//
+// For word-stage entries (guide = ""), we decompose the string into its
+// constituent grapheme clusters, look up each letter's guide path from the
+// alphabet chapter data, and tile their skeleton pen strokes side-by-side
+// across the canvas — giving learners a correct stroke-order demo for each
+// letter in the word instead of a meaningless left-to-right sweep.
+
+/** Split a string into Unicode grapheme clusters (user-perceived characters). */
+function splitGraphemeClusters(str: string): string[] {
+  try {
+    // Intl.Segmenter available on modern Hermes / iOS 17+ / Android 13+
+    if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
+      return Array.from(
+        new (Intl as any).Segmenter().segment(str),
+      ).map((s: any) => s.segment as string);
+    }
+  } catch {}
+  return [...str]; // Unicode code-point split as fallback
+}
+
+/** char → SVG guide path, built once from all alphabet chapter data. */
+const CHAR_GUIDE_MAP: Map<string, string> = new Map(
+  SCRIPT_TRACE_CHAPTERS.flatMap((ch) =>
+    ch.characters
+      .filter((c) => c.guide)
+      .map((c) => [c.char, c.guide] as [string, string]),
+  ),
+);
+
+type WordPenData = {
+  pathDs: string[];
+  pathLens: number[];
+  fracs: { start: number; end: number }[];
+  tipStrokes: PenTipStroke[];
+};
+
+const EMPTY_WORD_PEN_DATA: WordPenData = {
+  pathDs: [],
+  pathLens: [],
+  fracs: [],
+  tipStrokes: [],
+};
+
+/**
+ * Build canvas-pixel pen-stroke animation data for a word/phrase.
+ * Each grapheme cluster whose guide path is known gets its skeleton strokes
+ * tiled in an equal horizontal slot; the result plugs straight into the
+ * same AnimPenStroke / AnimPenTip components used for single letters
+ * (scale=1, coordinates already in canvas pixels).
+ */
+function buildWordPenData(word: string): WordPenData {
+  const clusters = splitGraphemeClusters(word).filter((c) => c.trim() !== '');
+  const guided = clusters
+    .map((c) => ({ cluster: c, guide: CHAR_GUIDE_MAP.get(c) ?? '' }))
+    .filter((x) => x.guide);
+
+  if (guided.length === 0) return EMPTY_WORD_PEN_DATA;
+
+  const n = guided.length;
+  const slotW = CANVAS_SIZE / n;
+  // Uniform square scale: each character fills 82 % of its horizontal slot.
+  const charScale = (slotW / 100) * 0.82;
+  const yOffset = (CANVAS_SIZE - charScale * 100) / 2;
+
+  const allDs: string[] = [];
+  const allLens: number[] = [];
+  const allCanvasPts: Point[][] = [];
+
+  for (let ci = 0; ci < n; ci++) {
+    const xOffset = ci * slotW + (slotW - charScale * 100) / 2;
+    const strokes = extractStrokes(guided[ci].guide);
+    for (const stroke of strokes) {
+      if (stroke.length < 2) continue;
+      // Transform from 0–100 guide space to canvas pixels.
+      const pts = stroke.map((p) => ({
+        x: xOffset + p.x * charScale,
+        y: yOffset + p.y * charScale,
+      }));
+      let d = `M ${pts[0].x} ${pts[0].y}`;
+      for (let j = 1; j < pts.length; j++) d += ` L ${pts[j].x} ${pts[j].y}`;
+      allDs.push(d);
+      allLens.push(polylineLength(pts));
+      allCanvasPts.push(pts);
+    }
+  }
+
+  if (allDs.length === 0) return EMPTY_WORD_PEN_DATA;
+
+  // Time fractions proportional to canvas-space stroke length.
+  const totalLen = allLens.reduce((s, l) => s + l, 0);
+  const fracs: { start: number; end: number }[] = [];
+  let acc = 0;
+  for (const len of allLens) {
+    fracs.push({ start: acc / totalLen, end: (acc + len) / totalLen });
+    acc += len;
+  }
+
+  const tipStrokes: PenTipStroke[] = allCanvasPts.map((pts, i) => {
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const cum = [0];
+    for (let j = 1; j < xs.length; j++)
+      cum.push(cum[j - 1] + Math.hypot(xs[j] - xs[j - 1], ys[j] - ys[j - 1]));
+    return {
+      xs,
+      ys,
+      cum,
+      len: cum[cum.length - 1] ?? 0,
+      start: fracs[i].start,
+      end: fracs[i].end,
+    };
+  });
+
+  return { pathDs: allDs, pathLens: allLens, fracs, tipStrokes };
+}
+
 const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
 const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
 const AnimatedSvgRect = Animated.createAnimatedComponent(SvgRect);
@@ -945,6 +1062,13 @@ function TraceCanvas({
     [penStrokes, penStrokeFracs],
   );
 
+  // Word/phrase mode: per-character pen strokes tiled across the canvas.
+  const wordPenData = React.useMemo<WordPenData>(
+    () => (character.guide ? EMPTY_WORD_PEN_DATA : buildWordPenData(character.char)),
+    [character.guide, character.char],
+  );
+  const wordPenMode = !character.guide && wordPenData.pathDs.length > 0;
+
   // Animated props for the text-mode reveal: clip-path rect grows left-to-right,
   // cursor dot tracks its leading edge — both driven on the UI thread.
   const textRevealRectProps = useAnimatedProps(() => {
@@ -989,9 +1113,9 @@ function TraceCanvas({
 
     const duration = ANIM_DURATION_MS / animSpeedRef.current;
 
-    if (penMode) {
-      // Smooth UI-thread animation: one shared value drives every stroke's
-      // dash reveal plus the pen tip (see AnimPenStroke / AnimPenTip).
+    if (penMode || wordPenMode) {
+      // Single shared value drives letter or word per-character pen strokes on
+      // the UI thread (AnimPenStroke / AnimPenTip handle both cases).
       penProgress.value = 0;
       setPenAnimVisible(true);
       setIsAnimating(true);
@@ -1001,15 +1125,14 @@ function TraceCanvas({
       return;
     }
 
-    // Text-mode: Reanimated reveal — shared value drives the clip-rect width
-    // and cursor dot on the UI thread (same pattern as pen-mode, no rAF setState).
+    // Fallback for characters with no known guide data: Reanimated clip-rect reveal.
     textRevealProgress.value = 0;
     setTextAnimVisible(true);
     setIsAnimating(true);
     textRevealProgress.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
       if (finished) runOnJS(finishTextAnim)();
     });
-  }, [penMode, penProgress, textRevealProgress, finishPenAnim, finishTextAnim]);
+  }, [penMode, wordPenMode, penProgress, textRevealProgress, finishPenAnim, finishTextAnim]);
 
   const toggleSpeed = useCallback(() => {
     const next: 1 | 0.5 = animSpeedRef.current === 1 ? 0.5 : 1;
@@ -1217,25 +1340,25 @@ function TraceCanvas({
                 its tip, exactly how the letter is written by hand. All strokes
                 mount once; a single shared value animates them on the UI
                 thread for a smooth, continuous drawing motion. */}
-            {penMode && penAnimVisible && (
+            {penAnimVisible && (penMode || wordPenMode) && (
               <>
-                {penStrokes.map((stroke, i) =>
-                  stroke.length < 2 ? null : (
+                {(penMode ? penStrokeDs : wordPenData.pathDs).map((d, i) =>
+                  d.length === 0 ? null : (
                     <AnimPenStroke
                       key={`pen-${i}`}
                       progress={penProgress}
-                      d={penStrokeDs[i]}
-                      len={penStrokeLens[i]}
-                      start={penStrokeFracs[i].start}
-                      end={penStrokeFracs[i].end}
-                      scale={guideScale}
+                      d={d}
+                      len={(penMode ? penStrokeLens : wordPenData.pathLens)[i]}
+                      start={(penMode ? penStrokeFracs : wordPenData.fracs)[i].start}
+                      end={(penMode ? penStrokeFracs : wordPenData.fracs)[i].end}
+                      scale={penMode ? guideScale : 1}
                       color={colors.primary}
                     />
                   ),
                 )}
                 <AnimPenTip
                   progress={penProgress}
-                  strokes={penTipData}
+                  strokes={penMode ? penTipData : wordPenData.tipStrokes}
                   r={CANVAS_SIZE * 0.028}
                   color={colors.primary}
                 />
@@ -1245,7 +1368,7 @@ function TraceCanvas({
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
                 driven by a Reanimated shared value on the UI thread — same pattern
                 as pen-mode; avoids per-frame React re-renders that made it choppy. */}
-            {textAnimVisible && !character.guide && (
+            {textAnimVisible && !character.guide && !wordPenMode && (
               <>
                 <Defs>
                   <ClipPath id="trace-write-reveal">
