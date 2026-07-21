@@ -59,5 +59,5 @@
 - [AVPlayer double-fetch](avplayer-double-fetch.md) — iOS AVPlayer requests the same audio URL twice; one-shot streams must stay re-servable or playback is silently dropped.
 - [Chat voice streaming](chat-voice-streaming.md) — SSE audioChunk protocol is opt-in via X-Audio-Stream header; audioDone is the commit signal; MSE audio/mpeg on web, Safari/mobile fall back to full clip.
 - [Script Trace glyph guides](script-trace-glyph-guides.md) — guides are generated font outlines (M/L/Q/C only); scorer must be direction-independent Chamfer; render raw d, not sampled polyline.
-- [Script Trace coverage scoring](script-trace-coverage-scoring.md) — interior coverage (40% pass) replaced Chamfer; animation is stroke-dashoffset; text-mode no longer auto-passes.
+- [Script Trace coverage scoring](script-trace-coverage-scoring.md) — interior coverage (40% pass) replaced Chamfer; demo animates skeleton pen strokes (merge-before-prune!); text-mode no longer auto-passes.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.

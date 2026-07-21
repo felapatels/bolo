@@ -1,37 +1,35 @@
 import { describe, test, expect } from "vitest";
-import { parseSvgPath, scoreTrace, PASS_THRESHOLD } from "@/pages/games/script-trace";
+import {
+  parseSvgPath,
+  getInteriorPoints,
+  scoreCoverage,
+  extractStrokes,
+  PASS_THRESHOLD,
+} from "@/pages/games/script-trace";
 import { SCRIPT_TRACE_CHAPTERS } from "@/data/script-trace-chapters";
 
 // ---------------------------------------------------------------------------
-// Guides are font-accurate glyph outlines with multiple subpaths (contours).
-// These tests guard two invariants:
-//  1. parseSvgPath never fabricates "connector" geometry between contours —
-//     each M starts an independent subpath.
-//  2. scoreTrace (symmetric Chamfer) passes honest traces and fails
-//     off-target scribbles at PASS_THRESHOLD.
+// Guides are font-accurate glyph outlines (filled shapes, multiple contours).
 //
-// Extended with realistic "device-like" trace simulations to confirm the
-// PASS_THRESHOLD=70 feels fair on real devices:
+// Scoring is INTERIOR COVERAGE: what fraction of the glyph's filled interior
+// (a grid of reference points) the user's strokes reached, with a tolerance
+// radius around each drawn point. Drawing through the middle of the letter
+// scores well; scribbles outside the shape score poorly. PASS_THRESHOLD is
+// the minimum coverage % to pass.
 //
-//   - Honest traces with realistic finger wobble (±4–7 units on a 0–100 grid)
-//     all score 89–93, giving a comfortable 19+ point margin above the
-//     threshold. This confirms the threshold is not too strict.
-//
-//   - The scoring uses a normalised Chamfer distance, so dense space-filling
-//     traces (like a bounding-box zigzag) score high because after normalisation
-//     they cover the same spatial region as the guide. This is a known,
-//     accepted limitation: a learner who honestly fills the glyph's outline
-//     area should pass, and there is no practical stroke-order enforcement.
-//     See .agents/memory/script-trace-glyph-guides.md for the design rationale.
-//
-//   - Traces that are genuinely off-target (wrong area of the canvas) or
-//     are far too sparse reliably fail at the threshold.
+// The demo animation follows PEN STROKES extracted by skeletonizing the
+// glyph (rasterize → Zhang-Suen thinning → trace polylines → order strokes).
+// These tests guard:
+//  1. parseSvgPath never fabricates "connector" geometry between contours.
+//  2. scoreCoverage passes honest traces and fails off-target/degenerate ones.
+//  3. extractStrokes produces sane, in-glyph, ordered pen strokes for every
+//     character — and "writing the letter" the way the animation demonstrates
+//     passes the game's own scorer.
 // ---------------------------------------------------------------------------
 
 type Point = { x: number; y: number };
 
-// Deterministic LCG pseudo-random (seed-based) so tests are reproducible
-// without relying on Math.random().
+// Deterministic LCG pseudo-random (seed-based) so tests are reproducible.
 function makePrng(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -40,7 +38,7 @@ function makePrng(seed: number) {
   };
 }
 
-/** Add gaussian-ish jitter (uniform approximation) to each point in a path. */
+/** Add uniform jitter to each point in a path. */
 function jitterPath(pts: Point[], amount: number, seed = 42): Point[] {
   const rng = makePrng(seed);
   return pts.map((p) => ({
@@ -49,30 +47,46 @@ function jitterPath(pts: Point[], amount: number, seed = 42): Point[] {
   }));
 }
 
-/**
- * Simulate a real-device trace of the guide: follow the guide points, apply
- * finger-wobble jitter, and optionally translate the whole path to simulate
- * the user not starting exactly on the outline.
- */
-function simulateHonestTrace(
-  guide: Point[],
-  opts: { jitter?: number; offsetX?: number; offsetY?: number; seed?: number } = {},
-): Point[] {
-  const { jitter = 4, offsetX = 0, offsetY = 0, seed = 42 } = opts;
-  const base = guide.map((p) => ({
-    x: p.x + offsetX,
-    y: p.y + offsetY,
-  }));
-  return jitterPath(base, jitter, seed);
+/** Densify a sparse polyline so consecutive points are ≤ step apart. */
+function densify(pts: Point[], step = 2.5): Point[] {
+  if (pts.length < 2) return [...pts];
+  const out: Point[] = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.ceil(seg / step));
+    for (let k = 1; k <= n; k++) {
+      out.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n });
+    }
+  }
+  return out;
 }
 
 /**
- * Completely off-target stroke: a straight horizontal line at y=5 (top edge
- * of the canvas), far from any typical Gujarati glyph body which sits in the
- * 20–80 range of the normalised 0–100 grid.
+ * Simulate a learner writing the character the way the demo animation shows:
+ * follow each pen stroke (densified skeleton centerline) with finger wobble.
  */
-function offTargetStroke(): Point[] {
-  return Array.from({ length: 20 }, (_, i) => ({ x: 5 + i * 4.5, y: 5 }));
+function simulateWrittenTrace(strokes: Point[][], jitter: number, seed: number): Point[][] {
+  return strokes.map((s, i) => jitterPath(densify(s), jitter, seed + i * 101));
+}
+
+/** Stationary tap: a cluster of points at one spot (finger press, no drag). */
+function tapAt(x: number, y: number): Point[][] {
+  return [Array.from({ length: 12 }, (_, i) => ({ x: x + (i % 3) * 0.4, y: y + (i % 4) * 0.4 }))];
+}
+
+const allChars = SCRIPT_TRACE_CHAPTERS.flatMap((c) => c.characters);
+const guidedChars = allChars.filter((ch) => ch.guide);
+
+// Skeleton extraction is the heaviest step (~20ms/char); cache across tests.
+const strokeCache = new Map<string, Point[][]>();
+function strokesFor(guide: string): Point[][] {
+  let s = strokeCache.get(guide);
+  if (!s) {
+    s = extractStrokes(guide);
+    strokeCache.set(guide, s);
+  }
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,165 +113,237 @@ describe("parseSvgPath subpath handling", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Multi-contour guide tests
+// Coverage scoring semantics on a synthetic filled glyph
 // ---------------------------------------------------------------------------
 
-describe("scoreTrace on multi-contour guides", () => {
-  const twoBars = parseSvgPath("M 20,20 L 20,80 M 60,20 L 60,80", 80);
+// Two filled vertical bars: x∈[15,25] and x∈[55,65], y∈[15,85]. Contours are
+// closed by returning to their start point — same as real font outlines
+// (the parser supports M/L/Q/C only; there is no Z command).
+const TWO_BARS_D =
+  "M 15,15 L 25,15 L 25,85 L 15,85 L 15,15 M 55,15 L 65,15 L 65,85 L 55,85 L 55,15";
 
-  test("honest trace covering both contours passes", () => {
-    // User draws bar 1 top-to-bottom, moves across, draws bar 2 — the pen
-    // travel between bars is part of a real single-gesture trace.
-    const drawn: Point[] = [];
-    for (let y = 20; y <= 80; y += 4) drawn.push({ x: 20, y });
-    for (let x = 20; x <= 60; x += 4) drawn.push({ x, y: 80 });
-    for (let y = 80; y >= 20; y -= 4) drawn.push({ x: 60, y });
-    expect(scoreTrace(drawn, twoBars)).toBeGreaterThanOrEqual(PASS_THRESHOLD);
+describe("scoreCoverage on a synthetic two-bar glyph", () => {
+  const interior = getInteriorPoints(TWO_BARS_D);
+
+  test("filled shape yields interior reference points inside both bars", () => {
+    expect(interior.length).toBeGreaterThan(10);
+    expect(interior.some((p) => p.x >= 15 && p.x <= 25)).toBe(true);
+    expect(interior.some((p) => p.x >= 55 && p.x <= 65)).toBe(true);
+    // Nothing between the bars
+    expect(interior.some((p) => p.x > 30 && p.x < 50)).toBe(false);
   });
 
-  test("tracing only one contour fails (missing coverage)", () => {
-    const drawn: Point[] = [];
-    for (let y = 20; y <= 80; y += 2) drawn.push({ x: 20, y });
-    expect(scoreTrace(drawn, twoBars)).toBeLessThan(PASS_THRESHOLD);
+  test("honest strokes down each bar's centre pass", () => {
+    const bar = (x: number): Point[] =>
+      Array.from({ length: 36 }, (_, i) => ({ x, y: 15 + i * 2 }));
+    const drawn = [jitterPath(bar(20), 2, 7), jitterPath(bar(60), 2, 11)];
+    expect(scoreCoverage(drawn, interior)).toBeGreaterThanOrEqual(PASS_THRESHOLD);
   });
 
-  test("horizontal scribble fails", () => {
-    const drawn: Point[] = [
-      { x: 10, y: 50 },
-      { x: 90, y: 50 },
-      { x: 10, y: 52 },
-      { x: 90, y: 54 },
-      { x: 10, y: 56 },
+  test("an off-target stroke along the canvas top edge fails", () => {
+    const drawn = [Array.from({ length: 20 }, (_, i) => ({ x: 5 + i * 4.5, y: 2 }))];
+    expect(scoreCoverage(drawn, interior)).toBeLessThan(PASS_THRESHOLD);
+  });
+
+  test("a stationary tap between the bars fails", () => {
+    expect(scoreCoverage(tapAt(40, 50), interior)).toBeLessThan(PASS_THRESHOLD);
+  });
+
+  test("empty stroke list scores 0", () => {
+    expect(scoreCoverage([], interior)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Skeleton pen-stroke extraction (drives the demo animation)
+// ---------------------------------------------------------------------------
+
+describe("extractStrokes pen-stroke skeleton", () => {
+  test("two-bar glyph yields two vertical centreline strokes, left bar first, top-down", () => {
+    const strokes = extractStrokes(TWO_BARS_D);
+    expect(strokes.length).toBe(2);
+    const [first, second] = strokes;
+    // Left bar (centre x≈20) is written before the right bar (x≈60)
+    expect(first[0].x).toBeLessThan(40);
+    expect(second[0].x).toBeGreaterThan(40);
+    // Each stroke runs down the bar's centre, starting at the top
+    expect(first[0].y).toBeLessThan(30);
+    expect(first[first.length - 1].y).toBeGreaterThan(70);
+    for (const p of first) expect(Math.abs(p.x - 20)).toBeLessThan(5);
+    for (const p of second) expect(Math.abs(p.x - 60)).toBeLessThan(5);
+  });
+
+  test(
+    "every character yields non-empty strokes that stay inside the glyph bounds",
+    () => {
+      expect(guidedChars.length).toBeGreaterThan(0);
+      for (const ch of guidedChars) {
+        const strokes = strokesFor(ch.guide);
+        expect(strokes.length, `${ch.id} has no strokes`).toBeGreaterThan(0);
+
+        const outline = parseSvgPath(ch.guide);
+        const minX = Math.min(...outline.map((p) => p.x)) - 3;
+        const maxX = Math.max(...outline.map((p) => p.x)) + 3;
+        const minY = Math.min(...outline.map((p) => p.y)) - 3;
+        const maxY = Math.max(...outline.map((p) => p.y)) + 3;
+
+        let totalLen = 0;
+        for (const stroke of strokes) {
+          expect(stroke.length, `${ch.id} degenerate stroke`).toBeGreaterThanOrEqual(2);
+          for (let i = 1; i < stroke.length; i++) {
+            totalLen += Math.hypot(
+              stroke[i].x - stroke[i - 1].x,
+              stroke[i].y - stroke[i - 1].y,
+            );
+          }
+          for (const p of stroke) {
+            expect(p.x, `${ch.id} stroke point left of glyph`).toBeGreaterThanOrEqual(minX);
+            expect(p.x, `${ch.id} stroke point right of glyph`).toBeLessThanOrEqual(maxX);
+            expect(p.y, `${ch.id} stroke point above glyph`).toBeGreaterThanOrEqual(minY);
+            expect(p.y, `${ch.id} stroke point below glyph`).toBeLessThanOrEqual(maxY);
+          }
+        }
+        // The pen must travel a meaningful distance — a letter is not a dot.
+        expect(totalLen, `${ch.id} skeleton too short`).toBeGreaterThan(15);
+      }
+    },
+    60000,
+  );
+
+  test(
+    "the first stroke starts in the upper half of the glyph for most characters",
+    () => {
+      // Indic writing starts at/near the top (headline). The skeleton ordering
+      // biases top-left starts; allow exceptions for glyphs whose geometry
+      // genuinely starts lower, but the overwhelming majority must comply.
+      let upperStarts = 0;
+      for (const ch of guidedChars) {
+        const strokes = strokesFor(ch.guide);
+        const outline = parseSvgPath(ch.guide);
+        const minY = Math.min(...outline.map((p) => p.y));
+        const maxY = Math.max(...outline.map((p) => p.y));
+        const midY = (minY + maxY) / 2;
+        if (strokes[0][0].y <= midY) upperStarts++;
+      }
+      expect(upperStarts / guidedChars.length).toBeGreaterThan(0.8);
+    },
+    60000,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Real glyph coverage: honest writing passes, off-target input fails
+// ---------------------------------------------------------------------------
+
+describe("scoreCoverage on real glyphs", () => {
+  test("every guided character yields interior reference points", () => {
+    for (const ch of guidedChars) {
+      const interior = getInteriorPoints(ch.guide);
+      expect(interior.length, ch.id).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  test(
+    "writing the letter as the animation demonstrates passes for every character",
+    () => {
+      // The demo animation IS the lesson — following it with a wobbly finger
+      // must pass the game's own scorer, for every single character.
+      for (const ch of guidedChars) {
+        const interior = getInteriorPoints(ch.guide);
+        const drawn = simulateWrittenTrace(strokesFor(ch.guide), 3, 7);
+        const score = scoreCoverage(drawn, interior);
+        expect(score, `${ch.id} demo-written trace`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
+      }
+    },
+    60000,
+  );
+
+  test(
+    "a dense fill of the glyph interior passes for every character",
+    () => {
+      // A learner who colours through the whole letter body must pass.
+      for (const ch of guidedChars) {
+        const interior = getInteriorPoints(ch.guide);
+        const sorted = [...interior].sort((a, b) => a.y - b.y || a.x - b.x);
+        const drawn = [jitterPath(sorted, 3, 23)];
+        const score = scoreCoverage(drawn, interior);
+        expect(score, `${ch.id} dense fill`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
+      }
+    },
+    60000,
+  );
+
+  test("a stationary tap at the glyph centroid fails for every character", () => {
+    // Regression guard for the "tap once and pass" bug.
+    for (const ch of guidedChars) {
+      const interior = getInteriorPoints(ch.guide);
+      const cx = interior.reduce((s, p) => s + p.x, 0) / interior.length;
+      const cy = interior.reduce((s, p) => s + p.y, 0) / interior.length;
+      const score = scoreCoverage(tapAt(cx, cy), interior);
+      expect(score, `${ch.id} tap`).toBeLessThan(PASS_THRESHOLD);
+    }
+  });
+
+  test("a tap in the emptiest canvas corner fails for every character", () => {
+    const corners: Point[] = [
+      { x: 6, y: 6 },
+      { x: 94, y: 6 },
+      { x: 6, y: 94 },
+      { x: 94, y: 94 },
     ];
-    expect(scoreTrace(drawn, twoBars)).toBeLessThan(PASS_THRESHOLD);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Real glyph outline tests
-// ---------------------------------------------------------------------------
-
-describe("scoreTrace on real glyph outlines", () => {
-  const allChars = SCRIPT_TRACE_CHAPTERS.flatMap((c) => c.characters);
-
-  test("every chapter character parses into a non-trivial guide", () => {
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      expect(guide.length, ch.id).toBeGreaterThan(20);
-    }
-  });
-
-  test("tracing the glyph outline itself passes for every character", () => {
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      expect(scoreTrace(guide, guide), ch.id).toBeGreaterThanOrEqual(PASS_THRESHOLD);
-    }
-  });
-
-  test("a straight diagonal line fails for every character", () => {
-    const diagonal = Array.from({ length: 30 }, (_, i) => ({ x: i * 3, y: i * 3 }));
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      expect(scoreTrace(diagonal, guide), ch.id).toBeLessThan(PASS_THRESHOLD);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Device-realistic honest trace simulations
-//
-// These confirm the threshold is NOT too strict: a real learner who follows
-// the outline with a shaky finger still passes comfortably.
-// ---------------------------------------------------------------------------
-
-describe("device-realistic honest traces — threshold is not too strict", () => {
-  const allChars = SCRIPT_TRACE_CHAPTERS.flatMap((c) => c.characters);
-
-  test("guide traced with light finger jitter (±4 units) passes for every character", () => {
-    // Simulates a careful learner whose finger wobbles slightly from the outline.
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      const drawn = simulateHonestTrace(guide, { jitter: 4, seed: 7 });
-      const score = scoreTrace(drawn, guide);
-      expect(score, `${ch.id} jitter=4`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
-    }
-  });
-
-  test("guide traced with moderate finger jitter (±7 units) passes for every character", () => {
-    // Simulates a learner who is somewhat sloppy but genuinely follows the outline.
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      const drawn = simulateHonestTrace(guide, { jitter: 7, seed: 13 });
-      const score = scoreTrace(drawn, guide);
-      expect(score, `${ch.id} jitter=7`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
-    }
-  });
-
-  test("guide traced at a slight offset (±3 units translate) passes for every character", () => {
-    // Simulates the user placing their finger slightly off from the guide start.
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      const drawn = simulateHonestTrace(guide, { jitter: 3, offsetX: 2, offsetY: -2, seed: 21 });
-      const score = scoreTrace(drawn, guide);
-      expect(score, `${ch.id} offset`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Off-target traces — genuinely wrong area of the canvas must fail
-// ---------------------------------------------------------------------------
-
-describe("off-target traces — threshold is not too lenient for wrong-area strokes", () => {
-  const allChars = SCRIPT_TRACE_CHAPTERS.flatMap((c) => c.characters);
-
-  test("off-target stroke (far from glyph body) fails for every character", () => {
-    // Simulates a tap or stroke in the wrong area of the canvas.
-    const drawn = offTargetStroke();
-    for (const ch of allChars) {
-      const guide = parseSvgPath(ch.guide);
-      const score = scoreTrace(drawn, guide);
-      expect(score, `${ch.id} off-target`).toBeLessThan(PASS_THRESHOLD);
+    for (const ch of guidedChars) {
+      const interior = getInteriorPoints(ch.guide);
+      // Pick the corner farthest from any interior point.
+      let bestCorner = corners[0];
+      let bestDist = -1;
+      for (const c of corners) {
+        let min = Infinity;
+        for (const p of interior) {
+          const d = Math.hypot(p.x - c.x, p.y - c.y);
+          if (d < min) min = d;
+        }
+        if (min > bestDist) {
+          bestDist = min;
+          bestCorner = c;
+        }
+      }
+      const score = scoreCoverage(tapAt(bestCorner.x, bestCorner.y), interior);
+      expect(score, `${ch.id} corner tap`).toBeLessThan(PASS_THRESHOLD);
     }
   });
 });
 
 // ---------------------------------------------------------------------------
 // Score distribution audit — reported to CI output for ongoing review.
-//
-// Key finding: honest jittered traces score 89–93, giving a 19+ point safety
-// margin above PASS_THRESHOLD=70. The threshold is not on a knife-edge.
-//
-// NOTE on dense-area traces: the Chamfer scorer normalises both paths before
-// comparing, so a trace that covers the same normalised bounding area as the
-// guide will score high regardless of exact stroke shape. This is a known,
-// accepted design choice — see .agents/memory/script-trace-glyph-guides.md.
 // ---------------------------------------------------------------------------
 
 describe("PASS_THRESHOLD score distribution audit", () => {
-  test("honest jittered traces (jitter=6) all pass — margin ≥ 19 points above threshold", () => {
-    const honestScores: number[] = [];
+  test(
+    "demo-written traces (jitter=5) all pass with a meaningful margin",
+    () => {
+      const honestScores: number[] = [];
 
-    for (const ch of SCRIPT_TRACE_CHAPTERS.flatMap((c) => c.characters)) {
-      const guide = parseSvgPath(ch.guide);
-      honestScores.push(scoreTrace(simulateHonestTrace(guide, { jitter: 6, seed: 99 }), guide));
-    }
+      for (const ch of guidedChars) {
+        const interior = getInteriorPoints(ch.guide);
+        const drawn = simulateWrittenTrace(strokesFor(ch.guide), 5, 99);
+        honestScores.push(scoreCoverage(drawn, interior));
+      }
 
-    const min = Math.min(...honestScores);
-    const max = Math.max(...honestScores);
-    const avg = Math.round(honestScores.reduce((s, v) => s + v, 0) / honestScores.length);
+      const min = Math.min(...honestScores);
+      const max = Math.max(...honestScores);
+      const avg = Math.round(honestScores.reduce((s, v) => s + v, 0) / honestScores.length);
 
-    console.log(
-      `\nScript Trace honest-trace score distribution across ${honestScores.length} characters:` +
-      `\n  Honest (jitter=6): min=${min}  max=${max}  avg=${avg}` +
-      `\n  PASS_THRESHOLD: ${PASS_THRESHOLD}` +
-      `\n  Margin above threshold: ${min - PASS_THRESHOLD} points` +
-      `\n  Verdict: threshold is fair — honest traces pass comfortably`,
-    );
+      console.log(
+        `\nScript Trace honest-writing score distribution across ${honestScores.length} characters:` +
+          `\n  Written like the demo (jitter=5): min=${min}  max=${max}  avg=${avg}` +
+          `\n  PASS_THRESHOLD: ${PASS_THRESHOLD}` +
+          `\n  Margin above threshold: ${min - PASS_THRESHOLD} points`,
+      );
 
-    // Every honest jittered trace must clear the threshold.
-    expect(min).toBeGreaterThanOrEqual(PASS_THRESHOLD);
-    // The margin from the worst honest trace must be meaningful (≥ 10 points).
-    expect(min - PASS_THRESHOLD).toBeGreaterThanOrEqual(10);
-  });
+      // Every honest written trace must clear the threshold with margin.
+      expect(min).toBeGreaterThanOrEqual(PASS_THRESHOLD);
+      expect(min - PASS_THRESHOLD).toBeGreaterThanOrEqual(10);
+    },
+    60000,
+  );
 });

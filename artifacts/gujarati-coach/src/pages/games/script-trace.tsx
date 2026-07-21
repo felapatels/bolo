@@ -134,56 +134,6 @@ export function parseSvgPath(d: string, samples = 80): Point[] {
   return out;
 }
 
-/** Normalise a set of points so they fit inside a 0-100 box. */
-function normalise(pts: Point[]): Point[] {
-  if (pts.length === 0) return [];
-  const xs = pts.map((p) => p.x);
-  const ys = pts.map((p) => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const range = Math.max(maxX - minX, maxY - minY, 1);
-  return pts.map((p) => ({
-    x: ((p.x - minX) / range) * 100,
-    y: ((p.y - minY) / range) * 100,
-  }));
-}
-
-/** Average nearest-point distance from every point in `from` to the set `to`. */
-function avgNearestDist(from: Point[], to: Point[]): number {
-  let total = 0;
-  for (const p of from) {
-    let minDist = Infinity;
-    for (const q of to) {
-      const dist = Math.hypot(p.x - q.x, p.y - q.y);
-      if (dist < minDist) minDist = dist;
-    }
-    total += minDist;
-  }
-  return total / from.length;
-}
-
-/**
- * 0-100 accuracy score: higher is better.
- *
- * Guides are now closed glyph outlines extracted from the font, so the old
- * index-windowed comparison (which assumed the user traces the guide in the
- * same direction and order) no longer applies. Instead we use a symmetric
- * nearest-point (Chamfer) distance: the drawn path must stay close to the
- * outline AND cover it — taking the worse of the two directions punishes both
- * stray marks and missing sections, regardless of stroke order.
- */
-export function scoreTrace(drawn: Point[], guide: Point[]): number {
-  if (drawn.length < 5) return 0;
-  const n = 60;
-  const dNorm = normalise(samplePath(drawn, n));
-  // Guide points are already sampled per-subpath by parseSvgPath — do NOT
-  // resample here, or interpolation would bridge separate glyph contours.
-  const gNorm = normalise(guide);
-  const avgDist = Math.max(avgNearestDist(dNorm, gNorm), avgNearestDist(gNorm, dNorm));
-  // avgDist of 0 = perfect, 50 = terrible (across a 100-unit space)
-  return Math.max(0, Math.min(100, Math.round(100 - avgDist * 2)));
-}
-
 export const PASS_THRESHOLD = 40; // % interior coverage needed to pass
 
 // ── Interior coverage scoring ─────────────────────────────────────────────────
@@ -228,7 +178,7 @@ function windingInSubpaths(pt: Point, subpaths: Point[][]): number {
  * winding-number test against the parsed subpath polylines.
  * Coordinates are in the same 0-100 space as the guide SVG path.
  */
-function getInteriorPoints(svgPathD: string, gridN = 16): Point[] {
+export function getInteriorPoints(svgPathD: string, gridN = 16): Point[] {
   const subpaths = parseSvgSubpaths(svgPathD).filter((sp) => sp.length > 2);
   if (subpaths.length === 0) return [];
   const allPts = subpaths.flat();
@@ -314,38 +264,309 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
 
 // ── Animation helper ───────────────────────────────────────────────────────────
 
-/**
- * Split the composite guide path into individual per-stroke subpath strings.
- * Each returned string is one closed stroke shape (starts with M, self-contained).
- */
-function splitGuideSubpaths(d: string): string[] {
-  return d.split(/(?=M )/).filter((s) => s.trim().length > 0);
+// ── Pen-stroke skeleton extraction (demo animation) ───────────────────────────
+//
+// To demonstrate HOW to write a character the animation must follow pen
+// strokes down the MIDDLE of each limb — not the glyph outline (that is the
+// perimeter of the filled shape, so tracing it draws around the outside of
+// the letter) and not scan lines. This is the standard handwriting-animation
+// pipeline used by font-to-handwriting tools (Tegaki, MakeMeAHanzi):
+//
+//   1. Rasterize   — fill the glyph interior into a small binary bitmap
+//   2. Skeletonize — Zhang-Suen thinning erodes it to a 1-px centerline
+//   3. Trace       — walk skeleton pixels into polylines, split at junctions
+//   4. Simplify    — prune tiny spurs, Ramer-Douglas-Peucker smoothing
+//   5. Order       — top-left stroke first, then nearest-next; orient each
+//                    stroke to start where a pen naturally would
+//
+// The output is the letter's actual "pen paths", animated stroke by stroke.
+
+const SKEL_RES = 64; // bitmap resolution across the 0-100 glyph space
+const ORIENT_X_WEIGHT = 0.35; // top-start bias with a left-start tiebreak
+
+/** Rasterize the glyph interior into a binary SKEL_RES×SKEL_RES bitmap. */
+function rasterizeGlyph(subpaths: Point[][]): Uint8Array {
+  const grid = new Uint8Array(SKEL_RES * SKEL_RES);
+  const cell = 100 / SKEL_RES;
+  for (let gy = 0; gy < SKEL_RES; gy++) {
+    for (let gx = 0; gx < SKEL_RES; gx++) {
+      const pt = { x: (gx + 0.5) * cell, y: (gy + 0.5) * cell };
+      if (windingInSubpaths(pt, subpaths) !== 0) grid[gy * SKEL_RES + gx] = 1;
+    }
+  }
+  return grid;
+}
+
+/** Zhang-Suen thinning: erode a binary bitmap down to its 1-px skeleton. */
+function zhangSuenThin(src: Uint8Array): Uint8Array {
+  const g = Uint8Array.from(src);
+  const at = (x: number, y: number) =>
+    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : g[y * SKEL_RES + x];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let step = 0; step < 2; step++) {
+      const del: number[] = [];
+      for (let y = 0; y < SKEL_RES; y++) {
+        for (let x = 0; x < SKEL_RES; x++) {
+          if (!at(x, y)) continue;
+          // Neighbours P2..P9, clockwise from north
+          const p2 = at(x, y - 1), p3 = at(x + 1, y - 1), p4 = at(x + 1, y);
+          const p5 = at(x + 1, y + 1), p6 = at(x, y + 1), p7 = at(x - 1, y + 1);
+          const p8 = at(x - 1, y), p9 = at(x - 1, y - 1);
+          const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+          if (B < 2 || B > 6) continue;
+          const seq = [p2, p3, p4, p5, p6, p7, p8, p9];
+          let A = 0;
+          for (let i = 0; i < 8; i++) if (!seq[i] && seq[(i + 1) % 8]) A++;
+          if (A !== 1) continue;
+          if (step === 0) {
+            if (p2 * p4 * p6 !== 0 || p4 * p6 * p8 !== 0) continue;
+          } else {
+            if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
+          }
+          del.push(y * SKEL_RES + x);
+        }
+      }
+      if (del.length > 0) { changed = true; for (const i of del) g[i] = 0; }
+    }
+  }
+  return g;
+}
+
+/** Walk a 1-px skeleton bitmap into polylines (grid coords), splitting at junctions. */
+function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
+  const at = (x: number, y: number) =>
+    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : skel[y * SKEL_RES + x];
+  const N8 = [
+    [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1],
+  ] as const;
+  const nbrs = (x: number, y: number): Point[] => {
+    const out: Point[] = [];
+    for (const [dx, dy] of N8) if (at(x + dx, y + dy)) out.push({ x: x + dx, y: y + dy });
+    return out;
+  };
+  const deg = (x: number, y: number) => nbrs(x, y).length;
+  const edgeKey = (a: Point, b: Point) => {
+    const i = a.y * SKEL_RES + a.x, j = b.y * SKEL_RES + b.x;
+    return i < j ? i * SKEL_RES * SKEL_RES + j : j * SKEL_RES * SKEL_RES + i;
+  };
+  const used = new Set<number>();
+  const polylines: Point[][] = [];
+
+  const walk = (start: Point, next: Point): Point[] => {
+    const line: Point[] = [start];
+    let prev = start, cur = next;
+    used.add(edgeKey(prev, cur));
+    for (;;) {
+      line.push(cur);
+      if (deg(cur.x, cur.y) !== 2) break; // endpoint or junction reached
+      const opts = nbrs(cur.x, cur.y).filter((p) => !(p.x === prev.x && p.y === prev.y));
+      if (opts.length === 0) break;
+      const nxt = opts[0];
+      const k = edgeKey(cur, nxt);
+      if (used.has(k)) break;
+      used.add(k);
+      prev = cur;
+      cur = nxt;
+    }
+    return line;
+  };
+
+  // Walk from every endpoint (deg 1) and junction (deg ≥ 3) along unused edges
+  for (let y = 0; y < SKEL_RES; y++) {
+    for (let x = 0; x < SKEL_RES; x++) {
+      if (!at(x, y) || deg(x, y) === 2) continue;
+      const node = { x, y };
+      for (const nb of nbrs(x, y)) {
+        if (!used.has(edgeKey(node, nb))) polylines.push(walk(node, nb));
+      }
+    }
+  }
+  // Pure loops (every pixel deg 2, e.g. a ring): walk from any unvisited pixel
+  for (let y = 0; y < SKEL_RES; y++) {
+    for (let x = 0; x < SKEL_RES; x++) {
+      if (!at(x, y) || deg(x, y) !== 2) continue;
+      const start = { x, y };
+      const fresh = nbrs(x, y).filter((p) => !used.has(edgeKey(start, p)));
+      if (fresh.length > 0) polylines.push(walk(start, fresh[0]));
+    }
+  }
+  return polylines;
+}
+
+/** Ramer-Douglas-Peucker polyline simplification. */
+function rdpSimplify(pts: Point[], epsilon: number): Point[] {
+  if (pts.length < 3) return pts;
+  const first = pts[0], last = pts[pts.length - 1];
+  const dx = last.x - first.x, dy = last.y - first.y;
+  const norm = Math.hypot(dx, dy) || 1;
+  let maxDist = 0, maxIdx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = Math.abs(dy * pts[i].x - dx * pts[i].y + last.x * first.y - last.y * first.x) / norm;
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist <= epsilon) return [first, last];
+  const left = rdpSimplify(pts.slice(0, maxIdx + 1), epsilon);
+  const right = rdpSimplify(pts.slice(maxIdx), epsilon);
+  return [...left.slice(0, -1), ...right];
+}
+
+/** Total arc length of a polyline. */
+function polylineLength(pts: Point[]): number {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++)
+    len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  return len;
+}
+
+/** Direction (unit vector) at one end of a polyline, pointing INTO the line. */
+function endDirection(pts: Point[], atStart: boolean): Point {
+  const n = pts.length;
+  const back = Math.min(n - 1, 3);
+  const a = atStart ? pts[0] : pts[n - 1];
+  const b = atStart ? pts[back] : pts[n - 1 - back];
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
 }
 
 /**
- * Sort interior reference points in boustrophedon (snake-scan) order:
- * top-to-bottom by row, alternating left→right and right→left.
- * Used to drive the demo animation dot so it sweeps continuously through
- * the character's filled region rather than jumping around.
+ * Merge skeleton segments that continue smoothly through junctions, so the
+ * pen draws long natural strokes (headline, stem, curve) instead of many
+ * junction-split fragments.
  */
-function sortBoustrophedon(pts: Point[]): Point[] {
-  if (pts.length === 0) return [];
-  const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
-  const rows: Point[][] = [];
-  let row: Point[] = [sorted[0]];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].y - row[0].y > 4) { rows.push(row); row = []; }
-    row.push(sorted[i]);
+function mergeCollinearStrokes(lines: Point[][]): Point[][] {
+  const JOIN_EPS = 3.5; // endpoints this close share a junction cluster
+  const MAX_TURN_COS = -0.45; // merge only gentle continuations (travel turn ≲ 63°)
+  const isLoop = (l: Point[]) =>
+    Math.hypot(l[0].x - l[l.length - 1].x, l[0].y - l[l.length - 1].y) < JOIN_EPS;
+
+  const work = lines.map((l) => [...l]);
+  for (;;) {
+    let bestI = -1, bestJ = -1, bestCos = 1, bestFlipI = false, bestFlipJ = false;
+    for (let i = 0; i < work.length; i++) {
+      if (work[i].length < 2 || isLoop(work[i])) continue;
+      for (let j = i + 1; j < work.length; j++) {
+        if (work[j].length < 2 || isLoop(work[j])) continue;
+        for (const endI of [false, true]) {
+          for (const endJ of [false, true]) {
+            const pi = endI ? work[i][0] : work[i][work[i].length - 1];
+            const pj = endJ ? work[j][0] : work[j][work[j].length - 1];
+            if (Math.hypot(pi.x - pj.x, pi.y - pj.y) > JOIN_EPS) continue;
+            // Both directions point INTO their lines: a smooth continuation
+            // has them nearly opposite (cos ≈ -1).
+            const di = endDirection(work[i], endI);
+            const dj = endDirection(work[j], endJ);
+            const cos = di.x * dj.x + di.y * dj.y;
+            if (cos < bestCos) {
+              bestCos = cos;
+              bestI = i;
+              bestJ = j;
+              bestFlipI = endI; // matched at i's head → reverse i (junction at tail)
+              bestFlipJ = !endJ; // matched at j's tail → reverse j (junction at head)
+            }
+          }
+        }
+      }
+    }
+    if (bestI < 0 || bestCos > MAX_TURN_COS) break;
+    const a = bestFlipI ? [...work[bestI]].reverse() : work[bestI];
+    const b = bestFlipJ ? [...work[bestJ]].reverse() : work[bestJ];
+    work[bestI] = [...a, ...b.slice(1)];
+    work.splice(bestJ, 1);
   }
-  if (row.length > 0) rows.push(row);
-  const result: Point[] = [];
-  rows.forEach((r, i) => {
-    const ordered = i % 2 === 0
-      ? [...r].sort((a, b) => a.x - b.x)
-      : [...r].sort((a, b) => b.x - a.x);
-    result.push(...ordered);
+  return work;
+}
+
+/** Orient a stroke so it starts where a pen naturally would (top-left bias). */
+function orientStroke(pts: Point[]): Point[] {
+  if (pts.length < 2) return pts;
+  const start = pts[0], end = pts[pts.length - 1];
+  // Near-closed loop → rotate so it starts at the topmost point
+  if (Math.hypot(start.x - end.x, start.y - end.y) < 6) {
+    let best = 0;
+    for (let i = 1; i < pts.length; i++) {
+      if (pts[i].y < pts[best].y || (pts[i].y === pts[best].y && pts[i].x < pts[best].x)) best = i;
+    }
+    return best === 0 ? pts : [...pts.slice(best), ...pts.slice(1, best + 1)];
+  }
+  const sScore = start.y + start.x * ORIENT_X_WEIGHT;
+  const eScore = end.y + end.x * ORIENT_X_WEIGHT;
+  return eScore < sScore ? [...pts].reverse() : pts;
+}
+
+/**
+ * Extract ordered pen strokes (centerline polylines, 0-100 space) from a
+ * glyph outline path. Returns [] when the glyph is degenerate.
+ */
+export function extractStrokes(guideD: string): Point[][] {
+  const subpaths = parseSvgSubpaths(guideD).filter((sp) => sp.length > 2);
+  if (subpaths.length === 0) return [];
+  const skel = zhangSuenThin(rasterizeGlyph(subpaths));
+  const cell = 100 / SKEL_RES;
+  let lines = traceSkeletonPolylines(skel).map((line) =>
+    line.map((p) => ({ x: (p.x + 0.5) * cell, y: (p.y + 0.5) * cell })),
+  );
+  // Join segments that continue smoothly through junctions into long strokes.
+  // Merging runs BEFORE spur pruning: the short fragments the thinning step
+  // leaves at junction clusters are the bridges between collinear limbs —
+  // pruning them first would leave gaps too wide to merge across.
+  lines = mergeCollinearStrokes(lines);
+  // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
+  const substantial = lines.filter((l) => polylineLength(l) >= 6);
+  if (substantial.length > 0) lines = substantial;
+  lines = lines.map((l) => orientStroke(rdpSimplify(l, 1.6)));
+
+  // Order strokes: most top-left start first, then greedily append the stroke
+  // whose start is nearest the previous stroke's end (natural pen travel).
+  const remaining = [...lines].sort(
+    (a, b) => a[0].y + a[0].x * ORIENT_X_WEIGHT - (b[0].y + b[0].x * ORIENT_X_WEIGHT),
+  );
+  const ordered: Point[][] = [];
+  let cur = remaining.shift();
+  while (cur) {
+    ordered.push(cur);
+    const tail = cur[cur.length - 1];
+    if (remaining.length === 0) break;
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = Math.hypot(remaining[i][0].x - tail.x, remaining[i][0].y - tail.y);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    cur = remaining.splice(bestIdx, 1)[0];
+  }
+  return ordered;
+}
+
+/** Per-stroke [start,end] time fractions, proportional to stroke length. */
+function strokeTimeFractions(strokes: Point[][]): { start: number; end: number }[] {
+  const lens = strokes.map(polylineLength);
+  const total = lens.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  return lens.map((len) => {
+    const fr = { start: acc / total, end: (acc + len) / total };
+    acc += len;
+    return fr;
   });
-  return result;
+}
+
+/** Point at arc-distance `dist` along a polyline. */
+function pointAtLength(pts: Point[], dist: number): Point {
+  if (pts.length === 0) return { x: 0, y: 0 };
+  let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (seg > 0 && acc + seg >= dist) {
+      const t = (dist - acc) / seg;
+      return {
+        x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t,
+        y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t,
+      };
+    }
+    acc += seg;
+  }
+  return pts[pts.length - 1];
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -535,10 +756,13 @@ function ScriptTraceCanvas({
 
   // Sorted interior points for the demo animation dot.
   // Boustrophedon order ensures the dot sweeps continuously through the letter.
-  const animSortedPoints = useMemo(
-    () => sortBoustrophedon(interiorPoints),
-    [interiorPoints],
+  // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
+  // time fractions proportional to stroke length.
+  const penStrokes = useMemo(
+    () => (character.guide ? extractStrokes(character.guide) : []),
+    [character.guide],
   );
+  const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -585,25 +809,49 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
 
-    // ── Interior dot animation ────────────────────────────────────────────────
-    // A glowing dot with a short trail sweeps through the character's filled
-    // region in boustrophedon order — "move your finger through here".
+    // ── Pen-stroke writing animation ─────────────────────────────────────────
+    // The pen draws each centerline stroke in sequence: completed strokes stay
+    // visible, the active stroke draws on progressively with a pen dot at its
+    // tip — exactly how the letter is written by hand.
     const animT = animProgressRef.current;
-    if (animT !== null && animT > 0 && character.guide && animSortedPoints.length > 0) {
-      const total = animSortedPoints.length;
-      const idx = Math.min(Math.floor(animT * total), total - 1);
-      const r = W * 0.036;
-      const trail = [
-        { pt: animSortedPoints[Math.max(0, idx - 3)], opacity: 0.18, size: 0.55 },
-        { pt: animSortedPoints[Math.max(0, idx - 1)], opacity: 0.45, size: 0.75 },
-        { pt: animSortedPoints[idx],                   opacity: 0.92, size: 1.00 },
-      ];
+    if (animT !== null && animT > 0 && character.guide && penStrokes.length > 0) {
       ctx.save();
-      for (const { pt, opacity, size } of trail) {
+      ctx.strokeStyle = PRIMARY;
+      ctx.lineWidth = W * 0.032;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.globalAlpha = 0.9;
+      let penPos: Point | null = null;
+      penStrokes.forEach((stroke, i) => {
+        const { start, end } = penStrokeFracs[i];
+        if (animT <= start || stroke.length < 2) return;
+        const frac = Math.min((animT - start) / Math.max(end - start, 0.0001), 1);
+        const targetLen = polylineLength(stroke) * frac;
         ctx.beginPath();
-        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, r * size, 0, Math.PI * 2);
+        ctx.moveTo((stroke[0].x / 100) * W, (stroke[0].y / 100) * H);
+        let acc = 0;
+        for (let j = 1; j < stroke.length && acc < targetLen; j++) {
+          const seg = Math.hypot(stroke[j].x - stroke[j - 1].x, stroke[j].y - stroke[j - 1].y);
+          if (acc + seg <= targetLen || seg === 0) {
+            ctx.lineTo((stroke[j].x / 100) * W, (stroke[j].y / 100) * H);
+          } else {
+            const t = (targetLen - acc) / seg;
+            const px = stroke[j - 1].x + (stroke[j].x - stroke[j - 1].x) * t;
+            const py = stroke[j - 1].y + (stroke[j].y - stroke[j - 1].y) * t;
+            ctx.lineTo((px / 100) * W, (py / 100) * H);
+          }
+          acc += seg;
+        }
+        ctx.stroke();
+        if (frac < 1) penPos = pointAtLength(stroke, targetLen);
+      });
+      // Pen tip dot at the leading edge of the active stroke
+      if (penPos !== null) {
+        const p: Point = penPos;
+        ctx.beginPath();
+        ctx.arc((p.x / 100) * W, (p.y / 100) * H, W * 0.028, 0, Math.PI * 2);
         ctx.fillStyle = PRIMARY;
-        ctx.globalAlpha = opacity;
+        ctx.globalAlpha = 1;
         ctx.fill();
       }
       ctx.restore();
@@ -666,12 +914,14 @@ function ScriptTraceCanvas({
     // A green dot at the approximate stroke-start position so the learner
     // knows where to put their pen. Hidden once they begin drawing.
     if (animT === null && character.guide && guidePoints.length > 0 && !hasStrokes) {
-      // Use the topmost guide point (min Y) as the approximate writing start.
-      // Most Indian scripts begin at the top of the character (the headline).
-      const startPt = guidePoints.reduce(
-        (best, p) => p.y < best.y ? p : best,
-        guidePoints[0],
-      );
+      // Start of the first pen stroke — exactly where the writing demo begins.
+      // Falls back to the topmost outline point for degenerate glyphs.
+      const startPt = penStrokes.length > 0
+        ? penStrokes[0][0]
+        : guidePoints.reduce(
+            (best, p) => p.y < best.y ? p : best,
+            guidePoints[0],
+          );
       const cx = (startPt.x / 100) * W;
       const cy = (startPt.y / 100) * H;
       const r = W * 0.038;
@@ -719,7 +969,7 @@ function ScriptTraceCanvas({
       }
       ctx.restore();
     }
-  }, [character.guide, character.char, pulseGuide, guidePoints, animSortedPoints]);
+  }, [character.guide, character.char, pulseGuide, guidePoints, penStrokes, penStrokeFracs]);
 
   // Start the stroke-order animation
   const startAnim = useCallback(() => {
