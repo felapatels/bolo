@@ -327,12 +327,12 @@ function splitGuideSubpaths(d: string): string[] {
 }
 
 /**
- * Build a boustrophedon (snake-scan) set of paths through interior reference points.
- * Groups points into horizontal rows (within ±4 units of Y), alternating L→R and
- * R→L so the animated "pen" sweeps continuously through the character's interior —
- * instead of tracing the outer boundary of the glyph outline.
+ * Sort interior reference points in boustrophedon (snake-scan) order:
+ * top-to-bottom by row, alternating left→right and right→left.
+ * Used to drive the demo animation dot so it sweeps continuously through
+ * the character's filled region rather than jumping around.
  */
-function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> {
+function sortBoustrophedon(pts: Point[]): Point[] {
   if (pts.length === 0) return [];
   const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
   const rows: Point[][] = [];
@@ -342,20 +342,14 @@ function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> 
     row.push(sorted[i]);
   }
   if (row.length > 0) rows.push(row);
-
-  return rows.map((r, i) => {
+  const result: Point[] = [];
+  rows.forEach((r, i) => {
     const ordered = i % 2 === 0
       ? [...r].sort((a, b) => a.x - b.x)
       : [...r].sort((a, b) => b.x - a.x);
-    let d = `M ${ordered[0].x} ${ordered[0].y}`;
-    let length = 0;
-    for (let j = 1; j < ordered.length; j++) {
-      length += Math.hypot(ordered[j].x - ordered[j - 1].x, ordered[j].y - ordered[j - 1].y);
-      d += ` L ${ordered[j].x} ${ordered[j].y}`;
-    }
-    if (ordered.length === 1) { d += ` L ${ordered[0].x + 0.5} ${ordered[0].y}`; length = 0.5; }
-    return { d, length: Math.max(length, 0.5) };
+    result.push(...ordered);
   });
+  return result;
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -538,11 +532,10 @@ function TraceCanvas({
   const animSpeedRef = useRef<number>(1);
   const [animSpeed, setAnimSpeed] = useState<1 | 0.5>(1);
 
-  // Build scanline paths through the character's interior for the demo animation.
-  // These sweep row-by-row through the filled region so the "pen" moves inside
-  // the letter rather than tracing its outer boundary.
-  const scanlinePaths = React.useMemo(
-    () => buildScanlinePaths(interiorPoints),
+  // Sorted interior points for the demo animation dot.
+  // Boustrophedon order ensures the dot sweeps continuously through the letter.
+  const animSortedPoints = React.useMemo(
+    () => sortBoustrophedon(interiorPoints),
     [interiorPoints],
   );
 
@@ -763,33 +756,30 @@ function TraceCanvas({
               </SvgText>
             )}
 
-            {/* Interior scanline animation: each horizontal row of the character's
-                filled region is drawn in sequence so the "pen" sweeps through the
-                inside of the letter rather than tracing its outer boundary. */}
-            {animProgress !== null && character.guide && scanlinePaths.map(({ d, length }, idx) => {
-              const n = scanlinePaths.length;
-              const segStart = idx / n;
-              const segEnd = (idx + 1) / n;
-              if ((animProgress ?? 0) <= segStart) return null;
-              const segProgress = Math.min(
-                ((animProgress ?? 0) - segStart) / Math.max(segEnd - segStart, 0.001),
-                1,
-              );
-              return (
-                <SvgPath
-                  key={idx}
-                  d={d}
-                  scale={guideScale}
-                  fill="none"
-                  stroke={colors.primary}
-                  strokeWidth={4}
-                  strokeDasharray={length}
-                  strokeDashoffset={length * (1 - segProgress)}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {/* Interior dot animation: a glowing dot with a short trail sweeps
+                through the character's filled region in boustrophedon order so
+                the learner sees "move your finger through here", not an outline. */}
+            {animProgress !== null && character.guide && animSortedPoints.length > 0 && (() => {
+              const t = animProgress ?? 0;
+              const total = animSortedPoints.length;
+              const idx = Math.min(Math.floor(t * total), total - 1);
+              const r = CANVAS_SIZE * 0.036;
+              const trail = [
+                { pt: animSortedPoints[Math.max(0, idx - 3)], opacity: 0.18, size: 0.55 },
+                { pt: animSortedPoints[Math.max(0, idx - 1)], opacity: 0.45, size: 0.75 },
+                { pt: animSortedPoints[idx],                   opacity: 0.92, size: 1.00 },
+              ];
+              return trail.map(({ pt, opacity, size }, i) => (
+                <SvgCircle
+                  key={`anim-${i}`}
+                  cx={pt.x * guideScale}
+                  cy={pt.y * guideScale}
+                  r={r * size}
+                  fill={colors.primary}
+                  fillOpacity={opacity}
                 />
-              );
-            })}
+              ));
+            })()}
 
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
                 with a cursor dot at the leading edge, mimicking a finger writing. */}

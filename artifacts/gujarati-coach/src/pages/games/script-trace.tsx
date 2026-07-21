@@ -323,12 +323,12 @@ function splitGuideSubpaths(d: string): string[] {
 }
 
 /**
- * Build a boustrophedon (snake-scan) set of paths through interior reference points.
- * Groups points into horizontal rows (within ±4 units of Y), alternating L→R and
- * R→L so the animated "pen" sweeps continuously through the character's interior —
- * instead of tracing the outer boundary of the glyph outline.
+ * Sort interior reference points in boustrophedon (snake-scan) order:
+ * top-to-bottom by row, alternating left→right and right→left.
+ * Used to drive the demo animation dot so it sweeps continuously through
+ * the character's filled region rather than jumping around.
  */
-function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> {
+function sortBoustrophedon(pts: Point[]): Point[] {
   if (pts.length === 0) return [];
   const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
   const rows: Point[][] = [];
@@ -338,20 +338,14 @@ function buildScanlinePaths(pts: Point[]): Array<{ d: string; length: number }> 
     row.push(sorted[i]);
   }
   if (row.length > 0) rows.push(row);
-
-  return rows.map((r, i) => {
+  const result: Point[] = [];
+  rows.forEach((r, i) => {
     const ordered = i % 2 === 0
       ? [...r].sort((a, b) => a.x - b.x)
       : [...r].sort((a, b) => b.x - a.x);
-    let d = `M ${ordered[0].x} ${ordered[0].y}`;
-    let length = 0;
-    for (let j = 1; j < ordered.length; j++) {
-      length += Math.hypot(ordered[j].x - ordered[j - 1].x, ordered[j].y - ordered[j - 1].y);
-      d += ` L ${ordered[j].x} ${ordered[j].y}`;
-    }
-    if (ordered.length === 1) { d += ` L ${ordered[0].x + 0.5} ${ordered[0].y}`; length = 0.5; }
-    return { d, length: Math.max(length, 0.5) };
+    result.push(...ordered);
   });
+  return result;
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -539,10 +533,10 @@ function ScriptTraceCanvas({
   const animProgressRef = useRef<number | null>(0); // null = not playing
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Build scanline paths through the character's interior for the demo animation.
-  // Sweeps row-by-row so the animated pen moves inside the letter, not around its edge.
-  const scanlinePaths = useMemo(
-    () => buildScanlinePaths(interiorPoints),
+  // Sorted interior points for the demo animation dot.
+  // Boustrophedon order ensures the dot sweeps continuously through the letter.
+  const animSortedPoints = useMemo(
+    () => sortBoustrophedon(interiorPoints),
     [interiorPoints],
   );
 
@@ -591,37 +585,28 @@ function ScriptTraceCanvas({
       ctx.restore();
     }
 
-    // ── Interior scanline animation ──────────────────────────────────────────────
-    // Each horizontal row of the character's filled region is drawn in sequence
-    // so the animated "pen" sweeps through the inside of the letter rather than
-    // tracing its outer boundary.
+    // ── Interior dot animation ────────────────────────────────────────────────
+    // A glowing dot with a short trail sweeps through the character's filled
+    // region in boustrophedon order — "move your finger through here".
     const animT = animProgressRef.current;
-    if (animT !== null && animT > 0 && character.guide) {
-      const n = scanlinePaths.length;
-      if (n > 0) {
-        ctx.save();
-        ctx.scale(W / 100, H / 100);
-        scanlinePaths.forEach(({ d, length }, idx) => {
-          const segStart = idx / n;
-          const segEnd = (idx + 1) / n;
-          if (animT <= segStart) return;
-          const segProgress = Math.min(
-            (animT - segStart) / Math.max(segEnd - segStart, 0.001),
-            1,
-          );
-          const path = new Path2D(d);
-          ctx.setLineDash([length]);
-          ctx.lineDashOffset = length * (1 - segProgress);
-          ctx.strokeStyle = PRIMARY;
-          ctx.lineWidth = 4;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.globalAlpha = 0.85;
-          ctx.stroke(path);
-        });
-        ctx.setLineDash([]);
-        ctx.restore();
+    if (animT !== null && animT > 0 && character.guide && animSortedPoints.length > 0) {
+      const total = animSortedPoints.length;
+      const idx = Math.min(Math.floor(animT * total), total - 1);
+      const r = W * 0.036;
+      const trail = [
+        { pt: animSortedPoints[Math.max(0, idx - 3)], opacity: 0.18, size: 0.55 },
+        { pt: animSortedPoints[Math.max(0, idx - 1)], opacity: 0.45, size: 0.75 },
+        { pt: animSortedPoints[idx],                   opacity: 0.92, size: 1.00 },
+      ];
+      ctx.save();
+      for (const { pt, opacity, size } of trail) {
+        ctx.beginPath();
+        ctx.arc((pt.x / 100) * W, (pt.y / 100) * H, r * size, 0, Math.PI * 2);
+        ctx.fillStyle = PRIMARY;
+        ctx.globalAlpha = opacity;
+        ctx.fill();
       }
+      ctx.restore();
     }
 
     // ── Text-mode "writing" animation ────────────────────────────────────────
@@ -734,7 +719,7 @@ function ScriptTraceCanvas({
       }
       ctx.restore();
     }
-  }, [character.guide, character.char, pulseGuide, guidePoints, scanlinePaths]);
+  }, [character.guide, character.char, pulseGuide, guidePoints, animSortedPoints]);
 
   // Start the stroke-order animation
   const startAnim = useCallback(() => {
