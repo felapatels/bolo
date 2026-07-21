@@ -39,6 +39,7 @@ import Svg, {
   Text as SvgText,
   Circle as SvgCircle,
   Rect as SvgRect,
+  G as SvgG,
   Defs,
   ClipPath,
 } from 'react-native-svg';
@@ -665,26 +666,42 @@ const CHAR_GUIDE_MAP: Map<string, string> = new Map(
   ),
 );
 
-type WordPenData = {
-  pathDs: string[];
-  pathLens: number[];
-  fracs: { start: number; end: number }[];
-  tipStrokes: PenTipStroke[];
+/**
+ * One stroke item for word-pen-mode animation.
+ * The path `d` stays in 0–100 guide space (same as letter mode); the SVG
+ * group transform positions it in the character's canvas slot.
+ */
+type WordStrokeItem = {
+  /** SVG group transform applied to the containing <G> element */
+  transform: string;
+  /** Stroke path in 0–100 guide space */
+  d: string;
+  /** Stroke length in 0–100 units — used for strokeDasharray (local coords) */
+  guidelen: number;
+  /** Global animation start fraction [0–1] */
+  start: number;
+  /** Global animation end fraction [0–1] */
+  end: number;
 };
 
-const EMPTY_WORD_PEN_DATA: WordPenData = {
-  pathDs: [],
-  pathLens: [],
-  fracs: [],
-  tipStrokes: [],
+type WordPenData = {
+  strokes: WordStrokeItem[];
+  /** Pen-tip positions in canvas-pixel space (for AnimPenTip) */
+  tipStrokes: PenTipStroke[];
+  /** Per-character guide text positions for aligned rendering */
+  chars: { cluster: string; cx: number; cy: number; fontSize: number }[];
 };
+
+const EMPTY_WORD_PEN_DATA: WordPenData = { strokes: [], tipStrokes: [], chars: [] };
 
 /**
- * Build canvas-pixel pen-stroke animation data for a word/phrase.
- * Each grapheme cluster whose guide path is known gets its skeleton strokes
- * tiled in an equal horizontal slot; the result plugs straight into the
- * same AnimPenStroke / AnimPenTip components used for single letters
- * (scale=1, coordinates already in canvas pixels).
+ * Build word-pen-mode animation data for a word/phrase.
+ *
+ * Strategy: strokes stay in their native 0–100 guide space (identical to
+ * single-letter mode).  A per-character SVG <G> transform
+ * "translate(xOff yOff) scale(charScale)" tiles them across the canvas.
+ * This keeps strokeDasharray arithmetic in guide units — the same as letter
+ * mode — so the dash-reveal animation is always correct.
  */
 function buildWordPenData(word: string): WordPenData {
   const clusters = splitGraphemeClusters(word).filter((c) => c.trim() !== '');
@@ -696,60 +713,70 @@ function buildWordPenData(word: string): WordPenData {
 
   const n = guided.length;
   const slotW = CANVAS_SIZE / n;
-  // Uniform square scale: each character fills 82 % of its horizontal slot.
-  const charScale = (slotW / 100) * 0.82;
-  const yOffset = (CANVAS_SIZE - charScale * 100) / 2;
+  // Canvas pixels per guide unit: each character uses 82 % of its slot.
+  const charScale = (slotW * 0.82) / 100;
+  const charSizePx = charScale * 100; // visual size in canvas pixels
+  const yOffset = (CANVAS_SIZE - charSizePx) / 2;
+  const xMargin = (slotW - charSizePx) / 2;
 
-  const allDs: string[] = [];
-  const allLens: number[] = [];
-  const allCanvasPts: Point[][] = [];
-
+  type RawItem = {
+    xOffset: number;
+    stroke: Point[];
+    guideLen: number;  // in 0–100 units
+    visualLen: number; // in canvas pixels
+  };
+  const raw: RawItem[] = [];
   for (let ci = 0; ci < n; ci++) {
-    const xOffset = ci * slotW + (slotW - charScale * 100) / 2;
-    const strokes = extractStrokes(guided[ci].guide);
-    for (const stroke of strokes) {
+    const xOffset = ci * slotW + xMargin;
+    for (const stroke of extractStrokes(guided[ci].guide)) {
       if (stroke.length < 2) continue;
-      // Transform from 0–100 guide space to canvas pixels.
-      const pts = stroke.map((p) => ({
-        x: xOffset + p.x * charScale,
-        y: yOffset + p.y * charScale,
-      }));
-      let d = `M ${pts[0].x} ${pts[0].y}`;
-      for (let j = 1; j < pts.length; j++) d += ` L ${pts[j].x} ${pts[j].y}`;
-      allDs.push(d);
-      allLens.push(polylineLength(pts));
-      allCanvasPts.push(pts);
+      const guideLen = polylineLength(stroke);     // 0–100 units
+      raw.push({ xOffset, stroke, guideLen, visualLen: guideLen * charScale });
     }
   }
 
-  if (allDs.length === 0) return EMPTY_WORD_PEN_DATA;
+  if (raw.length === 0) return EMPTY_WORD_PEN_DATA;
 
-  // Time fractions proportional to canvas-space stroke length.
-  const totalLen = allLens.reduce((s, l) => s + l, 0);
+  // Time fracs proportional to visual (canvas-pixel) length → uniform pen speed.
+  const totalVis = raw.reduce((s, r) => s + r.visualLen, 0);
   const fracs: { start: number; end: number }[] = [];
   let acc = 0;
-  for (const len of allLens) {
-    fracs.push({ start: acc / totalLen, end: (acc + len) / totalLen });
-    acc += len;
+  for (const r of raw) {
+    fracs.push({ start: acc / totalVis, end: (acc + r.visualLen) / totalVis });
+    acc += r.visualLen;
   }
 
-  const tipStrokes: PenTipStroke[] = allCanvasPts.map((pts, i) => {
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
+  const strokes: WordStrokeItem[] = raw.map((r, i) => ({
+    // translate positions the character's origin; scale maps guide→canvas px.
+    transform: `translate(${r.xOffset} ${yOffset}) scale(${charScale})`,
+    d: strokeToPathD(r.stroke),
+    guidelen: r.guideLen,
+    start: fracs[i].start,
+    end: fracs[i].end,
+  }));
+
+  // Tip strokes in canvas-pixel space (AnimPenTip renders a bare circle).
+  const tipStrokes: PenTipStroke[] = raw.map((r, i) => {
+    const xs = r.stroke.map((p) => r.xOffset + p.x * charScale);
+    const ys = r.stroke.map((p) => yOffset + p.y * charScale);
     const cum = [0];
     for (let j = 1; j < xs.length; j++)
       cum.push(cum[j - 1] + Math.hypot(xs[j] - xs[j - 1], ys[j] - ys[j - 1]));
+    return { xs, ys, cum, len: cum[cum.length - 1] ?? 0, ...fracs[i] };
+  });
+
+  // Guide text positions — one per character, centered in each slot.
+  const chars = guided.map(({ cluster }, ci) => {
+    const xOffset = ci * slotW + xMargin;
     return {
-      xs,
-      ys,
-      cum,
-      len: cum[cum.length - 1] ?? 0,
-      start: fracs[i].start,
-      end: fracs[i].end,
+      cluster,
+      cx: xOffset + charSizePx / 2,
+      cy: yOffset + charSizePx * 0.72,  // alphabetic baseline ≈ 72% down
+      fontSize: charSizePx * 0.72,
     };
   });
 
-  return { pathDs: allDs, pathLens: allLens, fracs, tipStrokes };
+  return { strokes, tipStrokes, chars };
 }
 
 const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
@@ -1067,7 +1094,7 @@ function TraceCanvas({
     () => (character.guide ? EMPTY_WORD_PEN_DATA : buildWordPenData(character.char)),
     [character.guide, character.char],
   );
-  const wordPenMode = !character.guide && wordPenData.pathDs.length > 0;
+  const wordPenMode = !character.guide && wordPenData.strokes.length > 0;
 
   // Animated props for the text-mode reveal: clip-path rect grows left-to-right,
   // cursor dot tracks its leading edge — both driven on the UI thread.
@@ -1320,6 +1347,22 @@ function TraceCanvas({
                 fillRule="nonzero"
                 stroke="none"
               />
+            ) : wordPenMode ? (
+              // Each character in its own slot so the guide aligns with pen strokes.
+              wordPenData.chars.map((c) => (
+                <SvgText
+                  key={c.cluster}
+                  x={c.cx}
+                  y={c.cy}
+                  fontSize={c.fontSize}
+                  textAnchor="middle"
+                  fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
+                  fillOpacity={guidePulsed ? 0.5 : 0.20}
+                  fontFamily="serif"
+                >
+                  {c.cluster}
+                </SvgText>
+              ))
             ) : (
               <SvgText
                 x={CANVAS_SIZE / 2}
@@ -1342,19 +1385,38 @@ function TraceCanvas({
                 thread for a smooth, continuous drawing motion. */}
             {penAnimVisible && (penMode || wordPenMode) && (
               <>
-                {(penMode ? penStrokeDs : wordPenData.pathDs).map((d, i) =>
-                  d.length === 0 ? null : (
-                    <AnimPenStroke
-                      key={`pen-${i}`}
-                      progress={penProgress}
-                      d={d}
-                      len={(penMode ? penStrokeLens : wordPenData.pathLens)[i]}
-                      start={(penMode ? penStrokeFracs : wordPenData.fracs)[i].start}
-                      end={(penMode ? penStrokeFracs : wordPenData.fracs)[i].end}
-                      scale={penMode ? guideScale : 1}
-                      color={colors.primary}
-                    />
-                  ),
+                {penMode ? (
+                  // Letter mode: strokes in 0–100 guide space, scale to canvas px.
+                  penStrokeDs.map((d, i) =>
+                    d.length === 0 ? null : (
+                      <AnimPenStroke
+                        key={`pen-${i}`}
+                        progress={penProgress}
+                        d={d}
+                        len={penStrokeLens[i]}
+                        start={penStrokeFracs[i].start}
+                        end={penStrokeFracs[i].end}
+                        scale={guideScale}
+                        color={colors.primary}
+                      />
+                    ),
+                  )
+                ) : (
+                  // Word mode: strokes stay in 0–100 guide space; each character's
+                  // <SvgG> positions them in their canvas slot via transform.
+                  wordPenData.strokes.map((s, i) => (
+                    <SvgG key={`ws-${i}`} transform={s.transform}>
+                      <AnimPenStroke
+                        progress={penProgress}
+                        d={s.d}
+                        len={s.guidelen}
+                        start={s.start}
+                        end={s.end}
+                        scale={1}
+                        color={colors.primary}
+                      />
+                    </SvgG>
+                  ))
                 )}
                 <AnimPenTip
                   progress={penProgress}

@@ -911,15 +911,44 @@ function ScriptTraceCanvas({
       ctx.fill(glyph, "nonzero");
       ctx.restore();
     } else {
-      // Text-mode: render the character(s) as large guide text to trace over
+      // Text-mode: render the character(s) as large guide text to trace over.
+      // When pen strokes are available, render each cluster in its own slot so
+      // the guide aligns with the stroke animation positions.
       ctx.save();
       ctx.globalAlpha = pulseGuide ? 0.50 : 0.20;
       ctx.fillStyle = pulseGuide ? "#f59e0b" : "#64748b";
-      const fontSize = Math.max(W * 0.45, 30);
-      ctx.font = `bold ${fontSize}px serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(character.char, W / 2, H / 2);
+      if (penStrokes.length > 0) {
+        // Word-pen mode: per-character slotted rendering.
+        const clusters = splitGraphemeClustersWeb(character.char).filter(
+          (c) => c.trim() !== "",
+        );
+        const guided = clusters.filter((c) => CHAR_GUIDE_MAP_WEB.has(c));
+        const n = guided.length;
+        if (n > 0) {
+          const slotW = 100 / n;
+          // charScale in 0–100 units (same as buildWordPenStrokesWeb)
+          const charScale = slotW * 0.82;
+          for (let ci = 0; ci < n; ci++) {
+            const xOff = ci * slotW + (slotW - charScale) / 2;
+            const yOff = (100 - charScale) / 2;
+            const fontSize = (charScale * 0.72 / 100) * W;
+            ctx.font = `bold ${fontSize}px serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(
+              guided[ci],
+              ((xOff + charScale / 2) / 100) * W,
+              ((yOff + charScale * 0.72) / 100) * H,
+            );
+          }
+        }
+      } else {
+        const fontSize = Math.max(W * 0.45, 30);
+        ctx.font = `bold ${fontSize}px serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(character.char, W / 2, H / 2);
+      }
       ctx.restore();
     }
 
