@@ -637,6 +637,7 @@ type PenTipStroke = {
 
 const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
 const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
+const AnimatedSvgRect = Animated.createAnimatedComponent(SvgRect);
 
 /**
  * One demo pen stroke revealed by animating strokeDashoffset from the full
@@ -901,8 +902,10 @@ function TraceCanvas({
   const animFrameRef = useRef<number | null>(null);
   const animStartRef = useRef<number | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Text-mode progress: null = not playing, 0–1 = playing
-  const [animProgress, setAnimProgress] = useState<number | null>(0);
+  // Text-mode reveal runs on the UI thread via a Reanimated shared value —
+  // same pattern as pen-mode, avoids per-frame React re-renders over the bridge.
+  const textRevealProgress = useSharedValue(0);
+  const [textAnimVisible, setTextAnimVisible] = useState(false);
   const [penAnimVisible, setPenAnimVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const penProgress = useSharedValue(0);
@@ -942,11 +945,33 @@ function TraceCanvas({
     [penStrokes, penStrokeFracs],
   );
 
+  // Animated props for the text-mode reveal: clip-path rect grows left-to-right,
+  // cursor dot tracks its leading edge — both driven on the UI thread.
+  const textRevealRectProps = useAnimatedProps(() => {
+    const frac = Math.min(textRevealProgress.value / 0.85, 1);
+    return { width: frac * CANVAS_SIZE };
+  });
+  const textCursorProps = useAnimatedProps(() => {
+    const frac = Math.min(textRevealProgress.value / 0.85, 1);
+    return {
+      cx: frac * CANVAS_SIZE,
+      opacity: textRevealProgress.value > 0 && frac < 1 ? 0.92 : 0,
+    };
+  });
+
   const finishPenAnim = useCallback(() => {
     // Hold the completed character briefly, then clear back to tracing state.
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null;
       setPenAnimVisible(false);
+      setIsAnimating(false);
+    }, 600);
+  }, []);
+
+  const finishTextAnim = useCallback(() => {
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      setTextAnimVisible(false);
       setIsAnimating(false);
     }, 600);
   }, []);
@@ -960,6 +985,7 @@ function TraceCanvas({
       holdTimerRef.current = null;
     }
     cancelAnimation(penProgress);
+    cancelAnimation(textRevealProgress);
 
     const duration = ANIM_DURATION_MS / animSpeedRef.current;
 
@@ -975,28 +1001,15 @@ function TraceCanvas({
       return;
     }
 
-    // Text-mode fallback: progressive reveal driven by rAF state updates.
-    animStartRef.current = null;
-    setAnimProgress(0);
+    // Text-mode: Reanimated reveal — shared value drives the clip-rect width
+    // and cursor dot on the UI thread (same pattern as pen-mode, no rAF setState).
+    textRevealProgress.value = 0;
+    setTextAnimVisible(true);
     setIsAnimating(true);
-    const tick = (ts: number) => {
-      if (animStartRef.current === null) animStartRef.current = ts;
-      const elapsed = ts - animStartRef.current;
-      const progress = Math.min(elapsed / duration, 1);
-      setAnimProgress(progress);
-      if (progress < 1) {
-        animFrameRef.current = requestAnimationFrame(tick);
-      } else {
-        // Hold the completed trail briefly then clear
-        setTimeout(() => {
-          setAnimProgress(null);
-          setIsAnimating(false);
-        }, 600);
-        animFrameRef.current = null;
-      }
-    };
-    animFrameRef.current = requestAnimationFrame(tick);
-  }, [penMode, penProgress, finishPenAnim]);
+    textRevealProgress.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
+      if (finished) runOnJS(finishTextAnim)();
+    });
+  }, [penMode, penProgress, textRevealProgress, finishPenAnim, finishTextAnim]);
 
   const toggleSpeed = useCallback(() => {
     const next: 1 | 0.5 = animSpeedRef.current === 1 ? 0.5 : 1;
@@ -1014,6 +1027,7 @@ function TraceCanvas({
       if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
       if (holdTimerRef.current !== null) clearTimeout(holdTimerRef.current);
       cancelAnimation(penProgress);
+      cancelAnimation(textRevealProgress);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1056,8 +1070,9 @@ function TraceCanvas({
         holdTimerRef.current = null;
       }
       cancelAnimation(penProgress);
+      cancelAnimation(textRevealProgress);
       setPenAnimVisible(false);
-      setAnimProgress(null);
+      setTextAnimVisible(false);
       setIsAnimating(false);
 
       isDrawingRef.current = true;
@@ -1228,51 +1243,49 @@ function TraceCanvas({
             )}
 
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
-                with a cursor dot at the leading edge, mimicking a finger writing. */}
-            {animProgress !== null && !character.guide && (() => {
-              const clipId = 'trace-write-reveal';
-              // Hold fully revealed for the last 15 % so the word is visible briefly.
-              const revealFraction = Math.min(animProgress / 0.85, 1);
-              const revealX = revealFraction * CANVAS_SIZE;
-              // Vertical centre of the text (baseline at 70 %, fontSize 55 %)
-              const cursorY = CANVAS_SIZE * 0.42;
-              return (
-                <>
-                  <Defs>
-                    <ClipPath id={clipId}>
-                      <SvgRect x={0} y={0} width={revealX} height={CANVAS_SIZE} />
-                    </ClipPath>
-                  </Defs>
-                  {/* Colored text progressively revealed by the clip */}
-                  <SvgText
-                    x={CANVAS_SIZE / 2}
-                    y={CANVAS_SIZE * 0.70}
-                    fontSize={CANVAS_SIZE * 0.55}
-                    textAnchor="middle"
-                    fill={colors.primary}
-                    fillOpacity={0.82}
-                    fontFamily="serif"
-                    clipPath={`url(#${clipId})`}
-                  >
-                    {character.char}
-                  </SvgText>
-                  {/* Cursor dot at the leading edge */}
-                  {revealFraction < 1 && (
-                    <SvgCircle
-                      cx={revealX}
-                      cy={cursorY}
-                      r={CANVAS_SIZE * 0.028}
-                      fill={colors.primary}
-                      fillOpacity={0.92}
+                driven by a Reanimated shared value on the UI thread — same pattern
+                as pen-mode; avoids per-frame React re-renders that made it choppy. */}
+            {textAnimVisible && !character.guide && (
+              <>
+                <Defs>
+                  <ClipPath id="trace-write-reveal">
+                    <AnimatedSvgRect
+                      x={0}
+                      y={0}
+                      width={0}
+                      height={CANVAS_SIZE}
+                      animatedProps={textRevealRectProps}
                     />
-                  )}
-                </>
-              );
-            })()}
+                  </ClipPath>
+                </Defs>
+                {/* Colored text progressively revealed by the clip */}
+                <SvgText
+                  x={CANVAS_SIZE / 2}
+                  y={CANVAS_SIZE * 0.70}
+                  fontSize={CANVAS_SIZE * 0.55}
+                  textAnchor="middle"
+                  fill={colors.primary}
+                  fillOpacity={0.82}
+                  fontFamily="serif"
+                  clipPath="url(#trace-write-reveal)"
+                >
+                  {character.char}
+                </SvgText>
+                {/* Cursor dot at the leading edge — hidden at t=0 and after full reveal */}
+                <AnimatedSvgCircle
+                  cx={-100}
+                  cy={CANVAS_SIZE * 0.42}
+                  r={CANVAS_SIZE * 0.028}
+                  fill={colors.primary}
+                  opacity={0}
+                  animatedProps={textCursorProps}
+                />
+              </>
+            )}
 
             {/* Start indicator: green dot at the approximate writing start.
                 Shown after animation ends, disappears once the user draws. */}
-            {(penMode ? !penAnimVisible : animProgress === null) && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
+            {(penMode ? !penAnimVisible : !textAnimVisible) && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
               // Start of the first pen stroke — exactly where the writing demo
               // begins. Falls back to the topmost outline point for degenerate
               // glyphs (most Indian scripts begin at the top of the character).
