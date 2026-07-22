@@ -747,11 +747,15 @@ function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
   scale: number;
   color: string;
 }) {
+  // react-native-svg's `scale` prop scales the path geometry but NOT the
+  // stroke-dash coordinate system. Dasharray/dashoffset must be in visual
+  // pixel units (local units × scale) so the dash covers the full stroke.
+  const lenPx = len * scale;
   const animatedProps = useAnimatedProps(() => {
     const t = progress.value;
     const frac = t <= start ? 0 : t >= end ? 1 : (t - start) / Math.max(end - start, 0.0001);
     return {
-      strokeDashoffset: len * (1 - frac),
+      strokeDashoffset: lenPx * (1 - frac),
       // Hide untouched strokes entirely so the round line cap can't paint a
       // phantom dot at the stroke start before the pen reaches it.
       strokeOpacity: frac > 0 ? 0.9 : 0,
@@ -766,8 +770,8 @@ function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
       strokeWidth={3.2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeDasharray={`${len}`}
-      strokeDashoffset={len}
+      strokeDasharray={`${lenPx}`}
+      strokeDashoffset={lenPx}
       strokeOpacity={0}
       animatedProps={animatedProps}
     />
