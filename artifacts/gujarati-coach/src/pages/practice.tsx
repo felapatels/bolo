@@ -31,8 +31,26 @@ import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
+import { MilestoneToast } from "@/components/ui/milestone-toast";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
+
+// ScoreDisplay — the score text stays in a single DOM node (required for
+// test queries) while the badge container springs in to make the number feel
+// earned. Using motion for the container keeps the text accessible/findable.
+function ScoreDisplay({ score, className }: { score: number; className?: string }) {
+  return (
+    <motion.div
+      key={score}
+      initial={{ scale: 0.4, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 450, damping: 22 }}
+      className={className}
+    >
+      Score: {score}
+    </motion.div>
+  );
+}
 
 // Turns whatever the evaluation pipeline threw into a short, actionable
 // message for the learner.
@@ -150,6 +168,28 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const [silentMode, setSilentMode] = useState<boolean>(loadSilentMode);
   // Read by effects so the current value is always visible inside callbacks.
   const silentModeRef = useRef<boolean>(silentMode);
+
+  // ── Streak & toast state ─────────────────────────────────────────────────
+  // Use a ref so finishRecording (in a useCallback) always sees the current value.
+  const consecutiveGoodRef = useRef(0);
+  const [activeToast, setActiveToast] = useState<{ message: string; key: number } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards so each mid-session milestone fires at most once per session.
+  const halfwayToastFiredRef = useRef(false);
+  const lastToastFiredRef = useRef(false);
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setActiveToast(prev => ({ message, key: (prev?.key ?? 0) + 1 }));
+    toastTimerRef.current = setTimeout(() => setActiveToast(null), 1800);
+  }, []);
+
+  // Clear toast timer on unmount so it never fires into a torn-down component.
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const changeSilentMode = (enabled: boolean) => {
     setSilentMode(enabled);
@@ -349,6 +389,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         setTimeout(() => setShowConfetti(false), 3000);
       }
 
+      // Hot-streak tracking: increment consecutive good counter (score ≥ 70)
+      // using a ref so we always see the latest value inside this callback.
+      const newConsec = evalRes.score >= 70 ? consecutiveGoodRef.current + 1 : 0;
+      consecutiveGoodRef.current = newConsec;
+      if (newConsec === 3) showToast("🔥 3 in a row!");
+      else if (newConsec === 5) showToast("🔥🔥 On a roll!");
+      else if (newConsec === 10) showToast("🔥🔥🔥 UNSTOPPABLE!");
+
       try {
         // Save the attempt for the signed-in user. The score/feedback are
         // carried inside the server-signed evaluation token, so the server —
@@ -445,6 +493,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     setResult(null);
     setShowConfetti(false);
     if (phrases && currentIndex < phrases.length - 1) {
+      const nextIndex = currentIndex + 1;
+      // Mid-session milestone toasts — fire at most once each per session.
+      if (phrases.length >= 4 && nextIndex === Math.floor(phrases.length / 2) && !halfwayToastFiredRef.current) {
+        halfwayToastFiredRef.current = true;
+        showToast("Halfway there! 💪");
+      } else if (nextIndex === phrases.length - 1 && !lastToastFiredRef.current) {
+        lastToastFiredRef.current = true;
+        showToast("Last one! 🦜 Finish strong!");
+      }
       setCurrentIndex(c => c + 1);
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentMode ? "idle" : "playing_coach");
@@ -522,25 +579,34 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   if (state === "summary") {
     const avgScore = Math.round(sessionResults.reduce((a, b) => a + b.score, 0) / (sessionResults.length || 1));
+    const isPerfect = sessionResults.length > 0 && sessionResults.every(r => r.score >= 80);
+    // XP: rounded-to-tens of avg score × phrase count, capped at 50
+    const xpEarned = Math.min(Math.round(avgScore / 10) * sessionResults.length, 50);
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
-        <Confetti active={avgScore >= 70} />
+        <Confetti active={isPerfect || avgScore >= 70} variant={isPerfect ? "perfect" : "default"} />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
           <Mascot pose={avgScore >= 60 ? "cheer" : "thumbsup"} size={148} idle={avgScore >= 60 ? "cheer" : "float"} />
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="text-4xl font-black text-foreground"
+            className={cn(
+              "text-4xl font-black",
+              isPerfect ? "text-amber-500" : "text-foreground",
+            )}
           >
-            {avgScore >= 80 ? "You crushed it!" : avgScore >= 60 ? "Session Complete!" : "Great effort!"}
+            {isPerfect ? "PERFECT SESSION! 🏆" : avgScore >= 80 ? "You crushed it!" : avgScore >= 60 ? "Session Complete!" : "Great effort!"}
           </motion.h1>
 
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.25, type: "spring", stiffness: 260, damping: 18 }}
-            className="bg-white p-6 rounded-3xl w-full max-w-sm border border-card-border shadow-sm"
+            className={cn(
+              "p-6 rounded-3xl w-full max-w-sm border shadow-sm",
+              isPerfect ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" : "bg-white border-card-border",
+            )}
           >
             <p className="text-muted-foreground font-bold uppercase tracking-wider mb-2">Average Score</p>
             <div className={cn(
@@ -549,7 +615,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             )}>
               {avgScore}
             </div>
-            <p className="text-muted-foreground mt-4 font-medium">You practiced {sessionResults.length} {isSentences ? "sentences" : "phrases"}.</p>
+            {/* XP earned chip */}
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
+              +{xpEarned} XP earned
+            </div>
+            <p className="text-muted-foreground mt-3 font-medium">You practiced {sessionResults.length} {isSentences ? "sentences" : "phrases"}.</p>
           </motion.div>
         </div>
         
@@ -742,6 +812,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             )}
           </div>
 
+          {/* ── Milestone toast (streak / halfway / last phrase) ────────── */}
+          <MilestoneToast
+            message={activeToast?.message ?? null}
+            toastKey={activeToast?.key ?? null}
+          />
+
           {/* ── Instruction label ───────────────────────────────────────── */}
           <div className="shrink-0 h-12 flex items-center justify-center mt-1">
             <AnimatePresence mode="wait">
@@ -828,14 +904,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}>
                     {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
                   </p>
-                  <div className={cn(
-                    "inline-block px-3 py-0.5 rounded-full font-black text-base mb-2",
-                    result.score >= 80 ? "bg-success/20 text-success" : 
-                    result.score >= 60 ? "bg-primary/20 text-primary" : 
-                    "bg-destructive/20 text-destructive"
-                  )}>
-                    Score: {Math.round(result.score)}
-                  </div>
+                  <ScoreDisplay
+                    score={Math.round(result.score)}
+                    className={cn(
+                      "inline-block px-3 py-0.5 rounded-full font-black text-base mb-2",
+                      result.score >= 80 ? "bg-success/20 text-success" :
+                      result.score >= 60 ? "bg-primary/20 text-primary" :
+                      "bg-destructive/20 text-destructive"
+                    )}
+                  />
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
                   {result.tip && (
                     <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>

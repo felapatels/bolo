@@ -8,7 +8,7 @@ import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ export default function Home() {
   const { user } = useUser();
   const firstName = user?.firstName;
   const { activeLang, activeLanguage } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const native = useNativeText();
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
@@ -270,7 +271,19 @@ export default function Home() {
             <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
             <div className="relative flex items-stretch">
-              <StatCell icon={<Flame className="w-6 h-6" fill="currentColor" />} value={summary.currentStreakDays} label="Day Streak" delay={0.16} />
+              <StatCell
+                icon={
+                  <motion.div
+                    animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <Flame className="w-6 h-6" fill="currentColor" />
+                  </motion.div>
+                }
+                value={summary.currentStreakDays}
+                label="Day Streak"
+                delay={0.16}
+              />
               <div className="w-px self-stretch bg-white/25" />
               <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" delay={0.24} />
               <div className="w-px self-stretch bg-white/25" />

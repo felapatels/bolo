@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 const GAME_DURATION = 60; // seconds
 const STREAK_BONUS_THRESHOLD = 3;
@@ -180,6 +181,7 @@ function PlayingScreen({
   const nativeText = useNativeText();
   const { data: phrases = [], isLoading } = useListCategoryPhrases(categoryId, activeLang);
 
+  const reduceMotion = useReducedMotion();
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [queue, setQueue] = useState<Phrase[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -189,6 +191,36 @@ function PlayingScreen({
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [stats, setStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
   const [started, setStarted] = useState(false);
+
+  // Combo burst overlay state
+  const [comboBurst, setComboBurst] = useState<{ text: string; key: number } | null>(null);
+  const prevStreakRef = useRef(0);
+  const comboBurstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Watch for streak milestones (3, 5, 10) to trigger the burst overlay
+  useEffect(() => {
+    const prev = prevStreakRef.current;
+    const cur = stats.streak;
+    prevStreakRef.current = cur;
+    if (cur > prev) {
+      let burstText: string | null = null;
+      if (cur === 3) burstText = "HOT STREAK 🔥";
+      else if (cur === 5) burstText = "ON FIRE ⚡";
+      else if (cur === 10) burstText = "UNSTOPPABLE 💥";
+      if (burstText) {
+        if (comboBurstTimerRef.current) clearTimeout(comboBurstTimerRef.current);
+        setComboBurst(prev => ({ text: burstText!, key: (prev?.key ?? 0) + 1 }));
+        comboBurstTimerRef.current = setTimeout(() => setComboBurst(null), 1200);
+      }
+    }
+  }, [stats.streak]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear combo-burst timer on unmount so it never fires into a torn-down component.
+  useEffect(() => {
+    return () => {
+      if (comboBurstTimerRef.current) clearTimeout(comboBurstTimerRef.current);
+    };
+  }, []);
 
   // Build question queue once phrases load
   useEffect(() => {
@@ -284,7 +316,7 @@ function PlayingScreen({
   const isLowTime = timeLeft <= 10;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="relative flex min-h-[100dvh] flex-col bg-background">
       {/* Timer bar */}
       <div className="h-1.5 w-full bg-muted">
         <div
@@ -313,6 +345,24 @@ function PlayingScreen({
           </div>
         </div>
       </div>
+
+      {/* Combo burst overlay — springs in when streak hits 3, 5, or 10 */}
+      <AnimatePresence>
+        {comboBurst && (
+          <motion.div
+            key={comboBurst.key}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: [0.5, 1.05, 1] }}
+            exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.9 }}
+            transition={reduceMotion ? { duration: 0.2 } : { type: "spring", stiffness: 400, damping: 20 }}
+            className="pointer-events-none absolute inset-x-0 top-1/3 z-20 flex items-center justify-center"
+          >
+            <div className="rounded-2xl bg-foreground/90 px-7 py-3 text-2xl font-black text-background shadow-2xl">
+              {comboBurst.text}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Question area */}
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
