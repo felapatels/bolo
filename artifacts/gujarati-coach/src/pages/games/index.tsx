@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Gamepad2, Link2, Headphones, Layers, Zap, PenLine, Award, Lock, Star } from "lucide-react";
+import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Mascot } from "@/components/mascot";
@@ -52,15 +52,16 @@ const GAMES: GameDef[] = [
     plusOnly: true,
     Icon: Zap,
   },
-  {
-    id: "script-trace",
-    href: "/games/script-trace",
-    title: "Script Trace",
-    description: "Trace native-script characters stroke by stroke",
-    difficulty: "Advanced",
-    plusOnly: true,
-    Icon: PenLine,
-  },
+  // FEATURE FLAG: script-trace hidden until pen animation and scoring are polished
+  // {
+  //   id: "script-trace",
+  //   href: "/games/script-trace",
+  //   title: "Script Trace",
+  //   description: "Trace native-script characters stroke by stroke",
+  //   difficulty: "Advanced",
+  //   plusOnly: true,
+  //   Icon: PenLine,
+  // },
   {
     id: "bolo-quiz",
     href: "/games/bolo-quiz",
