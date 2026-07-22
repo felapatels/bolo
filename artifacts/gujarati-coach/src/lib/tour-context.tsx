@@ -38,7 +38,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Play your way to fluency 🎮",
-    body: "The Games tab has five mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round — plus Bolo Quiz for Plus members.",
+    body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
   },
   {
     title: "Watch yourself grow 📈",

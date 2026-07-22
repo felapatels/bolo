@@ -737,8 +737,10 @@ const AnimatedSvgRect = Animated.createAnimatedComponent(SvgRect);
  * single shared progress value drives every stroke ON THE UI THREAD — the
  * old rAF + setState driver re-rendered the whole SVG tree over the bridge
  * every frame, which is what made the demo choppy.
+ *
+ * Exported for unit-testing the strokeDasharray pixel-space invariant.
  */
-function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
+export function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
   progress: SharedValue<number>;
   d: string;
   len: number;

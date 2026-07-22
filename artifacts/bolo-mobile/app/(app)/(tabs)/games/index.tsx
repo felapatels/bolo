@@ -60,15 +60,14 @@ const GAMES: GameDef[] = [
     plusOnly: true,
     icon: 'zap',
   },
-  // FEATURE FLAG: script-trace hidden until pen animation and scoring are polished
-  // {
-  //   id: 'script-trace',
-  //   title: 'Script Trace',
-  //   description: 'Trace native-script characters stroke by stroke',
-  //   difficulty: 'Advanced',
-  //   plusOnly: true,
-  //   icon: 'edit-3',
-  // },
+  {
+    id: 'script-trace',
+    title: 'Script Trace',
+    description: 'Trace native-script characters stroke by stroke',
+    difficulty: 'Advanced',
+    plusOnly: true,
+    icon: 'edit-3',
+  },
   {
     id: 'bolo-quiz',
     title: 'Bolo Quiz',
