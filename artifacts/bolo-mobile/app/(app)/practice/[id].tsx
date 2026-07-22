@@ -18,6 +18,8 @@ import Animated, {
   FadeIn,
   FadeInDown,
   ZoomIn,
+  runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -48,6 +50,7 @@ import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Mascot, type MascotPose } from '@/components/Mascot';
 import { Confetti } from '@/components/Confetti';
+import { MilestoneToast } from '@/components/MilestoneToast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
@@ -68,6 +71,41 @@ import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/se
 import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
+
+/** Animated score counter — counts up from 0 to `score` over 600 ms. */
+function AnimatedScore({
+  score,
+  color,
+  style,
+}: {
+  score: number;
+  color: string;
+  style?: object;
+}) {
+  const sv = useSharedValue(0);
+  const [display, setDisplay] = React.useState(0);
+
+  useAnimatedReaction(
+    () => Math.round(sv.value),
+    (rounded, prev) => {
+      if (rounded !== prev) runOnJS(setDisplay)(rounded);
+    },
+  );
+
+  React.useEffect(() => {
+    sv.value = 0;
+    sv.value = withTiming(score, { duration: 600 });
+    return () => {
+      // Snap to final value on unmount so advancing feels clean.
+      sv.value = score;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score]);
+
+  return (
+    <Text style={[style, { color }]}>{display}</Text>
+  );
+}
 
 // Turns whatever the evaluation pipeline threw into a short, actionable
 // message for the learner (mirrors the web practice flow).
@@ -143,6 +181,19 @@ export default function PracticeScreen() {
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
   const [evalError, setEvalError] = React.useState<string | null>(null);
+
+  // ── Hot-streak & milestone toast state ──────────────────────────────────
+  /** Consecutive scores ≥ 70 in this session. */
+  const consecutiveGoodRef = React.useRef(0);
+  /** Message shown in the MilestoneToast pill. */
+  const [toastMessage, setToastMessage] = React.useState('');
+  /** Increment to re-trigger the toast animation. */
+  const [toastKey, setToastKey] = React.useState(0);
+  /** Increment to trigger a one-shot bounce on the mascot. */
+  const [celebrateBounceCount, setCelebrateBounceCount] = React.useState(0);
+  /** Guards so each mid-session milestone fires at most once per session. */
+  const halfwayFiredRef = React.useRef(false);
+  const lastPhraseFiredRef = React.useRef(false);
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = React.useState(false);
@@ -376,8 +427,15 @@ export default function PracticeScreen() {
   }, [phase, result, spokenEnabled]);
 
   // Celebrate finishing a whole session with a longer confetti shower.
+  // If every phrase scored ≥ 80, fire a heavy haptic for the perfect-session moment.
   React.useEffect(() => {
-    if (phase === 'done') fireConfetti(4000);
+    if (phase === 'done') {
+      fireConfetti(4000);
+      if (scores.length > 0 && scores.every((s) => s >= 80)) {
+        hapticHeavy();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, fireConfetti]);
 
   // Warm up recording ahead of the tap: request permission + audio session
@@ -552,6 +610,25 @@ export default function PracticeScreen() {
       setScores((prev) => [...prev, res.score]);
       setPhaseSync('result');
 
+      // ── Hot-streak tracking ──────────────────────────────────────────────
+      if (res.score >= 70) {
+        consecutiveGoodRef.current += 1;
+        const streak = consecutiveGoodRef.current;
+        if (streak === 3 || streak === 5 || streak === 10) {
+          const msg =
+            streak === 3
+              ? '🔥 3 in a row!'
+              : streak === 5
+                ? '🔥🔥 On a roll!'
+                : '🔥🔥🔥 UNSTOPPABLE!';
+          setToastMessage(msg);
+          setToastKey((k) => k + 1);
+          setCelebrateBounceCount((c) => c + 1);
+        }
+      } else {
+        consecutiveGoodRef.current = 0;
+      }
+
       hapticNotify(
         res.passed
           ? Haptics.NotificationFeedbackType.Success
@@ -613,6 +690,17 @@ export default function PracticeScreen() {
     setResult(null);
     setSaveFailed(false);
     if (index + 1 < list.length) {
+      const nextIdx = index + 1;
+      // Mid-session milestone toasts — fire at the halfway phrase and the last phrase.
+      if (!halfwayFiredRef.current && nextIdx === Math.floor(list.length / 2) && list.length > 2) {
+        halfwayFiredRef.current = true;
+        setToastMessage('Halfway there! 💪');
+        setToastKey((k) => k + 1);
+      } else if (!lastPhraseFiredRef.current && nextIdx === list.length - 1 && list.length > 1) {
+        lastPhraseFiredRef.current = true;
+        setToastMessage('Last one! 🦜 Finish strong!');
+        setToastKey((k) => k + 1);
+      }
       setIndex((i) => i + 1);
       setPhaseSync('idle');
     } else {
@@ -699,6 +787,8 @@ export default function PracticeScreen() {
       scores.length > 0
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
         : 0;
+    const isPerfect = scores.length > 0 && scores.every((s) => s >= 80);
+    const xpEarned = Math.min(50, Math.round(avg / 10) * scores.length);
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
@@ -708,9 +798,12 @@ export default function PracticeScreen() {
           </Animated.View>
           <Animated.Text
             entering={skipEnter ? undefined : FadeInDown.delay(150)}
-            style={[styles.summaryTitle, { color: colors.foreground }]}
+            style={[
+              styles.summaryTitle,
+              isPerfect ? { color: '#D97706' } : { color: colors.foreground },
+            ]}
           >
-            Session complete!
+            {isPerfect ? 'PERFECT SESSION! 🏆' : 'Session complete!'}
           </Animated.Text>
           <Animated.Text
             entering={skipEnter ? undefined : FadeInDown.delay(220)}
@@ -739,6 +832,20 @@ export default function PracticeScreen() {
               {avg}
             </Text>
           </Animated.View>
+          {/* XP earned chip */}
+          {xpEarned > 0 && (
+            <Animated.View
+              entering={skipEnter ? undefined : FadeInDown.delay(380)}
+              style={[
+                styles.xpChip,
+                { backgroundColor: `${'#7C3AED'}18`, borderColor: '#7C3AED' },
+              ]}
+            >
+              <Text style={[styles.xpChipText, { color: '#7C3AED' }]}>
+                +{xpEarned} XP
+              </Text>
+            </Animated.View>
+          )}
           <ChunkyButton
             title="Back to home"
             icon="home"
@@ -746,7 +853,7 @@ export default function PracticeScreen() {
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>
-        {celebrate ? <Confetti /> : null}
+        {celebrate ? <Confetti variant={isPerfect ? 'perfect' : 'default'} /> : null}
         <BadgeUnlock
           badges={unlockedBadges}
           onDismiss={() => setUnlockedBadges([])}
@@ -809,6 +916,7 @@ export default function PracticeScreen() {
             size={104}
             motion={mascotMotion}
             entering
+            celebrateBounce={celebrateBounceCount}
           />
         </View>
 
@@ -896,15 +1004,21 @@ export default function PracticeScreen() {
                 >
                   {result.passed ? 'Great job!' : 'Keep practicing'}
                 </Text>
-                <Text
-                  style={[
-                    styles.resultScore,
-                    { color: scoreColor(result.score, colors) },
-                  ]}
-                >
-                  {result.score}
-                  <Text style={styles.resultScoreMax}> / 100</Text>
-                </Text>
+                <View style={styles.resultScoreRow}>
+                  <AnimatedScore
+                    score={result.score}
+                    color={scoreColor(result.score, colors)}
+                    style={styles.resultScore}
+                  />
+                  <Text
+                    style={[
+                      styles.resultScoreMax,
+                      { color: scoreColor(result.score, colors) },
+                    ]}
+                  >
+                    {' / 100'}
+                  </Text>
+                </View>
               </View>
               <Pressable
                 onPress={toggleSpokenFeedback}
@@ -1023,6 +1137,12 @@ export default function PracticeScreen() {
       <BadgeUnlock
         badges={unlockedBadges}
         onDismiss={() => setUnlockedBadges([])}
+      />
+      <MilestoneToast
+        message={toastMessage}
+        toastKey={toastKey}
+        backgroundColor="#312E81"
+        color="#FFFFFF"
       />
     </Screen>
   );
@@ -1308,4 +1428,19 @@ const styles = StyleSheet.create({
   },
   avgLabel: { fontFamily: AppFonts.semibold, fontSize: 14 },
   avgValue: { fontFamily: AppFonts.extrabold, fontSize: 52, marginTop: 4 },
+  xpChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    marginTop: 12,
+  },
+  xpChipText: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  resultScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 2,
+  },
 });

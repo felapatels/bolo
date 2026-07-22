@@ -1,8 +1,9 @@
 import React from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -20,7 +21,18 @@ const CONFETTI_COLORS = [
   '#F59E0B', // amber (gold)
 ];
 
+const PERFECT_COLORS = [
+  '#F59E0B', // amber
+  '#FBBF24', // amber-400
+  '#FCD34D', // amber-300
+  '#D97706', // amber-600
+  '#B45309', // amber-700
+  '#FEF3C7', // cream
+];
+
 const PIECE_COUNT = 44;
+
+type PieceShape = 'rect' | 'circle' | 'diamond';
 
 type PieceSpec = {
   id: number;
@@ -30,6 +42,7 @@ type PieceSpec = {
   delay: number;
   duration: number;
   drift: number;
+  shape: PieceShape;
 };
 
 function ConfettiPiece({ spec }: { spec: PieceSpec }) {
@@ -55,6 +68,67 @@ function ConfettiPiece({ spec }: { spec: PieceSpec }) {
     opacity: 1 - t.value * 0.2,
   }));
 
+  if (spec.shape === 'circle') {
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.piece,
+          {
+            left: spec.left,
+            width: spec.size,
+            height: spec.size,
+            borderRadius: spec.size / 2,
+            backgroundColor: spec.color,
+          },
+          style,
+        ]}
+      />
+    );
+  }
+
+  if (spec.shape === 'diamond') {
+    // Two overlapping narrow rectangles at 0° and 90° give a plus/cross shape;
+    // the ongoing rotate animation turns them into a spinning star-like piece.
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.piece,
+          {
+            left: spec.left,
+            width: spec.size,
+            height: spec.size,
+            backgroundColor: 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          style,
+        ]}
+      >
+        <View
+          style={{
+            position: 'absolute',
+            width: spec.size,
+            height: spec.size * 0.35,
+            backgroundColor: spec.color,
+            borderRadius: 2,
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            width: spec.size * 0.35,
+            height: spec.size,
+            backgroundColor: spec.color,
+            borderRadius: 2,
+          }}
+        />
+      </Animated.View>
+    );
+  }
+
+  // rect (default)
   return (
     <Animated.View
       pointerEvents="none"
@@ -72,24 +146,35 @@ function ConfettiPiece({ spec }: { spec: PieceSpec }) {
   );
 }
 
+export type ConfettiVariant = 'default' | 'perfect';
+
+const SHAPES: PieceShape[] = ['rect', 'circle', 'diamond'];
+
 /**
  * A lightweight full-screen confetti rain built on reanimated. Pieces loop while
  * mounted, so the parent controls the celebration lifetime by mounting /
  * unmounting this component.
+ *
+ * `variant="perfect"` shifts the palette to amber/gold for a golden-moment feel.
  */
-export function Confetti() {
+export function Confetti({ variant = 'default' }: { variant?: ConfettiVariant }) {
+  const reduceMotion = useReducedMotion();
+  const palette = variant === 'perfect' ? PERFECT_COLORS : CONFETTI_COLORS;
+
   const pieces = React.useMemo<PieceSpec[]>(
     () =>
       Array.from({ length: PIECE_COUNT }, (_, i) => ({
         id: i,
         left: Math.random() * width,
         size: 8 + Math.random() * 8,
-        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        color: palette[i % palette.length],
         delay: Math.random() * 1200,
         duration: 2200 + Math.random() * 1800,
         drift: 20 + Math.random() * 60,
+        shape: SHAPES[i % SHAPES.length],
       })),
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variant],
   );
 
   return (

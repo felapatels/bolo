@@ -74,6 +74,7 @@ export function Mascot({
   motion = 'float',
   entering = true,
   isIdle = false,
+  celebrateBounce = 0,
   style,
 }: {
   pose: MascotPose;
@@ -87,6 +88,12 @@ export function Mascot({
    * resume the normal idle motion. Ignored when reduceMotion is on.
    */
   isIdle?: boolean;
+  /**
+   * Increment this counter to trigger a one-shot celebratory bounce (quick
+   * scale-pop). Useful when a milestone is hit during a session. Ignored
+   * when reduceMotion is on.
+   */
+  celebrateBounce?: number;
   style?: StyleProp<ImageStyle>;
 }) {
   const reduceMotion = useReducedMotion();
@@ -127,6 +134,21 @@ export function Mascot({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pose]);
+
+  // Celebrate bounce — fires a quick scale-pop when celebrateBounce increments.
+  const prevCelebrateBounce = React.useRef(0);
+  React.useEffect(() => {
+    if (reduceMotion) return;
+    if (celebrateBounce === 0) return;
+    if (celebrateBounce === prevCelebrateBounce.current) return;
+    prevCelebrateBounce.current = celebrateBounce;
+    funnyScale.value = withSequence(
+      withSpring(1.35, { damping: 5, stiffness: 320 }),
+      withSpring(0.9, { damping: 8, stiffness: 260 }),
+      withSpring(1, { damping: 10, stiffness: 200 }),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebrateBounce, reduceMotion]);
 
   // Funny idle — fire a random one-shot sequence when isIdle becomes true.
   React.useEffect(() => {

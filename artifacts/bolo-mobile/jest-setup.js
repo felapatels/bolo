@@ -62,6 +62,7 @@ jest.mock('react-native-reanimated', () => {
     withSequence: (v) => v,
     withDelay: (_d, v) => v,
     useAnimatedProps: (fn) => (typeof fn === 'function' ? fn() : {}),
+    useAnimatedReaction: () => {},
     interpolate: () => 0,
     runOnJS: (fn) => fn,
     runOnUI: (fn) => fn,

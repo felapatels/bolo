@@ -218,6 +218,13 @@ function PlayingScreen({
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [stats, setStats] = useState<GameStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
   const [started, setStarted] = useState(false);
+  // Combo burst overlay — message shown when streak crosses 3 / 5 / 10.
+  const [comboBurst, setComboBurst] = useState<string | null>(null);
+  const [comboBurstKey, setComboBurstKey] = useState(0);
+  const prevStreakRef = useRef(0);
+  // Hold the auto-clear timer in a ref so non-milestone streak changes
+  // (e.g. 4, 6) don't cancel the pending dismissal via effect cleanup.
+  const comboClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (allPhrases.length === 0) return;
@@ -250,6 +257,27 @@ function PlayingScreen({
   const statsRef = useRef(stats);
   resultsRef.current = results;
   statsRef.current = stats;
+
+  // Watch streak for milestone crossings and fire combo burst overlay.
+  // The auto-clear timer lives in a ref (not returned as effect cleanup) so that
+  // non-milestone streak increments (e.g. 4, 6) don't accidentally cancel it.
+  useEffect(() => {
+    const streak = stats.streak;
+    const prev = prevStreakRef.current;
+    prevStreakRef.current = streak;
+    if (streak > prev && (streak === 3 || streak === 5 || streak === 10)) {
+      const msg =
+        streak === 3 ? 'HOT STREAK 🔥' : streak === 5 ? 'ON FIRE ⚡' : 'UNSTOPPABLE 💥';
+      setComboBurst(msg);
+      setComboBurstKey((k) => k + 1);
+      if (comboClearTimerRef.current) clearTimeout(comboClearTimerRef.current);
+      comboClearTimerRef.current = setTimeout(() => {
+        setComboBurst(null);
+        comboClearTimerRef.current = null;
+      }, 1200);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.streak]);
 
   useEffect(() => {
     if (timeLeft === 0 && started) {
@@ -328,6 +356,18 @@ function PlayingScreen({
           <Text style={[styles.pointsText, { color: colors.primary }]}>{stats.points}</Text>
         </View>
       </View>
+
+      {/* Combo burst overlay — springs in when streak hits 3 / 5 / 10 */}
+      {comboBurst ? (
+        <Animated.Text
+          key={comboBurstKey}
+          entering={ZoomIn.springify().damping(8).stiffness(200)}
+          style={styles.comboBurstText}
+          pointerEvents="none"
+        >
+          {comboBurst}
+        </Animated.Text>
+      ) : null}
 
       {/* Question */}
       <View style={styles.questionArea}>
@@ -634,4 +674,17 @@ const styles = StyleSheet.create({
   bonusNote: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 4 },
   doneActions: { width: '100%', gap: 10, marginTop: 8 },
   backLink: { fontFamily: AppFonts.regular, fontSize: 14, textAlign: 'center', textDecorationLine: 'underline' },
+  comboBurstText: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '35%',
+    zIndex: 50,
+    fontFamily: AppFonts.extrabold,
+    fontSize: 28,
+    color: '#F59E0B',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
 });
