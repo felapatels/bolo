@@ -36,6 +36,11 @@ tests (`src/**/*.test.tsx`, run via `pnpm --filter @workspace/gujarati-coach run
 `GET /api/entitlements` snapshot and shared 402 `upgrade_required` bodies; these tests lock in that
 contract so a regression can't silently lock out payers or leak Plus to Free.
 
+## Debugging property tests over big datasets
+- `console.log` from test bodies can be swallowed by the reporter here; for dataset-wide
+  diagnostics, write to a file (`writeFileSync('/tmp/diag-out.txt', ...)`) from a throwaway
+  `*.test.ts`, run just that file, `cat` the output, and delete the test before finishing.
+
 ## Responsive mobile-vs-desktop layouts and jsdom
 - When a page's desktop layout is **structurally different** from mobile (e.g. Friends: mobile Radix
   Tabs vs. desktop leaderboard+management side-by-side), do **not** render both trees and hide one

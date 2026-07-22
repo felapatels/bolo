@@ -196,7 +196,10 @@ describe("extractStrokes pen-stroke skeleton", () => {
         const strokes = strokesFor(ch.guide);
         expect(strokes.length, `${ch.id} has no strokes`).toBeGreaterThan(0);
 
-        const outline = parseSvgPath(ch.guide);
+        // Sample the outline densely: multi-contour words/sentences spread the
+        // default 80 samples so thin (~3 per contour) that the estimated bbox
+        // misses true extremes by several units and flags valid strokes.
+        const outline = parseSvgPath(ch.guide, 1600);
         const minX = Math.min(...outline.map((p) => p.x)) - 3;
         const maxX = Math.max(...outline.map((p) => p.x)) + 3;
         const minY = Math.min(...outline.map((p) => p.y)) - 3;
@@ -234,7 +237,7 @@ describe("extractStrokes pen-stroke skeleton", () => {
       let upperStarts = 0;
       for (const ch of guidedChars) {
         const strokes = strokesFor(ch.guide);
-        const outline = parseSvgPath(ch.guide);
+        const outline = parseSvgPath(ch.guide, 1600);
         const minY = Math.min(...outline.map((p) => p.y));
         const maxY = Math.max(...outline.map((p) => p.y));
         const midY = (minY + maxY) / 2;

@@ -77,9 +77,13 @@ function parseSvgSubpaths(d: string): Point[][] {
       cx = nums[0]; cy = nums[1];
       points.push({ x: cx, y: cy });
     } else if (type === "Q") {
-      // Quadratic bezier — sample 20 intermediate points
+      // Quadratic bezier — sample 20 intermediate points. Iterate on an
+      // integer counter so t reaches exactly 1: accumulating `t += 0.05`
+      // overshoots 1 by float error and skips the endpoint, leaving contours
+      // that end in a curve unclosed (which breaks the winding test).
       const [qx1, qy1, qx2, qy2] = nums;
-      for (let t = 0; t <= 1; t += 0.05) {
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20;
         const x = (1 - t) ** 2 * cx + 2 * (1 - t) * t * qx1 + t ** 2 * qx2;
         const y = (1 - t) ** 2 * cy + 2 * (1 - t) * t * qy1 + t ** 2 * qy2;
         points.push({ x, y });
@@ -87,7 +91,8 @@ function parseSvgSubpaths(d: string): Point[][] {
       cx = qx2; cy = qy2;
     } else if (type === "C") {
       const [cx1, cy1, cx2, cy2, ex, ey] = nums;
-      for (let t = 0; t <= 1; t += 0.05) {
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20;
         const x =
           (1 - t) ** 3 * cx +
           3 * (1 - t) ** 2 * t * cx1 +
@@ -286,7 +291,31 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
   }
   const precision = sampled > 0 ? onTarget / sampled : 1;
 
-  return Math.round(coverage * precision * 100);
+  // Ink-spread gate: a stationary tap (or tiny scribble) concentrates all its
+  // ink in one spot yet can sit within tolerance of many reference points on
+  // compact or word-scale glyphs. Real writing spans the character, so scale
+  // the score by how much of the reference bounding-box diagonal the drawn
+  // ink spans. Honest traces span nearly the full glyph (factor 1); a tap
+  // spans ~2 units and is crushed.
+  let dMinX = Infinity, dMaxX = -Infinity, dMinY = Infinity, dMaxY = -Infinity;
+  for (const p of allPts) {
+    if (p.x < dMinX) dMinX = p.x;
+    if (p.x > dMaxX) dMaxX = p.x;
+    if (p.y < dMinY) dMinY = p.y;
+    if (p.y > dMaxY) dMaxY = p.y;
+  }
+  let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
+  for (const p of referencePoints) {
+    if (p.x < rMinX) rMinX = p.x;
+    if (p.x > rMaxX) rMaxX = p.x;
+    if (p.y < rMinY) rMinY = p.y;
+    if (p.y > rMaxY) rMaxY = p.y;
+  }
+  const drawnDiag = Math.hypot(dMaxX - dMinX, dMaxY - dMinY);
+  const refDiag = Math.hypot(rMaxX - rMinX, rMaxY - rMinY) || 1;
+  const spread = Math.min(1, drawnDiag / (0.45 * refDiag));
+
+  return Math.round(coverage * precision * spread * 100);
 }
 
 // ── Animation helper ───────────────────────────────────────────────────────────
@@ -308,34 +337,47 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
 //
 // The output is the letter's actual "pen paths", animated stroke by stroke.
 
-const SKEL_RES = 64; // bitmap resolution across the 0-100 glyph space
+const SKEL_RES = 64; // base bitmap resolution across the 0-100 glyph space
+
+/**
+ * Bitmap resolution for a glyph: single letters thin cleanly at 64, but
+ * multi-glyph words and multi-line sentences pack many small features into
+ * the same 0-100 box — at 64px their limbs collapse below the thinning
+ * resolution and the skeleton (demo animation + coverage of honest traces)
+ * loses chunks. Scale resolution with contour count.
+ */
+function skelResFor(subpathCount: number): number {
+  if (subpathCount >= 20) return 128; // multi-line sentences
+  if (subpathCount >= 8) return 96; // words
+  return SKEL_RES; // single letters
+}
 const ORIENT_X_WEIGHT = 0.35; // top-start bias with a left-start tiebreak
 
-/** Rasterize the glyph interior into a binary SKEL_RES×SKEL_RES bitmap. */
-function rasterizeGlyph(subpaths: Point[][]): Uint8Array {
-  const grid = new Uint8Array(SKEL_RES * SKEL_RES);
-  const cell = 100 / SKEL_RES;
-  for (let gy = 0; gy < SKEL_RES; gy++) {
-    for (let gx = 0; gx < SKEL_RES; gx++) {
+/** Rasterize the glyph interior into a binary res×res bitmap. */
+function rasterizeGlyph(subpaths: Point[][], res: number): Uint8Array {
+  const grid = new Uint8Array(res * res);
+  const cell = 100 / res;
+  for (let gy = 0; gy < res; gy++) {
+    for (let gx = 0; gx < res; gx++) {
       const pt = { x: (gx + 0.5) * cell, y: (gy + 0.5) * cell };
-      if (windingInSubpaths(pt, subpaths) !== 0) grid[gy * SKEL_RES + gx] = 1;
+      if (windingInSubpaths(pt, subpaths) !== 0) grid[gy * res + gx] = 1;
     }
   }
   return grid;
 }
 
 /** Zhang-Suen thinning: erode a binary bitmap down to its 1-px skeleton. */
-function zhangSuenThin(src: Uint8Array): Uint8Array {
+function zhangSuenThin(src: Uint8Array, res: number): Uint8Array {
   const g = Uint8Array.from(src);
   const at = (x: number, y: number) =>
-    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : g[y * SKEL_RES + x];
+    x < 0 || y < 0 || x >= res || y >= res ? 0 : g[y * res + x];
   let changed = true;
   while (changed) {
     changed = false;
     for (let step = 0; step < 2; step++) {
       const del: number[] = [];
-      for (let y = 0; y < SKEL_RES; y++) {
-        for (let x = 0; x < SKEL_RES; x++) {
+      for (let y = 0; y < res; y++) {
+        for (let x = 0; x < res; x++) {
           if (!at(x, y)) continue;
           // Neighbours P2..P9, clockwise from north
           const p2 = at(x, y - 1), p3 = at(x + 1, y - 1), p4 = at(x + 1, y);
@@ -352,7 +394,7 @@ function zhangSuenThin(src: Uint8Array): Uint8Array {
           } else {
             if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
           }
-          del.push(y * SKEL_RES + x);
+          del.push(y * res + x);
         }
       }
       if (del.length > 0) { changed = true; for (const i of del) g[i] = 0; }
@@ -362,9 +404,9 @@ function zhangSuenThin(src: Uint8Array): Uint8Array {
 }
 
 /** Walk a 1-px skeleton bitmap into polylines (grid coords), splitting at junctions. */
-function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
+function traceSkeletonPolylines(skel: Uint8Array, res: number): Point[][] {
   const at = (x: number, y: number) =>
-    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : skel[y * SKEL_RES + x];
+    x < 0 || y < 0 || x >= res || y >= res ? 0 : skel[y * res + x];
   const N8 = [
     [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1],
   ] as const;
@@ -375,8 +417,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
   };
   const deg = (x: number, y: number) => nbrs(x, y).length;
   const edgeKey = (a: Point, b: Point) => {
-    const i = a.y * SKEL_RES + a.x, j = b.y * SKEL_RES + b.x;
-    return i < j ? i * SKEL_RES * SKEL_RES + j : j * SKEL_RES * SKEL_RES + i;
+    const i = a.y * res + a.x, j = b.y * res + b.x;
+    return i < j ? i * res * res + j : j * res * res + i;
   };
   const used = new Set<number>();
   const polylines: Point[][] = [];
@@ -401,8 +443,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
   };
 
   // Walk from every endpoint (deg 1) and junction (deg ≥ 3) along unused edges
-  for (let y = 0; y < SKEL_RES; y++) {
-    for (let x = 0; x < SKEL_RES; x++) {
+  for (let y = 0; y < res; y++) {
+    for (let x = 0; x < res; x++) {
       if (!at(x, y) || deg(x, y) === 2) continue;
       const node = { x, y };
       for (const nb of nbrs(x, y)) {
@@ -411,8 +453,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
     }
   }
   // Pure loops (every pixel deg 2, e.g. a ring): walk from any unvisited pixel
-  for (let y = 0; y < SKEL_RES; y++) {
-    for (let x = 0; x < SKEL_RES; x++) {
+  for (let y = 0; y < res; y++) {
+    for (let x = 0; x < res; x++) {
       if (!at(x, y) || deg(x, y) !== 2) continue;
       const start = { x, y };
       const fresh = nbrs(x, y).filter((p) => !used.has(edgeKey(start, p)));
@@ -437,6 +479,28 @@ function rdpSimplify(pts: Point[], epsilon: number): Point[] {
   const left = rdpSimplify(pts.slice(0, maxIdx + 1), epsilon);
   const right = rdpSimplify(pts.slice(maxIdx), epsilon);
   return [...left.slice(0, -1), ...right];
+}
+
+/**
+ * Loop-safe polyline simplification. Plain RDP measures distance to the
+ * start→end chord; on a CLOSED loop (start ≈ end) that chord is degenerate,
+ * every point measures ~0, and the whole ring collapses to a zero-length
+ * segment. Split closed loops at the point farthest from the start and RDP
+ * each half instead.
+ */
+function simplifyStroke(pts: Point[], eps: number): Point[] {
+  const closed =
+    pts.length > 3 &&
+    Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < 2;
+  if (!closed) return rdpSimplify(pts, eps);
+  let m = 1, best = -1;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = Math.hypot(pts[i].x - pts[0].x, pts[i].y - pts[0].y);
+    if (d > best) { best = d; m = i; }
+  }
+  const a = rdpSimplify(pts.slice(0, m + 1), eps);
+  const b = rdpSimplify(pts.slice(m), eps);
+  return [...a.slice(0, -1), ...b];
 }
 
 /** Total arc length of a polyline. */
@@ -553,9 +617,10 @@ function chaikinSmooth(points: Point[], iterations = 2): Point[] {
 export function extractStrokes(guideD: string): Point[][] {
   const subpaths = parseSvgSubpaths(guideD).filter((sp) => sp.length > 2);
   if (subpaths.length === 0) return [];
-  const skel = zhangSuenThin(rasterizeGlyph(subpaths));
-  const cell = 100 / SKEL_RES;
-  let lines = traceSkeletonPolylines(skel).map((line) =>
+  const res = skelResFor(subpaths.length);
+  const skel = zhangSuenThin(rasterizeGlyph(subpaths, res), res);
+  const cell = 100 / res;
+  let lines = traceSkeletonPolylines(skel, res).map((line) =>
     line.map((p) => ({ x: (p.x + 0.5) * cell, y: (p.y + 0.5) * cell })),
   );
   // Join segments that continue smoothly through junctions into long strokes.
@@ -566,7 +631,19 @@ export function extractStrokes(guideD: string): Point[][] {
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);
   if (substantial.length > 0) lines = substantial;
-  lines = lines.map((l) => orientStroke(rdpSimplify(l, 1.6)));
+  lines = lines.map((l) => orientStroke(simplifyStroke(l, 1.6)));
+
+  // Degenerate-skeleton fallback: sentence-scale glyphs can squeeze letter
+  // limbs into HAIRLINE strokes thinner than one raster cell. Point-sampled
+  // winding then shatters the ink into isolated pixels, the tracer drops
+  // them, and the "skeleton" collapses to a few tiny fragments. For such
+  // hairline glyphs the outline loop IS the pen path (outline ≈ centreline
+  // when strokes have no width), so trace the subpath loops directly.
+  const skelLen = lines.reduce((s, l) => s + polylineLength(l), 0);
+  const outlineLen = subpaths.reduce((s, sp) => s + polylineLength(sp), 0);
+  if (skelLen < 20 || skelLen < 0.08 * outlineLen) {
+    lines = subpaths.map((sp) => orientStroke(simplifyStroke(sp, 1.6)));
+  }
 
   // Order strokes: most top-left start first, then greedily append the stroke
   // whose start is nearest the previous stroke's end (natural pen travel).
@@ -588,6 +665,21 @@ export function extractStrokes(guideD: string): Point[][] {
   }
   // Round the angular RDP polylines into the smooth curves a hand draws.
   return ordered.map((s) => chaikinSmooth(s));
+}
+
+/**
+ * Session-lifetime stroke cache. Skeleton extraction at word/sentence
+ * resolution (96/128) costs up to a few hundred ms; useMemo alone recomputes
+ * on every remount (retry, revisit), stalling the JS thread. Keyed by guide
+ * string; the full dataset would only be a few MB, a session touches far less.
+ */
+const guideStrokeCache = new Map<string, Point[][]>();
+function strokesForGuide(guideD: string): Point[][] {
+  const hit = guideStrokeCache.get(guideD);
+  if (hit) return hit;
+  const strokes = extractStrokes(guideD);
+  guideStrokeCache.set(guideD, strokes);
+  return strokes;
 }
 
 /** Per-stroke [start,end] time fractions, proportional to stroke length. */
@@ -618,67 +710,6 @@ function pointAtLength(pts: Point[], dist: number): Point {
     acc += seg;
   }
   return pts[pts.length - 1];
-}
-
-// ── Word/phrase animation helpers ─────────────────────────────────────────────
-//
-// For word-stage entries (guide = ""), decompose the string into grapheme
-// clusters, look up each letter's guide path from the alphabet chapters, and
-// tile their skeleton strokes side-by-side in the 0-100 canvas space so the
-// existing pen-stroke drawing code works without modification.
-
-function splitGraphemeClustersWeb(str: string): string[] {
-  try {
-    if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
-      return Array.from(
-        new (Intl as any).Segmenter().segment(str),
-      ).map((s: any) => s.segment as string);
-    }
-  } catch {}
-  return [...str];
-}
-
-const CHAR_GUIDE_MAP_WEB: Map<string, string> = new Map(
-  SCRIPT_TRACE_CHAPTERS.flatMap((ch) =>
-    ch.characters
-      .filter((c) => c.guide)
-      .map((c) => [c.char, c.guide] as [string, string]),
-  ),
-);
-
-/**
- * Build 0-100-space pen strokes for a word/phrase by tiling each letter's
- * skeleton strokes in equal horizontal slots.  The result plugs directly into
- * the existing penStrokes / penStrokeFracs / canvas-drawing pipeline so the
- * word animation is the same quality as the single-letter demo.
- */
-function buildWordPenStrokesWeb(word: string): Point[][] {
-  const clusters = splitGraphemeClustersWeb(word).filter((c) => c.trim() !== '');
-  const guided = clusters
-    .map((c) => ({ cluster: c, guide: CHAR_GUIDE_MAP_WEB.get(c) ?? '' }))
-    .filter((x) => x.guide);
-  if (guided.length === 0) return [];
-
-  const n = guided.length;
-  // Each slot is 100/n wide in the 0-100 canvas space.
-  const slotW = 100 / n;
-  const charScale = (slotW / 100) * 0.82;
-  const yOffset = (100 - charScale * 100) / 2;
-
-  const result: Point[][] = [];
-  for (let ci = 0; ci < n; ci++) {
-    const xOffset = ci * slotW + (slotW - charScale * 100) / 2;
-    for (const stroke of extractStrokes(guided[ci].guide)) {
-      if (stroke.length < 2) continue;
-      result.push(
-        stroke.map((p) => ({
-          x: xOffset + p.x * charScale,
-          y: yOffset + p.y * charScale,
-        })),
-      );
-    }
-  }
-  return result;
 }
 
 // ── Language → chapter mapping ────────────────────────────────────────────────
@@ -871,12 +902,13 @@ function ScriptTraceCanvas({
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // time fractions proportional to stroke length.
   const penStrokes = useMemo(
-    () => character.guide
-      ? extractStrokes(character.guide)
-      : buildWordPenStrokesWeb(character.char),
-    [character.guide, character.char],
+    () => (character.guide ? strokesForGuide(character.guide) : []),
+    [character.guide],
   );
   const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
+  // Longer items (words/sentences have many strokes) get proportionally more
+  // demo time — capped at 3× — so the pen isn't absurdly fast on phrases.
+  const animDurationMs = ANIM_DURATION_MS * Math.min(3, Math.max(1, penStrokes.length / 6));
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -911,44 +943,15 @@ function ScriptTraceCanvas({
       ctx.fill(glyph, "nonzero");
       ctx.restore();
     } else {
-      // Text-mode: render the character(s) as large guide text to trace over.
-      // When pen strokes are available, render each cluster in its own slot so
-      // the guide aligns with the stroke animation positions.
+      // Text-mode fallback: render the character(s) as large guide text.
       ctx.save();
       ctx.globalAlpha = pulseGuide ? 0.50 : 0.20;
       ctx.fillStyle = pulseGuide ? "#f59e0b" : "#64748b";
-      if (penStrokes.length > 0) {
-        // Word-pen mode: per-character slotted rendering.
-        const clusters = splitGraphemeClustersWeb(character.char).filter(
-          (c) => c.trim() !== "",
-        );
-        const guided = clusters.filter((c) => CHAR_GUIDE_MAP_WEB.has(c));
-        const n = guided.length;
-        if (n > 0) {
-          const slotW = 100 / n;
-          // charScale in 0–100 units (same as buildWordPenStrokesWeb)
-          const charScale = slotW * 0.82;
-          for (let ci = 0; ci < n; ci++) {
-            const xOff = ci * slotW + (slotW - charScale) / 2;
-            const yOff = (100 - charScale) / 2;
-            const fontSize = (charScale * 0.72 / 100) * W;
-            ctx.font = `bold ${fontSize}px serif`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "alphabetic";
-            ctx.fillText(
-              guided[ci],
-              ((xOff + charScale / 2) / 100) * W,
-              ((yOff + charScale * 0.72) / 100) * H,
-            );
-          }
-        }
-      } else {
-        const fontSize = Math.max(W * 0.45, 30);
-        ctx.font = `bold ${fontSize}px serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(character.char, W / 2, H / 2);
-      }
+      const fontSize = Math.max(W * 0.45, 30);
+      ctx.font = `bold ${fontSize}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(character.char, W / 2, H / 2);
       ctx.restore();
     }
 
@@ -1124,7 +1127,7 @@ function ScriptTraceCanvas({
     const tick = (ts: number) => {
       if (animStartRef.current === null) animStartRef.current = ts;
       const elapsed = ts - animStartRef.current;
-      const progress = Math.min(elapsed / ANIM_DURATION_MS, 1);
+      const progress = Math.min(elapsed / animDurationMs, 1);
       animProgressRef.current = progress;
       drawCanvas();
       if (progress < 1) {
@@ -1139,7 +1142,7 @@ function ScriptTraceCanvas({
       }
     };
     animFrameRef.current = requestAnimationFrame(tick);
-  }, [drawCanvas]);
+  }, [drawCanvas, animDurationMs]);
 
   // Auto-play on mount
   useEffect(() => {

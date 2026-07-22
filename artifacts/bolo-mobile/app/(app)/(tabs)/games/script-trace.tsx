@@ -39,7 +39,6 @@ import Svg, {
   Text as SvgText,
   Circle as SvgCircle,
   Rect as SvgRect,
-  G as SvgG,
   Defs,
   ClipPath,
 } from 'react-native-svg';
@@ -106,8 +105,12 @@ function parseSvgSubpaths(d: string): Point[][] {
       cy = nums[1];
       points.push({ x: cx, y: cy });
     } else if (type === 'Q') {
+      // Iterate on an integer counter so t reaches exactly 1: accumulating
+      // `t += 0.05` overshoots 1 by float error and skips the endpoint,
+      // leaving contours that end in a curve unclosed (breaks winding test).
       const [qx1, qy1, qx2, qy2] = nums;
-      for (let t = 0; t <= 1; t += 0.05) {
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20;
         points.push({
           x: (1 - t) ** 2 * cx + 2 * (1 - t) * t * qx1 + t ** 2 * qx2,
           y: (1 - t) ** 2 * cy + 2 * (1 - t) * t * qy1 + t ** 2 * qy2,
@@ -117,7 +120,8 @@ function parseSvgSubpaths(d: string): Point[][] {
       cy = qy2;
     } else if (type === 'C') {
       const [cx1, cy1, cx2, cy2, ex, ey] = nums;
-      for (let t = 0; t <= 1; t += 0.05) {
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20;
         points.push({
           x:
             (1 - t) ** 3 * cx +
@@ -289,7 +293,31 @@ function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   }
   const precision = sampled > 0 ? onTarget / sampled : 1;
 
-  return Math.round(coverage * precision * 100);
+  // Ink-spread gate: a stationary tap (or tiny scribble) concentrates all its
+  // ink in one spot yet can sit within tolerance of many reference points on
+  // compact or word-scale glyphs. Real writing spans the character, so scale
+  // the score by how much of the reference bounding-box diagonal the drawn
+  // ink spans. Honest traces span nearly the full glyph (factor 1); a tap
+  // spans ~2 units and is crushed.
+  let dMinX = Infinity, dMaxX = -Infinity, dMinY = Infinity, dMaxY = -Infinity;
+  for (const p of allPts) {
+    if (p.x < dMinX) dMinX = p.x;
+    if (p.x > dMaxX) dMaxX = p.x;
+    if (p.y < dMinY) dMinY = p.y;
+    if (p.y > dMaxY) dMaxY = p.y;
+  }
+  let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
+  for (const p of referencePoints) {
+    if (p.x < rMinX) rMinX = p.x;
+    if (p.x > rMaxX) rMaxX = p.x;
+    if (p.y < rMinY) rMinY = p.y;
+    if (p.y > rMaxY) rMaxY = p.y;
+  }
+  const drawnDiag = Math.hypot(dMaxX - dMinX, dMaxY - dMinY);
+  const refDiag = Math.hypot(rMaxX - rMinX, rMaxY - rMinY) || 1;
+  const spread = Math.min(1, drawnDiag / (0.45 * refDiag));
+
+  return Math.round(coverage * precision * spread * 100);
 }
 
 // Convert an array of points to an SVG path string for live drawing.
@@ -323,34 +351,47 @@ const ANIM_DURATION_MS = 2200;
 //
 // The output is the letter's actual "pen paths", animated stroke by stroke.
 
-const SKEL_RES = 64; // bitmap resolution across the 0-100 glyph space
+const SKEL_RES = 64; // base bitmap resolution across the 0-100 glyph space
+
+/**
+ * Bitmap resolution for a glyph: single letters thin cleanly at 64, but
+ * multi-glyph words and multi-line sentences pack many small features into
+ * the same 0-100 box — at 64px their limbs collapse below the thinning
+ * resolution and the skeleton (demo animation + coverage of honest traces)
+ * loses chunks. Scale resolution with contour count.
+ */
+function skelResFor(subpathCount: number): number {
+  if (subpathCount >= 20) return 128; // multi-line sentences
+  if (subpathCount >= 8) return 96; // words
+  return SKEL_RES; // single letters
+}
 const ORIENT_X_WEIGHT = 0.35; // top-start bias with a left-start tiebreak
 
-/** Rasterize the glyph interior into a binary SKEL_RES×SKEL_RES bitmap. */
-function rasterizeGlyph(subpaths: Point[][]): Uint8Array {
-  const grid = new Uint8Array(SKEL_RES * SKEL_RES);
-  const cell = 100 / SKEL_RES;
-  for (let gy = 0; gy < SKEL_RES; gy++) {
-    for (let gx = 0; gx < SKEL_RES; gx++) {
+/** Rasterize the glyph interior into a binary res×res bitmap. */
+function rasterizeGlyph(subpaths: Point[][], res: number): Uint8Array {
+  const grid = new Uint8Array(res * res);
+  const cell = 100 / res;
+  for (let gy = 0; gy < res; gy++) {
+    for (let gx = 0; gx < res; gx++) {
       const pt = { x: (gx + 0.5) * cell, y: (gy + 0.5) * cell };
-      if (windingInSubpaths(pt, subpaths) !== 0) grid[gy * SKEL_RES + gx] = 1;
+      if (windingInSubpaths(pt, subpaths) !== 0) grid[gy * res + gx] = 1;
     }
   }
   return grid;
 }
 
 /** Zhang-Suen thinning: erode a binary bitmap down to its 1-px skeleton. */
-function zhangSuenThin(src: Uint8Array): Uint8Array {
+function zhangSuenThin(src: Uint8Array, res: number): Uint8Array {
   const g = Uint8Array.from(src);
   const at = (x: number, y: number) =>
-    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : g[y * SKEL_RES + x];
+    x < 0 || y < 0 || x >= res || y >= res ? 0 : g[y * res + x];
   let changed = true;
   while (changed) {
     changed = false;
     for (let step = 0; step < 2; step++) {
       const del: number[] = [];
-      for (let y = 0; y < SKEL_RES; y++) {
-        for (let x = 0; x < SKEL_RES; x++) {
+      for (let y = 0; y < res; y++) {
+        for (let x = 0; x < res; x++) {
           if (!at(x, y)) continue;
           // Neighbours P2..P9, clockwise from north
           const p2 = at(x, y - 1), p3 = at(x + 1, y - 1), p4 = at(x + 1, y);
@@ -367,7 +408,7 @@ function zhangSuenThin(src: Uint8Array): Uint8Array {
           } else {
             if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
           }
-          del.push(y * SKEL_RES + x);
+          del.push(y * res + x);
         }
       }
       if (del.length > 0) { changed = true; for (const i of del) g[i] = 0; }
@@ -377,9 +418,9 @@ function zhangSuenThin(src: Uint8Array): Uint8Array {
 }
 
 /** Walk a 1-px skeleton bitmap into polylines (grid coords), splitting at junctions. */
-function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
+function traceSkeletonPolylines(skel: Uint8Array, res: number): Point[][] {
   const at = (x: number, y: number) =>
-    x < 0 || y < 0 || x >= SKEL_RES || y >= SKEL_RES ? 0 : skel[y * SKEL_RES + x];
+    x < 0 || y < 0 || x >= res || y >= res ? 0 : skel[y * res + x];
   const N8 = [
     [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1],
   ] as const;
@@ -390,8 +431,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
   };
   const deg = (x: number, y: number) => nbrs(x, y).length;
   const edgeKey = (a: Point, b: Point) => {
-    const i = a.y * SKEL_RES + a.x, j = b.y * SKEL_RES + b.x;
-    return i < j ? i * SKEL_RES * SKEL_RES + j : j * SKEL_RES * SKEL_RES + i;
+    const i = a.y * res + a.x, j = b.y * res + b.x;
+    return i < j ? i * res * res + j : j * res * res + i;
   };
   const used = new Set<number>();
   const polylines: Point[][] = [];
@@ -416,8 +457,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
   };
 
   // Walk from every endpoint (deg 1) and junction (deg ≥ 3) along unused edges
-  for (let y = 0; y < SKEL_RES; y++) {
-    for (let x = 0; x < SKEL_RES; x++) {
+  for (let y = 0; y < res; y++) {
+    for (let x = 0; x < res; x++) {
       if (!at(x, y) || deg(x, y) === 2) continue;
       const node = { x, y };
       for (const nb of nbrs(x, y)) {
@@ -426,8 +467,8 @@ function traceSkeletonPolylines(skel: Uint8Array): Point[][] {
     }
   }
   // Pure loops (every pixel deg 2, e.g. a ring): walk from any unvisited pixel
-  for (let y = 0; y < SKEL_RES; y++) {
-    for (let x = 0; x < SKEL_RES; x++) {
+  for (let y = 0; y < res; y++) {
+    for (let x = 0; x < res; x++) {
       if (!at(x, y) || deg(x, y) !== 2) continue;
       const start = { x, y };
       const fresh = nbrs(x, y).filter((p) => !used.has(edgeKey(start, p)));
@@ -452,6 +493,28 @@ function rdpSimplify(pts: Point[], epsilon: number): Point[] {
   const left = rdpSimplify(pts.slice(0, maxIdx + 1), epsilon);
   const right = rdpSimplify(pts.slice(maxIdx), epsilon);
   return [...left.slice(0, -1), ...right];
+}
+
+/**
+ * Loop-safe polyline simplification. Plain RDP measures distance to the
+ * start→end chord; on a CLOSED loop (start ≈ end) that chord is degenerate,
+ * every point measures ~0, and the whole ring collapses to a zero-length
+ * segment. Split closed loops at the point farthest from the start and RDP
+ * each half instead.
+ */
+function simplifyStroke(pts: Point[], eps: number): Point[] {
+  const closed =
+    pts.length > 3 &&
+    Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < 2;
+  if (!closed) return rdpSimplify(pts, eps);
+  let m = 1, best = -1;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = Math.hypot(pts[i].x - pts[0].x, pts[i].y - pts[0].y);
+    if (d > best) { best = d; m = i; }
+  }
+  const a = rdpSimplify(pts.slice(0, m + 1), eps);
+  const b = rdpSimplify(pts.slice(m), eps);
+  return [...a.slice(0, -1), ...b];
 }
 
 /** Total arc length of a polyline. */
@@ -568,9 +631,10 @@ function chaikinSmooth(points: Point[], iterations = 2): Point[] {
 function extractStrokes(guideD: string): Point[][] {
   const subpaths = parseSvgSubpaths(guideD).filter((sp) => sp.length > 2);
   if (subpaths.length === 0) return [];
-  const skel = zhangSuenThin(rasterizeGlyph(subpaths));
-  const cell = 100 / SKEL_RES;
-  let lines = traceSkeletonPolylines(skel).map((line) =>
+  const res = skelResFor(subpaths.length);
+  const skel = zhangSuenThin(rasterizeGlyph(subpaths, res), res);
+  const cell = 100 / res;
+  let lines = traceSkeletonPolylines(skel, res).map((line) =>
     line.map((p) => ({ x: (p.x + 0.5) * cell, y: (p.y + 0.5) * cell })),
   );
   // Join segments that continue smoothly through junctions into long strokes.
@@ -581,7 +645,19 @@ function extractStrokes(guideD: string): Point[][] {
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);
   if (substantial.length > 0) lines = substantial;
-  lines = lines.map((l) => orientStroke(rdpSimplify(l, 1.6)));
+  lines = lines.map((l) => orientStroke(simplifyStroke(l, 1.6)));
+
+  // Degenerate-skeleton fallback: sentence-scale glyphs can squeeze letter
+  // limbs into HAIRLINE strokes thinner than one raster cell. Point-sampled
+  // winding then shatters the ink into isolated pixels, the tracer drops
+  // them, and the "skeleton" collapses to a few tiny fragments. For such
+  // hairline glyphs the outline loop IS the pen path (outline ≈ centreline
+  // when strokes have no width), so trace the subpath loops directly.
+  const skelLen = lines.reduce((s, l) => s + polylineLength(l), 0);
+  const outlineLen = subpaths.reduce((s, sp) => s + polylineLength(sp), 0);
+  if (skelLen < 20 || skelLen < 0.08 * outlineLen) {
+    lines = subpaths.map((sp) => orientStroke(simplifyStroke(sp, 1.6)));
+  }
 
   // Order strokes: most top-left start first, then greedily append the stroke
   // whose start is nearest the previous stroke's end (natural pen travel).
@@ -603,6 +679,21 @@ function extractStrokes(guideD: string): Point[][] {
   }
   // Round the angular RDP polylines into the smooth curves a hand draws.
   return ordered.map((s) => chaikinSmooth(s));
+}
+
+/**
+ * Session-lifetime stroke cache. Skeleton extraction at word/sentence
+ * resolution (96/128) costs up to a few hundred ms; useMemo alone recomputes
+ * on every remount (retry, revisit), stalling the JS thread. Keyed by guide
+ * string; the full dataset would only be a few MB, a session touches far less.
+ */
+const guideStrokeCache = new Map<string, Point[][]>();
+function strokesForGuide(guideD: string): Point[][] {
+  const hit = guideStrokeCache.get(guideD);
+  if (hit) return hit;
+  const strokes = extractStrokes(guideD);
+  guideStrokeCache.set(guideD, strokes);
+  return strokes;
 }
 
 /** Per-stroke [start,end] time fractions, proportional to stroke length. */
@@ -635,149 +726,6 @@ type PenTipStroke = {
   start: number;
   end: number;
 };
-
-// ── Word/phrase animation helpers ─────────────────────────────────────────────
-//
-// For word-stage entries (guide = ""), we decompose the string into its
-// constituent grapheme clusters, look up each letter's guide path from the
-// alphabet chapter data, and tile their skeleton pen strokes side-by-side
-// across the canvas — giving learners a correct stroke-order demo for each
-// letter in the word instead of a meaningless left-to-right sweep.
-
-/** Split a string into Unicode grapheme clusters (user-perceived characters). */
-function splitGraphemeClusters(str: string): string[] {
-  try {
-    // Intl.Segmenter available on modern Hermes / iOS 17+ / Android 13+
-    if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
-      return Array.from(
-        new (Intl as any).Segmenter().segment(str),
-      ).map((s: any) => s.segment as string);
-    }
-  } catch {}
-  return [...str]; // Unicode code-point split as fallback
-}
-
-/** char → SVG guide path, built once from all alphabet chapter data. */
-const CHAR_GUIDE_MAP: Map<string, string> = new Map(
-  SCRIPT_TRACE_CHAPTERS.flatMap((ch) =>
-    ch.characters
-      .filter((c) => c.guide)
-      .map((c) => [c.char, c.guide] as [string, string]),
-  ),
-);
-
-/**
- * One stroke item for word-pen-mode animation.
- * The path `d` stays in 0–100 guide space (same as letter mode); the SVG
- * group transform positions it in the character's canvas slot.
- */
-type WordStrokeItem = {
-  /** SVG group transform applied to the containing <G> element */
-  transform: string;
-  /** Stroke path in 0–100 guide space */
-  d: string;
-  /** Stroke length in 0–100 units — used for strokeDasharray (local coords) */
-  guidelen: number;
-  /** Global animation start fraction [0–1] */
-  start: number;
-  /** Global animation end fraction [0–1] */
-  end: number;
-};
-
-type WordPenData = {
-  strokes: WordStrokeItem[];
-  /** Pen-tip positions in canvas-pixel space (for AnimPenTip) */
-  tipStrokes: PenTipStroke[];
-  /** Per-character guide text positions for aligned rendering */
-  chars: { cluster: string; cx: number; cy: number; fontSize: number }[];
-};
-
-const EMPTY_WORD_PEN_DATA: WordPenData = { strokes: [], tipStrokes: [], chars: [] };
-
-/**
- * Build word-pen-mode animation data for a word/phrase.
- *
- * Strategy: strokes stay in their native 0–100 guide space (identical to
- * single-letter mode).  A per-character SVG <G> transform
- * "translate(xOff yOff) scale(charScale)" tiles them across the canvas.
- * This keeps strokeDasharray arithmetic in guide units — the same as letter
- * mode — so the dash-reveal animation is always correct.
- */
-function buildWordPenData(word: string): WordPenData {
-  const clusters = splitGraphemeClusters(word).filter((c) => c.trim() !== '');
-  const guided = clusters
-    .map((c) => ({ cluster: c, guide: CHAR_GUIDE_MAP.get(c) ?? '' }))
-    .filter((x) => x.guide);
-
-  if (guided.length === 0) return EMPTY_WORD_PEN_DATA;
-
-  const n = guided.length;
-  const slotW = CANVAS_SIZE / n;
-  // Canvas pixels per guide unit: each character uses 82 % of its slot.
-  const charScale = (slotW * 0.82) / 100;
-  const charSizePx = charScale * 100; // visual size in canvas pixels
-  const yOffset = (CANVAS_SIZE - charSizePx) / 2;
-  const xMargin = (slotW - charSizePx) / 2;
-
-  type RawItem = {
-    xOffset: number;
-    stroke: Point[];
-    guideLen: number;  // in 0–100 units
-    visualLen: number; // in canvas pixels
-  };
-  const raw: RawItem[] = [];
-  for (let ci = 0; ci < n; ci++) {
-    const xOffset = ci * slotW + xMargin;
-    for (const stroke of extractStrokes(guided[ci].guide)) {
-      if (stroke.length < 2) continue;
-      const guideLen = polylineLength(stroke);     // 0–100 units
-      raw.push({ xOffset, stroke, guideLen, visualLen: guideLen * charScale });
-    }
-  }
-
-  if (raw.length === 0) return EMPTY_WORD_PEN_DATA;
-
-  // Time fracs proportional to visual (canvas-pixel) length → uniform pen speed.
-  const totalVis = raw.reduce((s, r) => s + r.visualLen, 0);
-  const fracs: { start: number; end: number }[] = [];
-  let acc = 0;
-  for (const r of raw) {
-    fracs.push({ start: acc / totalVis, end: (acc + r.visualLen) / totalVis });
-    acc += r.visualLen;
-  }
-
-  const strokes: WordStrokeItem[] = raw.map((r, i) => ({
-    // translate positions the character's origin; scale maps guide→canvas px.
-    transform: `translate(${r.xOffset} ${yOffset}) scale(${charScale})`,
-    d: strokeToPathD(r.stroke),
-    guidelen: r.guideLen,
-    start: fracs[i].start,
-    end: fracs[i].end,
-  }));
-
-  // Tip strokes in canvas-pixel space (AnimPenTip renders a bare circle).
-  const tipStrokes: PenTipStroke[] = raw.map((r, i) => {
-    const xs = r.stroke.map((p) => r.xOffset + p.x * charScale);
-    const ys = r.stroke.map((p) => yOffset + p.y * charScale);
-    const cum = [0];
-    for (let j = 1; j < xs.length; j++)
-      cum.push(cum[j - 1] + Math.hypot(xs[j] - xs[j - 1], ys[j] - ys[j - 1]));
-    return { xs, ys, cum, len: cum[cum.length - 1] ?? 0, ...fracs[i] };
-  });
-
-  // Guide text positions — one per character, centered in each slot.
-  const chars = guided.map(({ cluster }, ci) => {
-    const xOffset = ci * slotW + xMargin;
-    return {
-      cluster,
-      cx: xOffset + charSizePx / 2,
-      cy: yOffset + charSizePx * 0.72,  // alphabetic baseline ≈ 72% down
-      fontSize: charSizePx * 0.72,
-    };
-  });
-
-  return { strokes, tipStrokes, chars };
-}
 
 const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
 const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
@@ -1060,7 +1008,7 @@ function TraceCanvas({
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // path strings, lengths, and time fractions proportional to stroke length.
   const penStrokes = React.useMemo(
-    () => (character.guide ? extractStrokes(character.guide) : []),
+    () => (character.guide ? strokesForGuide(character.guide) : []),
     [character.guide],
   );
   const penStrokeFracs = React.useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
@@ -1088,13 +1036,6 @@ function TraceCanvas({
       }),
     [penStrokes, penStrokeFracs],
   );
-
-  // Word/phrase mode: per-character pen strokes tiled across the canvas.
-  const wordPenData = React.useMemo<WordPenData>(
-    () => (character.guide ? EMPTY_WORD_PEN_DATA : buildWordPenData(character.char)),
-    [character.guide, character.char],
-  );
-  const wordPenMode = !character.guide && wordPenData.strokes.length > 0;
 
   // Animated props for the text-mode reveal: clip-path rect grows left-to-right,
   // cursor dot tracks its leading edge — both driven on the UI thread.
@@ -1138,11 +1079,13 @@ function TraceCanvas({
     cancelAnimation(penProgress);
     cancelAnimation(textRevealProgress);
 
-    const duration = ANIM_DURATION_MS / animSpeedRef.current;
+    // Longer items (words/sentences have many strokes) get proportionally more
+    // demo time — capped at 3× — so the pen isn't absurdly fast on phrases.
+    const lengthFactor = Math.min(3, Math.max(1, penStrokes.length / 6));
+    const duration = (ANIM_DURATION_MS * lengthFactor) / animSpeedRef.current;
 
-    if (penMode || wordPenMode) {
-      // Single shared value drives letter or word per-character pen strokes on
-      // the UI thread (AnimPenStroke / AnimPenTip handle both cases).
+    if (penMode) {
+      // Single shared value drives the pen strokes on the UI thread.
       penProgress.value = 0;
       setPenAnimVisible(true);
       setIsAnimating(true);
@@ -1159,7 +1102,7 @@ function TraceCanvas({
     textRevealProgress.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
       if (finished) runOnJS(finishTextAnim)();
     });
-  }, [penMode, wordPenMode, penProgress, textRevealProgress, finishPenAnim, finishTextAnim]);
+  }, [penMode, penStrokes.length, penProgress, textRevealProgress, finishPenAnim, finishTextAnim]);
 
   const toggleSpeed = useCallback(() => {
     const next: 1 | 0.5 = animSpeedRef.current === 1 ? 0.5 : 1;
@@ -1347,22 +1290,6 @@ function TraceCanvas({
                 fillRule="nonzero"
                 stroke="none"
               />
-            ) : wordPenMode ? (
-              // Each character in its own slot so the guide aligns with pen strokes.
-              wordPenData.chars.map((c) => (
-                <SvgText
-                  key={c.cluster}
-                  x={c.cx}
-                  y={c.cy}
-                  fontSize={c.fontSize}
-                  textAnchor="middle"
-                  fill={guidePulsed ? '#f59e0b' : colors.mutedForeground}
-                  fillOpacity={guidePulsed ? 0.5 : 0.20}
-                  fontFamily="serif"
-                >
-                  {c.cluster}
-                </SvgText>
-              ))
             ) : (
               <SvgText
                 x={CANVAS_SIZE / 2}
@@ -1383,44 +1310,26 @@ function TraceCanvas({
                 its tip, exactly how the letter is written by hand. All strokes
                 mount once; a single shared value animates them on the UI
                 thread for a smooth, continuous drawing motion. */}
-            {penAnimVisible && (penMode || wordPenMode) && (
+            {penAnimVisible && penMode && (
               <>
-                {penMode ? (
-                  // Letter mode: strokes in 0–100 guide space, scale to canvas px.
-                  penStrokeDs.map((d, i) =>
-                    d.length === 0 ? null : (
-                      <AnimPenStroke
-                        key={`pen-${i}`}
-                        progress={penProgress}
-                        d={d}
-                        len={penStrokeLens[i]}
-                        start={penStrokeFracs[i].start}
-                        end={penStrokeFracs[i].end}
-                        scale={guideScale}
-                        color={colors.primary}
-                      />
-                    ),
-                  )
-                ) : (
-                  // Word mode: strokes stay in 0–100 guide space; each character's
-                  // <SvgG> positions them in their canvas slot via transform.
-                  wordPenData.strokes.map((s, i) => (
-                    <SvgG key={`ws-${i}`} transform={s.transform}>
-                      <AnimPenStroke
-                        progress={penProgress}
-                        d={s.d}
-                        len={s.guidelen}
-                        start={s.start}
-                        end={s.end}
-                        scale={1}
-                        color={colors.primary}
-                      />
-                    </SvgG>
-                  ))
+                {/* Strokes in 0–100 guide space, scaled to canvas px. */}
+                {penStrokeDs.map((d, i) =>
+                  d.length === 0 ? null : (
+                    <AnimPenStroke
+                      key={`pen-${i}`}
+                      progress={penProgress}
+                      d={d}
+                      len={penStrokeLens[i]}
+                      start={penStrokeFracs[i].start}
+                      end={penStrokeFracs[i].end}
+                      scale={guideScale}
+                      color={colors.primary}
+                    />
+                  ),
                 )}
                 <AnimPenTip
                   progress={penProgress}
-                  strokes={penMode ? penTipData : wordPenData.tipStrokes}
+                  strokes={penTipData}
                   r={CANVAS_SIZE * 0.028}
                   color={colors.primary}
                 />
@@ -1430,7 +1339,7 @@ function TraceCanvas({
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
                 driven by a Reanimated shared value on the UI thread — same pattern
                 as pen-mode; avoids per-frame React re-renders that made it choppy. */}
-            {textAnimVisible && !character.guide && !wordPenMode && (
+            {textAnimVisible && !character.guide && (
               <>
                 <Defs>
                   <ClipPath id="trace-write-reveal">
