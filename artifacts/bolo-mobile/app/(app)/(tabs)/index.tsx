@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   findNodeHandle,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -100,6 +101,12 @@ export default function HomeScreen() {
     // the ScrollView so we can scroll exactly to it (minus a small margin so
     // the element isn't right at the very top edge).
     registerScrollIntoView(TOUR_STEP_INDEX.topics, () => {
+      // findNodeHandle is a native-only API that throws on web — skip straight
+      // to the fixed-offset fallback when running in Expo web / browser preview.
+      if (Platform.OS === 'web') {
+        scrollViewRef.current?.scrollTo({ y: 500, animated: true });
+        return;
+      }
       const scrollNode = findNodeHandle(scrollViewRef.current);
       if (!topicsRef.current || !scrollNode) {
         // Fallback: just scroll a reasonable distance to reveal the Topics
