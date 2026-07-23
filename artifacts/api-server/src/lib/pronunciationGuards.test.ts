@@ -118,7 +118,9 @@ test("mid-band close attempt: LLM score stands", () => {
   assert.equal(r.guard, undefined);
 });
 
-test("cross-script transcript: LLM judgement is trusted untouched", () => {
+test("cross-script transcript: LLM score is trusted but capped at 85", () => {
+  // Devanagari transcript of Gujarati speech: sounds may line up but we can't
+  // verify similarity, so we cap at 85 to prevent unverifiable perfect scores.
   const r = applyScoreGuards({
     score: 90,
     passed: true,
@@ -127,7 +129,20 @@ test("cross-script transcript: LLM judgement is trusted untouched", () => {
     targetRomanized: TARGET.romanized,
     otherPhrases: OTHERS,
   });
-  assert.equal(r.score, 90);
+  assert.equal(r.score, 85);
+  assert.ok(r.passed);
+  assert.equal(r.guard, "cross-script-cap");
+});
+
+test("cross-script transcript below the cap passes through unchanged", () => {
+  const r = applyScoreGuards({
+    score: 82,
+    passed: true,
+    transcript: "केम छो",
+    targetNative: TARGET.native,
+    targetRomanized: TARGET.romanized,
+  });
+  assert.equal(r.score, 82);
   assert.ok(r.passed);
   assert.equal(r.guard, undefined);
 });

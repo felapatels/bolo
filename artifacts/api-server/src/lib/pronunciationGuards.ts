@@ -148,13 +148,21 @@ export interface GuardResult {
   score: number;
   passed: boolean;
   /** Which deterministic rule fired, for logging; undefined when LLM stands. */
-  guard?: "near-match-floor" | "wrong-phrase-cap" | "divergent-cap";
+  guard?: "near-match-floor" | "wrong-phrase-cap" | "partial-match-cap" | "cross-script-cap";
 }
 
 /**
  * Applies deterministic sanity checks to the LLM's score. The pass threshold
  * stays at 80 (unchanged mastery semantics); guards only clamp the score into
  * a band the transcript evidence supports.
+ *
+ * Guard ladder (highest priority first):
+ *   1. cross-script-cap  — comparable=false: cap at 85, no unverifiable perfect scores.
+ *   2. near-match-floor  — sim ≥ 0.85: floor at 85/90, near-exact match can never fail.
+ *   3. wrong-phrase-cap  — transcript matches a *different* known phrase: cap at 40.
+ *   4. partial-match-cap — sim < 0.70 & score ≥ 80: cap at 72. Closes the gap where
+ *      the STT hint biases a wrong attempt's transcript toward the target, landing it
+ *      in the 0.25–0.70 range, and the LLM then over-rewards it.
  */
 export function applyScoreGuards(input: GuardInput): GuardResult {
   const { transcript, targetNative, targetRomanized, otherPhrases } = input;
@@ -162,8 +170,15 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
 
   const target = compareToTarget(transcript, targetNative, targetRomanized);
   if (!target.comparable) {
-    // Cross-script or unusable transcript: trust the LLM's by-sound judgement.
-    return { score, passed: score >= 80 };
+    // Cross-script transcript (e.g. Devanagari for a Gujarati phrase): the LLM
+    // judged by sound, which is correct, but we can't verify similarity at all.
+    // Cap at 85 so an unverifiable transcript can't award a perfect score.
+    const capped = Math.min(score, 85);
+    return {
+      score: capped,
+      passed: capped >= 80,
+      ...(score > 85 ? { guard: "cross-script-cap" as const } : {}),
+    };
   }
 
   // A near-exact phonetic match can never fail.
@@ -193,9 +208,12 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
     }
   }
 
-  // A wildly divergent transcript can't pass outright.
-  if (target.sim <= 0.25 && score >= 80) {
-    return { score: 60, passed: false, guard: "divergent-cap" };
+  // A transcript below 70% phonetic similarity to the target can't pass.
+  // The LLM tends to over-reward partial or wrong attempts whose transcripts
+  // have been nudged toward the target by the STT hint. Any attempt genuinely
+  // close to the target normalises to sim ≥ 0.70 before this guard fires.
+  if (target.sim < 0.70 && score >= 80) {
+    return { score: Math.min(score, 72), passed: false, guard: "partial-match-cap" };
   }
 
   return { score, passed: score >= 80 };
