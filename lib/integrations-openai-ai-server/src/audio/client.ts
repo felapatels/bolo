@@ -80,10 +80,14 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
         outputPath,
       ]);
 
-      ffmpeg.stderr.on("data", () => {});
+      const stderrChunks: Buffer[] = [];
+      ffmpeg.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
       ffmpeg.on("close", (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`ffmpeg exited with code ${code}`));
+        else {
+          const details = Buffer.concat(stderrChunks).toString("utf8").slice(-400);
+          reject(new Error(`ffmpeg exited with code ${code}: ${details}`));
+        }
       });
       ffmpeg.on("error", reject);
     });
@@ -96,14 +100,25 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
 }
 
 /**
- * Auto-detect and convert audio to OpenAI-compatible format.
+ * Auto-detect and convert audio to an OpenAI-Whisper-compatible format.
+ *
+ * WAV, MP3, WebM, MP4, and OGG are accepted natively by Whisper — pass them
+ * through unchanged. Only truly unrecognised formats go through the ffmpeg
+ * WAV conversion path; this avoids ffmpeg crashes on short recordings that
+ * produce a valid WebM/MP4 container but no decodable frames.
  */
 export async function ensureCompatibleFormat(
   audioBuffer: Buffer
-): Promise<{ buffer: Buffer; format: "wav" | "mp3" }> {
+): Promise<{ buffer: Buffer; format: "wav" | "mp3" | "webm" | "mp4" | "ogg" }> {
   const detected = detectAudioFormat(audioBuffer);
-  if (detected === "wav") return { buffer: audioBuffer, format: "wav" };
-  if (detected === "mp3") return { buffer: audioBuffer, format: "mp3" };
+  if (detected === "wav")  return { buffer: audioBuffer, format: "wav" };
+  if (detected === "mp3")  return { buffer: audioBuffer, format: "mp3" };
+  // Chrome/Firefox → webm, Safari/iOS → mp4, some browsers → ogg.
+  // All are accepted directly by the Whisper transcription API.
+  if (detected === "webm") return { buffer: audioBuffer, format: "webm" };
+  if (detected === "mp4")  return { buffer: audioBuffer, format: "mp4" };
+  if (detected === "ogg")  return { buffer: audioBuffer, format: "ogg" };
+  // Unknown container: attempt a WAV conversion via ffmpeg as a last resort.
   const wavBuffer = await convertToWav(audioBuffer);
   return { buffer: wavBuffer, format: "wav" };
 }
@@ -462,7 +477,7 @@ export interface SpeechToTextOptions {
 /** Speech-to-Text using gpt-4o-mini-transcribe (or gpt-4o-transcribe). */
 export async function speechToText(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav",
+  format: "wav" | "mp3" | "webm" | "mp4" | "ogg" = "wav",
   options: SpeechToTextOptions = {}
 ): Promise<string> {
   const model = options.highQuality ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe";
