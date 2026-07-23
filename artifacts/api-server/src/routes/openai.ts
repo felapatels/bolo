@@ -266,8 +266,62 @@ router.post(
       return;
     }
 
+    // Compute phonetic similarity once here so both the fast-path and the LLM
+    // path can reuse it without a second call.
+    const targetSim = compareToTarget(transcript, targetNative, targetRomanized);
+
+    // Fast-path: a high-confidence phonetic match (sim ≥ 0.85) will always be
+    // floored by the near-match-floor guardrail anyway, so there is no value in
+    // spending 1-3 s on an LLM call. Derive the score deterministically and
+    // return immediately.
+    if (targetSim.comparable && targetSim.sim >= 0.85) {
+      const score = targetSim.sim >= 0.95 ? 90 : 85;
+      const feedback =
+        "That sounded great! You really nailed the sounds in that one. Keep it up, you are on a roll!";
+      const tip = "You have got the sounds down. Try saying it a little faster to sound even more natural.";
+      res.json({
+        transcript,
+        score,
+        passed: true,
+        feedback,
+        tip,
+        evaluationToken: signEvaluation({
+          userId,
+          phraseId: resolvedPhraseId,
+          languageCode,
+          nativeScript: targetNative,
+          romanized: targetRomanized,
+          english: targetEnglish,
+          transcript,
+          score,
+          passed: true,
+          feedback,
+        }),
+      });
+      return;
+    }
+
     try {
-      const completion = await openai.chat.completions.create({
+      // For attempts that fall through to the LLM path, kick off the
+      // sibling-phrases query in parallel with the LLM call. Only fetch
+      // siblings when sim ≤ 0.5 — the only range where wrong-phrase-cap can
+      // fire — to avoid unnecessary DB work on partial matches.
+      const siblingsPromise: Promise<Array<{ nativeScript: string; romanized: string }>> =
+        resolvedPhraseId != null && languageCode && targetSim.comparable && targetSim.sim <= 0.5
+          ? db.query.phrasesTable
+              .findMany({
+                where: eq(phrasesTable.languageCode, languageCode),
+                columns: { id: true, nativeScript: true, romanized: true },
+                limit: 400,
+              })
+              .then((rows) => rows.filter((p) => p.id !== resolvedPhraseId))
+              .catch((err) => {
+                req.log.warn({ err }, "Could not load sibling phrases for guardrails");
+                return [];
+              })
+          : Promise.resolve([]);
+
+      const llmPromise = openai.chat.completions.create({
         model: "gpt-5.4-mini",
         max_completion_tokens: 2048,
         response_format: { type: "json_object" },
@@ -299,6 +353,9 @@ Always be kind and motivating, never harsh. This feedback is going to be READ AL
         ],
       });
 
+      // Await both in parallel — whichever resolves first doesn't block the other.
+      const [completion, otherPhrases] = await Promise.all([llmPromise, siblingsPromise]);
+
       const content = completion.choices[0]?.message?.content ?? "{}";
       const result = JSON.parse(content) as {
         score?: number;
@@ -316,20 +373,6 @@ Always be kind and motivating, never harsh. This feedback is going to be READ AL
 
       // Deterministic guardrails: a near-exact phonetic match can't fail, and
       // a transcript that matches a *different* catalog phrase can't pass.
-      let otherPhrases: Array<{ nativeScript: string; romanized: string }> = [];
-      if (resolvedPhraseId != null && languageCode) {
-        try {
-          otherPhrases = (
-            await db.query.phrasesTable.findMany({
-              where: eq(phrasesTable.languageCode, languageCode),
-              columns: { id: true, nativeScript: true, romanized: true },
-              limit: 400,
-            })
-          ).filter((p) => p.id !== resolvedPhraseId);
-        } catch (err) {
-          req.log.warn({ err }, "Could not load sibling phrases for guardrails");
-        }
-      }
       const guarded = applyScoreGuards({
         score: llmScore,
         passed: llmPassed,
