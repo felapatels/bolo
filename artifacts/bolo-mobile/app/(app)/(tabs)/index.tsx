@@ -174,6 +174,11 @@ export default function HomeScreen() {
             <Text style={[styles.name, { color: colors.foreground }]}>
               {firstName}
             </Text>
+            {activeLanguage ? (
+              <Text style={[styles.langSubtitle, { color: colors.mutedForeground }]}>
+                Ready to speak {activeLanguage.name}?
+              </Text>
+            ) : null}
           </View>
           <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
           <Pressable
@@ -188,45 +193,69 @@ export default function HomeScreen() {
           </Pressable>
         </Animated.View>
 
-        {/* Language selector */}
+        {/* Language selector + Chat with Bolo shortcut */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(60)}>
-          <PressableScale
-            onPress={() => router.push('/(app)/language')}
-            style={[
-              styles.langPill,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={[styles.langBadge, { backgroundColor: colors.primary }]}>
-              <Feather name="globe" size={18} color={colors.primaryForeground} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>
-                Practicing
-              </Text>
-              <Text
-                style={[
-                  styles.langName,
-                  nativeTallScript && styles.langNameTall,
-                  { color: colors.foreground },
-                ]}
-              >
-                {activeLanguage?.name ?? '...'}
-                {activeLanguage ? (
-                  <Text style={[nativeProps, { color: colors.mutedForeground }]}>
-                    {'  '}
-                    {activeLanguage.nativeName}
-                  </Text>
-                ) : null}
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
-          </PressableScale>
+          <View style={styles.langRow}>
+            <PressableScale
+              onPress={() => router.push('/(app)/language')}
+              style={[
+                styles.langPill,
+                { flex: 1, backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.langBadge, { backgroundColor: colors.primary }]}>
+                <Feather name="globe" size={18} color={colors.primaryForeground} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>
+                  Practicing
+                </Text>
+                <Text
+                  style={[
+                    styles.langName,
+                    nativeTallScript && styles.langNameTall,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  {activeLanguage?.name ?? '...'}
+                  {activeLanguage ? (
+                    <Text style={[nativeProps, { color: colors.mutedForeground }]}>
+                      {'  '}
+                      {activeLanguage.nativeName}
+                    </Text>
+                  ) : null}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
+            </PressableScale>
+            <PressableScale
+              onPress={() => { hapticLight(); router.push('/(app)/(tabs)/chat'); }}
+              style={[styles.chatBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Feather name="message-circle" size={22} color={colors.primary} />
+              <Text style={[styles.chatBtnText, { color: colors.primary }]}>Chat</Text>
+            </PressableScale>
+          </View>
         </Animated.View>
 
-        {/* Stats — gradient banner */}
+        {/* Stats — gradient banner (indigo→violet, matches web) */}
         <View ref={statsRowRef} collapsable={false} style={styles.statsRowWrapper}>
-          <View style={[styles.statsBanner, { backgroundColor: '#5b35eb' }]}>
+          <View style={[styles.statsBanner, { backgroundColor: '#4f46e5', overflow: 'hidden' }]}>
+            {/* Diagonal overlay approximates the web's 3-stop indigo→blue→violet gradient */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: '55%',
+                backgroundColor: '#7c3aed',
+                opacity: 0.65,
+                borderTopRightRadius: 18,
+                borderBottomRightRadius: 18,
+              }}
+            />
             <GradientStatCell
               index={0}
               icon="zap"
@@ -270,7 +299,7 @@ export default function HomeScreen() {
           <PressableScale
             onPress={startDaily}
             scaleTo={0.98}
-            style={[styles.cta, { backgroundColor: colors.primary }]}
+            style={[styles.cta, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
           >
             <View style={{ flex: 1 }}>
               <Text style={[styles.ctaTitle, { color: colors.primaryForeground }]}>
@@ -395,11 +424,14 @@ export default function HomeScreen() {
                     </View>
                     <View
                       style={[
-                        styles.scorePill,
+                        styles.scoreBadge,
                         {
-                          backgroundColor: a.passed
-                            ? colors.success
-                            : colors.muted,
+                          backgroundColor:
+                            Number(a.score) >= 80
+                              ? colors.success
+                              : Number(a.score) >= 50
+                              ? colors.primary
+                              : colors.destructive,
                         },
                       ]}
                     >
@@ -407,9 +439,12 @@ export default function HomeScreen() {
                         style={[
                           styles.scoreText,
                           {
-                            color: a.passed
-                              ? colors.successForeground
-                              : colors.mutedForeground,
+                            color:
+                              Number(a.score) >= 80
+                                ? colors.successForeground
+                                : Number(a.score) >= 50
+                                ? colors.primaryForeground
+                                : colors.destructiveForeground,
                           },
                         ]}
                       >
@@ -638,7 +673,16 @@ function CategoryCard({
         onPress={onPress}
         style={[
           styles.catCard,
-          { backgroundColor: colors.card, borderColor: accent },
+          {
+            backgroundColor: colors.card,
+            borderColor: accent,
+            // 3-D tile shadow matching web's shadow-[0_6px_0_var(--tile)]
+            shadowColor: accent,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 6,
+          },
         ]}
       >
         <View
@@ -711,6 +755,7 @@ const styles = StyleSheet.create({
   },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
   name: { fontFamily: AppFonts.extrabold, fontSize: 28, marginTop: 2 },
+  langSubtitle: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
   iconBtn: {
     width: 40,
     height: 40,
@@ -719,6 +764,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  langRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
   langPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -726,8 +776,16 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 18,
   },
+  chatBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  chatBtnText: { fontFamily: AppFonts.semibold, fontSize: 11 },
   langBadge: {
     width: 40,
     height: 40,
@@ -777,7 +835,12 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 18,
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: 24,
+    // 3-D bottom shadow matching web's shadow-[0_8px_0_hsl(var(--primary-shadow))]
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   ctaTitle: { fontFamily: AppFonts.extrabold, fontSize: 19 },
   ctaSub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 3 },
@@ -887,12 +950,12 @@ const styles = StyleSheet.create({
   },
   recentNative: { fontSize: 16 },
   recentEng: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
-  scorePill: {
-    minWidth: 42,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+  scoreBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   retakeLabel: { fontFamily: AppFonts.bold, fontSize: 13 },
