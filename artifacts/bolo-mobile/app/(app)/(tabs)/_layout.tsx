@@ -238,6 +238,9 @@ function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: Bolo
     // navigating. The start wrapper registered by chat.tsx sets isPressingRef
     // and guards against duplicate starts.
     if (focused) {
+      // Immediate light haptic on pressIn gives instant tactile confirmation
+      // that the gesture was registered, before the async recorder starts.
+      hapticLight();
       startRecordingRef.current?.();
     }
   }
