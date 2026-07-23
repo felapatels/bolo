@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "bolo.activeLang";
-const DEFAULT_LANG = "gu";
+const DEFAULT_LANG = "hi";
 
 type LanguageContextValue = {
   languages: Language[];
