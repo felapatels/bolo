@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
@@ -227,12 +226,7 @@ export default function HomeScreen() {
 
         {/* Stats — gradient banner */}
         <View ref={statsRowRef} collapsable={false} style={styles.statsRowWrapper}>
-          <LinearGradient
-            colors={['#4f46e5', '#7c3aed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.statsBanner}
-          >
+          <View style={[styles.statsBanner, { backgroundColor: '#5b35eb' }]}>
             <GradientStatCell
               index={0}
               icon="zap"
@@ -256,7 +250,7 @@ export default function HomeScreen() {
               label="Mastered"
               loading={summary.isLoading}
             />
-          </LinearGradient>
+          </View>
         </View>
 
         {/* Daily quiz card */}
