@@ -18,8 +18,6 @@ import Animated, {
   FadeIn,
   FadeInDown,
   ZoomIn,
-  runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -82,24 +80,23 @@ function AnimatedScore({
   color: string;
   style?: object;
 }) {
-  const sv = useSharedValue(0);
   const [display, setDisplay] = React.useState(0);
 
-  useAnimatedReaction(
-    () => Math.round(sv.value),
-    (rounded, prev) => {
-      if (rounded !== prev) runOnJS(setDisplay)(rounded);
-    },
-  );
-
   React.useEffect(() => {
-    sv.value = 0;
-    sv.value = withTiming(score, { duration: 600 });
+    if (score === 0) { setDisplay(0); return; }
+    const DURATION = 600;
+    const STEPS = 30;
+    const intervalMs = DURATION / STEPS;
+    let step = 0;
+    const timer = setInterval(() => {
+      step += 1;
+      setDisplay(Math.round((score * step) / STEPS));
+      if (step >= STEPS) clearInterval(timer);
+    }, intervalMs);
     return () => {
-      // Snap to final value on unmount so advancing feels clean.
-      sv.value = score;
+      clearInterval(timer);
+      setDisplay(score);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
   return (
