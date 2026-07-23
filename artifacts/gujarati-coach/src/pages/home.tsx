@@ -319,7 +319,7 @@ export default function Home() {
                     >
                       <Link href={`/learn/${cat.id}`} className="block h-full">
                         <div
-                          className="group relative flex h-full flex-col rounded-3xl border-2 bg-white p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
+                          className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-white p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
                           style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}
                         >
                           <div

@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
@@ -224,36 +225,38 @@ export default function HomeScreen() {
           </PressableScale>
         </Animated.View>
 
-        {/* Stats */}
-        <View ref={statsRowRef} collapsable={false} style={styles.statsRow}>
-          <StatCard
-            index={0}
-            icon="zap"
-            tint={colors.accent}
-            value={summary.data?.currentStreakDays ?? 0}
-            label="Day streak"
-            loading={summary.isLoading}
-          />
-          <StatCard
-            index={1}
-            icon="award"
-            tint={colors.success}
-            value={summary.data?.phrasesMastered ?? 0}
-            label="Mastered"
-            loading={summary.isLoading}
-          />
-          <StatCard
-            index={2}
-            icon="target"
-            tint={colors.primary}
-            value={
-              summary.data?.averageScore != null
-                ? `${summary.data.averageScore}`
-                : '0'
-            }
-            label="Avg score"
-            loading={summary.isLoading}
-          />
+        {/* Stats — gradient banner */}
+        <View ref={statsRowRef} collapsable={false} style={styles.statsRowWrapper}>
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.statsBanner}
+          >
+            <GradientStatCell
+              index={0}
+              icon="zap"
+              value={summary.data?.currentStreakDays ?? 0}
+              label="Day Streak"
+              loading={summary.isLoading}
+            />
+            <View style={styles.statsDivider} />
+            <GradientStatCell
+              index={1}
+              icon="star"
+              value={summary.data?.xp ?? 0}
+              label="Total XP"
+              loading={summary.isLoading}
+            />
+            <View style={styles.statsDivider} />
+            <GradientStatCell
+              index={2}
+              icon="award"
+              value={summary.data?.phrasesMastered ?? 0}
+              label="Mastered"
+              loading={summary.isLoading}
+            />
+          </LinearGradient>
         </View>
 
         {/* Daily quiz card */}
@@ -577,30 +580,21 @@ function DailyCapNote({
   );
 }
 
-function StatCard({
+function GradientStatCell({
   index,
   icon,
-  tint,
   value,
   label,
   loading,
 }: {
   index: number;
   icon: keyof typeof Feather.glyphMap;
-  tint: string;
   value: number | string;
   label: string;
   loading?: boolean;
 }) {
-  const colors = useColors();
   const reduceMotion = useReducedMotion();
 
-  // Entrance "pop" — a progressive enhancement implemented as a reanimated
-  // layout animation. Visibility is never gated on it: the card renders at full
-  // opacity in its resting position by default, so if the animation never
-  // commits (e.g. some Expo Go setups where reanimated entrance animations
-  // don't reliably run) the numbers are still shown rather than left
-  // permanently transparent. Reduced-motion users get the static resting card.
   const entrance = reduceMotion
     ? undefined
     : FadeInDown.springify()
@@ -612,27 +606,15 @@ function StatCard({
   return (
     <Animated.View
       entering={appear(entrance)}
-      style={[
-        styles.statCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
+      style={styles.gradientStatCell}
     >
-      <View style={[styles.statIcon, { backgroundColor: `${tint}1F` }]}>
-        <Feather name={icon} size={18} color={tint} />
-      </View>
+      <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
       {loading ? (
-        <ActivityIndicator
-          color={colors.mutedForeground}
-          style={{ marginVertical: 6 }}
-        />
+        <ActivityIndicator color="rgba(255,255,255,0.7)" style={{ marginVertical: 4 }} />
       ) : (
-        <Text style={[styles.statValue, { color: colors.foreground }]}>
-          {value}
-        </Text>
+        <Text style={styles.gradientStatValue}>{value}</Text>
       )}
-      <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-        {label}
-      </Text>
+      <Text style={styles.gradientStatLabel}>{label}</Text>
     </Animated.View>
   );
 }
@@ -653,6 +635,8 @@ function CategoryCard({
       ? Math.round((category.masteredCount / category.phraseCount) * 100)
       : 0;
 
+  const accent = category.accent || colors.primary;
+
   const skipEnter = useAppearSkip();
   return (
     <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(420).delay(420 + index * 70)}>
@@ -660,16 +644,16 @@ function CategoryCard({
         onPress={onPress}
         style={[
           styles.catCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { backgroundColor: colors.card, borderColor: accent },
         ]}
       >
         <View
-          style={[styles.catIcon, { backgroundColor: `${colors.primary}1A` }]}
+          style={[styles.catIcon, { backgroundColor: `${accent}26` }]}
         >
           <Feather
             name={categoryIcon(category.iconName)}
             size={22}
-            color={colors.primary}
+            color={accent}
           />
         </View>
         <View style={{ flex: 1 }}>
@@ -698,14 +682,14 @@ function CategoryCard({
                 style={{
                   width: `${pct}%`,
                   height: '100%',
-                  backgroundColor: colors.success,
+                  backgroundColor: accent,
                   borderRadius: 999,
                 }}
               />
             </View>
-            <Text style={[styles.progressText, { color: colors.mutedForeground }]}>
-              {category.masteredCount}/{category.phraseCount}
-            </Text>
+            <View style={[styles.pctPill, { backgroundColor: accent }]}>
+              <Text style={styles.pctPillText}>{pct}%</Text>
+            </View>
           </View>
         </View>
         <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
@@ -762,24 +746,37 @@ const styles = StyleSheet.create({
   // Nastaliq glyphs cascade above/below the baseline; increase the parent
   // Text lineHeight so the inline native name renders without clipping.
   langNameTall: { lineHeight: 36 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
-  statCard: {
+  statsRowWrapper: { marginBottom: 18 },
+  statsBanner: {
+    flexDirection: 'row',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  statsDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  gradientStatCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
+    gap: 4,
   },
-  statIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  gradientStatValue: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 26,
+    color: '#ffffff',
+    lineHeight: 30,
   },
-  statValue: { fontFamily: AppFonts.extrabold, fontSize: 24 },
-  statLabel: { fontFamily: AppFonts.regular, fontSize: 12 },
+  gradientStatLabel: {
+    fontFamily: AppFonts.bold,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.85)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -873,7 +870,18 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
-  progressText: { fontFamily: AppFonts.semibold, fontSize: 12 },
+  pctPill: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pctPillText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 11,
+    color: '#ffffff',
+  },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
