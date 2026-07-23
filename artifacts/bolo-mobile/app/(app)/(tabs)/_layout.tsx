@@ -30,6 +30,7 @@ import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GlobeButton } from '@/components/GlobeButton';
+import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -219,6 +220,9 @@ function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: Bolo
   const focused = accessibilityState?.selected ?? false;
   const reduceMotion = useReducedMotion();
 
+  // Hold-to-talk context — available when the chat screen is mounted.
+  const { startRecordingRef, stopRecordingRef, isRecording } = useChatRecording();
+
   // Press-in squish shared value
   const pressScale = useSharedValue(1);
 
@@ -230,17 +234,38 @@ function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: Bolo
     if (!reduceMotion) {
       pressScale.value = withTiming(0.88, { duration: 100 });
     }
+    // When the chat tab is already focused, trigger hold-to-talk instead of
+    // navigating. The start wrapper registered by chat.tsx sets isPressingRef
+    // and guards against duplicate starts.
+    if (focused) {
+      startRecordingRef.current?.();
+    }
   }
 
   function handlePressOut() {
     if (!reduceMotion) {
       pressScale.value = withSpring(1, { damping: 10, stiffness: 260 });
     }
+    // When chat tab is focused, release sends the recording.
+    if (focused) {
+      stopRecordingRef.current?.();
+    }
   }
+
+  // Suppress navigation when the chat tab is already focused — the press
+  // gesture is handled entirely by the recording callbacks above.
+  function handlePress(e: Parameters<NonNullable<BoloTabButtonProps['onPress']>>[0]) {
+    if (focused) return;
+    onPress?.(e);
+  }
+
+  // Accessibility label reflects recording state when on the chat tab.
+  const accessibilityLabel =
+    focused && isRecording ? 'Release to send' : 'Bolo';
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -251,7 +276,7 @@ function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: Bolo
       ]}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
-      accessibilityLabel="Bolo"
+      accessibilityLabel={accessibilityLabel}
     >
       {/* Circle — absolutely positioned so it overflows above the tab bar */}
       <Animated.View
@@ -333,6 +358,7 @@ export default function TabsLayout() {
   const pendingCount = incoming?.length ?? 0;
 
   return (
+    <ChatRecordingProvider>
     <Tabs
       screenListeners={{
         tabPress: () => hapticLight(),
@@ -432,5 +458,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </ChatRecordingProvider>
   );
 }

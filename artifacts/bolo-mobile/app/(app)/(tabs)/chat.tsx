@@ -47,6 +47,7 @@ import {
 } from '@/lib/audio';
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
 import { TipCard } from '@/components/TipCard';
+import { useChatRecording } from '@/components/ChatRecordingContext';
 
 // How many previous turns to include in each request for conversational context.
 // 3 turns gives enough context for a natural exchange while keeping the LLM
@@ -1148,6 +1149,46 @@ export default function ChatScreen() {
       }
     }
   };
+
+  // ── Nav-bar hold-to-talk registration ─────────────────────────────────────
+  // Keep stable refs to the latest handler versions so we can register
+  // wrappers once and always invoke up-to-date logic (avoids stale closures).
+  const chatRecording = useChatRecording();
+  const handleStartRecordingRef = React.useRef(handleStartRecording);
+  handleStartRecordingRef.current = handleStartRecording;
+  const handleStopRecordingRef = React.useRef(handleStopRecording);
+  handleStopRecordingRef.current = handleStopRecording;
+  const phaseRef2 = React.useRef(phase);
+  phaseRef2.current = phase;
+
+  React.useEffect(() => {
+    chatRecording.register(
+      () => {
+        // Mirror what the on-screen mascot's onPressIn does:
+        // set isPressingRef so the async-startup guard works correctly,
+        // then start recording if in an appropriate phase.
+        isPressingRef.current = true;
+        dismissHoldHint();
+        const currentPhase = phaseRef2.current;
+        if (currentPhase === 'idle' || currentPhase === 'error' || currentPhase === 'processing') {
+          void handleStartRecordingRef.current();
+        }
+      },
+      () => {
+        // Mirror what the on-screen mascot's onPressOut does.
+        isPressingRef.current = false;
+        if (phaseRef2.current === 'recording') {
+          void handleStopRecordingRef.current();
+        }
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatRecording, dismissHoldHint]);
+
+  // Keep the context's phase ref and isRecording state in sync.
+  React.useEffect(() => {
+    chatRecording.notifyPhase(phase);
+  }, [phase, chatRecording]);
 
   // ── Language gate ──────────────────────────────────────────────────────────
   // Only block the whole screen if a previous turn attempt was denied (edge
