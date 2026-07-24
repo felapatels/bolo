@@ -45,6 +45,12 @@ export function useVoiceRecorder() {
   // first syllables of speech).
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Cancellation token for background prewarm getUserMedia calls.
+  // Incremented whenever we abort or start a new prewarm, so a stale
+  // resolution that races with a newer recording or an unmount can detect it
+  // is no longer the owner and immediately stops the orphaned tracks.
+  const prewarmTokenRef = useRef(0);
+
   const releaseStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -212,9 +218,21 @@ export function useVoiceRecorder() {
         // feedback before the next recording starts, so the getUserMedia
         // latency is invisible.
         releaseStream();
+        const myToken = ++prewarmTokenRef.current;
         navigator.mediaDevices
           .getUserMedia({ audio: true })
           .then((s) => {
+            // Only adopt this prewarm stream if:
+            //   1. No newer prewarm/abort has started (token still matches).
+            //   2. No stream is already live — startRecording may have grabbed
+            //      one between stopRecording and this resolution (rapid
+            //      stop→start race), or abortRecording may have unmounted.
+            if (prewarmTokenRef.current !== myToken || streamRef.current !== null) {
+              // Stale: release the orphaned stream immediately so we don't
+              // hold the microphone open with no cleanup path.
+              s.getTracks().forEach((t) => t.stop());
+              return;
+            }
             streamRef.current = s;
           })
           .catch(() => {
@@ -232,6 +250,9 @@ export function useVoiceRecorder() {
   // resolving a blob. Safe to call multiple times and when nothing is active.
   const abortRecording = useCallback(() => {
     cleanupSilenceDetection();
+    // Invalidate any in-flight background prewarm so its resolution cannot
+    // overwrite streamRef after we've released everything here.
+    prewarmTokenRef.current++;
     const recorder = mediaRecorderRef.current;
     if (recorder) {
       try {

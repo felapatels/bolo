@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  Animated as RNAnimated,
+  Easing,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,6 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useReducedMotion } from 'react-native-reanimated';
 import {
   useGetProgressAnalytics,
   getGetProgressAnalyticsQueryKey,
@@ -175,6 +178,47 @@ function EmptyState() {
   );
 }
 
+/** Animated XP count-up: counts from 0 → totalXp over 800ms on mount.
+ *
+ * Uses RNAnimated (not Reanimated) because the animated value drives a JS
+ * state update — no layout props involved, so the listener approach is safe.
+ * Reduced-motion users see the final value immediately.
+ */
+function AnimatedXp({
+  value,
+  reduceMotion,
+}: {
+  value: number;
+  reduceMotion: boolean;
+}) {
+  const [display, setDisplay] = React.useState(reduceMotion ? value : 0);
+  const anim = React.useRef(new RNAnimated.Value(reduceMotion ? value : 0)).current;
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      setDisplay(value);
+      return;
+    }
+    anim.setValue(0);
+    setDisplay(0);
+    const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
+    RNAnimated.timing(anim, {
+      toValue: value,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    return () => anim.removeListener(id);
+  }, [value, reduceMotion, anim]);
+
+  const colors = useColors();
+  return (
+    <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+      {display}
+    </Text>
+  );
+}
+
 function SummaryRow({
   totalXp,
   reviewDueCount,
@@ -183,6 +227,7 @@ function SummaryRow({
   reviewDueCount: number;
 }) {
   const colors = useColors();
+  const reduceMotion = useReducedMotion();
   return (
     <View style={styles.summaryRow}>
       <View
@@ -194,9 +239,7 @@ function SummaryRow({
         <View style={[styles.summaryIcon, { backgroundColor: `${colors.gold}1F` }]}>
           <Feather name="zap" size={18} color={colors.gold} />
         </View>
-        <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-          {totalXp}
-        </Text>
+        <AnimatedXp value={totalXp} reduceMotion={reduceMotion} />
         <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
           Total XP
         </Text>
@@ -223,6 +266,59 @@ function SummaryRow({
   );
 }
 
+/** A single animated topic mastery bar.
+ *
+ * Width is a layout prop — Reanimated's useAnimatedStyle crashes on New
+ * Architecture for layout props. Use RNAnimated.spring() instead, which gives
+ * equivalent spring physics without the New Arch restriction.
+ */
+function TopicBar({
+  pct,
+  color,
+  delay,
+}: {
+  pct: number;
+  color: string;
+  delay: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const anim = React.useRef(new RNAnimated.Value(reduceMotion ? pct : 0)).current;
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      anim.setValue(pct);
+      return;
+    }
+    anim.setValue(0);
+    RNAnimated.spring(anim, {
+      toValue: pct,
+      stiffness: 120,
+      damping: 14,
+      mass: 1,
+      delay,
+      useNativeDriver: false, // width cannot use the native driver
+    }).start();
+  }, [pct, delay, reduceMotion, anim]);
+
+  const widthPct = anim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <View style={[styles.track, { backgroundColor: 'transparent' }]}>
+      <RNAnimated.View
+        style={{
+          width: widthPct,
+          height: '100%',
+          borderRadius: 999,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
   const colors = useColors();
   const router = useRouter();
@@ -237,7 +333,7 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
         MASTERY BY TOPIC
       </Text>
       <View style={{ gap: 8 }}>
-        {categories.map((cat) => {
+        {categories.map((cat, i) => {
           const pct =
             cat.phraseCount > 0
               ? Math.round((cat.masteredCount / cat.phraseCount) * 100)
@@ -265,14 +361,7 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
                   </Text>
                 </View>
                 <View style={[styles.track, { backgroundColor: colors.muted }]}>
-                  <View
-                    style={{
-                      width: `${pct}%`,
-                      height: '100%',
-                      backgroundColor: barColor,
-                      borderRadius: 999,
-                    }}
-                  />
+                  <TopicBar pct={pct} color={barColor} delay={i * 50} />
                 </View>
               </View>
               <Feather
@@ -285,6 +374,60 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
         })}
       </View>
     </View>
+  );
+}
+
+/** A single animated bar in the Recent Activity chart.
+ *
+ * Height is a layout prop — must use RNAnimated.spring() (not Reanimated
+ * useAnimatedStyle) to avoid New Architecture crashes in Expo Go.
+ */
+function ActivityBar({
+  targetPct,
+  active,
+  delay,
+}: {
+  targetPct: number;
+  active: boolean;
+  delay: number;
+}) {
+  const colors = useColors();
+  const reduceMotion = useReducedMotion();
+  const anim = React.useRef(
+    new RNAnimated.Value(reduceMotion ? targetPct : 0),
+  ).current;
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      anim.setValue(targetPct);
+      return;
+    }
+    anim.setValue(0);
+    RNAnimated.spring(anim, {
+      toValue: targetPct,
+      stiffness: 120,
+      damping: 14,
+      mass: 1,
+      delay,
+      useNativeDriver: false, // height cannot use the native driver
+    }).start();
+  }, [targetPct, delay, reduceMotion, anim]);
+
+  const heightPct = anim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <RNAnimated.View
+      style={{
+        width: '70%',
+        height: heightPct,
+        backgroundColor: active ? colors.secondary : colors.muted,
+        borderTopLeftRadius: 5,
+        borderTopRightRadius: 5,
+      }}
+    />
   );
 }
 
@@ -303,19 +446,14 @@ function RecentActivity({ daily }: { daily: DailyActivity[] }) {
         RECENT ACTIVITY
       </Text>
       <View style={styles.chart}>
-        {window.map((d) => {
+        {window.map((d, i) => {
           const h = d.attempts > 0 ? Math.max((d.attempts / max) * 100, 12) : 4;
           return (
             <View key={d.date} style={styles.chartCol}>
-              <View
-                style={{
-                  width: '70%',
-                  height: `${h}%`,
-                  backgroundColor:
-                    d.attempts > 0 ? colors.secondary : colors.muted,
-                  borderTopLeftRadius: 5,
-                  borderTopRightRadius: 5,
-                }}
+              <ActivityBar
+                targetPct={h}
+                active={d.attempts > 0}
+                delay={i * 40}
               />
             </View>
           );

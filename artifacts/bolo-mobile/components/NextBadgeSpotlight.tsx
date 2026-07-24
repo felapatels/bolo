@@ -1,6 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { useAppearSkip } from '@/lib/entrance';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges } from '@workspace/api-client-react';
@@ -19,7 +26,21 @@ import { findNearestLockedBadge, progressRatio } from '@/lib/badge-progress';
 export function NextBadgeSpotlight({ lang }: { lang: string }) {
   const colors = useColors();
   const skipEnter = useAppearSkip();
+  const reduceMotion = useReducedMotion();
   const { data: badges, isLoading } = useListBadges({ lang });
+
+  // Shimmer pulse on the badge icon: opacity 1 → 0.5 → 1 repeating.
+  // Opacity is not a layout prop so Reanimated useAnimatedStyle is safe here
+  // (no New Architecture crash risk). Skipped entirely for reduced-motion users.
+  const iconOpacity = useSharedValue(1);
+  React.useEffect(() => {
+    if (reduceMotion) return;
+    iconOpacity.value = withRepeat(withTiming(0.5, { duration: 1200 }), -1, true);
+  }, [reduceMotion, iconOpacity]);
+
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    opacity: iconOpacity.value,
+  }));
 
   // Nothing to spotlight until we know the catalog for this language.
   if (isLoading || !badges || badges.length === 0) return null;
@@ -78,15 +99,21 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
         Next goal
       </Text>
       <View style={styles.row}>
-        <View
-          style={[styles.icon, { backgroundColor: `${colors.secondary}26` }]}
+        {/* Animated.View is safe here: opacity is not a layout prop and does
+            not trigger the New Architecture crash that width/height would. */}
+        <Animated.View
+          style={[
+            styles.icon,
+            { backgroundColor: `${colors.secondary}26` },
+            iconAnimStyle,
+          ]}
         >
           <MaterialCommunityIcons
             name={badgeIcon(nearest.iconName)}
             size={30}
             color={colors.secondary}
           />
-        </View>
+        </Animated.View>
         <View style={{ flex: 1 }}>
           <Text
             style={[styles.title, { color: colors.foreground }]}

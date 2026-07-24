@@ -20,6 +20,7 @@ import {
   useListRecentAttempts,
   useListBadges,
 } from '@workspace/api-client-react';
+import { NextBadgeSpotlight } from '@/components/NextBadgeSpotlight';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
@@ -102,6 +103,11 @@ export default function ProgressScreen() {
           <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
           <>
+            {/* Next badge goal — shows the nearest locked badge as a directed
+                motivator at the top of the screen so the learner always knows
+                what they're working toward. */}
+            <NextBadgeSpotlight lang={activeLang} />
+
             <View style={styles.grid}>
               <Stat
                 index={0}
@@ -458,7 +464,7 @@ function Stat({
         .damping(12)
         .stiffness(160)
         .mass(0.6)
-        .delay(80 + index * 80);
+        .delay(index * 60);
 
   return (
     <Animated.View
