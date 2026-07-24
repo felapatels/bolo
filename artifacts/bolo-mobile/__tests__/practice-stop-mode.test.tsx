@@ -196,7 +196,7 @@ describe('hold-to-speak', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     expect(mockState.evaluate).toHaveBeenCalledTimes(1);
   });
@@ -237,7 +237,7 @@ describe('silence auto-stop (safety net)', () => {
     dateSpy.mockRestore();
 
     await waitFor(() => expect(mockState.evaluate).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByText('Great job!')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
   });
 
   test('quiet room tone alone never arms auto-stop (must hear speech first)', async () => {
@@ -297,7 +297,7 @@ describe('scoring failure handling', () => {
     await holdAndRelease();
 
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     expect(
       screen.getByText(

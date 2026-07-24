@@ -182,7 +182,7 @@ async function waitForRecordReady() {
 }
 
 /** Perform one full hold-record → release → wait-for-result cycle. */
-async function recordOnce(resultLabel: string | RegExp = /Great job!|Keep practicing/) {
+async function recordOnce(resultLabel: string | RegExp = /Good 👍|Keep trying 🔄|Excellent 🌟/) {
   await waitForRecordReady();
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressIn');
@@ -209,19 +209,19 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 3 — streak hits 3
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
 
     await waitFor(() =>
       expect(screen.getByText('🔥 3 in a row!')).toBeOnTheScreen(),
@@ -234,13 +234,13 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 4; i++) {
-      await recordOnce('Great job!');
+      await recordOnce('Good 👍');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
     // Phrase 5 — streak hits 5
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
 
     await waitFor(() =>
       expect(screen.getByText('🔥🔥 On a roll!')).toBeOnTheScreen(),
@@ -259,14 +259,14 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 3; i++) {
-      const label = i === 1 ? 'Keep practicing' : 'Great job!';
+      const label = i === 1 ? 'Keep trying 🔄' : 'Good 👍';
       await recordOnce(label);
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
     // Phrase 4: streak=2, no three-in-a-row toast.
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
 
     // Give any pending state updates a tick to settle.
     await act(async () => { await Promise.resolve(); });
@@ -287,13 +287,13 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1 (index 0) → advance to index 1
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2 (index 1) → advance to index 2 (the midpoint) — toast fires here
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -310,14 +310,14 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 2; i++) {
-      await recordOnce('Great job!');
+      await recordOnce('Good 👍');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
 
     // Phrase 3 (index 2) → advance to index 3 (the last) — toast fires here
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -339,7 +339,7 @@ describe('session summary XP chip', () => {
     mockState.evaluate = jest.fn(async () => goodResult(80));
     render(<PracticeScreen />);
 
-    await recordOnce('Great job!');
+    await recordOnce('Good 👍');
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
     });
@@ -363,7 +363,7 @@ describe('session summary XP chip', () => {
     }));
     render(<PracticeScreen />);
 
-    await recordOnce('Keep practicing');
+    await recordOnce('Keep trying 🔄');
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
     });

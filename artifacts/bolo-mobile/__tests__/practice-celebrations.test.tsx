@@ -266,13 +266,15 @@ async function doRecordCycle(options: {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
 
-  // Wait for the result card — either by a known label or fall back to the retry icon.
+  // Wait for the result card — either by a known label or fall back to a grade label.
   if (resultLabel) {
     await waitFor(() => expect(screen.getByText(resultLabel)).toBeOnTheScreen());
   } else {
     await waitFor(() =>
       expect(
-        screen.queryByText('Great job!') ?? screen.queryByText('Keep practicing'),
+        screen.queryByText('Excellent 🌟') ??
+          screen.queryByText('Good 👍') ??
+          screen.queryByText('Keep trying 🔄'),
       ).not.toBeNull(),
     );
   }
@@ -300,10 +302,10 @@ describe('hot-streak milestone toast', () => {
     render(<PracticeScreen />);
 
     // Cycle 1 — score 75 (1 in a row, no toast yet)
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
 
     // Cycle 2 — score 80 (2 in a row, no toast yet)
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
 
     // Cycle 3 — score 70 (3 in a row — toast fires)
     // Don't advance past the result so we can read the toast while the result
@@ -321,7 +323,7 @@ describe('hot-streak milestone toast', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
 
     // MilestoneToast always mounts its Text node — after toastMessage is set
@@ -339,8 +341,8 @@ describe('hot-streak milestone toast', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Great job!' });
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
 
     // Third attempt — low score.
     await waitFor(() =>
@@ -356,7 +358,7 @@ describe('hot-streak milestone toast', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Keep practicing')).toBeOnTheScreen(),
+      expect(screen.getByText('Keep trying 🔄')).toBeOnTheScreen(),
     );
 
     // Toast message must NOT say "3 in a row!".
@@ -378,8 +380,8 @@ describe('perfect-session detection', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Great job!' });
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
     // Last phrase — press "Finish".
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
@@ -394,7 +396,7 @@ describe('perfect-session detection', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -415,8 +417,8 @@ describe('perfect-session detection', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Great job!' });
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -430,7 +432,7 @@ describe('perfect-session detection', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -455,8 +457,8 @@ describe('XP chip', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Great job!' });
-    await doRecordCycle({ resultLabel: 'Great job!' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -470,7 +472,7 @@ describe('XP chip', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -490,7 +492,7 @@ describe('XP chip', () => {
 
     // Drive through phrases 1–5 with "Next phrase".
     for (let i = 0; i < 5; i++) {
-      await doRecordCycle({ resultLabel: 'Great job!' });
+      await doRecordCycle({ resultLabel: 'Good 👍' });
     }
     // Last phrase — "Finish".
     await waitFor(() =>
@@ -506,7 +508,7 @@ describe('XP chip', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Great job!')).toBeOnTheScreen(),
+      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 

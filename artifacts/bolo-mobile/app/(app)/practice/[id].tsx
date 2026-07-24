@@ -17,10 +17,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   FadeIn,
   FadeInDown,
+  FadeOutUp,
   ZoomIn,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { appear, useAppearSkip } from '@/lib/entrance';
@@ -195,6 +199,13 @@ export default function PracticeScreen() {
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = React.useState(false);
+
+  // ── Score flash overlay ──────────────────────────────────────────────────
+  /** 0–0.18 animated opacity of the full-bleed color flash after scoring. */
+  const flashOpacity = useSharedValue(0);
+  /** The color of the flash overlay — set before the animation fires. */
+  const [flashColor, setFlashColor] = React.useState('#10B981');
+  const flashOverlayStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
 
   // Tracks whether the learner's finger is currently held on the record button.
   // Guards the hold-to-speak startup race: if pressOut fires before the async
@@ -613,6 +624,19 @@ export default function PracticeScreen() {
       setScores((prev) => [...prev, res.score]);
       setPhaseSync('result');
 
+      // Full-bleed color flash: green for pass ≥ 70, amber for near-miss 50–69, red for fail.
+      const fColor =
+        res.score >= 70
+          ? colors.success
+          : res.score >= 50
+            ? '#F59E0B'
+            : colors.destructive;
+      setFlashColor(fColor);
+      flashOpacity.value = withSequence(
+        withTiming(0.18, { duration: 150 }),
+        withTiming(0, { duration: 250 }),
+      );
+
       // ── Hot-streak tracking ──────────────────────────────────────────────
       if (res.score >= 70) {
         consecutiveGoodRef.current += 1;
@@ -638,9 +662,9 @@ export default function PracticeScreen() {
           : Haptics.NotificationFeedbackType.Warning,
       );
 
-      // Bigger reward for a strong attempt: confetti rains on a high score, and
+      // Bigger reward for a strong attempt: confetti rains on an excellent score, and
       // a solid pass gets an extra celebratory haptic pulse.
-      if (res.score >= 90) {
+      if (res.score >= 95) {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
@@ -923,8 +947,11 @@ export default function PracticeScreen() {
           />
         </View>
 
-        {/* Phrase card */}
-        <View
+        {/* Phrase card — keyed so entering/exiting fires on phrase change */}
+        <Animated.View
+          key={phrase.id}
+          entering={skipEnter ? undefined : FadeIn.duration(220)}
+          exiting={FadeOutUp.duration(200)}
           style={[
             styles.phraseCard,
             { backgroundColor: colors.card, borderColor: colors.border },
@@ -956,7 +983,7 @@ export default function PracticeScreen() {
               {coachPlaying ? 'Listening...' : 'Hear it'}
             </Text>
           </Pressable>
-        </View>
+        </Animated.View>
 
         {phrase.hint && phase !== 'result' ? (
           <View style={styles.hintRow}>
@@ -991,7 +1018,8 @@ export default function PracticeScreen() {
 
         {/* Result */}
         {phase === 'result' && result ? (
-          <View
+          <Animated.View
+            entering={FadeIn.duration(200)}
             style={[
               styles.resultCard,
               {
@@ -1000,13 +1028,19 @@ export default function PracticeScreen() {
               },
             ]}
           >
+            {/* Grade label row */}
+            <Text
+              style={[styles.gradeLabel, { color: scoreColor(result.score, colors) }]}
+            >
+              {result.score >= 90
+                ? 'Excellent 🌟'
+                : result.score >= 70
+                  ? 'Good 👍'
+                  : 'Keep trying 🔄'}
+            </Text>
+
             <View style={styles.resultTop}>
               <View>
-                <Text
-                  style={[styles.resultLabel, { color: colors.mutedForeground }]}
-                >
-                  {result.passed ? 'Great job!' : 'Keep practicing'}
-                </Text>
                 <View style={styles.resultScoreRow}>
                   <AnimatedScore
                     score={result.score}
@@ -1070,7 +1104,7 @@ export default function PracticeScreen() {
             </View>
             {result.transcript ? (
               <Text style={[styles.heard, { color: colors.foreground }]}>
-                We heard: “{result.transcript}”
+                We heard: "{result.transcript}"
               </Text>
             ) : null}
             {result.feedback ? (
@@ -1091,7 +1125,7 @@ export default function PracticeScreen() {
                 Heads up — this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
-          </View>
+          </Animated.View>
         ) : null}
       </ScrollView>
 
@@ -1136,6 +1170,15 @@ export default function PracticeScreen() {
           />
         )}
       </View>
+      {/* Score flash overlay — full-bleed color pulse after each scored attempt */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: flashColor, zIndex: 50 },
+          flashOverlayStyle,
+        ]}
+      />
       {celebrate ? <Confetti /> : null}
       <BadgeUnlock
         badges={unlockedBadges}
@@ -1190,6 +1233,8 @@ function RecordButton({
 }) {
   const colors = useColors();
   const pulse = useSharedValue(0);
+  // 0 = idle/recording (primary), 1 = evaluating (amber)
+  const ringPhaseVal = useSharedValue(0);
 
   React.useEffect(() => {
     if (phase === 'recording') {
@@ -1199,10 +1244,29 @@ function RecordButton({
     }
   }, [phase, pulse]);
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + pulse.value * 0.25 }],
-    opacity: 0.35 - pulse.value * 0.25,
-  }));
+  React.useEffect(() => {
+    if (phase === 'evaluating') {
+      ringPhaseVal.value = withSpring(1, { damping: 14, stiffness: 180 });
+    } else {
+      ringPhaseVal.value = withTiming(0, { duration: 300 });
+    }
+  }, [phase, ringPhaseVal]);
+
+  const primaryColor = colors.primary;
+  const amberColor = '#F59E0B';
+
+  const ringStyle = useAnimatedStyle(() => {
+    const ringBg = interpolateColor(
+      ringPhaseVal.value,
+      [0, 1],
+      [primaryColor, amberColor],
+    );
+    return {
+      transform: [{ scale: 1 + pulse.value * 0.25 }],
+      opacity: 0.35 - pulse.value * 0.25,
+      backgroundColor: ringBg,
+    };
+  });
 
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
@@ -1216,7 +1280,6 @@ function RecordButton({
         <Animated.View
           style={[
             styles.pulseRing,
-            { backgroundColor: colors.accent },
             ringStyle,
           ]}
         />
@@ -1319,9 +1382,14 @@ const styles = StyleSheet.create({
   hint: { fontFamily: AppFonts.regular, fontSize: 13, flex: 1 },
   resultCard: {
     marginTop: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1.5,
     padding: 20,
+  },
+  gradeLabel: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 18,
+    marginBottom: 8,
   },
   resultTop: {
     flexDirection: 'row',

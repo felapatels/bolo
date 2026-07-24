@@ -217,6 +217,10 @@ export function useVoiceRecorder() {
         // recording eliminates the corruption. The user has time to read their
         // feedback before the next recording starts, so the getUserMedia
         // latency is invisible.
+        //
+        // Guard with a generation token so that if abortRecording() or the
+        // component teardown increments prewarmGenRef before this resolves,
+        // the stream is immediately stopped rather than stored with no owner.
         releaseStream();
         const myToken = ++prewarmTokenRef.current;
         navigator.mediaDevices
@@ -249,10 +253,10 @@ export function useVoiceRecorder() {
   // Discard the recording and release all hardware/audio resources without
   // resolving a blob. Safe to call multiple times and when nothing is active.
   const abortRecording = useCallback(() => {
-    cleanupSilenceDetection();
     // Invalidate any in-flight background prewarm so its resolution cannot
     // overwrite streamRef after we've released everything here.
     prewarmTokenRef.current++;
+    cleanupSilenceDetection();
     const recorder = mediaRecorderRef.current;
     if (recorder) {
       try {

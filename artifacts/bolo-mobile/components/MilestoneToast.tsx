@@ -1,12 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withSequence,
-  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInUp,
+  SlideOutUp,
   useReducedMotion,
 } from 'react-native-reanimated';
 import { AppFonts } from '@/constants/fonts';
@@ -25,12 +23,11 @@ interface MilestoneToastProps {
   color?: string;
 }
 
-const DISPLAY_MS = 1500;
-const SLIDE_MS = 300;
+const DISPLAY_MS = 2000;
 
 /**
- * A transient, absolutely-positioned pill that slides in from the top of its
- * parent container, holds for 1.5 s, then slides back out.
+ * A transient, absolutely-positioned pill that springs in from the top,
+ * holds for 2 s, then springs back out.
  *
  * Place it inside a container with `position: 'relative'` (or inside a Screen).
  * The toast is pointer-event-none so it never blocks touches.
@@ -45,49 +42,50 @@ export function MilestoneToast({
   color = '#FFFFFF',
 }: MilestoneToastProps) {
   const reduceMotion = useReducedMotion();
-  const translateY = useSharedValue(-80);
-  const opacity = useSharedValue(0);
+  const [visible, setVisible] = React.useState(false);
 
-  // Track whether we're currently showing so we don't re-trigger for key=0.
+  // Track whether we've mounted so we don't fire on key=0 at startup.
   const initialized = React.useRef(false);
+  const dismissTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
-      // Don't fire on first mount with key=0.
       if (toastKey === 0) return;
     }
     if (!message) return;
 
-    if (reduceMotion) {
-      // Fade only, no slide.
-      opacity.value = withSequence(
-        withTiming(1, { duration: SLIDE_MS }),
-        withDelay(DISPLAY_MS, withTiming(0, { duration: SLIDE_MS })),
-      );
-      translateY.value = 0;
-    } else {
-      translateY.value = withSequence(
-        withTiming(0, { duration: SLIDE_MS, easing: Easing.out(Easing.back(1.5)) }),
-        withDelay(DISPLAY_MS, withTiming(-80, { duration: SLIDE_MS, easing: Easing.in(Easing.quad) })),
-      );
-      opacity.value = withSequence(
-        withTiming(1, { duration: SLIDE_MS }),
-        withDelay(DISPLAY_MS, withTiming(0, { duration: SLIDE_MS })),
-      );
-    }
+    // Clear any pending dismiss from a previous toast cycle.
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+
+    setVisible(true);
+    dismissTimer.current = setTimeout(() => setVisible(false), DISPLAY_MS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toastKey]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
+  React.useEffect(
+    () => () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    },
+    [],
+  );
+
+  if (!visible) return null;
+
+  const entering = reduceMotion
+    ? FadeIn.duration(200)
+    : SlideInUp.springify().damping(14).stiffness(220);
+
+  const exiting = reduceMotion
+    ? FadeOut.duration(200)
+    : SlideOutUp.springify().damping(14).stiffness(220);
 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.pill, { backgroundColor }, animStyle]}
+      entering={entering}
+      exiting={exiting}
+      style={[styles.pill, { backgroundColor }]}
     >
       <Text style={[styles.text, { color }]}>{message}</Text>
     </Animated.View>

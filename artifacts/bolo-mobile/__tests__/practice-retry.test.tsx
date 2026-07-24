@@ -175,7 +175,7 @@ async function recordToResult() {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
   await waitFor(() =>
-    expect(screen.getByText('Keep practicing')).toBeOnTheScreen(),
+    expect(screen.getByText('Keep trying 🔄')).toBeOnTheScreen(),
   );
 }
 
