@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Animated as RNAnimated,
+  Easing,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -465,6 +466,34 @@ function Stat({
   const colors = useColors();
   const reduceMotion = useReducedMotion();
 
+  // Count-up: mirrors AnimatedXp in analytics.tsx (RNAnimated.timing + listener).
+  // Uses RNAnimated (not Reanimated useAnimatedStyle) to avoid the New
+  // Architecture layout-prop crash described in reanimated-layout-props-crash.md.
+  // The delay matches the spring entrance so the number lands as the card settles.
+  const [display, setDisplay] = React.useState(reduceMotion ? value : 0);
+  const anim = React.useRef(
+    new RNAnimated.Value(reduceMotion ? value : 0),
+  ).current;
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      setDisplay(value);
+      anim.setValue(value);
+      return;
+    }
+    anim.setValue(0);
+    setDisplay(0);
+    const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
+    RNAnimated.timing(anim, {
+      toValue: value,
+      duration: 700,
+      delay: index * 60,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    return () => anim.removeListener(id);
+  }, [value, index, reduceMotion, anim]);
+
   // Entrance "pop" — a progressive enhancement implemented as a reanimated
   // layout animation. Visibility is never gated on it: the card renders at full
   // opacity in its resting position by default, so if the animation never
@@ -491,7 +520,7 @@ function Stat({
         <Feather name={icon} size={20} color={tint} />
       </View>
       <Text style={[styles.statValue, { color: colors.foreground }]}>
-        {value}
+        {display}
       </Text>
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
         {label}
