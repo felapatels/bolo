@@ -202,7 +202,7 @@ function isCorrectAnswer(q: QuizQuestion, answer: string | null | undefined): bo
  * Returns 0 when the most-recent completion is older than yesterday (broken
  * streak), so the learner always sees an accurate, motivating number.
  */
-async function computeQuizStreak(userId: string, languageCode: string): Promise<number> {
+export async function computeQuizStreak(userId: string, languageCode: string): Promise<number> {
   const completions = await db
     .select({ quizDate: dailyQuizCompletionsTable.quizDate })
     .from(dailyQuizCompletionsTable)
