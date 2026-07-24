@@ -74,6 +74,142 @@ import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
 
+// ── Score trail ──────────────────────────────────────────────────────────────
+
+/**
+ * One circular dot in the score trail.
+ * The current-phrase dot breathes with a gentle scale pulse.
+ */
+function ScoreDot({
+  score,
+  isCurrent,
+  dotColor,
+  onPress,
+  isSelected,
+}: {
+  score: number | null;
+  isCurrent: boolean;
+  dotColor: string;
+  onPress?: () => void;
+  isSelected: boolean;
+}) {
+  const scale = useSharedValue(1);
+
+  React.useEffect(() => {
+    if (isCurrent) {
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.35, { duration: 650 }),
+          withTiming(0.85, { duration: 650 }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      scale.value = withTiming(1, { duration: 200 });
+    }
+  }, [isCurrent, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      onPress={score !== null ? onPress : undefined}
+      disabled={score === null}
+      hitSlop={6}
+      accessibilityRole={score !== null ? 'button' : undefined}
+      accessibilityLabel={score !== null ? `Score: ${score}` : undefined}
+    >
+      <Animated.View
+        style={[
+          styles.scoreDot,
+          {
+            backgroundColor: dotColor,
+            borderWidth: isSelected ? 1.5 : 0,
+            borderColor: '#fff',
+          },
+          animStyle,
+        ]}
+      />
+    </Pressable>
+  );
+}
+
+/** Row of colored dots — one per phrase — above the progress bar. */
+function ScoreTrail({
+  total,
+  scores,
+  currentIndex,
+  colors,
+}: {
+  total: number;
+  /** Keyed by phrase index; a missing key means that phrase hasn't been attempted yet. */
+  scores: Record<number, number>;
+  currentIndex: number;
+  colors: { success: string; gold: string; destructive: string; muted: string; primary: string; mutedForeground: string; foreground: string };
+}) {
+  const [tooltip, setTooltip] = React.useState<{ idx: number; score: number } | null>(null);
+  const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipOpacity = useSharedValue(0);
+
+  const showTooltip = React.useCallback((idx: number, score: number) => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setTooltip({ idx, score });
+    tooltipOpacity.value = withTiming(1, { duration: 150 });
+    tooltipTimer.current = setTimeout(() => {
+      tooltipOpacity.value = withTiming(0, { duration: 200 });
+      setTimeout(() => setTooltip(null), 210);
+    }, 1800);
+  }, [tooltipOpacity]);
+
+  React.useEffect(() => {
+    return () => { if (tooltipTimer.current) clearTimeout(tooltipTimer.current); };
+  }, []);
+
+  const tooltipStyle = useAnimatedStyle(() => ({ opacity: tooltipOpacity.value }));
+
+  // Don't render at all until there's at least one phrase
+  if (total === 0) return null;
+
+  return (
+    <View style={styles.scoreTrailOuter}>
+      {tooltip !== null && (
+        <Animated.Text style={[styles.scoreTrailTooltip, { color: colors.mutedForeground }, tooltipStyle]}>
+          Phrase {tooltip.idx + 1}: {tooltip.score} / 100
+        </Animated.Text>
+      )}
+      <View style={styles.scoreTrailRow}>
+        {Array.from({ length: total }, (_, i) => {
+          const score = scores[i] ?? null;
+          const isCurrent = i === currentIndex;
+          const dotColor =
+            score !== null
+              ? score >= 70
+                ? colors.success
+                : score >= 50
+                  ? colors.gold
+                  : colors.destructive
+              : isCurrent
+                ? colors.primary + '70'
+                : colors.muted;
+          return (
+            <ScoreDot
+              key={i}
+              score={score}
+              isCurrent={isCurrent}
+              dotColor={dotColor}
+              onPress={() => showTooltip(i, score!)}
+              isSelected={tooltip?.idx === i}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 /** Animated score counter — counts up from 0 to `score` over 600 ms. */
 function AnimatedScore({
   score,
@@ -178,7 +314,9 @@ export default function PracticeScreen() {
     setPhase(next);
   }, []);
   const [result, setResult] = React.useState<PronunciationResult | null>(null);
-  const [scores, setScores] = React.useState<number[]>([]);
+  // Keyed by phrase index so retrying phrase N replaces that dot rather than
+  // pushing a new score onto the next phrase's position.
+  const [scores, setScores] = React.useState<Record<number, number>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
@@ -445,7 +583,7 @@ export default function PracticeScreen() {
   React.useEffect(() => {
     if (phase === 'done') {
       fireConfetti(4000);
-      if (scores.length > 0 && scores.every((s) => s >= 80)) {
+      if (Object.keys(scores).length > 0 && Object.values(scores).every((s) => s >= 80)) {
         hapticHeavy();
       }
     }
@@ -621,7 +759,7 @@ export default function PracticeScreen() {
               .catch(() => null)
           : null;
       setResult(res);
-      setScores((prev) => [...prev, res.score]);
+      setScores((prev) => ({ ...prev, [index]: res.score }));
       setPhaseSync('result');
 
       // Full-bleed color flash: green for pass ≥ 70, amber for near-miss 50–69, red for fail.
@@ -810,12 +948,13 @@ export default function PracticeScreen() {
 
   // --- Summary ---
   if (phase === 'done') {
+    const scoreVals = Object.values(scores);
     const avg =
-      scores.length > 0
-        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      scoreVals.length > 0
+        ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
         : 0;
-    const isPerfect = scores.length > 0 && scores.every((s) => s >= 80);
-    const xpEarned = Math.min(50, Math.round(avg / 10) * scores.length);
+    const isPerfect = scoreVals.length > 0 && scoreVals.every((s) => s >= 80);
+    const xpEarned = Math.min(50, Math.round(avg / 10) * scoreVals.length);
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
@@ -836,12 +975,12 @@ export default function PracticeScreen() {
             entering={skipEnter ? undefined : FadeInDown.delay(220)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
-            You practiced {scores.length}{' '}
+            You practiced {scoreVals.length}{' '}
             {isSentences
-              ? scores.length === 1
+              ? scoreVals.length === 1
                 ? 'sentence'
                 : 'sentences'
-              : scores.length === 1
+              : scoreVals.length === 1
                 ? 'phrase'
                 : 'phrases'}.
           </Animated.Text>
@@ -920,6 +1059,12 @@ export default function PracticeScreen() {
         label={`${index + 1} of ${list.length}`}
       />
       <View style={styles.progressOuter}>
+        <ScoreTrail
+          total={list.length}
+          scores={scores}
+          currentIndex={index}
+          colors={colors}
+        />
         <View style={[styles.progressBg, { backgroundColor: colors.muted }]}>
           <View
             style={{
@@ -1340,6 +1485,24 @@ const styles = StyleSheet.create({
   headerLabel: { fontFamily: AppFonts.bold, fontSize: 16 },
   progressOuter: { paddingHorizontal: 20, paddingBottom: 8 },
   progressBg: { height: 8, borderRadius: 999, overflow: 'hidden' },
+  scoreTrailOuter: { marginBottom: 8 },
+  scoreTrailTooltip: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  scoreTrailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  scoreDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
   body: { padding: 20, paddingBottom: 24 },
   mascotRow: { alignItems: 'center', marginBottom: 4 },
   phraseCard: {
