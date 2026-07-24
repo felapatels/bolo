@@ -103,6 +103,13 @@ function evictVoicePrefCache(): void {
   }
 }
 
+/**
+ * Test-only export: direct access to the in-process voice-preference cache.
+ * Do not use in production code — import invalidateVoicePreferenceCache instead.
+ * @internal
+ */
+export { voicePrefCache as _voicePrefCacheForTest };
+
 // The AI-backed endpoints call OpenAI with server-side credentials and are
 // internet-reachable once published, so cap abuse / runaway cost without adding
 // login friction. Generous enough for rapid practice by a single learner.
