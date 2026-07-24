@@ -20,6 +20,7 @@ import Animated, {
   FadeOutUp,
   ZoomIn,
   interpolateColor,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -27,6 +28,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
@@ -210,22 +212,33 @@ function ScoreTrail({
   );
 }
 
-/** Animated score counter — counts up from 0 to `score` over 600 ms. */
-function AnimatedScore({
-  score,
-  color,
-  style,
-}: {
-  score: number;
-  color: string;
-  style?: object;
-}) {
-  const [display, setDisplay] = React.useState(0);
+// ScoreRing — circular SVG arc that animates from 0 to the earned score,
+// with a count-up number centred inside. Colors shift by band:
+// green ≥80, amber 60–79, red below 60.
+const RING_R = 48;
+const RING_STROKE = 9;
+const RING_CIRCUM = 2 * Math.PI * RING_R;
+const RING_SIZE = RING_R * 2 + RING_STROKE;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+function ScoreRing({ score, color }: { score: number; color: string }) {
+  const progress = useSharedValue(0);
 
   React.useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(score / 100, { duration: 850 });
+  }, [score]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: RING_CIRCUM * (1 - progress.value),
+  }));
+
+  // Count-up display for the centre number
+  const [display, setDisplay] = React.useState(0);
+  React.useEffect(() => {
     if (score === 0) { setDisplay(0); return; }
-    const DURATION = 600;
-    const STEPS = 30;
+    const DURATION = 700;
+    const STEPS = 35;
     const intervalMs = DURATION / STEPS;
     let step = 0;
     const timer = setInterval(() => {
@@ -233,14 +246,52 @@ function AnimatedScore({
       setDisplay(Math.round((score * step) / STEPS));
       if (step >= STEPS) clearInterval(timer);
     }, intervalMs);
-    return () => {
-      clearInterval(timer);
-      setDisplay(score);
-    };
+    return () => { clearInterval(timer); setDisplay(score); };
   }, [score]);
 
+  const center = RING_SIZE / 2;
+  const trackColor = color + '28'; // ~16 % opacity track
+
   return (
-    <Text style={[style, { color }]}>{display}</Text>
+    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg
+        width={RING_SIZE}
+        height={RING_SIZE}
+        style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
+        accessibilityElementsHidden
+      >
+        {/* Track */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={RING_R}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth={RING_STROKE}
+        />
+        {/* Animated progress arc */}
+        <AnimatedCircle
+          cx={center}
+          cy={center}
+          r={RING_R}
+          fill="none"
+          stroke={color}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUM}
+          animatedProps={animatedProps}
+        />
+      </Svg>
+      {/* Centred score number */}
+      <View style={{ alignItems: 'center' }} accessibilityLabel={`Pronunciation result: ${score} out of 100`}>
+        <Text style={{ fontFamily: AppFonts.extrabold, fontSize: 30, color, lineHeight: 34 }}>
+          {display}
+        </Text>
+        <Text style={{ fontFamily: AppFonts.semibold, fontSize: 11, color, opacity: 0.65 }}>
+          / 100
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -1185,23 +1236,10 @@ export default function PracticeScreen() {
             </Text>
 
             <View style={styles.resultTop}>
-              <View>
-                <View style={styles.resultScoreRow}>
-                  <AnimatedScore
-                    score={result.score}
-                    color={scoreColor(result.score, colors)}
-                    style={styles.resultScore}
-                  />
-                  <Text
-                    style={[
-                      styles.resultScoreMax,
-                      { color: scoreColor(result.score, colors) },
-                    ]}
-                  >
-                    {' / 100'}
-                  </Text>
-                </View>
-              </View>
+              <ScoreRing
+                score={result.score}
+                color={scoreColor(result.score, colors)}
+              />
               <Pressable
                 onPress={toggleSpokenFeedback}
                 accessibilityRole="button"

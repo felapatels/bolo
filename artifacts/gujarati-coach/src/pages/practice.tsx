@@ -35,20 +35,82 @@ import { MilestoneToast } from "@/components/ui/milestone-toast";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
-// ScoreDisplay — the score text stays in a single DOM node (required for
-// test queries) while the badge container springs in to make the number feel
-// earned. Using motion for the container keeps the text accessible/findable.
-function ScoreDisplay({ score, className }: { score: number; className?: string }) {
+// ScoreRing — animates a circular SVG arc from 0 to the earned score,
+// with a centered number that springs in once the arc reaches it.
+// Colors shift by band: green ≥80, amber 60–79, red below 60.
+const RING_R = 44;
+const RING_STROKE = 8;
+const RING_CIRCUM = 2 * Math.PI * RING_R;
+const RING_SIZE = RING_R * 2 + RING_STROKE;
+
+function ScoreRing({ score }: { score: number }) {
+  const reduceMotion = useReducedMotion();
+  const color =
+    score >= 80 ? "hsl(var(--success))" :
+    score >= 60 ? "hsl(var(--primary))" :
+    "hsl(var(--destructive))";
+  const trackColor =
+    score >= 80 ? "hsl(var(--success) / 0.15)" :
+    score >= 60 ? "hsl(var(--primary) / 0.15)" :
+    "hsl(var(--destructive) / 0.15)";
+  const targetOffset = RING_CIRCUM * (1 - score / 100);
+  const center = RING_SIZE / 2;
+
   return (
-    <motion.div
-      key={score}
-      initial={{ scale: 0.4, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 450, damping: 22 }}
-      className={className}
-    >
-      Score: {score}
-    </motion.div>
+    <div className="relative inline-flex items-center justify-center my-1" data-testid="score-ring">
+      <svg
+        width={RING_SIZE}
+        height={RING_SIZE}
+        style={{ transform: "rotate(-90deg)" }}
+        aria-hidden="true"
+      >
+        {/* Track ring */}
+        <circle
+          cx={center}
+          cy={center}
+          r={RING_R}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth={RING_STROKE}
+        />
+        {/* Animated progress arc */}
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={RING_R}
+          fill="none"
+          stroke={color}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUM}
+          initial={{ strokeDashoffset: RING_CIRCUM }}
+          animate={{ strokeDashoffset: targetOffset }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.9, ease: [0.34, 1.0, 0.64, 1] }
+          }
+        />
+      </svg>
+      {/* Score number centred inside the ring */}
+      <motion.span
+        key={score}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 380, damping: 22, delay: 0.28 }
+        }
+        className="absolute font-black text-2xl leading-none"
+        style={{ color }}
+        aria-hidden="true"
+      >
+        {score}
+      </motion.span>
+      {/* Screen-reader label — also keeps `getByText("Score: N")` test queries working */}
+      <span className="sr-only">Score: {score}</span>
+    </div>
   );
 }
 
@@ -911,15 +973,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}>
                     {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
                   </p>
-                  <ScoreDisplay
-                    score={Math.round(result.score)}
-                    className={cn(
-                      "inline-block px-3 py-0.5 rounded-full font-black text-base mb-2",
-                      result.score >= 80 ? "bg-success/20 text-success" :
-                      result.score >= 60 ? "bg-primary/20 text-primary" :
-                      "bg-destructive/20 text-destructive"
-                    )}
-                  />
+                  <ScoreRing score={Math.round(result.score)} />
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
                   {result.tip && (
                     <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>
