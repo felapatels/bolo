@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -42,10 +42,40 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
     opacity: iconOpacity.value,
   }));
 
+  // Derive nearest/ratio before any early returns so hooks below stay
+  // unconditional. Defaults to null/0 while data is still loading.
+  const nearest =
+    badges && badges.length > 0 ? findNearestLockedBadge(badges) : null;
+  const ratio = nearest ? progressRatio(nearest) : 0;
+
+  // Progress bar spring: width is a layout prop — must use RNAnimated (not
+  // Reanimated useAnimatedStyle) to avoid the New Architecture layout-prop
+  // crash. Matches TopicBar physics (stiffness 120, damping 14).
+  // Hooks are declared unconditionally here, before any early returns.
+  const barAnim = React.useRef(new RNAnimated.Value(0)).current;
+  React.useEffect(() => {
+    if (!nearest) return; // nothing to animate while loading or all-earned
+    if (reduceMotion) {
+      barAnim.setValue(ratio * 100);
+      return;
+    }
+    barAnim.setValue(0);
+    RNAnimated.spring(barAnim, {
+      toValue: ratio * 100,
+      stiffness: 120,
+      damping: 14,
+      mass: 1,
+      useNativeDriver: false, // width cannot use the native driver
+    }).start();
+  }, [ratio, reduceMotion, barAnim, nearest]);
+
+  const barWidthPct = barAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
   // Nothing to spotlight until we know the catalog for this language.
   if (isLoading || !badges || badges.length === 0) return null;
-
-  const nearest = findNearestLockedBadge(badges);
 
   if (!nearest) {
     return (
@@ -81,8 +111,6 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
       </Animated.View>
     );
   }
-
-  const ratio = progressRatio(nearest);
 
   return (
     <Animated.View
@@ -132,9 +160,11 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
 
       <View style={styles.progressWrap}>
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
-          <View
+          {/* RNAnimated.View required: width is a layout prop and crashes New
+              Architecture if driven by Reanimated useAnimatedStyle. */}
+          <RNAnimated.View
             style={{
-              width: `${ratio * 100}%`,
+              width: barWidthPct,
               height: '100%',
               borderRadius: 999,
               backgroundColor: colors.secondary,
