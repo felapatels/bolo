@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
@@ -31,7 +32,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { useTour, TOUR_STEP_INDEX } from '@/contexts/TourContext';
-import { FunFactLoader } from '@/components/FunFactLoader';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -238,24 +239,14 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Stats — gradient banner (indigo→violet, matches web) */}
+        {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
         <View ref={statsRowRef} collapsable={false} style={styles.statsRowWrapper}>
-          <View style={[styles.statsBanner, { backgroundColor: '#4f46e5', overflow: 'hidden' }]}>
-            {/* Diagonal overlay approximates the web's 3-stop indigo→blue→violet gradient */}
-            <View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: '55%',
-                backgroundColor: '#7c3aed',
-                opacity: 0.65,
-                borderTopRightRadius: 18,
-                borderBottomRightRadius: 18,
-              }}
-            />
+          <LinearGradient
+            colors={['#4f46e5', '#3b6fef', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0.25 }}
+            style={styles.statsBanner}
+          >
             <GradientStatCell
               index={0}
               icon="zap"
@@ -279,7 +270,7 @@ export default function HomeScreen() {
               label="Mastered"
               loading={summary.isLoading}
             />
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Daily quiz card */}
@@ -299,8 +290,14 @@ export default function HomeScreen() {
           <PressableScale
             onPress={startDaily}
             scaleTo={0.98}
-            style={[styles.cta, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
+            style={[styles.cta, { shadowColor: colors.primaryShadow, overflow: 'hidden' }]}
           >
+            <LinearGradient
+              colors={['#4f46e5', '#3b6fef', '#7c3aed']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0.3 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={{ flex: 1 }}>
               <Text style={[styles.ctaTitle, { color: colors.primaryForeground }]}>
                 Start daily practice
@@ -356,7 +353,11 @@ export default function HomeScreen() {
         </View>
 
         {categories.isLoading ? (
-          <FunFactLoader color={colors.primary} style={{ marginVertical: 24 }} />
+          <View style={{ gap: 12, marginVertical: 8 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <SkeletonCard key={i} height={80} borderRadius={14} />
+            ))}
+          </View>
         ) : categories.isError ? (
           <ErrorNote
             message="Couldn't load topics. Pull to refresh."
@@ -685,15 +686,18 @@ function CategoryCard({
           },
         ]}
       >
-        <View
-          style={[styles.catIcon, { backgroundColor: `${accent}26` }]}
+        <LinearGradient
+          colors={[`${accent}4D`, `${accent}1A`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.catIcon}
         >
           <Feather
             name={categoryIcon(category.iconName)}
             size={22}
             color={accent}
           />
-        </View>
+        </LinearGradient>
         <View style={{ flex: 1 }}>
           <Text style={[styles.catTitle, { color: colors.foreground }]}>
             {category.title}

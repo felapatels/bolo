@@ -40,7 +40,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { ChunkyButton } from '@/components/ChunkyButton';
-import { FunFactLoader } from '@/components/FunFactLoader';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -702,7 +702,11 @@ function FriendsTab() {
         </Text>
 
         {friends.isLoading ? (
-          <FunFactLoader color={colors.primary} style={{ marginTop: 24 }} />
+          <View style={{ gap: 10 }}>
+            {[0, 1, 2].map((i) => (
+              <SkeletonCard key={i} height={72} borderRadius={16} />
+            ))}
+          </View>
         ) : friends.isError ? (
           <ErrorState onRetry={() => friends.refetch()} />
         ) : friendsList.length === 0 ? (
@@ -802,7 +806,11 @@ function LeaderboardTab() {
       }
     >
       {leaderboard.isLoading ? (
-        <FunFactLoader color={colors.primary} style={{ marginTop: 48 }} />
+        <View style={{ gap: 10, marginTop: 8 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <SkeletonCard key={i} height={72} borderRadius={16} />
+          ))}
+        </View>
       ) : leaderboard.isError ? (
         <ErrorState onRetry={() => leaderboard.refetch()} />
       ) : rows.length === 0 ? (

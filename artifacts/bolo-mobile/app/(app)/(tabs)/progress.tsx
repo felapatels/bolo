@@ -24,7 +24,7 @@ import { NextBadgeSpotlight } from '@/components/NextBadgeSpotlight';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
-import { FunFactLoader } from '@/components/FunFactLoader';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -100,7 +100,20 @@ export default function ProgressScreen() {
         </Animated.View>
 
         {summary.isLoading ? (
-          <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
+          <View>
+            {/* 2×2 stat grid skeleton */}
+            <View style={[styles.grid]}>
+              <SkeletonCard width="47%" height={100} borderRadius={14} />
+              <SkeletonCard width="47%" height={100} borderRadius={14} />
+              <SkeletonCard width="47%" height={100} borderRadius={14} />
+              <SkeletonCard width="47%" height={100} borderRadius={14} />
+            </View>
+            {/* Mastery card skeleton */}
+            <SkeletonCard height={100} borderRadius={14} style={{ marginBottom: 24 }} />
+            {/* Entry card skeletons (badges, analytics) */}
+            <SkeletonCard height={74} borderRadius={14} style={{ marginBottom: 24 }} />
+            <SkeletonCard height={74} borderRadius={14} style={{ marginBottom: 24 }} />
+          </View>
         ) : (
           <>
             {/* Next badge goal — shows the nearest locked badge as a directed

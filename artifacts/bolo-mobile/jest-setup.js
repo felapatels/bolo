@@ -113,3 +113,15 @@ jest.mock('expo-haptics', () => ({
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+// expo-linear-gradient renders a View in tests — the gradient is a visual
+// enhancement that doesn't need to be exercised in unit tests.
+jest.mock('expo-linear-gradient', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    LinearGradient: ({ children, style }) =>
+      React.createElement(View, { style }, children),
+  };
+});

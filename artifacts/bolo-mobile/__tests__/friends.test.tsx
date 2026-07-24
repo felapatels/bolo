@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import {
   ApiError,
@@ -258,14 +258,12 @@ describe('Leaderboard', () => {
     expect(screen.getByText('240 XP')).toBeOnTheScreen();
   });
 
-  test('renders a spinner while loading', () => {
+  test('renders skeleton placeholders while loading', () => {
     mockState.leaderboard = loadingQuery();
     render(<FriendsScreen />);
     openLeaderboard();
 
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getAllByTestId('skeleton-card').length).toBeGreaterThan(0);
     expect(screen.queryByText('Nothing to rank yet')).not.toBeOnTheScreen();
   });
 
