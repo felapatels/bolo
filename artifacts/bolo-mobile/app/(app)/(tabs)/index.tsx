@@ -17,15 +17,22 @@ import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeInDown,
+  useAnimatedProps,
   useReducedMotion,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategories,
   useGetProgressSummary,
   useListRecentAttempts,
   useGetDailyQuiz,
+  useGetAccount,
+  useListReviewPhrases,
   getGetDailyQuizQueryKey,
+  getListReviewPhrasesQueryKey,
   type Category,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -42,6 +49,12 @@ import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fo
 import { categoryIcon } from '@/lib/ui';
 import { hapticLight } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
+
+// Animated SVG circle for the streak arc (created once at module level).
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+const ARC_RADIUS = 24;
+const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
 
 /** Time-of-day greeting to make the mascot's welcome feel personal. */
 function greetingFor(hour: number): string {
@@ -68,6 +81,18 @@ export default function HomeScreen() {
       queryKey: getGetDailyQuizQueryKey(quizParams),
     },
   });
+
+  const account = useGetAccount();
+  const dailyGoal = account.data?.preferences?.learning.dailyGoal ?? 10;
+
+  const reviewParams = { lang: activeLang };
+  const { data: reviewData } = useListReviewPhrases(reviewParams, {
+    query: {
+      enabled: !!isPlus && !!activeLang,
+      queryKey: getListReviewPhrasesQueryKey(reviewParams),
+    },
+  });
+  const reviewDueCount = (reviewData ?? []).length;
 
   const refreshing =
     summary.isRefetching || categories.isRefetching || recent.isRefetching;
@@ -253,6 +278,8 @@ export default function HomeScreen() {
               value={summary.data?.currentStreakDays ?? 0}
               label="Day Streak"
               loading={summary.isLoading}
+              arcAttemptsToday={summary.data?.attemptsToday}
+              arcDailyGoal={dailyGoal}
             />
             <View style={styles.statsDivider} />
             <GradientStatCell
@@ -285,48 +312,27 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* Daily practice CTA */}
+        {/* Continue / Start hero card */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}>
-          <PressableScale
-            onPress={startDaily}
-            scaleTo={0.98}
-            style={[styles.cta, { shadowColor: colors.primaryShadow, overflow: 'hidden' }]}
-          >
-            <LinearGradient
-              colors={['#4f46e5', '#3b6fef', '#7c3aed']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0.3 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.ctaTitle, { color: colors.primaryForeground }]}>
-                Start daily practice
-              </Text>
-              <Text
-                style={[
-                  styles.ctaSub,
-                  { color: colors.primaryForeground, opacity: 0.9 },
-                ]}
-              >
-                {summary.data?.attemptsToday
-                  ? `${summary.data.attemptsToday} done today — keep going!`
-                  : 'A few minutes a day builds fluency.'}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.ctaIcon,
-                { backgroundColor: colors.primaryForeground },
-              ]}
-            >
-              <Feather name="mic" size={24} color={colors.primary} />
-            </View>
-          </PressableScale>
+          <ContinueCard
+            categories={categories.data ?? []}
+            onNavigate={(id) => router.push(`/(app)/practice/${id}?skipMastered=true`)}
+          />
         </Animated.View>
+
+        {/* Review due badge (Plus only) */}
+        {isPlus && reviewDueCount > 0 ? (
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(300)}>
+            <ReviewBadge
+              count={reviewDueCount}
+              onPress={() => router.push('/(app)/(tabs)/progress')}
+            />
+          </Animated.View>
+        ) : null}
 
         {/* Daily lesson allowance (Free plan) */}
         {!isPlus && dailyNewLessons?.limit != null ? (
-          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(300)}>
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(360)}>
             <DailyCapNote
               remaining={dailyNewLessons.remaining ?? 0}
               limit={dailyNewLessons.limit}
@@ -337,7 +343,7 @@ export default function HomeScreen() {
 
         {/* Upgrade prompt (Free plan) */}
         {!isPlus ? (
-          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(340)}>
+          <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(400)}>
             <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
           </Animated.View>
         ) : null}
@@ -487,6 +493,125 @@ export default function HomeScreen() {
   );
 }
 
+/** Hero card that surfaces the learner's next best action — continue an
+ * in-progress topic, or start the first unmastered one. */
+function ContinueCard({
+  categories,
+  onNavigate,
+}: {
+  categories: Category[];
+  onNavigate: (categoryId: number) => void;
+}) {
+  const colors = useColors();
+
+  // Priority 1 — in-progress (at least one phrase mastered but not all)
+  const inProgress = categories.find(
+    (c) => c.masteredCount > 0 && c.masteredCount < c.phraseCount,
+  );
+  // Priority 2 — first unstarted topic
+  const unstarted = categories.find((c) => c.masteredCount === 0);
+  const target = inProgress ?? unstarted ?? categories[0];
+
+  if (!target) return null;
+
+  const isResume = (inProgress != null);
+  const pct =
+    target.phraseCount > 0
+      ? Math.round((target.masteredCount / target.phraseCount) * 100)
+      : 0;
+  const accent = target.accent || colors.primary;
+
+  return (
+    <PressableScale
+      onPress={() => onNavigate(target.id)}
+      scaleTo={0.98}
+      style={[
+        styles.continueCard,
+        {
+          backgroundColor: colors.primary,
+          shadowColor: colors.primaryShadow,
+        },
+      ]}
+    >
+      {/* Topic icon */}
+      <View style={[styles.continueIconWrap, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+        <Feather
+          name={categoryIcon(target.iconName)}
+          size={24}
+          color={colors.primaryForeground}
+        />
+      </View>
+
+      {/* Topic info */}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.continueSub, { color: colors.primaryForeground, opacity: 0.85 }]}>
+          {isResume ? 'Continue where you left off' : 'Start a new topic'}
+        </Text>
+        <Text style={[styles.continueTitle, { color: colors.primaryForeground }]} numberOfLines={1}>
+          {target.title}
+        </Text>
+
+        {/* Mini progress bar */}
+        <View style={styles.continuePrgTrack}>
+          <View style={[styles.continuePrgBg, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+            <View
+              style={{
+                width: `${pct}%`,
+                height: '100%',
+                backgroundColor: colors.primaryForeground,
+                borderRadius: 999,
+              }}
+            />
+          </View>
+          <Text style={[styles.continuePct, { color: colors.primaryForeground, opacity: 0.85 }]}>
+            {pct}%
+          </Text>
+        </View>
+      </View>
+
+      {/* CTA button */}
+      <View style={[styles.continueBtn, { backgroundColor: colors.primaryForeground }]}>
+        <Feather name="play" size={18} color={colors.primary} />
+      </View>
+    </PressableScale>
+  );
+}
+
+/** Compact pill card nudging the learner to review phrases that are due. */
+function ReviewBadge({
+  count,
+  onPress,
+}: {
+  count: number;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <PressableScale
+      onPress={onPress}
+      scaleTo={0.98}
+      style={[
+        styles.reviewBadge,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={[styles.reviewIcon, { backgroundColor: `${colors.secondary}20` }]}>
+        <Feather name="refresh-cw" size={18} color={colors.secondary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.reviewTitle, { color: colors.foreground }]}>
+          {count} phrase{count === 1 ? '' : 's'} due for review
+        </Text>
+        <Text style={[styles.reviewSub, { color: colors.mutedForeground }]}>
+          Spaced repetition keeps them fresh
+        </Text>
+      </View>
+      <Text style={[styles.reviewNow, { color: colors.secondary }]}>Review Now</Text>
+      <Feather name="chevron-right" size={18} color={colors.secondary} />
+    </PressableScale>
+  );
+}
+
 function DailyQuizCard({
   isPlus,
   quizDone,
@@ -616,14 +741,34 @@ function GradientStatCell({
   value,
   label,
   loading,
+  arcAttemptsToday,
+  arcDailyGoal,
 }: {
   index: number;
   icon: keyof typeof Feather.glyphMap;
   value: number | string;
   label: string;
   loading?: boolean;
+  arcAttemptsToday?: number;
+  arcDailyGoal?: number;
 }) {
   const reduceMotion = useReducedMotion();
+  const showArc = index === 0 && arcAttemptsToday != null && arcDailyGoal != null;
+
+  const arcProgress = useSharedValue(0);
+
+  useEffect(() => {
+    if (!showArc) return;
+    const target = Math.min((arcAttemptsToday ?? 0) / (arcDailyGoal || 1), 1);
+    arcProgress.value = reduceMotion
+      ? target
+      : withTiming(target, { duration: 900 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arcAttemptsToday, arcDailyGoal, showArc, reduceMotion]);
+
+  const animatedArcProps = useAnimatedProps(() => ({
+    strokeDashoffset: ARC_CIRCUMFERENCE * (1 - arcProgress.value),
+  }));
 
   const entrance = reduceMotion
     ? undefined
@@ -641,6 +786,41 @@ function GradientStatCell({
       <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
       {loading ? (
         <ActivityIndicator color="rgba(255,255,255,0.7)" style={{ marginVertical: 4 }} />
+      ) : showArc ? (
+        <View style={styles.arcValueWrap}>
+          <Svg
+            width={56}
+            height={56}
+            style={StyleSheet.absoluteFillObject}
+            viewBox="0 0 56 56"
+          >
+            {/* Track */}
+            <Circle
+              cx={28}
+              cy={28}
+              r={ARC_RADIUS}
+              fill="none"
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth={3}
+            />
+            {/* Progress arc — rotated so 0% starts at the top */}
+            <AnimatedCircle
+              cx={28}
+              cy={28}
+              r={ARC_RADIUS}
+              fill="none"
+              stroke="rgba(255,255,255,0.85)"
+              strokeWidth={3}
+              strokeDasharray={ARC_CIRCUMFERENCE}
+              strokeLinecap="round"
+              rotation={-90}
+              originX={28}
+              originY={28}
+              animatedProps={animatedArcProps}
+            />
+          </Svg>
+          <Text style={styles.gradientStatValue}>{value}</Text>
+        </View>
       ) : (
         <Text style={styles.gradientStatValue}>{value}</Text>
       )}
@@ -734,7 +914,10 @@ function CategoryCard({
             </View>
           </View>
         </View>
-        <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
+        {/* Circular play button replacing the plain chevron */}
+        <View style={[styles.catPlayBtn, { backgroundColor: accent }]}>
+          <Feather name="play" size={15} color="#ffffff" />
+        </View>
       </PressableScale>
     </Animated.View>
   );
@@ -977,4 +1160,75 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   privacyText: { fontFamily: AppFonts.semibold, fontSize: 13 },
+
+  // ContinueCard
+  continueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  continueIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueSub: { fontFamily: AppFonts.semibold, fontSize: 12 },
+  continueTitle: { fontFamily: AppFonts.extrabold, fontSize: 18, marginTop: 2 },
+  continuePrgTrack: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  continuePrgBg: { flex: 1, height: 6, borderRadius: 999, overflow: 'hidden' },
+  continuePct: { fontFamily: AppFonts.bold, fontSize: 11 },
+  continueBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ReviewBadge
+  reviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  reviewIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
+  reviewSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
+  reviewNow: { fontFamily: AppFonts.bold, fontSize: 13 },
+
+  // CategoryCard play button
+  catPlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Streak arc value wrapper
+  arcValueWrap: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

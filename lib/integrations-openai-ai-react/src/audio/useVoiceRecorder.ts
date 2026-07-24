@@ -98,6 +98,10 @@ export function useVoiceRecorder() {
       // now (e.g. if prepare() was never called or the device went away).
       let stream = streamRef.current;
       if (!isStreamLive(stream)) {
+        // Cancel any in-flight prewarm promise before releasing streamRef so
+        // the stale resolved value doesn't overwrite the stream we're about
+        // to set below.
+        prewarmTokenRef.current++;
         releaseStream();
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
@@ -209,19 +213,21 @@ export function useVoiceRecorder() {
       recorder.onstop = () => {
         const blobType = mimeTypeRef.current ?? recorder.mimeType ?? "audio/webm";
         const blob = new Blob(chunksRef.current, { type: blobType });
-        // Always release the stream after each recording and immediately
-        // re-warm a fresh one in the background. Reusing the same MediaStream
-        // across multiple MediaRecorder instances produces corrupt audio on
-        // iOS/Safari WebKit (ffmpeg: "Invalid data found when processing
-        // input"), even though the blob appears non-empty. A fresh stream per
-        // recording eliminates the corruption. The user has time to read their
-        // feedback before the next recording starts, so the getUserMedia
-        // latency is invisible.
-        //
-        // Guard with a generation token so that if abortRecording() or the
-        // component teardown increments prewarmGenRef before this resolves,
-        // the stream is immediately stopped rather than stored with no owner.
-        releaseStream();
+
+        // Stop the recorder's own stream tracks directly. Relying on
+        // streamRef.current here would be a race: a concurrent prewarm promise
+        // may have already overwritten streamRef with a *different* stream
+        // between startRecording and this onstop callback, leaving the
+        // recorder's actual stream tracks alive (mic leak). A fresh stream per
+        // recording also eliminates iOS/Safari WebKit audio corruption when the
+        // same MediaStream is reused across multiple MediaRecorder instances.
+        recorder.stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+
+        // Pre-warm a fresh stream for the next recording. Guard with a
+        // cancellation token so a stale resolved promise cannot overwrite
+        // streamRef if startRecording has already claimed it, or abortRecording
+        // has unmounted.
         const myToken = ++prewarmTokenRef.current;
         navigator.mediaDevices
           .getUserMedia({ audio: true })
@@ -242,13 +248,14 @@ export function useVoiceRecorder() {
           .catch(() => {
             // Will re-acquire lazily at the next startRecording call.
           });
+
         setState("stopped");
         resolve(blob);
       };
 
       recorder.stop();
     });
-  }, [cleanupSilenceDetection, releaseStream]);
+  }, [cleanupSilenceDetection]);
 
   // Discard the recording and release all hardware/audio resources without
   // resolving a blob. Safe to call multiple times and when nothing is active.
@@ -271,6 +278,7 @@ export function useVoiceRecorder() {
     }
     chunksRef.current = [];
     releaseStream();
+    setState("idle");
   }, [cleanupSilenceDetection, releaseStream]);
 
   // Guarantee teardown if the component unmounts mid-recording (e.g. the user
