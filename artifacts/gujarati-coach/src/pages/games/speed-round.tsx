@@ -354,7 +354,7 @@ function PlayingScreen({
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5 }}
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: [0.5, 1.05, 1] }}
             exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.9 }}
-            transition={reduceMotion ? { duration: 0.2 } : { type: "spring", stiffness: 400, damping: 20 }}
+            transition={reduceMotion ? { duration: 0.2 } : { type: "tween", duration: 0.35, ease: "easeOut" }}
             className="pointer-events-none absolute inset-x-0 top-1/3 z-20 flex items-center justify-center"
           >
             <div className="rounded-2xl bg-foreground/90 px-7 py-3 text-2xl font-black text-background shadow-2xl">
