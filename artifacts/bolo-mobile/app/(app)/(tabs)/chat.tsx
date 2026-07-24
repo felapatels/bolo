@@ -397,13 +397,23 @@ export default function ChatScreen() {
   // ── Recording ──────────────────────────────────────────────────────────────
   const handleStartRecording = async () => {
     const wasProcessing = phase === 'processing';
-    if (phase !== 'idle' && phase !== 'error' && !wasProcessing) return;
+    const wasPlaying = phase === 'playing';
+    if (phase !== 'idle' && phase !== 'error' && !wasProcessing && !wasPlaying) return;
 
     if (wasProcessing) {
       // Supersede the in-flight request by bumping the turn counter; when the
       // old response arrives its turn ID will no longer match and it is dropped.
       activeTurnRef.current++;
       finishingRef.current = false;
+    }
+
+    if (wasPlaying) {
+      // Learner interrupted Bolo mid-reply — stop the audio immediately and
+      // proceed straight into recording without waiting for the player to finish.
+      // This handles both deliberate interruptions and stuck 'playing' states
+      // (e.g. when the audio player's didJustFinish event never fires).
+      playbackRef.current?.stop();
+      playbackRef.current = null;
     }
 
     // Check weekly cap before even starting
@@ -1170,7 +1180,10 @@ export default function ChatScreen() {
         isPressingRef.current = true;
         dismissHoldHint();
         const currentPhase = phaseRef2.current;
-        if (currentPhase === 'idle' || currentPhase === 'error' || currentPhase === 'processing') {
+        // 'playing' is intentionally included: holding the nav parrot while
+        // Bolo is speaking interrupts the audio and starts a new recording,
+        // exactly the same as the on-screen mascot's skip-then-record path.
+        if (currentPhase === 'idle' || currentPhase === 'error' || currentPhase === 'processing' || currentPhase === 'playing') {
           void handleStartRecordingRef.current();
         }
       },
