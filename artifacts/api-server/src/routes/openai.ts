@@ -68,6 +68,10 @@ interface CachedVoicePref {
 
 const voicePrefCache = new Map<string, CachedVoicePref>();
 const VOICE_PREF_TTL_MS = 60_000;
+// Cap prevents unbounded memory growth in long-running processes with many
+// distinct users. On overflow, expired entries are swept first; if still at
+// capacity the Map's insertion-order iteration gives us the oldest entry.
+const VOICE_PREF_CACHE_MAX = 1_000;
 
 // Periodic sweep: remove entries whose TTL has expired so the Map doesn't
 // grow unboundedly over a long server uptime with many distinct users.
@@ -84,6 +88,19 @@ const _voicePrefEvictionInterval = setInterval(() => {
 
 export function invalidateVoicePreferenceCache(userId: string): void {
   voicePrefCache.delete(userId);
+}
+
+/** Evict all expired entries; if the map is still ≥ max, drop the oldest. */
+function evictVoicePrefCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of voicePrefCache) {
+    if (entry.expiresAt <= now) voicePrefCache.delete(key);
+  }
+  if (voicePrefCache.size >= VOICE_PREF_CACHE_MAX) {
+    // Map iteration order is insertion order — first key is the oldest.
+    const oldest = voicePrefCache.keys().next().value;
+    if (oldest !== undefined) voicePrefCache.delete(oldest);
+  }
 }
 
 // The AI-backed endpoints call OpenAI with server-side credentials and are
@@ -155,7 +172,12 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       if (cached && cached.expiresAt > Date.now()) {
         ttsVoice = cached.ttsVoice;
       } else {
-        // Cache miss (or stale): load from DB and warm the entry.
+        // Cache miss or stale — evict the stale entry immediately so it
+        // doesn't linger for inactive users who never hit TTS again.
+        if (cached) voicePrefCache.delete(userId);
+        // Enforce the size cap before inserting the refreshed entry.
+        if (voicePrefCache.size >= VOICE_PREF_CACHE_MAX) evictVoicePrefCache();
+        // Load from DB and warm the entry.
         const user = await db.query.usersTable.findFirst({
           where: eq(usersTable.id, userId),
           columns: { ttsVoice: true },

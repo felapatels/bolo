@@ -369,6 +369,12 @@ export default function PracticeScreen() {
   // pushing a new score onto the next phrase's position.
   const [scores, setScores] = React.useState<Record<number, number>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
+  const [selfPlaying, setSelfPlaying] = React.useState(false);
+  /** The learner's own recording from the most recent attempt (base64 m4a). */
+  const lastRecordingBase64Ref = React.useRef<string | null>(null);
+  const selfPlaybackRef = React.useRef<PlaybackHandle | null>(null);
+  /** Monotonic token — bumped on every stopSelfPlayback so post-await guards can detect staleness. */
+  const selfPlayTokenRef = React.useRef(0);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
   const [evalError, setEvalError] = React.useState<string | null>(null);
@@ -473,6 +479,46 @@ export default function PracticeScreen() {
     playbackRef.current = null;
     setCoachPlaying(false);
   }, []);
+
+  const stopSelfPlayback = React.useCallback(() => {
+    // Bump the token so any in-flight playSelf awaiting the handle discards it.
+    selfPlayTokenRef.current += 1;
+    selfPlaybackRef.current?.stop();
+    selfPlaybackRef.current = null;
+    setSelfPlaying(false);
+  }, []);
+
+  const playSelf = React.useCallback(async () => {
+    const b64 = lastRecordingBase64Ref.current;
+    if (!b64) return;
+    // Toggle: if a handle is already live, stop it.
+    // Use the ref (always current) not the `selfPlaying` state (stale in closure).
+    if (selfPlaybackRef.current) {
+      stopSelfPlayback();
+      return;
+    }
+    // Stop coach audio so both don't overlap.
+    stopPlayback();
+    setSelfPlaying(true);
+    const myToken = ++selfPlayTokenRef.current;
+    try {
+      const handle = await playBase64Audio(b64, 'm4a', () => {
+        // Natural end of playback — clear state only if we're still the active play.
+        if (selfPlayTokenRef.current === myToken) {
+          selfPlaybackRef.current = null;
+          setSelfPlaying(false);
+        }
+      });
+      // Guard: stopSelfPlayback may have been called while we awaited the handle.
+      if (selfPlayTokenRef.current !== myToken) {
+        handle.stop();
+        return;
+      }
+      selfPlaybackRef.current = handle;
+    } catch {
+      if (selfPlayTokenRef.current === myToken) setSelfPlaying(false);
+    }
+  }, [stopPlayback, stopSelfPlayback]);
 
   const toggleSpokenFeedback = React.useCallback(() => {
     setSpokenEnabled((enabled) => {
@@ -588,6 +634,7 @@ export default function PracticeScreen() {
   }, [index, list.length, activeLanguage?.name]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
+  React.useEffect(() => () => stopSelfPlayback(), [stopSelfPlayback]);
 
   // Read the coach's feedback + tip aloud when a score lands (mirrors the web
   // practice flow). The device-local "Spoken feedback" preference is read
@@ -788,6 +835,8 @@ export default function PracticeScreen() {
     setSaveFailed(false);
     try {
       const audioBase64 = await stopAndReadRecording(recorder);
+      // Stash the raw recording so the result card can play it back.
+      lastRecordingBase64Ref.current = audioBase64;
       const res = await evaluate.mutateAsync({
         data: {
           phraseId: phrase.id,
@@ -902,6 +951,8 @@ export default function PracticeScreen() {
   const next = () => {
     // Belt and braces: cut any in-flight feedback readout immediately.
     stopPlayback();
+    stopSelfPlayback();
+    lastRecordingBase64Ref.current = null;
     feedbackAudioRef.current = null;
     setResult(null);
     setSaveFailed(false);
@@ -925,6 +976,8 @@ export default function PracticeScreen() {
   };
 
   const tryAgain = () => {
+    stopSelfPlayback();
+    lastRecordingBase64Ref.current = null;
     feedbackAudioRef.current = null;
     setResult(null);
     setSaveFailed(false);
@@ -1308,6 +1361,43 @@ export default function PracticeScreen() {
                 Heads up — this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
+            {/* Hear yourself — always shown so learners can compare their
+                voice to the coach model. Not affected by spoken-feedback mute. */}
+            <Pressable
+              onPress={playSelf}
+              accessibilityRole="button"
+              accessibilityLabel={selfPlaying ? 'Stop playback' : 'Hear yourself'}
+              testID="hear-yourself-button"
+              style={[
+                styles.hearSelfBtn,
+                {
+                  borderColor: selfPlaying
+                    ? scoreColor(result.score, colors)
+                    : colors.border,
+                  backgroundColor: selfPlaying
+                    ? `${scoreColor(result.score, colors)}14`
+                    : 'transparent',
+                },
+              ]}
+            >
+              <Feather
+                name={selfPlaying ? 'pause' : 'mic'}
+                size={15}
+                color={selfPlaying ? scoreColor(result.score, colors) : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.hearSelfText,
+                  {
+                    color: selfPlaying
+                      ? scoreColor(result.score, colors)
+                      : colors.mutedForeground,
+                  },
+                ]}
+              >
+                {selfPlaying ? 'Playing...' : 'Hear yourself'}
+              </Text>
+            </Pressable>
           </Animated.View>
         ) : null}
       </ScrollView>
@@ -1667,6 +1757,18 @@ const styles = StyleSheet.create({
   recordHint: { fontFamily: AppFonts.semibold, fontSize: 15 },
   errorTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   saveFailed: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 12 },
+  hearSelfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+    marginTop: 16,
+    alignSelf: 'flex-start',
+  },
+  hearSelfText: { fontFamily: AppFonts.semibold, fontSize: 14 },
 
   note: {
     fontFamily: AppFonts.regular,
