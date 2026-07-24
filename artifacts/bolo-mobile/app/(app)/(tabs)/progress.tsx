@@ -287,52 +287,92 @@ export default function ProgressScreen() {
                 </Text>
               </View>
             ) : (
-              (history.data ?? []).map((a, i) => (
-                <Animated.View
-                  key={a.id}
-                  entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
-                  style={[
-                    styles.histRow,
-                    { backgroundColor: colors.card, borderColor: colors.border },
-                  ]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
+              (history.data ?? []).map((a, i) => {
+                const canRetake =
+                  a.categoryId != null && a.phraseId != null;
+                const rowInner = (
+                  <>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          nativeTextStyle(activeLanguage, { bold: true }),
+                          styles.histNative,
+                          { color: colors.foreground },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {a.nativeScript}
+                      </Text>
+                      <Text
+                        style={[styles.histEng, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {a.english}
+                      </Text>
+                    </View>
+                    <View
                       style={[
-                        nativeTextStyle(activeLanguage, { bold: true }),
-                        styles.histNative,
-                        { color: colors.foreground },
+                        styles.scoreBadge,
+                        {
+                          backgroundColor: `${scoreColor(a.score, colors)}22`,
+                        },
                       ]}
-                      numberOfLines={1}
                     >
-                      {a.nativeScript}
-                    </Text>
-                    <Text
-                      style={[styles.histEng, { color: colors.mutedForeground }]}
-                      numberOfLines={1}
-                    >
-                      {a.english}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.scoreBadge,
-                      {
-                        backgroundColor: `${scoreColor(a.score, colors)}22`,
-                      },
-                    ]}
+                      <Text
+                        style={[
+                          styles.scoreVal,
+                          { color: scoreColor(a.score, colors) },
+                        ]}
+                      >
+                        {a.score}
+                      </Text>
+                    </View>
+                    {canRetake ? (
+                      <Feather
+                        name="refresh-cw"
+                        size={17}
+                        color={colors.mutedForeground}
+                        style={styles.retakeIcon}
+                      />
+                    ) : null}
+                  </>
+                );
+
+                return (
+                  <Animated.View
+                    key={a.id}
+                    entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
                   >
-                    <Text
-                      style={[
-                        styles.scoreVal,
-                        { color: scoreColor(a.score, colors) },
-                      ]}
-                    >
-                      {a.score}
-                    </Text>
-                  </View>
-                </Animated.View>
-              ))
+                    {canRetake ? (
+                      <PressableScale
+                        onPress={() =>
+                          router.push(
+                            `/(app)/practice/${a.categoryId}?phrase=${a.phraseId}`,
+                          )
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={`Retake ${a.english ?? 'phrase'}`}
+                        accessibilityHint="Starts a practice session for this phrase"
+                        style={[
+                          styles.histRow,
+                          { backgroundColor: colors.card, borderColor: colors.border },
+                        ]}
+                      >
+                        {rowInner}
+                      </PressableScale>
+                    ) : (
+                      <View
+                        style={[
+                          styles.histRow,
+                          { backgroundColor: colors.card, borderColor: colors.border },
+                        ]}
+                      >
+                        {rowInner}
+                      </View>
+                    )}
+                  </Animated.View>
+                );
+              })
             )}
           </>
         )}
@@ -521,4 +561,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreVal: { fontFamily: AppFonts.extrabold, fontSize: 16 },
+  retakeIcon: { marginLeft: 6 },
 });
