@@ -203,18 +203,30 @@ export function useVoiceRecorder() {
       recorder.onstop = () => {
         const blobType = mimeTypeRef.current ?? recorder.mimeType ?? "audio/webm";
         const blob = new Blob(chunksRef.current, { type: blobType });
-        // Keep the pre-warmed stream alive so the next recording in the same
-        // session also starts instantly; it is released on abort/unmount.
-        if (recorder.stream !== streamRef.current) {
-          recorder.stream.getTracks().forEach((t) => t.stop());
-        }
+        // Always release the stream after each recording and immediately
+        // re-warm a fresh one in the background. Reusing the same MediaStream
+        // across multiple MediaRecorder instances produces corrupt audio on
+        // iOS/Safari WebKit (ffmpeg: "Invalid data found when processing
+        // input"), even though the blob appears non-empty. A fresh stream per
+        // recording eliminates the corruption. The user has time to read their
+        // feedback before the next recording starts, so the getUserMedia
+        // latency is invisible.
+        releaseStream();
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((s) => {
+            streamRef.current = s;
+          })
+          .catch(() => {
+            // Will re-acquire lazily at the next startRecording call.
+          });
         setState("stopped");
         resolve(blob);
       };
 
       recorder.stop();
     });
-  }, [cleanupSilenceDetection]);
+  }, [cleanupSilenceDetection, releaseStream]);
 
   // Discard the recording and release all hardware/audio resources without
   // resolving a blob. Safe to call multiple times and when nothing is active.
