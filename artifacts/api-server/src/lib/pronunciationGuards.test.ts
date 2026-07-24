@@ -157,6 +157,39 @@ test("cross-script transcript below the cap passes through unchanged", () => {
   assert.equal(r.guard, undefined);
 });
 
+test("near-match-floor threshold is 0.90: sim in [0.85, 0.90) no longer rescues a wrong attempt", () => {
+  // "shukriyo" vs target "shukriya" — one character off at the end.
+  // normalizeLatin: no folds apply, both 8 chars, levenshtein=1 → sim = 0.875.
+  // Under the old 0.85 threshold this would have been floored to 85/passed.
+  // Under the new 0.90 threshold the LLM score of 70 stands (no guard fires).
+  const target = { native: "शुक्रिया", romanized: "shukriya" };
+  const r = applyScoreGuards({
+    score: 70,
+    passed: false,
+    transcript: "shukriyo",
+    targetNative: target.native,
+    targetRomanized: target.romanized,
+  });
+  assert.equal(r.passed, false, "sim=0.875 should not rescue a below-threshold LLM score");
+  assert.equal(r.score, 70, "score should be unchanged when no guard fires");
+  assert.equal(r.guard, undefined);
+});
+
+test("near-match-floor still fires at sim ≥ 0.90 (exact match)", () => {
+  // Confirm the floor still works for genuinely near-exact attempts.
+  const target = { native: "शुक्रिया", romanized: "shukriya" };
+  const r = applyScoreGuards({
+    score: 55,
+    passed: false,
+    transcript: "shukriya",
+    targetNative: target.native,
+    targetRomanized: target.romanized,
+  });
+  assert.ok(r.passed, "exact match must still be rescued by near-match-floor");
+  assert.ok(r.score >= 85);
+  assert.equal(r.guard, "near-match-floor");
+});
+
 test("short 1-2 syllable words: exact short word floors high, wrong short word caps low", () => {
   const short = { native: "પાણી", romanized: "paani" };
   const good = applyScoreGuards({

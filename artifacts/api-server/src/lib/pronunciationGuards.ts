@@ -153,7 +153,10 @@ export interface GuardResult {
  *
  * Guard ladder (highest priority first):
  *   1. cross-script-cap  — comparable=false: cap at 85, no unverifiable perfect scores.
- *   2. near-match-floor  — sim ≥ 0.85: floor at 85/90, near-exact match can never fail.
+ *   2. near-match-floor  — sim ≥ 0.90: floor at 85/90, near-exact match can never fail.
+ *      Raised from 0.85 → 0.90 for consistency with the fast-path threshold: on a
+ *      6-character normalized string, sim=0.85 still allows one substitution, which
+ *      can rescue a clearly wrong single-syllable word the LLM correctly scored below 80.
  *   3. wrong-phrase-cap  — transcript matches a *different* known phrase: cap at 40.
  *   4. partial-match-cap — sim < 0.70 & score ≥ 80: cap at 72. Closes the gap where
  *      the STT hint biases a wrong attempt's transcript toward the target, landing it
@@ -177,7 +180,7 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
   }
 
   // A near-exact phonetic match can never fail.
-  if (target.sim >= 0.85) {
+  if (target.sim >= 0.90) {
     const floor = target.sim >= 0.95 ? 90 : 85;
     if (score < floor) {
       return { score: floor, passed: true, guard: "near-match-floor" };
