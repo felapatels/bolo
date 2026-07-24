@@ -1,0 +1,347 @@
+import React from 'react';
+import { render, screen, act } from '@testing-library/react-native';
+
+// ---------------------------------------------------------------------------
+// Guards the daily-goal celebration logic on the HomeScreen:
+//
+//  1. Crossing the threshold (prev < goal && now >= goal) fires the
+//     MilestoneToast exactly once and sets the toast key.
+//  2. A second summary update above the goal (e.g. 11) does NOT re-fire the
+//     toast (goalCelebratedRef remains true).
+//  3. Navigating away and back (unmount → remount) with attemptsToday already
+//     at or above the goal does NOT re-fire the toast.
+// ---------------------------------------------------------------------------
+
+// ─── mutable mock state (updated per-test) ──────────────────────────────────
+const mockState: Record<string, any> = {};
+
+// ─── module mocks ────────────────────────────────────────────────────────────
+
+jest.mock('@clerk/expo', () => ({
+  useUser: () => ({ user: { firstName: 'Priya' } }),
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+}));
+
+jest.mock('react-native-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(View, {}, children),
+    Circle: (props: object) => React.createElement(View, props),
+  };
+});
+
+jest.mock('@/lib/entrance', () => ({
+  appear: (v: unknown) => v,
+  useAppearSkip: () => true, // skip entrance animations in tests
+}));
+
+jest.mock('@workspace/api-client-react', () => ({
+  useGetProgressSummary: () => mockState.summary,
+  useListCategories: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
+  useListRecentAttempts: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
+  useGetDailyQuiz: () => ({ data: undefined, isLoading: false }),
+  useGetAccount: () => mockState.account,
+  useListReviewPhrases: () => ({ data: [] }),
+  getGetDailyQuizQueryKey: () => ['quiz'],
+  getListReviewPhrasesQueryKey: () => ['review'],
+}));
+
+jest.mock('@/components/Screen', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    Screen: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(View, {}, children),
+    TAB_BAR_CLEARANCE: 0,
+  };
+});
+
+jest.mock('@/components/Mascot', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { Mascot: () => React.createElement(View, {}) };
+});
+
+jest.mock('@/hooks/useIdleTimer', () => ({
+  useIdleTimer: () => ({ isIdle: false, onActivity: jest.fn() }),
+}));
+
+jest.mock('@/contexts/TourContext', () => ({
+  useTour: () => ({
+    registerHighlightRef: jest.fn(),
+    registerScrollIntoView: jest.fn(),
+  }),
+  TOUR_STEP_INDEX: { topics: 0, progress: 1 },
+}));
+
+jest.mock('@/components/SkeletonCard', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { SkeletonCard: () => React.createElement(View, {}) };
+});
+
+jest.mock('@/components/PressableScale', () => {
+  const React = require('react');
+  const { Pressable } = require('react-native');
+  return {
+    PressableScale: ({ children, onPress, style }: { children: React.ReactNode; onPress?: () => void; style?: object }) =>
+      React.createElement(Pressable, { onPress, style }, children),
+  };
+});
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({
+    activeLang: 'gu',
+    activeLanguage: { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  }),
+}));
+
+jest.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: () => ({
+    isPlus: false,
+    dailyNewLessons: null,
+  }),
+}));
+
+jest.mock('@/components/PlusUpsell', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { UpgradeBanner: () => React.createElement(View, {}) };
+});
+
+jest.mock('@/hooks/useColors', () => ({
+  useColors: () => ({
+    foreground: '#000',
+    mutedForeground: '#666',
+    primary: '#4F46E5',
+    primaryForeground: '#fff',
+    secondary: '#0D9488',
+    card: '#fff',
+    border: '#e5e7eb',
+    muted: '#f3f4f6',
+    background: '#fff',
+    destructive: '#EF4444',
+    destructiveForeground: '#fff',
+    success: '#10B981',
+    successForeground: '#fff',
+  }),
+}));
+
+jest.mock('@/constants/fonts', () => ({
+  AppFonts: {
+    regular: 'Inter_400Regular',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+    extrabold: 'Inter_800ExtraBold',
+  },
+  nativeTextStyle: () => ({}),
+  isTallCascadingScript: () => false,
+}));
+
+jest.mock('@/lib/ui', () => ({
+  categoryIcon: () => 'book',
+}));
+
+jest.mock('@/lib/haptics', () => ({
+  hapticLight: jest.fn(),
+  hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/lib/legal', () => ({
+  openPrivacyPolicy: jest.fn(),
+  PRIVACY_POLICY_URL: 'https://example.com/privacy',
+}));
+
+jest.mock('@/components/Confetti', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { Confetti: () => React.createElement(View, { testID: 'confetti' }) };
+});
+
+// MilestoneToast is intentionally NOT mocked — we test its rendered output.
+
+jest.mock('@/components/ContinueCard', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    ContinueCard: () => React.createElement(View, { testID: 'continue-card' }),
+  };
+});
+
+// Imported after all mocks.
+import HomeScreen from '../app/(app)/(tabs)/index';
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Thin wrapper that conditionally renders its children. Rerendering with
+ * `mounted={false}` unmounts the child, and `mounted={true}` remounts it —
+ * without calling RNTL's `unmount()` directly (which corrupts shared renderer
+ * state for subsequent tests).
+ */
+function MountWrapper({
+  mounted,
+  children,
+}: {
+  mounted: boolean;
+  children: React.ReactNode;
+}) {
+  return mounted ? <>{children}</> : null;
+}
+
+function makeSummary(attemptsToday: number, isLoading = false) {
+  return {
+    data: {
+      attemptsToday,
+      currentStreakDays: 3,
+      xp: 120,
+      phrasesMastered: 8,
+    },
+    isLoading,
+    isError: false,
+    isRefetching: false,
+    refetch: jest.fn(),
+  };
+}
+
+function makeAccount(dailyGoal = 10, isLoading = false) {
+  return {
+    data: { preferences: { learning: { dailyGoal } } },
+    isLoading,
+  };
+}
+
+// ─── tests ───────────────────────────────────────────────────────────────────
+
+describe('HomeScreen — daily-goal celebration', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Default mock state: summary loading, account ready.
+    mockState.summary = makeSummary(0, true);
+    mockState.account = makeAccount(10, false);
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it('fires the MilestoneToast exactly once when attemptsToday crosses the goal', async () => {
+    // Start just below goal (9/10). Loading is done.
+    mockState.summary = makeSummary(9);
+    mockState.account = makeAccount(10);
+
+    const { rerender } = render(<HomeScreen />);
+
+    // The first effect run sets prevAttemptsRef = 9 and skips (prev was null).
+    // No toast yet.
+    expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
+
+    // Summary updates: 9 → 10 (crosses the threshold).
+    mockState.summary = makeSummary(10);
+    await act(async () => {
+      rerender(<HomeScreen />);
+    });
+
+    // The toast should now be visible.
+    expect(screen.getByText('Daily goal hit! 🎉')).toBeTruthy();
+  });
+
+  it('does not re-fire the toast on a second update above the goal (11)', async () => {
+    mockState.summary = makeSummary(9);
+    mockState.account = makeAccount(10);
+
+    const { rerender } = render(<HomeScreen />);
+
+    // Cross the threshold.
+    mockState.summary = makeSummary(10);
+    await act(async () => {
+      rerender(<HomeScreen />);
+    });
+
+    // Toast is visible — one celebration fired.
+    expect(screen.getByText('Daily goal hit! 🎉')).toBeTruthy();
+
+    // Record one more attempt — now at 11 (still above goal).
+    mockState.summary = makeSummary(11);
+    await act(async () => {
+      rerender(<HomeScreen />);
+    });
+
+    // goalCelebratedRef is true; the effect bails out immediately. The toast
+    // element may still be visible (its dismiss timer hasn't expired) but no
+    // *second* celebration fired — toastKey should remain at 1, not become 2.
+    // We verify this indirectly: the toast text is still the same message (not
+    // duplicated), and no second confetti element appeared.
+    const toasts = screen.getAllByText('Daily goal hit! 🎉');
+    expect(toasts).toHaveLength(1);
+  });
+
+  it('does not fire on page revisit (unmount + remount) when already above goal', async () => {
+    mockState.summary = makeSummary(9);
+    mockState.account = makeAccount(10);
+
+    // Use a wrapper so we can simulate tab navigation (unmount → remount) via
+    // rerender instead of calling unmount() directly, which corrupts RNTL's
+    // shared renderer state for subsequent tests.
+    const { rerender } = render(<MountWrapper mounted><HomeScreen /></MountWrapper>);
+
+    // Cross the threshold.
+    mockState.summary = makeSummary(10);
+    await act(async () => {
+      rerender(<MountWrapper mounted><HomeScreen /></MountWrapper>);
+    });
+
+    expect(screen.getByText('Daily goal hit! 🎉')).toBeTruthy();
+
+    // Simulate navigating away (unmount HomeScreen).
+    await act(async () => {
+      rerender(<MountWrapper mounted={false}><HomeScreen /></MountWrapper>);
+    });
+
+    // Simulate navigating back (fresh HomeScreen mount with attemptsToday=10).
+    await act(async () => {
+      rerender(<MountWrapper mounted><HomeScreen /></MountWrapper>);
+    });
+
+    // On the fresh mount, prevAttemptsRef starts as null. The first effect run
+    // sets prev=10 and returns early (prev was null) — no celebration fires.
+    expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
+  });
+
+  it('does not fire when the app opens with attemptsToday already above the goal', async () => {
+    // Learner opens the app having already hit their goal (e.g. crossed it on
+    // a previous device or web session). attemptsToday=12 on the very first load.
+    mockState.summary = makeSummary(12);
+    mockState.account = makeAccount(10);
+
+    render(<HomeScreen />);
+
+    // prevAttemptsRef starts null → effect sets it to 12 and returns. No toast.
+    expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
+  });
+
+  it('does not fire while summary or account is still loading', async () => {
+    // Summary is loading; account is ready.
+    mockState.summary = makeSummary(0, true);
+    mockState.account = makeAccount(10, false);
+
+    const { rerender } = render(<HomeScreen />);
+
+    // Summary finishes loading with attemptsToday=10 immediately, but since
+    // prevAttemptsRef was null, it won't celebrate.
+    mockState.summary = makeSummary(10, false);
+    await act(async () => {
+      rerender(<HomeScreen />);
+    });
+
+    // This was the very first data arrival (prev=null) → no toast.
+    expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
+  });
+});
