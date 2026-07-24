@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
   const child = spawn(
     process.execPath,
-    ["--import", "tsx", "--test", "--test-concurrency=1", "src/**/*.test.ts"],
+    ["--import", "tsx", "--test", "--test-concurrency=1", "--experimental-test-module-mocks", "src/**/*.test.ts"],
     { stdio: "inherit" },
   );
 
