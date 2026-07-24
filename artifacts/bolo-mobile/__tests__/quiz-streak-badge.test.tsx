@@ -1,8 +1,9 @@
 // Guards that the quiz StreakBadge renders the flame + count when streak >= 1,
 // stays hidden when streak is 0, and that ResultsScreen / AlreadyDoneScreen
-// thread the quizStreak prop through to the badge correctly.
+// thread the quizStreak prop through to the badge correctly — both via direct
+// component rendering and via the full BoloQuizScreen quiz-completion flow.
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ─── shared colors stub ───────────────────────────────────────────────────────
 const COLORS = {
@@ -10,12 +11,29 @@ const COLORS = {
   foreground: '#1A1A1A',
   mutedForeground: '#888888',
   background: '#FFFFFF',
-  card: '#F8F8F8',
+  card: '#F9F9F9',
   border: '#E0E0E0',
   muted: '#F0F0F0',
 };
 
 // ─── module mocks ─────────────────────────────────────────────────────────────
+
+const mockState: Record<string, any> = {};
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: jest.fn(), back: jest.fn(), push: jest.fn() }),
+}));
+
+jest.mock('@workspace/api-client-react', () => ({
+  useGetDailyQuiz: (_params: unknown, _opts: unknown) => mockState.quiz,
+  useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
+  getGetDailyQuizQueryKey: () => ['daily-quiz'],
+  synthesizeSpeech: jest.fn(),
+}));
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
 
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => COLORS,
@@ -34,20 +52,20 @@ jest.mock('@/components/Mascot', () => {
 // sub-components under test — stub them lightly.
 jest.mock('@/components/Screen', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { ScrollView } = require('react-native');
   return {
     Screen: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(View, null, children),
-    TAB_BAR_CLEARANCE: 80,
+      React.createElement(ScrollView, null, children),
+    TAB_BAR_CLEARANCE: 0,
   };
 });
 
 jest.mock('@/components/ChunkyButton', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, Text } = require('react-native');
   return {
-    ChunkyButton: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(View, null, children),
+    ChunkyButton: ({ onPress, children }: { onPress: () => void; children: React.ReactNode }) =>
+      React.createElement(Pressable, { onPress }, React.createElement(Text, null, children)),
   };
 });
 
@@ -56,24 +74,32 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@/contexts/LanguageContext', () => ({
-  useLanguage: () => ({ activeLang: 'gujarati', activeLanguage: { name: 'Gujarati' } }),
+  useLanguage: () => ({
+    activeLang: 'gu',
+    activeLanguage: { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useGetDailyQuiz: () => ({ data: undefined, isLoading: true }),
-  useCompleteDailyQuiz: () => ({ mutateAsync: jest.fn() }),
-  getGetDailyQuizQueryKey: () => ['quiz'],
-  synthesizeSpeech: jest.fn(),
-}));
-
-jest.mock('@/lib/audio', () => ({ playBase64Audio: jest.fn() }));
-
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: jest.fn(), back: jest.fn(), push: jest.fn() }),
+jest.mock('@/lib/audio', () => ({
+  playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
+    onDone?.();
+    return { stop: jest.fn() };
+  }),
 }));
 
 jest.mock('@/constants/fonts', () => ({
-  AppFonts: { bold: 'System', regular: 'System' },
+  AppFonts: {
+    regular: 'Inter_400Regular',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+    extrabold: 'Inter_800ExtraBold',
+  },
+  nativeTextStyle: () => ({}),
+}));
+
+// Share.share is not available in the test environment; stub it.
+jest.mock('react-native/Libraries/Share/Share', () => ({
+  share: jest.fn().mockResolvedValue({}),
 }));
 
 // ─── components under test ────────────────────────────────────────────────────
@@ -82,14 +108,25 @@ import {
   ResultsScreen,
   AlreadyDoneScreen,
 } from '../app/(app)/(tabs)/games/bolo-quiz';
+import BoloQuizScreen from '@/app/(app)/(tabs)/games/bolo-quiz';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-// Share.share is not available in the test environment; stub it.
-jest.mock('react-native/Libraries/Share/Share', () => ({
-  share: jest.fn().mockResolvedValue({}),
-}));
+// ─── fixtures ─────────────────────────────────────────────────────────────────
 
-// ─── StreakBadge ──────────────────────────────────────────────────────────────
+/** A single MCQ question with a deterministic correct answer. */
+const ONE_MCQ_QUESTION = {
+  id: 'q1',
+  type: 'mcq_translation' as const,
+  nativeScript: 'નમસ્તે',
+  romanized: 'Namaste',
+  correctEnglish: 'Hello',
+  distractors: ['Goodbye', 'Thank you', 'Yes'],
+};
+
+function quizQuery(data: object) {
+  return { data, isLoading: false };
+}
+
+// ─── StreakBadge — unit tests ──────────────────────────────────────────────────
 describe('StreakBadge', () => {
   test('renders the flame emoji and day count when streak is 1', () => {
     render(<StreakBadge streak={1} colors={COLORS} />);
@@ -115,7 +152,7 @@ describe('StreakBadge', () => {
   });
 });
 
-// ─── ResultsScreen ────────────────────────────────────────────────────────────
+// ─── ResultsScreen — unit tests ───────────────────────────────────────────────
 describe('ResultsScreen', () => {
   const baseProps = {
     score: 4,
@@ -143,7 +180,7 @@ describe('ResultsScreen', () => {
   });
 });
 
-// ─── AlreadyDoneScreen ────────────────────────────────────────────────────────
+// ─── AlreadyDoneScreen — unit tests ───────────────────────────────────────────
 describe('AlreadyDoneScreen', () => {
   const baseProps = {
     score: 3,
@@ -167,5 +204,118 @@ describe('AlreadyDoneScreen', () => {
   test('renders the "Already played today!" heading', () => {
     render(<AlreadyDoneScreen {...baseProps} quizStreak={2} />);
     expect(screen.getByText('Already played today!')).toBeTruthy();
+  });
+});
+
+// ─── BoloQuizScreen integration — streak badge via full quiz flow ──────────────
+
+describe('AlreadyDoneScreen streak badge (via BoloQuizScreen)', () => {
+  it('shows the flame badge with the correct day count when quizStreak >= 1', async () => {
+    mockState.quiz = quizQuery({
+      completed: true,
+      score: 4,
+      total: 5,
+      xpAwarded: 40,
+      completedAt: new Date().toISOString(),
+      quizStreak: 3,
+    });
+
+    render(<BoloQuizScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('3-day streak!')).toBeOnTheScreen();
+    });
+    expect(screen.getByText('🔥')).toBeOnTheScreen();
+  });
+
+  it('shows no badge when quizStreak is 0', async () => {
+    mockState.quiz = quizQuery({
+      completed: true,
+      score: 2,
+      total: 5,
+      xpAwarded: 20,
+      completedAt: new Date().toISOString(),
+      quizStreak: 0,
+    });
+
+    render(<BoloQuizScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Already played today!')).toBeOnTheScreen();
+    });
+    expect(screen.queryByText(/\d+-day streak!/)).toBeNull();
+  });
+});
+
+describe('ResultsScreen streak badge (via BoloQuizScreen quiz completion)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it('shows the flame badge with the correct day count when quizStreak >= 1', async () => {
+    mockState.quiz = quizQuery({
+      completed: false,
+      questions: [ONE_MCQ_QUESTION],
+    });
+    mockState.complete = jest.fn(async () => ({
+      score: 1,
+      xpAwarded: 10,
+      quizStreak: 5,
+    }));
+
+    render(<BoloQuizScreen />);
+
+    // Wait for the playing state to render the MCQ choices
+    await waitFor(() => {
+      expect(screen.getByText('Hello')).toBeOnTheScreen();
+    });
+
+    // Answer the single question
+    fireEvent.press(screen.getByText('Hello'));
+
+    // Advance past the 1200ms auto-advance timer
+    await act(async () => {
+      jest.advanceTimersByTime(1300);
+    });
+
+    // Wait for the complete mutation to resolve and the streak to appear
+    await waitFor(() => {
+      expect(screen.getByText('5-day streak!')).toBeOnTheScreen();
+    });
+    expect(screen.getByText('🔥')).toBeOnTheScreen();
+  });
+
+  it('shows no badge when quizStreak is 0 after completing the quiz', async () => {
+    mockState.quiz = quizQuery({
+      completed: false,
+      questions: [ONE_MCQ_QUESTION],
+    });
+    mockState.complete = jest.fn(async () => ({
+      score: 0,
+      xpAwarded: 0,
+      quizStreak: 0,
+    }));
+
+    render(<BoloQuizScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hello')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(screen.getByText('Hello'));
+
+    await act(async () => {
+      jest.advanceTimersByTime(1300);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Today's quiz complete")).toBeOnTheScreen();
+    });
+    expect(screen.queryByText(/\d+-day streak!/)).toBeNull();
   });
 });
