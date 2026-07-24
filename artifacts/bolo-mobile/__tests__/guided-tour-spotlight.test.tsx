@@ -62,7 +62,7 @@ jest.mock('@/hooks/useColors', () => ({
 
 import React, { useEffect } from 'react';
 import { Dimensions, View } from 'react-native';
-import { render, act } from '@testing-library/react-native';
+import { render, act, fireEvent } from '@testing-library/react-native';
 
 import { TourProvider, useTour } from '@/contexts/TourContext';
 import { GuidedTour } from '@/components/GuidedTour';
@@ -227,7 +227,43 @@ describe('GuidedTour spotlight — scroll-before-measure contract', () => {
     expect(measureSpy).not.toHaveBeenCalled();
   });
 
-  // ── test 5: no highlightRef → fallback card, no measureInWindow ──────────
+  // ── test 5: zero-dimension measureInWindow → fallback card, stays interactive
+
+  test('renders the full-screen caption card and stays interactive when measureInWindow returns zero dimensions', async () => {
+    // measureInWindow calls back with zeros — simulates a hidden or not-yet-
+    // laid-out element. GuidedTour must NOT set spotRect and must fall back
+    // cleanly to the full-screen caption card.
+    const measureSpy = jest.fn(
+      (cb: (x: number, y: number, w: number, h: number) => void) => {
+        cb(0, 0, 0, 0);
+      },
+    );
+
+    const { getByText, getByRole } = renderTour({ stepIndex: 0, measureSpy });
+
+    // Settle initial render + effects, then run out any timers.
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(500));
+
+    // measureInWindow was called but returned zeros — no spotlight is set.
+    expect(measureSpy).toHaveBeenCalledTimes(1);
+
+    // The full-screen caption card must be present (no crash, step title visible).
+    expect(getByText('Welcome to Bolo! 👋')).toBeTruthy();
+
+    // Both navigation buttons are reachable — tour is not stuck.
+    const skipBtn = getByRole('button', { name: 'Skip tour' });
+    const nextBtn = getByRole('button', { name: 'Next step' });
+    expect(skipBtn).toBeTruthy();
+    expect(nextBtn).toBeTruthy();
+
+    // Pressing Skip closes the tour without error.
+    await act(async () => {
+      fireEvent.press(skipBtn);
+    });
+  });
+
+  // ── test 6: no highlightRef → fallback card, no measureInWindow ──────────
 
   test('falls back to the caption card and never calls measureInWindow when no ref is registered', async () => {
     // Open the tour without registering any highlight ref. GuidedTour should
