@@ -429,6 +429,8 @@ export interface SpeechInput {
   languageName?: string;
   /** ISO-639-1 code of the language being synthesized (e.g. "gu", "hi", "ta"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice. */
   languageCode?: string;
+  /** When present and a valid VOICE_CATALOG ID, bypasses the user's saved preference and the language-voice mapping. Intended for voice-picker preview only. */
+  previewVoiceId?: string;
 }
 
 export interface SpeechResult {

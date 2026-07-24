@@ -25,6 +25,7 @@ import {
   simToScore,
 } from "../lib/pronunciationGuards";
 import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
+import { upgradeRequired } from "../lib/entitlements";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -152,7 +153,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.status(400).json({ error: "Invalid speech payload" });
     return;
   }
-  const { text, voice, languageName, languageCode } = parsed.data;
+  const { text, voice, languageName, languageCode, previewVoiceId } = parsed.data;
   const chosen: Voice =
     voice && (VOICES as readonly string[]).includes(voice)
       ? (voice as Voice)
@@ -162,53 +163,74 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // Falls back to the default multilingual voice for unmapped codes.
   let elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
 
-  // Override with the user's global voice preference when:
-  //   1. The request is authenticated (userId is set).
-  //   2. The user's resolved plan is Plus.
-  //   3. The user has a non-null ttsVoice from the VOICE_CATALOG.
-  try {
-    const userId = (req as AuthedRequest).userId;
-    if (userId) {
-      const resolvedPlan = (req as EntitledRequest).resolvedPlan;
+  // When a valid previewVoiceId is supplied, use it directly — this is the
+  // voice-picker audition path. It bypasses the language-voice mapping and the
+  // user's saved preference so the learner hears the exact voice they are
+  // considering. Voice selection is Plus-only, so non-Plus callers get 402.
+  if (previewVoiceId && VALID_VOICE_IDS.has(previewVoiceId)) {
+    const previewPlan = (req as EntitledRequest).resolvedPlan;
+    if (previewPlan.plan !== "plus") {
+      sendUpgradeRequired(
+        res,
+        upgradeRequired(
+          "feature_locked",
+          "Voice selection is a Bolo! Plus feature.",
+          "voiceSelection",
+          "plus",
+        ),
+      );
+      return;
+    }
+    elevenLabsVoiceId = previewVoiceId;
+  } else {
+    // Override with the user's global voice preference when:
+    //   1. The request is authenticated (userId is set).
+    //   2. The user's resolved plan is Plus.
+    //   3. The user has a non-null ttsVoice from the VOICE_CATALOG.
+    try {
+      const userId = (req as AuthedRequest).userId;
+      if (userId) {
+        const resolvedPlan = (req as EntitledRequest).resolvedPlan;
 
-      // Consult the in-process cache first to avoid a DB round-trip on every
-      // phrase play.  The cache is invalidated by PATCH /account/preferences
-      // whenever ttsVoice changes, and expires naturally after 60 s.
-      let ttsVoice: string | null = null;
-      const cached = voicePrefCache.get(userId);
-      if (cached && cached.expiresAt > Date.now()) {
-        ttsVoice = cached.ttsVoice;
-      } else {
-        // Cache miss or stale — evict the stale entry immediately so it
-        // doesn't linger for inactive users who never hit TTS again.
-        if (cached) voicePrefCache.delete(userId);
-        // Enforce the size cap before inserting the refreshed entry.
-        if (voicePrefCache.size >= VOICE_PREF_CACHE_MAX) evictVoicePrefCache();
-        // Load from DB and warm the entry.
-        const user = await db.query.usersTable.findFirst({
-          where: eq(usersTable.id, userId),
-          columns: { ttsVoice: true },
-        });
-        ttsVoice = user?.ttsVoice ?? null;
-        voicePrefCache.set(userId, {
-          ttsVoice,
-          plan: resolvedPlan.plan,
-          expiresAt: Date.now() + VOICE_PREF_TTL_MS,
-        });
-      }
+        // Consult the in-process cache first to avoid a DB round-trip on every
+        // phrase play.  The cache is invalidated by PATCH /account/preferences
+        // whenever ttsVoice changes, and expires naturally after 60 s.
+        let ttsVoice: string | null = null;
+        const cached = voicePrefCache.get(userId);
+        if (cached && cached.expiresAt > Date.now()) {
+          ttsVoice = cached.ttsVoice;
+        } else {
+          // Cache miss or stale — evict the stale entry immediately so it
+          // doesn't linger for inactive users who never hit TTS again.
+          if (cached) voicePrefCache.delete(userId);
+          // Enforce the size cap before inserting the refreshed entry.
+          if (voicePrefCache.size >= VOICE_PREF_CACHE_MAX) evictVoicePrefCache();
+          // Load from DB and warm the entry.
+          const user = await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, userId),
+            columns: { ttsVoice: true },
+          });
+          ttsVoice = user?.ttsVoice ?? null;
+          voicePrefCache.set(userId, {
+            ttsVoice,
+            plan: resolvedPlan.plan,
+            expiresAt: Date.now() + VOICE_PREF_TTL_MS,
+          });
+        }
 
-      if (ttsVoice && VALID_VOICE_IDS.has(ttsVoice)) {
-        // Defer to the canonical resolved plan already computed by
-        // loadEntitlements — this covers family-seat cascade, trial states,
-        // and every other edge case without duplicating resolvePlan logic.
-        if (resolvedPlan.plan === "plus") {
-          elevenLabsVoiceId = ttsVoice;
+        if (ttsVoice && VALID_VOICE_IDS.has(ttsVoice)) {
+          // Defer to the canonical resolved plan already computed by
+          // loadEntitlements — this covers family-seat cascade, trial states,
+          // and every other edge case without duplicating resolvePlan logic.
+          if (resolvedPlan.plan === "plus") {
+            elevenLabsVoiceId = ttsVoice;
+          }
         }
       }
+    } catch (err) {
+      // Non-fatal: fall back to the language-default voice.
+      req.log.warn({ err }, "Could not load user ttsVoice preference; using language default");
     }
-  } catch (err) {
-    // Non-fatal: fall back to the language-default voice.
-    req.log.warn({ err }, "Could not load user ttsVoice preference; using language default");
   }
 
   // Include the resolved ElevenLabs voice ID in the cache key so entries for

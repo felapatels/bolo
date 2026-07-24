@@ -21,6 +21,8 @@ import {
   Volume2,
   Lock,
   Check,
+  Play,
+  Square,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +69,20 @@ import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Fixed sample phrase used to audition each voice in the picker.
+const VOICE_SAMPLE_TEXT = "Namaste, I am learning your language.";
+
+// Module-level cache: voiceId → base64 audio (same key space as the TTS
+// cache on the server, so re-tapping is instant after the first fetch).
+const webSampleCache: Record<string, string> = {};
+
+// Track whichever HTMLAudioElement is currently playing a sample so we can
+// stop it before starting a new one.
+let currentSampleAudio: HTMLAudioElement | null = null;
+// The state-reset fn for whichever VoiceCard is currently playing — called
+// when another card starts so the previous card's icon reverts to Play.
+let currentCardReset: (() => void) | null = null;
 
 // The daily-goal presets we let learners pick from (target practice attempts a
 // day). The backend accepts any integer 1–100; these are the sensible rungs.
@@ -738,50 +754,126 @@ function VoiceCard({
   locked: boolean;
   onSelect: () => void;
 }) {
-  return (
-    <button
-      onClick={locked ? undefined : onSelect}
-      disabled={locked}
-      aria-pressed={active}
-      className={
-        "flex w-full items-start gap-3 rounded-2xl border-2 p-3 text-left transition-all " +
-        (active
-          ? "border-primary bg-primary/5"
-          : locked
-            ? "cursor-default border-card-border bg-card opacity-60"
-            : "border-card-border bg-card hover:border-primary/40 hover:bg-muted/40")
+  const [sampleState, setSampleState] = useState<"idle" | "loading" | "playing">("idle");
+
+  async function handlePlaySample(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Stop whatever card is currently playing: pause its audio and reset its
+    // icon back to Play. This covers both "another card" and "this card again".
+    if (currentSampleAudio) {
+      currentSampleAudio.pause();
+      currentSampleAudio = null;
+    }
+    if (currentCardReset) {
+      currentCardReset();
+      currentCardReset = null;
+    }
+
+    // If this card was already playing the toggle-off is complete — bail.
+    if (sampleState === "playing") return;
+
+    setSampleState("loading");
+    try {
+      let base64 = webSampleCache[id!];
+      if (!base64) {
+        const res = await fetch("/api/openai/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ text: VOICE_SAMPLE_TEXT, previewVoiceId: id }),
+        });
+        if (!res.ok) throw new Error("TTS preview failed");
+        const data = (await res.json()) as { audioBase64: string; format: string };
+        base64 = data.audioBase64;
+        webSampleCache[id!] = base64;
       }
-    >
-      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-        {locked ? (
-          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-        ) : active ? (
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
-            <Check className="h-3 w-3 text-white" />
-          </div>
-        ) : (
-          <div className="h-5 w-5 rounded-full border-2 border-card-border" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-foreground">{name}</span>
-          {gender && (
-            <span
-              className={
-                "rounded-full px-2 py-0.5 text-xs font-semibold " +
-                (gender === "female"
-                  ? "bg-accent/20 text-accent"
-                  : "bg-primary/10 text-primary")
-              }
-            >
-              {gender}
-            </span>
+
+      const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+      currentSampleAudio = audio;
+      // Register this card's reset so another card can revert our icon.
+      currentCardReset = () => setSampleState("idle");
+      setSampleState("playing");
+      audio.onended = () => {
+        if (currentSampleAudio === audio) { currentSampleAudio = null; currentCardReset = null; }
+        setSampleState("idle");
+      };
+      audio.onerror = () => {
+        if (currentSampleAudio === audio) { currentSampleAudio = null; currentCardReset = null; }
+        setSampleState("idle");
+      };
+      await audio.play();
+    } catch {
+      setSampleState("idle");
+    }
+  }
+
+  const borderClass = active
+    ? "border-primary bg-primary/5"
+    : locked
+      ? "border-card-border bg-card opacity-60"
+      : "border-card-border bg-card hover:border-primary/40 hover:bg-muted/40";
+
+  return (
+    <div className={`flex w-full items-stretch rounded-2xl border-2 transition-all ${borderClass}`}>
+      {/* Selectable area */}
+      <button
+        onClick={locked ? undefined : onSelect}
+        disabled={locked}
+        aria-pressed={active}
+        className="flex flex-1 items-start gap-3 p-3 text-left"
+      >
+        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+          {locked ? (
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : active ? (
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+              <Check className="h-3 w-3 text-white" />
+            </div>
+          ) : (
+            <div className="h-5 w-5 rounded-full border-2 border-card-border" />
           )}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-      </div>
-    </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-foreground">{name}</span>
+            {gender && (
+              <span
+                className={
+                  "rounded-full px-2 py-0.5 text-xs font-semibold " +
+                  (gender === "female"
+                    ? "bg-accent/20 text-accent"
+                    : "bg-primary/10 text-primary")
+                }
+              >
+                {gender}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        </div>
+      </button>
+
+      {/* Play sample button — only for named voices (Auto has no specific ID) */}
+      {id && !locked && (
+        <button
+          type="button"
+          onClick={handlePlaySample}
+          disabled={sampleState === "loading"}
+          aria-label={sampleState === "playing" ? "Stop sample" : "Play voice sample"}
+          className="flex shrink-0 items-center justify-center rounded-r-2xl px-3 text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary disabled:opacity-50"
+        >
+          {sampleState === "loading" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : sampleState === "playing" ? (
+            <Square className="h-3.5 w-3.5 fill-current" />
+          ) : (
+            <Play className="h-3.5 w-3.5 fill-current" />
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 

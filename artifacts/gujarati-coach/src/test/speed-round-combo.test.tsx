@@ -149,7 +149,8 @@ describe("Speed Round combo burst overlay", () => {
       () => expect(screen.getByText("UNSTOPPABLE 💥")).toBeInTheDocument(),
       WT,
     );
-  });
+  // 10 answers × ~400 ms auto-advance each = ~4 s minimum; allow enough headroom.
+  }, 15000);
 
   test("combo burst updates its text when the streak crosses a higher threshold", async () => {
     // Streak 3 → "HOT STREAK 🔥", then streak 5 → "ON FIRE ⚡".

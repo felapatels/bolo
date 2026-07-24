@@ -1003,7 +1003,8 @@ export const SynthesizeSpeechBody = zod.object({
   "text": zod.string().min(1),
   "voice": zod.string().optional(),
   "languageName": zod.string().optional(),
-  "languageCode": zod.string().optional().describe('ISO-639-1 code of the language being synthesized (e.g. \"gu\", \"hi\", \"ta\"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice.\n')
+  "languageCode": zod.string().optional().describe('ISO-639-1 code of the language being synthesized (e.g. \"gu\", \"hi\", \"ta\"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice.\n'),
+  "previewVoiceId": zod.string().optional().describe('When present and a valid VOICE_CATALOG ID, bypasses the user\'s saved preference and the language-voice mapping and synthesizes using this specific ElevenLabs voice. Intended for voice-picker preview only.\n')
 })
 
 export const SynthesizeSpeechResponse = zod.object({

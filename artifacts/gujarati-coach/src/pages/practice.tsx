@@ -237,6 +237,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const consecutiveGoodRef = useRef(0);
   const [activeToast, setActiveToast] = useState<{ message: string; key: number } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks the confetti hide-timer so it can be cancelled on unmount and never
+  // fires into a torn-down component (avoids "window is not defined" in tests).
+  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards so each mid-session milestone fires at most once per session.
   const halfwayToastFiredRef = useRef(false);
   const lastToastFiredRef = useRef(false);
@@ -247,10 +250,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     toastTimerRef.current = setTimeout(() => setActiveToast(null), 1800);
   }, []);
 
-  // Clear toast timer on unmount so it never fires into a torn-down component.
+  // Clear timers on unmount so they never fire into a torn-down component.
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
     };
   }, []);
 
@@ -455,7 +459,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
       if (evalRes.score >= 80) {
         setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3000);
+        if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
+        confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
       }
 
       // Hot-streak tracking: increment consecutive good counter (score ≥ 70)

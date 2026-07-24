@@ -2378,6 +2378,13 @@ components:
             "ta"). When provided the server selects a voice that sounds more
             authentic for that language family instead of always defaulting to
             the English voice.
+        previewVoiceId:
+          type: string
+          description: >
+            When present and a valid VOICE_CATALOG ID, bypasses the user's
+            saved preference and the language-voice mapping and synthesizes
+            using this specific ElevenLabs voice. Intended for voice-picker
+            preview only.
       required:
         - text
 

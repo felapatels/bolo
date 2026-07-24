@@ -4,6 +4,7 @@
 // upgrade banner. Auto (null) is always shown as the first option.
 import React from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +24,15 @@ import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { playBase64Audio } from '@/lib/audio';
+import { synthesizeSpeech } from '@workspace/api-client-react';
+
+// Fixed sample phrase used to audition each voice in the picker.
+const VOICE_SAMPLE_TEXT = 'Namaste, I am learning your language.';
+
+// Module-level audio cache: voiceId → base64 audio. Shared across renders so
+// re-tapping a voice that's already been fetched plays instantly.
+const mobileSampleCache = new Map<string, string>();
 
 // Curated voice catalog — matches the server's VOICE_CATALOG exactly.
 const VOICE_CATALOG: VoiceCatalogEntry[] = [
@@ -192,6 +202,7 @@ export default function VoiceScreen() {
 }
 
 function VoiceRow({
+  id,
   name,
   gender,
   description,
@@ -211,12 +222,46 @@ function VoiceRow({
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
+  const [sampleState, setSampleState] = React.useState<'idle' | 'loading' | 'playing'>('idle');
+  const currentPlayerRef = React.useRef<{ stop: () => void } | null>(null);
+
+  async function handlePlaySample() {
+    // Stop any in-progress playback for this row.
+    if (currentPlayerRef.current) {
+      currentPlayerRef.current.stop();
+      currentPlayerRef.current = null;
+    }
+
+    if (sampleState === 'playing') {
+      setSampleState('idle');
+      return;
+    }
+
+    setSampleState('loading');
+    try {
+      let base64 = mobileSampleCache.get(id!);
+      let format = 'mp3';
+
+      if (!base64) {
+        const result = await synthesizeSpeech({ text: VOICE_SAMPLE_TEXT, previewVoiceId: id! });
+        base64 = result.audioBase64;
+        format = result.format;
+        mobileSampleCache.set(id!, base64);
+      }
+
+      setSampleState('playing');
+      const handle = await playBase64Audio(base64, format, () => {
+        setSampleState('idle');
+        currentPlayerRef.current = null;
+      });
+      currentPlayerRef.current = handle;
+    } catch {
+      setSampleState('idle');
+    }
+  }
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active, disabled: locked }}
-      onPress={locked ? undefined : onPress}
-      disabled={saving}
+    <View
       style={[
         styles.voiceRow,
         {
@@ -226,7 +271,14 @@ function VoiceRow({
         },
       ]}
     >
-      <View style={{ flex: 1 }}>
+      {/* Selection area */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: active, disabled: locked }}
+        onPress={locked ? undefined : onPress}
+        disabled={saving}
+        style={{ flex: 1 }}
+      >
         <View style={styles.rowTop}>
           <Text style={[styles.voiceName, { color: colors.foreground }]}>{name}</Text>
           {gender ? (
@@ -253,22 +305,56 @@ function VoiceRow({
         <Text style={[styles.voiceDesc, { color: colors.mutedForeground }]}>
           {description}
         </Text>
-      </View>
+      </Pressable>
 
-      <View style={styles.indicator}>
-        {locked ? (
-          <Feather name="lock" size={16} color={colors.mutedForeground} />
-        ) : saving ? (
-          <Feather name="loader" size={18} color={colors.primary} />
-        ) : active ? (
-          <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
-            <Feather name="check" size={13} color={colors.primaryForeground} />
-          </View>
-        ) : (
-          <View style={[styles.emptyCircle, { borderColor: colors.border }]} />
-        )}
-      </View>
-    </Pressable>
+      {/* Play sample button — only for named voices */}
+      {id && !locked ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={sampleState === 'playing' ? 'Stop sample' : 'Play voice sample'}
+          onPress={handlePlaySample}
+          disabled={sampleState === 'loading'}
+          style={styles.sampleBtn}
+        >
+          {sampleState === 'loading' ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : sampleState === 'playing' ? (
+            <Feather name="square" size={16} color={colors.primary} />
+          ) : (
+            <Feather name="play" size={16} color={colors.mutedForeground} />
+          )}
+        </Pressable>
+      ) : (
+        <View style={styles.indicator}>
+          {locked ? (
+            <Feather name="lock" size={16} color={colors.mutedForeground} />
+          ) : saving ? (
+            <Feather name="loader" size={18} color={colors.primary} />
+          ) : active ? (
+            <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
+              <Feather name="check" size={13} color={colors.primaryForeground} />
+            </View>
+          ) : (
+            <View style={[styles.emptyCircle, { borderColor: colors.border }]} />
+          )}
+        </View>
+      )}
+
+      {/* Selection indicator when play button is shown */}
+      {id && !locked ? (
+        <View style={styles.indicator}>
+          {saving ? (
+            <Feather name="loader" size={18} color={colors.primary} />
+          ) : active ? (
+            <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
+              <Feather name="check" size={13} color={colors.primaryForeground} />
+            </View>
+          ) : (
+            <View style={[styles.emptyCircle, { borderColor: colors.border }]} />
+          )}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -324,6 +410,12 @@ const styles = StyleSheet.create({
   },
   genderText: { fontFamily: AppFonts.semibold, fontSize: 11 },
   indicator: { width: 24, alignItems: 'center' },
+  sampleBtn: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
   checkCircle: {
     width: 22,
     height: 22,
