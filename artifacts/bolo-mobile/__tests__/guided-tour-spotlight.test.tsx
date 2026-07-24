@@ -61,7 +61,7 @@ jest.mock('@/hooks/useColors', () => ({
 // ─── imports (after mocks) ────────────────────────────────────────────────────
 
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { Dimensions, View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 
 import { TourProvider, useTour } from '@/contexts/TourContext';
@@ -245,5 +245,78 @@ describe('GuidedTour spotlight — scroll-before-measure contract', () => {
     await act(async () => jest.advanceTimersByTime(500));
 
     expect(measureSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Dimensions-change (rotation) tests ──────────────────────────────────────
+
+describe('GuidedTour spotlight — Dimensions change (device rotation)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test('re-measures and updates spotRect when Dimensions fires a change event', async () => {
+    // Capture the listener that GuidedTour registers so we can fire it.
+    const listeners: Array<(dims: { window: { width: number; height: number } }) => void> = [];
+    const removeMock = jest.fn();
+    const addEventListenerSpy = jest
+      .spyOn(Dimensions, 'addEventListener')
+      .mockImplementation((event, handler) => {
+        if (event === 'change') {
+          listeners.push(handler as (dims: { window: { width: number; height: number } }) => void);
+        }
+        return { remove: removeMock };
+      });
+
+    // First call returns portrait coords; second call (after rotation) returns
+    // landscape coords so we can verify the state was updated.
+    const measureSpy = jest
+      .fn()
+      .mockImplementationOnce((cb: (x: number, y: number, w: number, h: number) => void) => {
+        cb(50, 100, 200, 60); // portrait: initial measurement
+      })
+      .mockImplementationOnce((cb: (x: number, y: number, w: number, h: number) => void) => {
+        cb(80, 40, 60, 200); // landscape: post-rotation measurement
+      });
+
+    renderTour({ stepIndex: 0, measureSpy }); // no scrollIntoView → measures immediately
+
+    // Let the initial render + useEffects settle.
+    await act(async () => {});
+
+    // Initial measurement must have fired.
+    expect(measureSpy).toHaveBeenCalledTimes(1);
+    expect(listeners.length).toBeGreaterThan(0);
+
+    // Simulate a device rotation by firing the Dimensions change event.
+    await act(async () => {
+      listeners.forEach((fn) => fn({ window: { width: 812, height: 375 } }));
+    });
+
+    // GuidedTour must have called measureInWindow again to update spotRect.
+    expect(measureSpy).toHaveBeenCalledTimes(2);
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  test('removes the Dimensions listener when the tour is closed', async () => {
+    const removeMock = jest.fn();
+    const addEventListenerSpy = jest
+      .spyOn(Dimensions, 'addEventListener')
+      .mockImplementation(() => ({ remove: removeMock }));
+
+    const measureSpy = jest.fn(
+      (cb: (x: number, y: number, w: number, h: number) => void) => cb(50, 100, 200, 60),
+    );
+
+    const { unmount } = renderTour({ stepIndex: 0, measureSpy });
+
+    await act(async () => {});
+
+    // Unmounting the tour (simulates closing) must clean up the listener.
+    unmount();
+
+    expect(removeMock).toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
   });
 });

@@ -79,6 +79,30 @@ export function GuidedTour() {
     }
   }, [isOpen, currentIndex, step?.highlightRef, step?.scrollIntoView]);
 
+  // Re-measure the spotlight target when the device is rotated. A Dimensions
+  // change means the element's on-screen position has shifted, so the previous
+  // spotRect is stale and must be refreshed immediately.
+  useEffect(() => {
+    if (!isOpen || !step?.highlightRef?.current) return;
+
+    const ref = step.highlightRef;
+    const subscription = Dimensions.addEventListener('change', () => {
+      if (!ref.current) return;
+      ref.current.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          setSpotRect({
+            x: x - PADDING,
+            y: y - PADDING,
+            width: width + PADDING * 2,
+            height: height + PADDING * 2,
+          });
+        }
+      });
+    });
+
+    return () => subscription.remove();
+  }, [isOpen, currentIndex, step?.highlightRef]);
+
   if (!isOpen || steps.length === 0) return null;
 
   const isLast = currentIndex === steps.length - 1;
