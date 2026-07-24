@@ -236,7 +236,7 @@ test("fast-path: sim ≥ 0.93 → passed=true, no LLM call", async () => {
 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
   assert.equal(json.passed, true, "fast-path must return passed=true");
-  assert.ok(json.score >= 85, `fast-path score must be ≥ 85, got ${json.score}`);
+  assert.ok(json.score >= 86, `fast-path score must be ≥ 86, got ${json.score}`);
   assert.equal(llmCallCount, 0, "fast-path must not call the LLM");
   assert.ok(typeof json.evaluationToken === "string", "must return a signed evaluation token");
   assert.equal(json.transcript, "kem cho", "transcript in response must match what STT returned");
@@ -256,8 +256,9 @@ test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", a
   assert.ok(json.score < 80, `wrong word score must be < 80, got ${json.score}`);
 });
 
-test("fast-path: sim ≥ 0.95 → score exactly 90", async () => {
-  // An exact transcript match normalises to sim = 1.0, so score should be 90.
+test("fast-path: sim = 1.0 (exact match) → score exactly 100", async () => {
+  // An exact transcript match normalises to sim = 1.0.
+  // simToScore(1.0, 0.90) = 80 + (1.0 - 0.90) / (1.0 - 0.90) * 20 = 100.
   stubbedTranscript = "kem chho";
   llmCallCount = 0;
 
@@ -265,8 +266,26 @@ test("fast-path: sim ≥ 0.95 → score exactly 90", async () => {
 
   assert.equal(status, 200);
   assert.equal(json.passed, true);
-  assert.equal(json.score, 90, `expected score 90 for sim ≥ 0.95, got ${json.score}`);
+  assert.equal(json.score, 100, `expected score 100 for sim = 1.0, got ${json.score}`);
   assert.equal(llmCallCount, 0, "must not call the LLM");
+});
+
+test("fast-path: scores are monotonic across the 0.93 threshold boundary", async () => {
+  // A transcript just above the fast-path threshold (sim ≥ 0.93) must not score
+  // LOWER than one just below it that was rescued by the near-match-floor guard.
+  // Both paths now use simToScore(sim, 0.90), so the mapping is continuous.
+  // "kem cho" → sim = 1.0 (chh→ch fold), so fast-path score = 100.
+  // This test just confirms the fast-path uses the same base as the guard.
+  stubbedTranscript = "kem cho";
+  llmCallCount = 0;
+
+  const { status, json } = await postPronunciation("કેમ છો", "kem chho");
+
+  assert.equal(status, 200, `expected 200, got ${status}`);
+  assert.equal(json.passed, true);
+  // simToScore(1.0, 0.90) = 100; the monotonicity bound: must be ≥ simToScore(0.93, 0.90) = 86
+  assert.ok(json.score >= 86, `fast-path score must be ≥ 86, got ${json.score}`);
+  assert.equal(llmCallCount, 0, "fast-path must not call the LLM");
 });
 
 test("partial-match (sim 0.50–0.84): LLM path is reached", async () => {

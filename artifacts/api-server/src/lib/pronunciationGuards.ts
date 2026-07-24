@@ -15,6 +15,18 @@
 // the scripts don't line up (e.g. the transcriber wrote Gujarati speech in
 // Devanagari), no deterministic verdict is possible and the LLM score stands.
 
+/**
+ * Linearly maps a similarity value in [lo, 1.0] to an integer score in [80, 100].
+ * sim=lo → 80, sim=1.0 → 100. Values below lo are clamped to 80; values above
+ * 1.0 are clamped to 100. This ensures scores are a continuous, earned function
+ * of phonetic similarity rather than snapped to arbitrary round numbers.
+ */
+export function simToScore(sim: number, lo: number): number {
+  const clamped = Math.max(lo, Math.min(1.0, sim));
+  const raw = 80 + ((clamped - lo) / (1.0 - lo)) * 20;
+  return Math.round(Math.max(80, Math.min(100, raw)));
+}
+
 /** Folds common Indic-romanization spelling variants so that e.g. "kem chho",
  * "kem cho" and "kaem choo" normalize to the same phonetic key. */
 export function normalizeLatin(text: string): string {
@@ -181,7 +193,7 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
 
   // A near-exact phonetic match can never fail.
   if (target.sim >= 0.90) {
-    const floor = target.sim >= 0.95 ? 90 : 85;
+    const floor = simToScore(target.sim, 0.90);
     if (score < floor) {
       return { score: floor, passed: true, guard: "near-match-floor" };
     }

@@ -22,6 +22,7 @@ import {
   applyScoreGuards,
   compareToTarget,
   isEffectivelyEmpty,
+  simToScore,
 } from "../lib/pronunciationGuards";
 import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
@@ -279,7 +280,7 @@ router.post(
     // neutral STT prompt (no target phrase hint) a 0.85 match is only "roughly
     // similar" and should go through the full LLM evaluation path.
     if (targetSim.comparable && targetSim.sim >= 0.93) {
-      const score = targetSim.sim >= 0.95 ? 90 : 85;
+      const score = simToScore(targetSim.sim, 0.90);
 
       // Pool of varied warm feedback strings so repeat excellent attempts each
       // feel fresh. All strings are read-aloud friendly: no emojis or special
@@ -398,6 +399,8 @@ Score bands (be consistent — the same transcript quality must land in the same
 - 10-39: mostly a different word or phrase.
 - 0-9: unrelated speech or noise.
 For very short targets (1-2 syllables), apply the same bands per-sound — do not fail an attempt over a single ambiguous transcription character, and do not pass an attempt that is a different word.
+
+Within each band, pick a specific score that reflects exactly how close the attempt was — avoid rounding to 5 or 10 unless the attempt truly sits exactly at that boundary. For example, within 80–89 prefer 83 or 87 over always writing 85.
 
 Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`,
           },

@@ -73,7 +73,25 @@ test("near-exact match can never fail, even if the LLM lowballs it", () => {
   assert.equal(r.guard, "near-match-floor");
 });
 
-test("a higher LLM score on a near-match is kept as-is", () => {
+test("a higher LLM score on a near-match above the sim-derived floor is kept as-is", () => {
+  // sim("kem chho", "kem chho") normalises to 1.0, so simToScore(1.0, 0.90) = 100.
+  // The guard only fires when score < floor. At score=100 the guard is not needed.
+  // Use a slightly imperfect transcript so sim < 1.0 and the LLM score is above the floor.
+  const r = applyScoreGuards({
+    score: 91,
+    passed: true,
+    transcript: "kem che",        // sim ≈ 0.91 → floor ≈ 82
+    targetNative: TARGET.native,   // "કેમ છો"
+    targetRomanized: TARGET.romanized, // "kem chho"
+  });
+  assert.equal(r.score, 91);
+  assert.ok(r.passed);
+  assert.equal(r.guard, undefined);
+});
+
+test("a perfect sim=1.0 near-match raises an under-scored LLM result to 100", () => {
+  // When the transcript is phonetically identical (sim=1.0), the earned floor is 100.
+  // An LLM score of 97 is below that floor and must be raised.
   const r = applyScoreGuards({
     score: 97,
     passed: true,
@@ -81,9 +99,9 @@ test("a higher LLM score on a near-match is kept as-is", () => {
     targetNative: TARGET.native,
     targetRomanized: TARGET.romanized,
   });
-  assert.equal(r.score, 97);
+  assert.equal(r.score, 100);
   assert.ok(r.passed);
-  assert.equal(r.guard, undefined);
+  assert.equal(r.guard, "near-match-floor");
 });
 
 test("transcript matching a different known phrase can never pass", () => {
