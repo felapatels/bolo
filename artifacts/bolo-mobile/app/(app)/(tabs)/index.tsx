@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   findNodeHandle,
@@ -49,6 +49,8 @@ import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fo
 import { categoryIcon } from '@/lib/ui';
 import { hapticLight } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
+import { Confetti } from '@/components/Confetti';
+import { MilestoneToast } from '@/components/MilestoneToast';
 
 // Animated SVG circle for the streak arc (created once at module level).
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -164,7 +166,43 @@ export default function HomeScreen() {
   const skipEnter = useAppearSkip();
 
   // A learner already practicing today deserves an encouraging cheer from Bolo.
-  const activeToday = (summary.data?.attemptsToday ?? 0) > 0;
+  const attemptsToday = summary.data?.attemptsToday ?? 0;
+  const activeToday = attemptsToday > 0;
+
+  // ── Daily goal celebration ──────────────────────────────────────────────
+  // Fire confetti + toast exactly once per session when attemptsToday crosses
+  // the dailyGoal threshold.  We track the previous attemptsToday value with a
+  // ref so we can detect the crossing edge; a second ref prevents re-firing if
+  // the user navigates away and comes back while still above the goal.
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [goalToastKey, setGoalToastKey] = useState(0);
+  const prevAttemptsRef = useRef<number | null>(null);
+  const goalCelebratedRef = useRef(false);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    // Wait until both the summary and the account (dailyGoal) have loaded.
+    if (summary.isLoading || account.isLoading) return;
+    // Already celebrated this session — don't re-fire.
+    if (goalCelebratedRef.current) return;
+
+    const prev = prevAttemptsRef.current;
+    prevAttemptsRef.current = attemptsToday;
+
+    // Skip on the very first render (prev is null) so we don't celebrate a
+    // goal that was hit in a previous session.
+    if (prev === null) return;
+
+    if (prev < dailyGoal && attemptsToday >= dailyGoal) {
+      goalCelebratedRef.current = true;
+      setGoalToastKey((k) => k + 1);
+      if (!reduceMotion) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3500);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptsToday, dailyGoal, summary.isLoading, account.isLoading]);
 
   const startDaily = () => {
     const list = categories.data ?? [];
@@ -175,6 +213,12 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {/* Daily-goal celebration overlays — mounted on top of all content */}
+      {showConfetti && <Confetti />}
+      <MilestoneToast
+        message="Daily goal hit! 🎉"
+        toastKey={goalToastKey}
+      />
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={{
