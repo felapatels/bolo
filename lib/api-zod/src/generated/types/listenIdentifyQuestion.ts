@@ -18,4 +18,6 @@ export interface ListenIdentifyQuestion {
   english: string;
   /** 3 wrong native-script strings */
   distractors: string[];
+  /** Romanized pronunciations matching each distractor (same order). */
+  distractorRomanizations?: string[];
 }

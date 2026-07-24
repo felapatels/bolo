@@ -669,3 +669,45 @@ test("retention is rejected for a free user", async () => {
   const { status } = await post("/account/subscription/retention");
   assert.equal(status, 400);
 });
+
+// ---------------------------------------------------------------------------
+// ttsVoice preference — entitlement gate (free / one_language / plus)
+// ---------------------------------------------------------------------------
+
+// George's voice ID from VOICE_CATALOG — a valid curated ElevenLabs voice.
+const GEORGE_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+const PLUS_PERIOD = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+test("PATCH /account/preferences ttsVoice — 400 for an unknown voice ID", async () => {
+  await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
+  const { status } = await patch("/account/preferences", { ttsVoice: "not-a-real-voice-id" });
+  assert.equal(status, 400);
+});
+
+test("PATCH /account/preferences ttsVoice — 402 upgrade_required for a free user", async () => {
+  // Default test-user state is free; no setUser call needed.
+  const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
+  assert.equal(status, 402);
+  assert.equal(json?.code, "upgrade_required");
+});
+
+test("PATCH /account/preferences ttsVoice — 402 upgrade_required for a one_language user", async () => {
+  await setUser({ tier: "one_language", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
+  const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
+  assert.equal(status, 402);
+  assert.equal(json?.code, "upgrade_required");
+});
+
+test("PATCH /account/preferences ttsVoice — 200 and persisted for a plus user", async () => {
+  await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
+  const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
+  assert.equal(status, 200);
+  assert.equal(json?.preferences?.learning?.ttsVoice, GEORGE_VOICE_ID);
+});
+
+test("PATCH /account/preferences ttsVoice null — 200 clears preference back to Auto for a plus user", async () => {
+  await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD, ttsVoice: GEORGE_VOICE_ID });
+  const { status, json } = await patch("/account/preferences", { ttsVoice: null });
+  assert.equal(status, 200);
+  assert.equal(json?.preferences?.learning?.ttsVoice, null);
+});

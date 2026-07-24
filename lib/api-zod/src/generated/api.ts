@@ -440,7 +440,8 @@ export const GetAccountResponse = zod.object({
   "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
-  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.')
+  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
+  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 }),
   "subscription": zod.object({
@@ -495,7 +496,8 @@ export const UpdateAccountPreferencesBody = zod.object({
   "dailyGoal": zod.number().optional(),
   "theme": zod.enum(['system', 'light', 'dark']).optional(),
   "timezone": zod.string().nullish(),
-  "hasCompletedTour": zod.boolean().optional()
+  "hasCompletedTour": zod.boolean().optional(),
+  "ttsVoice": zod.string().nullish().describe('Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto.')
 }).describe('Any subset of the notification and learning preferences.')
 
 export const UpdateAccountPreferencesResponse = zod.object({
@@ -509,7 +511,8 @@ export const UpdateAccountPreferencesResponse = zod.object({
   "dailyGoal": zod.number().describe('Target attempts per day (1–100).'),
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
-  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.')
+  "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
+  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 })
 })
@@ -912,7 +915,8 @@ export const GetDailyQuizResponse = zod.object({
   "correctNativeScript": zod.string(),
   "romanized": zod.string(),
   "english": zod.string(),
-  "distractors": zod.array(zod.string()).describe('3 wrong native-script strings')
+  "distractors": zod.array(zod.string()).describe('3 wrong native-script strings'),
+  "distractorRomanizations": zod.array(zod.string()).optional().describe('Romanized pronunciations matching each distractor (same order).')
 }).describe('Hear audio for a phrase, pick the correct native-script card.'),zod.object({
   "type": zod.enum(['order_words']),
   "phraseId": zod.number(),
@@ -971,6 +975,21 @@ export const SubmitContactFormBody = zod.object({
 
 export const SubmitContactFormResponse = zod.object({
   "success": zod.boolean()
+})
+
+
+/**
+ * Returns the curated VOICE_CATALOG of ElevenLabs premade voices plus the authenticated user's current ttsVoice preference (null = Auto).
+ * @summary List available TTS voices and the caller's current preference
+ */
+export const ListTtsVoicesResponse = zod.object({
+  "voices": zod.array(zod.object({
+  "id": zod.string().describe('ElevenLabs voice ID.'),
+  "name": zod.string().describe('Human-readable voice name.'),
+  "gender": zod.enum(['male', 'female']),
+  "description": zod.string().describe('One-line character description shown in the picker.')
+}).describe('A single curated ElevenLabs premade voice learners can select.')),
+  "current": zod.string().nullable().describe('The caller\'s saved ttsVoice preference, or null for Auto.')
 })
 
 

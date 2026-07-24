@@ -34,6 +34,7 @@ const h = vi.hoisted(() => ({
   openUserProfile: vi.fn(),
   setActiveLang: vi.fn(),
   setTheme: vi.fn(),
+  isPlus: false as boolean,
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -68,7 +69,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@/lib/entitlements", () => ({
-  useEntitlements: () => ({ isLanguageAllowed: () => true }),
+  useEntitlements: () => ({ isLanguageAllowed: () => true, isPlus: h.isPlus }),
 }));
 
 vi.mock("@/lib/theme-context", () => ({
@@ -116,6 +117,7 @@ function renderAccount(ui: ReactElement, path = "/account") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.isPlus = false;
   h.account = { data: ACCOUNT, isLoading: false };
   h.updateProfile = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
   h.updatePrefs = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
@@ -186,6 +188,24 @@ describe("Account settings", () => {
         data: { theme: "dark" },
       }),
     );
+  });
+
+  test("voice picker shows upgrade note and locked cards for non-Plus learners", () => {
+    renderAccount(<Account />);
+    expect(screen.getByText(/Voice selection is a/i)).toBeInTheDocument();
+    // The Auto card is always the first voice option; it must be disabled when locked.
+    expect(
+      screen.getByRole("button", { name: /Auto \(recommended\)/i }),
+    ).toBeDisabled();
+  });
+
+  test("voice picker hides upgrade note for Plus learners and enables cards", () => {
+    h.isPlus = true;
+    renderAccount(<Account />);
+    expect(screen.queryByText(/Voice selection is a/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Auto \(recommended\)/i }),
+    ).not.toBeDisabled();
   });
 
   test("deleting the account calls the endpoint then signs out", async () => {

@@ -100,4 +100,7 @@ export * from './updatePreferencesInputTheme';
 export * from './updateProfileInput';
 export * from './upgradeRequired';
 export * from './userSummary';
+export * from './voiceCatalogEntry';
+export * from './voiceCatalogEntryGender';
+export * from './voiceListResult';
 export * from './weeklyChatAllowance';

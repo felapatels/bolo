@@ -17,4 +17,6 @@ export interface AccountLearningPreferences {
   timezone: string | null;
   /** Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users. */
   hasCompletedTour: boolean;
+  /** The learner's global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice. */
+  ttsVoice: string | null;
 }

@@ -71,6 +71,10 @@ export const usersTable = pgTable("users", {
   // tour. Defaults to false so first-time users see the tour; the web and
   // mobile scaffold tasks flip this to true on completion/skip.
   hasCompletedTour: boolean("has_completed_tour").notNull().default(false),
+  // Global TTS voice preference (Plus only). When non-null this is an
+  // ElevenLabs premade voice ID chosen from the VOICE_CATALOG. Null means
+  // "auto" — use the per-language default from LANGUAGE_VOICE_MAP.
+  ttsVoice: text("tts_voice"),
   // Stripe customer id, created on first checkout so a returning learner reuses
   // the same customer (and so the billing portal has someone to open for).
   // Independent of `subscriptionProviderId` above, which records the

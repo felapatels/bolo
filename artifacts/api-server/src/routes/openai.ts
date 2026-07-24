@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
+import { db, phrasesTable, ttsCacheTable, languagesTable, usersTable } from "@workspace/db";
 import { eq, inArray, asc } from "drizzle-orm";
 import {
   openai,
@@ -29,7 +29,7 @@ import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
-import { getVoiceIdForLanguage, getLanguageIdForCode } from "../lib/languageVoice";
+import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -66,6 +66,22 @@ type Voice = (typeof VOICES)[number];
 // Re-export so tests and callers can import ttsCacheKey from this module.
 export { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 
+// GET /openai/tts/voices — return the curated voice catalog + the caller's
+// current preference (null means Auto / use language default).
+router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  let current: string | null = null;
+  try {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { ttsVoice: true },
+    });
+    current = user?.ttsVoice ?? null;
+  } catch (err) {
+    req.log.warn({ err }, "Could not load user ttsVoice preference");
+  }
+  res.json({ voices: VOICE_CATALOG, current });
+});
 
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
@@ -82,7 +98,33 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // Select the ElevenLabs voice that best matches the requested language.
   // Falls back to the default multilingual voice for unmapped codes.
-  const elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
+  let elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
+
+  // Override with the user's global voice preference when:
+  //   1. The request is authenticated (userId is set).
+  //   2. The user's resolved plan is Plus.
+  //   3. The user has a non-null ttsVoice from the VOICE_CATALOG.
+  try {
+    const userId = (req as AuthedRequest).userId;
+    if (userId) {
+      const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, userId),
+        columns: { ttsVoice: true },
+      });
+      if (user?.ttsVoice && VALID_VOICE_IDS.has(user.ttsVoice)) {
+        // Defer to the canonical resolved plan already computed by
+        // loadEntitlements — this covers family-seat cascade, trial states,
+        // and every other edge case without duplicating resolvePlan logic.
+        const resolvedPlan = (req as EntitledRequest).resolvedPlan;
+        if (resolvedPlan.plan === "plus") {
+          elevenLabsVoiceId = user.ttsVoice;
+        }
+      }
+    }
+  } catch (err) {
+    // Non-fatal: fall back to the language-default voice.
+    req.log.warn({ err }, "Could not load user ttsVoice preference; using language default");
+  }
 
   // Include the resolved ElevenLabs voice ID in the cache key so entries for
   // different languages (which map to different voices) never collide.

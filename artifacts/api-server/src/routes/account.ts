@@ -16,6 +16,7 @@ import {
 import { and, eq, or } from "drizzle-orm";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { resolvePlan, type ResolvedPlan } from "../lib/entitlements";
+import { VALID_VOICE_IDS } from "../lib/languageVoice";
 import { buildSubscriptionDetails } from "../lib/subscriptionDetails";
 import {
   clerkAccountIdentity,
@@ -91,6 +92,7 @@ function preferencesOf(user: User) {
       theme: user.theme,
       timezone: user.timezone,
       hasCompletedTour: user.hasCompletedTour,
+      ttsVoice: user.ttsVoice ?? null,
     },
   };
 }
@@ -340,6 +342,25 @@ export function createAccountRouter(
           return;
         }
         set.hasCompletedTour = body.hasCompletedTour;
+      }
+
+      if ("ttsVoice" in body) {
+        const v = body.ttsVoice;
+        if (v !== null) {
+          if (typeof v !== "string" || !VALID_VOICE_IDS.has(v)) {
+            res.status(400).json({ error: "ttsVoice must be null or a valid voice ID from the voice catalog" });
+            return;
+          }
+          // Plus gate: only Plus learners may set a custom voice (family
+          // members resolve to "plus"; one_language is excluded — the voice
+          // pref would have no effect there).
+          const resolved = (req as EntitledRequest).resolvedPlan;
+          if (resolved.plan !== "plus") {
+            res.status(402).json({ code: "upgrade_required", message: "Voice selection is a Bolo! Plus feature" });
+            return;
+          }
+        }
+        set.ttsVoice = v as string | null;
       }
 
       if (Object.keys(set).length === 0) {

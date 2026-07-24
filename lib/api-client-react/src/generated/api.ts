@@ -83,7 +83,8 @@ import type {
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
-  UserSummary
+  UserSummary,
+  VoiceListResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -3250,6 +3251,84 @@ export const useSubmitContactForm = <TError = ErrorType<Error>,
       > => {
       return useMutation(getSubmitContactFormMutationOptions(options));
     }
+
+export const getListTtsVoicesUrl = () => {
+
+
+
+
+  return `/api/openai/tts/voices`
+}
+
+/**
+ * Returns the curated VOICE_CATALOG of ElevenLabs premade voices plus the authenticated user's current ttsVoice preference (null = Auto).
+ * @summary List available TTS voices and the caller's current preference
+ */
+export const listTtsVoices = async ( options?: RequestInit): Promise<VoiceListResult> => {
+
+  return customFetch<VoiceListResult>(getListTtsVoicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTtsVoicesQueryKey = () => {
+    return [
+    `/api/openai/tts/voices`
+    ] as const;
+    }
+
+
+export const getListTtsVoicesQueryOptions = <TData = Awaited<ReturnType<typeof listTtsVoices>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTtsVoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTtsVoicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTtsVoices>>> = ({ signal }) => listTtsVoices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTtsVoices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTtsVoicesQueryResult = NonNullable<Awaited<ReturnType<typeof listTtsVoices>>>
+export type ListTtsVoicesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List available TTS voices and the caller's current preference
+ */
+
+export function useListTtsVoices<TData = Awaited<ReturnType<typeof listTtsVoices>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTtsVoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTtsVoicesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getSynthesizeSpeechUrl = () => {
 

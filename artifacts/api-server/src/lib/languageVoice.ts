@@ -39,6 +39,83 @@
  *   fallback so any unmapped code continues to work exactly as before.
  */
 
+/**
+ * Curated catalog of ElevenLabs premade voices learners can choose from.
+ * All IDs are free-tier premade voices available on every ElevenLabs plan.
+ */
+export interface VoiceCatalogEntry {
+  id: string;
+  name: string;
+  gender: "male" | "female";
+  description: string;
+}
+
+export const VOICE_CATALOG: VoiceCatalogEntry[] = [
+  {
+    id: "JBFqnCBsd6RMkjVDRZzb",
+    name: "George",
+    gender: "male",
+    description: "Warm British male with a calm, trustworthy tone.",
+  },
+  {
+    id: "nPczCjzI2devNBz1zQrb",
+    name: "Brian",
+    gender: "male",
+    description: "Deep, resonant American male — great for North Indian languages.",
+  },
+  {
+    id: "cjVigY5qzO86Huf0OWal",
+    name: "Eric",
+    gender: "male",
+    description: "Friendly, clear American male with a bright, energetic style.",
+  },
+  {
+    id: "IKne3meq5aSn9XLyUdCD",
+    name: "Charlie",
+    gender: "male",
+    description: "Upbeat, natural male voice with lively prosody.",
+  },
+  {
+    id: "pqHfZKP75CvOlQylNhV4",
+    name: "Bill",
+    gender: "male",
+    description: "Strong, narrative male with commanding presence.",
+  },
+  {
+    id: "onwK4e9ZLuTAKqWW03F9",
+    name: "Daniel",
+    gender: "male",
+    description: "Authoritative British male with a measured, formal delivery.",
+  },
+  {
+    id: "Xb7hH8MSUJpSbSDYk0k2",
+    name: "Alice",
+    gender: "female",
+    description: "Confident British female with a clear, professional tone.",
+  },
+  {
+    id: "XB0fDUnXU5powFXDhCwa",
+    name: "Charlotte",
+    gender: "female",
+    description: "Warm, expressive female voice with a Swedish lilt.",
+  },
+  {
+    id: "FGY2WhTYpPnrIDTdsKH5",
+    name: "Laura",
+    gender: "female",
+    description: "Bright, upbeat female voice — cheerful and encouraging.",
+  },
+  {
+    id: "EXAVITQu4vr4xnSDxMaL",
+    name: "Sarah",
+    gender: "female",
+    description: "Gentle, articulate American female with natural warmth.",
+  },
+];
+
+/** Fast lookup set for validating user-supplied voice IDs. */
+export const VALID_VOICE_IDS = new Set(VOICE_CATALOG.map((v) => v.id));
+
 /** Fallback voice ID for any language code not found in the map below. */
 export const DEFAULT_MULTILINGUAL_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // George
 

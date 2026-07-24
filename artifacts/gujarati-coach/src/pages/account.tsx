@@ -18,6 +18,9 @@ import {
   Monitor,
   Mail,
   Users,
+  Volume2,
+  Lock,
+  Check,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +32,7 @@ import {
   useDeleteAccount,
   ApiError,
   type UpdatePreferencesInput,
+  type VoiceCatalogEntry,
 } from "@workspace/api-client-react";
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -68,6 +72,21 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 // day). The backend accepts any integer 1–100; these are the sensible rungs.
 const DAILY_GOAL_OPTIONS = [3, 5, 10, 15, 20, 30];
 
+// Curated voice catalog — matches the server's VOICE_CATALOG exactly.
+// Inlined client-side so there's no extra network request for a static list.
+const VOICE_CATALOG: VoiceCatalogEntry[] = [
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Warm British male with a calm, trustworthy tone." },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male", description: "Deep, resonant American male — great for North Indian languages." },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male", description: "Friendly, clear American male with a bright, energetic style." },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", gender: "male", description: "Upbeat, natural male voice with lively prosody." },
+  { id: "pqHfZKP75CvOlQylNhV4", name: "Bill", gender: "male", description: "Strong, narrative male with commanding presence." },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Authoritative British male with a measured, formal delivery." },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", gender: "female", description: "Confident British female with a clear, professional tone." },
+  { id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", gender: "female", description: "Warm, expressive female voice with a Swedish lilt." },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female", description: "Bright, upbeat female voice — cheerful and encouraging." },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Gentle, articulate American female with natural warmth." },
+];
+
 const THEME_OPTIONS: { value: Theme; label: string; icon: React.ElementType }[] = [
   { value: "system", label: "System", icon: Monitor },
   { value: "light", label: "Light", icon: Sun },
@@ -101,6 +120,7 @@ export default function Account() {
   const {
     isLanguageAllowed,
     isPaid,
+    isPlus,
     isOneLanguage,
     isTrialing,
     status: subStatus,
@@ -551,6 +571,50 @@ export default function Account() {
             </div>
           </div>
 
+          {/* Voice picker */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-base">Voice</Label>
+            </div>
+            {!isPlus && (
+              <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                <Lock className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="text-muted-foreground">
+                  Voice selection is a{" "}
+                  <Link href="/upgrade" className="font-semibold text-primary hover:underline">
+                    Bolo! Plus
+                  </Link>{" "}
+                  feature.
+                </span>
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {/* Auto option */}
+              <VoiceCard
+                id={null}
+                name="Auto (recommended)"
+                gender={null}
+                description="Best voice for each language automatically."
+                active={(learning?.ttsVoice ?? null) === null}
+                locked={!isPlus}
+                onSelect={() => savePreferences({ ttsVoice: null }, "Voice set to Auto")}
+              />
+              {VOICE_CATALOG.map((v) => (
+                <VoiceCard
+                  key={v.id}
+                  id={v.id}
+                  name={v.name}
+                  gender={v.gender}
+                  description={v.description}
+                  active={learning?.ttsVoice === v.id}
+                  locked={!isPlus}
+                  onSelect={() => savePreferences({ ttsVoice: v.id }, `Voice set to ${v.name}`)}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* Replay guided tour */}
           <button
             onClick={() => startTour({ steps: TOUR_STEPS })}
@@ -654,6 +718,70 @@ export default function Account() {
         </section>
       </main>
     </div>
+  );
+}
+
+function VoiceCard({
+  id,
+  name,
+  gender,
+  description,
+  active,
+  locked,
+  onSelect,
+}: {
+  id: string | null;
+  name: string;
+  gender: "male" | "female" | null;
+  description: string;
+  active: boolean;
+  locked: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={locked ? undefined : onSelect}
+      disabled={locked}
+      aria-pressed={active}
+      className={
+        "flex w-full items-start gap-3 rounded-2xl border-2 p-3 text-left transition-all " +
+        (active
+          ? "border-primary bg-primary/5"
+          : locked
+            ? "cursor-default border-card-border bg-card opacity-60"
+            : "border-card-border bg-card hover:border-primary/40 hover:bg-muted/40")
+      }
+    >
+      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+        {locked ? (
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : active ? (
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+            <Check className="h-3 w-3 text-white" />
+          </div>
+        ) : (
+          <div className="h-5 w-5 rounded-full border-2 border-card-border" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-foreground">{name}</span>
+          {gender && (
+            <span
+              className={
+                "rounded-full px-2 py-0.5 text-xs font-semibold " +
+                (gender === "female"
+                  ? "bg-accent/20 text-accent"
+                  : "bg-primary/10 text-primary")
+              }
+            >
+              {gender}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </button>
   );
 }
 

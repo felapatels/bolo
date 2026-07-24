@@ -18,4 +18,6 @@ export interface UpdatePreferencesInput {
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
   hasCompletedTour?: boolean;
+  /** Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto. */
+  ttsVoice?: string | null;
 }

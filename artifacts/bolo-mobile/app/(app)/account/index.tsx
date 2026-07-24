@@ -506,6 +506,13 @@ export default function AccountScreen() {
             </View>
             <Divider />
             <NavRow
+              icon="volume-2"
+              label="Voice"
+              value={voiceLabel(prefs?.learning.ttsVoice ?? null)}
+              onPress={() => router.push('/(app)/account/voice')}
+            />
+            <Divider />
+            <NavRow
               icon="map"
               label="Replay Tour"
               value="See the app intro again"
@@ -593,8 +600,29 @@ function mergePrefs(
         patch.hasCompletedTour !== undefined
           ? patch.hasCompletedTour
           : base.learning.hasCompletedTour,
+      ttsVoice:
+        patch.ttsVoice !== undefined ? patch.ttsVoice : base.learning.ttsVoice,
     },
   };
+}
+
+// Voice catalog name lookup for the NavRow display value.
+const VOICE_NAMES: Record<string, string> = {
+  JBFqnCBsd6RMkjVDRZzb: 'George',
+  nPczCjzI2devNBz1zQrb: 'Brian',
+  cjVigY5qzO86Huf0OWal: 'Eric',
+  IKne3meq5aSn9XLyUdCD: 'Charlie',
+  pqHfZKP75CvOlQylNhV4: 'Bill',
+  onwK4e9ZLuTAKqWW03F9: 'Daniel',
+  Xb7hH8MSUJpSbSDYk0k2: 'Alice',
+  XB0fDUnXU5powFXDhCwa: 'Charlotte',
+  FGY2WhTYpPnrIDTdsKH5: 'Laura',
+  EXAVITQu4vr4xnSDxMaL: 'Sarah',
+};
+
+function voiceLabel(voiceId: string | null | undefined): string {
+  if (!voiceId) return 'Auto';
+  return VOICE_NAMES[voiceId] ?? 'Custom';
 }
 
 const PLAN_LABELS: Record<string, string> = {

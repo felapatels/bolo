@@ -26,6 +26,8 @@ const USERS_COLUMNS = [
   `daily_goal integer NOT NULL DEFAULT 10`,
   `theme text NOT NULL DEFAULT 'system'`,
   `timezone text`,
+  `tts_voice text`,
+  `has_completed_tour boolean NOT NULL DEFAULT false`,
 ];
 
 export async function ensureUsersColumns(): Promise<void> {

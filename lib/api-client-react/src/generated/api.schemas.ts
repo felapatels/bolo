@@ -91,6 +91,8 @@ export interface AccountLearningPreferences {
   timezone: string | null;
   /** Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users. */
   hasCompletedTour: boolean;
+  /** The learner's global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice. */
+  ttsVoice: string | null;
 }
 
 export interface AccountPreferences {
@@ -206,6 +208,8 @@ export interface UpdatePreferencesInput {
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
   hasCompletedTour?: boolean;
+  /** Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto. */
+  ttsVoice?: string | null;
 }
 
 export interface DeleteAccountResult {
@@ -389,6 +393,33 @@ export interface ProgressSummary {
   currentStreakDays: number;
   attemptsToday: number;
   xp: number;
+}
+
+export type VoiceCatalogEntryGender = typeof VoiceCatalogEntryGender[keyof typeof VoiceCatalogEntryGender];
+
+
+export const VoiceCatalogEntryGender = {
+  male: 'male',
+  female: 'female',
+} as const;
+
+/**
+ * A single curated ElevenLabs premade voice learners can select.
+ */
+export interface VoiceCatalogEntry {
+  /** ElevenLabs voice ID. */
+  id: string;
+  /** Human-readable voice name. */
+  name: string;
+  gender: VoiceCatalogEntryGender;
+  /** One-line character description shown in the picker. */
+  description: string;
+}
+
+export interface VoiceListResult {
+  voices: VoiceCatalogEntry[];
+  /** The caller's saved ttsVoice preference, or null for Auto. */
+  current: string | null;
 }
 
 export interface SpeechInput {
@@ -769,7 +800,7 @@ export interface ListenIdentifyQuestion {
   english: string;
   /** 3 wrong native-script strings */
   distractors: string[];
-  /** Romanized forms for each distractor (parallel to distractors array) */
+  /** Romanized pronunciations matching each distractor (same order). */
   distractorRomanizations?: string[];
 }
 
