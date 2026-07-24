@@ -276,9 +276,60 @@ router.post(
     // return immediately.
     if (targetSim.comparable && targetSim.sim >= 0.85) {
       const score = targetSim.sim >= 0.95 ? 90 : 85;
-      const feedback =
-        "That sounded great! You really nailed the sounds in that one. Keep it up, you are on a roll!";
-      const tip = "You have got the sounds down. Try saying it a little faster to sound even more natural.";
+
+      // Pool of varied warm feedback strings so repeat excellent attempts each
+      // feel fresh. All strings are read-aloud friendly: no emojis or special
+      // characters. Pick one deterministically based on the transcript text so
+      // the same attempt always maps to the same message (no randomness needed).
+      const FAST_PASS_RESPONSES: Array<{ feedback: string; tip: string }> = [
+        {
+          feedback:
+            "That sounded great! You really nailed the sounds in that one. Keep it up, you are on a roll!",
+          tip: "You have got the sounds down. Try saying it a little faster to sound even more natural.",
+        },
+        {
+          feedback:
+            "Excellent work! Your pronunciation was spot on. You are making this look easy, and that is exactly the kind of practice that pays off.",
+          tip: "Now try closing your eyes and saying it from memory to really lock it in.",
+        },
+        {
+          feedback:
+            "That was really impressive! Every sound came through clearly. You sound more natural with every attempt.",
+          tip: "Say it one more time but imagine you are talking to a friend, nice and relaxed.",
+        },
+        {
+          feedback:
+            "Perfect! You hit every sound in that phrase. That kind of accuracy is exactly what builds real fluency.",
+          tip: "Try linking it into a short sentence to start using it in real conversation.",
+        },
+        {
+          feedback:
+            "Wow, that was clean! You matched the sounds beautifully. Keep going at this pace and it will feel totally natural in no time.",
+          tip: "Push yourself a little by saying it slightly faster each time you repeat it.",
+        },
+        {
+          feedback:
+            "Nicely done! The sounds were right on target. You are building some serious confidence with this one.",
+          tip: "See if you can say the whole thing in one smooth breath without pausing between words.",
+        },
+        {
+          feedback:
+            "That was really solid! You got the sounds and the rhythm just right. You should feel proud of that attempt.",
+          tip: "Great accuracy. The next level is to match the natural speed and melody of a native speaker.",
+        },
+        {
+          feedback:
+            "Well done! You nailed it. Every time you hit a phrase this well you are training your ear and your mouth at the same time.",
+          tip: "Try repeating it three times in a row without stopping to really make it stick.",
+        },
+      ];
+
+      // Pick randomly so repeat excellent attempts each feel fresh.
+      const pick =
+        FAST_PASS_RESPONSES[
+          Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
+        ]!;
+      const { feedback, tip } = pick;
       res.json({
         transcript,
         score,
