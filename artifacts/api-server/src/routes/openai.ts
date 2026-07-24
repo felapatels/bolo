@@ -69,6 +69,19 @@ interface CachedVoicePref {
 const voicePrefCache = new Map<string, CachedVoicePref>();
 const VOICE_PREF_TTL_MS = 60_000;
 
+// Periodic sweep: remove entries whose TTL has expired so the Map doesn't
+// grow unboundedly over a long server uptime with many distinct users.
+// unref() ensures the interval does not prevent the process from exiting
+// cleanly (important for tests and graceful shutdown).
+const _voicePrefEvictionInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [userId, entry] of voicePrefCache) {
+    if (entry.expiresAt <= now) {
+      voicePrefCache.delete(userId);
+    }
+  }
+}, 5 * 60_000 /* 5 minutes */).unref();
+
 export function invalidateVoicePreferenceCache(userId: string): void {
   voicePrefCache.delete(userId);
 }
