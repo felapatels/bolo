@@ -146,14 +146,15 @@ async function generateQuizQuestions(
         distractors: pool,
       });
     } else if (qType === "listen_identify") {
-      const pool = sampleN(others, 3).map((p) => p.nativeScript);
+      const poolPhrases = sampleN(others, 3);
       questions.push({
         type: "listen_identify",
         phraseId: phrase.id,
         correctNativeScript: phrase.nativeScript,
         romanized: phrase.romanized,
         english: phrase.english,
-        distractors: pool,
+        distractors: poolPhrases.map((p) => p.nativeScript),
+        distractorRomanizations: poolPhrases.map((p) => p.romanized),
       });
     } else {
       // order_words: tokenise by whitespace into tiles; shuffle them.

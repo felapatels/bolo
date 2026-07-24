@@ -32,6 +32,7 @@ export type ListenIdentifyQuestion = {
   romanized: string;
   english: string;
   distractors: string[]; // 3 wrong native-script strings
+  distractorRomanizations?: string[]; // romanized forms for each distractor (parallel array)
 };
 
 // Order the words: rearrange 3–5 word tiles into the correct phrase.

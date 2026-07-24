@@ -207,7 +207,7 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
 export interface ParrotChatDeps {
   transcribe: (
     buffer: Buffer,
-    format: "wav" | "mp3",
+    format: "wav" | "mp3" | "webm" | "mp4" | "ogg",
     options: SpeechToTextOptions,
   ) => Promise<string>;
   // Returns the in-language reply, its English gloss, and an English

@@ -769,6 +769,8 @@ export interface ListenIdentifyQuestion {
   english: string;
   /** 3 wrong native-script strings */
   distractors: string[];
+  /** Romanized forms for each distractor (parallel to distractors array) */
+  distractorRomanizations?: string[];
 }
 
 export type OrderWordsQuestionType = typeof OrderWordsQuestionType[keyof typeof OrderWordsQuestionType];

@@ -133,6 +133,18 @@ function ListenQuestion({
   const choices = useRef(
     [...q.distractors, q.correctNativeScript].sort(() => Math.random() - 0.5),
   ).current;
+
+  // Build a nativeScript → romanization lookup so every choice button can
+  // show the romanized form below the native script text.
+  const romanizationMap: Record<string, string> = {
+    [q.correctNativeScript]: q.romanized,
+    ...Object.fromEntries(
+      q.distractors
+        .map((d, i) => [d, q.distractorRomanizations?.[i] ?? ""])
+        .filter(([, r]) => r),
+    ),
+  };
+
   const [selected, setSelected] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -198,7 +210,7 @@ function ListenQuestion({
               key={c}
               onClick={() => choose(c)}
               className={cn(
-                "rounded-xl border p-4 text-xl font-bold transition-all leading-snug",
+                "rounded-xl border p-4 transition-all leading-snug flex flex-col items-center gap-0.5",
                 !answered && "hover:border-primary/40 hover:bg-muted/40",
                 answered && isCorrect && "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40",
                 answered && isSelected && !isCorrect && "border-red-400 bg-red-50 text-red-700 dark:bg-red-950/40",
@@ -206,7 +218,10 @@ function ListenQuestion({
                 !answered && "border-border bg-card text-foreground",
               )}
             >
-              {c}
+              <span className="text-xl font-bold">{c}</span>
+              {romanizationMap[c] && (
+                <span className="text-xs font-normal opacity-70">{romanizationMap[c]}</span>
+              )}
             </button>
           );
         })}

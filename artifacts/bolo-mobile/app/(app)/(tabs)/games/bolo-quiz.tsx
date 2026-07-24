@@ -148,6 +148,18 @@ function ListenQuestion({
   const choices = useRef(
     [...q.distractors, q.correctNativeScript].sort(() => Math.random() - 0.5),
   ).current;
+
+  // Build a nativeScript → romanization lookup so every choice button can
+  // show the romanized form below the native script text.
+  const romanizationMap: Record<string, string> = {
+    [q.correctNativeScript]: q.romanized,
+    ...Object.fromEntries(
+      q.distractors
+        .map((d, i) => [d, q.distractorRomanizations?.[i] ?? ''])
+        .filter(([, r]) => r),
+    ),
+  };
+
   const [selected, setSelected] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -201,7 +213,12 @@ function ListenQuestion({
               onPress={() => choose(c)}
               style={[s.choiceBtn, { backgroundColor: bg, borderColor: border, opacity: answered && !isCorrect && !isSelected ? 0.5 : 1 }]}
             >
-              <Text style={[s.nativeChoiceText, { color: textColor }]} numberOfLines={2}>{c}</Text>
+              <Text style={[s.nativeChoiceText, { color: textColor }]} numberOfLines={1}>{c}</Text>
+              {romanizationMap[c] ? (
+                <Text style={[s.choiceRomanized, { color: textColor }]} numberOfLines={1}>
+                  {romanizationMap[c]}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -757,6 +774,7 @@ const s = StyleSheet.create({
   choiceBtn: { flex: 1, minWidth: '40%', borderRadius: 12, borderWidth: 1.5, padding: 12, alignItems: 'center', justifyContent: 'center' },
   choiceText: { fontFamily: AppFonts.semibold, fontSize: 14, textAlign: 'center' },
   nativeChoiceText: { fontFamily: AppFonts.bold, fontSize: 20, textAlign: 'center' },
+  choiceRomanized: { fontFamily: AppFonts.regular, fontSize: 11, textAlign: 'center', opacity: 0.72, marginTop: 2 },
 
   listenCenter: { alignItems: 'center', gap: 10 },
   playBtn: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
