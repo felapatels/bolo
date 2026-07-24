@@ -51,6 +51,7 @@ import { hapticLight } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { ContinueCard } from '@/components/ContinueCard';
 
 // Animated SVG circle for the streak arc (created once at module level).
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -537,89 +538,6 @@ export default function HomeScreen() {
   );
 }
 
-/** Hero card that surfaces the learner's next best action — continue an
- * in-progress topic, or start the first unmastered one. */
-function ContinueCard({
-  categories,
-  onNavigate,
-}: {
-  categories: Category[];
-  onNavigate: (categoryId: number) => void;
-}) {
-  const colors = useColors();
-
-  // Priority 1 — in-progress (at least one phrase mastered but not all)
-  const inProgress = categories.find(
-    (c) => c.masteredCount > 0 && c.masteredCount < c.phraseCount,
-  );
-  // Priority 2 — first unstarted topic
-  const unstarted = categories.find((c) => c.masteredCount === 0);
-  const target = inProgress ?? unstarted ?? categories[0];
-
-  if (!target) return null;
-
-  const isResume = (inProgress != null);
-  const pct =
-    target.phraseCount > 0
-      ? Math.round((target.masteredCount / target.phraseCount) * 100)
-      : 0;
-  const accent = target.accent || colors.primary;
-
-  return (
-    <PressableScale
-      onPress={() => onNavigate(target.id)}
-      scaleTo={0.98}
-      style={[
-        styles.continueCard,
-        {
-          backgroundColor: colors.primary,
-          shadowColor: colors.primaryShadow,
-        },
-      ]}
-    >
-      {/* Topic icon */}
-      <View style={[styles.continueIconWrap, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-        <Feather
-          name={categoryIcon(target.iconName)}
-          size={24}
-          color={colors.primaryForeground}
-        />
-      </View>
-
-      {/* Topic info */}
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.continueSub, { color: colors.primaryForeground, opacity: 0.85 }]}>
-          {isResume ? 'Continue where you left off' : 'Start a new topic'}
-        </Text>
-        <Text style={[styles.continueTitle, { color: colors.primaryForeground }]} numberOfLines={1}>
-          {target.title}
-        </Text>
-
-        {/* Mini progress bar */}
-        <View style={styles.continuePrgTrack}>
-          <View style={[styles.continuePrgBg, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-            <View
-              style={{
-                width: `${pct}%`,
-                height: '100%',
-                backgroundColor: colors.primaryForeground,
-                borderRadius: 999,
-              }}
-            />
-          </View>
-          <Text style={[styles.continuePct, { color: colors.primaryForeground, opacity: 0.85 }]}>
-            {pct}%
-          </Text>
-        </View>
-      </View>
-
-      {/* CTA button */}
-      <View style={[styles.continueBtn, { backgroundColor: colors.primaryForeground }]}>
-        <Feather name="play" size={18} color={colors.primary} />
-      </View>
-    </PressableScale>
-  );
-}
 
 /** Compact pill card nudging the learner to review phrases that are due. */
 function ReviewBadge({
