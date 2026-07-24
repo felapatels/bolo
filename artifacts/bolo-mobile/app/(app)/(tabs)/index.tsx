@@ -144,7 +144,7 @@ export default function HomeScreen() {
     const list = categories.data ?? [];
     const target =
       list.find((c) => c.masteredCount < c.phraseCount) ?? list[0];
-    if (target) router.push(`/(app)/practice/${target.id}`);
+    if (target) router.push(`/(app)/practice/${target.id}?skipMastered=true`);
   };
 
   return (

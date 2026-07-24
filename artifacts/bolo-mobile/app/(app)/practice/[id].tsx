@@ -129,10 +129,11 @@ export default function PracticeScreen() {
   const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId, stage } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage, skipMastered } = useLocalSearchParams<{
     id: string;
     phrase?: string;
     stage?: string;
+    skipMastered?: string;
   }>();
   const categoryId = Number(id);
   const { activeLang, activeLanguage } = useLanguage();
@@ -226,6 +227,11 @@ export default function PracticeScreen() {
     appliedStartRef.current = true;
     if (startPhraseId != null) {
       const idx = list.findIndex((p) => p.id === Number(startPhraseId));
+      if (idx > 0) setIndex(idx);
+    } else if (skipMastered === 'true') {
+      const idx = list.findIndex(
+        (p) => !p.mastered || p.bestScore == null,
+      );
       if (idx > 0) setIndex(idx);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

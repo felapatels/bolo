@@ -24,7 +24,7 @@ export default function DailyPracticeResolver() {
     const list = categories.data ?? [];
     const target = list.find((c) => c.masteredCount < c.phraseCount) ?? list[0];
     if (target) {
-      router.replace(`/(app)/practice/${target.id}`);
+      router.replace(`/(app)/practice/${target.id}?skipMastered=true`);
     } else {
       // Nothing to practice (or topics failed to load): land on Home.
       router.replace('/(app)/(tabs)');
