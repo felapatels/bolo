@@ -109,6 +109,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
   const startPhraseId = searchParams.get("phrase");
+  const skipMastered = searchParams.get("skipMastered") === "true";
   // The Plus-only sentence stage practices through this same session flow —
   // `?stage=sentences` swaps the phrase list for the topic's sentence list.
   const isSentences = !isReview && searchParams.get("stage") === "sentences";
@@ -221,6 +222,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (startPhraseId != null) {
         const idx = phrases.findIndex(p => p.id === parseInt(startPhraseId, 10));
         if (idx >= 0) setCurrentIndex(idx);
+      } else if (skipMastered) {
+        // Advance past already-mastered phrases so the session starts where
+        // the learner actually has work to do. Falls back to index 0 if
+        // every phrase is mastered (avoids an empty session).
+        const firstUnmastered = phrases.findIndex(p => !p.mastered);
+        if (firstUnmastered > 0) setCurrentIndex(firstUnmastered);
       }
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentModeRef.current ? "idle" : "playing_coach");

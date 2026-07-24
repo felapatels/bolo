@@ -366,7 +366,7 @@ export default function Home() {
             {categories && categories.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springs.gentle, delay: 0.4 }}>
                 <Link
-                  href={`/practice/${categories[0].id}`}
+                  href={`/practice/${(categories.find(c => c.masteredCount < c.phraseCount) ?? categories[0]).id}?skipMastered=true`}
                   className="flex w-full items-center justify-between rounded-2xl bg-primary px-6 py-5 text-lg font-black text-primary-foreground shadow-[0_8px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]"
                 >
                   <span className="flex items-center gap-3">
