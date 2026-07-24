@@ -330,7 +330,7 @@ function OrderQuestion({
 // ---------------------------------------------------------------------------
 // Streak badge (shown on results/already-done when streak >= 1)
 // ---------------------------------------------------------------------------
-function StreakBadge({
+export function StreakBadge({
   streak,
   colors,
 }: {
@@ -351,7 +351,7 @@ function StreakBadge({
 // ---------------------------------------------------------------------------
 // Results screen
 // ---------------------------------------------------------------------------
-function ResultsScreen({
+export function ResultsScreen({
   score,
   total,
   xp,
@@ -435,7 +435,7 @@ function ResultsScreen({
 // ---------------------------------------------------------------------------
 // Already-done screen
 // ---------------------------------------------------------------------------
-function AlreadyDoneScreen({
+export function AlreadyDoneScreen({
   score,
   total,
   xp,
