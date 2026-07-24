@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Animated as RNAnimated,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,11 +12,7 @@ import { GlobeButton } from '@/components/GlobeButton';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
-  useAnimatedStyle,
   useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withTiming,
 } from 'react-native-reanimated';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
@@ -381,7 +378,13 @@ export default function ProgressScreen() {
   );
 }
 
-/** Mastery bar that animates its fill on mount (reduced-motion aware). */
+/** Mastery bar that animates its fill on mount (reduced-motion aware).
+ *
+ * Uses React Native's built-in Animated (not Reanimated) so that `width`
+ * stays in RN's layout driver. Reanimated's useAnimatedStyle rejects layout
+ * props (width, height, position…) on New Architecture and causes a hard
+ * native crash at bundle init in Expo Go.
+ */
 function ProgressTrack({
   pct,
   colors,
@@ -390,26 +393,37 @@ function ProgressTrack({
   colors: { muted: string; success: string };
 }) {
   const reduceMotion = useReducedMotion();
-  const fill = useSharedValue(reduceMotion ? pct : 0);
+  // RNAnimated.Value is safe for layout props on New Architecture.
+  const fill = React.useRef(new RNAnimated.Value(reduceMotion ? pct : 0)).current;
 
   React.useEffect(() => {
-    fill.value = reduceMotion
-      ? pct
-      : withDelay(320, withTiming(pct, { duration: 700 }));
+    if (reduceMotion) {
+      fill.setValue(pct);
+    } else {
+      RNAnimated.timing(fill, {
+        toValue: pct,
+        duration: 700,
+        delay: 320,
+        useNativeDriver: false, // width cannot use the native driver
+      }).start();
+    }
   }, [pct, reduceMotion, fill]);
 
-  const barStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` }));
+  const widthPct = fill.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <View style={[styles.track, { backgroundColor: colors.muted }]}>
-      <Animated.View
+      <RNAnimated.View
         style={[
           {
             height: '100%',
             backgroundColor: colors.success,
             borderRadius: 999,
           },
-          barStyle,
+          { width: widthPct },
         ]}
       />
     </View>
