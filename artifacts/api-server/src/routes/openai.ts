@@ -103,6 +103,44 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   }
 
   // --- cache miss: synthesize then store ---
+
+  // Proactive quota guard: if the cached quota shows ElevenLabs credits are
+  // exhausted, skip the API call entirely and jump straight to the fallback
+  // chain. This avoids a wasted round-trip (and its latency + error log) on
+  // every request when the monthly allowance is gone.
+  if (elevenLabsQuotaMonitor.isExhausted()) {
+    req.log.info({}, "ElevenLabs quota exhausted — using fallback");
+    // Kick off a throttled quota refresh so the cached state can clear once
+    // credits are replenished (top-up, new billing cycle). Without this call
+    // the monitor would never poll while we're in permanent-fallback mode.
+    void elevenLabsQuotaMonitor.maybeCheck();
+    // Fall through to the legacy-cache → gpt-audio fallback chain below.
+    try {
+      const legacy = await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(text, chosen, languageName)),
+      });
+      if (legacy) {
+        req.log.info({}, "TTS fallback: serving legacy-provider cached audio");
+        res.json({ audioBase64: legacy.audioBase64, format: legacy.format });
+        return;
+      }
+    } catch (fallbackErr) {
+      req.log.warn({ err: fallbackErr }, "TTS legacy-cache fallback read failed");
+    }
+    // Fallback 2: gpt-audio synthesis.
+    try {
+      const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+      if (buffer.length === 0) {
+        throw new Error("gpt-audio fallback returned empty audio");
+      }
+      res.json({ audioBase64: buffer.toString("base64"), format: "mp3" });
+    } catch (err) {
+      req.log.error({ err }, "TTS failed (ElevenLabs quota exhausted and gpt-audio fallback failed)");
+      res.status(502).json({ error: "Could not generate speech" });
+    }
+    return;
+  }
+
   try {
     const buffer = await textToSpeechElevenLabs(text, elevenLabsVoiceId, languageName, undefined, getLanguageIdForCode(languageCode));
     const audioBase64 = buffer.toString("base64");

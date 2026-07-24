@@ -12,6 +12,11 @@ import { sendQuotaAlertEmail } from "./quotaAlertEmail";
 // no calls at all.
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
+// Treat the quota as exhausted when fewer than this many characters remain.
+// A small safety buffer avoids a race where the last few characters are used
+// between the poll and the next synthesis call.
+const EXHAUSTED_BUFFER = 500;
+
 // Warn loudly when less than this fraction of the monthly character allowance
 // remains — the free plan's 10k credits can run out mid-month, at which point
 // uncached phrases stop synthesizing via ElevenLabs.
@@ -123,10 +128,26 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
     }
   }
 
+  /**
+   * Returns true when the cached quota shows credits are at or below the
+   * safety buffer (EXHAUSTED_BUFFER characters). Callers should skip the
+   * ElevenLabs API call entirely and go straight to the fallback voice.
+   *
+   * Returns false when:
+   * - The quota has never been fetched yet (we don't know, so we try).
+   * - The API key lacks user_read permission (quota is unknowable).
+   * - Remaining credits exceed the safety buffer.
+   */
+  function isExhausted(): boolean {
+    if (subscriptionUnreadable || lastQuota === null) return false;
+    return lastQuota.remaining <= EXHAUSTED_BUFFER;
+  }
+
   return {
     maybeCheck,
     /** Last successfully fetched quota (null before the first check). */
     getLastQuota: () => lastQuota,
+    isExhausted,
   };
 }
 

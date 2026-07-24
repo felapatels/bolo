@@ -11,6 +11,7 @@ import { getLanguageIdForCode } from "./languageVoice";
 import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsPrewarm";
+import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -292,6 +293,14 @@ const QUOTA_COOLDOWN_MS = 15 * 60 * 1000;
 export interface SynthesizeFallbackOptions {
   /** Returns true when an error means the primary's quota is exhausted. */
   isQuotaError?: (err: unknown) => boolean;
+  /**
+   * Returns true when the quota monitor's cached state shows credits are
+   * exhausted. When provided (and returns true), the primary is skipped
+   * proactively — no API call is made, and the cool-down is seeded so
+   * subsequent calls also skip until the cool-down elapses.
+   * Defaults to `elevenLabsQuotaMonitor.isExhausted`.
+   */
+  isExhausted?: () => boolean;
   /** Cool-down duration (ms) before re-probing the primary after quota exhaustion. */
   cooldownMs?: number;
   /** Clock, injectable for tests. */
@@ -315,16 +324,41 @@ export function makeSynthesizeWithFallback(
 ): (text: string, languageName: string, languageCode: string) => Promise<Buffer> {
   const {
     isQuotaError = isQuotaExhaustedError,
+    isExhausted = () => elevenLabsQuotaMonitor.isExhausted(),
     cooldownMs = QUOTA_COOLDOWN_MS,
     now = Date.now,
   } = options;
 
   // Timestamp until which the primary is skipped, or null when healthy.
   let skipPrimaryUntil: number | null = null;
+  // True when the active cooldown was seeded proactively from the monitor's
+  // cached state (isExhausted) rather than from a live quota-error response.
+  // Once that cooldown expires we always let one real probe through — even if
+  // the cache still shows exhausted — so credits that were replenished between
+  // polls are discovered without waiting for a server restart.
+  let proactiveCooldownActive = false;
 
   return async (text, languageName, languageCode) => {
     if (skipPrimaryUntil !== null && now() < skipPrimaryUntil) {
-      // Quota cool-down active — go straight to the fallback voice.
+      // Cool-down active — go straight to the fallback voice.
+      return fallback(text, languageName, languageCode);
+    }
+
+    // Cooldown has just expired (or never started). If it was a proactive one,
+    // clear the flag and fall through to the real probe regardless of what the
+    // (possibly stale) cached quota says — the probe result is authoritative.
+    if (proactiveCooldownActive) {
+      proactiveCooldownActive = false;
+      // Fall through to try ElevenLabs.
+    } else if (isExhausted()) {
+      // Proactive guard: seed the circuit breaker from the monitor's cached
+      // state so a server restart after exhaustion doesn't briefly re-attempt
+      // ElevenLabs before the circuit re-opens.
+      skipPrimaryUntil = now() + cooldownMs;
+      proactiveCooldownActive = true;
+      console.info(
+        `[parrotChat] ElevenLabs quota exhausted (monitor cache) — skipping primary for ${Math.round(cooldownMs / 60000)} min, using gpt-audio`,
+      );
       return fallback(text, languageName, languageCode);
     }
 
@@ -337,6 +371,8 @@ export function makeSynthesizeWithFallback(
     } catch (err) {
       if (isQuotaError(err)) {
         skipPrimaryUntil = now() + cooldownMs;
+        // Reactive cooldown — proactiveCooldownActive stays false so the next
+        // re-probe also gets a real attempt (credits may have been replenished).
         console.warn(
           `[parrotChat] primary TTS quota exhausted — skipping it for ${Math.round(cooldownMs / 60000)} min, using gpt-audio:`,
           err instanceof Error ? err.message : err,

@@ -271,6 +271,8 @@ export function useVoiceRecorder() {
 
   // Guarantee teardown if the component unmounts mid-recording (e.g. the user
   // navigates away), so the mic stream, AudioContext, and RAF loop don't leak.
+  // abortRecording increments prewarmTokenRef so any in-flight getUserMedia
+  // rewarm that resolves after unmount stops its tracks immediately.
   useEffect(() => {
     return () => abortRecording();
   }, [abortRecording]);
