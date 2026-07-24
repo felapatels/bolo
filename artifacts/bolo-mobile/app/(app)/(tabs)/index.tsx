@@ -47,7 +47,7 @@ import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
-import { hapticLight } from '@/lib/haptics';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
@@ -200,6 +200,7 @@ export default function HomeScreen() {
       if (!reduceMotion) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3500);
+        hapticMedium();
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
