@@ -130,3 +130,48 @@ describe("language-context default language", () => {
     expect(screen.getByTestId("lang")).toHaveTextContent("gu");
   });
 });
+
+describe("language-context allowedLanguages fallback", () => {
+  test("new user stays on 'hi' when allowedLanguages includes 'hi'", async () => {
+    h.isSignedIn = true;
+    // Server allowedLanguages includes "hi" — no redirect should happen
+    h.entitlementsData = { allowedLanguages: ["hi", "gu"] };
+    // Account has no saved language (new user)
+    h.accountData = {
+      preferences: {
+        learning: { activeLanguage: null, dailyGoal: 10, theme: "system" },
+        notifications: { dailyReminderEnabled: false, dailyReminderTime: null },
+      },
+    };
+
+    renderWithProvider();
+
+    // Should immediately show "hi" (DEFAULT_LANG)
+    expect(screen.getByTestId("lang")).toHaveTextContent("hi");
+
+    // After effects settle, "hi" must remain — the fallback must NOT fire
+    await waitFor(() => {
+      expect(screen.getByTestId("lang")).toHaveTextContent("hi");
+    });
+  });
+
+  test("fallback switches away from 'hi' when 'hi' is absent from allowedLanguages", async () => {
+    h.isSignedIn = true;
+    // Server allowedLanguages does NOT include "hi" — fallback should redirect to first allowed
+    h.entitlementsData = { allowedLanguages: ["gu"] };
+    // Account has no saved language (new user)
+    h.accountData = {
+      preferences: {
+        learning: { activeLanguage: null, dailyGoal: 10, theme: "system" },
+        notifications: { dailyReminderEnabled: false, dailyReminderTime: null },
+      },
+    };
+
+    renderWithProvider();
+
+    // After effects settle, should have switched to "gu" (first allowed language)
+    await waitFor(() => {
+      expect(screen.getByTestId("lang")).toHaveTextContent("gu");
+    });
+  });
+});
