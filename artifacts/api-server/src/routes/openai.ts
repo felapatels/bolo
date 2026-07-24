@@ -48,6 +48,31 @@ import {
 
 const router: IRouter = Router();
 
+// ---------------------------------------------------------------------------
+// In-process voice-preference cache
+// ---------------------------------------------------------------------------
+// Keyed by userId; stores the resolved plan and ttsVoice preference so the
+// POST /openai/tts handler avoids a DB round-trip on every phrase play.
+// TTL is 60 seconds — short enough that a preference change propagates quickly
+// and long enough to absorb repeated TTS calls in a single practice session.
+// PATCH /account/preferences calls invalidateVoicePreferenceCache(userId)
+// whenever ttsVoice changes so the next TTS call immediately picks up the new
+// value rather than waiting for natural expiry.
+// ---------------------------------------------------------------------------
+
+interface CachedVoicePref {
+  ttsVoice: string | null;
+  plan: string;
+  expiresAt: number; // Date.now() ms
+}
+
+const voicePrefCache = new Map<string, CachedVoicePref>();
+const VOICE_PREF_TTL_MS = 60_000;
+
+export function invalidateVoicePreferenceCache(userId: string): void {
+  voicePrefCache.delete(userId);
+}
+
 // The AI-backed endpoints call OpenAI with server-side credentials and are
 // internet-reachable once published, so cap abuse / runaway cost without adding
 // login friction. Generous enough for rapid practice by a single learner.
@@ -107,17 +132,35 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   try {
     const userId = (req as AuthedRequest).userId;
     if (userId) {
-      const user = await db.query.usersTable.findFirst({
-        where: eq(usersTable.id, userId),
-        columns: { ttsVoice: true },
-      });
-      if (user?.ttsVoice && VALID_VOICE_IDS.has(user.ttsVoice)) {
+      const resolvedPlan = (req as EntitledRequest).resolvedPlan;
+
+      // Consult the in-process cache first to avoid a DB round-trip on every
+      // phrase play.  The cache is invalidated by PATCH /account/preferences
+      // whenever ttsVoice changes, and expires naturally after 60 s.
+      let ttsVoice: string | null = null;
+      const cached = voicePrefCache.get(userId);
+      if (cached && cached.expiresAt > Date.now()) {
+        ttsVoice = cached.ttsVoice;
+      } else {
+        // Cache miss (or stale): load from DB and warm the entry.
+        const user = await db.query.usersTable.findFirst({
+          where: eq(usersTable.id, userId),
+          columns: { ttsVoice: true },
+        });
+        ttsVoice = user?.ttsVoice ?? null;
+        voicePrefCache.set(userId, {
+          ttsVoice,
+          plan: resolvedPlan.plan,
+          expiresAt: Date.now() + VOICE_PREF_TTL_MS,
+        });
+      }
+
+      if (ttsVoice && VALID_VOICE_IDS.has(ttsVoice)) {
         // Defer to the canonical resolved plan already computed by
         // loadEntitlements — this covers family-seat cascade, trial states,
         // and every other edge case without duplicating resolvePlan logic.
-        const resolvedPlan = (req as EntitledRequest).resolvedPlan;
         if (resolvedPlan.plan === "plus") {
-          elevenLabsVoiceId = user.ttsVoice;
+          elevenLabsVoiceId = ttsVoice;
         }
       }
     }

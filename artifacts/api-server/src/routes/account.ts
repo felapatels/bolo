@@ -17,6 +17,7 @@ import { and, eq, or } from "drizzle-orm";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { resolvePlan, type ResolvedPlan } from "../lib/entitlements";
 import { VALID_VOICE_IDS } from "../lib/languageVoice";
+import { invalidateVoicePreferenceCache } from "./openai";
 import { buildSubscriptionDetails } from "../lib/subscriptionDetails";
 import {
   clerkAccountIdentity,
@@ -366,6 +367,13 @@ export function createAccountRouter(
       if (Object.keys(set).length === 0) {
         res.status(400).json({ error: "Nothing to update" });
         return;
+      }
+
+      // Invalidate the in-process voice-preference cache whenever ttsVoice is
+      // included in this update so the next TTS call immediately uses the new
+      // value rather than waiting for the 60-second natural expiry.
+      if ("ttsVoice" in set) {
+        invalidateVoicePreferenceCache(id);
       }
 
       const [updated] = await db
