@@ -21,7 +21,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
+import {
+  textToSpeechElevenLabs,
+  textToSpeechElevenLabsStream,
+} from "@workspace/integrations-openai-ai-server/audio";
 import {
   getVoiceIdForLanguage,
   getLanguageIdForCode,
@@ -355,6 +358,98 @@ if (!process.env.ELEVENLABS_API_KEY) {
     "⚠  ELEVENLABS_API_KEY not set — skipping ElevenLabs voice smoke tests.",
   );
 } else {
+  // ─── Integration: textToSpeechElevenLabsStream language_id smoke test ──────
+  //
+  // Verifies that the streaming synthesis path passes language_id correctly to
+  // ElevenLabs. Uses Hindi ("hi") — a Devanagari-script language — because
+  // Devanagari is shared by multiple languages (Hindi, Marathi, Nepali, etc.)
+  // and is the primary case where language_id disambiguation matters.
+  //
+  // Asserts:
+  //   - No 400/402/422 error (language_id was accepted by the API)
+  //   - Returned buffer is non-empty (streaming synthesis produced audio)
+  //   - Buffer starts with an MP3 sync marker (correct format returned)
+  //   - onChunk was called at least once (streaming actually streamed)
+
+  test(
+    "textToSpeechElevenLabsStream: Hindi (hi) with language_id streams a valid MP3",
+    async () => {
+      const hiVoiceId = "nPczCjzI2devNBz1zQrb"; // Brian — North-Indian/Devanagari voice
+      const hiPhrase = "नमस्ते"; // "Namaste" — 6 chars
+      const hiLanguageId = getLanguageIdForCode("hi"); // should be "hi"
+
+      const chunksSeen: number[] = [];
+      let buffer: Buffer;
+
+      try {
+        buffer = await textToSpeechElevenLabsStream(
+          hiPhrase,
+          hiVoiceId,
+          undefined,           // _language (not sent to API)
+          "eleven_flash_v2_5", // low-latency model, same as parrotChat
+          hiLanguageId,        // language_id — the field under test
+          (chunk) => { chunksSeen.push(chunk.length); },
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+
+        // Quota exhausted: the API accepted the request (voice + language_id
+        // were valid) but synthesis was blocked by the billing gate. Skip
+        // rather than fail — this is not a language_id problem.
+        if (/quota_exceeded/.test(msg) || /status 429/.test(msg)) {
+          console.log(
+            "  ⚠  textToSpeechElevenLabsStream (hi): ElevenLabs quota exhausted — " +
+              "language_id was accepted but credits are depleted.",
+          );
+          return;
+        }
+
+        // 400/422 most likely means language_id was rejected by the API.
+        if (/status 400/.test(msg) || /status 422/.test(msg)) {
+          assert.fail(
+            `textToSpeechElevenLabsStream returned ${msg.match(/status \d+/)?.[0] ?? "4xx"} — ` +
+              "the language_id \"hi\" may be invalid for eleven_flash_v2_5, or the " +
+              "request body was malformed. Check getLanguageIdForCode and the API payload.",
+          );
+        }
+
+        if (/status 402/.test(msg)) {
+          assert.fail(
+            "textToSpeechElevenLabsStream returned 402 — the Brian voice may not be " +
+              "available on the current ElevenLabs plan. Replace it with a premade voice.",
+          );
+        }
+
+        throw err; // Unexpected error — surface as-is.
+      }
+
+      assert.ok(
+        buffer.length > 0,
+        "textToSpeechElevenLabsStream (hi) returned an empty audio buffer.",
+      );
+
+      const isId3 =
+        buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33; // "ID3"
+      const isMp3Frame =
+        buffer[0] === 0xff &&
+        (buffer[1] === 0xfb ||
+          buffer[1] === 0xfa ||
+          buffer[1] === 0xf3 ||
+          buffer[1] === 0xe3);
+      assert.ok(
+        isId3 || isMp3Frame,
+        `textToSpeechElevenLabsStream (hi) buffer does not look like MP3 ` +
+          `(first bytes: 0x${buffer.slice(0, 4).toString("hex")}).`,
+      );
+
+      assert.ok(
+        chunksSeen.length > 0,
+        "textToSpeechElevenLabsStream (hi): onChunk was never called — " +
+          "the streaming path may have fallen back to a buffered response.",
+      );
+    },
+  );
+
   for (const { voiceName, voiceId, phrase, languageCodes } of VOICE_SMOKE_CASES) {
     // Use the first mapped language code to exercise the language_id path.
     // For the George fallback case (no language codes) this is undefined,
