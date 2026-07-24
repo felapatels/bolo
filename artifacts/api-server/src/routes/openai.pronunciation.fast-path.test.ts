@@ -1,4 +1,4 @@
-// Tests for the sim ≥ 0.85 fast-path in POST /openai/pronunciation.
+// Tests for the sim ≥ 0.93 fast-path in POST /openai/pronunciation.
 //
 // The fast-path short-circuits the LLM call and returns a deterministic score
 // whenever the transcript is phonetically very close to the target. The
@@ -6,11 +6,11 @@
 // near-match-floor guard would always override anyway), so the key questions are:
 //
 //  1. Does the fast-path fire and return passed=true with no LLM call when
-//     sim ≥ 0.85?
-//  2. Does a partial-match attempt (sim 0.50–0.84) still reach the full
+//     sim ≥ 0.93?
+//  2. Does a partial-match attempt (sim below 0.93) still reach the full
 //     LLM + guardrail path?
-//  3. Can a transcript simultaneously match the target at ≥ 0.85 AND match a
-//     different phrase at ≥ 0.85 (the edge case)? If so, the fast-path fires
+//  3. Can a transcript simultaneously match the target at ≥ 0.93 AND match a
+//     different phrase at ≥ 0.93 (the edge case)? If so, the fast-path fires
 //     and returns passed=true — by design, since near-match-floor would anyway.
 //
 // Parts A and B cover the three cases at the unit level (compareToTarget only,
@@ -159,25 +159,25 @@ async function postPronunciation(
 // (no wrong-phrase-cap) is safe: near-match-floor would override anyway.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test("compareToTarget: near-exact match lands at sim ≥ 0.85 (fast-path condition is met)", () => {
+test("compareToTarget: near-exact match lands at sim ≥ 0.93 (fast-path condition is met)", () => {
   // "kem cho" is a slight romanisation variant of "kem chho" — folds to the
   // same phonetic key after normalizeLatin, so sim should approach 1.0.
   const cmp = compareToTarget("kem cho", "કેમ છો", "kem chho");
   assert.ok(cmp.comparable, "should be comparable (Latin transcript vs Latin target)");
   assert.ok(
-    cmp.sim >= 0.85,
-    `expected sim ≥ 0.85 for near-exact match, got ${cmp.sim}`,
+    cmp.sim >= 0.93,
+    `expected sim ≥ 0.93 for near-exact match, got ${cmp.sim}`,
   );
 });
 
-test("compareToTarget: partial match lands at sim 0.50–0.84 (fast-path condition NOT met)", () => {
+test("compareToTarget: partial match lands below sim 0.93 (fast-path condition NOT met)", () => {
   // "kem" is clearly an attempt at "kem chho" but is missing the second
   // syllable — should be comparable but below the fast-path threshold.
   const cmp = compareToTarget("kem", "કેમ છો", "kem chho");
   assert.ok(cmp.comparable, "should be comparable");
   assert.ok(
-    cmp.sim < 0.85,
-    `expected sim < 0.85 for partial match, got ${cmp.sim}`,
+    cmp.sim < 0.93,
+    `expected sim < 0.93 for partial match, got ${cmp.sim}`,
   );
   // Must also be a real attempt, not garbled noise.
   assert.ok(
@@ -226,9 +226,9 @@ test("compareToTarget: completely unrelated transcript gives low sim", () => {
 // Part C — Route integration tests (mocked audio module)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test("fast-path: sim ≥ 0.85 → passed=true, no LLM call", async () => {
-  // "kem cho" normalises to effectively the same phonetic key as "kem chho",
-  // producing sim ≥ 0.85 and triggering the fast-path.
+test("fast-path: sim ≥ 0.93 → passed=true, no LLM call", async () => {
+  // "kem cho" normalises to effectively the same phonetic key as "kem chho"
+  // (chh→ch fold), producing sim = 1.0 ≥ 0.93 and triggering the fast-path.
   stubbedTranscript = "kem cho";
   llmCallCount = 0;
 
@@ -240,6 +240,20 @@ test("fast-path: sim ≥ 0.85 → passed=true, no LLM call", async () => {
   assert.equal(llmCallCount, 0, "fast-path must not call the LLM");
   assert.ok(typeof json.evaluationToken === "string", "must return a signed evaluation token");
   assert.equal(json.transcript, "kem cho", "transcript in response must match what STT returned");
+});
+
+test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", async () => {
+  // "hello world" is entirely unrelated to "kem chho" — sim is far below 0.93
+  // so the fast-path must not fire; the LLM mock returns LLM_SCORE=55 < 80
+  // and the partial-match-cap guard ensures score stays below 80.
+  stubbedTranscript = "hello world";
+  llmCallCount = 0;
+
+  const { status, json } = await postPronunciation("કેમ છો", "kem chho");
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(json.passed, false, "wrong word must not pass");
+  assert.ok(json.score < 80, `wrong word score must be < 80, got ${json.score}`);
 });
 
 test("fast-path: sim ≥ 0.95 → score exactly 90", async () => {

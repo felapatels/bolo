@@ -25,17 +25,12 @@ export function normalizeLatin(text: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     // Letters only
     .replace(/[^a-z]/g, "");
-  // Aspiration / spelling variants common across romanization schemes.
+  // Spelling-variant folds only — strictly equivalent romanisation variants.
+  // Aspiration folds (th→t, sh→s, kh→k, gh→g, dh→d, bh→b) have been removed:
+  // they collapse phonetically distinct sounds and produce false high similarity
+  // on short 2–3 syllable phrases, pushing wrong attempts past the pass threshold.
   const folds: Array<[RegExp, string]> = [
     [/chh/g, "ch"],
-    [/ph/g, "f"],
-    [/th/g, "t"],
-    [/kh/g, "k"],
-    [/gh/g, "g"],
-    [/jh/g, "j"],
-    [/dh/g, "d"],
-    [/bh/g, "b"],
-    [/sh/g, "s"],
     [/w/g, "v"],
     [/ee/g, "i"],
     [/oo/g, "u"],

@@ -19,9 +19,19 @@ const OTHERS = [
 ];
 
 test("normalizeLatin folds romanization variants to one key", () => {
+  // chh→ch: "kem chho" and "kem cho" should normalize identically.
   assert.equal(normalizeLatin("kem chho"), normalizeLatin("Kem cho!"));
+  // Repeated-letter collapse: "paani" → "pani".
   assert.equal(normalizeLatin("paani"), normalizeLatin("pani"));
-  assert.equal(normalizeLatin("bhai"), normalizeLatin("bai"));
+  // w→v fold: "waat" and "vaat" should normalize identically.
+  assert.equal(normalizeLatin("waat"), normalizeLatin("vaat"));
+  // ee→i fold: "beet" and "bit" normalize identically.
+  assert.equal(normalizeLatin("beet"), normalizeLatin("bit"));
+  // Aspiration folds (bh, th, sh, etc.) are intentionally NOT folded any more —
+  // they collapse phonetically distinct sounds on short phrases.
+  assert.notEqual(normalizeLatin("bhai"), normalizeLatin("bai"));
+  assert.notEqual(normalizeLatin("thal"), normalizeLatin("tal"));
+  assert.notEqual(normalizeLatin("sham"), normalizeLatin("sam"));
 });
 
 test("isEffectivelyEmpty: silence and punctuation-only garble", () => {

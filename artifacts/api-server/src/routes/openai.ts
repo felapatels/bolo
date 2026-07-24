@@ -198,12 +198,14 @@ router.post(
     }
     const language = languageName?.trim() || "the target language";
 
-    // Hint the transcriber with the language and the phrase being attempted:
-    // this dramatically stabilizes transcripts of short words in less-common
-    // languages, where the model otherwise guesses a random near-homophone.
+    // Hint the transcriber with the language only — omitting the target phrase
+    // prevents Whisper from anchoring on the phrase text and transcribing vaguely
+    // similar audio as the target, which inflates phonetic similarity scores.
+    // The language code passed as the `language` option is sufficient to stabilize
+    // transcription for supported languages.
     const sttOptions = {
       ...(languageCode ? { language: languageCode } : {}),
-      prompt: `A language learner is practicing the ${language} phrase "${targetNative}" (romanized: "${targetRomanized}"). Transcribe what they actually say, even if it differs from that phrase.`,
+      prompt: `A language learner is speaking ${language}. Transcribe exactly what they say.`,
     };
 
     let transcript = "";
@@ -270,11 +272,13 @@ router.post(
     // path can reuse it without a second call.
     const targetSim = compareToTarget(transcript, targetNative, targetRomanized);
 
-    // Fast-path: a high-confidence phonetic match (sim ≥ 0.85) will always be
+    // Fast-path: a high-confidence phonetic match (sim ≥ 0.93) will always be
     // floored by the near-match-floor guardrail anyway, so there is no value in
     // spending 1-3 s on an LLM call. Derive the score deterministically and
-    // return immediately.
-    if (targetSim.comparable && targetSim.sim >= 0.85) {
+    // return immediately. Threshold raised from 0.85 to 0.93 because with a
+    // neutral STT prompt (no target phrase hint) a 0.85 match is only "roughly
+    // similar" and should go through the full LLM evaluation path.
+    if (targetSim.comparable && targetSim.sim >= 0.93) {
       const score = targetSim.sim >= 0.95 ? 90 : 85;
 
       // Pool of varied warm feedback strings so repeat excellent attempts each
