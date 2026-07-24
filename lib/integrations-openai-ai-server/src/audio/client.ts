@@ -240,6 +240,12 @@ export async function textToSpeechElevenLabs(
   // pass "eleven_flash_v2_5" for ~75 ms model latency at slightly lower
   // fidelity. Optional trailing parameter → fully backward compatible.
   modelId = "eleven_multilingual_v2",
+  // ElevenLabs language_id for eleven_multilingual_v2. When present, the API
+  // uses this to select the correct phoneme inventory instead of auto-detecting
+  // from the Unicode script — critical for Devanagari (shared by Hindi, Marathi,
+  // Nepali, etc.) and transliterated text. Pass undefined to fall back to
+  // auto-detection for unsupported language codes.
+  languageId?: string,
 ): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
@@ -259,14 +265,19 @@ export async function textToSpeechElevenLabs(
       text,
       model_id: modelId,
       output_format: "mp3_44100_128",
+      // When a language_id is available, include it so the model selects the
+      // correct phoneme inventory rather than guessing from the Unicode script.
+      ...(languageId ? { language_id: languageId } : {}),
       // Improve clarity and consistency for non-Latin scripts. stability=0.7
       // keeps the voice steady without sounding robotic; similarity_boost=0.8
-      // preserves the chosen voice's character; use_speaker_boost adds a final
-      // audio enhancement pass that helps non-Latin phonemes come through more
-      // clearly on device speakers.
+      // preserves the chosen voice's character; style=0.2 adds natural prosodic
+      // variation so the output sounds like a native speaker rather than a flat
+      // TTS reading; use_speaker_boost adds a final audio enhancement pass that
+      // helps non-Latin phonemes come through more clearly on device speakers.
       voice_settings: {
         stability: 0.7,
         similarity_boost: 0.8,
+        style: 0.2,
         use_speaker_boost: true,
       },
     }),
@@ -381,6 +392,10 @@ export async function textToSpeechElevenLabsStream(
   // Kept for API symmetry with textToSpeechElevenLabs; not sent to the API.
   _language?: string,
   modelId = "eleven_multilingual_v2",
+  // ElevenLabs language_id — same semantics as in textToSpeechElevenLabs.
+  // Placed before onChunk so it sits alongside the other API parameters;
+  // callers that were passing onChunk positionally must be updated accordingly.
+  languageId?: string,
   onChunk?: (chunk: Buffer) => void,
 ): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -400,10 +415,12 @@ export async function textToSpeechElevenLabsStream(
     body: JSON.stringify({
       text,
       model_id: modelId,
+      ...(languageId ? { language_id: languageId } : {}),
       // Same voice_settings as the non-streaming endpoint for consistent output.
       voice_settings: {
         stability: 0.7,
         similarity_boost: 0.8,
+        style: 0.2,
         use_speaker_boost: true,
       },
     }),

@@ -2,7 +2,7 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { ttsCacheKey } from "./ttsCache";
-import { getVoiceIdForLanguage } from "./languageVoice";
+import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
 import { logger } from "./logger";
 import {
   greetingAudioCacheKey,
@@ -131,6 +131,7 @@ type PhraseWithLanguageName = {
   premium: boolean;
   languageName: string;    // display name, e.g. "Gujarati" — matches what clients send
   elevenLabsVoiceId: string; // resolved per-language voice ID for synthesis + cache key
+  languageId: string | undefined; // ElevenLabs language_id for phoneme selection, or undefined
 };
 
 /**
@@ -185,6 +186,9 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       // the synthesis call use the same voice — matching what /openai/tts does
       // at runtime when a client passes languageCode.
       elevenLabsVoiceId: getVoiceIdForLanguage(p.languageCode),
+      // Resolve the ElevenLabs language_id for correct phoneme selection —
+      // undefined for unsupported codes (the API falls back to auto-detection).
+      languageId: getLanguageIdForCode(p.languageCode),
     }));
 }
 
@@ -314,6 +318,8 @@ export function scheduleTtsPrewarm(): void {
             // /openai/tts synthesizes at runtime for the same languageCode.
             phrase.elevenLabsVoiceId,
             phrase.languageName || undefined,
+            undefined,
+            phrase.languageId,
           );
           const audioBase64 = buffer.toString("base64");
 
@@ -379,6 +385,7 @@ export type WarmGreetingsDeps = {
     voiceId: string,
     langName: string,
     model: string,
+    languageId?: string,
   ) => Promise<Buffer>;
 };
 
@@ -397,8 +404,8 @@ const defaultWarmGreetingsDeps: WarmGreetingsDeps = {
       .onConflictDoNothing()
       .execute()
       .then(() => undefined),
-  synthesize: (text, voiceId, langName, model) =>
-    textToSpeechElevenLabs(text, voiceId, langName, model),
+  synthesize: (text, voiceId, langName, model, languageId) =>
+    textToSpeechElevenLabs(text, voiceId, langName, model, languageId),
 };
 
 /**
@@ -440,6 +447,7 @@ export async function warmGreetings(
           getVoiceIdForLanguage(lang.code),
           lang.name,
           BOLO_GREETING_MODEL,
+          getLanguageIdForCode(lang.code),
         );
         const audioBase64 = buffer.toString("base64");
         await deps.insertCache({ cacheKey, audioBase64, format: "mp3" });

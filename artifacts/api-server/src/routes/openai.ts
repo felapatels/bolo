@@ -29,7 +29,7 @@ import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
-import { getVoiceIdForLanguage } from "../lib/languageVoice";
+import { getVoiceIdForLanguage, getLanguageIdForCode } from "../lib/languageVoice";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -104,7 +104,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // --- cache miss: synthesize then store ---
   try {
-    const buffer = await textToSpeechElevenLabs(text, elevenLabsVoiceId, languageName);
+    const buffer = await textToSpeechElevenLabs(text, elevenLabsVoiceId, languageName, undefined, getLanguageIdForCode(languageCode));
     const audioBase64 = buffer.toString("base64");
 
     // Persist to cache (best-effort; a race between two concurrent requests is
@@ -888,7 +888,7 @@ router.get(
     const greetingVoiceId = getVoiceIdForLanguage(languageCode);
     const BOLO_MODEL = "eleven_flash_v2_5";
     try {
-      const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL);
+      const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL, getLanguageIdForCode(languageCode));
       const audioBase64 = buffer.toString("base64");
 
       // Cache for future requests (best-effort, race-safe).

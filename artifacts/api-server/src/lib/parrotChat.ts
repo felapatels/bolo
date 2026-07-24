@@ -7,6 +7,7 @@ import {
   convertToWav,
   type SpeechToTextOptions,
 } from "@workspace/integrations-openai-ai-server/audio";
+import { getLanguageIdForCode } from "./languageVoice";
 import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsPrewarm";
@@ -217,7 +218,9 @@ export interface ParrotChatDeps {
     userPrompt: string,
   ) => Promise<{ text: string; english: string; transcriptEnglish: string }>;
   // Synthesizes the cleaned reply text using Bolo's parrot character voice.
-  synthesize: (text: string, languageName: string) => Promise<Buffer>;
+  // languageCode is the ISO-639-1 code of the active language (e.g. "gu"),
+  // used to resolve the ElevenLabs language_id for correct phoneme selection.
+  synthesize: (text: string, languageName: string, languageCode: string) => Promise<Buffer>;
   // Optional streaming synthesizer: emits raw MP3 chunks via onChunk as they
   // are produced and resolves with the complete clip. Used only when the
   // caller supplied an onAudioChunk callback; a throw falls back to the
@@ -226,13 +229,16 @@ export interface ParrotChatDeps {
   synthesizeStream?: (
     text: string,
     languageName: string,
+    languageCode: string,
     onChunk: (chunk: Buffer) => void,
   ) => Promise<Buffer>;
 }
 
 // Custom TTS for Bolo — uses gpt-audio via chat completions (the Replit AI
 // integrations proxy only supports /v1/chat/completions, not /v1/audio/speech).
-async function boloTTS(text: string, languageName: string): Promise<Buffer> {
+// _languageCode is accepted for API symmetry with boloTTSElevenLabs but not
+// used here (gpt-audio uses the languageName hint instead).
+async function boloTTS(text: string, languageName: string, _languageCode: string): Promise<Buffer> {
   const langHint = languageName ? ` The text is in ${languageName}.` : "";
   const response = await openai.chat.completions.create({
     model: "gpt-audio",
@@ -266,12 +272,13 @@ const BOLO_ELEVENLABS_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const BOLO_ELEVENLABS_MODEL = "eleven_flash_v2_5";
 
 // Fast ElevenLabs synthesis for Bolo's chat replies.
-async function boloTTSElevenLabs(text: string, languageName: string): Promise<Buffer> {
+async function boloTTSElevenLabs(text: string, languageName: string, languageCode: string): Promise<Buffer> {
   return textToSpeechElevenLabs(
     text,
     BOLO_ELEVENLABS_VOICE_ID,
     languageName,
     BOLO_ELEVENLABS_MODEL,
+    getLanguageIdForCode(languageCode),
   );
 }
 
@@ -302,10 +309,10 @@ export interface SynthesizeFallbackOptions {
 // another quota error re-arms it. Non-quota failures (transient 5xx,
 // network) never trip the cool-down. Exported for unit tests.
 export function makeSynthesizeWithFallback(
-  primary: (text: string, languageName: string) => Promise<Buffer>,
-  fallback: (text: string, languageName: string) => Promise<Buffer>,
+  primary: (text: string, languageName: string, languageCode: string) => Promise<Buffer>,
+  fallback: (text: string, languageName: string, languageCode: string) => Promise<Buffer>,
   options: SynthesizeFallbackOptions = {},
-): (text: string, languageName: string) => Promise<Buffer> {
+): (text: string, languageName: string, languageCode: string) => Promise<Buffer> {
   const {
     isQuotaError = isQuotaExhaustedError,
     cooldownMs = QUOTA_COOLDOWN_MS,
@@ -315,14 +322,14 @@ export function makeSynthesizeWithFallback(
   // Timestamp until which the primary is skipped, or null when healthy.
   let skipPrimaryUntil: number | null = null;
 
-  return async (text, languageName) => {
+  return async (text, languageName, languageCode) => {
     if (skipPrimaryUntil !== null && now() < skipPrimaryUntil) {
       // Quota cool-down active — go straight to the fallback voice.
-      return fallback(text, languageName);
+      return fallback(text, languageName, languageCode);
     }
 
     try {
-      const audio = await primary(text, languageName);
+      const audio = await primary(text, languageName, languageCode);
       // A successful call (including a re-probe after the cool-down elapsed)
       // clears the quota state.
       skipPrimaryUntil = null;
@@ -340,7 +347,7 @@ export function makeSynthesizeWithFallback(
           err instanceof Error ? err.message : err,
         );
       }
-      return fallback(text, languageName);
+      return fallback(text, languageName, languageCode);
     }
   };
 }
@@ -384,12 +391,13 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   // Streaming variant of the same ElevenLabs flash voice. No fallback baked
   // in here — runParrotTurn catches a streaming failure and reruns the
   // buffered `synthesize` (which has its own gpt-audio fallback).
-  synthesizeStream: (text, _languageName, onChunk) =>
+  synthesizeStream: (text, _languageName, languageCode, onChunk) =>
     textToSpeechElevenLabsStream(
       text,
       BOLO_ELEVENLABS_VOICE_ID,
       _languageName,
       BOLO_ELEVENLABS_MODEL,
+      getLanguageIdForCode(languageCode),
       onChunk,
     ),
 };
@@ -555,7 +563,7 @@ export async function runParrotTurn(
   let replyAudio: Buffer;
   if (input.onAudioChunk && deps.synthesizeStream) {
     try {
-      replyAudio = await deps.synthesizeStream(ttsText, input.languageName, (chunk) => {
+      replyAudio = await deps.synthesizeStream(ttsText, input.languageName, input.languageCode, (chunk) => {
         input.onAudioChunk?.(chunk.toString("base64"));
       });
       input.onAudioDone?.();
@@ -564,7 +572,7 @@ export async function runParrotTurn(
         "[parrotChat] streaming TTS failed, falling back to buffered synthesis:",
         err instanceof Error ? err.message : err,
       );
-      replyAudio = await deps.synthesize(ttsText, input.languageName);
+      replyAudio = await deps.synthesize(ttsText, input.languageName, input.languageCode);
       // Feed the fallback clip through the same streaming channel and mark it
       // complete: the client's progressive player is already connected to the
       // stream URL, so this turns "stream aborts → silence risk" into a
@@ -573,7 +581,7 @@ export async function runParrotTurn(
       input.onAudioDone?.();
     }
   } else {
-    replyAudio = await deps.synthesize(ttsText, input.languageName);
+    replyAudio = await deps.synthesize(ttsText, input.languageName, input.languageCode);
   }
   const ttsMs = Date.now() - ttsStart;
 

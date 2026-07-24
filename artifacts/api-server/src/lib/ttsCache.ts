@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
  * then lazily re-synthesized. Bump this string whenever the provider or its
  * voice/model changes in a way learners can hear.
  */
-export const TTS_PROVIDER_VERSION = "elevenlabs:v2:eleven_multilingual_v2";
+export const TTS_PROVIDER_VERSION = "elevenlabs:v3:eleven_multilingual_v2:langid";
 
 /**
  * Stable cache key: SHA-256 hex of the synthesis inputs + provider version.

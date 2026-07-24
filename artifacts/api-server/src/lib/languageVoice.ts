@@ -93,3 +93,69 @@ export function getVoiceIdForLanguage(languageCode?: string): string {
   const code = languageCode.trim().toLowerCase();
   return LANGUAGE_VOICE_MAP[code] ?? DEFAULT_MULTILINGUAL_VOICE_ID;
 }
+
+/**
+ * Maps ISO-639-1 (and a few ISO-639-3) language codes to ElevenLabs
+ * `language_id` strings accepted by `eleven_multilingual_v2`.
+ *
+ * Only codes that ElevenLabs natively supports are mapped to themselves.
+ * Languages not in the model's phoneme inventory are mapped to the closest
+ * supported language (same script family / most similar phonology), so the
+ * model still applies a meaningful phoneme set rather than falling back to
+ * pure auto-detection from Unicode script.
+ *
+ * `undefined` entries are deliberately absent — callers receive `undefined`
+ * from `getLanguageIdForCode` for truly unsupported codes and should omit
+ * `language_id` from the request body rather than sending a wrong value.
+ */
+export const LANGUAGE_ID_MAP: Record<string, string> = {
+  // ── Natively supported by eleven_multilingual_v2 ────────────────────────
+  hi:  "hi",  // Hindi
+  gu:  "gu",  // Gujarati
+  ta:  "ta",  // Tamil
+  bn:  "bn",  // Bengali
+  ur:  "ur",  // Urdu
+  mr:  "mr",  // Marathi
+  pa:  "pa",  // Punjabi
+  te:  "te",  // Telugu
+  kn:  "kn",  // Kannada
+  ml:  "ml",  // Malayalam
+  ne:  "ne",  // Nepali
+
+  // ── Closest-supported fallbacks ─────────────────────────────────────────
+  // Sanskrit shares Devanagari script and consonant inventory with Hindi.
+  sa:  "hi",
+  // Odia and Assamese are East Indic languages phonologically close to Bengali.
+  or:  "bn",
+  as:  "bn",
+  // Rajasthani is closely related to Hindi (both Devanagari, similar phonology).
+  raj: "hi",
+  // Kashmiri and Sindhi use Perso-Arabic script and are closest to Urdu.
+  ks:  "ur",
+  sd:  "ur",
+  // Konkani is phonologically closest to Marathi.
+  kok: "mr",
+  // Dogri, Maithili, and Bhojpuri are all Indo-Aryan languages spoken in the
+  // Hindi belt and share Devanagari script + Hindi phoneme set.
+  doi: "hi",
+  mai: "hi",
+  bho: "hi",
+  // Manipuri (Meitei) — no direct Tibeto-Burman support; Bengali is the
+  // closest supported language in ElevenLabs' multilingual model.
+  mni: "bn",
+  // Santali (Austroasiatic / Ol Chiki script) has no close match among
+  // ElevenLabs' supported languages — intentionally omitted so callers
+  // receive undefined and skip language_id rather than sending a wrong value.
+};
+
+/**
+ * Return the ElevenLabs `language_id` string for the given ISO language code,
+ * or `undefined` when no appropriate mapping exists. When `undefined` is
+ * returned the caller should omit `language_id` from the API request body so
+ * ElevenLabs falls back to its own script-based auto-detection.
+ */
+export function getLanguageIdForCode(languageCode?: string): string | undefined {
+  if (!languageCode) return undefined;
+  const code = languageCode.trim().toLowerCase();
+  return LANGUAGE_ID_MAP[code];
+}

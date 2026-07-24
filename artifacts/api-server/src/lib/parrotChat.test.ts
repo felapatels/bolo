@@ -42,7 +42,7 @@ function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
       english: "Squawk! Hello!",
       transcriptEnglish: "Hello",
     }),
-    synthesize: async () => Buffer.from("fake-audio"),
+    synthesize: async (_text, _languageName, _languageCode) => Buffer.from("fake-audio"),
     ...overrides,
   };
 }
@@ -900,7 +900,7 @@ test("makeSynthesizeWithFallback: uses the primary when it succeeds", async () =
     async () => Buffer.from("primary-audio"),
     async () => { fallbackCalled = true; return Buffer.from("fallback-audio"); },
   );
-  const out = await synth("Namaste!", "Hindi");
+  const out = await synth("Namaste!", "Hindi", "hi");
   assert.equal(out.toString(), "primary-audio");
   assert.equal(fallbackCalled, false, "fallback must not run when primary succeeds");
 });
@@ -911,7 +911,7 @@ test("makeSynthesizeWithFallback: falls back when the primary throws", async () 
     async () => { calls.push("primary"); throw new Error("ElevenLabs down"); },
     async (text, lang) => { calls.push(`fallback:${text}:${lang}`); return Buffer.from("fallback-audio"); },
   );
-  const out = await synth("Namaste!", "Hindi");
+  const out = await synth("Namaste!", "Hindi", "hi");
   assert.equal(out.toString(), "fallback-audio");
   assert.deepEqual(calls, ["primary", "fallback:Namaste!:Hindi"]);
 });
@@ -931,22 +931,22 @@ test("makeSynthesizeWithFallback: quota error trips the cool-down — primary is
   );
 
   // First call: quota error → fallback, cool-down armed.
-  assert.equal((await synth("a", "Hindi")).toString(), "fallback-audio");
+  assert.equal((await synth("a", "Hindi", "hi")).toString(), "fallback-audio");
   assert.equal(primaryCalls, 1);
 
   // During the cool-down: primary is NOT called at all.
   clock = 500;
-  assert.equal((await synth("b", "Hindi")).toString(), "fallback-audio");
+  assert.equal((await synth("b", "Hindi", "hi")).toString(), "fallback-audio");
   assert.equal(primaryCalls, 1, "primary must be skipped during the cool-down");
 
   // After the cool-down elapses: primary is re-probed and succeeds → recovered.
   clock = 1000;
   primaryFails = false;
-  assert.equal((await synth("c", "Hindi")).toString(), "primary-audio");
+  assert.equal((await synth("c", "Hindi", "hi")).toString(), "primary-audio");
   assert.equal(primaryCalls, 2);
 
   // Recovery cleared the state — primary keeps being used.
-  assert.equal((await synth("d", "Hindi")).toString(), "primary-audio");
+  assert.equal((await synth("d", "Hindi", "hi")).toString(), "primary-audio");
   assert.equal(primaryCalls, 3);
 });
 
@@ -962,12 +962,12 @@ test("makeSynthesizeWithFallback: failed re-probe after cool-down re-arms it", a
     { cooldownMs: 1000, now: () => clock },
   );
 
-  await synth("a", "Hindi"); // trips cool-down
+  await synth("a", "Hindi", "hi"); // trips cool-down
   clock = 1500;
-  await synth("b", "Hindi"); // re-probe, fails again → re-armed
+  await synth("b", "Hindi", "hi"); // re-probe, fails again → re-armed
   assert.equal(primaryCalls, 2);
   clock = 2000; // still inside the new cool-down (until 2500)
-  await synth("c", "Hindi");
+  await synth("c", "Hindi", "hi");
   assert.equal(primaryCalls, 2, "primary must stay skipped after a failed re-probe");
 });
 
@@ -982,8 +982,8 @@ test("makeSynthesizeWithFallback: non-quota failures do NOT trip the cool-down",
     { cooldownMs: 1000, now: () => 0 },
   );
 
-  await synth("a", "Hindi");
-  await synth("b", "Hindi");
+  await synth("a", "Hindi", "hi");
+  await synth("b", "Hindi", "hi");
   assert.equal(primaryCalls, 2, "transient failures must keep retrying the primary each turn");
 });
 
@@ -998,9 +998,9 @@ test("makeSynthesizeWithFallback: 429 rate/credit pressure also trips the cool-d
     async () => Buffer.from("fallback-audio"),
     { cooldownMs: 1000, now: () => clock },
   );
-  await synth("a", "Hindi");
+  await synth("a", "Hindi", "hi");
   clock = 10;
-  await synth("b", "Hindi");
+  await synth("b", "Hindi", "hi");
   assert.equal(primaryCalls, 1);
 });
 
@@ -1009,7 +1009,7 @@ test("makeSynthesizeWithFallback: propagates the fallback's error when both fail
     async () => { throw new Error("primary down"); },
     async () => { throw new Error("fallback down"); },
   );
-  await assert.rejects(() => synth("hi", "Hindi"), /fallback down/);
+  await assert.rejects(() => synth("hi", "Hindi", "hi"), /fallback down/);
 });
 
 test("runParrotTurn: turn still succeeds when primary TTS fails (fallback audio used)", async () => {
@@ -1045,7 +1045,7 @@ test("runParrotTurn: streaming path emits chunks that concatenate to replyAudio,
       onAudioDone: () => events.push("done"),
     },
     makeDeps({
-      synthesizeStream: async (_text, _lang, onChunk) => {
+      synthesizeStream: async (_text, _lang, _code, onChunk) => {
         onChunk(Buffer.from("part1-"));
         onChunk(Buffer.from("part2"));
         return Buffer.from("part1-part2");
@@ -1099,7 +1099,7 @@ test("runParrotTurn: without onAudioChunk the buffered path runs even when synth
   const result = await runParrotTurn(
     { audioBuffer: wav, languageName: "Tamil", languageCode: "ta", history: [] },
     makeDeps({
-      synthesizeStream: async (_t, _l, onChunk) => { streamCalled = true; onChunk(Buffer.from("x")); return Buffer.from("x"); },
+      synthesizeStream: async (_t, _l, _code, onChunk) => { streamCalled = true; onChunk(Buffer.from("x")); return Buffer.from("x"); },
       synthesize: async () => Buffer.from("buffered"),
     }),
   );

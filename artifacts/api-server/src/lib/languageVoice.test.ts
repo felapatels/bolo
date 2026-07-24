@@ -24,7 +24,9 @@ import assert from "node:assert/strict";
 import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import {
   getVoiceIdForLanguage,
+  getLanguageIdForCode,
   LANGUAGE_VOICE_MAP,
+  LANGUAGE_ID_MAP,
   DEFAULT_MULTILINGUAL_VOICE_ID,
 } from "./languageVoice";
 
@@ -147,6 +149,119 @@ test("getVoiceIdForLanguage: Perso-Arabic script languages share the Daniel voic
   }
 });
 
+// ─── Unit: getLanguageIdForCode routing ──────────────────────────────────────
+
+test("getLanguageIdForCode: undefined returns undefined", () => {
+  assert.equal(
+    getLanguageIdForCode(undefined),
+    undefined,
+    "Undefined languageCode must return undefined",
+  );
+});
+
+test("getLanguageIdForCode: empty string returns undefined", () => {
+  assert.equal(getLanguageIdForCode(""), undefined);
+});
+
+test("getLanguageIdForCode: whitespace-only string returns undefined", () => {
+  assert.equal(
+    getLanguageIdForCode("   "),
+    undefined,
+    "Whitespace-only code must not match a real language entry",
+  );
+});
+
+test("getLanguageIdForCode: unknown code returns undefined", () => {
+  assert.equal(
+    getLanguageIdForCode("xx"),
+    undefined,
+    "Unrecognised code must return undefined",
+  );
+});
+
+test("getLanguageIdForCode: code lookup is case-insensitive", () => {
+  const lower = getLanguageIdForCode("hi");
+  assert.equal(getLanguageIdForCode("HI"), lower);
+  assert.equal(getLanguageIdForCode("Hi"), lower);
+});
+
+test("getLanguageIdForCode: leading/trailing whitespace is stripped", () => {
+  assert.equal(
+    getLanguageIdForCode("  hi  "),
+    getLanguageIdForCode("hi"),
+  );
+});
+
+test("getLanguageIdForCode: natively supported codes return themselves", () => {
+  const nativeCodes = ["hi", "gu", "ta", "bn", "ur", "mr", "pa", "te", "kn", "ml", "ne"];
+  for (const code of nativeCodes) {
+    assert.equal(
+      getLanguageIdForCode(code),
+      code,
+      `Native code "${code}" must map to itself as the language_id`,
+    );
+  }
+});
+
+test("getLanguageIdForCode: Devanagari-adjacent codes fall back to hi", () => {
+  for (const code of ["sa", "raj", "doi", "mai", "bho"]) {
+    assert.equal(
+      getLanguageIdForCode(code),
+      "hi",
+      `Code "${code}" should fall back to language_id "hi"`,
+    );
+  }
+});
+
+test("getLanguageIdForCode: East Indic codes fall back to bn", () => {
+  for (const code of ["or", "as", "mni"]) {
+    assert.equal(
+      getLanguageIdForCode(code),
+      "bn",
+      `Code "${code}" should fall back to language_id "bn"`,
+    );
+  }
+});
+
+test("getLanguageIdForCode: Perso-Arabic codes fall back to ur", () => {
+  for (const code of ["ks", "sd"]) {
+    assert.equal(
+      getLanguageIdForCode(code),
+      "ur",
+      `Code "${code}" should fall back to language_id "ur"`,
+    );
+  }
+});
+
+test("getLanguageIdForCode: Konkani falls back to mr", () => {
+  assert.equal(getLanguageIdForCode("kok"), "mr");
+});
+
+test("getLanguageIdForCode: sat (Santali) has no mapping and returns undefined", () => {
+  assert.equal(
+    getLanguageIdForCode("sat"),
+    undefined,
+    "Santali has no close ElevenLabs language; should return undefined",
+  );
+});
+
+// Verify every entry in LANGUAGE_ID_MAP resolves to a non-undefined string.
+test("getLanguageIdForCode: every mapped code returns a non-undefined language_id", () => {
+  for (const [code, expected] of Object.entries(LANGUAGE_ID_MAP)) {
+    const resolved = getLanguageIdForCode(code);
+    assert.equal(
+      resolved,
+      expected,
+      `Language code "${code}" should resolve to language_id "${expected}"`,
+    );
+    assert.notEqual(
+      resolved,
+      undefined,
+      `Language code "${code}" should return a defined language_id`,
+    );
+  }
+});
+
 // ─── Integration: ElevenLabs voice availability smoke test ───────────────────
 //
 // Each entry maps: voiceName → { voiceId, phrase, languageNote }.
@@ -240,13 +355,20 @@ if (!process.env.ELEVENLABS_API_KEY) {
     "⚠  ELEVENLABS_API_KEY not set — skipping ElevenLabs voice smoke tests.",
   );
 } else {
-  for (const { voiceName, voiceId, phrase } of VOICE_SMOKE_CASES) {
+  for (const { voiceName, voiceId, phrase, languageCodes } of VOICE_SMOKE_CASES) {
+    // Use the first mapped language code to exercise the language_id path.
+    // For the George fallback case (no language codes) this is undefined,
+    // which correctly exercises the "no language_id" code path.
+    const smokeLanguageId = languageCodes[0]
+      ? getLanguageIdForCode(languageCodes[0])
+      : undefined;
+
     test(
       `ElevenLabs voice smoke: "${voiceName}" (${voiceId}) synthesises real audio`,
       async () => {
         let buffer: Buffer;
         try {
-          buffer = await textToSpeechElevenLabs(phrase, voiceId);
+          buffer = await textToSpeechElevenLabs(phrase, voiceId, undefined, undefined, smokeLanguageId);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
 
