@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,29 +13,44 @@ const NAV_HIGHLIGHT_LABELS: Record<string, string> = {
 };
 
 /**
+ * Returns Tailwind positioning classes for the tour card based on where the
+ * step wants to anchor itself on screen.
+ *
+ * - top    → below the page header so content below is fully visible
+ * - center → vertically centred (default, good for full-page steps)
+ * - bottom → just above the bottom nav so nav-tab highlights are visible;
+ *            falls back to centered on desktop where nav lives in the sidebar
+ */
+function cardPositionClasses(pos: "top" | "center" | "bottom" | undefined) {
+  switch (pos) {
+    case "top":
+      return "top-20 sm:top-24";
+    case "bottom":
+      // On desktop (lg+) there is no bottom nav — center the card instead.
+      return "bottom-24 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2";
+    case "center":
+    default:
+      return "top-1/2 -translate-y-1/2";
+  }
+}
+
+/**
  * Full-screen overlay that renders the guided tour.
  *
  * Mount this once at the app root — it reads all state from `TourContext` and
- * renders nothing when the tour is closed. When a step has a `route`, the
- * overlay navigates to that route so the learner sees the relevant page behind
- * the card.
+ * renders nothing when the tour is closed. Navigation between pages is handled
+ * inside TourProvider; this component is purely presentational.
+ *
+ * The card re-mounts (with entry animation) whenever its `cardPosition`
+ * changes between steps, so it visually travels to the relevant screen area.
  */
 export function GuidedTourOverlay() {
   const { isOpen, currentStep, steps, nextStep, prevStep, skipTour, currentNavHighlight } =
     useTour();
-  const [, setLocation] = useLocation();
 
   // Respect the OS-level reduced-motion preference: framer-motion springs keep
   // playing under the global CSS reset, so gate them explicitly here.
   const reduceMotion = useReducedMotion();
-
-  // Navigate to each step's associated route so the learner sees the real
-  // feature behind the overlay card rather than a blank/wrong page.
-  useEffect(() => {
-    if (!isOpen) return;
-    const route = steps[currentStep]?.route;
-    if (route) setLocation(route);
-  }, [isOpen, currentStep, steps, setLocation]);
 
   const step = steps[currentStep];
   const isFirst = currentStep === 0;
@@ -48,38 +61,41 @@ export function GuidedTourOverlay() {
     ? NAV_HIGHLIGHT_LABELS[currentNavHighlight]
     : null;
 
+  // Changing the key causes the card to unmount + remount with its entry
+  // animation whenever the desired screen position changes between steps.
+  const cardKey = `tour-card-${step?.cardPosition ?? "center"}`;
+
   return (
     <AnimatePresence>
       {isOpen && step && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — light tint only, no blur, so the page behind is readable */}
           <motion.div
             key="tour-backdrop"
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-black/20"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            // Clicking the backdrop acts as skip so the user can't get trapped.
             onClick={skipTour}
             aria-hidden="true"
           />
 
-          {/* Card */}
+          {/* Card — repositions per step via cardKey remount */}
           <motion.div
-            key="tour-card"
+            key={cardKey}
             role="dialog"
             aria-modal="true"
             aria-labelledby="tour-title"
             aria-describedby="tour-body"
             className={cn(
-              "fixed inset-x-4 bottom-8 z-[201] mx-auto max-w-sm",
+              "fixed inset-x-4 z-[201] mx-auto max-w-sm",
               "rounded-3xl border border-card-border bg-card p-6 shadow-2xl",
-              "sm:bottom-1/2 sm:translate-y-1/2",
+              cardPositionClasses(step.cardPosition),
             )}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 32, scale: 0.96 }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.97 }}
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
             transition={reduceMotion ? { duration: 0.15 } : springs.bouncy}
           >
             {/* Header row */}
@@ -135,9 +151,9 @@ export function GuidedTourOverlay() {
                   {step.body}
                 </p>
 
-                {/* Nav highlight hint — shown on desktop where the bottom nav may not be obvious */}
+                {/* Nav highlight hint */}
                 {highlightLabel && (
-                  <p className="mt-3 text-xs font-semibold text-primary/80 lg:block hidden">
+                  <p className="mt-3 hidden text-xs font-semibold text-primary/80 lg:block">
                     👈 See the <span className="font-black">{highlightLabel}</span> section in the sidebar
                   </p>
                 )}

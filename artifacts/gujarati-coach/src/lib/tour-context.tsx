@@ -25,6 +25,14 @@ export interface TourStep {
   route?: string;
   /** Which bottom-nav / sidebar tab to visually highlight for this step. */
   navHighlight?: "home" | "chat" | "games" | "progress";
+  /**
+   * Where on screen to anchor the tour card for this step.
+   *
+   * - "top"    — below the header, useful when content lives in the lower half
+   * - "center" — vertically centred (default)
+   * - "bottom" — just above the bottom nav, useful when pointing at a nav tab
+   */
+  cardPosition?: "top" | "center" | "bottom";
 }
 
 // ---------------------------------------------------------------------------
@@ -38,36 +46,42 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Bolo! helps you reconnect with your heritage language through short, enjoyable daily sessions. Here's a quick look around!",
     route: "/app",
     navHighlight: "home",
+    cardPosition: "center",
   },
   {
     title: "Pick a topic 🗂️",
     body: "The cards on your home screen are bite-sized lessons — greetings, family, food and more. Tap one to learn real phrases, then practice saying them out loud.",
     route: "/app",
     navHighlight: "home",
+    cardPosition: "top",
   },
   {
     title: "Chat with Bolo 🦜",
     body: "Tap \"Chat with Bolo\" to have a real conversation with your parrot coach. Speak (or listen) at your own pace — Bolo keeps it friendly and simple.",
     route: "/chat",
     navHighlight: "chat",
+    cardPosition: "center",
   },
   {
     title: "Play your way to fluency 🎮",
     body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
     route: "/games",
     navHighlight: "games",
+    cardPosition: "bottom",
   },
   {
     title: "Watch yourself grow 📈",
     body: "Your streak, XP and badges live on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases right when you need them.",
     route: "/progress",
     navHighlight: "progress",
+    cardPosition: "bottom",
   },
   {
     title: "You're all set! 🎉",
     body: "That's the grand tour! Start with any topic that catches your eye — a few minutes a day is all it takes. Happy learning!",
     route: "/app",
     navHighlight: "home",
+    cardPosition: "center",
   },
 ];
 
