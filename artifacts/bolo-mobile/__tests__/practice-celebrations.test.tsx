@@ -303,10 +303,10 @@ describe('hot-streak milestone toast', () => {
     render(<PracticeScreen />);
 
     // Cycle 1 — score 75 (1 in a row, no toast yet)
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
 
     // Cycle 2 — score 80 (2 in a row, no toast yet)
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
 
     // Cycle 3 — score 70 (3 in a row — toast fires)
     // Don't advance past the result so we can read the toast while the result
@@ -324,7 +324,7 @@ describe('hot-streak milestone toast', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
+      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
     );
 
     // MilestoneToast always mounts its Text node — after toastMessage is set
@@ -342,8 +342,8 @@ describe('hot-streak milestone toast', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Good 👍' });
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
 
     // Third attempt — low score.
     await waitFor(() =>
@@ -381,8 +381,8 @@ describe('perfect-session detection', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Good 👍' });
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
     // Last phrase — press "Finish".
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
@@ -397,7 +397,7 @@ describe('perfect-session detection', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
+      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -418,8 +418,8 @@ describe('perfect-session detection', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Good 👍' });
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -433,7 +433,7 @@ describe('perfect-session detection', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
+      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -458,8 +458,8 @@ describe('XP chip', () => {
 
     render(<PracticeScreen />);
 
-    await doRecordCycle({ resultLabel: 'Good 👍' });
-    await doRecordCycle({ resultLabel: 'Good 👍' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
+    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -473,7 +473,7 @@ describe('XP chip', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
+      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
@@ -493,7 +493,7 @@ describe('XP chip', () => {
 
     // Drive through phrases 1–5 with "Next phrase".
     for (let i = 0; i < 5; i++) {
-      await doRecordCycle({ resultLabel: 'Good 👍' });
+      await doRecordCycle({ resultLabel: 'Excellent 🌟' });
     }
     // Last phrase — "Finish".
     await waitFor(() =>
@@ -509,7 +509,7 @@ describe('XP chip', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Good 👍')).toBeOnTheScreen(),
+      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 

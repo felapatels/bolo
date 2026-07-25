@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
+import { webHaptic } from "@/lib/haptics";
 import { useListCategories, useListCategoryPhrases, useRecordGameSession, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -273,6 +274,7 @@ function PlayingScreen({
       setSelected(opt.phraseId);
       const correct = opt.isCorrect;
       setFeedback(correct ? "correct" : "wrong");
+      webHaptic(correct ? 'success' : 'warning');
 
       const phrase = queue[currentIndex % queue.length];
       // Send the tapped option's phraseId; server determines correct = (selectedPhraseId === phraseId)

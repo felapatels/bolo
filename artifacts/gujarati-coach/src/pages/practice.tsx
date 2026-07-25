@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { Confetti } from "@/components/ui/confetti";
@@ -29,9 +29,10 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
-import { loadSpokenFeedback } from "@/lib/spoken-feedback";
+import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
+import { webHaptic } from "@/lib/haptics";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
@@ -299,6 +300,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     saveSilentMode(enabled);
   };
 
+  // Spoken feedback preference — whether the coach reads the result text aloud
+  // after scoring. Mirrored in React state so the header quick-toggle applies
+  // instantly without a full remount, matching the mobile quick-mute pattern.
+  const [spokenFeedback, setSpokenFeedback] = useState<boolean>(loadSpokenFeedback);
+  const changeSpokenFeedback = (enabled: boolean) => {
+    setSpokenFeedback(enabled);
+    saveSpokenFeedback(enabled);
+  };
+
   // Warm up the microphone as soon as the practice session mounts, so the
   // first hold starts capturing immediately and the first syllable isn't
   // clipped. If permission is denied here, startRecording surfaces the
@@ -404,7 +414,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       : "";
     // Read the setting fresh each time a result lands, so a toggle flipped on
     // the Account page applies to the very next score without a reload.
-    if (state === "result" && spokenText && loadSpokenFeedback()) {
+    if (state === "result" && spokenText && spokenFeedback) {
       let cancelled = false;
       const speak = async () => {
         try {
@@ -502,6 +512,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // The learner has their score — show it now. Saving the attempt below
       // must never take the result away from them.
       setState("result");
+      // Web haptics — mirror the mobile practice pattern exactly.
+      webHaptic('medium');
+      if (evalRes.score >= 90) {
+        webHaptic('heavy');
+        setTimeout(() => webHaptic('heavy'), 140);
+      }
 
       if (evalRes.score >= SCORE_GREAT) {
         setShowConfetti(true);
@@ -547,6 +563,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     } catch (error) {
       console.error("Evaluation failed", error);
       setEvalError(describeEvaluationError(error));
+      webHaptic('error');
       setState("error");
     } finally {
       finishingRef.current = false;
@@ -626,6 +643,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentMode ? "idle" : "playing_coach");
     } else {
+      // Fire a session-end haptic: success if the session passed, warning if not.
+      // Mirrors the mobile done-screen haptic in the phase==='done' effect.
+      const _entries = (phrases ?? []).map(p => sessionResults[p.id]).filter(Boolean);
+      const _avg = _entries.length > 0
+        ? Math.round(_entries.reduce((a, b) => a + b.score, 0) / _entries.length)
+        : 0;
+      webHaptic(_avg >= SCORE_PASS ? 'success' : 'warning');
       setState("summary");
     }
   };
@@ -871,6 +895,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             <Volume2 className="w-4 h-4" />
           )}
         </button>
+        {/* Spoken Feedback toggle — quick-access in the practice header,
+            mirrors the mobile result-card mute button for web parity. */}
+        <button
+          onClick={() => changeSpokenFeedback(!spokenFeedback)}
+          aria-pressed={spokenFeedback}
+          title={spokenFeedback ? "Spoken feedback on — tap to silence it" : "Tap to hear score feedback aloud"}
+          className={cn(
+            "shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all",
+            spokenFeedback
+              ? "bg-secondary text-white shadow-sm"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Headphones className="w-4 h-4" />
+        </button>
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-4 pb-4 min-h-0">
@@ -1085,7 +1124,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                     result.score >= SCORE_NEAR_MISS ? "text-primary" :
                     "text-foreground"
                   )}>
-                    {result.score >= SCORE_PASS ? "Amazing!" : result.score >= SCORE_NEAR_MISS ? "Nice work!" : "Good try — keep going!"}
+                    {/* Grade labels use SCORE_PASS=70 / SCORE_NEAR_MISS=50 to match the
+                      score-ring color bands. Contract-tested in sharedConstants.contract.test.ts. */}
+                  {result.score >= SCORE_PASS ? "Amazing!" : result.score >= SCORE_NEAR_MISS ? "Nice work!" : "Good try — keep going!"}
                   </p>
                   <ScoreRing score={Math.round(result.score)} />
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>

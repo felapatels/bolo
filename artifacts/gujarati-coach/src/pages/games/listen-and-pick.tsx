@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { webHaptic } from "@/lib/haptics";
 import {
   ArrowLeft,
   Volume2,
@@ -278,6 +279,7 @@ function GameRound({
     const isCorrect = choiceIdx === q.correctIdx;
     setPickedIdx(choiceIdx);
     setAnswerState(isCorrect ? "correct" : "wrong");
+    webHaptic(isCorrect ? 'success' : 'warning');
     if (isCorrect) setScore(s => s + 1);
 
     // Record the selected phraseId so the server can verify correctness.

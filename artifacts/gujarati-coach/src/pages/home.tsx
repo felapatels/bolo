@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
-import { useGetProgressSummary, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
+import { useGetProgressSummary, useGetAccount, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
+import { MilestoneToast } from "@/components/ui/milestone-toast";
+import { webHaptic } from "@/lib/haptics";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
 import { UpgradeCard } from "@/components/plus";
@@ -36,6 +39,10 @@ export default function Home() {
   const native = useNativeText();
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
+  const { data: account } = useGetAccount();
+  const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;
+  // Toast key — bump to re-fire the milestone toast when the goal is hit.
+  const [goalToastKey, setGoalToastKey] = useState<number | null>(null);
   const { data: categories, isLoading: loadingCats } = useListCategories({ lang: activeLang });
   const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
   // Review is a Plus feature; only fetch the review queue when it's unlocked
@@ -66,6 +73,22 @@ export default function Home() {
   const dailyLimit = dailyNewLessons.limit;
   const showDailyMeter = !isPlus && dailyLimit !== null && dailyRemaining !== null;
   const capReached = showDailyMeter && dailyRemaining === 0;
+
+  // Daily goal celebration — fire once per calendar day when the learner hits
+  // their goal, mirroring the AsyncStorage guard on mobile home screen.
+  useEffect(() => {
+    if (!summary) return;
+    if (summary.attemptsToday < dailyGoal) return;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      if (localStorage.getItem('goalCelebratedDate') === today) return;
+      localStorage.setItem('goalCelebratedDate', today);
+    } catch {
+      // localStorage unavailable; still fire once this session.
+    }
+    setGoalToastKey(k => (k ?? 0) + 1);
+    webHaptic('success');
+  }, [summary, dailyGoal]);
 
   if (loadingSummary || loadingCats) {
     return (
@@ -425,6 +448,8 @@ export default function Home() {
       </main>
 
       <BottomNav />
+      {/* Daily goal celebration — mirrors the MilestoneToast on mobile home */}
+      <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />
     </div>
   );
 }

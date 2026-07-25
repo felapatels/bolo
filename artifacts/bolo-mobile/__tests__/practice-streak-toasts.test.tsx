@@ -210,19 +210,19 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 3 — streak hits 3
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
 
     await waitFor(() =>
       expect(screen.getByText('🔥 3 in a row!')).toBeOnTheScreen(),
@@ -235,13 +235,13 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 4; i++) {
-      await recordOnce('Good 👍');
+      await recordOnce('Excellent 🌟');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
     // Phrase 5 — streak hits 5
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
 
     await waitFor(() =>
       expect(screen.getByText('🔥🔥 On a roll!')).toBeOnTheScreen(),
@@ -260,14 +260,14 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 3; i++) {
-      const label = i === 1 ? 'Keep trying 🔄' : 'Good 👍';
+      const label = i === 1 ? 'Keep trying 🔄' : 'Excellent 🌟';
       await recordOnce(label);
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
     // Phrase 4: streak=2, no three-in-a-row toast.
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
 
     // Give any pending state updates a tick to settle.
     await act(async () => { await Promise.resolve(); });
@@ -288,13 +288,13 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1 (index 0) → advance to index 1
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2 (index 1) → advance to index 2 (the midpoint) — toast fires here
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -311,14 +311,14 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 2; i++) {
-      await recordOnce('Good 👍');
+      await recordOnce('Excellent 🌟');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
 
     // Phrase 3 (index 2) → advance to index 3 (the last) — toast fires here
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -340,7 +340,7 @@ describe('session summary XP chip', () => {
     mockState.evaluate = jest.fn(async () => goodResult(80));
     render(<PracticeScreen />);
 
-    await recordOnce('Good 👍');
+    await recordOnce('Excellent 🌟');
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
     });

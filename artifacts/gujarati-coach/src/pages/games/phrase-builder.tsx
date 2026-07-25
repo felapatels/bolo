@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, Redirect } from "wouter";
 import { ArrowLeft, Layers, RotateCcw, Home, Check, X, ChevronRight } from "lucide-react";
+import { webHaptic } from "@/lib/haptics";
 import { useEntitlements } from "@/lib/entitlements";
 import {
   useListCategories,
@@ -219,6 +220,7 @@ function PlayingScreen({
     const placedWords = pState.placed.map((t) => t.word);
     const submittedText = placedWords.join(" ");
     const correct = submittedText === phrase.nativeScript;
+    webHaptic(correct ? 'success' : 'warning');
     if (correct) {
       setPState((prev) => ({ ...prev, status: "correct", wrongMask: [] }));
       setCorrectCount((c) => c + 1);

@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { EarnedBadge } from "@workspace/api-client-react";
 import { Confetti } from "@/components/ui/confetti";
 import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
+import { webHaptic } from "@/lib/haptics";
 
 // Full-screen "Badge unlocked!" celebration shown the moment one or more badges
 // are newly earned. Fires confetti and names each badge. Dismissed by tapping
@@ -16,6 +18,11 @@ export function BadgeUnlock({
 }) {
   const reduceMotion = useReducedMotion();
   const active = badges.length > 0;
+
+  // Mirror the mobile BadgeUnlock haptic — fire once when the overlay appears.
+  useEffect(() => {
+    if (active) webHaptic('success');
+  }, [active]);
 
   return (
     <AnimatePresence>

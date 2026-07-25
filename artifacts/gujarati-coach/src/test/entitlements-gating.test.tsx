@@ -47,6 +47,7 @@ vi.mock("@workspace/api-client-react", () => ({
   useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useGetProgressSummary: () => ({ data: h.summary, isLoading: false }),
+  useGetAccount: () => ({ data: undefined }),
   useListCategories: () => ({ data: h.categories, isLoading: false }),
   useListRecentAttempts: () => ({ data: h.attempts, isLoading: false }),
   useListReviewPhrases: () => ({ data: h.reviewPhrases, isLoading: false }),

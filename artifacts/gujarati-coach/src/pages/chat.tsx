@@ -26,6 +26,7 @@ import {
 } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
 import { ChatTipCard } from "@/components/chat-tip-card";
+import { webHaptic } from "@/lib/haptics";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -218,6 +219,8 @@ export default function ChatPage() {
 
     if (!useGreeting) {
       // Normal path: show a spinner and pending learner bubble right away.
+      // Web haptic mirrors the mobile hapticMedium() fired on recording stop.
+      webHaptic('medium');
       setPhase("processing");
       setProcessingStep("transcribing");
       setMessages((prev) => [
@@ -324,6 +327,8 @@ export default function ChatPage() {
     const startStreamPlayback = (s: StreamPlayer) => {
       if (s.started || s.failed) return;
       s.started = true;
+      // Web haptic mirrors hapticHeavy() fired when Bolo's voice stream begins.
+      webHaptic('heavy');
       setPhase("playing");
       const play = () => {
         if (s.failed || activeTurnRef.current !== myTurn) return;
@@ -953,6 +958,8 @@ export default function ChatPage() {
 
     // Show the learner bubble immediately — no "Sending…" pending state needed
     // for text (the transcript is already known).
+    // Web haptic mirrors hapticMedium() fired on voice/text message send.
+    webHaptic('medium');
     setPhase("processing");
     setProcessingStep("replying");
     setMessages((prev) => [

@@ -167,7 +167,7 @@ async function recordAndScore() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen());
 }
 
 describe('Hear yourself button', () => {

@@ -72,7 +72,7 @@ import {
   SILENCE_DROP_DB,
   type PlaybackHandle,
 } from '@/lib/audio';
-import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/settings';
+import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode } from '@/lib/settings';
 import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
@@ -629,6 +629,26 @@ export default function PracticeScreen() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Silent-mode preference — mirrored in state so the practice-header quick
+  // toggle (web parity) applies instantly without reloading the phrase.
+  const [silentModeUI, setSilentModeUI] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSilentMode().then((v) => {
+      if (!cancelled) setSilentModeUI(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const toggleSilentModeUI = React.useCallback(() => {
+    setSilentModeUI((prev) => {
+      const next = !prev;
+      void saveSilentMode(next);
+      return next;
+    });
   }, []);
 
   const stopPlayback = React.useCallback(() => {
@@ -1353,6 +1373,8 @@ export default function PracticeScreen() {
       <PracticeHeader
         onClose={() => router.back()}
         label={`${index + 1} of ${list.length}`}
+        silentMode={silentModeUI}
+        onToggleSilentMode={toggleSilentModeUI}
       />
       <View style={styles.progressOuter}>
         <ScoreTrail
@@ -1474,9 +1496,11 @@ export default function PracticeScreen() {
             <Text
               style={[styles.gradeLabel, { color: scoreColor(result.score, colors) }]}
             >
-              {result.score >= 90
+              {/* Grade thresholds 70/50 match web SCORE_PASS/SCORE_NEAR_MISS
+                and the score-ring color bands — per sharedConstants contract test. */}
+            {result.score >= 70
                 ? 'Excellent 🌟'
-                : result.score >= 70
+                : result.score >= 50
                   ? 'Good 👍'
                   : 'Keep trying 🔄'}
             </Text>
@@ -1663,9 +1687,15 @@ export default function PracticeScreen() {
 function PracticeHeader({
   onClose,
   label,
+  silentMode,
+  onToggleSilentMode,
 }: {
   onClose: () => void;
   label: string;
+  /** When provided, shows a Silent Mode quick-toggle button on the right.
+   *  Mirrors the web practice header toggle for cross-platform parity. */
+  silentMode?: boolean;
+  onToggleSilentMode?: () => void;
 }) {
   const colors = useColors();
   return (
@@ -1680,7 +1710,33 @@ function PracticeHeader({
       <Text style={[styles.headerLabel, { color: colors.foreground }]}>
         {label}
       </Text>
-      <View style={{ width: 44 }} />
+      {onToggleSilentMode !== undefined ? (
+        <Pressable
+          onPress={onToggleSilentMode}
+          accessibilityRole="togglebutton"
+          accessibilityLabel={
+            silentMode
+              ? 'Silent mode on — tap to hear coach first'
+              : 'Tap to skip coach voice'
+          }
+          hitSlop={8}
+          testID="silent-mode-header-toggle"
+          style={[
+            styles.closeBtn,
+            {
+              backgroundColor: silentMode ? colors.primary : colors.card,
+            },
+          ]}
+        >
+          <Feather
+            name={silentMode ? 'volume-x' : 'volume-2'}
+            size={20}
+            color={silentMode ? '#fff' : colors.mutedForeground}
+          />
+        </Pressable>
+      ) : (
+        <View style={{ width: 44 }} />
+      )}
     </View>
   );
 }
