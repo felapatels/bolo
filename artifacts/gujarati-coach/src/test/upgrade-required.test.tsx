@@ -258,10 +258,11 @@ describe("Add-phrases 402", () => {
 
     const link = screen.getByText(/go unlimited with Plus/i);
     // The daily cap is cheapest to lift with One Language, so the paywall opens
-    // preselected on that tier.
+    // preselected on that tier. The reason is forwarded so the paywall can show
+    // a contextual trial banner.
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "/upgrade?plan=one_language",
+      "/upgrade?plan=one_language&reason=daily_lesson_limit",
     );
   });
 });

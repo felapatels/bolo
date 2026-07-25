@@ -133,11 +133,15 @@ export function asUpgradeRequired(err: unknown): UpgradeRequired | null {
 export function upgradeHref(opts?: {
   plan?: "one_language" | "plus";
   lang?: string | null;
+  reason?: string | null;
 }): string {
   const params = new URLSearchParams();
   if (opts?.plan) params.set("plan", opts.plan);
   // A specific language only makes sense to pre-pick on the One Language tier.
   if (opts?.plan === "one_language" && opts.lang) params.set("lang", opts.lang);
+  // Forward the denial reason so the paywall can surface contextual messaging
+  // (e.g. a trial banner when the learner hit the daily lesson cap).
+  if (opts?.reason) params.set("reason", opts.reason);
   const qs = params.toString();
   return qs ? `/upgrade?${qs}` : "/upgrade";
 }
@@ -153,5 +157,6 @@ export function upgradeHrefForDenial(
   return upgradeHref({
     plan,
     lang: upgrade.reason === "language_locked" ? lang : null,
+    reason: upgrade.reason ?? null,
   });
 }

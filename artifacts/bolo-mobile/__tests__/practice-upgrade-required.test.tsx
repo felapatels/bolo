@@ -192,6 +192,7 @@ describe('402 upgrade_required on the practice screen', () => {
     fireEvent.press(screen.getByText('Start 7-day free trial'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
+      params: { reason: 'daily_lesson_limit' },
     });
   });
 
@@ -214,7 +215,7 @@ describe('402 upgrade_required on the practice screen', () => {
     fireEvent.press(screen.getByText('Unlock with Plus'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
-      params: { lang: 'gu' },
+      params: { lang: 'gu', reason: 'language_locked' },
     });
   });
 

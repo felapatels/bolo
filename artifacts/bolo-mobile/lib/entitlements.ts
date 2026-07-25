@@ -22,16 +22,25 @@ export function asUpgradeRequired(err: unknown): UpgradeRequired | null {
 // upgradeHrefForDenial. A locked language whose cheapest unlock is the
 // One-Language tier pre-picks that language on the paywall (?lang=<code>);
 // everything else opens the paywall on its default (All-Access) emphasis.
+// The denial reason is always forwarded so the paywall can surface contextual
+// messaging (e.g. a trial banner when the learner hit the daily lesson cap).
 export function paywallHrefForDenial(
   upgrade: UpgradeRequired,
   lang?: string | null,
-): { pathname: '/(app)/paywall'; params?: { lang: string } } {
+): {
+  pathname: '/(app)/paywall';
+  params?: { lang?: string; reason?: string };
+} {
+  const params: { lang?: string; reason?: string } = {};
   if (
     upgrade.reason === 'language_locked' &&
     upgrade.requiredPlan === 'one_language' &&
     lang
   ) {
-    return { pathname: '/(app)/paywall', params: { lang } };
+    params.lang = lang;
   }
-  return { pathname: '/(app)/paywall' };
+  if (upgrade.reason) params.reason = upgrade.reason;
+  return Object.keys(params).length > 0
+    ? { pathname: '/(app)/paywall', params }
+    : { pathname: '/(app)/paywall' };
 }

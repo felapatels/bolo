@@ -157,17 +157,21 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   // The locked surface that routed here can preselect a plan (and, for a locked
   // language, pre-pick it) via ?plan=one_language&lang=xx or ?plan=plus. We read
   // it once for the initial state; the learner can still change everything.
+  // ?reason=daily_lesson_limit is forwarded by upgradeHrefForDenial so we can
+  // surface a contextual trial banner when the learner arrived from the cap.
   const intent = useMemo(() => {
     const params = new URLSearchParams(search);
     const plan = params.get("plan");
     const lang = params.get("lang");
+    const reason = params.get("reason");
     return {
       tier:
         plan === "one_language" || plan === "plus" || plan === "family"
           ? plan
           : null,
       lang,
-    } as { tier: SelectableTier | null; lang: string | null };
+      reason,
+    } as { tier: SelectableTier | null; lang: string | null; reason: string | null };
   }, [search]);
 
   const [interval, setInterval] = useState<PlusInterval>("monthly");
@@ -303,6 +307,16 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             </div>
           )}
         </motion.div>
+
+        {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
+        {intent.reason === "daily_lesson_limit" && (
+          <div className="mx-auto mt-6 max-w-lg rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success flex items-center gap-2">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span>
+              You qualify for a <strong>7-day free trial</strong> — the All-Access plan is pre-selected below.
+            </span>
+          </div>
+        )}
 
         {/* Billing interval toggle */}
         <div className="mx-auto mt-8 grid max-w-lg grid-cols-2 gap-3">

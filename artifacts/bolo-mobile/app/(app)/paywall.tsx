@@ -121,11 +121,14 @@ export default function PaywallScreen() {
 
   // A locked language tapped elsewhere lands here as ?lang=<code>, so we can
   // open on the One-Language tier with that language pre-selected.
-  const params = useLocalSearchParams<{ lang?: string }>();
+  // ?reason=daily_lesson_limit is forwarded by paywallHrefForDenial so we can
+  // surface a contextual trial banner when the learner arrived from the cap.
+  const params = useLocalSearchParams<{ lang?: string; reason?: string }>();
   const requestedLang =
     typeof params.lang === 'string' && params.lang !== FREE_LANGUAGE
       ? params.lang
       : null;
+  const isDailyLimitDenial = params.reason === 'daily_lesson_limit';
 
   const hasOneLanguage = !!(oneLanguageMonthly || oneLanguageAnnual);
   const hasAllAccess = !!(allAccessMonthly || allAccessAnnual);
@@ -325,6 +328,26 @@ export default function PaywallScreen() {
             ? 'Unlock the full Bolo! experience.'
             : 'Unlimited lessons in Hindi plus the language you choose.'}
         </Text>
+
+        {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
+        {isDailyLimitDenial && tier === 'all_access' && (
+          <View
+            style={[
+              styles.trialBanner,
+              {
+                backgroundColor: `${colors.success}1A`,
+                borderColor: `${colors.success}40`,
+              },
+            ]}
+          >
+            <Feather name="zap" size={16} color={colors.success} />
+            <Text style={[styles.trialBannerText, { color: colors.success }]}>
+              You qualify for a{' '}
+              <Text style={{ fontFamily: AppFonts.bold }}>7-day free trial</Text>
+              {' '}— All-Access is pre-selected.
+            </Text>
+          </View>
+        )}
 
         {/* Plan is decided server-side; render the matching state. */}
         {isPlus ? (
@@ -943,6 +966,22 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.5,
     color: '#ffffff',
+  },
+  trialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 16,
+  },
+  trialBannerText: {
+    flex: 1,
+    fontFamily: AppFonts.semibold,
+    fontSize: 13,
+    lineHeight: 18,
   },
   trialNote: {
     fontFamily: AppFonts.semibold,
