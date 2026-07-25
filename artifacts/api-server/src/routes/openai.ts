@@ -51,6 +51,86 @@ import {
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
+// In-process sibling-phrases LRU cache
+// ---------------------------------------------------------------------------
+// Keyed by languageCode; stores the full set of phrase rows for that language
+// so the fast-path wrong-phrase guard can run without a DB round-trip on
+// subsequent cache hits. TTL is 5 minutes — long enough to cover an entire
+// practice session and short enough that newly-seeded phrases become visible
+// within a reasonable window.
+//
+// Correctness guarantee: the guard is NEVER skipped. On a cache miss the DB
+// query runs synchronously (same as pre-cache behavior), populating the cache
+// for the next request. Only cache hits avoid the DB round-trip.
+//
+// LRU eviction: each get() moves the entry to the tail (most recently used);
+// each set() evicts the head (least recently used) when the map is at capacity.
+// JavaScript Maps maintain insertion order, making the head always the LRU.
+// ---------------------------------------------------------------------------
+
+interface CachedSiblingPhrases {
+  phrases: Array<{ id: number; nativeScript: string; romanized: string }>;
+  expiresAt: number; // Date.now() ms
+}
+
+const siblingPhrasesCache = new Map<string, CachedSiblingPhrases>();
+const SIBLING_PHRASES_TTL_MS = 5 * 60_000; // 5 minutes
+// Cap: in practice there are < 20 active languages; 50 is generous and keeps
+// worst-case memory negligible (each entry is ≤ 400 rows of ~60 bytes).
+const SIBLING_PHRASES_MAX_SIZE = 50;
+
+/**
+ * LRU get: returns the entry (or undefined if absent/expired) and promotes the
+ * hit to the tail of the Map so it is treated as most-recently-used.
+ */
+function getSiblingPhrasesFromCache(languageCode: string): CachedSiblingPhrases | undefined {
+  const entry = siblingPhrasesCache.get(languageCode);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    siblingPhrasesCache.delete(languageCode);
+    return undefined;
+  }
+  // Promote to tail (most recently used) by re-inserting.
+  siblingPhrasesCache.delete(languageCode);
+  siblingPhrasesCache.set(languageCode, entry);
+  return entry;
+}
+
+/**
+ * LRU set: inserts (or refreshes) an entry, evicting the LRU head when the
+ * cache is at capacity.
+ */
+function setSiblingPhrasesInCache(languageCode: string, entry: CachedSiblingPhrases): void {
+  // Remove stale entry first so re-insertion moves it to the tail.
+  siblingPhrasesCache.delete(languageCode);
+  if (siblingPhrasesCache.size >= SIBLING_PHRASES_MAX_SIZE) {
+    // Head of a JS Map is the least-recently-used entry.
+    const lruKey = siblingPhrasesCache.keys().next().value;
+    if (lruKey !== undefined) siblingPhrasesCache.delete(lruKey);
+  }
+  siblingPhrasesCache.set(languageCode, entry);
+}
+
+// Periodic sweep removes TTL-expired entries so they don't occupy a slot until
+// they happen to be evicted by LRU pressure.  unref() keeps the interval from
+// blocking process exit in tests and graceful shutdown.
+const _siblingPhrasesEvictionInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of siblingPhrasesCache) {
+    if (entry.expiresAt <= now) siblingPhrasesCache.delete(key);
+  }
+}, 10 * 60_000 /* 10 minutes */).unref();
+
+/**
+ * Test-only exports: direct access to the sibling-phrases LRU cache and its
+ * helper functions. Do not use in production code.
+ * @internal
+ */
+export { siblingPhrasesCache as _siblingPhrasesCacheForTest };
+export { getSiblingPhrasesFromCache as _getSiblingPhrasesForTest };
+export { setSiblingPhrasesInCache as _setSiblingPhrasesForTest };
+
+// ---------------------------------------------------------------------------
 // In-process voice-preference cache
 // ---------------------------------------------------------------------------
 // Keyed by userId; stores the resolved plan and ttsVoice preference so the
@@ -512,20 +592,52 @@ router.post(
       // coincidental phrase can match the target at ≥ 0.93 AND a sibling at ≥ 0.80.
       // We fetch siblings (same bounded query as the LLM path) and if any match
       // the transcript, fall through to the LLM rather than returning a fast pass.
+      // Wrong-phrase guard via in-process LRU cache.
+      //
+      // Cache hit  (p99 < 1 ms) — check siblings entirely in memory; no DB call.
+      // Cache miss — run the DB query synchronously, same as pre-cache behavior,
+      //              then populate the cache so subsequent attempts in the same
+      //              session (and TTL window) pay no DB cost.
+      //
+      // The guard is NEVER skipped: a cache miss falls back to the old synchronous
+      // path rather than bypassing the check. The latency win is on cache hits,
+      // which cover every attempt after the first per language per TTL window.
+      //
+      // Expected p99 latency:
+      //   • Cache hit  : < 1 ms (LRU lookup + linear scan of ≤ 400 rows)
+      //   • Cache miss : same as before task #690 (one DB round-trip, ~10–50 ms)
+      //   • LLM path   : unchanged (parallel sibling fetch still runs there)
       let fastPathWrongPhrase = false;
       if (resolvedPhraseId != null && languageCode) {
-        const fastPathSiblings = await db.query.phrasesTable
-          .findMany({
-            where: eq(phrasesTable.languageCode, languageCode),
-            columns: { id: true, nativeScript: true, romanized: true },
-            limit: 400,
-          })
-          .then((rows) => rows.filter((p) => p.id !== resolvedPhraseId))
-          .catch((err) => {
+        const cachedEntry = getSiblingPhrasesFromCache(languageCode);
+        let siblings: Array<{ id: number; nativeScript: string; romanized: string }>;
+        if (cachedEntry) {
+          // Cache hit — use the in-memory list; LRU promotion was done by getter.
+          siblings = cachedEntry.phrases;
+        } else {
+          // Cache miss — fetch synchronously (same as pre-cache behavior).
+          // Only populate the cache on a successful fetch; a DB error must NOT
+          // be cached, or the next request would see a stale empty-list hit for
+          // the full TTL window and the guard would be silently disabled.
+          try {
+            siblings = await db.query.phrasesTable.findMany({
+              where: eq(phrasesTable.languageCode, languageCode),
+              columns: { id: true, nativeScript: true, romanized: true },
+              limit: 400,
+            });
+            setSiblingPhrasesInCache(languageCode, {
+              phrases: siblings,
+              expiresAt: Date.now() + SIBLING_PHRASES_TTL_MS,
+            });
+          } catch (err) {
             req.log.warn({ err }, "Could not load sibling phrases for fast-path guard");
-            return [];
-          });
-        for (const other of fastPathSiblings) {
+            // Do NOT cache: the next request must retry the DB query rather than
+            // hitting a poisoned empty-list cache entry for the full TTL window.
+            siblings = [];
+          }
+        }
+        for (const other of siblings) {
+          if (other.id === resolvedPhraseId) continue;
           const otherSim = compareToTarget(transcript, other.nativeScript, other.romanized);
           if (otherSim.comparable && otherSim.sim >= 0.8) {
             fastPathWrongPhrase = true;
