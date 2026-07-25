@@ -107,3 +107,35 @@ describe("Paywall plan preselection", () => {
     expect(screen.getByText(/Pick a language first/i)).toBeInTheDocument();
   });
 });
+
+describe("Trial banner (daily cap arrival)", () => {
+  test("shows the trial banner when reason=daily_lesson_limit", () => {
+    renderAt("/upgrade?plan=plus&reason=daily_lesson_limit");
+
+    // The banner contains text that is unique to it (not the plan card or CTA).
+    expect(
+      screen.getByText(/You qualify for a/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/All-Access plan is pre-selected below/i),
+    ).toBeInTheDocument();
+  });
+
+  test("hides the trial banner when reason=language_locked", () => {
+    renderAt("/upgrade?plan=plus&reason=language_locked");
+
+    expect(screen.queryByText(/You qualify for a/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/All-Access plan is pre-selected below/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test("hides the trial banner when no reason param is present", () => {
+    renderAt("/upgrade?plan=plus");
+
+    expect(screen.queryByText(/You qualify for a/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/All-Access plan is pre-selected below/i),
+    ).not.toBeInTheDocument();
+  });
+});
