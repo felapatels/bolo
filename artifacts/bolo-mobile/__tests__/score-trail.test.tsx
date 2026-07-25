@@ -460,6 +460,88 @@ describe('ScoreTrail dot colors', () => {
     expect(screen.queryByLabelText('Score: 40')).toBeNull();
   });
 
+  // ── Boundary / fence-post tests ──────────────────────────────────────────
+
+  test('score exactly 70 shows a green dot (not amber)', async () => {
+    mockState.phrases = successQuery([phraseA, phraseB, phraseC]);
+    mockState.evaluate = jest.fn(async () => ({
+      score: 70,
+      passed: true,
+      transcript: 'namaste',
+      feedback: 'Good!',
+      tip: '',
+      evaluationToken: 'tok',
+    }));
+
+    render(<PracticeScreen />);
+    await waitForRecordReady();
+    await doAttempt();
+
+    // Exactly 70 satisfies score >= 70 → green, not amber
+    expect(getDotColor(0)).toBe(COLORS.success);
+    expect(screen.getByLabelText('Score: 70')).toBeOnTheScreen();
+  });
+
+  test('score exactly 69 shows an amber dot (not green)', async () => {
+    mockState.phrases = successQuery([phraseA, phraseB, phraseC]);
+    mockState.evaluate = jest.fn(async () => ({
+      score: 69,
+      passed: false,
+      transcript: 'namasthe',
+      feedback: 'Getting there.',
+      tip: '',
+      evaluationToken: 'tok',
+    }));
+
+    render(<PracticeScreen />);
+    await waitForRecordReady();
+    await doAttempt();
+
+    // 69 < 70, so falls into the amber band (>= 50)
+    expect(getDotColor(0)).toBe(COLORS.gold);
+    expect(screen.getByLabelText('Score: 69')).toBeOnTheScreen();
+  });
+
+  test('score exactly 50 shows an amber dot (not red)', async () => {
+    mockState.phrases = successQuery([phraseA, phraseB, phraseC]);
+    mockState.evaluate = jest.fn(async () => ({
+      score: 50,
+      passed: false,
+      transcript: 'namasthe',
+      feedback: 'Keep at it.',
+      tip: '',
+      evaluationToken: 'tok',
+    }));
+
+    render(<PracticeScreen />);
+    await waitForRecordReady();
+    await doAttempt();
+
+    // Exactly 50 satisfies score >= 50 → amber, not red
+    expect(getDotColor(0)).toBe(COLORS.gold);
+    expect(screen.getByLabelText('Score: 50')).toBeOnTheScreen();
+  });
+
+  test('score exactly 49 shows a red dot (not amber)', async () => {
+    mockState.phrases = successQuery([phraseA, phraseB, phraseC]);
+    mockState.evaluate = jest.fn(async () => ({
+      score: 49,
+      passed: false,
+      transcript: '',
+      feedback: 'Keep trying.',
+      tip: 'Listen carefully first.',
+      evaluationToken: 'tok',
+    }));
+
+    render(<PracticeScreen />);
+    await waitForRecordReady();
+    await doAttempt();
+
+    // 49 < 50 → red, not amber
+    expect(getDotColor(0)).toBe(COLORS.destructive);
+    expect(screen.getByLabelText('Score: 49')).toBeOnTheScreen();
+  });
+
   test('tapping a scored dot shows the tooltip with phrase number and score', async () => {
     mockState.phrases = successQuery([phraseA, phraseB]);
     mockState.evaluate = jest.fn(async () => ({
