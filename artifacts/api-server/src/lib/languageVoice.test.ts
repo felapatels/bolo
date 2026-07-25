@@ -80,7 +80,10 @@ test("getVoiceIdForLanguage: leading/trailing whitespace is stripped", () => {
 });
 
 // Verify every entry in the map resolves to its own voice (not the default).
-test("getVoiceIdForLanguage: every mapped code returns a non-default voice ID", () => {
+test("getVoiceIdForLanguage: every mapped code resolves to the expected voice ID", () => {
+  // Since Task #643, all languages use Laura as the universal Auto default.
+  // Every LANGUAGE_VOICE_MAP entry should resolve to exactly what the map says
+  // (Laura's ID), confirming no entry accidentally diverges from the map value.
   for (const [code, expected] of Object.entries(LANGUAGE_VOICE_MAP)) {
     const resolved = getVoiceIdForLanguage(code);
     assert.equal(
@@ -88,66 +91,58 @@ test("getVoiceIdForLanguage: every mapped code returns a non-default voice ID", 
       expected,
       `Language code "${code}" should resolve to voice "${expected}"`,
     );
-    assert.notEqual(
-      resolved,
-      DEFAULT_MULTILINGUAL_VOICE_ID,
-      `Language code "${code}" should NOT fall back to the default voice — add it to LANGUAGE_VOICE_MAP`,
-    );
   }
 });
 
-// Spot-check specific family groupings.
-test("getVoiceIdForLanguage: North Indian languages share the Brian voice", () => {
-  const brian = "nPczCjzI2devNBz1zQrb";
+// Spot-check specific family groupings — all use Laura since Task #643.
+const LAURA = "FGY2WhTYpPnrIDTdsKH5";
+
+test("getVoiceIdForLanguage: North Indian languages all use the Laura voice", () => {
   for (const code of ["hi", "pa", "mr", "ne", "sa"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      brian,
-      `${code} should map to Brian`,
+      LAURA,
+      `${code} should map to Laura`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: Dravidian languages share the Eric voice", () => {
-  const eric = "cjVigY5qzO86Huf0OWal";
+test("getVoiceIdForLanguage: Dravidian languages all use the Laura voice", () => {
   for (const code of ["ta", "te", "kn", "ml"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      eric,
-      `${code} should map to Eric`,
+      LAURA,
+      `${code} should map to Laura`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: East Indian languages share the Charlie voice", () => {
-  const charlie = "IKne3meq5aSn9XLyUdCD";
+test("getVoiceIdForLanguage: East Indian languages all use the Laura voice", () => {
   for (const code of ["bn", "or", "as"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      charlie,
-      `${code} should map to Charlie`,
+      LAURA,
+      `${code} should map to Laura`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: West Indian languages share the Bill voice", () => {
-  const bill = "pqHfZKP75CvOlQylNhV4";
+test("getVoiceIdForLanguage: West Indian languages all use the Laura voice", () => {
   for (const code of ["gu", "raj"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      bill,
-      `${code} should map to Bill`,
+      LAURA,
+      `${code} should map to Laura`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: Perso-Arabic script languages share the Daniel voice", () => {
-  const daniel = "onwK4e9ZLuTAKqWW03F9";
+test("getVoiceIdForLanguage: Perso-Arabic script languages all use the Laura voice", () => {
   for (const code of ["ur", "ks", "sd"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      daniel,
-      `${code} should map to Daniel`,
+      LAURA,
+      `${code} should map to Laura`,
     );
   }
 });

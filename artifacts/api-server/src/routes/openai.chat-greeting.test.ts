@@ -380,33 +380,38 @@ test("getVoiceIdForLanguage returns a non-empty string for Hindi (hi)", () => {
   );
 });
 
-test("greeting voice IDs differ between Gujarati (gu) and Hindi (hi)", () => {
+test("greeting voice IDs for Gujarati (gu) and Hindi (hi) are both Laura (universal Auto default)", () => {
+  // Since Task #643 all languages use Laura — both codes must resolve to the
+  // same Laura voice ID, confirming the map entries are correct.
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
-  assert.notEqual(
+  assert.equal(
     guVoiceId,
     hiVoiceId,
-    "Gujarati and Hindi must be assigned different ElevenLabs voice IDs — " +
-      "same voice would indicate voice selection is being silently bypassed",
+    "Gujarati and Hindi both use Laura as the universal Auto default",
+  );
+  assert.equal(
+    guVoiceId,
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Gujarati must resolve to Laura (the universal default), not a legacy regional voice",
   );
 });
 
-test("greeting voice ID for a known language differs from the default multilingual fallback", () => {
-  // Gujarati and Hindi both have explicit map entries — their voice IDs must
-  // not silently fall through to the generic George fallback that unmapped
-  // language codes receive.
+test("greeting voice ID for a known language resolves to Laura", () => {
+  // Gujarati and Hindi are explicitly mapped to Laura in LANGUAGE_VOICE_MAP.
+  // Confirm neither silently returns undefined or an empty string.
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
-  assert.notEqual(
-    guVoiceId,
-    DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Gujarati voice must not silently fall back to the default multilingual voice",
+  assert.ok(
+    typeof guVoiceId === "string" && guVoiceId.length > 0,
+    "Gujarati must resolve to a non-empty ElevenLabs voice ID",
   );
-  assert.notEqual(
-    hiVoiceId,
-    DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Hindi voice must not silently fall back to the default multilingual voice",
+  assert.ok(
+    typeof hiVoiceId === "string" && hiVoiceId.length > 0,
+    "Hindi must resolve to a non-empty ElevenLabs voice ID",
   );
+  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Gujarati must resolve to Laura");
+  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Hindi must resolve to Laura");
 });
 
 test("getVoiceIdForLanguage is idempotent: same language code always returns the same voice ID", () => {

@@ -121,15 +121,17 @@ test("different voices produce different keys (no cross-voice cache collision)",
   assert.notEqual(nova, shimmer);
 });
 
-test("different language codes that map to different ElevenLabs voices produce different cache keys", () => {
-  // Hindi (hi) → Brian, Tamil (ta) → Eric — these are distinct voice IDs in
-  // LANGUAGE_VOICE_MAP, so the same phrase text must never collide across them.
+test("different language names produce different cache keys even when the voice ID is the same", () => {
+  // Since Task #643 all languages use Laura as the universal Auto voice, so
+  // hi and ta resolve to the same voice ID. Cache-key uniqueness across
+  // languages now comes from the language display name ("Hindi" vs "Tamil")
+  // being baked into the key — the voice ID alone is no longer sufficient.
   const hiVoice = getVoiceIdForLanguage("hi");
   const taVoice = getVoiceIdForLanguage("ta");
-  assert.notEqual(
+  assert.equal(
     hiVoice,
     taVoice,
-    "Test pre-condition: hi and ta must map to different voice IDs",
+    "Test pre-condition: hi and ta now both map to Laura (universal Auto default)",
   );
 
   const hiKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "Hindi", hiVoice);
@@ -137,7 +139,7 @@ test("different language codes that map to different ElevenLabs voices produce d
   assert.notEqual(
     hiKey,
     taKey,
-    "Same phrase text in different languages must not share a cache entry when voices differ",
+    "Same phrase text in different languages must not share a cache entry — language name differentiates them",
   );
 });
 
@@ -477,7 +479,9 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
   );
 });
 
-test("warmGreetings uses different voice IDs for Gujarati (gu) and Hindi (hi)", async () => {
+test("warmGreetings synthesizes greetings for both Gujarati (gu) and Hindi (hi)", async () => {
+  // Since Task #643 all languages share Laura as the universal Auto voice —
+  // both greetings still fire, they just use the same voice ID.
   const languages = [
     { code: "gu", name: "Gujarati" },
     { code: "hi", name: "Hindi" },
@@ -499,10 +503,9 @@ test("warmGreetings uses different voice IDs for Gujarati (gu) and Hindi (hi)", 
     capturedVoiceIds["Gujarati"] && capturedVoiceIds["Hindi"],
     "Both Gujarati and Hindi greetings must have been synthesized",
   );
-  assert.notEqual(
+  assert.equal(
     capturedVoiceIds["Gujarati"],
     capturedVoiceIds["Hindi"],
-    "Gujarati and Hindi must be synthesized with different ElevenLabs voice IDs — " +
-      "same voice would mean language-specific voice selection is silently bypassed",
+    "Both languages now use Laura (universal Auto default) — voice IDs must be equal",
   );
 });

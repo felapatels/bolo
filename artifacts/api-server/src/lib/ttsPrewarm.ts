@@ -29,7 +29,8 @@ const MAX_CONSECUTIVE_FAILURES = 5;
 
 // The language warmed first and in full: the default catalog every new
 // learner starts with, so its phrases are by far the most-played.
-const PRIORITY_LANGUAGE_CODE = "gu";
+// Hindi is the default for free users (Gujarati is secondary).
+const PRIORITY_LANGUAGE_CODE = "hi";
 
 /**
  * Per-run synthesis character budget.
@@ -44,7 +45,7 @@ const PRIORITY_LANGUAGE_CODE = "gu";
  * the cache under legacy keys as a fallback, so a learner never gets silence
  * while a phrase is still waiting for its refresh.
  *
- * The default of 4000 comfortably covers the entire Gujarati catalog
+ * The default of 4000 comfortably covers the entire Hindi catalog
  * (~2.7k chars including sentences) while leaving more than half the monthly
  * free quota for lazy playback synthesis and the live chat voice.
  *
@@ -161,7 +162,7 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
   const nameByCode = new Map(languages.map((l) => [l.code, l.name]));
 
   const rank = (p: (typeof phrases)[number]): number =>
-    // 0: Gujarati starter, 1: Gujarati Plus, 2: everything else.
+    // 0: Hindi starter, 1: Hindi Plus, 2: everything else.
     p.languageCode === PRIORITY_LANGUAGE_CODE ? (p.premium ? 1 : 0) : 2;
 
   return phrases
@@ -203,7 +204,7 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
  *
  * - Runs entirely in the background; server startup is never blocked.
  * - Skips phrases that already have a current-provider cache entry.
- * - Warms in priority order (Gujarati starter → Gujarati Plus → the rest)
+ * - Warms in priority order (Hindi starter → Hindi Plus → the rest)
  *   and stops once the per-run character budget is spent, so the free
  *   ElevenLabs quota is never blown in one go.
  * - Uses bounded concurrency to avoid bursting the TTS API.
