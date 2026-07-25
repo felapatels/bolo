@@ -40,6 +40,10 @@ const TEST_LANG_NAME = `SeedWordsLang${RUN}`;
 const TEST_USER = `__test_user_seedw${RUN}`;
 const CATEGORY_SLUG = `__cat_seedw${RUN}`;
 
+// A second language with ZERO phrases — exercises the non-fatal fallback path.
+const TEST_LANG_EMPTY = `__test_seedw_e${RUN}`;
+const TEST_LANG_EMPTY_NAME = `SeedWordsEmptyLang${RUN}`;
+
 // Romanized forms we will seed as phrases. The route fetches the 5 easiest
 // phrases (ORDER BY difficulty ASC, sort_order ASC), so these must be the
 // ones that land first.
@@ -163,6 +167,17 @@ before(async () => {
     })
     .onConflictDoNothing();
 
+  // Zero-phrases language — never gets any phrase rows, exercises fallback.
+  await db.insert(languagesTable)
+    .values({
+      code: TEST_LANG_EMPTY,
+      name: TEST_LANG_EMPTY_NAME,
+      nativeName: "EmptyLang",
+      script: "Latin",
+      fontFamily: "sans-serif",
+    })
+    .onConflictDoNothing();
+
   // ── Seed category → lesson → phrases ─────────────────────────────────────
   const [category] = await db.insert(categoriesTable)
     .values({
@@ -269,6 +284,10 @@ after(async () => {
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, TEST_LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG));
+  // Zero-phrases language has no phrases/lessons/categories rows, but the route
+  // records chat turns for it — delete those before the FK-constrained language row.
+  await db.delete(chatTurnsTable).where(eq(chatTurnsTable.languageCode, TEST_LANG_EMPTY));
+  await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG_EMPTY));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER));
   await pool.end();
 });
@@ -394,5 +413,86 @@ test("POST /openai/chat — transcription stub does not receive a hard language 
   assert.ok(
     !("language" in capturedTranscribeOptions),
     "transcribe options must NOT include a hard 'language' lock",
+  );
+});
+
+// ─── Zero-phrases fallback tests ──────────────────────────────────────────────
+// The seed-word fetch is non-fatal. When a language has no phrases yet
+// (e.g. brand-new language before lesson generation), the route must still
+// return 200 and pass a valid bilingual hint prompt to the transcriber.
+
+test("POST /openai/chat — returns 200 when language has zero phrases (no crash on empty seed fetch)", async () => {
+  capturedTranscribeOptions = {};
+
+  const { status } = await postChat({
+    languageCode: TEST_LANG_EMPTY,
+    audioBase64: makeMinimalWav(),
+    history: [],
+  });
+
+  assert.equal(
+    status,
+    200,
+    `Expected 200 even with zero phrases seeded, got ${status}`,
+  );
+});
+
+test("POST /openai/chat — transcription prompt is non-empty for a language with zero phrases", async () => {
+  capturedTranscribeOptions = {};
+
+  await postChat({
+    languageCode: TEST_LANG_EMPTY,
+    audioBase64: makeMinimalWav(),
+    history: [],
+  });
+
+  const prompt = capturedTranscribeOptions["prompt"];
+  assert.ok(
+    typeof prompt === "string" && prompt.length > 0,
+    "transcribe options must include a non-empty prompt even when no phrases are seeded",
+  );
+
+  // The bare bilingual hint must be present so Whisper knows the language.
+  assert.ok(
+    (prompt as string).includes(TEST_LANG_EMPTY_NAME),
+    `prompt must include the language name "${TEST_LANG_EMPTY_NAME}" — got: ${prompt}`,
+  );
+  assert.ok(
+    (prompt as string).toLowerCase().includes("english"),
+    `prompt must mention 'English' — got: ${prompt}`,
+  );
+});
+
+test("POST /openai/chat — prompt contains no empty comma-separated fragment when phrases are absent", async () => {
+  capturedTranscribeOptions = {};
+
+  await postChat({
+    languageCode: TEST_LANG_EMPTY,
+    audioBase64: makeMinimalWav(),
+    history: [],
+  });
+
+  const prompt = capturedTranscribeOptions["prompt"] as string;
+
+  // An empty-fragment bug would produce patterns like ". ," or ",," or
+  // trailing ", " after the base hint. None of these must appear.
+  assert.ok(
+    !prompt.includes(", ,"),
+    `prompt must not contain empty comma fragments — got: ${prompt}`,
+  );
+  assert.ok(
+    !prompt.match(/\.\s*,/),
+    `prompt must not have a comma immediately after the period — got: ${prompt}`,
+  );
+  assert.ok(
+    !prompt.match(/,\s*$/),
+    `prompt must not end with a trailing comma — got: ${prompt}`,
+  );
+
+  // The zero-phrases prompt should be exactly the bare bilingual hint.
+  assert.equal(
+    prompt,
+    `${TEST_LANG_EMPTY_NAME} or English.`,
+    `zero-phrases prompt should be exactly the bare bilingual hint`,
   );
 });
