@@ -22,6 +22,7 @@ import {
   useGetDailyQuiz,
   useCompleteDailyQuiz,
   getGetDailyQuizQueryKey,
+  useGetAccount,
   synthesizeSpeech,
   type QuizQuestion,
   type McqTranslationQuestion,
@@ -138,12 +139,14 @@ function ListenQuestion({
   answered,
   colors,
   languageName,
+  ttsVoice,
 }: {
   q: ListenIdentifyQuestion;
   onAnswer: (selected: string) => void;
   answered: boolean;
   colors: ReturnType<typeof useColors>;
   languageName: string;
+  ttsVoice: string;
 }) {
   const choices = useRef(
     [...q.distractors, q.correctNativeScript].sort(() => Math.random() - 0.5),
@@ -163,11 +166,25 @@ function ListenQuestion({
   const [selected, setSelected] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Session-level cache keyed by `${text}:${ttsVoice}` so repeated taps on the
+  // same question skip the network round-trip, but a voice change still fetches
+  // fresh audio (the key changes, busting the stale entry automatically).
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+
   const playAudio = async () => {
     if (isPlaying) return;
     setIsPlaying(true);
     try {
-      const result = await synthesizeSpeech({ text: q.correctNativeScript, languageName });
+      const cacheKey = `${q.correctNativeScript}:${ttsVoice}`;
+      const cached = audioCache.current.get(cacheKey);
+      const result =
+        cached ?? (await synthesizeSpeech({ text: q.correctNativeScript, languageName }));
+      if (!cached) {
+        audioCache.current.set(cacheKey, {
+          audioBase64: result.audioBase64,
+          format: result.format ?? 'mp3',
+        });
+      }
       await playBase64Audio(result.audioBase64, result.format ?? 'mp3', () => {
         setIsPlaying(false);
       });
@@ -515,6 +532,8 @@ export default function BoloQuizScreen() {
   const router = useRouter();
   const { isPlus } = useEntitlements();
   const { activeLang, activeLanguage } = useLanguage();
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
 
   // Gate: redirect non-Plus users
   useEffect(() => {
@@ -705,6 +724,7 @@ export default function BoloQuizScreen() {
               answered={currentAnswered}
               colors={colors}
               languageName={activeLanguage?.name ?? activeLang}
+              ttsVoice={ttsVoice}
             />
           )}
           {currentQ.type === 'order_words' && (

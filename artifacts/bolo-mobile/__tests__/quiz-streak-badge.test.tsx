@@ -28,6 +28,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetDailyQuiz: (_params: unknown, _opts: unknown) => mockState.quiz,
   useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
   getGetDailyQuizQueryKey: () => ['daily-quiz'],
+  useGetAccount: () => ({ data: { preferences: { learning: { ttsVoice: 'auto' } } } }),
   synthesizeSpeech: jest.fn(),
 }));
 

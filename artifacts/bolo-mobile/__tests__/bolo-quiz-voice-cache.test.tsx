@@ -8,16 +8,9 @@ import {
 } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Confirms that the bolo-quiz listen-and-identify question has NO session-level
-// audio cache, so it can never serve stale audio after a voice change.
-//
-// The ListenQuestion component calls synthesizeSpeech directly on every tap
-// without caching. This means:
-//   - Each tap on the play button triggers fresh synthesis.
-//   - A mid-session voice change is automatically safe — there is no old
-//     cached clip to serve.
-//
-// These tests document and protect that invariant.
+// Confirms that the bolo-quiz listen-and-identify question caches audio
+// per (text + ttsVoice) so repeated taps on the same question skip the
+// network round-trip, while a voice change fetches fresh audio automatically.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
@@ -30,6 +23,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetDailyQuiz: () => mockState.quiz,
   useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
   getGetDailyQuizQueryKey: () => ['daily-quiz'],
+  useGetAccount: () => mockState.account,
   // Bare function used directly by ListenQuestion (not a hook).
   synthesizeSpeech: (...args: unknown[]) => mockState.synth(...args),
 }));
@@ -125,6 +119,10 @@ function quizQuery(data: object) {
   return { data, isLoading: false };
 }
 
+function accountQuery(ttsVoice: string) {
+  return { data: { preferences: { learning: { ttsVoice } } } };
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
@@ -133,6 +131,7 @@ beforeEach(() => {
     completed: false,
     questions: [LISTEN_QUESTION],
   });
+  mockState.account = accountQuery('auto');
 });
 
 afterEach(() => {
@@ -140,11 +139,10 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('bolo-quiz listen question has no audio cache (voice-safe by design)', () => {
-  test('synthesizes audio on every play tap — no stale cache possible', async () => {
+describe('bolo-quiz listen question audio cache (voice-keyed)', () => {
+  test('synthesizes audio only once; second tap serves from cache', async () => {
     render(<BoloQuizScreen />);
 
-    // Wait for the listen-identify type chip to confirm the question rendered.
     await waitFor(() =>
       expect(screen.getByText('Listen & Identify')).toBeTruthy(),
     );
@@ -155,10 +153,10 @@ describe('bolo-quiz listen question has no audio cache (voice-safe by design)', 
     await act(async () => { fireEvent.press(playBtn); });
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
 
-    // Second tap (isPlaying reset to false by onDone mock) → synthesis call 2.
-    // No cache exists, so this is always fresh — regardless of voice.
+    // Second tap (isPlaying reset to false by onDone mock) → served from cache.
     await act(async () => { fireEvent.press(playBtn); });
-    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+    // synthesizeSpeech must NOT have been called a second time.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 
   test('each synthesis call receives the correct phrase text', async () => {
@@ -173,39 +171,58 @@ describe('bolo-quiz listen question has no audio cache (voice-safe by design)', 
     });
     await waitFor(() => expect(mockState.synth).toHaveBeenCalled());
 
-    // The synthesizeSpeech call should always use the current question's text.
     expect(mockState.synth).toHaveBeenCalledWith(
       expect.objectContaining({ text: LISTEN_QUESTION.correctNativeScript }),
     );
   });
 
-  test('voice change does not produce stale audio (no cache to go stale)', async () => {
-    // This test documents the absence of any stale-cache risk.
-    // Since ListenQuestion calls synthesizeSpeech fresh on every tap,
-    // whatever voice the server uses at synthesis time is always current.
+  test('a different ttsVoice value produces a cache miss and triggers fresh synthesis', async () => {
+    // Render with voice-A: first tap populates the cache, second tap hits it.
+    mockState.account = accountQuery('voice-A');
+    mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
+
+    const { unmount } = render(<BoloQuizScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Listen & Identify')).toBeTruthy(),
+    );
+
+    // Tap 1 (voice-A): cache miss → synthesis fires.
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('quiz-listen-play-btn'));
+    });
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
+
+    // Tap 2 (voice-A): cache hit → synthesis NOT called again.
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('quiz-listen-play-btn'));
+    });
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    // Re-mount with voice-B. The cache is fresh (new Map per mount), and the
+    // key `${text}:voice-B` doesn't exist yet, so synthesis fires again.
+    // This confirms the ttsVoice is part of the key: a voice change produces
+    // a cache miss and never serves a stale clip from the old voice.
+    mockState.account = accountQuery('voice-B');
+    mockState.synth = jest.fn(async () => ({ audioBase64: 'BBB', format: 'mp3' }));
+
     render(<BoloQuizScreen />);
 
     await waitFor(() =>
       expect(screen.getByText('Listen & Identify')).toBeTruthy(),
     );
 
-    // First play with voice-A (implicit — server picks the voice).
     await act(async () => {
       fireEvent.press(screen.getByTestId('quiz-listen-play-btn'));
     });
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
 
-    // Simulate a voice change by swapping what the server returns.
-    const synthCallsBeforeVoiceChange = mockState.synth.mock.calls.length;
-    mockState.synth = jest.fn(async () => ({ audioBase64: 'BBB', format: 'mp3' }));
-
-    // Next tap uses the new synth (no cache serving the old clip).
+    // Second tap with voice-B → cache hit (voice-B entry populated above).
     await act(async () => {
       fireEvent.press(screen.getByTestId('quiz-listen-play-btn'));
     });
-    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
-    // Total calls across both synth functions = 2 (one per tap), confirming
-    // each tap is always a live synthesis call.
-    expect(synthCallsBeforeVoiceChange + mockState.synth.mock.calls.length).toBe(2);
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 });
