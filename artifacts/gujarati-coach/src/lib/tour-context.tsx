@@ -16,6 +16,11 @@ export interface TourStep {
   title: string;
   /** One or two sentences of body copy for this step. */
   body: string;
+  /**
+   * Wouter path to navigate to when this step becomes active.
+   * Omit for steps that should stay on whatever page is currently showing.
+   */
+  route?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,26 +32,32 @@ export const TOUR_STEPS: TourStep[] = [
   {
     title: "Welcome to Bolo! 👋",
     body: "Bolo! helps you reconnect with your heritage language through short, enjoyable daily sessions. Here's a quick look around!",
+    route: "/app",
   },
   {
     title: "Pick a topic 🗂️",
     body: "The cards on your home screen are bite-sized lessons — greetings, family, food and more. Tap one to learn real phrases, then practice saying them out loud.",
+    route: "/app",
   },
   {
     title: "Chat with Bolo 🦜",
     body: "Tap \"Chat with Bolo\" to have a real conversation with your parrot coach. Speak (or listen) at your own pace — Bolo keeps it friendly and simple.",
+    route: "/chat",
   },
   {
     title: "Play your way to fluency 🎮",
     body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
+    route: "/games",
   },
   {
     title: "Watch yourself grow 📈",
     body: "Your streak, XP and badges live on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases right when you need them.",
+    route: "/progress",
   },
   {
     title: "You're all set! 🎉",
     body: "That's the grand tour! Start with any topic that catches your eye — a few minutes a day is all it takes. Happy learning!",
+    route: "/app",
   },
 ];
 

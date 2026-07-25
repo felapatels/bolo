@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,16 +11,26 @@ import { cn } from "@/lib/utils";
  * Full-screen overlay that renders the guided tour.
  *
  * Mount this once at the app root — it reads all state from `TourContext` and
- * renders nothing when the tour is closed. Individual steps are scaffold
- * placeholders; real feature-specific content will be dropped in here once the
- * relevant features stabilise.
+ * renders nothing when the tour is closed. When a step has a `route`, the
+ * overlay navigates to that route so the learner sees the relevant page behind
+ * the card.
  */
 export function GuidedTourOverlay() {
   const { isOpen, currentStep, steps, nextStep, prevStep, skipTour } =
     useTour();
+  const [, setLocation] = useLocation();
+
   // Respect the OS-level reduced-motion preference: framer-motion springs keep
   // playing under the global CSS reset, so gate them explicitly here.
   const reduceMotion = useReducedMotion();
+
+  // Navigate to each step's associated route so the learner sees the real
+  // feature behind the overlay card rather than a blank/wrong page.
+  useEffect(() => {
+    if (!isOpen) return;
+    const route = steps[currentStep]?.route;
+    if (route) setLocation(route);
+  }, [isOpen, currentStep, steps, setLocation]);
 
   const step = steps[currentStep];
   const isFirst = currentStep === 0;

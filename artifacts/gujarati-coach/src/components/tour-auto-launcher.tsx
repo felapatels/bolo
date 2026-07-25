@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useUser } from "@clerk/react";
+import { useLocation } from "wouter";
 import {
   useGetAccount,
   getGetAccountQueryKey,
@@ -8,11 +9,17 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 
+// Routes where we must never auto-launch the tour — the learner is mid-session
+// and navigating away would interrupt their practice.
+const BLOCKED_PREFIXES = ["/practice", "/learn", "/review"];
+
 /**
  * Mounts silently in the authenticated app shell.
  *
  * - On the learner's first authenticated visit (account.preferences.learning.hasCompletedTour
  *   is false), it auto-opens the guided tour.
+ * - Skips auto-launch if the learner is currently inside a practice or lesson
+ *   session so the tour never interrupts mid-activity.
  * - When the tour finishes or is skipped, it marks the tour as completed via
  *   PATCH /account/preferences so it never auto-launches again.
  *
@@ -20,6 +27,7 @@ import { useTour, TOUR_STEPS } from "@/lib/tour-context";
  */
 export function TourAutoLauncher() {
   const { isSignedIn } = useUser();
+  const [location] = useLocation();
   const { data: account } = useGetAccount({
     query: {
       enabled: !!isSignedIn,
@@ -36,6 +44,8 @@ export function TourAutoLauncher() {
     if (!account || launched.current) return;
     // If the learner has already completed the tour, do nothing.
     if (account.preferences.learning.hasCompletedTour) return;
+    // Don't interrupt an active practice / lesson / review session.
+    if (BLOCKED_PREFIXES.some((prefix) => location.startsWith(prefix))) return;
 
     launched.current = true;
 
@@ -59,7 +69,7 @@ export function TourAutoLauncher() {
     }
 
     startTour({ steps: TOUR_STEPS, onDone: markDone });
-  }, [account, startTour, updatePrefs, queryClient]);
+  }, [account, location, startTour, updatePrefs, queryClient]);
 
   return null;
 }
