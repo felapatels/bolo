@@ -363,3 +363,45 @@ describe("Review session 402", () => {
     expect(screen.queryByText("Try again")).not.toBeInTheDocument();
   });
 });
+
+describe("Practice page 402", () => {
+  test("the daily lesson cap on the practice page shows the trial CTA", () => {
+    h.categoryPhrases = {
+      ...idleQuery,
+      isError: true,
+      error: upgradeRequiredError(
+        "daily_lesson_limit",
+        "You've used today's free lessons.",
+      ),
+    };
+    renderPage(<Practice />, "/learn/1");
+
+    expect(
+      screen.getByText("You've hit today's free lessons"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Start 7-day free trial")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Cancel anytime — no charge if you cancel before the trial ends.",
+      ),
+    ).toBeInTheDocument();
+    // Generic CTA must NOT appear when showTrial is true.
+    expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+  });
+
+  test("a feature_locked denial on the practice page shows the generic CTA, not the trial copy", () => {
+    h.categoryPhrases = {
+      ...idleQuery,
+      isError: true,
+      error: upgradeRequiredError(
+        "feature_locked",
+        "This feature requires Bolo! Plus.",
+      ),
+    };
+    renderPage(<Practice />, "/learn/1");
+
+    expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cancel anytime/)).not.toBeInTheDocument();
+  });
+});
