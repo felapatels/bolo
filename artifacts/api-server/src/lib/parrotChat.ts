@@ -10,7 +10,7 @@ import {
 import { getLanguageIdForCode } from "./languageVoice";
 import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
-import { isQuotaExhaustedError } from "./ttsPrewarm";
+import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
 
 // A single prior turn of the conversation, supplied by the client as a short

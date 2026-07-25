@@ -4,7 +4,8 @@ import { db, pool, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ttsCacheKey } from "./ttsCache";
 import { getVoiceIdForLanguage, DEFAULT_MULTILINGUAL_VOICE_ID } from "./languageVoice";
-import { isQuotaExhaustedError, warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
+import { isQuotaExhaustedError } from "./ttsUtils";
+import { warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
 import { greetingAudioCacheKey } from "./greetingStrings";
 import { ensureUsersColumns } from "./testDbCompat";
 

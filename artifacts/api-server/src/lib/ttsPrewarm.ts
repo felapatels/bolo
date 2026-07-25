@@ -8,24 +8,17 @@ import {
   greetingAudioCacheKey,
   buildGreetingTexts,
 } from "./greetingStrings";
+import {
+  pool,
+  CONCURRENCY,
+  PACING_MS,
+  MAX_CONSECUTIVE_FAILURES,
+  isQuotaExhaustedError,
+} from "./ttsUtils";
 
 // Default voice used when learners tap the speaker button without selecting a
 // specific voice — must match the default in routes/openai.ts.
 const DEFAULT_VOICE = "nova" as const;
-
-// Maximum concurrent TTS synthesis calls. ElevenLabs free-tier keys allow only
-// a couple of concurrent requests, and bursting has been observed to trip the
-// provider's "unusual activity" abuse flag (temporarily disabling the whole
-// account). Two at a time, with pacing, keeps the warm-up under that radar.
-const CONCURRENCY = 2;
-
-// Minimum delay between synthesis calls per worker, for the same reason.
-const PACING_MS = 500;
-
-// Abort the whole run after this many consecutive failures — when the
-// provider has rejected several calls in a row (quota exhausted, account
-// flagged), continuing just hammers a dead endpoint and makes things worse.
-const MAX_CONSECUTIVE_FAILURES = 5;
 
 // The language warmed first and in full: the default catalog every new
 // learner starts with, so its phrases are by far the most-played.
@@ -54,75 +47,6 @@ const PRIORITY_LANGUAGE_CODE = "hi";
 function charBudget(): number {
   const raw = Number(process.env.TTS_PREWARM_CHAR_BUDGET);
   return Number.isFinite(raw) && raw >= 0 ? raw : 4000;
-}
-
-/**
- * Detects an ElevenLabs quota-exhaustion error from its thrown message.
- * The audio client throws `ElevenLabs TTS failed with status <n>: <detail>`;
- * exhausted credits surface as a 401 with `quota_exceeded` in the detail body
- * (and rate/credit pressure as 429). Exported for unit tests.
- */
-export function isQuotaExhaustedError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return (
-    /quota_exceeded/i.test(message) ||
-    /ElevenLabs TTS failed with status 429\b/.test(message)
-  );
-}
-
-/**
- * Run a bounded-concurrency pool over an array of async tasks.
- * Each item in `items` is passed to `worker`; at most `limit` tasks run at
- * the same time.  Individual failures are caught and logged so one bad phrase
- * never aborts the whole warm-up.
- */
-async function pool<T>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<void>,
-): Promise<void> {
-  const queue = items.slice();
-  const active: Promise<void>[] = [];
-  let consecutiveFailures = 0;
-
-  async function run(item: T): Promise<void> {
-    try {
-      await worker(item);
-      consecutiveFailures = 0;
-    } catch (err) {
-      // Individual failures are non-fatal — log and continue (until the
-      // circuit breaker below decides the provider is down for good).
-      consecutiveFailures++;
-      logger.warn({ err }, "TTS pre-warm: synthesis failed for one phrase");
-    }
-  }
-
-  while (queue.length > 0 || active.length > 0) {
-    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      // Circuit breaker: the provider is rejecting everything (quota gone or
-      // account flagged). Stop synthesizing; the lazy path + legacy fallback
-      // keeps learners covered, and the next server start retries.
-      logger.warn(
-        { consecutiveFailures, remaining: queue.length },
-        "TTS pre-warm: aborting run after repeated consecutive failures",
-      );
-      queue.length = 0;
-      await Promise.all(active);
-      return;
-    }
-    while (active.length < limit && queue.length > 0) {
-      const item = queue.shift()!;
-      const p = run(item)
-        .then(() => new Promise<void>((r) => setTimeout(r, PACING_MS)))
-        .then(() => {
-          active.splice(active.indexOf(p), 1);
-        });
-      active.push(p);
-    }
-    if (active.length > 0) {
-      await Promise.race(active);
-    }
-  }
 }
 
 type PhraseWithLanguageName = {
@@ -294,55 +218,66 @@ export function scheduleTtsPrewarm(): void {
       // skipped instead of burning a doomed API call (and a log line) each.
       let quotaExhausted = false;
 
-      await pool(batch, CONCURRENCY, async ({ phrase, key }) => {
-        if (quotaExhausted) {
-          skipped++;
-          return;
-        }
-
-
-        // Double-check inside the worker in case another instance already
-        // filled this slot while we were batching.
-        const alreadyCached = await db.query.ttsCacheTable.findFirst({
-          where: eq(ttsCacheTable.cacheKey, key),
-          columns: { cacheKey: true },
-        });
-        if (alreadyCached) {
-          done++;
-          return;
-        }
-
-        try {
-          const buffer = await textToSpeechElevenLabs(
-            phrase.nativeScript,
-            // Use the per-language voice so pre-warmed audio matches what
-            // /openai/tts synthesizes at runtime for the same languageCode.
-            phrase.elevenLabsVoiceId,
-            phrase.languageName || undefined,
-            undefined,
-            phrase.languageId,
-          );
-          const audioBase64 = buffer.toString("base64");
-
-          await db
-            .insert(ttsCacheTable)
-            .values({ cacheKey: key, audioBase64, format: "mp3" })
-            .onConflictDoNothing()
-            .execute();
-
-          done++;
-        } catch (err) {
-          failed++;
-          if (!quotaExhausted && isQuotaExhaustedError(err)) {
-            quotaExhausted = true;
-            logger.warn(
-              { err },
-              "TTS pre-warm: ElevenLabs quota exhausted — skipping all remaining phrases (they will be cached on demand once credits refresh)",
-            );
+      await pool(
+        batch,
+        CONCURRENCY,
+        async ({ phrase, key }) => {
+          if (quotaExhausted) {
+            skipped++;
+            return;
           }
-          throw err; // re-throw so pool() can log it
-        }
-      });
+
+          // Double-check inside the worker in case another instance already
+          // filled this slot while we were batching.
+          const alreadyCached = await db.query.ttsCacheTable.findFirst({
+            where: eq(ttsCacheTable.cacheKey, key),
+            columns: { cacheKey: true },
+          });
+          if (alreadyCached) {
+            done++;
+            return;
+          }
+
+          try {
+            const buffer = await textToSpeechElevenLabs(
+              phrase.nativeScript,
+              // Use the per-language voice so pre-warmed audio matches what
+              // /openai/tts synthesizes at runtime for the same languageCode.
+              phrase.elevenLabsVoiceId,
+              phrase.languageName || undefined,
+              undefined,
+              phrase.languageId,
+            );
+            const audioBase64 = buffer.toString("base64");
+
+            await db
+              .insert(ttsCacheTable)
+              .values({ cacheKey: key, audioBase64, format: "mp3" })
+              .onConflictDoNothing()
+              .execute();
+
+            done++;
+          } catch (err) {
+            failed++;
+            if (!quotaExhausted && isQuotaExhaustedError(err)) {
+              quotaExhausted = true;
+              logger.warn(
+                { err },
+                "TTS pre-warm: ElevenLabs quota exhausted — skipping all remaining phrases (they will be cached on demand once credits refresh)",
+              );
+            }
+            throw err; // re-throw so pool() counts consecutive failures
+          }
+        },
+        PACING_MS,
+        MAX_CONSECUTIVE_FAILURES,
+        (remaining) => {
+          logger.warn(
+            { consecutiveFailures: MAX_CONSECUTIVE_FAILURES, remaining },
+            "TTS pre-warm: aborting run after repeated consecutive failures",
+          );
+        },
+      );
 
       logger.info(
         { done, failed, skipped, quotaExhausted, attempted: batch.length, deferred },
