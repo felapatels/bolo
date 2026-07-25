@@ -18,7 +18,11 @@ import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeCard, UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial } from "@/lib/entitlements";
+import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial, useEntitlements } from "@/lib/entitlements";
+
+// Matches FREE_PHRASE_CEILING in phraseReplenisher.ts — the hard cap on how
+// many phrases a Free topic may grow to via background replenishment.
+const FREE_PHRASE_CEILING = 20;
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -26,6 +30,7 @@ export default function CategoryDetail() {
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
   const queryClient = useQueryClient();
+  const { isPlus } = useEntitlements();
 
   const {
     data: phrases,
@@ -133,6 +138,18 @@ export default function CategoryDetail() {
 
   const masteredCount = phrases?.filter(p => p.mastered).length || 0;
 
+  // Show the "more phrases coming" hint only to Free learners who have engaged
+  // (attempted or mastered) at least 80 % of the topic's visible phrases and
+  // are still below the free ceiling — the exact condition that triggers
+  // background replenishment in phraseReplenisher.shouldReplenishFree.
+  const showReplenishHint = (() => {
+    if (isPlus) return false;
+    const list = phrases ?? [];
+    if (list.length === 0 || list.length >= FREE_PHRASE_CEILING) return false;
+    const engaged = list.filter(p => p.mastered || p.bestScore !== null).length;
+    return engaged / list.length >= 0.8;
+  })();
+
   return (
     <div className="app-surface min-h-[100dvh] bg-background flex flex-col">
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4">
@@ -238,6 +255,13 @@ export default function CategoryDetail() {
               cta="Unlock with Plus"
               href={upgradeHref({ plan: "plus" })}
             />
+          )}
+
+          {showReplenishHint && (
+            <div className="flex items-center gap-3 rounded-2xl bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-primary font-medium">
+              <Sparkles className="w-4 h-4 shrink-0" />
+              <span>More phrases on the way — check back tomorrow.</span>
+            </div>
           )}
 
           <button

@@ -28,6 +28,10 @@ import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+
+// Matches FREE_PHRASE_CEILING in phraseReplenisher.ts — the hard cap on how
+// many phrases a Free topic may grow to via background replenishment.
+const FREE_PHRASE_CEILING = 20;
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 
@@ -55,6 +59,17 @@ export default function CategoryScreen() {
   const skipEnter = useAppearSkip();
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);
+
+  // Show the "more phrases coming" hint only to Free learners who have engaged
+  // at least 80 % of the topic's visible phrases and are still below the
+  // ceiling — mirrors the shouldReplenishFree trigger in phraseReplenisher.ts.
+  const showReplenishHint = (() => {
+    if (isPlus) return false;
+    const list = phrases.data ?? [];
+    if (list.length === 0 || list.length >= FREE_PHRASE_CEILING) return false;
+    const engaged = list.filter((p) => p.mastered || p.bestScore !== null).length;
+    return engaged / list.length >= 0.8;
+  })();
 
   // The topic's final step: the Plus-only sentence stage. Only requested once
   // the server-reported category listing says this caller can open it —
@@ -154,6 +169,24 @@ export default function CategoryScreen() {
             />
           ))
         )}
+
+        {/* Free-tier replenishment hint: background AI is queuing more phrases
+            but they won't appear until tomorrow's cadence fires. Let the
+            learner know so they come back instead of thinking the app is done. */}
+        {!phrases.isLoading && showReplenishHint ? (
+          <Animated.View
+            entering={skipEnter ? undefined : FadeInDown.duration(450).delay(80)}
+            style={[
+              styles.replenishHint,
+              { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}30` },
+            ]}
+          >
+            <Feather name="clock" size={16} color={colors.primary} />
+            <Text style={[styles.replenishHintText, { color: colors.primary }]}>
+              More phrases on the way — check back tomorrow.
+            </Text>
+          </Animated.View>
+        ) : null}
 
         {/* Exhaustion state: all visible phrases mastered, no locked phrases
             (upgrading won't help) — prompt the learner to review instead of
@@ -399,6 +432,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     padding: 20,
     paddingBottom: 28,
+  },
+  replenishHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  replenishHintText: {
+    flex: 1,
+    fontFamily: AppFonts.semibold,
+    fontSize: 14,
+    lineHeight: 20,
   },
   exhaustedCard: {
     borderRadius: 14,

@@ -14,7 +14,37 @@ const h = vi.hoisted(() => ({
   categories: [] as unknown,
   addPhrases: {} as Record<string, unknown>,
   refetch: vi.fn(),
+  isPlus: false,
 }));
+
+// Preserve the real asUpgradeRequired/upgradeHref helpers (pure functions with
+// no Clerk dependency) but replace useEntitlements — it calls useUser() which
+// requires a <ClerkProvider> that the test harness doesn't provide.
+vi.mock("@/lib/entitlements", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/entitlements")>();
+  return {
+    ...actual,
+    useEntitlements: () => ({
+      isPlus: h.isPlus,
+      isLoading: false,
+      isSignedIn: true,
+      plan: h.isPlus ? "plus" : "free",
+      isPaid: h.isPlus,
+      isOneLanguage: false,
+      isAllAccess: h.isPlus,
+      status: "active",
+      isTrialing: false,
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      chosenLanguage: null,
+      allowedLanguages: ["hi"],
+      features: {} as never,
+      dailyNewLessons: { limit: null, used: 0, remaining: null },
+      isLanguageAllowed: () => true,
+      entitlements: undefined,
+    }),
+  };
+});
 
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({
@@ -100,6 +130,7 @@ beforeEach(() => {
     isError: false,
     error: null,
   };
+  h.isPlus = false;
   h.refetch.mockClear();
 });
 
