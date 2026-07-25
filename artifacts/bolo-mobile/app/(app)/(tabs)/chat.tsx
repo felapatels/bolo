@@ -404,6 +404,36 @@ export default function ChatScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   }, [messages]);
 
+  // ── Web virtual-keyboard inset (tablet / hybrid browsers) ──────────────
+  // KeyboardAvoidingView has no effect on web — React Native Web renders it
+  // as a plain View. Instead we track how much the visual viewport shrinks
+  // when the soft keyboard opens (that delta IS the keyboard height) and
+  // apply it as paddingBottom on the wrapper so the input row is never
+  // obscured. We also scroll the transcript down so the last message stays
+  // in view after the keyboard opens.
+  const [webKeyboardInset, setWebKeyboardInset] = React.useState(0);
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!vv) return;
+    const update = () => {
+      // window.innerHeight − (vp height + vp vertical offset) = keyboard height.
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setWebKeyboardInset(inset);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+  // Scroll transcript to bottom when the keyboard opens on web.
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || webKeyboardInset <= 0) return;
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, [webKeyboardInset]);
+
   // ── Recording ──────────────────────────────────────────────────────────────
   const handleStartRecording = async () => {
     const wasProcessing = phase === 'processing';
@@ -1606,7 +1636,14 @@ export default function ChatScreen() {
           own flex:1 (mascotAreaFull) continues to drive layout on the
           empty-state screen. */}
       <KeyboardAvoidingView
-        style={messages.length > 0 ? { flex: 1 } : undefined}
+        style={[
+          messages.length > 0 ? { flex: 1 } : undefined,
+          // On web KeyboardAvoidingView is a no-op; pad by the visual-viewport
+          // delta tracked above so the input row lifts above the soft keyboard.
+          Platform.OS === 'web' && webKeyboardInset > 0
+            ? { paddingBottom: webKeyboardInset }
+            : undefined,
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
 
