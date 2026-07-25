@@ -6,6 +6,7 @@ import { useLanguage } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { SoundWavePulse } from "@/lib/motion";
 import { LanguagePicker } from "@/components/language-picker";
+import { useTour } from "@/lib/tour-context";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,21 +15,24 @@ type NavItem = {
   label: string;
   /** Active-state accent, matching the mobile bottom nav's per-tab colors. */
   activeClass: string;
+  /** Key that matches TourStep.navHighlight for tour highlighting. */
+  tourKey?: "home" | "chat" | "games" | "progress";
 } & (
   | { icon: LucideIcon; imageSrc?: never }
   | { imageSrc: string; icon?: never }
 );
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/app", label: "Home", icon: Home, activeClass: "text-primary" },
-  { href: "/games", label: "Games", icon: Gamepad2, activeClass: "text-primary" },
+  { href: "/app", label: "Home", icon: Home, activeClass: "text-primary", tourKey: "home" },
+  { href: "/games", label: "Games", icon: Gamepad2, activeClass: "text-primary", tourKey: "games" },
   {
     href: "/chat",
     label: "Chat with Bolo",
     imageSrc: `${import.meta.env.BASE_URL}mascot/mascot-wave.png`,
     activeClass: "text-primary",
+    tourKey: "chat",
   },
-  { href: "/progress", label: "Progress", icon: Trophy, activeClass: "text-secondary" },
+  { href: "/progress", label: "Progress", icon: Trophy, activeClass: "text-secondary", tourKey: "progress" },
 ];
 
 /**
@@ -43,6 +47,7 @@ export function DesktopNav() {
   const { signOut } = useClerk();
   const { activeLanguage } = useLanguage();
   const { isPlus, isLoading } = useEntitlements();
+  const { isOpen, currentNavHighlight } = useTour();
 
   // Shares the react-query cache with the Friends page and the mobile bottom
   // nav, so accepting/declining a request updates every badge live.
@@ -70,6 +75,7 @@ export function DesktopNav() {
       <nav className="flex flex-1 flex-col gap-1.5 px-4">
         {NAV_ITEMS.map((item) => {
           const active = location === item.href || (item.href === "/games" && location.startsWith("/games"));
+          const tourHighlighted = isOpen && !!item.tourKey && currentNavHighlight === item.tourKey;
           return (
             <Link
               key={item.href}
@@ -79,6 +85,7 @@ export function DesktopNav() {
                 active
                   ? cn("bg-muted", item.activeClass)
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                tourHighlighted && "ring-2 ring-primary/60 animate-pulse",
               )}
               aria-current={active ? "page" : undefined}
             >

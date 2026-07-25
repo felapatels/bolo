@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useLocation } from "wouter";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +23,8 @@ export interface TourStep {
    * Omit for steps that should stay on whatever page is currently showing.
    */
   route?: string;
+  /** Which bottom-nav / sidebar tab to visually highlight for this step. */
+  navHighlight?: "home" | "chat" | "games" | "progress";
 }
 
 // ---------------------------------------------------------------------------
@@ -33,31 +37,37 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Welcome to Bolo! 👋",
     body: "Bolo! helps you reconnect with your heritage language through short, enjoyable daily sessions. Here's a quick look around!",
     route: "/app",
+    navHighlight: "home",
   },
   {
     title: "Pick a topic 🗂️",
     body: "The cards on your home screen are bite-sized lessons — greetings, family, food and more. Tap one to learn real phrases, then practice saying them out loud.",
     route: "/app",
+    navHighlight: "home",
   },
   {
     title: "Chat with Bolo 🦜",
     body: "Tap \"Chat with Bolo\" to have a real conversation with your parrot coach. Speak (or listen) at your own pace — Bolo keeps it friendly and simple.",
     route: "/chat",
+    navHighlight: "chat",
   },
   {
     title: "Play your way to fluency 🎮",
     body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
     route: "/games",
+    navHighlight: "games",
   },
   {
     title: "Watch yourself grow 📈",
     body: "Your streak, XP and badges live on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases right when you need them.",
     route: "/progress",
+    navHighlight: "progress",
   },
   {
     title: "You're all set! 🎉",
     body: "That's the grand tour! Start with any topic that catches your eye — a few minutes a day is all it takes. Happy learning!",
     route: "/app",
+    navHighlight: "home",
   },
 ];
 
@@ -69,6 +79,8 @@ type TourContextValue = {
   isOpen: boolean;
   currentStep: number;
   steps: TourStep[];
+  /** The navHighlight value of the current step, or undefined if none. */
+  currentNavHighlight: TourStep["navHighlight"];
   /** Open the tour. Pass `onDone` to receive a callback when it finishes or is skipped. */
   startTour: (opts?: { steps?: TourStep[]; onDone?: () => void }) => void;
   nextStep: () => void;
@@ -87,10 +99,20 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [steps, setSteps] = useState<TourStep[]>(TOUR_STEPS);
+  const [, setLocation] = useLocation();
 
   // Store the caller's completion callback in a ref so startTour needn't be
   // re-created every time (avoids triggering downstream effects).
   const onDoneRef = useRef<(() => void) | undefined>(undefined);
+
+  // Navigate to the active step's route whenever the step changes and tour is open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const step = steps[currentStep];
+    if (step?.route) {
+      setLocation(step.route);
+    }
+  }, [isOpen, currentStep, steps, setLocation]);
 
   const finishTour = useCallback(() => {
     setIsOpen(false);
@@ -99,12 +121,18 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const startTour = useCallback(
     (opts?: { steps?: TourStep[]; onDone?: () => void }) => {
-      setSteps(opts?.steps ?? TOUR_STEPS);
+      const newSteps = opts?.steps ?? TOUR_STEPS;
+      setSteps(newSteps);
       setCurrentStep(0);
       onDoneRef.current = opts?.onDone;
       setIsOpen(true);
+      // Navigate to the first step's route immediately.
+      const firstRoute = newSteps[0]?.route;
+      if (firstRoute) {
+        setLocation(firstRoute);
+      }
     },
-    [],
+    [setLocation],
   );
 
   const nextStep = useCallback(
@@ -122,11 +150,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
     setCurrentStep((s) => Math.max(0, s - 1));
   }, []);
 
+  const currentNavHighlight = steps[currentStep]?.navHighlight;
+
   // Expose stable references to consumers.
   const value: TourContextValue = {
     isOpen,
     currentStep,
     steps,
+    currentNavHighlight,
     startTour,
     nextStep: () => nextStep(steps.length, currentStep),
     prevStep,
@@ -146,6 +177,7 @@ const NOOP_TOUR: TourContextValue = {
   isOpen: false,
   currentStep: 0,
   steps: [],
+  currentNavHighlight: undefined,
   startTour: () => {},
   nextStep: () => {},
   prevStep: () => {},

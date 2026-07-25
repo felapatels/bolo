@@ -7,6 +7,13 @@ import { useTour } from "@/lib/tour-context";
 import { springs } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
+const NAV_HIGHLIGHT_LABELS: Record<string, string> = {
+  home: "Home",
+  chat: "Bolo (Chat)",
+  games: "Games",
+  progress: "Progress",
+};
+
 /**
  * Full-screen overlay that renders the guided tour.
  *
@@ -16,7 +23,7 @@ import { cn } from "@/lib/utils";
  * the card.
  */
 export function GuidedTourOverlay() {
-  const { isOpen, currentStep, steps, nextStep, prevStep, skipTour } =
+  const { isOpen, currentStep, steps, nextStep, prevStep, skipTour, currentNavHighlight } =
     useTour();
   const [, setLocation] = useLocation();
 
@@ -36,6 +43,10 @@ export function GuidedTourOverlay() {
   const isFirst = currentStep === 0;
   const isLast = currentStep === steps.length - 1;
   const total = steps.length;
+
+  const highlightLabel = currentNavHighlight
+    ? NAV_HIGHLIGHT_LABELS[currentNavHighlight]
+    : null;
 
   return (
     <AnimatePresence>
@@ -123,6 +134,18 @@ export function GuidedTourOverlay() {
                 >
                   {step.body}
                 </p>
+
+                {/* Nav highlight hint — shown on desktop where the bottom nav may not be obvious */}
+                {highlightLabel && (
+                  <p className="mt-3 text-xs font-semibold text-primary/80 lg:block hidden">
+                    👈 See the <span className="font-black">{highlightLabel}</span> section in the sidebar
+                  </p>
+                )}
+                {highlightLabel && (
+                  <p className="mt-3 text-xs font-semibold text-primary/80 lg:hidden">
+                    👇 See the <span className="font-black">{highlightLabel}</span> tab below
+                  </p>
+                )}
               </motion.div>
             </AnimatePresence>
 
