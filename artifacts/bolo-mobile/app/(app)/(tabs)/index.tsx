@@ -13,7 +13,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -108,6 +109,22 @@ export default function HomeScreen() {
     },
   });
   const reviewDueCount = (reviewData ?? []).length;
+
+  // Eagerly refetch the review-due count whenever the home tab comes back into
+  // focus (e.g. after completing a review session).  The review screen already
+  // invalidates this query after each attempt, but the background refetch can
+  // lag behind navigation — useFocusEffect closes that window by issuing a
+  // fresh fetch the moment the learner lands back here.
+  const queryClient = useQueryClient();
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isPlus && activeLang) {
+        queryClient.invalidateQueries({
+          queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }),
+        });
+      }
+    }, [queryClient, isPlus, activeLang]),
+  );
 
   const refreshing =
     summary.isRefetching || categories.isRefetching || recent.isRefetching;

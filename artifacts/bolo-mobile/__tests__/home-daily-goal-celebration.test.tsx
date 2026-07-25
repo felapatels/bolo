@@ -24,6 +24,14 @@ jest.mock('@clerk/expo', () => ({
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+  // useFocusEffect runs its callback on focus; in tests we invoke it once
+  // synchronously so hooks that depend on it (like the review-query invalidation)
+  // don't throw.
+  useFocusEffect: (cb: () => void) => { cb(); },
+}));
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
 jest.mock('react-native-svg', () => {
