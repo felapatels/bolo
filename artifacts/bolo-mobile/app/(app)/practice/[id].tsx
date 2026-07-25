@@ -1103,6 +1103,23 @@ export default function PracticeScreen() {
               {avg}
             </Text>
           </Animated.View>
+          {/* Score trail — lets learners review each phrase's result at a glance */}
+          {Object.keys(scores).length > 0 && (
+            <Animated.View
+              entering={skipEnter ? undefined : FadeInDown.delay(340)}
+              style={styles.summaryTrailWrap}
+            >
+              <Text style={[styles.summaryTrailLabel, { color: colors.mutedForeground }]}>
+                Tap a dot to review
+              </Text>
+              <ScoreTrail
+                total={list.length}
+                scores={scores}
+                currentIndex={-1}
+                colors={colors}
+              />
+            </Animated.View>
+          )}
           {/* XP earned chip */}
           {xpEarned > 0 && (
             <Animated.View
@@ -1813,6 +1830,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   xpChipText: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  summaryTrailWrap: { alignItems: 'center', marginTop: 20, gap: 6 },
+  summaryTrailLabel: { fontFamily: AppFonts.regular, fontSize: 12 },
   resultScoreRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
