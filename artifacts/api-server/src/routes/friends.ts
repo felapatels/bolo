@@ -5,8 +5,9 @@ import {
   attemptsTable,
   friendshipsTable,
   friendInvitesTable,
+  gameSessionsTable,
 } from "@workspace/db";
-import { and, eq, or, inArray, sql } from "drizzle-orm";
+import { and, eq, or, inArray, sql, sum } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { computeProgressMetrics } from "../lib/progressMetrics";
 import { createRateLimit } from "../middlewares/rateLimit";
@@ -483,7 +484,7 @@ router.get(
     }
     const ids = [...memberIds];
 
-    const [summaries, attempts] = await Promise.all([
+    const [summaries, attempts, gameSessions] = await Promise.all([
       loadUserSummaries(ids),
       db
         .select({
@@ -494,7 +495,21 @@ router.get(
         })
         .from(attemptsTable)
         .where(inArray(attemptsTable.userId, ids)),
+      db
+        .select({
+          userId: gameSessionsTable.userId,
+          totalXp: sql<number>`COALESCE(SUM(${gameSessionsTable.xpAwarded}), 0)`,
+        })
+        .from(gameSessionsTable)
+        .where(inArray(gameSessionsTable.userId, ids))
+        .groupBy(gameSessionsTable.userId),
     ]);
+
+    // Build a per-user map of total XP earned through game sessions.
+    const gameXpByUser = new Map<string, number>();
+    for (const g of gameSessions) {
+      gameXpByUser.set(g.userId, Number(g.totalXp));
+    }
 
     // Group each member's attempts (across all languages) and run them through
     // the shared progress math so XP is computed identically to /progress.
@@ -517,7 +532,8 @@ router.get(
         displayName: null,
         email: null,
       };
-      const xp = computeProgressMetrics(byUser.get(id) ?? []).xp;
+      const practiceXp = computeProgressMetrics(byUser.get(id) ?? []).xp;
+      const xp = practiceXp + (gameXpByUser.get(id) ?? 0);
       return {
         userId: id,
         displayName: summary.displayName,

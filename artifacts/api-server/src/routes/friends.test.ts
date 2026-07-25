@@ -11,6 +11,7 @@ import {
   languagesTable,
   friendshipsTable,
   friendInvitesTable,
+  gameSessionsTable,
 } from "@workspace/db";
 import { eq, inArray, or, and } from "drizzle-orm";
 import friendsRouter from "./friends";
@@ -71,6 +72,17 @@ async function seedAttempt(userId: string, score: number): Promise<void> {
   });
 }
 
+async function seedGameSession(userId: string, xpAwarded: number): Promise<void> {
+  await db.insert(gameSessionsTable).values({
+    userId,
+    languageCode: LANG,
+    game: "word-match",
+    correctCount: 1,
+    totalCount: 1,
+    xpAwarded,
+  });
+}
+
 // Makes USER_A and the given learner accepted friends directly (bypassing the
 // request lifecycle) for leaderboard/remove setup.
 async function makeFriends(a: string, b: string): Promise<void> {
@@ -95,6 +107,7 @@ async function clearSocialRows(): Promise<void> {
       ),
     );
   await db.delete(attemptsTable).where(inArray(attemptsTable.userId, ALL_USERS));
+  await db.delete(gameSessionsTable).where(inArray(gameSessionsTable.userId, ALL_USERS));
 }
 
 before(async () => {
@@ -151,6 +164,19 @@ before(async () => {
       last_sent_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now(),
       CONSTRAINT friend_invites_pair_unique UNIQUE (inviter_id, invitee_email)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_sessions (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      game text NOT NULL,
+      correct_count integer NOT NULL DEFAULT 0,
+      total_count integer NOT NULL DEFAULT 0,
+      xp_awarded integer NOT NULL DEFAULT 0,
+      context text,
+      created_at timestamptz NOT NULL DEFAULT now()
     );
   `);
 
@@ -358,13 +384,18 @@ test("removing a friend clears it for both sides", async () => {
 });
 
 test("leaderboard ranks the caller and friends by total XP across languages", async () => {
-  // XP is the sum of a learner's attempt scores across every language.
+  // Practice XP (attempt scores): A=110, B=90, C=170.
   await seedAttempt(USER_A, 50);
-  await seedAttempt(USER_A, 60); // A total 110
-  await seedAttempt(USER_B, 90); // B total 90
+  await seedAttempt(USER_A, 60); // A practice: 110
+  await seedAttempt(USER_B, 90); // B practice:  90
   await seedAttempt(USER_C, 30);
   await seedAttempt(USER_C, 40);
-  await seedAttempt(USER_C, 100); // C total 170
+  await seedAttempt(USER_C, 100); // C practice: 170
+
+  // Game XP: B earns 200 game XP, which should lift B above A.
+  // Combined totals: A=110, B=90+200=290, C=170.
+  await seedGameSession(USER_B, 120);
+  await seedGameSession(USER_B, 80); // B game: 200
 
   await makeFriends(USER_A, USER_B);
   await makeFriends(USER_A, USER_C);
@@ -373,14 +404,14 @@ test("leaderboard ranks the caller and friends by total XP across languages", as
   const { status, json } = await api("GET", "/friends/leaderboard");
   assert.equal(status, 200);
 
-  // Ranked highest XP first: C (170), A (110), B (90).
+  // Ranked highest combined XP first: B (290), C (170), A (110).
   assert.deepEqual(
     json.map((e: any) => e.userId),
-    [USER_C, USER_A, USER_B],
+    [USER_B, USER_C, USER_A],
   );
   assert.deepEqual(
     json.map((e: any) => e.xp),
-    [170, 110, 90],
+    [290, 170, 110],
   );
   assert.deepEqual(
     json.map((e: any) => e.rank),

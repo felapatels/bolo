@@ -279,40 +279,18 @@ const VOICE_SMOKE_CASES: Array<{
   languageCodes: string[];
 }> = [
   {
-    voiceName: "Brian (North Indian / Indic)",
-    voiceId: "nPczCjzI2devNBz1zQrb",
-    phrase: "नमस्ते",   // "Namaste" — Hindi Devanagari, 6 chars
-    languageCodes: ["hi", "pa", "mr", "ne", "sa", "doi", "mai", "kok", "bho"],
-  },
-  {
-    voiceName: "Eric (South Indian / Dravidian)",
-    voiceId: "cjVigY5qzO86Huf0OWal",
-    phrase: "வணக்கம்", // "Vanakkam" — Tamil, 7 chars
-    languageCodes: ["ta", "te", "kn", "ml"],
-  },
-  {
-    voiceName: "Charlie (East Indian)",
-    voiceId: "IKne3meq5aSn9XLyUdCD",
-    phrase: "নমস্কার",  // "Nomoskar" — Bengali, 7 chars
-    languageCodes: ["bn", "or", "as", "mni", "sat"],
-  },
-  {
-    voiceName: "Bill (West Indian)",
-    voiceId: "pqHfZKP75CvOlQylNhV4",
-    phrase: "નમસ્તે",   // "Namaste" — Gujarati, 6 chars
-    languageCodes: ["gu", "raj"],
-  },
-  {
-    voiceName: "Daniel (Perso-Arabic script)",
-    voiceId: "onwK4e9ZLuTAKqWW03F9",
-    phrase: "آداب",      // "Aadaab" — Urdu greeting, 4 chars
-    languageCodes: ["ur", "ks", "sd"],
-  },
-  {
-    voiceName: "George (default fallback)",
+    // Laura is the universal Auto default for all supported languages.
+    voiceName: "Laura (Auto / all languages)",
     voiceId: DEFAULT_MULTILINGUAL_VOICE_ID,
-    phrase: "Hello",    // English — tests the fallback path, 5 chars
-    languageCodes: [],
+    phrase: "नमस्ते",   // "Namaste" — Hindi Devanagari, 6 chars
+    languageCodes: [
+      "hi", "pa", "mr", "ne", "sa",        // North Indian / Indic
+      "ta", "te", "kn", "ml",               // Dravidian
+      "bn", "or", "as", "mni", "sat",       // East Indian
+      "gu", "raj",                           // West Indian
+      "ur", "ks", "sd",                     // Perso-Arabic
+      "doi", "mai", "bho", "kok",           // North-East / Other
+    ],
   },
 ];
 
@@ -371,7 +349,7 @@ if (!process.env.ELEVENLABS_API_KEY) {
   test(
     "textToSpeechElevenLabsStream: Hindi (hi) with language_id streams a valid MP3",
     async () => {
-      const hiVoiceId = "nPczCjzI2devNBz1zQrb"; // Brian — North-Indian/Devanagari voice
+      const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // Laura — universal Auto voice
       const hiPhrase = "नमस्ते"; // "Namaste" — 6 chars
       const hiLanguageId = getLanguageIdForCode("hi"); // should be "hi"
 
