@@ -13,9 +13,12 @@ import {
 import { eq } from "drizzle-orm";
 import {
   shouldReplenish,
+  shouldReplenishFree,
   replenishPhrases,
   REPLENISH_THRESHOLD,
   REPLENISH_BATCH_SIZE,
+  FREE_PHRASE_CEILING,
+  FREE_REPLENISH_COOLDOWN_MS,
 } from "../lib/phraseReplenisher";
 import { buildPhraseStats, type PhraseStats } from "../lib/progressMetrics";
 import type {
@@ -167,10 +170,16 @@ test("shouldReplenish fires for Plus once the engagement threshold is crossed", 
   );
 });
 
-test("shouldReplenish stays quiet below the threshold and on empty topics", () => {
+test("shouldReplenish fires for Plus at exactly 60 % engagement (lowered threshold)", () => {
+  // 5 of 8 phrases engaged = 62.5 % → should fire (new 0.6 threshold).
   const ids = [1, 2, 3, 4, 5, 6, 7, 8];
-  const below = Math.ceil(ids.length * REPLENISH_THRESHOLD) - 1;
-  assert.equal(shouldReplenish("plus", ids, makeStats(ids, below)), false);
+  assert.equal(shouldReplenish("plus", ids, makeStats(ids, 5)), true);
+});
+
+test("shouldReplenish stays quiet for Plus below 60 % engagement", () => {
+  // 4 of 8 = 50 % → should not fire.
+  const ids = [1, 2, 3, 4, 5, 6, 7, 8];
+  assert.equal(shouldReplenish("plus", ids, makeStats(ids, 4)), false);
   assert.equal(shouldReplenish("plus", [], new Map()), false);
 });
 
@@ -179,6 +188,79 @@ test("shouldReplenish never fires for Free or One Language", () => {
   const stats = makeStats(ids, 4);
   assert.equal(shouldReplenish("free", ids, stats), false);
   assert.equal(shouldReplenish("one_language", ids, stats), false);
+});
+
+// ---------------------------------------------------------------------------
+// Free-tier trigger: shouldReplenishFree
+// ---------------------------------------------------------------------------
+
+test("shouldReplenishFree fires for Free user below ceiling at 80 % engagement", () => {
+  // 8 phrases, 7 engaged (87.5 %) — below FREE_PHRASE_CEILING, should fire.
+  const ids = Array.from({ length: 8 }, (_, i) => i + 1);
+  assert.equal(shouldReplenishFree("free", ids, makeStats(ids, 7)), true);
+  // One Language also benefits.
+  assert.equal(
+    shouldReplenishFree("one_language", ids, makeStats(ids, 7)),
+    true,
+  );
+});
+
+test("shouldReplenishFree stays quiet for Free user below 80 % engagement", () => {
+  // 6 of 8 = 75 % → below the Free trigger threshold.
+  const ids = Array.from({ length: 8 }, (_, i) => i + 1);
+  assert.equal(shouldReplenishFree("free", ids, makeStats(ids, 6)), false);
+  assert.equal(shouldReplenishFree("free", [], new Map()), false);
+});
+
+test("shouldReplenishFree stays quiet when phrase count is at or above the ceiling", () => {
+  // At exactly FREE_PHRASE_CEILING — the ceiling guard must prevent a trigger.
+  const ids = Array.from({ length: FREE_PHRASE_CEILING }, (_, i) => i + 1);
+  const stats = makeStats(ids, ids.length); // 100 % engaged
+  assert.equal(shouldReplenishFree("free", ids, stats), false);
+
+  // One above the ceiling — also must not fire.
+  const above = Array.from({ length: FREE_PHRASE_CEILING + 1 }, (_, i) => i + 1);
+  assert.equal(
+    shouldReplenishFree("free", above, makeStats(above, above.length)),
+    false,
+  );
+});
+
+test("shouldReplenishFree never fires for Plus (Plus has its own path)", () => {
+  const ids = Array.from({ length: 8 }, (_, i) => i + 1);
+  assert.equal(shouldReplenishFree("plus", ids, makeStats(ids, 8)), false);
+});
+
+test("replenishPhrases with Free options respects the phrase ceiling", async () => {
+  // Seed exactly FREE_PHRASE_CEILING phrases so the ceiling guard fires.
+  await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  const ceilingPhrases = Array.from({ length: FREE_PHRASE_CEILING }, (_, i) => ({
+    lessonId,
+    languageCode: LANG,
+    categoryId,
+    nativeScript: `word-${i}`,
+    romanized: `word-${i}`,
+    english: `word ${i}`,
+    difficulty: 1,
+    sortOrder: i,
+    stage: "phrase" as const,
+  }));
+  await db.insert(phrasesTable).values(ceilingPhrases);
+
+  const gen = makeGenerator([
+    { nativeScript: "extra", romanized: "extra", english: "extra", difficulty: 1 },
+  ]);
+  const added = await replenishPhrases({
+    languageCode: LANG,
+    categoryId,
+    userId: USER,
+    generate: gen.generate,
+    cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+    phraseCeiling: FREE_PHRASE_CEILING,
+    lockKeyPrefix: "phrase-replenish-free",
+  });
+  assert.equal(added, 0, "ceiling guard must block generation");
+  assert.equal(gen.calls(), 0, "AI must not be called when at ceiling");
 });
 
 // ---------------------------------------------------------------------------

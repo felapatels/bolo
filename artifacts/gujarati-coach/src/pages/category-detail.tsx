@@ -349,19 +349,28 @@ export default function CategoryDetail() {
           )}
 
           {noNewPhrases && !addPhrases.isPending && (
-            <div className="flex items-start gap-3 rounded-2xl bg-success/10 border border-success/20 p-4 text-left">
-              <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
-              <p className="flex-1 text-sm text-success font-medium">
-                You've mastered every phrase we could think of for this topic! Check back later for more.
-              </p>
-              <button
-                type="button"
-                onClick={() => setNoNewPhrases(false)}
-                aria-label="Dismiss"
-                className="shrink-0 -mr-1 -mt-1 rounded-full p-1 text-success/70 hover:text-success hover:bg-success/10 transition-colors"
+            <div className="flex flex-col gap-3 rounded-2xl bg-success/10 border border-success/20 p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
+                <p className="flex-1 text-sm text-success font-medium">
+                  You've mastered every phrase — nice work! Keep them sharp with a review session.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setNoNewPhrases(false)}
+                  aria-label="Dismiss"
+                  className="shrink-0 -mr-1 -mt-1 rounded-full p-1 text-success/70 hover:text-success hover:bg-success/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <Link
+                href="/review"
+                className="w-full bg-success text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <Play className="w-4 h-4 fill-current" />
+                <span>Review phrases</span>
+              </Link>
             </div>
           )}
           </div>

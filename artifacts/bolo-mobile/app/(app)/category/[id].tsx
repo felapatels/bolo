@@ -155,6 +155,39 @@ export default function CategoryScreen() {
           ))
         )}
 
+        {/* Exhaustion state: all visible phrases mastered, no locked phrases
+            (upgrading won't help) — prompt the learner to review instead of
+            leaving them with nothing to do. Plus learners see this when they've
+            genuinely mastered everything the AI could produce for this topic. */}
+        {!phrases.isLoading &&
+        (phrases.data ?? []).length > 0 &&
+        (phrases.data ?? []).every((p) => p.mastered) &&
+        (category?.lockedPhraseCount ?? 0) === 0 ? (
+          <Animated.View
+            entering={skipEnter ? undefined : FadeInDown.duration(450).delay(80)}
+            style={[
+              styles.exhaustedCard,
+              { backgroundColor: `${colors.success}18`, borderColor: `${colors.success}30` },
+            ]}
+          >
+            <View style={styles.exhaustedTop}>
+              <Feather name="star" size={18} color={colors.success} />
+              <Text style={[styles.exhaustedText, { color: colors.success }]}>
+                You've mastered every phrase — nice work! Keep them sharp with a review.
+              </Text>
+            </View>
+            <PressableScale
+              onPress={() => router.push('/(app)/review')}
+              accessibilityRole="button"
+              accessibilityLabel="Review phrases"
+              style={[styles.reviewBtn, { backgroundColor: colors.success }]}
+            >
+              <Feather name="refresh-cw" size={16} color="#fff" />
+              <Text style={styles.reviewBtnText}>Review phrases</Text>
+            </PressableScale>
+          </Animated.View>
+        ) : null}
+
         {/* Locked extended-library phrases (non-Plus learners). The count is
             reported by the server per topic; never render a hardcoded number. */}
         {!phrases.isLoading &&
@@ -366,5 +399,37 @@ const styles = StyleSheet.create({
     bottom: 0,
     padding: 20,
     paddingBottom: 28,
+  },
+  exhaustedCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
+  },
+  exhaustedTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  exhaustedText: {
+    flex: 1,
+    fontFamily: AppFonts.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  reviewBtnText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 14,
+    color: '#fff',
   },
 });

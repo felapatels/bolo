@@ -22,9 +22,10 @@ import { featuresForPlan, type Plan } from "./entitlements";
 import type { PhraseStats } from "./progressMetrics";
 
 // A topic is "approaching the end" once this share of its phrases has been
-// engaged (attempted at least once or mastered). 0.8 means: with the default
-// 8-phrase starter set, replenishment kicks in when the learner has touched 7.
-export const REPLENISH_THRESHOLD = 0.8;
+// engaged (attempted at least once or mastered). 0.6 means: with the default
+// 8-phrase starter set, replenishment kicks in when the learner has touched 5,
+// so fresh content is already waiting well before the last phrase.
+export const REPLENISH_THRESHOLD = 0.6;
 
 // How many fresh phrases each background replenishment asks the AI for. Kept
 // small so content grows steadily rather than in overwhelming bursts.
@@ -38,6 +39,12 @@ export const REPLENISH_BATCH_SIZE = 3;
 // it holds across server processes and restarts.
 export const REPLENISH_COOLDOWN_MS = 10 * 60 * 1000;
 
+// Free-tier background replenishment constants. Free learners get a much
+// slower cadence (once per day instead of every 10 minutes) and a hard ceiling
+// so the starter set grows modestly without ballooning.
+export const FREE_REPLENISH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const FREE_PHRASE_CEILING = 20; // max phrases a Free topic may grow to
+
 // Loose key for de-duplicating phrases by their native-script text (shared
 // with the manual "Add more phrases" endpoint's guard).
 export function phraseKey(nativeScript: string): string {
@@ -46,8 +53,8 @@ export function phraseKey(nativeScript: string): string {
 
 // Pure trigger decision: should a fetch of this topic's phrase list kick off
 // background replenishment for this caller?
-//   - Only Plus (the extended-library plan) ever replenishes — Free and One
-//     Language keep their existing gating and daily-cap behavior untouched.
+//   - Only Plus (the extended-library plan) ever replenishes via this path —
+//     Free and One Language use shouldReplenishFree instead.
 //   - The learner must have engaged (attempted or mastered) at least
 //     REPLENISH_THRESHOLD of the phrases they can see.
 export function shouldReplenish(
@@ -64,28 +71,58 @@ export function shouldReplenish(
   return engaged / phraseIds.length >= REPLENISH_THRESHOLD;
 }
 
+// Pure trigger decision for Free (and One Language) learners. Fires when:
+//   - The caller does NOT have the extended library (i.e. not Plus), AND
+//   - The topic's visible phrase count is below FREE_PHRASE_CEILING, AND
+//   - The learner has engaged at least 80 % of those phrases.
+// Engagement is kept at 80 % (not the lowered Plus threshold) so the daily
+// AI call only fires once the learner is clearly near the end of their set.
+export function shouldReplenishFree(
+  plan: Plan,
+  phraseIds: number[],
+  stats: Map<number, PhraseStats>,
+): boolean {
+  if (featuresForPlan(plan).extendedLibrary) return false; // Plus has its own path
+  if (phraseIds.length === 0) return false;
+  if (phraseIds.length >= FREE_PHRASE_CEILING) return false; // already at ceiling
+  const engaged = phraseIds.filter((id) => {
+    const s = stats.get(id);
+    return s != null && (s.mastered || s.attemptCount > 0);
+  }).length;
+  return engaged / phraseIds.length >= 0.8;
+}
+
 export interface ReplenishOptions {
   languageCode: string;
   categoryId: number;
-  // Recorded against generation tracking (never blocks: callers are Plus).
+  // Recorded against generation tracking.
   userId: string;
   count?: number;
   // Injectable so tests never call OpenAI.
   generate?: (req: AdditionalPhrasesRequest) => Promise<GeneratedPhrase[]>;
+  // For Free-tier replenishment: use a longer cooldown and hard ceiling.
+  // Defaults to the Plus values (REPLENISH_COOLDOWN_MS, no ceiling).
+  cooldownMs?: number;
+  // If set, replenishment is skipped when the existing phrase count >= this.
+  phraseCeiling?: number;
+  // Prefix for the Postgres advisory-lock key so Free and Plus locks never
+  // collide, allowing both to run independently for the same (lang, topic).
+  // Defaults to "phrase-replenish".
+  lockKeyPrefix?: string;
 }
 
-// In-process dedup: one replenishment per (language, category) at a time. A
-// second trigger while one is running just gets the in-flight promise.
+// In-process dedup: one replenishment per (lock-key prefix + language + category)
+// at a time. Free and Plus use distinct prefixes so they dedup independently.
 const inFlight = new Map<string, Promise<number>>();
 
 // Generates and appends fresh phrases to an existing lesson, in the
 // background. Returns how many phrases were added (0 when another
-// replenishment already held the lock, the lesson doesn't exist, or the AI
-// only produced duplicates — the latter is not an error: the existing
-// "you've mastered everything" experience stays intact). Never touches the
-// Free daily-cap check: callers gate on plan via shouldReplenish.
+// replenishment already held the lock, the lesson doesn't exist, the AI
+// only produced duplicates, or the topic is already at its ceiling).
+// Fire-and-forget: never blocks the HTTP response.
 export function replenishPhrases(opts: ReplenishOptions): Promise<number> {
-  const key = `${opts.languageCode}:${opts.categoryId}`;
+  const prefix = opts.lockKeyPrefix ?? "phrase-replenish";
+  const key = `${prefix}:${opts.languageCode}:${opts.categoryId}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
 
@@ -100,12 +137,13 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
   const { languageCode, categoryId, userId } = opts;
   const generate = opts.generate ?? generateAdditionalPhrases;
   const count = opts.count ?? REPLENISH_BATCH_SIZE;
+  const cooldownMs = opts.cooldownMs ?? REPLENISH_COOLDOWN_MS;
+  const lockPrefix = opts.lockKeyPrefix ?? "phrase-replenish";
 
   // Cross-process/device dedup: a session-level Postgres advisory lock keyed
-  // on the (language, category) pair. If another server (or the manual add
-  // endpoint racing us) holds it, we simply skip — the other run's phrases
-  // will be there on the next fetch.
-  const lockKey = `phrase-replenish:${languageCode}:${categoryId}`;
+  // on the (prefix, language, category) triple. Free and Plus use distinct
+  // prefixes so they never block each other for the same topic.
+  const lockKey = `${lockPrefix}:${languageCode}:${categoryId}`;
   const client = await pool.connect();
   let locked = false;
   try {
@@ -139,7 +177,8 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     // inserted nothing), a manual "Add more phrases", or the initial lesson
     // build — skip. This makes the trigger idempotent under the clients'
     // routine poll/focus refetches instead of re-paying the AI every cycle.
-    const since = new Date(Date.now() - REPLENISH_COOLDOWN_MS);
+    // Free uses a 24-hour cooldown; Plus uses 10 minutes.
+    const since = new Date(Date.now() - cooldownMs);
     const recent = await db
       .select({ id: lessonGenerationsTable.id })
       .from(lessonGenerationsTable)
@@ -159,6 +198,12 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
       orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
     });
     if (existing.length === 0) return 0;
+
+    // Ceiling check (Free only): if the topic already has as many phrases as
+    // the tier allows, skip without calling the AI.
+    if (opts.phraseCeiling != null && existing.length >= opts.phraseCeiling) {
+      return 0;
+    }
 
     const generated = await generate({
       languageName: language.name,

@@ -71,6 +71,9 @@ import {
   phraseKey,
   replenishPhrases,
   shouldReplenish,
+  shouldReplenishFree,
+  FREE_REPLENISH_COOLDOWN_MS,
+  FREE_PHRASE_CEILING,
 } from "../lib/phraseReplenisher";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
@@ -439,25 +442,34 @@ router.get(
 
     res.json(accessible.map((p) => serializePhrase(p, stats)));
 
-    // Background replenishment for Plus learners approaching the end of the
-    // topic: kick off generation of a few fresh phrases so new content is
-    // already waiting on a later fetch. Fire-and-forget AFTER the response —
-    // it never delays or interrupts the current session, is Plus-only (so
-    // Free gating and the daily cap are untouched), and is dedup-protected
-    // inside replenishPhrases against overlapping triggers.
-    if (
-      shouldReplenish(
-        resolvedPlan.plan,
-        accessible.map((p) => p.id),
-        stats,
-      )
-    ) {
+    // Background replenishment — fire-and-forget AFTER the response so it
+    // never delays or interrupts the current session. Two independent paths:
+    //
+    //  Plus: triggers at 60 % engagement (REPLENISH_THRESHOLD), 10-min
+    //        cooldown, no ceiling — dedup-protected inside replenishPhrases.
+    //
+    //  Free/One Language: triggers at 80 % engagement, 24-hour cooldown,
+    //        hard ceiling of FREE_PHRASE_CEILING phrases per topic, uses a
+    //        distinct advisory-lock prefix so the two paths never collide.
+    const phraseIds = accessible.map((p) => p.id);
+    if (shouldReplenish(resolvedPlan.plan, phraseIds, stats)) {
       replenishPhrases({
         languageCode: lang,
         categoryId: id,
         userId,
       }).catch((err) => {
         req.log.error({ err }, "Background phrase replenishment failed");
+      });
+    } else if (shouldReplenishFree(resolvedPlan.plan, phraseIds, stats)) {
+      replenishPhrases({
+        languageCode: lang,
+        categoryId: id,
+        userId,
+        cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+        phraseCeiling: FREE_PHRASE_CEILING,
+        lockKeyPrefix: "phrase-replenish-free",
+      }).catch((err) => {
+        req.log.error({ err }, "Background Free phrase replenishment failed");
       });
     }
   },
