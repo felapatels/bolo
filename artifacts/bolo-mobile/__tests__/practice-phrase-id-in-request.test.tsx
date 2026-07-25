@@ -267,4 +267,73 @@ describe('practice pronunciation request includes phraseId', () => {
     expect(callArg.data.targetRomanized).toBe(NA_PHRASE.romanized);
     expect(callArg.data.targetEnglish).toBe(NA_PHRASE.english);
   });
+
+  test('phraseId updates to the second phrase after advancing past the first', async () => {
+    // Drive phrase 1 all the way through its record→result cycle, advance to
+    // phrase 2, then record phrase 2 and confirm the second evaluate call
+    // carries FILLER_PHRASE.id — not a stale copy of NA_PHRASE.id.
+    //
+    // This catches the bug where currentPhrase is captured once at session
+    // start: Whisper's language hint would silently reference "na" (phrase 1)
+    // while the learner is actually pronouncing "ha" (phrase 2).
+
+    render(<PracticeScreen />);
+
+    // ── Phrase 1: record → result ─────────────────────────────────────────
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Good job!')).toBeOnTheScreen(),
+    );
+
+    // Verify phrase 1 used NA_PHRASE.id
+    expect(mockState.evaluate).toHaveBeenCalledTimes(1);
+    expect(mockState.evaluate.mock.calls[0][0].data.phraseId).toBe(NA_PHRASE.id);
+
+    // ── Advance to phrase 2 ───────────────────────────────────────────────
+    await act(async () => {
+      fireEvent.press(screen.getByText('Next phrase'));
+    });
+
+    // ── Phrase 2: record → result ─────────────────────────────────────────
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(mockState.evaluate).toHaveBeenCalledTimes(2),
+    );
+
+    const secondCallArg = mockState.evaluate.mock.calls[1][0];
+
+    // The critical assertion: phrase 2's id must be in the request, not
+    // phrase 1's id.
+    expect(secondCallArg.data.phraseId).toBe(FILLER_PHRASE.id);
+    expect(secondCallArg.data.phraseId).not.toBe(NA_PHRASE.id);
+
+    // Sanity-check: the target strings also match phrase 2.
+    expect(secondCallArg.data.targetNative).toBe(FILLER_PHRASE.nativeScript);
+    expect(secondCallArg.data.targetRomanized).toBe(FILLER_PHRASE.romanized);
+    expect(secondCallArg.data.targetEnglish).toBe(FILLER_PHRASE.english);
+  });
 });
