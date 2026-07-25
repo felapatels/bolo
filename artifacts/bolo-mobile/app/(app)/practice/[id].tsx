@@ -219,9 +219,10 @@ const RING_R = 48;
 const RING_STROKE = 9;
 const RING_CIRCUM = 2 * Math.PI * RING_R;
 const RING_SIZE = RING_R * 2 + RING_STROKE;
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 function ScoreRing({ score, color }: { score: number; color: string }) {
+  // createAnimatedComponent inside useMemo: avoids module-level Reanimated+SVG
+  // evaluation on iOS New Architecture which can crash before any JS runs.
+  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
   const progress = useSharedValue(0);
 
   React.useEffect(() => {

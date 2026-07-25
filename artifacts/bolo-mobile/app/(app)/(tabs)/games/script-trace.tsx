@@ -727,9 +727,8 @@ type PenTipStroke = {
   end: number;
 };
 
-const AnimatedSvgPath = Animated.createAnimatedComponent(SvgPath);
-const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
-const AnimatedSvgRect = Animated.createAnimatedComponent(SvgRect);
+// NOTE: createAnimatedComponent is called inside each component via useMemo
+// to avoid module-level evaluation of Reanimated+SVG on iOS (New Architecture).
 
 /**
  * One demo pen stroke revealed by animating strokeDashoffset from the full
@@ -749,6 +748,7 @@ export function AnimPenStroke({ progress, d, len, start, end, scale, color }: {
   scale: number;
   color: string;
 }) {
+  const AnimatedSvgPath = React.useMemo(() => Animated.createAnimatedComponent(SvgPath), []);
   // react-native-svg's `scale` prop scales the path geometry but NOT the
   // stroke-dash coordinate system. Dasharray/dashoffset must be in visual
   // pixel units (local units × scale) so the dash covers the full stroke.
@@ -787,6 +787,7 @@ function AnimPenTip({ progress, strokes, r, color }: {
   r: number;
   color: string;
 }) {
+  const AnimatedSvgCircle = React.useMemo(() => Animated.createAnimatedComponent(SvgCircle), []);
   const animatedProps = useAnimatedProps(() => {
     const t = progress.value;
     let cx = -100;
@@ -975,6 +976,8 @@ function TraceCanvas({
   guidePoints: Point[];
   interiorPoints: Point[];
 }) {
+  const AnimatedSvgCircle = React.useMemo(() => Animated.createAnimatedComponent(SvgCircle), []);
+  const AnimatedSvgRect = React.useMemo(() => Animated.createAnimatedComponent(SvgRect), []);
   const colors = useColors();
   const [drawnPath, setDrawnPath] = useState('');
   // Controls whether the guide pulses amber on a failed trace.

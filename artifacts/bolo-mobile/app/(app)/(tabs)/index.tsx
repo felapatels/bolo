@@ -53,9 +53,6 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { ContinueCard } from '@/components/ContinueCard';
 
-// Animated SVG circle for the streak arc (created once at module level).
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 const ARC_RADIUS = 24;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
 
@@ -719,6 +716,9 @@ function GradientStatCell({
   arcAttemptsToday?: number;
   arcDailyGoal?: number;
 }) {
+  // createAnimatedComponent inside useMemo: avoids module-level Reanimated+SVG
+  // evaluation on iOS New Architecture which can crash before any JS runs.
+  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
   const reduceMotion = useReducedMotion();
   const showArc = index === 0 && arcAttemptsToday != null && arcDailyGoal != null;
 
