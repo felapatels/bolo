@@ -43,6 +43,7 @@ jest.mock('@workspace/api-client-react', () => ({
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   getListBadgesQueryKey: () => ['badges'],
+  useGetAccount: () => ({ data: undefined }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({

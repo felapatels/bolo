@@ -37,6 +37,7 @@ import {
   useSynthesizeSpeech,
   useEvaluatePronunciation,
   useCreateAttempt,
+  useGetAccount,
   getGetProgressSummaryQueryKey,
   getListRecentAttemptsQueryKey,
   getListCategoryPhrasesQueryKey,
@@ -349,6 +350,14 @@ export default function PracticeScreen() {
   const phrases = isSentences ? sentenceQuery : phraseQuery;
   const list = phrases.data ?? [];
 
+  // Read the learner's TTS voice preference so the client-side audio cache
+  // key can include the voice ID. Without this, changing voice mid-session
+  // still plays the old cached audio until a phrase is encountered for the
+  // first time. Stale data is fine here — the account query is almost always
+  // pre-fetched by an ancestor; we just need the ttsVoice field.
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const synth = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
@@ -533,8 +542,12 @@ export default function PracticeScreen() {
 
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every tap sometimes yields a different (wrong) reading from the TTS model.
+  // The key is `${phrase.id}:${ttsVoice}` so a mid-session voice change
+  // automatically busts the old cached clip — the new voice is fetched fresh
+  // for the very next play rather than waiting for a phrase the user hasn't
+  // heard yet.
   const audioCacheRef = React.useRef(
-    new Map<number, { audioBase64: string; format: string }>(),
+    new Map<string, { audioBase64: string; format: string }>(),
   );
 
   const playCoach = React.useCallback(async () => {
@@ -543,7 +556,8 @@ export default function PracticeScreen() {
     const token = playTokenRef.current;
     try {
       setCoachPlaying(true);
-      const cached = audioCacheRef.current.get(phrase.id);
+      const cacheKey = `${phrase.id}:${ttsVoice}`;
+      const cached = audioCacheRef.current.get(cacheKey);
       const res =
         cached ??
         (await synth.mutateAsync({
@@ -552,7 +566,7 @@ export default function PracticeScreen() {
             languageName: activeLanguage?.name,
           },
         }));
-      audioCacheRef.current.set(phrase.id, {
+      audioCacheRef.current.set(cacheKey, {
         audioBase64: res.audioBase64,
         format: res.format || 'mp3',
       });
@@ -576,7 +590,7 @@ export default function PracticeScreen() {
       if (token === playTokenRef.current) setCoachPlaying(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phrase?.id, activeLanguage?.name]);
+  }, [phrase?.id, activeLanguage?.name, ttsVoice]);
 
   // Auto-play the coach model once when a new phrase appears, unless the
   // learner has opted into silent mode (they prefer to read the phrase and
@@ -604,6 +618,8 @@ export default function PracticeScreen() {
   // Prefetch the next phrase's coach audio while the learner is still working
   // on the current one, so advancing to it feels instant. Skipped in silent
   // mode (no audio will be needed) and when the cache already has it.
+  // ttsVoice is included so a voice change re-prefetches the upcoming phrase
+  // in the new voice rather than serving a stale clip.
   React.useEffect(() => {
     let cancelled = false;
     const upcoming = list[index + 1];
@@ -611,7 +627,8 @@ export default function PracticeScreen() {
     void (async () => {
       const silent = await loadSilentMode();
       if (cancelled || silent) return;
-      if (audioCacheRef.current.has(upcoming.id)) return;
+      const upcomingKey = `${upcoming.id}:${ttsVoice}`;
+      if (audioCacheRef.current.has(upcomingKey)) return;
       try {
         const res = await synth.mutateAsync({
           data: {
@@ -620,7 +637,7 @@ export default function PracticeScreen() {
           },
         });
         if (cancelled) return;
-        audioCacheRef.current.set(upcoming.id, {
+        audioCacheRef.current.set(upcomingKey, {
           audioBase64: res.audioBase64,
           format: res.format || 'mp3',
         });
@@ -632,7 +649,7 @@ export default function PracticeScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, list.length, activeLanguage?.name]);
+  }, [index, list.length, activeLanguage?.name, ttsVoice]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
   React.useEffect(() => () => stopSelfPlayback(), [stopSelfPlayback]);
@@ -1239,6 +1256,7 @@ export default function PracticeScreen() {
               playCoach();
             }}
             disabled={coachPlaying}
+            accessibilityLabel={coachPlaying ? 'Listening to coach' : 'Listen to coach'}
             style={[styles.listenBtn, { borderColor: colors.border }]}
           >
             <Feather

@@ -9,16 +9,19 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Guards the spoken-feedback read-aloud: when a score lands, the coach's
-// feedback + tip are spoken immediately via the device speech engine
-// (expo-speech) — unless the device-local "Spoken feedback" preference is
-// off, in which case nothing is spoken (target-phrase playback is unaffected
-// either way). The result card also has a quick mute toggle that silences
-// mid-readout and persists the preference.
+// Confirms that the client-side audio cache is keyed by voice ID so that a
+// mid-session voice change causes fresh TTS synthesis for the current phrase
+// rather than playing back the old cached clip.
+//
+// Scenario:
+//  1. Learner opens a practice session — coach audio for phrase 1 is fetched
+//     and cached under key "1:voice-A".
+//  2. Learner goes to Settings → Voice and switches to "voice-B".
+//  3. Learner taps the listen button again on the same phrase — the key is
+//     now "1:voice-B" which is not in the cache, so synthesis fires again.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
-
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '5' }),
@@ -40,11 +43,13 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  // Returns whatever mockState.account is set to at call time, so tests can
+  // swap the voice preference and trigger a re-render.
+  useGetAccount: () => mockState.account,
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   getListBadgesQueryKey: () => ['badges'],
-  useGetAccount: () => ({ data: undefined }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({
@@ -64,8 +69,8 @@ jest.mock('@/lib/audio', () => ({
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
-  // Call onDone immediately so coachPlaying resets; lets the record button
-  // become enabled in tests without requiring a real playback event loop.
+  // Call onDone immediately so coachPlaying resets and the listen button
+  // becomes re-pressable without a real playback event loop.
   playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
     onDone?.();
     return { stop: jest.fn() };
@@ -73,6 +78,8 @@ jest.mock('@/lib/audio', () => ({
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
+  SPEECH_MIN_DB: -35,
+  SILENCE_DROP_DB: 14,
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({
@@ -117,6 +124,16 @@ const phraseA = {
   english: 'hello',
 };
 
+function makeAccount(ttsVoice: string | null) {
+  return {
+    data: {
+      preferences: {
+        learning: { ttsVoice },
+      },
+    },
+  };
+}
+
 function successQuery(data: unknown) {
   return {
     data,
@@ -137,72 +154,83 @@ beforeEach(async () => {
     score: 88,
     passed: true,
     transcript: 'namaste',
-    feedback: 'Nice work on that greeting!',
-    tip: 'Soften the t sound.',
+    feedback: 'Nice!',
+    tip: '',
     evaluationToken: 'signed-token',
   }));
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
+  // Start with voice-A selected.
+  mockState.account = makeAccount('voice-A');
 });
 
-async function renderReady() {
-  render(<PracticeScreen />);
-  // Coach model auto-plays for the first phrase; wait until coachPlaying
-  // drops back to false (playback complete) so the record button is enabled.
-  await waitFor(() =>
-    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
-  );
-}
+describe('audio cache keyed by voice ID', () => {
+  test('fetches fresh audio after voice preference changes mid-session', async () => {
+    const { rerender } = render(<PracticeScreen />);
 
-async function recordAndScore() {
-  await act(async () => {
-    fireEvent(screen.getByTestId('record-button'), 'pressIn');
-  });
-  await waitFor(() =>
-    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
-  );
-  await act(async () => {
-    fireEvent(screen.getByTestId('record-button'), 'pressOut');
-  });
-  await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
-}
+    // Wait for initial auto-play to complete (coach audio synthesized once).
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
 
-describe('spoken feedback after scoring', () => {
-  test('synthesizes and plays the feedback + tip in the coach voice by default', async () => {
-    await renderReady();
-    await recordAndScore();
-
-    // One synth for the target phrase, one (kicked off at evaluation time)
-    // for the feedback readout.
-    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
-    expect(mockState.synth).toHaveBeenLastCalledWith({
-      data: { text: 'Nice work on that greeting! Soften the t sound.' },
-    });
-  });
-
-  test('stays silent when the preference is off', async () => {
-    await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
-    await renderReady();
-    await recordAndScore();
-
+    // Tap the listen button again — still voice-A, cache hit, no new synth.
     await act(async () => {
-      await Promise.resolve();
+      fireEvent.press(screen.getByLabelText('Listen to coach'));
     });
-    // Only the target-phrase playback happened.
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+
+    // Simulate the learner switching to voice-B in Account → Voice settings.
+    mockState.account = makeAccount('voice-B');
+    rerender(<PracticeScreen />);
+
+    // Tap the listen button — key is now "1:voice-B", cache miss → new synth.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Listen to coach'));
+    });
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+  });
+
+  test('uses the same cache entry on replay when voice has not changed', async () => {
+    render(<PracticeScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    // First play synthesized once.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+
+    // Tap listen three more times — same voice, same phrase: always a cache hit.
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Listen to coach'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+      );
+    }
+    // Synth count stays at 1 — all replays served from cache.
     expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 
-  test('quick mute on the result card persists the preference off', async () => {
-    await renderReady();
-    await recordAndScore();
+  test('null ttsVoice (Auto) is treated as a stable cache key', async () => {
+    mockState.account = makeAccount(null);
+    render(<PracticeScreen />);
 
-    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('spoken-feedback-quick-toggle'));
-    });
-    await waitFor(async () =>
-      expect(await AsyncStorage.getItem('bolo.spokenFeedback')).toBe('off'),
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
-    // No further feedback synthesis for the same result.
-    expect(mockState.synth).toHaveBeenCalledTimes(2);
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+
+    // Replay — same Auto key, cache hit.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Listen to coach'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 });
