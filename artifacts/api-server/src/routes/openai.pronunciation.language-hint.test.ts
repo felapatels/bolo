@@ -57,6 +57,21 @@ let stubPhrase: StubPhrase | null = {
   languageCode: "gu",
 };
 
+// ─── Stub language returned by the DB mock ────────────────────────────────────
+// Tests that use a phraseId will get this language back from the DB stub when
+// the route looks up languagesTable by languageCode.  Set per-test to match the
+// stubPhrase's languageCode so the derived language name is predictable.
+
+interface StubLanguage {
+  code: string;
+  name: string;
+}
+
+let stubLanguage: StubLanguage | null = {
+  code: "gu",
+  name: "Gujarati",
+};
+
 // ─── Module mocks (must be registered before ./openai is imported) ────────────
 
 mock.module("@workspace/integrations-openai-ai-server/audio", {
@@ -126,6 +141,10 @@ mock.module("@workspace/db", {
         usersTable: {
           // Voice-preference lookup → null so the route uses the language default.
           findFirst: async () => null,
+        },
+        languagesTable: {
+          // Language name lookup → return stubLanguage (or undefined when null).
+          findFirst: async () => stubLanguage ?? undefined,
         },
       },
       insert: () => ({
@@ -240,6 +259,7 @@ test("STT hint includes language code when phrase has languageCode='gu'", async 
     english: "no",
     languageCode: "gu",
   };
+  stubLanguage = { code: "gu", name: "Gujarati" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -274,6 +294,7 @@ test("STT hint includes language code 'hi' for a Hindi phrase", async () => {
     english: "no",
     languageCode: "hi",
   };
+  stubLanguage = { code: "hi", name: "Hindi" };
 
   const { status } = await postPronunciation({ phraseId: 99, languageName: "Hindi" });
 
@@ -329,6 +350,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 1, nativeScript: "ná", romanized: "na", english: "no", languageCode: "gu" };
+  stubLanguage = { code: "gu", name: "Gujarati" };
   await postPronunciation({ phraseId: 1, languageName: "Gujarati" });
   const gujaratiLang = capturedSttOptions[0]?.language;
 
@@ -337,6 +359,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 2, nativeScript: "ना", romanized: "na", english: "no", languageCode: "hi" };
+  stubLanguage = { code: "hi", name: "Hindi" };
   await postPronunciation({ phraseId: 2, languageName: "Hindi" });
   const hindiLang = capturedSttOptions[0]?.language;
 
@@ -365,6 +388,7 @@ test("STT language hint is present on the high-quality retry pass when the first
     english: "no",
     languageCode: "gu",
   };
+  stubLanguage = { code: "gu", name: "Gujarati" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -412,6 +436,7 @@ test("STT language hint is present on the high-quality retry pass when the first
     english: "no",
     languageCode: "gu",
   };
+  stubLanguage = { code: "gu", name: "Gujarati" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -442,4 +467,48 @@ test("STT language hint is present on the high-quality retry pass when the first
 
   // Reset sequence so subsequent tests use the plain stub.
   stubbedTranscriptSequence = null;
+});
+
+test("STT prompt uses DB-derived language name even when client sends a mismatched languageName", async () => {
+  // The client sends languageName="Hindi" but the phrase belongs to Gujarati
+  // (languageCode: "gu").  The server must look up the language name from
+  // languagesTable using the phrase's languageCode and use "Gujarati" in the
+  // STT prompt — not the client-supplied "Hindi".  This prevents a mismatched
+  // client value from weakening Whisper's language anchor.
+  stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
+  capturedSttOptions = [];
+  stubPhrase = {
+    id: 42,
+    nativeScript: "ná",
+    romanized: "na",
+    english: "no",
+    languageCode: "gu",
+  };
+  // DB returns the canonical Gujarati record regardless of what the client said.
+  stubLanguage = { code: "gu", name: "Gujarati" };
+
+  const { status, json } = await postPronunciation({
+    phraseId: 42,
+    languageName: "Hindi", // client sends the wrong language name
+  });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.ok(capturedSttOptions.length >= 1, "speechToText must have been called");
+
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.ok(
+      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
+      `call #${i + 1}: prompt must mention "Gujarati" (DB-derived), got ${JSON.stringify(opts.prompt)}`,
+    );
+    assert.ok(
+      typeof opts.prompt !== "string" || !opts.prompt.includes("Hindi"),
+      `call #${i + 1}: prompt must NOT mention "Hindi" (the mismatched client value), got ${JSON.stringify(opts.prompt)}`,
+    );
+    assert.equal(
+      opts.language,
+      "gu",
+      `call #${i + 1}: sttOptions.language must be "gu" (from phrase), got ${JSON.stringify(opts.language)}`,
+    );
+  }
 });

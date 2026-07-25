@@ -384,7 +384,27 @@ router.post(
       targetEnglish = phrase.english;
       languageCode = phrase.languageCode;
     }
-    const language = languageName?.trim() || "the target language";
+
+    // When a phraseId was supplied, look up the canonical language name from the
+    // DB so a client-provided languageName cannot mislead Whisper with a
+    // mismatched language (e.g. "Hindi" for a Gujarati phrase).  Falls back to
+    // the client-supplied value when the language record is not found.
+    let language = languageName?.trim() || "the target language";
+    if (phraseId != null && languageCode) {
+      try {
+        const langRow = await db.query.languagesTable.findFirst({
+          where: eq(languagesTable.code, languageCode),
+        });
+        if (langRow?.name) {
+          language = langRow.name;
+        }
+      } catch (err) {
+        req.log.warn(
+          { err },
+          "Could not look up language name from DB; using client-supplied value",
+        );
+      }
+    }
 
     // Hint the transcriber with the language only — omitting the target phrase
     // prevents Whisper from anchoring on the phrase text and transcribing vaguely
