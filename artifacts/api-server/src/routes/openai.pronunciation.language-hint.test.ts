@@ -512,3 +512,45 @@ test("STT prompt uses DB-derived language name even when client sends a mismatch
     );
   }
 });
+
+test("STT prompt falls back to client-supplied languageName when DB has no record for the phrase's language", async () => {
+  // When languagesTable.findFirst returns undefined (no row for the phrase's
+  // languageCode), the route must fall back to the client-supplied languageName
+  // rather than emitting the generic "the target language" placeholder.
+  // Scenario: client sends languageName="Gujarati", phrase.languageCode="gu",
+  // DB has no matching language row (stubLanguage = null).
+  stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
+  capturedSttOptions = [];
+  stubPhrase = {
+    id: 42,
+    nativeScript: "ná",
+    romanized: "na",
+    english: "no",
+    languageCode: "gu",
+  };
+  // Simulate a missing DB record for the language.
+  stubLanguage = null;
+
+  const { status, json } = await postPronunciation({
+    phraseId: 42,
+    languageName: "Gujarati", // client-supplied; should appear in prompt as fallback
+  });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.ok(capturedSttOptions.length >= 1, "speechToText must have been called at least once");
+
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.ok(
+      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
+      `call #${i + 1}: prompt must mention the client-supplied "Gujarati" when DB has no language row, got ${JSON.stringify(opts.prompt)}`,
+    );
+    assert.ok(
+      typeof opts.prompt !== "string" || !opts.prompt.includes("the target language"),
+      `call #${i + 1}: prompt must NOT fall back to generic "the target language" placeholder, got ${JSON.stringify(opts.prompt)}`,
+    );
+  }
+
+  // Reset so subsequent tests use the default stub.
+  stubLanguage = { code: "gu", name: "Gujarati" };
+});
