@@ -370,8 +370,9 @@ function SummaryRingRow({
   const attempted = list.filter((_, i) => scores[i] !== undefined);
   if (attempted.length === 0) return null;
 
+  // Thresholds mirror ScoreTrail dots, flash overlay, and scoreColor() (70/50).
   const ringColor = (score: number) =>
-    score >= 80 ? colors.success : score >= 60 ? colors.primary : colors.destructive;
+    score >= 70 ? colors.success : score >= 50 ? colors.primary : colors.destructive;
 
   const selected = selectedIdx !== null ? {
     phrase: list[selectedIdx],

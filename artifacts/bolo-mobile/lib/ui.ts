@@ -20,12 +20,18 @@ export function categoryIcon(iconName: string): FeatherName {
   return CATEGORY_ICONS[iconName] ?? 'book-open';
 }
 
-/** Colour for a pronunciation score badge, matching the web thresholds. */
+/**
+ * Colour for a pronunciation score badge.
+ * Thresholds match the ScoreTrail dots and flash overlay in the practice screen:
+ *   green  ≥ 70  (pass)
+ *   amber  ≥ 50  (near-miss)
+ *   red    < 50  (fail)
+ */
 export function scoreColor(
   score: number,
   palette: { success: string; primary: string; destructive: string },
 ): string {
-  if (score >= 80) return palette.success;
-  if (score >= 60) return palette.primary;
+  if (score >= 70) return palette.success;
+  if (score >= 50) return palette.primary;
   return palette.destructive;
 }
