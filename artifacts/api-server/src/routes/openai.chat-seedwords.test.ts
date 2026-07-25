@@ -44,11 +44,22 @@ const CATEGORY_SLUG = `__cat_seedw${RUN}`;
 const TEST_LANG_EMPTY = `__test_seedw_e${RUN}`;
 const TEST_LANG_EMPTY_NAME = `SeedWordsEmptyLang${RUN}`;
 
+// Third language for the language-switch test. Words are intentionally
+// distinct from TEST_LANG's words so cross-contamination is detectable.
+const TEST_LANG_2 = `__test_seedw2${RUN}`;
+const TEST_LANG_NAME_2 = `SeedWordsLang2${RUN}`;
+const CATEGORY_SLUG_2 = `__cat_seedw2${RUN}`;
+
 // Romanized forms we will seed as phrases. The route fetches the 5 easiest
 // phrases (ORDER BY difficulty ASC, sort_order ASC), so these must be the
 // ones that land first.
 const SEED_ROMANIZED = ["kyah chhu", "kus", "chu", "aasi", "baasith"] as const;
 const SEED_NATIVE = ["كیا چھُ", "کُس", "چُھ", "آسِ", "باسِتھ"] as const;
+
+// Phrases for the second (Santali-like) language — fully distinct tokens so
+// the isolation assertion can detect cross-language leakage.
+const SEED_ROMANIZED_2 = ["johar", "hende", "okoe", "alom", "bapla"] as const;
+const SEED_NATIVE_2 = ["ᱡᱚᱦᱟᱨ", "ᱦᱮᱸᱫᱮ", "ᱚᱠᱚᱭ", "ᱟᱞᱚᱢ", "ᱵᱟᱯᱞᱟ"] as const;
 
 // A minimal WAV buffer so the route doesn't fail parsing the audio before
 // reaching the seed-word DB query.
@@ -178,7 +189,18 @@ before(async () => {
     })
     .onConflictDoNothing();
 
-  // ── Seed category → lesson → phrases ─────────────────────────────────────
+  // Second language (Santali-like) for the language-switch test.
+  await db.insert(languagesTable)
+    .values({
+      code: TEST_LANG_2,
+      name: TEST_LANG_NAME_2,
+      nativeName: "ᱥᱟᱱᱛᱟᱲᱤ",
+      script: "Ol Chiki",
+      fontFamily: "sans-serif",
+    })
+    .onConflictDoNothing();
+
+  // ── Seed category → lesson → phrases (lang 1) ────────────────────────────
   const [category] = await db.insert(categoriesTable)
     .values({
       slug: CATEGORY_SLUG,
@@ -209,6 +231,40 @@ before(async () => {
         nativeScript: SEED_NATIVE[i],
         romanized: SEED_ROMANIZED[i],
         english: `word${i}`,
+        difficulty: 1,
+        sortOrder: i,
+      })
+      .onConflictDoNothing();
+  }
+
+  // ── Seed category → lesson → phrases (lang 2) ────────────────────────────
+  const [category2] = await db.insert(categoriesTable)
+    .values({
+      slug: CATEGORY_SLUG_2,
+      title: "Test Topic 2",
+      description: "Integration test topic 2",
+      iconName: "BookOpen",
+      accent: "#111111",
+    })
+    .returning();
+
+  const [lesson2] = await db.insert(lessonsTable)
+    .values({
+      languageCode: TEST_LANG_2,
+      categoryId: category2.id,
+      titleNative: "T2",
+    })
+    .returning();
+
+  for (let i = 0; i < SEED_ROMANIZED_2.length; i++) {
+    await db.insert(phrasesTable)
+      .values({
+        lessonId: lesson2.id,
+        languageCode: TEST_LANG_2,
+        categoryId: category2.id,
+        nativeScript: SEED_NATIVE_2[i],
+        romanized: SEED_ROMANIZED_2[i],
+        english: `word2_${i}`,
         difficulty: 1,
         sortOrder: i,
       })
@@ -280,10 +336,15 @@ after(async () => {
 
   // FK order: chat_turns + phrases → lessons → categories, then language, then user.
   await db.delete(chatTurnsTable).where(eq(chatTurnsTable.languageCode, TEST_LANG));
+  await db.delete(chatTurnsTable).where(eq(chatTurnsTable.languageCode, TEST_LANG_2));
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, TEST_LANG));
+  await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, TEST_LANG_2));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, TEST_LANG));
+  await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, TEST_LANG_2));
   await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
+  await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG_2));
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG));
+  await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG_2));
   // Zero-phrases language has no phrases/lessons/categories rows, but the route
   // records chat turns for it — delete those before the FK-constrained language row.
   await db.delete(chatTurnsTable).where(eq(chatTurnsTable.languageCode, TEST_LANG_EMPTY));
@@ -494,5 +555,72 @@ test("POST /openai/chat — prompt contains no empty comma-separated fragment wh
     prompt,
     `${TEST_LANG_EMPTY_NAME} or English.`,
     `zero-phrases prompt should be exactly the bare bilingual hint`,
+  );
+});
+
+// ─── Language-switch mid-session test ────────────────────────────────────────
+
+test("POST /openai/chat — language switch mid-session: each turn uses only that language's seed words", async () => {
+  // Turn 1: first language (Kashmiri-like).
+  capturedTranscribeOptions = {};
+  const { status: status1 } = await postChat({
+    languageCode: TEST_LANG,
+    audioBase64: makeMinimalWav(),
+    history: [],
+  });
+  // Snapshot the prompt before the second call overwrites the capture variable.
+  const promptLang1 = capturedTranscribeOptions["prompt"] as string;
+
+  // Turn 2: second language (Santali-like) — simulates a learner switching
+  // language mid-session without reloading the app.
+  capturedTranscribeOptions = {};
+  const { status: status2 } = await postChat({
+    languageCode: TEST_LANG_2,
+    audioBase64: makeMinimalWav(),
+    history: [],
+  });
+  const promptLang2 = capturedTranscribeOptions["prompt"] as string;
+
+  assert.equal(status1, 200, `lang1 turn should return 200, got ${status1}`);
+  assert.equal(status2, 200, `lang2 turn should return 200, got ${status2}`);
+
+  // Lang 1 prompt must contain every lang 1 word …
+  for (const word of SEED_ROMANIZED) {
+    assert.ok(
+      promptLang1.includes(word),
+      `lang1 prompt should contain "${word}" — got: ${promptLang1}`,
+    );
+  }
+  // … and must NOT contain any lang 2 word.
+  for (const word of SEED_ROMANIZED_2) {
+    assert.ok(
+      !promptLang1.includes(word),
+      `lang1 prompt must NOT contain lang2 word "${word}" — got: ${promptLang1}`,
+    );
+  }
+
+  // Lang 2 prompt must contain every lang 2 word …
+  for (const word of SEED_ROMANIZED_2) {
+    assert.ok(
+      promptLang2.includes(word),
+      `lang2 prompt should contain "${word}" — got: ${promptLang2}`,
+    );
+  }
+  // … and must NOT contain any lang 1 word.
+  for (const word of SEED_ROMANIZED) {
+    assert.ok(
+      !promptLang2.includes(word),
+      `lang2 prompt must NOT contain lang1 word "${word}" — got: ${promptLang2}`,
+    );
+  }
+
+  // Each prompt should include the correct language name.
+  assert.ok(
+    promptLang1.includes(TEST_LANG_NAME),
+    `lang1 prompt should include language name "${TEST_LANG_NAME}" — got: ${promptLang1}`,
+  );
+  assert.ok(
+    promptLang2.includes(TEST_LANG_NAME_2),
+    `lang2 prompt should include language name "${TEST_LANG_NAME_2}" — got: ${promptLang2}`,
   );
 });
