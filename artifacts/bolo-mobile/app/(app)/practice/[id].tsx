@@ -84,12 +84,14 @@ type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
  * The current-phrase dot breathes with a gentle scale pulse.
  */
 function ScoreDot({
+  index,
   score,
   isCurrent,
   dotColor,
   onPress,
   isSelected,
 }: {
+  index: number;
   score: number | null;
   isCurrent: boolean;
   dotColor: string;
@@ -119,6 +121,7 @@ function ScoreDot({
 
   return (
     <Pressable
+      testID={`score-dot-${index}`}
       onPress={score !== null ? onPress : undefined}
       disabled={score === null}
       hitSlop={6}
@@ -200,6 +203,7 @@ function ScoreTrail({
           return (
             <ScoreDot
               key={i}
+              index={i}
               score={score}
               isCurrent={isCurrent}
               dotColor={dotColor}
