@@ -17,6 +17,9 @@ export function startOfUtcDay(now: Date = new Date()): Date {
 }
 
 // How many brand-new AI lesson generations the user has triggered so far today.
+// Only 'initial' rows (a learner opening a fresh topic for the first time) are
+// counted — 'replenishment' top-ups are excluded so background phrase adds
+// never silently consume the Free daily cap.
 export async function countLessonGenerationsToday(
   userId: string,
   now: Date = new Date(),
@@ -27,6 +30,7 @@ export async function countLessonGenerationsToday(
     .where(
       and(
         eq(lessonGenerationsTable.userId, userId),
+        eq(lessonGenerationsTable.kind, "initial"),
         gte(lessonGenerationsTable.createdAt, startOfUtcDay(now)),
       ),
     );
@@ -35,14 +39,17 @@ export async function countLessonGenerationsToday(
 
 // Logs a generation against the user's daily allowance. Called only when the
 // server actually invokes the AI (a real cost), never on a cache hit.
+// Pass kind='replenishment' for background phrase top-ups so they are never
+// counted toward the Free daily cap.
 export async function recordLessonGeneration(
   userId: string,
   languageCode: string,
   categoryId: number,
+  kind: "initial" | "replenishment" = "initial",
 ): Promise<void> {
   await db
     .insert(lessonGenerationsTable)
-    .values({ userId, languageCode, categoryId });
+    .values({ userId, languageCode, categoryId, kind });
 }
 
 // Returns an upgrade-required payload when the caller has hit the Free daily

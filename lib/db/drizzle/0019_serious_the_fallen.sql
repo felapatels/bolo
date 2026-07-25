@@ -1,0 +1,2 @@
+CREATE TYPE "public"."lesson_generation_kind" AS ENUM('initial', 'replenishment');--> statement-breakpoint
+ALTER TABLE "lesson_generations" ADD COLUMN "kind" "lesson_generation_kind" DEFAULT 'initial' NOT NULL;

@@ -127,6 +127,13 @@
       "when": 1784916844462,
       "tag": "0017_flawless_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784990486021,
+      "tag": "0019_serious_the_fallen",
+      "breakpoints": true
     }
   ]
 }

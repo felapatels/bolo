@@ -383,7 +383,9 @@ test("a zero-add run starts the cooldown: repeated fetch triggers don't re-gener
     );
   }
   assert.equal(laterGen.calls(), 0);
-  assert.equal(await countLessonGenerationsToday(USER), 1);
+  // The replenishment row was written (kind='replenishment') which drives the
+  // cooldown, but it must NOT appear in the Free daily cap counter.
+  assert.equal(await countLessonGenerationsToday(USER), 0);
 });
 
 test("a successful add also cools down immediate re-triggers", async () => {
@@ -432,10 +434,16 @@ test("replenishment records generation tracking but never hits a cap for Plus", 
     userId: USER,
     generate: gen.generate,
   });
-  // The real AI cost is tracked...
-  assert.equal(await countLessonGenerationsToday(USER), 1);
-  // ...but a Plus caller is never denied by the daily cap, however many
-  // background replenishments have run.
+  // The real AI cost is tracked in lesson_generations...
+  const [{ count: rawCount }] = await db
+    .select({ count: db.$count(lessonGenerationsTable) })
+    .from(lessonGenerationsTable)
+    .where(eq(lessonGenerationsTable.userId, USER));
+  assert.equal(Number(rawCount), 1);
+  // ...but because it is kind='replenishment', it does NOT count toward the
+  // Free daily cap (countLessonGenerationsToday only counts 'initial' rows).
+  assert.equal(await countLessonGenerationsToday(USER), 0);
+  // Consequently a Plus caller is never denied.
   const plus: ResolvedPlan = {
     plan: "plus",
     status: "active",
@@ -445,4 +453,48 @@ test("replenishment records generation tracking but never hits a cap for Plus", 
     pauseUntil: null,
   };
   assert.equal(await dailyLessonCapDenial(plus, USER), null);
+});
+
+test("Free background replenishment does NOT reduce countLessonGenerationsToday", async () => {
+  await resetLessonPhrases();
+  const gen = makeGenerator([
+    { nativeScript: "nav", romanized: "nav", english: "nine", difficulty: 2 },
+  ]);
+  // Simulate a Free-tier background replenishment (longer cooldown, ceiling,
+  // distinct lock prefix).
+  const added = await replenishPhrases({
+    languageCode: LANG,
+    categoryId,
+    userId: USER,
+    generate: gen.generate,
+    cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+    phraseCeiling: FREE_PHRASE_CEILING,
+    lockKeyPrefix: "phrase-replenish-free",
+    generationKind: "replenishment",
+  });
+  assert.equal(added, 1, "phrase should be added");
+  assert.equal(gen.calls(), 1, "AI was called");
+
+  // The daily cap counter must still be zero — the replenishment must not
+  // consume any of the learner's 3 daily new-lesson slots.
+  assert.equal(
+    await countLessonGenerationsToday(USER),
+    0,
+    "Free replenishment must not consume a daily lesson slot",
+  );
+
+  // Verify that a Free caller is still allowed to open all their new topics.
+  const free: ResolvedPlan = {
+    plan: "free",
+    status: "active",
+    trialEndsAt: null,
+    currentPeriodEnd: null,
+    chosenLanguage: null,
+    pauseUntil: null,
+  };
+  assert.equal(
+    await dailyLessonCapDenial(free, USER),
+    null,
+    "daily cap must not be tripped by a replenishment",
+  );
 });

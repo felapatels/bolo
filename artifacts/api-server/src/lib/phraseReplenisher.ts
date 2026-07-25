@@ -109,6 +109,10 @@ export interface ReplenishOptions {
   // collide, allowing both to run independently for the same (lang, topic).
   // Defaults to "phrase-replenish".
   lockKeyPrefix?: string;
+  // Generation kind written to lesson_generations. Use 'replenishment' for
+  // background top-ups so they are never counted toward the Free daily cap.
+  // Defaults to 'replenishment' (every replenishPhrases call is a top-up).
+  generationKind?: "initial" | "replenishment";
 }
 
 // In-process dedup: one replenishment per (lock-key prefix + language + category)
@@ -220,9 +224,10 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     });
 
     // A real AI generation happened — record it in the existing generation
-    // tracking. Plus has no daily ceiling, so this is bookkeeping only and
-    // can never block anyone.
-    await recordLessonGeneration(userId, languageCode, categoryId);
+    // tracking. Background top-ups use kind='replenishment' so they are never
+    // counted toward the Free daily new-lesson cap.
+    const generationKind = opts.generationKind ?? "replenishment";
+    await recordLessonGeneration(userId, languageCode, categoryId, generationKind);
 
     // Guard against the model echoing existing phrases (or duplicating
     // within its own batch) despite the prompt.
