@@ -232,6 +232,168 @@ describe('ContinueCard', () => {
     });
   });
 
+  describe('when the active language changes (prop update)', () => {
+    // Simulate the home screen switching from one language's categories to
+    // another's by calling rerender with a fresh prop value.
+
+    it('re-renders with the in-progress topic from the new language', () => {
+      const langACat = makeCategory({
+        id: 101,
+        title: 'Greetings (Lang A)',
+        masteredCount: 0,
+        phraseCount: 10,
+      });
+      const langBInProgress = makeCategory({
+        id: 202,
+        title: 'Travel (Lang B)',
+        masteredCount: 4,
+        phraseCount: 10,
+      });
+      const langBUnstarted = makeCategory({
+        id: 203,
+        title: 'Food (Lang B)',
+        masteredCount: 0,
+        phraseCount: 10,
+      });
+
+      const onNavigate = jest.fn();
+      const { rerender } = render(
+        <ContinueCard categories={[langACat]} onNavigate={onNavigate} />,
+      );
+
+      // Initial render — shows Lang A's unstarted topic.
+      expect(screen.getByText('Greetings (Lang A)')).toBeTruthy();
+      expect(screen.getByText('Start a new topic')).toBeTruthy();
+
+      // Language switches — pass in Lang B's categories.
+      rerender(
+        <ContinueCard
+          categories={[langBInProgress, langBUnstarted]}
+          onNavigate={onNavigate}
+        />,
+      );
+
+      // Card should now show the in-progress topic from Lang B.
+      expect(screen.getByText('Travel (Lang B)')).toBeTruthy();
+      expect(screen.getByText('Continue where you left off')).toBeTruthy();
+    });
+
+    it('navigates to the new language\'s in-progress topic after a language switch', () => {
+      const langACat = makeCategory({
+        id: 101,
+        title: 'Greetings (Lang A)',
+        masteredCount: 0,
+        phraseCount: 10,
+      });
+      const langBInProgress = makeCategory({
+        id: 202,
+        title: 'Travel (Lang B)',
+        masteredCount: 4,
+        phraseCount: 10,
+      });
+
+      const onNavigate = jest.fn();
+      const { rerender } = render(
+        <ContinueCard categories={[langACat]} onNavigate={onNavigate} />,
+      );
+
+      rerender(
+        <ContinueCard categories={[langBInProgress]} onNavigate={onNavigate} />,
+      );
+
+      fireEvent.press(screen.getByTestId('continue-card-pressable'));
+      expect(onNavigate).toHaveBeenCalledWith(202);
+    });
+
+    it('shows "Start a new topic" fallback when new language has only unstarted topics', () => {
+      const langAInProgress = makeCategory({
+        id: 101,
+        title: 'Greetings (Lang A)',
+        masteredCount: 3,
+        phraseCount: 10,
+      });
+      const langBUnstarted1 = makeCategory({
+        id: 201,
+        title: 'Colors (Lang B)',
+        masteredCount: 0,
+        phraseCount: 8,
+      });
+      const langBUnstarted2 = makeCategory({
+        id: 202,
+        title: 'Numbers (Lang B)',
+        masteredCount: 0,
+        phraseCount: 8,
+      });
+
+      const onNavigate = jest.fn();
+      const { rerender } = render(
+        <ContinueCard categories={[langAInProgress]} onNavigate={onNavigate} />,
+      );
+
+      // Initial render — in-progress for Lang A.
+      expect(screen.getByText('Continue where you left off')).toBeTruthy();
+
+      // Switch to Lang B — all topics are unstarted.
+      rerender(
+        <ContinueCard
+          categories={[langBUnstarted1, langBUnstarted2]}
+          onNavigate={onNavigate}
+        />,
+      );
+
+      expect(screen.getByText('Start a new topic')).toBeTruthy();
+      expect(screen.getByText('Colors (Lang B)')).toBeTruthy();
+    });
+
+    it('navigates to the first unstarted topic in the new language', () => {
+      const langAInProgress = makeCategory({
+        id: 101,
+        title: 'Greetings (Lang A)',
+        masteredCount: 3,
+        phraseCount: 10,
+      });
+      const langBUnstarted = makeCategory({
+        id: 201,
+        title: 'Colors (Lang B)',
+        masteredCount: 0,
+        phraseCount: 8,
+      });
+
+      const onNavigate = jest.fn();
+      const { rerender } = render(
+        <ContinueCard categories={[langAInProgress]} onNavigate={onNavigate} />,
+      );
+
+      rerender(
+        <ContinueCard categories={[langBUnstarted]} onNavigate={onNavigate} />,
+      );
+
+      fireEvent.press(screen.getByTestId('continue-card-pressable'));
+      expect(onNavigate).toHaveBeenCalledWith(201);
+    });
+
+    it('renders nothing when the new language has an empty categories array', () => {
+      const langACat = makeCategory({
+        id: 101,
+        title: 'Greetings (Lang A)',
+        masteredCount: 0,
+        phraseCount: 10,
+      });
+
+      const onNavigate = jest.fn();
+      const { rerender, toJSON } = render(
+        <ContinueCard categories={[langACat]} onNavigate={onNavigate} />,
+      );
+
+      expect(screen.getByText('Greetings (Lang A)')).toBeTruthy();
+
+      // Language switches to one with no categories yet (still loading or empty).
+      rerender(<ContinueCard categories={[]} onNavigate={onNavigate} />);
+
+      expect(toJSON()).toBeNull();
+    });
+  });
+
   describe('single topic edge cases', () => {
     it('renders when there is exactly one unstarted topic', () => {
       const only = makeCategory({ id: 3, title: 'Family', masteredCount: 0, phraseCount: 6 });
