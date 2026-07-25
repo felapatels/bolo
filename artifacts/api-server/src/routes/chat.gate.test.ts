@@ -15,6 +15,7 @@ import openaiRouter from "./openai";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { FREE_WEEKLY_CHAT_SECONDS_CAP, FREE_LANGUAGE } from "../lib/entitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
+import { recordChatTurn, sumChatSecondsThisWeek } from "../lib/chatLimits";
 
 // End-to-end route-level tests for the POST /openai/chat gate:
 //   - Free user: language gate denies a locked language (402 language_locked)
@@ -186,9 +187,66 @@ after(async () => {
 // Bad request
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat — 400 for missing required fields", async () => {
-  const { status } = await post("/openai/chat", { languageCode: "hi" }); // no audioBase64
+test("POST /openai/chat — 400 when neither audioBase64 nor textInput is provided", async () => {
+  // Supplying only languageCode (without either audio or text) must be rejected
+  // before any gate or AI logic runs.
+  const { status } = await post("/openai/chat", { languageCode: FREE_LANG });
   assert.equal(status, 400);
+});
+
+// ---------------------------------------------------------------------------
+// Text-input path
+// ---------------------------------------------------------------------------
+
+test("POST /openai/chat — textInput accepted without audioBase64 (no 400, transcript echoes text)", async () => {
+  // The text-input path skips STT and uses the supplied string directly as the
+  // transcript. The route must not return 400 (body is valid) or 402 (gate
+  // passes). A 502 is acceptable — AI credentials are not available in the test
+  // environment so the LLM call may fail, but the route must proceed past all
+  // validation before hitting the AI layer.
+  const TEXT = "Hello Bolo";
+  const { status, json } = await post("/openai/chat", {
+    languageCode: FREE_LANG,
+    textInput: TEXT,
+  });
+
+  assert.notEqual(status, 400, "textInput alone must not be rejected as a bad request");
+  if (status === 402) {
+    assert.notEqual(json?.reason, "language_locked",
+      "Free user should not be language-locked on the free language");
+    assert.notEqual(json?.reason, "chat_time_limit",
+      "Text turn must not trigger time-cap denial");
+  }
+  // If the AI layer happens to succeed (e.g. in a future env with credentials),
+  // verify the transcript echoes the supplied text and secondsRemaining is
+  // unchanged from the pre-turn value (text turns charge 0 seconds).
+  if (status === 200 && json != null) {
+    assert.equal(json.transcript, TEXT,
+      "Transcript must echo the supplied textInput verbatim");
+    // secondsRemaining must not have decreased — the text turn adds 0 to the cap.
+    const remainingAfter = json.secondsRemaining;
+    if (typeof remainingAfter === "number") {
+      assert.ok(
+        remainingAfter >= FREE_WEEKLY_CHAT_SECONDS_CAP,
+        `secondsRemaining (${remainingAfter}) must equal the full cap after a text turn with no prior usage`,
+      );
+    }
+  }
+});
+
+test("POST /openai/chat — weekly cap does not decrease after a text-input turn (duration = 0)", async () => {
+  // recordChatTurn is called by the route with durationSeconds = 0 for text
+  // turns. Verify that a 0-second entry does not consume any cap budget —
+  // sumChatSecondsThisWeek must return the same total before and after.
+  const before = await sumChatSecondsThisWeek(TEST_USER);
+  assert.equal(before, 0, "Precondition: no usage recorded yet");
+
+  // Simulate the route's recordChatTurn call for a text turn.
+  await recordChatTurn(TEST_USER, FREE_LANG, 0);
+
+  const after = await sumChatSecondsThisWeek(TEST_USER);
+  assert.equal(after, 0,
+    "A text turn (durationSeconds = 0) must not consume any weekly chat-time cap");
 });
 
 // ---------------------------------------------------------------------------
