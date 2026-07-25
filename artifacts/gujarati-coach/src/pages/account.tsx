@@ -84,6 +84,11 @@ let currentSampleAudio: HTMLAudioElement | null = null;
 // when another card starts so the previous card's icon reverts to Play.
 let currentCardReset: (() => void) | null = null;
 
+/** @internal Test-only: flush the in-memory voice sample cache so tests start from a clean slate. */
+export function _clearVoiceSampleCache() {
+  for (const k in webSampleCache) delete webSampleCache[k];
+}
+
 // The daily-goal presets we let learners pick from (target practice attempts a
 // day). The backend accepts any integer 1–100; these are the sensible rungs.
 const DAILY_GOAL_OPTIONS = [3, 5, 10, 15, 20, 30];

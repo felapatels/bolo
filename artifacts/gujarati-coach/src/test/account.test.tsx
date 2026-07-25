@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
@@ -85,7 +85,7 @@ vi.mock("@workspace/api-client-react", () => ({
   useDeleteAccount: () => h.deleteAccount,
 }));
 
-import Account from "@/pages/account";
+import Account, { _clearVoiceSampleCache } from "@/pages/account";
 
 const ACCOUNT: Account = {
   profile: {
@@ -216,5 +216,114 @@ describe("Account settings", () => {
 
     await waitFor(() => expect(h.deleteAccount.mutateAsync).toHaveBeenCalled());
     await waitFor(() => expect(h.signOut).toHaveBeenCalled());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Voice preview button — cache-key isolation
+// ---------------------------------------------------------------------------
+// The VoiceCard preview button fetches audio keyed by the selected voice ID.
+// Switching voices must never re-use a cached clip synthesised for a different
+// voice; each voice ID must produce an independent cache slot and its own
+// TTS request.
+
+describe("Voice preview button", () => {
+  // George and Brian are the first two entries in VOICE_CATALOG (same order
+  // as they appear in account.tsx) so previewButtons[0] → George, [1] → Brian.
+  const GEORGE_ID = "JBFqnCBsd6RMkjVDRZzb";
+  const BRIAN_ID  = "nPczCjzI2devNBz1zQrb";
+
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let playSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    // Wipe the module-level sample cache so every test starts cold.
+    _clearVoiceSampleCache();
+    h.isPlus = true;
+
+    // Patch the prototype so jsdom's HTMLAudioElement.play() doesn't fire a
+    // "not implemented" unhandled rejection — and so we can assert call count.
+    playSpy = vi
+      .spyOn(HTMLAudioElement.prototype, "play")
+      .mockResolvedValue(undefined);
+
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ audioBase64: "dGVzdA==", format: "mp3" }),
+    } as Response);
+  });
+
+  afterEach(() => {
+    playSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  test("preview button sends the selected voice ID in the TTS request body", async () => {
+    const user = userEvent.setup();
+    renderAccount(<Account />);
+
+    const previewButtons = screen.getAllByLabelText("Play voice sample");
+
+    // Click George's preview → expect a fetch with George's voice ID.
+    await user.click(previewButtons[0]);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    const georgeBody = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    ) as { previewVoiceId?: string };
+    expect(georgeBody.previewVoiceId).toBe(GEORGE_ID);
+
+    // Click Brian's preview → expect a fresh fetch with Brian's voice ID,
+    // NOT a cache hit from George's earlier request.
+    fetchSpy.mockClear();
+    await user.click(previewButtons[1]);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    const brianBody = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    ) as { previewVoiceId?: string };
+    expect(brianBody.previewVoiceId).toBe(BRIAN_ID);
+  });
+
+  test("switching voices always fetches fresh audio — the old voice's cache slot is not reused", async () => {
+    const user = userEvent.setup();
+    renderAccount(<Account />);
+
+    const previewButtons = screen.getAllByLabelText("Play voice sample");
+
+    // Prime George's cache entry.
+    await user.click(previewButtons[0]);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+    // Switch to Brian — his slot is cold, so a new request is required.
+    fetchSpy.mockClear();
+    await user.click(previewButtons[1]);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+    // Brian's request must carry Brian's voice ID, not a hit from George's slot.
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    ) as { previewVoiceId?: string };
+    expect(body.previewVoiceId).toBe(BRIAN_ID);
+  });
+
+  test("re-playing the same voice is served from the in-memory cache — no duplicate TTS fetch", async () => {
+    const user = userEvent.setup();
+    renderAccount(<Account />);
+
+    const previewButtons = screen.getAllByLabelText("Play voice sample");
+
+    // First play — fetches from the network and caches the result.
+    await user.click(previewButtons[0]);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(
+      JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string),
+    ).toMatchObject({ previewVoiceId: GEORGE_ID });
+
+    // Toggle off then re-play the same voice.
+    await user.click(previewButtons[0]); // stop
+    fetchSpy.mockClear();
+    await user.click(previewButtons[0]); // re-play
+    // Cache hit: play is called again but fetch must NOT be called.
+    await waitFor(() => expect(playSpy).toHaveBeenCalledTimes(2));
+    expect(fetchSpy).toHaveBeenCalledTimes(0);
   });
 });

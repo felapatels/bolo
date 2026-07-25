@@ -103,14 +103,13 @@ test("getVoiceIdForLanguage: North Indian languages resolve to the Laura Auto-de
 });
 
 test("getVoiceIdForLanguage: Dravidian languages resolve to the Laura Auto-default", () => {
-  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["ta", "te", "kn", "ml"]) {
     assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
 test("getVoiceIdForLanguage: East Indian languages resolve to the Laura Auto-default", () => {
-  for (const code of ["bn", "or", "as"]) {
+  for (const code of ["bn", "or", "as", "mni", "sat"]) {
     assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
@@ -123,6 +122,12 @@ test("getVoiceIdForLanguage: West Indian languages resolve to the Laura Auto-def
 
 test("getVoiceIdForLanguage: Perso-Arabic script languages resolve to the Laura Auto-default", () => {
   for (const code of ["ur", "ks", "sd"]) {
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+  }
+});
+
+test("getVoiceIdForLanguage: North-East / Other languages resolve to the Laura Auto-default", () => {
+  for (const code of ["doi", "mai", "bho", "kok"]) {
     assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
@@ -370,7 +375,7 @@ if (!process.env.ELEVENLABS_API_KEY) {
 
         if (/status 402/.test(msg)) {
           assert.fail(
-            "textToSpeechElevenLabsStream returned 402 — the Brian voice may not be " +
+            "textToSpeechElevenLabsStream returned 402 — the Laura voice may not be " +
               "available on the current ElevenLabs plan. Replace it with a premade voice.",
           );
         }
