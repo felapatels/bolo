@@ -336,4 +336,71 @@ describe('practice pronunciation request includes phraseId', () => {
     expect(secondCallArg.data.targetRomanized).toBe(FILLER_PHRASE.romanized);
     expect(secondCallArg.data.targetEnglish).toBe(FILLER_PHRASE.english);
   });
+
+  test('phraseId is preserved on the second evaluate call after pressing "Try again"', async () => {
+    // Regression path: the rotate-ccw "Try again" button resets phase back to
+    // idle without changing the phrase index. If currentPhrase were re-derived
+    // incorrectly (e.g. reset to undefined or to a stale value) after the
+    // retry, the re-recorded attempt would carry the wrong phraseId and Whisper
+    // would use an incorrect language hint.
+
+    render(<PracticeScreen />);
+
+    // ── Attempt 1: record → result ────────────────────────────────────────
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Good job!')).toBeOnTheScreen(),
+    );
+
+    expect(mockState.evaluate).toHaveBeenCalledTimes(1);
+    const firstCallArg = mockState.evaluate.mock.calls[0][0];
+    expect(firstCallArg.data.phraseId).toBe(NA_PHRASE.id);
+
+    // ── Tap "Try again" ───────────────────────────────────────────────────
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('retry-button'));
+    });
+
+    // ── Attempt 2: record → result ────────────────────────────────────────
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(mockState.evaluate).toHaveBeenCalledTimes(2),
+    );
+
+    const secondCallArg = mockState.evaluate.mock.calls[1][0];
+
+    // The critical assertion: the retry must still reference the same phrase.
+    expect(secondCallArg.data.phraseId).toBe(NA_PHRASE.id);
+    expect(secondCallArg.data.phraseId).not.toBeUndefined();
+    expect(secondCallArg.data.phraseId).not.toBeNull();
+
+    // The target strings must also remain consistent with the retried phrase.
+    expect(secondCallArg.data.targetNative).toBe(NA_PHRASE.nativeScript);
+    expect(secondCallArg.data.targetRomanized).toBe(NA_PHRASE.romanized);
+    expect(secondCallArg.data.targetEnglish).toBe(NA_PHRASE.english);
+  });
 });
