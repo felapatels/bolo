@@ -191,13 +191,17 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
     };
   }
 
-  // A near-exact phonetic match can never fail.
+  // A near-exact phonetic match can never fail — but when the score is already
+  // at or above the sim-derived floor, we preserve the LLM's own pass/fail
+  // verdict (score >= 80) rather than unconditionally overriding it with true.
+  // The floor-rescue branch (score < floor) still forces passed=true because
+  // it is actively lifting an under-scored, phonetically correct attempt.
   if (target.sim >= 0.90) {
     const floor = simToScore(target.sim, 0.90);
     if (score < floor) {
       return { score: floor, passed: true, guard: "near-match-floor" };
     }
-    return { score, passed: true };
+    return { score, passed: score >= 80 };
   }
 
   // A transcript that clearly matches a *different* known phrase can't pass.

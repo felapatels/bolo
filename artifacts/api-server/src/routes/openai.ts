@@ -22,6 +22,7 @@ import {
   applyScoreGuards,
   compareToTarget,
   isEffectivelyEmpty,
+  normalizeLatin,
   simToScore,
 } from "../lib/pronunciationGuards";
 import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
@@ -425,11 +426,14 @@ router.post(
       // Second pass with the higher-quality model when the fast pass heard
       // nothing or something wildly unlike the target — cheap insurance
       // against failing a good attempt on a transcription quirk.
+      // Threshold widened from 0.25 to 0.40: marginal first-pass transcripts
+      // (sim 0.26–0.40) often carry enough error to mislead scoring, and the
+      // tie-break logic below already handles cases where the retry isn't better.
       const firstLooksBad =
         isEffectivelyEmpty(transcript) ||
         (() => {
           const cmp = compareToTarget(transcript, targetNative, targetRomanized);
-          return cmp.comparable && cmp.sim <= 0.25;
+          return cmp.comparable && cmp.sim <= 0.40;
         })();
       if (firstLooksBad) {
         const retry = (
@@ -480,88 +484,134 @@ router.post(
     // path can reuse it without a second call.
     const targetSim = compareToTarget(transcript, targetNative, targetRomanized);
 
+    // Fast-path guard: short targets (≤ 4 normalized chars) bypass character-level
+    // fast-path scoring. Levenshtein on 2–3 characters is unreliable — a single
+    // char difference can swing sim from 0.50 to 1.0. The LLM's phonemic
+    // reasoning is more accurate for 1–2 syllable words.
+    //
+    // Base the guard on the romanized TARGET length only. Using the transcript
+    // length is wrong: for native-script transcripts (Gujarati/Hindi/etc.),
+    // normalizeLatin(transcript) returns an empty string (length 0), which
+    // would always trigger the guard and silently disable the fast path for
+    // every native-script STT output regardless of phrase length.
+    const isShortTarget = normalizeLatin(targetRomanized).length <= 4;
+
     // Fast-path: a high-confidence phonetic match (sim ≥ 0.93) will always be
     // floored by the near-match-floor guardrail anyway, so there is no value in
     // spending 1-3 s on an LLM call. Derive the score deterministically and
     // return immediately. Threshold raised from 0.85 to 0.93 because with a
     // neutral STT prompt (no target phrase hint) a 0.85 match is only "roughly
     // similar" and should go through the full LLM evaluation path.
-    if (targetSim.comparable && targetSim.sim >= 0.93) {
-      const score = simToScore(targetSim.sim, 0.90);
+    //
+    // Two guards bypass the fast path and fall through to the LLM:
+    //   1. Short targets (isShortTarget above) — character-level sim is unreliable.
+    //   2. Wrong-phrase-cap — transcript also matches a sibling phrase at sim ≥ 0.80.
+    if (targetSim.comparable && targetSim.sim >= 0.93 && !isShortTarget) {
+      // Wrong-phrase-cap check for the fast path. The standard applyScoreGuards
+      // guard only fires when target.sim ≤ 0.5, but a short or phonetically
+      // coincidental phrase can match the target at ≥ 0.93 AND a sibling at ≥ 0.80.
+      // We fetch siblings (same bounded query as the LLM path) and if any match
+      // the transcript, fall through to the LLM rather than returning a fast pass.
+      let fastPathWrongPhrase = false;
+      if (resolvedPhraseId != null && languageCode) {
+        const fastPathSiblings = await db.query.phrasesTable
+          .findMany({
+            where: eq(phrasesTable.languageCode, languageCode),
+            columns: { id: true, nativeScript: true, romanized: true },
+            limit: 400,
+          })
+          .then((rows) => rows.filter((p) => p.id !== resolvedPhraseId))
+          .catch((err) => {
+            req.log.warn({ err }, "Could not load sibling phrases for fast-path guard");
+            return [];
+          });
+        for (const other of fastPathSiblings) {
+          const otherSim = compareToTarget(transcript, other.nativeScript, other.romanized);
+          if (otherSim.comparable && otherSim.sim >= 0.8) {
+            fastPathWrongPhrase = true;
+            break;
+          }
+        }
+      }
 
-      // Pool of varied warm feedback strings so repeat excellent attempts each
-      // feel fresh. All strings are read-aloud friendly: no emojis or special
-      // characters. Pick one deterministically based on the transcript text so
-      // the same attempt always maps to the same message (no randomness needed).
-      const FAST_PASS_RESPONSES: Array<{ feedback: string; tip: string }> = [
-        {
-          feedback:
-            "That sounded great! You really nailed the sounds in that one. Keep it up, you are on a roll!",
-          tip: "You have got the sounds down. Try saying it a little faster to sound even more natural.",
-        },
-        {
-          feedback:
-            "Excellent work! Your pronunciation was spot on. You are making this look easy, and that is exactly the kind of practice that pays off.",
-          tip: "Now try closing your eyes and saying it from memory to really lock it in.",
-        },
-        {
-          feedback:
-            "That was really impressive! Every sound came through clearly. You sound more natural with every attempt.",
-          tip: "Say it one more time but imagine you are talking to a friend, nice and relaxed.",
-        },
-        {
-          feedback:
-            "Perfect! You hit every sound in that phrase. That kind of accuracy is exactly what builds real fluency.",
-          tip: "Try linking it into a short sentence to start using it in real conversation.",
-        },
-        {
-          feedback:
-            "Wow, that was clean! You matched the sounds beautifully. Keep going at this pace and it will feel totally natural in no time.",
-          tip: "Push yourself a little by saying it slightly faster each time you repeat it.",
-        },
-        {
-          feedback:
-            "Nicely done! The sounds were right on target. You are building some serious confidence with this one.",
-          tip: "See if you can say the whole thing in one smooth breath without pausing between words.",
-        },
-        {
-          feedback:
-            "That was really solid! You got the sounds and the rhythm just right. You should feel proud of that attempt.",
-          tip: "Great accuracy. The next level is to match the natural speed and melody of a native speaker.",
-        },
-        {
-          feedback:
-            "Well done! You nailed it. Every time you hit a phrase this well you are training your ear and your mouth at the same time.",
-          tip: "Try repeating it three times in a row without stopping to really make it stick.",
-        },
-      ];
+      if (!fastPathWrongPhrase) {
+        const score = simToScore(targetSim.sim, 0.90);
 
-      // Pick randomly so repeat excellent attempts each feel fresh.
-      const pick =
-        FAST_PASS_RESPONSES[
-          Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
-        ]!;
-      const { feedback, tip } = pick;
-      res.json({
-        transcript,
-        score,
-        passed: true,
-        feedback,
-        tip,
-        evaluationToken: signEvaluation({
-          userId,
-          phraseId: resolvedPhraseId,
-          languageCode,
-          nativeScript: targetNative,
-          romanized: targetRomanized,
-          english: targetEnglish,
+        // Pool of varied warm feedback strings so repeat excellent attempts each
+        // feel fresh. All strings are read-aloud friendly: no emojis or special
+        // characters. Pick one deterministically based on the transcript text so
+        // the same attempt always maps to the same message (no randomness needed).
+        const FAST_PASS_RESPONSES: Array<{ feedback: string; tip: string }> = [
+          {
+            feedback:
+              "That sounded great! You really nailed the sounds in that one. Keep it up, you are on a roll!",
+            tip: "You have got the sounds down. Try saying it a little faster to sound even more natural.",
+          },
+          {
+            feedback:
+              "Excellent work! Your pronunciation was spot on. You are making this look easy, and that is exactly the kind of practice that pays off.",
+            tip: "Now try closing your eyes and saying it from memory to really lock it in.",
+          },
+          {
+            feedback:
+              "That was really impressive! Every sound came through clearly. You sound more natural with every attempt.",
+            tip: "Say it one more time but imagine you are talking to a friend, nice and relaxed.",
+          },
+          {
+            feedback:
+              "Perfect! You hit every sound in that phrase. That kind of accuracy is exactly what builds real fluency.",
+            tip: "Try linking it into a short sentence to start using it in real conversation.",
+          },
+          {
+            feedback:
+              "Wow, that was clean! You matched the sounds beautifully. Keep going at this pace and it will feel totally natural in no time.",
+            tip: "Push yourself a little by saying it slightly faster each time you repeat it.",
+          },
+          {
+            feedback:
+              "Nicely done! The sounds were right on target. You are building some serious confidence with this one.",
+            tip: "See if you can say the whole thing in one smooth breath without pausing between words.",
+          },
+          {
+            feedback:
+              "That was really solid! You got the sounds and the rhythm just right. You should feel proud of that attempt.",
+            tip: "Great accuracy. The next level is to match the natural speed and melody of a native speaker.",
+          },
+          {
+            feedback:
+              "Well done! You nailed it. Every time you hit a phrase this well you are training your ear and your mouth at the same time.",
+            tip: "Try repeating it three times in a row without stopping to really make it stick.",
+          },
+        ];
+
+        // Pick randomly so repeat excellent attempts each feel fresh.
+        const pick =
+          FAST_PASS_RESPONSES[
+            Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
+          ]!;
+        const { feedback, tip } = pick;
+        res.json({
           transcript,
           score,
           passed: true,
           feedback,
-        }),
-      });
-      return;
+          tip,
+          evaluationToken: signEvaluation({
+            userId,
+            phraseId: resolvedPhraseId,
+            languageCode,
+            nativeScript: targetNative,
+            romanized: targetRomanized,
+            english: targetEnglish,
+            transcript,
+            score,
+            passed: true,
+            feedback,
+          }),
+        });
+        return;
+      }
+      // fastPathWrongPhrase === true: fall through to the LLM path below.
     }
 
     try {
