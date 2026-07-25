@@ -305,6 +305,33 @@ describe("Voice preview button", () => {
     expect(body.previewVoiceId).toBe(BRIAN_ID);
   });
 
+  test("card recovers to idle state when the TTS endpoint returns a non-200 response", async () => {
+    // Stub fetch to simulate a 502 from the audio server.
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: () => Promise.resolve({}),
+    } as Response);
+
+    const user = userEvent.setup();
+    renderAccount(<Account />);
+
+    const previewButtons = screen.getAllByLabelText("Play voice sample");
+
+    // Click George's preview button — the fetch will fail with a 502.
+    await user.click(previewButtons[0]);
+
+    // The card must return to idle ("Play voice sample" label, button enabled)
+    // rather than staying stuck in the loading/playing state.
+    await waitFor(() =>
+      expect(screen.getAllByLabelText("Play voice sample").length).toBeGreaterThan(0),
+    );
+    // Confirm the button for George's card is not disabled (i.e. not stuck loading).
+    expect(previewButtons[0]).not.toBeDisabled();
+    // Audio playback must not have been attempted.
+    expect(playSpy).not.toHaveBeenCalled();
+  });
+
   test("re-playing the same voice is served from the in-memory cache — no duplicate TTS fetch", async () => {
     const user = userEvent.setup();
     renderAccount(<Account />);
