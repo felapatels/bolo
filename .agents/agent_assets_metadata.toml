@@ -108,3 +108,9 @@ id = "LftcNJgRRsyKb7Zh4QiO-"
 uri = "file://attached_assets/gujarati-tts-sample.mp3"
 type = "audio"
 title = "Gujarati TTS sample — \"કેમ છો?\" (ElevenLabs)"
+
+[[outputs]]
+id = "pnGsXd5tVJ6-awwbVjzjx"
+uri = "file://artifacts/bolo-mobile/assets/images/icon_review.png"
+type = "image"
+title = "Icon mask review"
