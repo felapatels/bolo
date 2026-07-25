@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useGetAccount, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
@@ -11,6 +11,7 @@ import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
+import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { motion, useReducedMotion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import { format } from "date-fns";
@@ -38,6 +39,7 @@ export default function Home() {
   const reduceMotion = useReducedMotion();
   const native = useNativeText();
   const { isPlus, features, dailyNewLessons } = useEntitlements();
+  const { startTour } = useTour();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
   const { data: account } = useGetAccount();
   const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;
@@ -259,14 +261,24 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <Link
-            href="/account"
-            title="Account & settings"
-            aria-label="Account & settings"
-            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all lg:hidden"
-          >
-            <Settings className="w-5 h-5" />
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => startTour({ steps: TOUR_STEPS })}
+              title="Take the product tour"
+              aria-label="Take the product tour"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+            <Link
+              href="/account"
+              title="Account & settings"
+              aria-label="Account & settings"
+              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all lg:hidden"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
+          </div>
         </motion.div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
