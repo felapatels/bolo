@@ -10,7 +10,8 @@
     "test": "pnpm --filter @workspace/db run sync-schema && node --import tsx ./scripts/runTestsLocked.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate-lessons": "node --import tsx ./scripts/generateCuratedLessons.ts",
-    "seed-stripe-products": "node --import tsx ./scripts/seedStripeProducts.ts"
+    "seed-stripe-products": "node --import tsx ./scripts/seedStripeProducts.ts",
+    "purge-stale-tts-cache": "node --import tsx ./scripts/purgeStaleAudioCache.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.40",
