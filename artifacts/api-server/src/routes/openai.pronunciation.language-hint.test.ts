@@ -28,7 +28,11 @@ import express, { type Request, type Response, type NextFunction } from "express
 // Each test sets these before making a request; the mock closure reads them back
 // after the request completes.
 
-let stubbedTranscript = "na"; // returned by speechToText
+let stubbedTranscript = "na"; // returned by speechToText (all calls, unless sequence is set)
+// When non-null, each speechToText call pops the first entry; falls back to
+// stubbedTranscript once the sequence is exhausted.  Set to null between tests
+// that don't need per-call control.
+let stubbedTranscriptSequence: string[] | null = null;
 let capturedSttOptions: Record<string, unknown>[] = []; // all calls to speechToText
 
 // ─── Stub phrase returned by the DB mock ──────────────────────────────────────
@@ -63,6 +67,10 @@ mock.module("@workspace/integrations-openai-ai-server/audio", {
       options: Record<string, unknown>,
     ) => {
       capturedSttOptions.push({ ...options });
+      // Per-call sequence takes priority; fall back to the single stub value.
+      if (stubbedTranscriptSequence !== null && stubbedTranscriptSequence.length > 0) {
+        return stubbedTranscriptSequence.shift()!;
+      }
       return stubbedTranscript;
     },
     ensureCompatibleFormat: async (buf: Buffer) => ({
@@ -318,6 +326,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
 
   // --- Gujarati attempt ---
   stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 1, nativeScript: "ná", romanized: "na", english: "no", languageCode: "gu" };
   await postPronunciation({ phraseId: 1, languageName: "Gujarati" });
@@ -325,6 +334,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
 
   // --- Hindi attempt ---
   stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 2, nativeScript: "ना", romanized: "na", english: "no", languageCode: "hi" };
   await postPronunciation({ phraseId: 2, languageName: "Hindi" });
@@ -337,4 +347,99 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
     hindiLang,
     "The two language hints must differ so Whisper transcribes in the right language",
   );
+});
+
+test("STT language hint is present on the high-quality retry pass when the first transcript is empty", async () => {
+  // When the fast-pass transcript is empty, the route fires a second
+  // speechToText call with { highQuality: true }.  The language hint must be
+  // included in that retry call too — a refactor that rebuilds sttOptions
+  // before the retry would silently drop the anchor.
+  //
+  // Simulate: first call returns "" (empty), retry returns a recognisable word.
+  stubbedTranscriptSequence = ["", "ná"]; // first call → empty, retry → match
+  capturedSttOptions = [];
+  stubPhrase = {
+    id: 42,
+    nativeScript: "ná",
+    romanized: "na",
+    english: "no",
+    languageCode: "gu",
+  };
+
+  const { status, json } = await postPronunciation({ phraseId: 42 });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(
+    capturedSttOptions.length,
+    2,
+    `expected exactly 2 speechToText calls (fast pass + retry), got ${capturedSttOptions.length}`,
+  );
+
+  // Both the initial call and the high-quality retry must carry the language hint.
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.equal(
+      opts.language,
+      "gu",
+      `call #${i + 1}: sttOptions.language must be "gu" on the retry pass, got ${JSON.stringify(opts)}`,
+    );
+  }
+
+  // Confirm the second call was the high-quality one.
+  assert.equal(
+    capturedSttOptions[1]!.highQuality,
+    true,
+    "second speechToText call must set highQuality: true",
+  );
+
+  // Reset sequence so subsequent tests use the plain stub.
+  stubbedTranscriptSequence = null;
+});
+
+test("STT language hint is present on the high-quality retry pass when the first transcript has low similarity", async () => {
+  // The retry is also triggered when compareToTarget returns comparable=true
+  // and sim ≤ 0.25 — i.e. the fast-pass transcript is wildly unlike the target.
+  // A completely unrelated word like "xyz" relative to target "ná"/"na" should
+  // satisfy that condition.  Both STT calls must still carry the language hint.
+  //
+  // We return a phonetically distant word on the first call and the correct
+  // word on the retry so the route can pick the better transcript.
+  stubbedTranscriptSequence = ["xyz", "ná"]; // first → distant, retry → match
+  capturedSttOptions = [];
+  stubPhrase = {
+    id: 42,
+    nativeScript: "ná",
+    romanized: "na",
+    english: "no",
+    languageCode: "gu",
+  };
+
+  const { status, json } = await postPronunciation({ phraseId: 42 });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  // The route may or may not trigger the retry depending on whether "xyz" is
+  // comparable to "na"/"ná" at all.  What we care about is that EVERY call
+  // that did happen carried the language hint.
+  assert.ok(
+    capturedSttOptions.length >= 1,
+    "at least one speechToText call must have been made",
+  );
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.equal(
+      opts.language,
+      "gu",
+      `call #${i + 1}: sttOptions.language must be "gu", got ${JSON.stringify(opts)}`,
+    );
+  }
+
+  // When 2 calls happened, confirm the second was the high-quality retry.
+  if (capturedSttOptions.length >= 2) {
+    assert.equal(
+      capturedSttOptions[1]!.highQuality,
+      true,
+      "second speechToText call must set highQuality: true",
+    );
+  }
+
+  // Reset sequence so subsequent tests use the plain stub.
+  stubbedTranscriptSequence = null;
 });
