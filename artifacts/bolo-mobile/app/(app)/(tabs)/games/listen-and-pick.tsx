@@ -23,6 +23,7 @@ import {
   useRecordGameSession,
   getGetProgressSummaryQueryKey,
   useSynthesizeSpeech,
+  useGetAccount,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -226,6 +227,13 @@ function GameRound({
   const nativeProps = nativeTextStyle(activeLanguage);
   const synthesize = useSynthesizeSpeech();
 
+  // Read the learner's TTS voice preference so the audio cache key can
+  // include the voice ID. Without this, switching voices mid-session still
+  // plays the old cached clip. Stale data is fine here — the account query
+  // is almost always pre-fetched by an ancestor; we just need ttsVoice.
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+
   const [questions] = useState<Question[]>(() =>
     buildQuestions(phrases, GAME_CONFIG.listenAndPick.roundSize)
   );
@@ -239,7 +247,9 @@ function GameRound({
   const [audioState, setAudioState] = useState<'idle' | 'loading' | 'playing'>('idle');
 
   const playbackRef = useRef<PlaybackHandle | null>(null);
-  const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
+  // Cache key is `${phrase.id}:${ttsVoice}` so a mid-session voice change
+  // busts stale entries — the new voice is fetched fresh automatically.
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
   const phraseResultsRef = useRef<PhraseResult[]>([]);
   // Track the current question index in a ref so the async playback callback
   // can detect if we've already moved on (unmounted/advanced).
@@ -256,13 +266,14 @@ function GameRound({
       setAudioState('loading');
       const capturedQIdx = qIdxRef.current;
       try {
-        const cached = audioCache.current.get(phrase.id);
+        const cacheKey = `${phrase.id}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
         const res =
           cached ??
           (await synthesize.mutateAsync({
             data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
           }));
-        audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
+        audioCache.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format });
         // Guard: don't play if we've already moved to the next question
         if (qIdxRef.current !== capturedQIdx) {
           setAudioState('idle');
@@ -278,7 +289,7 @@ function GameRound({
         setAudioState('idle');
       }
     },
-    [synthesize, activeLanguage],
+    [synthesize, activeLanguage, ttsVoice],
   );
 
   // Auto-play when question changes
@@ -288,16 +299,19 @@ function GameRound({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIdx]);
 
-  // Prefetch next question's audio
+  // Prefetch next question's audio.
+  // ttsVoice is included in the cache key so a voice change re-fetches the
+  // upcoming phrase in the new voice rather than serving a stale clip.
   useEffect(() => {
     const next = questions[qIdx + 1];
-    if (!next || audioCache.current.has(next.phrase.id)) return;
+    const nextKey = next ? `${next.phrase.id}:${ttsVoice}` : null;
+    if (!next || !nextKey || audioCache.current.has(nextKey)) return;
     synthesize
       .mutateAsync({ data: { text: next.phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code } })
-      .then(res => audioCache.current.set(next.phrase.id, { audioBase64: res.audioBase64, format: res.format }))
+      .then(res => audioCache.current.set(nextKey, { audioBase64: res.audioBase64, format: res.format }))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qIdx]);
+  }, [qIdx, ttsVoice]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -369,6 +383,7 @@ function GameRound({
           Listen and pick the matching word
         </Text>
         <PressableScale
+          testID="listen-and-pick-play-btn"
           onPress={() => { if (audioState !== 'loading') playPhrase(q.phrase); }}
           disabled={audioState === 'loading'}
           style={[

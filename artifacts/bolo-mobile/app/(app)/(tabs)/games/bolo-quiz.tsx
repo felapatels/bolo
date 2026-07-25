@@ -186,6 +186,7 @@ function ListenQuestion({
     <View style={s.questionBody}>
       <View style={s.listenCenter}>
         <Pressable
+          testID="quiz-listen-play-btn"
           onPress={playAudio}
           style={[s.playBtn, { borderColor: isPlaying ? colors.primary : colors.border, backgroundColor: isPlaying ? `${colors.primary}12` : colors.card }]}
         >
