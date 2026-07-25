@@ -554,3 +554,41 @@ test("STT prompt falls back to client-supplied languageName when DB has no recor
   // Reset so subsequent tests use the default stub.
   stubLanguage = { code: "gu", name: "Gujarati" };
 });
+
+test("high-quality STT retry is NOT fired when the first-pass transcript is already strong", async () => {
+  // The retry branch fires only when the first-pass transcript is empty or has
+  // similarity ≤ 0.40 to the target.  When the first pass returns a transcript
+  // that is phonetically close to the target (e.g. the romanized form "na" for
+  // target romanized "na"), the condition is false and speechToText must be
+  // called exactly once — no costly second pass.
+  //
+  // This guards against a future refactor that accidentally always fires the
+  // retry, which would double API cost on every pronunciation evaluation.
+  stubbedTranscript = "na"; // phonetically identical to target romanized "na"
+  stubbedTranscriptSequence = null;
+  capturedSttOptions = [];
+  stubPhrase = {
+    id: 42,
+    nativeScript: "ná",
+    romanized: "na",
+    english: "no",
+    languageCode: "gu",
+  };
+  stubLanguage = { code: "gu", name: "Gujarati" };
+
+  const { status, json } = await postPronunciation({ phraseId: 42 });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(
+    capturedSttOptions.length,
+    1,
+    `expected exactly 1 speechToText call (no high-quality retry) when first transcript is strong, got ${capturedSttOptions.length}`,
+  );
+
+  // Confirm the single call did NOT set highQuality.
+  assert.notEqual(
+    capturedSttOptions[0]!.highQuality,
+    true,
+    "the single speechToText call must NOT have highQuality: true",
+  );
+});
