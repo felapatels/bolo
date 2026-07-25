@@ -407,7 +407,7 @@ export default function HomeScreen() {
           <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(300)}>
             <ReviewBadge
               count={reviewDueCount}
-              onPress={() => router.push('/(app)/(tabs)/progress')}
+              onPress={() => router.push('/(app)/review')}
             />
           </Animated.View>
         ) : null}
