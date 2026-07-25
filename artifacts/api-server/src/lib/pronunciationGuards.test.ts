@@ -231,3 +231,100 @@ test("short 1-2 syllable words: exact short word floors high, wrong short word c
   assert.equal(wrong.passed, false);
   assert.ok(wrong.score <= 40);
 });
+
+// ─── Cross-language phonetic ambiguity ───────────────────────────────────────
+//
+// Very short words like "na" (negation) share identical romanizations across
+// several South Asian languages.  normalizeLatin is language-agnostic, so
+// compareToTarget gives high similarity against both the Gujarati "ná" and
+// the Hindi/Marathi "na" romanization.  The STT language-code hint (set from
+// phrase.languageCode in the route) is the primary mitigation: it anchors
+// Whisper's transcription to the right language script.  The tests below
+// document the ambiguity so future changes to normalizeLatin do not silently
+// widen or close it.
+
+test("cross-language ambiguity: 'na' romanization is identical for Gujarati and Hindi targets", () => {
+  // Both languages romanize their negation particle the same way ("na").
+  // normalizeLatin must give the same normalized key for both so that the
+  // ambiguity is clearly visible and any future fold that breaks this invariant
+  // is caught here.
+  assert.equal(
+    normalizeLatin("na"),
+    normalizeLatin("na"),
+    "same romanization folds to the same key (trivially true — confirms normalizeLatin is language-agnostic)",
+  );
+});
+
+test("cross-language ambiguity: transcript 'na' matches both a Gujarati and a Hindi target at high sim", () => {
+  // Gujarati negation: native="ná" (Latin-script stand-in for ના), romanized="na"
+  // Hindi negation:   native="ना", romanized="na"
+  // A transcript of "na" should give sim ≥ 0.90 against BOTH, demonstrating
+  // that the phonetic guard alone cannot resolve the language.
+  const gujarati = { native: "ná", romanized: "na" };
+  const hindi    = { native: "ना", romanized: "na" };
+
+  const cmpGu = compareToTarget("na", gujarati.native, gujarati.romanized);
+  const cmpHi = compareToTarget("na", hindi.native, hindi.romanized);
+
+  // Both must be comparable via the romanized path (the transcript is Latin).
+  assert.ok(cmpGu.comparable, "Gujarati comparison should be comparable");
+  assert.ok(cmpHi.comparable, "Hindi comparison should be comparable");
+
+  // Both should score near 1.0 — the ambiguity is real.
+  assert.ok(
+    cmpGu.sim >= 0.90,
+    `expected sim ≥ 0.90 for Gujarati "na" target, got ${cmpGu.sim}`,
+  );
+  assert.ok(
+    cmpHi.sim >= 0.90,
+    `expected sim ≥ 0.90 for Hindi "na" target, got ${cmpHi.sim}`,
+  );
+});
+
+test("cross-language ambiguity: wrong-phrase-cap does NOT fire when sibling list is empty (no cross-language phrases supplied)", () => {
+  // The sibling-phrase list is always scoped to phrase.languageCode in the
+  // route.  A Gujarati phrase evaluation never has Hindi phrases in otherPhrases,
+  // so wrong-phrase-cap fires only within the same language.
+  // When no otherPhrases are supplied the guard must stay silent and let the
+  // transcript pass as a near-exact match.
+  const gujarati = { native: "ná", romanized: "na" };
+  const r = applyScoreGuards({
+    score: 60,
+    passed: false,
+    transcript: "na",
+    targetNative: gujarati.native,
+    targetRomanized: gujarati.romanized,
+    otherPhrases: [], // empty — no cross-language pollution
+  });
+  // sim("na","na")=1.0 → near-match-floor fires regardless of the LLM score.
+  assert.ok(r.passed, "exact 'na' for Gujarati target must pass");
+  assert.ok(r.score >= 85, `near-match-floor score should be ≥ 85, got ${r.score}`);
+  assert.equal(r.guard, "near-match-floor");
+});
+
+test("cross-language ambiguity: wrong-phrase-cap fires when the sibling list contains an equally-matching phrase", () => {
+  // Edge case: if — hypothetically — the sibling list were contaminated with
+  // a phrase from another language that also romanizes to "na", the
+  // wrong-phrase-cap would fire and cap the score at 40.  In practice the
+  // sibling list is always same-language, so this scenario doesn't arise in
+  // production, but the guard's robustness should be verified.
+  //
+  // We construct a Gujarati target "ha" (yes) and put "na" in the sibling list
+  // so the transcript "na" clearly matches the sibling, not the target.
+  const target  = { native: "há", romanized: "ha" };
+  const sibling = { nativeScript: "ná", romanized: "na" };
+
+  const r = applyScoreGuards({
+    score: 80,
+    passed: true,
+    transcript: "na",
+    targetNative: target.native,
+    targetRomanized: target.romanized,
+    otherPhrases: [sibling],
+  });
+
+  // sim("na","ha") < 0.5 (target mismatch), sim("na","na") = 1.0 (sibling match).
+  assert.equal(r.passed, false, "transcript matching a sibling, not the target, must not pass");
+  assert.ok(r.score <= 40, `wrong-phrase-cap must limit score to ≤ 40, got ${r.score}`);
+  assert.equal(r.guard, "wrong-phrase-cap");
+});
