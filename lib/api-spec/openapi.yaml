@@ -2502,7 +2502,17 @@ components:
         audioBase64:
           type: string
           minLength: 1
-          description: The learner's recorded speech for this turn.
+          description: >-
+            The learner's recorded speech for this turn. Required when
+            textInput is not provided.
+        textInput:
+          type: string
+          minLength: 1
+          description: >-
+            Pre-supplied text for text-input turns. When set the STT step is
+            skipped, the value is used directly as the transcript, and no
+            chat-time seconds are charged. Required when audioBase64 is not
+            provided.
         history:
           type: array
           description: >-
@@ -2520,7 +2530,6 @@ components:
             Optional; omitted by older clients.
       required:
         - languageCode
-        - audioBase64
 
     ChatTurnResult:
       type: object

@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -159,6 +160,9 @@ export default function ChatScreen() {
   const [secondsRemaining, setSecondsRemaining] = React.useState<
     number | null | undefined
   >(undefined);
+
+  // Text input value for the keyboard-based fallback.
+  const [textInputValue, setTextInputValue] = React.useState<string>('');
 
   // If the language is unlocked after a purchase, the screen re-evaluates.
   const [upgradeRequired, setUpgradeRequired] = React.useState(false);
@@ -1160,6 +1164,209 @@ export default function ChatScreen() {
     }
   };
 
+  // ── Text input send ────────────────────────────────────────────────────────
+  // Sends a typed message as a chat turn, bypassing audio recording entirely.
+  const handleSendText = async () => {
+    const text = textInputValue.trim();
+    if (!text) return;
+    if (phase === 'processing' || phase === 'recording') return;
+
+    if (!isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null && secondsRemaining <= 0) {
+      router.push('/(app)/paywall');
+      return;
+    }
+
+    playbackRef.current?.stop();
+    playbackRef.current = null;
+    clearWordReveal();
+
+    const myTurn = ++activeTurnRef.current;
+    earlyReplyShownRef.current = false;
+    setTextInputValue('');
+    setErrorMsg(null);
+
+    // Show the learner's bubble immediately — transcript is already known.
+    setPhase('processing');
+    setProcessingStep('replying');
+    setMessages((prev) => [
+      ...prev.filter((m) => !m.pending),
+      { role: 'learner', text },
+    ]);
+
+    const history: ChatTurnMessage[] = messages
+      .slice(-HISTORY_WINDOW)
+      .map((m) => ({ role: m.role === 'parrot' ? 'parrot' : 'learner', text: m.text }));
+
+    try {
+      const baseUrl = getConfiguredBaseUrl() ?? '';
+      const chatUrl = `${baseUrl}${getChatTurnUrl()}`;
+      const token = await getConfiguredAuthToken();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let replyPayload: any = null;
+      let sseError: string | null = null;
+      let httpStatus = 200;
+      let rawResponseText = '';
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', chatUrl);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Accept', 'text/event-stream');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+        let sseBuffer = '';
+        let lastLen = 0;
+
+        const processBuffer = () => {
+          const blocks = sseBuffer.split('\n\n');
+          sseBuffer = blocks.pop() ?? '';
+          for (const block of blocks) {
+            let evt = '';
+            let data = '';
+            for (const line of block.split('\n')) {
+              if (line.startsWith('event: ')) evt = line.slice(7).trim();
+              else if (line.startsWith('data: ')) data = line.slice(6).trim();
+            }
+            if (!evt || !data) continue;
+            if (activeTurnRef.current !== myTurn) return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let parsed: any;
+            try { parsed = JSON.parse(data); } catch { continue; }
+
+            if (evt === 'replyText') {
+              const earlyText = (parsed.replyText as string) ?? '';
+              const earlyEnglish = (parsed.replyEnglish as string) ?? '';
+              if (earlyText) {
+                earlyReplyShownRef.current = true;
+                setMessages((prev) => [
+                  ...prev,
+                  { role: 'parrot', text: earlyText, englishText: earlyEnglish || undefined },
+                ]);
+              }
+              setProcessingStep('voicing');
+            } else if (evt === 'reply') {
+              replyPayload = parsed;
+            } else if (evt === 'error') {
+              sseError = (parsed.error as string) ?? 'Something went wrong';
+            }
+          }
+        };
+
+        xhr.onprogress = () => {
+          const newChunk = xhr.responseText.slice(lastLen);
+          lastLen = xhr.responseText.length;
+          sseBuffer += newChunk;
+          processBuffer();
+        };
+        xhr.onload = () => {
+          httpStatus = xhr.status;
+          rawResponseText = xhr.responseText;
+          const remaining = xhr.responseText.slice(lastLen);
+          if (remaining) { sseBuffer += remaining; processBuffer(); }
+          resolve();
+        };
+        xhr.onerror = () => reject(new TypeError('Network error'));
+        xhr.ontimeout = () => reject(new TypeError('Request timed out'));
+        xhr.send(JSON.stringify({ languageCode: chatLang, textInput: text, history }));
+      });
+
+      if (httpStatus < 200 || httpStatus >= 300) {
+        let errData: unknown = null;
+        try { errData = JSON.parse(rawResponseText); } catch {}
+        const fakeRes = { status: httpStatus, ok: false } as Response;
+        throw new ApiError(fakeRes, errData, { method: 'POST', url: chatUrl });
+      }
+
+      if (sseError) throw new Error(sseError);
+      if (!replyPayload) throw new Error('No reply received');
+      if (!isFocusedRef.current || activeTurnRef.current !== myTurn) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p: any = replyPayload;
+      const replyText        = (p.replyText as string) ?? '';
+      const replyEnglish     = (p.replyEnglish as string) ?? '';
+      const transcriptEnglish = (p.transcriptEnglish as string) ?? '';
+      const replyAudioBase64 = (p.replyAudioBase64 as string) ?? '';
+      const format           = (p.format as string) || 'mp3';
+      const squawkVariant    = p.squawkVariant as 0 | 1 | 2 | null;
+      const remainingSecs    = p.secondsRemaining as number | null;
+
+      if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
+      else setSecondsRemaining(null);
+
+      hapticMedium();
+
+      setMessages((prev) => {
+        const updated = [...prev];
+        // Back-fill English gloss on the learner bubble if the server supplied one.
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].role === 'learner') {
+            if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
+              updated[i] = { ...updated[i], englishText: transcriptEnglish };
+            }
+            break;
+          }
+        }
+        const parrotBubble = {
+          role: 'parrot' as const,
+          text: replyText,
+          englishText: replyEnglish && replyEnglish !== replyText ? replyEnglish : undefined,
+        };
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].role === 'parrot') {
+          updated[lastIdx] = parrotBubble;
+        } else {
+          updated.push(parrotBubble);
+        }
+        return updated;
+      });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+      if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+      setPhase('playing');
+      hapticHeavy();
+
+      if (squawkVariant !== null && squawkVariant !== undefined) {
+        playSquawk(squawkVariant);
+      }
+
+      const handle = await playBase64Audio(replyAudioBase64, format, () => {
+        playbackRef.current = null;
+        if (activeTurnRef.current === myTurn) setPhase('idle');
+      });
+      if (activeTurnRef.current === myTurn && isFocusedRef.current) {
+        playbackRef.current = handle;
+      } else {
+        handle.stop();
+        if (activeTurnRef.current === myTurn) setPhase('idle');
+      }
+    } catch (err) {
+      if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+      const upgrade = asUpgradeRequired(err);
+      if (upgrade) {
+        setUpgradeRequired(true);
+        setPhase('idle');
+        return;
+      }
+
+      setPhase('error');
+      if (err instanceof ApiError) {
+        if ((err as { status?: number }).status === 502) {
+          setErrorMsg("Bolo couldn't process that 🦜 — give it another try!");
+        } else {
+          setErrorMsg('Bolo ran into a snag — try again!');
+        }
+      } else if (err instanceof TypeError) {
+        setErrorMsg("Bolo flew out for a mango lassi 🥭 — check your connection and try again!");
+      } else {
+        setErrorMsg('Bolo ran into a snag — try again!');
+      }
+    }
+  };
+
   // ── Nav-bar hold-to-talk registration ─────────────────────────────────────
   // Keep stable refs to the latest handler versions so we can register
   // wrappers once and always invoke up-to-date logic (avoids stale closures).
@@ -1497,6 +1704,35 @@ export default function ChatScreen() {
         </Animated.View>
       )}
 
+      {/* Text input row — keyboard fallback for when speaking isn't convenient */}
+      <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
+        <TextInput
+          value={textInputValue}
+          onChangeText={setTextInputValue}
+          onSubmitEditing={() => void handleSendText()}
+          returnKeyType="send"
+          placeholder="Type a message…"
+          placeholderTextColor={colors.mutedForeground}
+          editable={phase !== 'processing' && phase !== 'recording'}
+          style={[
+            styles.textInput,
+            { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+          blurOnSubmit={false}
+        />
+        {textInputValue.trim() ? (
+          <Pressable
+            onPress={() => void handleSendText()}
+            disabled={phase === 'processing' || phase === 'recording'}
+            style={[styles.sendBtn, { backgroundColor: colors.primary }]}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+          >
+            <Feather name="send" size={18} color={colors.primaryForeground ?? '#fff'} />
+          </Pressable>
+        ) : null}
+      </View>
+
       {/* Language picker modal */}
       <Modal
         visible={pickerOpen}
@@ -1763,6 +1999,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 24,
     marginBottom: 8,
+  },
+  textInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: RAISED_PARROT_CLEARANCE,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  textInput: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontFamily: AppFonts.regular,
+    fontSize: 15,
+    lineHeight: 20,
+    minHeight: 44,
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Modal / bottom-sheet
   modalBackdrop: {

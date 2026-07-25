@@ -6,7 +6,7 @@ import {
   ApiError,
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
-import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle, Loader2, Send } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
@@ -99,6 +99,7 @@ export default function ChatPage() {
   const [secondsRemaining, setSecondsRemaining] = useState<
     number | null | undefined
   >(undefined);
+  const [textInputValue, setTextInputValue] = useState<string>("");
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -925,6 +926,175 @@ export default function ChatPage() {
     }
   }, [isPlus, isOneLanguage, secondsRemaining, recorder, finishRecording, setLocation]);
 
+  // Send a typed message as a chat turn, bypassing audio recording entirely.
+  const sendTextTurn = useCallback(async () => {
+    const text = textInputValue.trim();
+    if (!text) return;
+    if (phase === "processing" || phase === "recording") return;
+
+    // Stop any in-progress playback or word-reveal.
+    if (playbackRef.current) {
+      playbackRef.current.pause();
+      playbackRef.current = null;
+    }
+    clearWordReveal();
+
+    const myTurn = ++activeTurnRef.current;
+    earlyReplyShownRef.current = false;
+    setErrorMsg(null);
+    setTextInputValue("");
+
+    // Show the learner bubble immediately — no "Sending…" pending state needed
+    // for text (the transcript is already known).
+    setPhase("processing");
+    setProcessingStep("replying");
+    setMessages((prev) => [
+      ...prev.filter((m) => !m.pending),
+      { role: "learner", text },
+    ]);
+
+    const history: ChatTurnMessage[] = messages
+      .slice(-HISTORY_WINDOW)
+      .map((m) => ({ role: m.role === "parrot" ? "parrot" : "learner", text: m.text }));
+
+    try {
+      const chatUrl = getChatTurnUrl();
+      const res = await fetch(chatUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+        body: JSON.stringify({ languageCode: chatLang, textInput: text, history }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new ApiError(res, errData, { method: "POST", url: chatUrl });
+      }
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = "";
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (activeTurnRef.current !== myTurn) { reader.cancel().catch(() => {}); return; }
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        const parts = sseBuffer.split("\n\n");
+        sseBuffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of part.split("\n")) {
+            if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataStr = line.slice(6).trim();
+          }
+          if (!dataStr) continue;
+          if (activeTurnRef.current !== myTurn) { reader.cancel().catch(() => {}); return; }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const payload = JSON.parse(dataStr) as any;
+
+          if (eventName === "transcript") {
+            // Server echoes back our text — bubble already shown, skip.
+          } else if (eventName === "replyText") {
+            const earlyText = (payload.replyText as string) ?? "";
+            const earlyEnglish = (payload.replyEnglish as string) ?? "";
+            if (earlyText) {
+              earlyReplyShownRef.current = true;
+              setMessages((prev) => [
+                ...prev,
+                { role: "parrot", text: earlyText, englishText: earlyEnglish || undefined, pending: true },
+              ]);
+            }
+            setProcessingStep("voicing");
+          } else if (eventName === "reply") {
+            if (activeTurnRef.current !== myTurn) { reader.cancel().catch(() => {}); return; }
+
+            const replyText = (payload.replyText as string) ?? "";
+            const replyEnglish = (payload.replyEnglish as string) ?? "";
+            const transcriptEnglish = (payload.transcriptEnglish as string) ?? "";
+            const replyAudioBase64 = (payload.replyAudioBase64 as string) ?? "";
+            const format = (payload.format as string) || "mp3";
+            const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
+            const remainingSecs = payload.secondsRemaining as number | null;
+
+            if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
+            else setSecondsRemaining(null);
+
+            setMessages((prev) => {
+              const updated = [...prev];
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === "learner") {
+                  if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
+                    updated[i] = { ...updated[i], englishText: transcriptEnglish };
+                  }
+                  break;
+                }
+              }
+              const parrotBubble = {
+                role: "parrot" as const,
+                text: replyText,
+                englishText: replyEnglish || undefined,
+              };
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].role === "parrot" && updated[lastIdx].pending) {
+                updated[lastIdx] = parrotBubble;
+              } else {
+                updated.push(parrotBubble);
+              }
+              return updated;
+            });
+
+            await new Promise<void>((resolve) => setTimeout(resolve, 80));
+            if (activeTurnRef.current !== myTurn) { reader.cancel().catch(() => {}); return; }
+
+            setPhase("playing");
+            const playReply = () => {
+              if (activeTurnRef.current !== myTurn) return;
+              const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
+              playbackRef.current = audio;
+              audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
+              audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
+            };
+            if (squawkVariant !== null && squawkVariant !== undefined) {
+              const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
+              const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+              sfx.onended = playReply;
+              sfx.onerror = playReply;
+              sfx.play().catch(playReply);
+            } else {
+              playReply();
+            }
+            break outer;
+          } else if (eventName === "error") {
+            throw new Error((payload.error as string) || "Chat turn failed");
+          }
+        }
+      }
+    } catch (err) {
+      if (activeTurnRef.current !== myTurn) return;
+
+      const upgrade = asUpgradeRequired(err);
+      if (upgrade) {
+        setLocation(
+          upgradeHref({
+            plan: upgrade.requiredPlan === "one_language" ? "one_language" : "plus",
+            lang: upgrade.reason === "language_locked" ? chatLang : undefined,
+          }),
+        );
+        setPhase("idle");
+        return;
+      }
+
+      let msg = "Bolo ran into a snag — try again!";
+      if (err instanceof TypeError) msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
+      setErrorMsg(msg);
+      setPhase("error");
+    }
+  }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation]);
+
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
     if (capExhausted) return;
     e.preventDefault(); // suppress context menu on long-press
@@ -1262,8 +1432,25 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-4 px-4 pb-10 pt-2">
+      {/* Controls — text input + mic button side by side */}
+      <div className="flex items-center gap-2 px-4 pb-10 pt-2">
+        {/* Text input */}
+        <input
+          type="text"
+          value={textInputValue}
+          onChange={(e) => setTextInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void sendTextTurn();
+            }
+          }}
+          placeholder="Type a message…"
+          disabled={phase === "processing" || phase === "recording"}
+          aria-label="Type a message to Bolo"
+          className="flex-1 min-w-0 rounded-full border border-card-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+        />
+
         {/* Mic / stop button */}
         <button
           onPointerDown={handleMicPointerDown}
@@ -1279,7 +1466,7 @@ export default function ChatPage() {
                 : "Hold to speak"
           }
           className={cn(
-            "flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0] transition-all active:translate-y-1.5 active:shadow-[0_0px_0] disabled:opacity-50 select-none touch-none",
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-[0_4px_0] transition-all active:translate-y-1 active:shadow-[0_0px_0] disabled:opacity-50 select-none touch-none",
             phase === "recording"
               ? "bg-destructive shadow-red-800 text-white scale-110"
               : capExhausted || phase === "processing"
@@ -1288,11 +1475,29 @@ export default function ChatPage() {
           )}
         >
           {phase === "recording" ? (
-            <Square className="h-6 w-6" fill="currentColor" />
+            <Square className="h-5 w-5" fill="currentColor" />
           ) : (
-            <Mic className="h-6 w-6" />
+            <Mic className="h-5 w-5" />
           )}
         </button>
+
+        {/* Send button — visible when there's typed text */}
+        <AnimatePresence>
+          {textInputValue.trim() && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={springs.poppy}
+              onClick={() => void sendTextTurn()}
+              disabled={phase === "processing" || phase === "recording"}
+              aria-label="Send message"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary shadow-[0_4px_0] shadow-primary/40 text-primary-foreground transition-all active:translate-y-1 active:shadow-[0_0px_0] disabled:opacity-50"
+            >
+              <Send className="h-5 w-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Skip playback */}
         {phase === "playing" && (
@@ -1302,7 +1507,7 @@ export default function ChatPage() {
             transition={springs.poppy}
             onClick={stopPlayback}
             aria-label="Skip Bolo's reply"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-card-border bg-white text-muted-foreground shadow-sm transition-all hover:text-foreground active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-card-border bg-white text-muted-foreground shadow-sm transition-all hover:text-foreground active:scale-95"
           >
             <SkipForward className="h-5 w-5" />
           </motion.button>

@@ -745,7 +745,14 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     res.status(400).json({ error: "Invalid chat payload" });
     return;
   }
-  const { languageCode, audioBase64, history, clientDurationSeconds } = parsed.data;
+  const { languageCode, audioBase64, textInput, history, clientDurationSeconds } = parsed.data;
+
+  // Exactly one of audioBase64 or textInput must be supplied.
+  if (!audioBase64 && !textInput) {
+    res.status(400).json({ error: "Either audioBase64 or textInput is required" });
+    return;
+  }
+
   const { userId, resolvedPlan } = req as EntitledRequest;
 
   // Language access follows the existing plan-based allowlist (Free/One
@@ -829,7 +836,8 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   }
 
   try {
-    const audioBuffer = Buffer.from(audioBase64, "base64");
+    // For text-input turns the audio buffer is unused — skip allocation.
+    const audioBuffer = audioBase64 ? Buffer.from(audioBase64, "base64") : undefined;
 
     // Capture transcript + duration via onTranscript callback so we can flush
     // the SSE transcript event before the LLM+TTS call starts.
@@ -839,6 +847,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     const result = await runParrotTurn(
       {
         audioBuffer,
+        textTranscript: textInput,
         languageName: language.name,
         languageCode,
         history: trimmedHistory,

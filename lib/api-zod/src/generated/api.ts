@@ -1069,7 +1069,8 @@ export const GeneratePhraseResponse = zod.object({
 
 export const ChatTurnBody = zod.object({
   "languageCode": zod.string().describe('The language the learner is chatting in (e.g. \"hi\", \"gu\").'),
-  "audioBase64": zod.string().min(1).describe('The learner\'s recorded speech for this turn.'),
+  "audioBase64": zod.string().min(1).optional().describe('The learner\'s recorded speech for this turn. Required when textInput is not provided.'),
+  "textInput": zod.string().min(1).optional().describe('Pre-supplied text transcript for text-input turns. When set the STT step is skipped and no chat-time seconds are charged. Required when audioBase64 is not provided.'),
   "history": zod.array(zod.object({
   "role": zod.string().describe('learner | parrot'),
   "text": zod.string()

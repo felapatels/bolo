@@ -22,7 +22,18 @@ export interface ChatHistoryTurn {
 }
 
 export interface ParrotTurnInput {
-  audioBuffer: Buffer;
+  /**
+   * The learner's recorded audio. Required when textTranscript is not provided;
+   * mutually exclusive with textTranscript.
+   */
+  audioBuffer?: Buffer;
+  /**
+   * Pre-supplied text transcript for text-input turns. When set the STT step
+   * is skipped entirely, the value is used directly as the transcript, and no
+   * chat-time seconds are charged (duration = 0). Mutually exclusive with
+   * audioBuffer.
+   */
+  textTranscript?: string;
   languageName: string;
   languageCode: string;
   history: ChatHistoryTurn[];
@@ -522,40 +533,55 @@ export async function runParrotTurn(
   deps: ParrotChatDeps = defaultParrotChatDeps,
 ): Promise<ParrotTurnResult> {
   const turnStart = Date.now();
-  const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer);
 
-  // When the client supplies its own duration measurement we skip the WAV
-  // conversion step that exists solely for duration measurement — saving
-  // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
-  // measurement (parallel WAV conversion) when the field is absent.
   let durationSeconds: number;
   let transcript: string;
+  let transcribeMs: number;
 
-  const transcribeStart = Date.now();
-  if (input.clientDurationSeconds != null) {
-    // Fast path: transcribe only, no WAV conversion needed.
-    durationSeconds = input.clientDurationSeconds;
-    transcript = (
-      await deps.transcribe(buffer, format, {
-        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
-      })
-    ).trim();
+  if (input.textTranscript !== undefined) {
+    // Text-input path: skip STT entirely. The learner's typed message is used
+    // directly as the transcript, and 0 seconds are charged against the cap
+    // (no audio duration to measure).
+    transcript = input.textTranscript.trim();
+    durationSeconds = 0;
+    transcribeMs = 0;
+    // Fire the transcript callback immediately so SSE clients can display the
+    // learner's bubble before the LLM reply arrives.
+    input.onTranscript?.(transcript, durationSeconds);
   } else {
-    // Legacy path: run WAV conversion and transcription in parallel.
-    const [wavBuffer, t] = await Promise.all([
-      format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-      deps.transcribe(buffer, format, {
-        prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
-      }).then((t) => t.trim()),
-    ]);
-    durationSeconds = wavDurationSeconds(wavBuffer);
-    transcript = t;
-  }
-  const transcribeMs = Date.now() - transcribeStart;
+    // Audio path: transcribe the recorded audio via Whisper.
+    const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer!);
 
-  // Fire the early-transcript callback so the SSE route can flush a
-  // `transcript` event to the client before the LLM+TTS call starts.
-  input.onTranscript?.(transcript, durationSeconds);
+    // When the client supplies its own duration measurement we skip the WAV
+    // conversion step that exists solely for duration measurement — saving
+    // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
+    // measurement (parallel WAV conversion) when the field is absent.
+    const transcribeStart = Date.now();
+    if (input.clientDurationSeconds != null) {
+      // Fast path: transcribe only, no WAV conversion needed.
+      durationSeconds = input.clientDurationSeconds;
+      transcript = (
+        await deps.transcribe(buffer, format, {
+          prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
+        })
+      ).trim();
+    } else {
+      // Legacy path: run WAV conversion and transcription in parallel.
+      const [wavBuffer, t] = await Promise.all([
+        format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
+        deps.transcribe(buffer, format, {
+          prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
+        }).then((t) => t.trim()),
+      ]);
+      durationSeconds = wavDurationSeconds(wavBuffer);
+      transcript = t;
+    }
+    transcribeMs = Date.now() - transcribeStart;
+
+    // Fire the early-transcript callback so the SSE route can flush a
+    // `transcript` event to the client before the LLM+TTS call starts.
+    input.onTranscript?.(transcript, durationSeconds);
+  }
 
   // LLM call: returns the in-language reply, its English gloss, and an
   // English translation of what the learner said — all in one JSON response.
