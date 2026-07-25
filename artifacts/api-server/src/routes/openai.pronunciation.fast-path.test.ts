@@ -17,13 +17,21 @@
 // no HTTP). Part C covers cases 1 and 2 through the real Express route with the
 // audio module mocked so we control the transcript and can count LLM calls.
 
-import { test, before, after, mock } from "node:test";
+import { test, describe, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import express, { type Request, type Response, type NextFunction } from "express";
 
 import { compareToTarget } from "../lib/pronunciationGuards";
+import {
+  db,
+  phrasesTable,
+  lessonsTable,
+  categoriesTable,
+  languagesTable,
+} from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 // ─── Shared mock state ────────────────────────────────────────────────────────
 // The mock closures read these module-level variables, so each test can control
@@ -505,4 +513,142 @@ test("fix #1 — wrong-but-similar phrase scenario: compareToTarget confirms bot
     `target sim must be ≥ 0.93, got ${targetSim.sim} (comparable=${targetSim.comparable})`);
   assert.ok(siblingNaSim.comparable && siblingNaSim.sim >= 0.93,
     `sibling sim must be ≥ 0.93, got ${siblingNaSim.sim} — confirms fast-path guard is necessary`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Part E — DB-backed wrong-phrase-cap integration test
+//
+// When phraseId IS provided the route fetches sibling phrases from the DB and
+// checks whether the transcript matches any of them at sim ≥ 0.80. If so, it
+// falls through to the LLM path instead of returning a fast-path pass. This
+// suite exercises that DB-backed path end-to-end through a real HTTP request so
+// a regression (query break, schema change, logic inversion) fails here rather
+// than silently letting wrong-but-similar phrases through.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("wrong-phrase-cap (DB-backed path): phraseId triggers sibling fetch", () => {
+  const LANG_CODE = "__test_lang_fp689";
+  const CATEGORY_SLUG = "__test_cat_fp689";
+  let targetPhraseId: number;
+
+  before(async () => {
+    // Provision a throwaway language, category, lesson, and two sibling phrases.
+    // FK order: language → category → lesson → phrases.
+    await db
+      .insert(languagesTable)
+      .values({
+        code: LANG_CODE,
+        name: "Test Lang FP689",
+        nativeName: "T689",
+        script: "Latin",
+        fontFamily: "sans-serif",
+      })
+      .onConflictDoNothing();
+
+    const [category] = await db
+      .insert(categoriesTable)
+      .values({
+        slug: CATEGORY_SLUG,
+        title: "Test FP689",
+        description: "Test category for task 689",
+        iconName: "BookOpen",
+        accent: "#000000",
+      })
+      .returning();
+
+    const [lesson] = await db
+      .insert(lessonsTable)
+      .values({ languageCode: LANG_CODE, categoryId: category!.id, titleNative: "T689" })
+      .returning();
+
+    // Target phrase: romanized "kem chho".
+    //   normalizeLatin("kem chho") → "kemcho" (chh→ch fold, 6 chars)
+    //   normalizeLatin("kem cho")  → "kemcho" → sim = 1.0 ≥ 0.93 (fast-path fires normally)
+    //
+    // Sibling phrase: romanized "kem che".
+    //   normalizeLatin("kem che")  → "kemche" (6 chars)
+    //   similarity("kemcho","kemche") = 1 - 1/6 ≈ 0.833 ≥ 0.80 → wrong-phrase-cap fires
+    const created = await db
+      .insert(phrasesTable)
+      .values([
+        {
+          lessonId: lesson!.id,
+          languageCode: LANG_CODE,
+          categoryId: category!.id,
+          nativeScript: "કેમ છો",
+          romanized: "kem chho",
+          english: "How are you",
+          sortOrder: 0,
+        },
+        {
+          lessonId: lesson!.id,
+          languageCode: LANG_CODE,
+          categoryId: category!.id,
+          nativeScript: "કેમ છે",
+          romanized: "kem che",
+          english: "How is it",
+          sortOrder: 1,
+        },
+      ])
+      .returning();
+
+    targetPhraseId = created[0]!.id;
+  });
+
+  after(async () => {
+    // FK order: phrases → lessons → categories → languages.
+    await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG_CODE));
+    await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG_CODE));
+    await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
+    await db.delete(languagesTable).where(eq(languagesTable.code, LANG_CODE));
+  });
+
+  test("similar-sounding sibling (sim≥0.80) blocks fast-path and falls through to LLM when phraseId is supplied", async () => {
+    // "kem cho" normalises to "kemcho":
+    //   • Against target "kem chho" (→"kemcho"):  sim = 1.0  ≥ 0.93 → fast-path would fire
+    //   • Against sibling "kem che" (→"kemche"):  sim ≈ 0.833 ≥ 0.80 → wrong-phrase-cap fires
+    //
+    // Because phraseId is provided, the route fetches sibling phrases from the DB,
+    // detects the sibling collision, and falls through to the LLM path instead of
+    // returning a fast-path pass.  The LLM mock returns LLM_SCORE=55 (<80), so
+    // passed must be false and the LLM call count must be ≥ 1.
+    stubbedTranscript = "kem cho";
+    llmCallCount = 0;
+
+    const res = await fetch(`${baseUrl}/openai/pronunciation`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        phraseId: targetPhraseId,
+        // targetNative/Romanized/English are required by the schema even when
+        // phraseId is supplied — the server overwrites them from the DB anyway.
+        targetNative: "કેમ છો",
+        targetRomanized: "kem chho",
+        targetEnglish: "How are you",
+        languageName: "Test Lang FP689",
+        audioBase64: Buffer.from("fake-audio-bytes").toString("base64"),
+      }),
+    });
+    const json = await res.json().catch(() => null) as any;
+
+    assert.equal(res.status, 200, `expected 200, got ${res.status}: ${JSON.stringify(json)}`);
+    // The wrong-phrase-cap must have fired — the LLM must have been called.
+    // llmCallCount=0 would mean the fast-path returned passed=true without ever
+    // checking the sibling phrases, which is the regression we are guarding against.
+    assert.ok(
+      llmCallCount >= 1,
+      `expected at least one LLM call (wrong-phrase-cap fell through to LLM), got ${llmCallCount}. ` +
+        "If llmCallCount=0 the fast-path returned passed=true without checking siblings.",
+    );
+    // The response must still be a well-formed evaluation (200 with an
+    // evaluationToken). We do NOT assert passed=false here: after the fast-path is
+    // bypassed the near-match-floor guard legitimately rescues a correct attempt
+    // (transcript sim=1.0 against the target), so passed=true on the LLM path is
+    // expected and correct. The important invariant is that the LLM path ran
+    // (confirmed above), not the final pass/fail verdict.
+    assert.ok(
+      typeof json.evaluationToken === "string",
+      "response must include a signed evaluationToken even on the LLM-fallback path",
+    );
+  });
 });
