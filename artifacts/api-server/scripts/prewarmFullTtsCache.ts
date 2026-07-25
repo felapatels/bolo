@@ -18,9 +18,12 @@
 // Dry-run (prints what would be synthesized, no ElevenLabs calls):
 //   pnpm --filter @workspace/api-server run prewarm-full-tts-cache -- --dry-run
 //
+// Include sentence-stage rows (Plus-only, ~6 per topic per language):
+//   pnpm --filter @workspace/api-server run prewarm-full-tts-cache -- --sentences
+//
 // Expected runtime (first run, full uncached catalog):
 //   ~13 minutes at concurrency=2 + 500ms pacing for ~1,600 phrase-stage rows.
-//   Sentence-stage rows are excluded; they are Plus-only on-demand.
+//   Add --sentences to also cover ~792 sentence-stage rows (~5 extra minutes).
 //
 // Replenishment-wait mode (default, --no-wait disables):
 //   When ElevenLabs credits drop to ≤ 500 characters the script pauses and
@@ -84,6 +87,8 @@ interface CliArgs {
   noWait: boolean;
   /** Maximum minutes to wait for quota replenishment before giving up. */
   waitTimeoutMinutes: number;
+  /** Also include sentence-stage (Plus-only) rows in the pre-warm pass. */
+  sentences: boolean;
 }
 
 function parseArgs(): CliArgs {
@@ -94,13 +99,14 @@ function parseArgs(): CliArgs {
 
   const dryRun = args.includes("--dry-run");
   const noWait = args.includes("--no-wait");
+  const sentences = args.includes("--sentences");
 
   const waitArg = args.find((a) => a.startsWith("--wait-timeout="));
   const waitTimeoutMinutes = waitArg
     ? Math.max(1, parseInt(waitArg.slice("--wait-timeout=".length), 10) || DEFAULT_WAIT_TIMEOUT_MINUTES)
     : DEFAULT_WAIT_TIMEOUT_MINUTES;
 
-  return { lang, dryRun, noWait, waitTimeoutMinutes };
+  return { lang, dryRun, noWait, waitTimeoutMinutes, sentences };
 }
 
 // ---------------------------------------------------------------------------
@@ -114,18 +120,29 @@ type PhraseRow = {
   languageName: string;
   elevenLabsVoiceId: string;
   languageId: string | undefined;
+  /** The DB stage value — "phrase" or "sentence". Used for progress labelling. */
+  stage: "phrase" | "sentence";
 };
 
 /**
- * Load all phrase-stage rows from the DB, joined with their language's display
- * name, ordered by language code then sortOrder.
+ * Load phrase rows from the DB, joined with their language's display name,
+ * ordered by language code then sortOrder.
  *
- * Sentence-stage rows are excluded — they are Plus-only and synthesized
- * on-demand; offline pre-warming for them can be added later.
+ * By default only `stage = 'phrase'` rows are loaded.  Pass
+ * `includeSentences: true` to also include `stage = 'sentence'` rows
+ * (Plus-only) so operators can fill the full catalog in a single offline pass.
  *
- * @param langCode - Optional language code to restrict to a single language.
+ * @param langCode          - Optional language code to restrict to a single language.
+ * @param includeSentences  - Also load sentence-stage rows (default: false).
  */
-export async function loadAllPhrases(langCode?: string): Promise<PhraseRow[]> {
+export async function loadAllPhrases(
+  langCode?: string,
+  includeSentences = false,
+): Promise<PhraseRow[]> {
+  const stages: Array<"phrase" | "sentence"> = includeSentences
+    ? ["phrase", "sentence"]
+    : ["phrase"];
+
   const [phrases, languages] = await Promise.all([
     db.query.phrasesTable.findMany({
       columns: {
@@ -133,13 +150,14 @@ export async function loadAllPhrases(langCode?: string): Promise<PhraseRow[]> {
         nativeScript: true,
         languageCode: true,
         sortOrder: true,
+        stage: true,
       },
       where: langCode
         ? and(
-            eq(phrasesTable.stage, "phrase"),
+            inArray(phrasesTable.stage, stages),
             eq(phrasesTable.languageCode, langCode),
           )
-        : eq(phrasesTable.stage, "phrase"),
+        : inArray(phrasesTable.stage, stages),
     }),
     db.query.languagesTable.findMany({
       columns: { code: true, name: true },
@@ -148,11 +166,12 @@ export async function loadAllPhrases(langCode?: string): Promise<PhraseRow[]> {
 
   const nameByCode = new Map(languages.map((l) => [l.code, l.name]));
 
-  // Sort: language code ascending, then sortOrder ascending so progress logs
-  // read in a predictable, topic-grouped order.
+  // Sort: language code ascending, then stage (phrase before sentence), then
+  // sortOrder ascending so progress logs read in a predictable, topic-grouped order.
   const sorted = phrases.slice().sort(
     (a, b) =>
       a.languageCode.localeCompare(b.languageCode) ||
+      a.stage.localeCompare(b.stage) ||
       a.sortOrder - b.sortOrder ||
       a.id - b.id,
   );
@@ -164,6 +183,7 @@ export async function loadAllPhrases(langCode?: string): Promise<PhraseRow[]> {
     languageName: nameByCode.get(p.languageCode) ?? "",
     elevenLabsVoiceId: getVoiceIdForLanguage(p.languageCode),
     languageId: getLanguageIdForCode(p.languageCode),
+    stage: p.stage as "phrase" | "sentence",
   }));
 }
 
@@ -379,13 +399,15 @@ async function synthesizePass(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const { lang, dryRun, noWait, waitTimeoutMinutes } = parseArgs();
+  const { lang, dryRun, noWait, waitTimeoutMinutes, sentences } = parseArgs();
 
   console.log("=".repeat(60));
   console.log("Bolo! TTS full-catalog pre-warm");
   console.log("=".repeat(60));
   if (lang) console.log(`Language filter : ${lang}`);
   if (dryRun) console.log(`Mode           : DRY RUN (no ElevenLabs calls)`);
+  if (sentences) console.log(`Stages         : phrase + sentence (--sentences)`);
+  else console.log(`Stages         : phrase only (pass --sentences to include sentence-stage rows)`);
   if (noWait) console.log(`Quota handling : --no-wait (exit on exhaustion)`);
   else
     console.log(
@@ -394,11 +416,17 @@ async function main(): Promise<void> {
   console.log();
 
   // -------------------------------------------------------------------------
-  // 1. Load all phrase-stage rows.
+  // 1. Load phrase rows (and optionally sentence rows).
   // -------------------------------------------------------------------------
   process.stdout.write("Loading phrases from database… ");
-  const phrases = await loadAllPhrases(lang);
-  console.log(`${phrases.length} phrase-stage rows.`);
+  const phrases = await loadAllPhrases(lang, sentences);
+  const phraseCount = phrases.filter((p) => p.stage === "phrase").length;
+  const sentenceCount = phrases.filter((p) => p.stage === "sentence").length;
+  if (sentences) {
+    console.log(`${phrases.length} rows (${phraseCount} phrase-stage, ${sentenceCount} sentence-stage).`);
+  } else {
+    console.log(`${phrases.length} phrase-stage rows.`);
+  }
 
   if (phrases.length === 0) {
     console.log("Nothing to do — no phrase-stage rows found.");
@@ -441,17 +469,29 @@ async function main(): Promise<void> {
   // 3. Dry-run: just list what would be synthesized.
   // -------------------------------------------------------------------------
   if (dryRun) {
-    console.log("\nDRY RUN — phrases that would be synthesized:");
+    console.log("\nDRY RUN — rows that would be synthesized:");
     let currentLang = "";
+    let currentStage = "";
     for (const { phrase } of missing) {
       if (phrase.languageCode !== currentLang) {
         currentLang = phrase.languageCode;
-        const totalForLang = missing.filter(
-          (m) => m.phrase.languageCode === currentLang,
+        currentStage = "";
+        const phrasesForLang = missing.filter(
+          (m) => m.phrase.languageCode === currentLang && m.phrase.stage === "phrase",
         ).length;
-        console.log(
-          `\n  ${phrase.languageName} (${phrase.languageCode}) — ${totalForLang} phrase(s)`,
-        );
+        const sentencesForLang = missing.filter(
+          (m) => m.phrase.languageCode === currentLang && m.phrase.stage === "sentence",
+        ).length;
+        const parts = [];
+        if (phrasesForLang > 0) parts.push(`${phrasesForLang} phrase(s)`);
+        if (sentencesForLang > 0) parts.push(`${sentencesForLang} sentence(s) [Plus]`);
+        console.log(`\n  ${phrase.languageName} (${phrase.languageCode}) — ${parts.join(", ")}`);
+      }
+      if (phrase.stage !== currentStage) {
+        currentStage = phrase.stage;
+        if (phrase.stage === "sentence") {
+          console.log(`    — sentence-stage (Plus-only) —`);
+        }
       }
       console.log(`    [${phrase.id}] ${phrase.nativeScript}`);
     }
@@ -459,8 +499,12 @@ async function main(): Promise<void> {
       (s, m) => s + m.phrase.nativeScript.length,
       0,
     );
+    const missingPhrases = missing.filter((m) => m.phrase.stage === "phrase").length;
+    const missingSentences = missing.filter((m) => m.phrase.stage === "sentence").length;
+    const parts = [`${missingPhrases} phrase(s)`];
+    if (missingSentences > 0) parts.push(`${missingSentences} sentence(s) [Plus]`);
     console.log(
-      `\nTotal: ${missing.length} phrase(s), ${totalChars.toLocaleString()} characters.`,
+      `\nTotal: ${parts.join(", ")} — ${totalChars.toLocaleString()} characters.`,
     );
     return;
   }
@@ -513,8 +557,13 @@ async function main(): Promise<void> {
   //    quota exhaustion.  The outer loop re-checks which items are still
   //    uncached and re-enters the pool after credits are replenished.
   // -------------------------------------------------------------------------
+  const missingPhraseCount = missing.filter((m) => m.phrase.stage === "phrase").length;
+  const missingSentenceCount = missing.filter((m) => m.phrase.stage === "sentence").length;
+  const missingDesc = missingSentenceCount > 0
+    ? `${missingPhraseCount} phrase(s) + ${missingSentenceCount} sentence(s) [Plus]`
+    : `${missing.length} phrase(s)`;
   console.log(
-    `\nSynthesizing ${missing.length} phrase(s) at concurrency=${CONCURRENCY}, pacing=${PACING_MS}ms…`,
+    `\nSynthesizing ${missingDesc} at concurrency=${CONCURRENCY}, pacing=${PACING_MS}ms…`,
   );
 
   const counters = { done: 0, failed: 0 };
@@ -595,12 +644,20 @@ async function main(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 let lastLangCode = "";
+let lastStage = "";
 
 function printLangHeader(phrase: PhraseRow | undefined): void {
   if (!phrase) return;
   if (phrase.languageCode !== lastLangCode) {
     lastLangCode = phrase.languageCode;
+    lastStage = "";
     console.log(`\n  ▸ ${phrase.languageName} (${phrase.languageCode})`);
+  }
+  if (phrase.stage !== lastStage) {
+    lastStage = phrase.stage;
+    if (phrase.stage === "sentence") {
+      console.log(`    [sentence-stage — Plus-only]`);
+    }
   }
 }
 
