@@ -1636,6 +1636,7 @@ export default function ChatScreen() {
           own flex:1 (mascotAreaFull) continues to drive layout on the
           empty-state screen. */}
       <KeyboardAvoidingView
+        testID="chat-keyboard-wrapper"
         style={[
           messages.length > 0 ? { flex: 1 } : undefined,
           // On web KeyboardAvoidingView is a no-op; pad by the visual-viewport
