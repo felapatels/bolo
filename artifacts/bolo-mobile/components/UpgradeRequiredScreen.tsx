@@ -22,12 +22,15 @@ export function UpgradeRequiredScreen({
   message,
   onUpgrade,
   onBack,
+  showTrial = false,
 }: {
   title: string;
   /** The server-reported denial message (never hardcoded client copy). */
   message: string;
   onUpgrade: () => void;
   onBack: () => void;
+  /** When true (daily_lesson_limit), lead with the 7-day free trial CTA. */
+  showTrial?: boolean;
 }) {
   const colors = useColors();
   const skipEnter = useAppearSkip();
@@ -75,11 +78,16 @@ export function UpgradeRequiredScreen({
           style={styles.actions}
         >
           <ChunkyButton
-            title="Unlock with Plus"
+            title={showTrial ? 'Start 7-day free trial' : 'Unlock with Plus'}
             icon="star"
             onPress={onUpgrade}
             style={{ width: '100%' }}
           />
+          {showTrial && (
+            <Text style={[styles.trialNote, { color: colors.mutedForeground }]}>
+              Cancel anytime — no charge if you cancel before the trial ends.
+            </Text>
+          )}
           <Pressable
             accessibilityRole="button"
             onPress={onBack}
@@ -144,5 +152,13 @@ const styles = StyleSheet.create({
   goBackText: {
     fontFamily: AppFonts.bold,
     fontSize: 14,
+  },
+  trialNote: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 2,
+    paddingHorizontal: 8,
   },
 });

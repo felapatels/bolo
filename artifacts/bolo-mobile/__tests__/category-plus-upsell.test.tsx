@@ -275,18 +275,32 @@ describe('402 upgrade_required on the topic screen', () => {
     expect(screen.queryByText(/try again/i)).not.toBeOnTheScreen();
   });
 
-  test('tapping the upgrade CTA routes to the paywall', () => {
+  test('daily lesson limit shows the trial CTA label, not the generic one', () => {
     mockState.phrases = errorQuery(upgrade402());
 
     render(<CategoryScreen />);
 
-    fireEvent.press(screen.getByText('Unlock with Plus'));
+    expect(screen.getByText('Start 7-day free trial')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Cancel anytime — no charge if you cancel before the trial ends.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+  });
+
+  test('tapping the trial CTA routes to the paywall', () => {
+    mockState.phrases = errorQuery(upgrade402());
+
+    render(<CategoryScreen />);
+
+    fireEvent.press(screen.getByText('Start 7-day free trial'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
     });
   });
 
-  test('a locked language unlockable by One-Language pre-picks it on the paywall', () => {
+  test('a locked language shows the generic CTA, not the trial copy', () => {
     mockState.phrases = errorQuery(
       upgrade402({
         reason: 'language_locked',
@@ -299,6 +313,11 @@ describe('402 upgrade_required on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(screen.getByText('Unlock this language')).toBeOnTheScreen();
+    expect(screen.getByText('Unlock with Plus')).toBeOnTheScreen();
+    expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Cancel anytime/),
+    ).not.toBeOnTheScreen();
     fireEvent.press(screen.getByText('Unlock with Plus'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
@@ -317,5 +336,6 @@ describe('402 upgrade_required on the topic screen', () => {
 
     expect(screen.getByText(/try again/i)).toBeOnTheScreen();
     expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
   });
 });

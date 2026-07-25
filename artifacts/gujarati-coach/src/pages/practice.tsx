@@ -647,6 +647,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         }
         message={upgrade.message}
         upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
+        showTrial={upgrade.reason === "daily_lesson_limit"}
       />
     );
   }

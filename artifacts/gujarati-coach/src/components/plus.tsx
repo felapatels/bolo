@@ -87,12 +87,15 @@ export function UpgradeScreen({
   title,
   message,
   upgradeHref = "/upgrade",
+  showTrial = false,
 }: {
   backHref: string;
   title: string;
   message: string;
   /** Deep link into the paywall, preselecting the cheapest unlocking plan. */
   upgradeHref?: string;
+  /** When true (daily_lesson_limit), lead with the 7-day free trial CTA. */
+  showTrial?: boolean;
 }) {
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -125,9 +128,14 @@ export function UpgradeScreen({
               PLUS_GRADIENT,
             )}
           >
-            See Bolo! Plus
+            {showTrial ? "Start 7-day free trial" : "See Bolo! Plus"}
             <ArrowRight className="h-5 w-5" />
           </Link>
+          {showTrial && (
+            <p className="text-xs font-medium text-muted-foreground -mt-1">
+              Cancel anytime — no charge if you cancel before the trial ends.
+            </p>
+          )}
           <Link
             href={backHref}
             className="py-2 text-sm font-bold text-muted-foreground"

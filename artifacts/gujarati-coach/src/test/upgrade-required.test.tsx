@@ -172,7 +172,7 @@ describe("Lesson load 402", () => {
     expect(screen.queryByText("Try again")).not.toBeInTheDocument();
   });
 
-  test("the daily lesson cap renders the upgrade screen", () => {
+  test("the daily lesson cap renders the upgrade screen with trial CTA", () => {
     h.categoryPhrases = {
       ...idleQuery,
       isError: true,
@@ -186,7 +186,29 @@ describe("Lesson load 402", () => {
     expect(
       screen.getByText("You've hit today's free lessons"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Start 7-day free trial")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Cancel anytime — no charge if you cancel before the trial ends.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+  });
+
+  test("a locked language shows the generic CTA, not the trial copy", () => {
+    h.categoryPhrases = {
+      ...idleQuery,
+      isError: true,
+      error: upgradeRequiredError(
+        "language_locked",
+        "Hindi is a Bolo! Plus language.",
+      ),
+    };
+    renderPage(<CategoryDetail />);
+
     expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cancel anytime/)).not.toBeInTheDocument();
   });
 
   test("a real (non-402) failure still shows the retry screen", () => {
@@ -199,6 +221,7 @@ describe("Lesson load 402", () => {
 
     expect(screen.getByText("Try again")).toBeInTheDocument();
     expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+    expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
   });
 });
 

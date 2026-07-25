@@ -1192,6 +1192,7 @@ export default function PracticeScreen() {
         message={upgrade.message}
         onUpgrade={() => router.push(paywallHrefForDenial(upgrade, activeLang))}
         onBack={() => router.back()}
+        showTrial={upgrade.reason === 'daily_lesson_limit'}
       />
     );
   }

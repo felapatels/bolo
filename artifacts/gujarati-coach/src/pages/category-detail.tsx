@@ -113,6 +113,7 @@ export default function CategoryDetail() {
         }
         message={upgrade.message}
         upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
+        showTrial={upgrade.reason === "daily_lesson_limit"}
       />
     );
   }
