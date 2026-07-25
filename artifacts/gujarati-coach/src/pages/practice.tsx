@@ -35,9 +35,21 @@ import { MilestoneToast } from "@/components/ui/milestone-toast";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
+// Shared pass/fail thresholds — must stay in sync with mobile's scoreColor()
+// in artifacts/bolo-mobile/lib/ui.ts so learners see identical feedback on
+// both platforms:
+//   green  ≥ SCORE_PASS      (pass)
+//   amber  ≥ SCORE_NEAR_MISS (near-miss)
+//   red    < SCORE_NEAR_MISS (fail)
+const SCORE_PASS = 70;
+const SCORE_NEAR_MISS = 50;
+// Celebration threshold — not a pass/fail cutoff. Confetti and "PERFECT
+// SESSION" fire when every phrase clears this bar (same bar on mobile).
+const SCORE_GREAT = 80;
+
 // ScoreRing — animates a circular SVG arc from 0 to the earned score,
 // with a centered number that springs in once the arc reaches it.
-// Colors shift by band: green ≥80, amber 60–79, red below 60.
+// Colors shift by band: green ≥70 (pass), amber 50–69, red below 50 (fail).
 // Pass size="small" for the compact variant used in the session summary.
 const RING_R = 44;
 const RING_STROKE = 8;
@@ -57,12 +69,12 @@ function ScoreRing({ score, size = "normal" }: { score: number; size?: "normal" 
   const circum = isSmall ? SMALL_RING_CIRCUM : RING_CIRCUM;
   const ringSize = isSmall ? SMALL_RING_SIZE : RING_SIZE;
   const color =
-    score >= 80 ? "hsl(var(--success))" :
-    score >= 60 ? "hsl(var(--primary))" :
+    score >= SCORE_PASS ? "hsl(var(--success))" :
+    score >= SCORE_NEAR_MISS ? "hsl(var(--primary))" :
     "hsl(var(--destructive))";
   const trackColor =
-    score >= 80 ? "hsl(var(--success) / 0.15)" :
-    score >= 60 ? "hsl(var(--primary) / 0.15)" :
+    score >= SCORE_PASS ? "hsl(var(--success) / 0.15)" :
+    score >= SCORE_NEAR_MISS ? "hsl(var(--primary) / 0.15)" :
     "hsl(var(--destructive) / 0.15)";
   const targetOffset = circum * (1 - score / 100);
   const center = ringSize / 2;
@@ -491,7 +503,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // must never take the result away from them.
       setState("result");
 
-      if (evalRes.score >= 80) {
+      if (evalRes.score >= SCORE_GREAT) {
         setShowConfetti(true);
         if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
@@ -697,14 +709,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     const avgScore = attemptCount > 0
       ? Math.round(orderedSummaryEntries.reduce((a, b) => a + b.score, 0) / attemptCount)
       : 0;
-    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.score >= 80);
+    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.score >= SCORE_GREAT);
     // XP: rounded-to-tens of avg score × phrase count, capped at 50
     const xpEarned = Math.min(Math.round(avgScore / 10) * attemptCount, 50);
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
         <Confetti active={isPerfect || avgScore >= 70} variant={isPerfect ? "perfect" : "default"} />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <Mascot pose={avgScore >= 60 ? "cheer" : "thumbsup"} size={148} idle={avgScore >= 60 ? "cheer" : "float"} />
+          <Mascot pose={avgScore >= SCORE_NEAR_MISS ? "cheer" : "thumbsup"} size={148} idle={avgScore >= SCORE_NEAR_MISS ? "cheer" : "float"} />
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -714,7 +726,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               isPerfect ? "text-amber-500" : "text-foreground",
             )}
           >
-            {isPerfect ? "PERFECT SESSION! 🏆" : avgScore >= 80 ? "You crushed it!" : avgScore >= 60 ? "Session Complete!" : "Great effort!"}
+            {isPerfect ? "PERFECT SESSION! 🏆" : avgScore >= SCORE_PASS ? "You crushed it!" : avgScore >= SCORE_NEAR_MISS ? "Session Complete!" : "Great effort!"}
           </motion.h1>
 
           <motion.div
@@ -729,7 +741,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             <p className="text-muted-foreground font-bold uppercase tracking-wider mb-2">Average Score</p>
             <div className={cn(
               "text-6xl font-black",
-              avgScore >= 80 ? "text-success" : avgScore >= 60 ? "text-primary" : "text-destructive"
+              avgScore >= SCORE_PASS ? "text-success" : avgScore >= SCORE_NEAR_MISS ? "text-primary" : "text-destructive"
             )}>
               {avgScore}
             </div>
@@ -806,9 +818,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // cheering back up) once a score lands.
   const mascotPose: MascotPose =
     state === "result" && result
-      ? result.score >= 80
+      ? result.score >= SCORE_PASS
         ? "cheer"
-        : result.score >= 60
+        : result.score >= SCORE_NEAR_MISS
           ? "thumbsup"
           : "tryagain"
       : state === "error"
@@ -946,7 +958,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <Mascot
                   pose={mascotPose}
                   fill
-                  idle={state === "result" && (result?.score ?? 0) >= 80 ? "cheer" : "float"}
+                  idle={state === "result" && (result?.score ?? 0) >= SCORE_PASS ? "cheer" : "float"}
                 />
               </motion.div>
             </AnimatePresence>
@@ -1069,11 +1081,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
                   <p className={cn(
                     "text-xl font-black mb-1",
-                    result.score >= 80 ? "text-success" :
-                    result.score >= 60 ? "text-primary" :
+                    result.score >= SCORE_PASS ? "text-success" :
+                    result.score >= SCORE_NEAR_MISS ? "text-primary" :
                     "text-foreground"
                   )}>
-                    {result.score >= 80 ? "Amazing!" : result.score >= 60 ? "Nice work!" : "Good try — keep going!"}
+                    {result.score >= SCORE_PASS ? "Amazing!" : result.score >= SCORE_NEAR_MISS ? "Nice work!" : "Good try — keep going!"}
                   </p>
                   <ScoreRing score={Math.round(result.score)} />
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>

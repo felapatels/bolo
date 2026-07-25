@@ -397,11 +397,12 @@ describe("session summary XP chip", () => {
   });
 
   test('shows "Session Complete!" for a good but imperfect session', async () => {
-    // avgScore = (80+65)/2 = ~72 — good but not all ≥80
+    // avgScore = (65+60)/2 = ~62 — above near-miss (≥50) but below pass (70),
+    // so the header should be "Session Complete!", not "You crushed it!" or "PERFECT SESSION! 🏆"
     await reachIdle(phrases.slice(0, 2));
 
-    await scoreAndNext(80);
-    await scoreOnce(65);
+    await scoreAndNext(65);
+    await scoreOnce(60);
     fireEvent.click(screen.getByText("Next"));
 
     await waitFor(
