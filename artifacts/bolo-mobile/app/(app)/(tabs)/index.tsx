@@ -360,10 +360,14 @@ export default function HomeScreen() {
 
         {/* Continue / Start hero card */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}>
-          <ContinueCard
-            categories={categories.data ?? []}
-            onNavigate={(id) => router.push(`/(app)/practice/${id}?skipMastered=true`)}
-          />
+          {categories.isLoading ? (
+            <SkeletonCard height={88} borderRadius={18} style={{ marginBottom: 12 }} />
+          ) : (
+            <ContinueCard
+              categories={categories.data ?? []}
+              onNavigate={(id) => router.push(`/(app)/practice/${id}?skipMastered=true`)}
+            />
+          )}
         </Animated.View>
 
         {/* Review due badge (Plus only) */}
