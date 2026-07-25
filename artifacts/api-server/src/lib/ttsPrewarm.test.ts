@@ -121,25 +121,19 @@ test("different voices produce different keys (no cross-voice cache collision)",
   assert.notEqual(nova, shimmer);
 });
 
-test("different language names produce different cache keys even when the voice ID is the same", () => {
-  // Since Task #643 all languages use Laura as the universal Auto voice, so
-  // hi and ta resolve to the same voice ID. Cache-key uniqueness across
-  // languages now comes from the language display name ("Hindi" vs "Tamil")
-  // being baked into the key — the voice ID alone is no longer sufficient.
+test("same phrase text in different languages produces different cache keys (language name is part of the key)", () => {
+  // After task #643, Hindi (hi) and Tamil (ta) both resolve to the same Laura
+  // voice ID. The cache key still differs because it incorporates the language
+  // name — preventing a Hindi greeting from being served as a Tamil greeting.
   const hiVoice = getVoiceIdForLanguage("hi");
   const taVoice = getVoiceIdForLanguage("ta");
-  assert.equal(
-    hiVoice,
-    taVoice,
-    "Test pre-condition: hi and ta now both map to Laura (universal Auto default)",
-  );
 
   const hiKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "Hindi", hiVoice);
   const taKey = ttsCacheKey(TEST_NATIVE_SCRIPT, DEFAULT_VOICE, "Tamil", taVoice);
   assert.notEqual(
     hiKey,
     taKey,
-    "Same phrase text in different languages must not share a cache entry — language name differentiates them",
+    "Same phrase text in Hindi and Tamil must never share a TTS cache entry — language name must be part of the key",
   );
 });
 
@@ -479,9 +473,10 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
   );
 });
 
-test("warmGreetings synthesizes greetings for both Gujarati (gu) and Hindi (hi)", async () => {
-  // Since Task #643 all languages share Laura as the universal Auto voice —
-  // both greetings still fire, they just use the same voice ID.
+test("warmGreetings uses the unified Laura voice for all languages (task #643)", async () => {
+  // After the Auto-voice unification, every language resolves to Laura
+  // (DEFAULT_MULTILINGUAL_VOICE_ID). warmGreetings must pass that voice ID
+  // to the synthesizer for every language — not a stale per-family ID.
   const languages = [
     { code: "gu", name: "Gujarati" },
     { code: "hi", name: "Hindi" },
@@ -505,7 +500,12 @@ test("warmGreetings synthesizes greetings for both Gujarati (gu) and Hindi (hi)"
   );
   assert.equal(
     capturedVoiceIds["Gujarati"],
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Gujarati greeting must use the Laura Auto-default voice after unification",
+  );
+  assert.equal(
     capturedVoiceIds["Hindi"],
-    "Both languages now use Laura (universal Auto default) — voice IDs must be equal",
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Hindi greeting must use the Laura Auto-default voice after unification",
   );
 });

@@ -380,38 +380,34 @@ test("getVoiceIdForLanguage returns a non-empty string for Hindi (hi)", () => {
   );
 });
 
-test("greeting voice IDs for Gujarati (gu) and Hindi (hi) are both Laura (universal Auto default)", () => {
-  // Since Task #643 all languages use Laura — both codes must resolve to the
-  // same Laura voice ID, confirming the map entries are correct.
-  const guVoiceId = getVoiceIdForLanguage("gu");
-  const hiVoiceId = getVoiceIdForLanguage("hi");
-  assert.equal(
-    guVoiceId,
-    hiVoiceId,
-    "Gujarati and Hindi both use Laura as the universal Auto default",
-  );
-  assert.equal(
-    guVoiceId,
-    DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Gujarati must resolve to Laura (the universal default), not a legacy regional voice",
-  );
+test("all mapped languages resolve to the universal Laura voice (task #643: unified Auto default)", () => {
+  // Task #643 intentionally set Laura (FGY2WhTYpPnrIDTdsKH5) as the single
+  // Auto-voice default for every language family. eleven_multilingual_v2 handles
+  // per-language phoneme rendering, so a consistent cheerful timbre across all
+  // languages is the correct product behaviour.
+  const LAURA_ID = DEFAULT_MULTILINGUAL_VOICE_ID; // "FGY2WhTYpPnrIDTdsKH5"
+  for (const [code, voiceId] of Object.entries(LANGUAGE_VOICE_MAP)) {
+    assert.equal(
+      voiceId,
+      LAURA_ID,
+      `Language ${code} must resolve to the universal Laura voice after the Auto-voice unification`,
+    );
+  }
 });
 
-test("greeting voice ID for a known language resolves to Laura", () => {
-  // Gujarati and Hindi are explicitly mapped to Laura in LANGUAGE_VOICE_MAP.
-  // Confirm neither silently returns undefined or an empty string.
+test("getVoiceIdForLanguage returns the same voice for mapped and unmapped languages (unified default)", () => {
+  // After the Auto-voice unification all languages — whether explicitly mapped
+  // or not — should return the same Laura voice ID. The fallback and every map
+  // entry intentionally share the same ID.
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
-  assert.ok(
-    typeof guVoiceId === "string" && guVoiceId.length > 0,
-    "Gujarati must resolve to a non-empty ElevenLabs voice ID",
-  );
-  assert.ok(
-    typeof hiVoiceId === "string" && hiVoiceId.length > 0,
-    "Hindi must resolve to a non-empty ElevenLabs voice ID",
-  );
-  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Gujarati must resolve to Laura");
-  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Hindi must resolve to Laura");
+  const unknownVoiceId = getVoiceIdForLanguage("xx"); // unmapped → default
+  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Gujarati must resolve to the Laura Auto-default after unification");
+  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Hindi must resolve to the Laura Auto-default after unification");
+  assert.equal(unknownVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
+    "Unknown language code must also resolve to the Laura Auto-default");
 });
 
 test("getVoiceIdForLanguage is idempotent: same language code always returns the same voice ID", () => {

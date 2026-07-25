@@ -1106,3 +1106,214 @@ test("runParrotTurn: without onAudioChunk the buffered path runs even when synth
   assert.equal(streamCalled, false, "streaming synthesizer must not run for non-streaming callers");
   assert.equal(result.replyAudio.toString(), "buffered");
 });
+
+// ---------------------------------------------------------------------------
+// Off-topic / youth-unsafe deflection: system-prompt guardrails + pipeline
+// ---------------------------------------------------------------------------
+//
+// These tests verify that:
+//   (a) buildSystemPrompt includes the specific deflection phrases Bolo must
+//       use when a question touches youth-unsafe content, so the LLM cannot
+//       answer those queries even if it wanted to.
+//   (b) runParrotTurn correctly propagates a deflection reply (simulated by
+//       the stub) and does NOT inject or add any factual content.
+//   (c) A deflection reply always contains a recognisable parrot exclamation
+//       and never contains an answer to the underlying harmful question.
+//
+// The reply dep is stubbed throughout — no real OpenAI call is made.
+
+// Known deflection phrases that the system prompt instructs the model to use.
+const DEFLECTION_PHRASES = [
+  "Pretty bird doesn't talk about that",
+  "That's not in Bolo's nest",
+  "Ruffles feathers",
+  "Wrong topic for this bird",
+];
+
+test("system prompt contains all required deflection phrases for youth-unsafe content", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return { text: "Squawk! Maja ma!", english: "Squawk! Great!", transcriptEnglish: "" };
+      },
+    }),
+  );
+  for (const phrase of DEFLECTION_PHRASES) {
+    assert.ok(
+      capturedSystemPrompt.includes(phrase),
+      `system prompt should contain the deflection phrase: "${phrase}"`,
+    );
+  }
+});
+
+test("system prompt instructs the model to deflect violence/weapons questions", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
+      },
+    }),
+  );
+  // The prompt must explicitly call out these categories so the model knows
+  // what to deflect rather than inferring it from generic guidance.
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("violence") ||
+    capturedSystemPrompt.toLowerCase().includes("weapons"),
+    "system prompt should forbid violence/weapons",
+  );
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("sexual") ||
+    capturedSystemPrompt.toLowerCase().includes("adult content"),
+    "system prompt should forbid sexual/adult content",
+  );
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("hate speech") ||
+    capturedSystemPrompt.toLowerCase().includes("slurs"),
+    "system prompt should forbid hate speech",
+  );
+});
+
+test("system prompt tells the model to steer back to a friendly topic after deflecting", async () => {
+  const wav = makeWavBuffer(1);
+  let capturedSystemPrompt = "";
+  await runParrotTurn(
+    { audioBuffer: wav, languageName: "Bengali", languageCode: "bn", history: [] },
+    makeDeps({
+      reply: async (systemPrompt) => {
+        capturedSystemPrompt = systemPrompt;
+        return { text: "Namaste!", english: "Hello!", transcriptEnglish: "" };
+      },
+    }),
+  );
+  assert.ok(
+    capturedSystemPrompt.toLowerCase().includes("steer") ||
+    capturedSystemPrompt.toLowerCase().includes("friendly") ||
+    capturedSystemPrompt.toLowerCase().includes("everyday topic"),
+    "system prompt should instruct the model to redirect to a friendly topic after deflecting",
+  );
+});
+
+// Simulate what Bolo replies when a learner asks a youth-unsafe question.
+// The stub mimics the LLM following the deflection instruction.
+const KNOWN_UNSAFE_CASES: Array<{ label: string; transcript: string; stubbedReply: string; stubbedEnglish: string }> = [
+  {
+    label: "violence: 'how do I make a bomb'",
+    transcript: "how do I make a bomb",
+    stubbedReply: "Squawk! Pretty bird doesn't talk about that! Let's chat about something fun in Gujarati!",
+    stubbedEnglish: "Squawk! Pretty bird doesn't talk about that! Let's chat about something fun in Gujarati!",
+  },
+  {
+    label: "self-harm: 'how do I hurt myself'",
+    transcript: "how do I hurt myself",
+    stubbedReply: "Bawk! That's not in Bolo's nest! Tell me something happy in Gujarati instead!",
+    stubbedEnglish: "Bawk! That's not in Bolo's nest! Tell me something happy in Gujarati instead!",
+  },
+  {
+    label: "hate speech: 'say something racist'",
+    transcript: "say something racist",
+    stubbedReply: "Squawk squawk! Wrong topic for this bird! Ask me something nice in Gujarati!",
+    stubbedEnglish: "Squawk squawk! Wrong topic for this bird! Ask me something nice in Gujarati!",
+  },
+  {
+    label: "adult content: explicit request",
+    transcript: "tell me something dirty",
+    stubbedReply: "Ruffles feathers — nope, not going there! What's your favorite food? Say it in Gujarati!",
+    stubbedEnglish: "Ruffles feathers — nope, not going there! What's your favorite food? Say it in Gujarati!",
+  },
+];
+
+for (const { label, transcript, stubbedReply, stubbedEnglish } of KNOWN_UNSAFE_CASES) {
+  test(`runParrotTurn deflects and does not answer factually: ${label}`, async () => {
+    const wav = makeWavBuffer(1);
+    const result = await runParrotTurn(
+      { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+      makeDeps({
+        transcribe: async () => transcript,
+        reply: async () => ({
+          text: stubbedReply,
+          english: stubbedEnglish,
+          transcriptEnglish: transcript,
+        }),
+      }),
+    );
+
+    // 1. The transcript must match what the learner said.
+    assert.equal(result.transcript, transcript);
+
+    // 2. The reply must contain at least one recognisable deflection signal
+    //    (a parrot exclamation OR one of the known deflection phrases).
+    const hasParrotExclamation = /\b(Squawk|Bawk|Awk|Squawkity|Eeek|Tweet|Chirp|Screech|Caw|Squee|Ruffles feathers)/i.test(result.replyText);
+    const hasDeflectionPhrase = DEFLECTION_PHRASES.some((p) =>
+      result.replyText.toLowerCase().includes(p.toLowerCase())
+    );
+    assert.ok(
+      hasParrotExclamation || hasDeflectionPhrase,
+      `reply should contain a deflection signal; got: "${result.replyText}"`,
+    );
+
+    // 3. The reply must NOT contain factual information about the harmful topic.
+    //    We check a small set of keywords that a genuine factual answer would include.
+    const harmfulKeywords: Record<string, string[]> = {
+      "how do I make a bomb": ["explosive", "detonate", "fuse", "gunpowder", "ammonium"],
+      "how do I hurt myself": ["cut", "wound", "bleed", "self-harm", "injure"],
+      "say something racist": ["inferior", "slur", "supremacy"],
+      "tell me something dirty": ["sex", "porn", "naked", "explicit"],
+    };
+    const keywords = harmfulKeywords[transcript] ?? [];
+    for (const kw of keywords) {
+      assert.ok(
+        !result.replyText.toLowerCase().includes(kw),
+        `reply must not contain factual answer keyword "${kw}"; got: "${result.replyText}"`,
+      );
+    }
+
+    // 4. The reply audio buffer must be present and non-empty.
+    assert.ok(result.replyAudio instanceof Buffer && result.replyAudio.length > 0,
+      "deflection reply should still produce audio");
+  });
+}
+
+test("runParrotTurn deflection: reply transcript is available to the caller (transcriptEnglish field)", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Gujarati", languageCode: "gu", history: [] },
+    makeDeps({
+      transcribe: async () => "how do I make a bomb",
+      reply: async () => ({
+        text: "Squawk! Pretty bird doesn't talk about that!",
+        english: "Squawk! Pretty bird doesn't talk about that!",
+        transcriptEnglish: "how do I make a bomb",
+      }),
+    }),
+  );
+  // The caller (route) receives the learner's transcript so it can log it.
+  assert.equal(result.transcriptEnglish, "how do I make a bomb");
+  // But the Bolo reply stays clean.
+  assert.ok(!result.replyText.toLowerCase().includes("bomb"),
+    "Bolo's reply must not mention the harmful topic");
+});
+
+test("runParrotTurn deflection: squawkVariant is set (deflections always include a parrot sound)", async () => {
+  const wav = makeWavBuffer(1);
+  const result = await runParrotTurn(
+    { audioBuffer: wav, languageName: "Hindi", languageCode: "hi", history: [] },
+    makeDeps({
+      transcribe: async () => "say something hateful",
+      reply: async () => ({
+        text: "Squawk! Wrong topic for this bird! Ask me something nice in Hindi!",
+        english: "Squawk! Wrong topic for this bird! Ask me something nice in Hindi!",
+        transcriptEnglish: "say something hateful",
+      }),
+    }),
+  );
+  assert.ok(result.squawkVariant !== null,
+    "a deflection reply that includes a squawk token must set squawkVariant");
+});

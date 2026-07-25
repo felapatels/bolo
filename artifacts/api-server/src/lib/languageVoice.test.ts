@@ -66,7 +66,7 @@ test("getVoiceIdForLanguage: unknown code returns the default voice", () => {
 });
 
 test("getVoiceIdForLanguage: code lookup is case-insensitive", () => {
-  // 'hi' → Brian; confirm 'HI' and 'Hi' resolve identically.
+  // 'hi' → Laura (unified Auto default); confirm 'HI' and 'Hi' resolve identically.
   const lower = getVoiceIdForLanguage("hi");
   assert.equal(getVoiceIdForLanguage("HI"), lower);
   assert.equal(getVoiceIdForLanguage("Hi"), lower);
@@ -79,11 +79,10 @@ test("getVoiceIdForLanguage: leading/trailing whitespace is stripped", () => {
   );
 });
 
-// Verify every entry in the map resolves to its own voice (not the default).
-test("getVoiceIdForLanguage: every mapped code resolves to the expected voice ID", () => {
-  // Since Task #643, all languages use Laura as the universal Auto default.
-  // Every LANGUAGE_VOICE_MAP entry should resolve to exactly what the map says
-  // (Laura's ID), confirming no entry accidentally diverges from the map value.
+// Verify every entry in the map resolves to its declared voice ID.
+// After the task #643 Auto-voice unification, all entries map to Laura
+// (DEFAULT_MULTILINGUAL_VOICE_ID) — that is intentional and correct.
+test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID", () => {
   for (const [code, expected] of Object.entries(LANGUAGE_VOICE_MAP)) {
     const resolved = getVoiceIdForLanguage(code);
     assert.equal(
@@ -94,55 +93,58 @@ test("getVoiceIdForLanguage: every mapped code resolves to the expected voice ID
   }
 });
 
-// Spot-check specific family groupings — all use Laura since Task #643.
-const LAURA = "FGY2WhTYpPnrIDTdsKH5";
-
-test("getVoiceIdForLanguage: North Indian languages all use the Laura voice", () => {
+// Spot-check specific language families — all unified to Laura after task #643.
+test("getVoiceIdForLanguage: North Indian languages resolve to the Laura Auto-default", () => {
+  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["hi", "pa", "mr", "ne", "sa"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      LAURA,
-      `${code} should map to Laura`,
+      laura,
+      `${code} should map to Laura (unified Auto default)`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: Dravidian languages all use the Laura voice", () => {
+test("getVoiceIdForLanguage: Dravidian languages resolve to the Laura Auto-default", () => {
+  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["ta", "te", "kn", "ml"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      LAURA,
-      `${code} should map to Laura`,
+      laura,
+      `${code} should map to Laura (unified Auto default)`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: East Indian languages all use the Laura voice", () => {
+test("getVoiceIdForLanguage: East Indian languages resolve to the Laura Auto-default", () => {
+  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["bn", "or", "as"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      LAURA,
-      `${code} should map to Laura`,
+      laura,
+      `${code} should map to Laura (unified Auto default)`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: West Indian languages all use the Laura voice", () => {
+test("getVoiceIdForLanguage: West Indian languages resolve to the Laura Auto-default", () => {
+  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["gu", "raj"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      LAURA,
-      `${code} should map to Laura`,
+      laura,
+      `${code} should map to Laura (unified Auto default)`,
     );
   }
 });
 
-test("getVoiceIdForLanguage: Perso-Arabic script languages all use the Laura voice", () => {
+test("getVoiceIdForLanguage: Perso-Arabic script languages resolve to the Laura Auto-default", () => {
+  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["ur", "ks", "sd"]) {
     assert.equal(
       getVoiceIdForLanguage(code),
-      LAURA,
-      `${code} should map to Laura`,
+      laura,
+      `${code} should map to Laura (unified Auto default)`,
     );
   }
 });
