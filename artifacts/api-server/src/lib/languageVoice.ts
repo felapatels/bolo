@@ -7,36 +7,17 @@
  * the actual phoneme rendering for each script — the voice choice governs
  * timbre, prosody, and resonance rather than the language itself.
  *
- * Voice selection rationale per language family:
+ * Voice selection rationale:
  *
- * North Indian / Indic (Hindi, Punjabi, Marathi, Nepali, Sanskrit):
- *   "Brian" (nPczCjzI2devNBz1zQrb) — deep, warm American male. The fuller
- *   chest resonance complements the retroflex consonants common in North Indian
- *   languages and sounds less clipped than the British-tinged George voice.
- *
- * South Indian / Dravidian (Tamil, Telugu, Kannada, Malayalam):
- *   "Eric" (cjVigY5qzO86Huf0OWal) — friendly, clear American male with a
- *   slightly brighter timbre that suits the clear syllable structure of
- *   Dravidian scripts and their minimal aspiration contrasts.
- *
- * Bengali / Odia / Assamese (East Indian):
- *   "Charlie" (IKne3meq5aSn9XLyUdCD) — upbeat, natural male. Bengali has a
- *   distinctly musical prosody; a warmer, more energetic base voice carries
- *   that character better than George's neutral British delivery.
- *
- * Gujarati / Rajasthani (West Indian):
- *   "Bill" (pqHfZKP75CvOlQylNhV4) — strong, narrative male. Gujarati has
- *   prominent vowel-length contrasts; a voice with more presence makes those
- *   distinctions more perceptible to learners.
- *
- * Urdu / Kashmiri (Perso-Arabic script):
- *   "Daniel" (onwK4e9ZLuTAKqWW03F9) — authoritative British male. The more
- *   measured pace suits Urdu's Nastaliq script and the slightly formal register
- *   many Urdu phrases carry.
+ * All languages (Auto default):
+ *   "Laura" (FGY2WhTYpPnrIDTdsKH5) — bright, upbeat female voice; cheerful
+ *   and encouraging. Used as the universal Auto default across all supported
+ *   language families. eleven_multilingual_v2 handles phoneme rendering for
+ *   each script, so Laura's timbre and prosody carry well across all languages.
  *
  * Default (unmapped languages):
- *   "George" (JBFqnCBsd6RMkjVDRZzb) — existing multilingual default; kept as
- *   fallback so any unmapped code continues to work exactly as before.
+ *   "Laura" (FGY2WhTYpPnrIDTdsKH5) — same bubbly female default applies to
+ *   any language code not explicitly listed in the map below.
  */
 
 /**
@@ -117,7 +98,7 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
 export const VALID_VOICE_IDS = new Set(VOICE_CATALOG.map((v) => v.id));
 
 /** Fallback voice ID for any language code not found in the map below. */
-export const DEFAULT_MULTILINGUAL_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // George
+export const DEFAULT_MULTILINGUAL_VOICE_ID = "FGY2WhTYpPnrIDTdsKH5"; // Laura
 
 /**
  * Maps ISO-639-1 language codes to ElevenLabs premade voice IDs that sound
@@ -125,39 +106,39 @@ export const DEFAULT_MULTILINGUAL_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // George
  */
 export const LANGUAGE_VOICE_MAP: Record<string, string> = {
   // ── North Indian / Indic ────────────────────────────────────────────────
-  hi: "nPczCjzI2devNBz1zQrb", // Hindi      → Brian (warm, resonant male)
-  pa: "nPczCjzI2devNBz1zQrb", // Punjabi    → Brian
-  mr: "nPczCjzI2devNBz1zQrb", // Marathi    → Brian
-  ne: "nPczCjzI2devNBz1zQrb", // Nepali     → Brian
-  sa: "nPczCjzI2devNBz1zQrb", // Sanskrit   → Brian
+  hi: "FGY2WhTYpPnrIDTdsKH5", // Hindi      → Laura (bubbly, cheerful female)
+  pa: "FGY2WhTYpPnrIDTdsKH5", // Punjabi    → Laura
+  mr: "FGY2WhTYpPnrIDTdsKH5", // Marathi    → Laura
+  ne: "FGY2WhTYpPnrIDTdsKH5", // Nepali     → Laura
+  sa: "FGY2WhTYpPnrIDTdsKH5", // Sanskrit   → Laura
 
   // ── South Indian / Dravidian ────────────────────────────────────────────
-  ta: "cjVigY5qzO86Huf0OWal", // Tamil      → Eric (bright, clear male)
-  te: "cjVigY5qzO86Huf0OWal", // Telugu     → Eric
-  kn: "cjVigY5qzO86Huf0OWal", // Kannada    → Eric
-  ml: "cjVigY5qzO86Huf0OWal", // Malayalam  → Eric
+  ta: "FGY2WhTYpPnrIDTdsKH5", // Tamil      → Laura
+  te: "FGY2WhTYpPnrIDTdsKH5", // Telugu     → Laura
+  kn: "FGY2WhTYpPnrIDTdsKH5", // Kannada    → Laura
+  ml: "FGY2WhTYpPnrIDTdsKH5", // Malayalam  → Laura
 
   // ── East Indian ─────────────────────────────────────────────────────────
-  bn: "IKne3meq5aSn9XLyUdCD", // Bengali    → Charlie (upbeat, musical)
-  or: "IKne3meq5aSn9XLyUdCD", // Odia       → Charlie
-  as: "IKne3meq5aSn9XLyUdCD", // Assamese   → Charlie
+  bn: "FGY2WhTYpPnrIDTdsKH5", // Bengali    → Laura
+  or: "FGY2WhTYpPnrIDTdsKH5", // Odia       → Laura
+  as: "FGY2WhTYpPnrIDTdsKH5", // Assamese   → Laura
 
   // ── West Indian ─────────────────────────────────────────────────────────
-  gu: "pqHfZKP75CvOlQylNhV4", // Gujarati   → Bill (strong presence, vowel contrast)
-  raj: "pqHfZKP75CvOlQylNhV4",// Rajasthani → Bill (non-standard code, best-effort)
+  gu: "FGY2WhTYpPnrIDTdsKH5", // Gujarati   → Laura
+  raj: "FGY2WhTYpPnrIDTdsKH5",// Rajasthani → Laura (non-standard code, best-effort)
 
   // ── Perso-Arabic script ─────────────────────────────────────────────────
-  ur: "onwK4e9ZLuTAKqWW03F9", // Urdu       → Daniel (measured British, formal)
-  ks: "onwK4e9ZLuTAKqWW03F9", // Kashmiri   → Daniel
+  ur: "FGY2WhTYpPnrIDTdsKH5", // Urdu       → Laura
+  ks: "FGY2WhTYpPnrIDTdsKH5", // Kashmiri   → Laura
 
   // ── North-East / Other ──────────────────────────────────────────────────
-  mni: "IKne3meq5aSn9XLyUdCD",// Manipuri   → Charlie
-  sat: "IKne3meq5aSn9XLyUdCD",// Santali    → Charlie
-  doi: "nPczCjzI2devNBz1zQrb",// Dogri      → Brian
-  mai: "nPczCjzI2devNBz1zQrb",// Maithili   → Brian
-  sd:  "onwK4e9ZLuTAKqWW03F9",// Sindhi     → Daniel
-  kok: "nPczCjzI2devNBz1zQrb",// Konkani    → Brian
-  bho: "nPczCjzI2devNBz1zQrb",// Bhojpuri   → Brian
+  mni: "FGY2WhTYpPnrIDTdsKH5",// Manipuri   → Laura
+  sat: "FGY2WhTYpPnrIDTdsKH5",// Santali    → Laura
+  doi: "FGY2WhTYpPnrIDTdsKH5",// Dogri      → Laura
+  mai: "FGY2WhTYpPnrIDTdsKH5",// Maithili   → Laura
+  sd:  "FGY2WhTYpPnrIDTdsKH5",// Sindhi     → Laura
+  kok: "FGY2WhTYpPnrIDTdsKH5",// Konkani    → Laura
+  bho: "FGY2WhTYpPnrIDTdsKH5",// Bhojpuri   → Laura
 };
 
 /**
