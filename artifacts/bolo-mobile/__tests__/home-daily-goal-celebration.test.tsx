@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
 // Guards the daily-goal celebration logic on the HomeScreen:
@@ -220,8 +221,9 @@ function makeAccount(dailyGoal = 10, isLoading = false) {
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeScreen — daily-goal celebration', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
+    await AsyncStorage.clear();
     // Default mock state: summary loading, account ready.
     mockState.summary = makeSummary(0, true);
     mockState.account = makeAccount(10, false);
@@ -342,6 +344,57 @@ describe('HomeScreen — daily-goal celebration', () => {
     });
 
     // This was the very first data arrival (prev=null) → no toast.
+    expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
+  });
+
+  it('writes the persisted flag to AsyncStorage when the goal is crossed', async () => {
+    mockState.summary = makeSummary(9);
+    mockState.account = makeAccount(10);
+
+    const { rerender } = render(<HomeScreen />);
+
+    // Cross the threshold.
+    mockState.summary = makeSummary(10);
+    await act(async () => {
+      rerender(<HomeScreen />);
+    });
+
+    expect(screen.getByText('Daily goal hit! 🎉')).toBeTruthy();
+
+    // The key for today's date (language 'gu') should be written.
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const key = `goalCelebrated:gu:${yyyy}-${mm}-${dd}`;
+    expect(await AsyncStorage.getItem(key)).toBe('1');
+  });
+
+  it('does not re-fire after a cold restart when the persisted flag is set', async () => {
+    // Simulate a previous launch having already crossed the goal by pre-seeding
+    // AsyncStorage as the celebration effect would have written it.
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const key = `goalCelebrated:gu:${yyyy}-${mm}-${dd}`;
+    await AsyncStorage.setItem(key, '1');
+
+    // Open the app with attemptsToday already at the goal.
+    mockState.summary = makeSummary(10);
+    mockState.account = makeAccount(10);
+
+    // render() must be called outside act(); flush the async AsyncStorage read
+    // (mount effect) with a separate act so goalCelebratedRef is seeded before
+    // the celebration effect has a chance to evaluate.
+    render(<HomeScreen />);
+    await act(async () => {
+      // Let the AsyncStorage.getItem promise in the mount effect resolve.
+      await Promise.resolve();
+    });
+
+    // goalCelebratedRef is now seeded from storage — no toast should appear
+    // even though attemptsToday (10) is at the goal on first render.
     expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
   });
 });

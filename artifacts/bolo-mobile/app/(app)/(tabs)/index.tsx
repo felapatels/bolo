@@ -47,11 +47,26 @@ import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { ContinueCard } from '@/components/ContinueCard';
+
+/** AsyncStorage key recording that the daily-goal celebration already fired. */
+function goalCelebratedStorageKey(lang: string, date: string): string {
+  return `goalCelebrated:${lang}:${date}`;
+}
+
+/** Returns today's date as YYYY-MM-DD in local time. */
+function todayDateString(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 const ARC_RADIUS = 24;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
@@ -168,20 +183,38 @@ export default function HomeScreen() {
   const activeToday = attemptsToday > 0;
 
   // ── Daily goal celebration ──────────────────────────────────────────────
-  // Fire confetti + toast exactly once per session when attemptsToday crosses
-  // the dailyGoal threshold.  We track the previous attemptsToday value with a
-  // ref so we can detect the crossing edge; a second ref prevents re-firing if
-  // the user navigates away and comes back while still above the goal.
+  // Fire confetti + toast exactly once per calendar day when attemptsToday
+  // crosses the dailyGoal threshold.  We track the previous attemptsToday
+  // value with a ref so we can detect the crossing edge; goalCelebratedRef
+  // prevents re-firing if the user navigates away and back.  The same flag
+  // is persisted to AsyncStorage (keyed by language + date) so a cold app
+  // restart on the same day does not re-trigger the celebration.
   const [showConfetti, setShowConfetti] = useState(false);
   const [goalToastKey, setGoalToastKey] = useState(0);
   const prevAttemptsRef = useRef<number | null>(null);
   const goalCelebratedRef = useRef(false);
   const reduceMotion = useReducedMotion();
 
+  // On mount (and whenever the active language changes), seed goalCelebratedRef
+  // from AsyncStorage so a cold restart on the same day skips re-celebration.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(goalCelebratedStorageKey(activeLang, todayDateString())).then(
+      (val) => {
+        if (!cancelled && val === '1') {
+          goalCelebratedRef.current = true;
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLang]);
+
   useEffect(() => {
     // Wait until both the summary and the account (dailyGoal) have loaded.
     if (summary.isLoading || account.isLoading) return;
-    // Already celebrated this session — don't re-fire.
+    // Already celebrated today (in-memory or persisted from a previous launch).
     if (goalCelebratedRef.current) return;
 
     const prev = prevAttemptsRef.current;
@@ -193,6 +226,8 @@ export default function HomeScreen() {
 
     if (prev < dailyGoal && attemptsToday >= dailyGoal) {
       goalCelebratedRef.current = true;
+      // Persist so a cold restart on the same day doesn't re-fire.
+      AsyncStorage.setItem(goalCelebratedStorageKey(activeLang, todayDateString()), '1');
       setGoalToastKey((k) => k + 1);
       if (!reduceMotion) {
         setShowConfetti(true);
