@@ -104,6 +104,10 @@ export default function ChatPage() {
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const finishingRef = useRef(false);
+  // Guards sendTextTurn against concurrent invocations (e.g. simultaneous
+  // Enter key + Send button tap). Separate from finishingRef so voice and
+  // text turns don't interfere with each other's guard state.
+  const textSendingRef = useRef(false);
   // True once the early `replyText` SSE event has shown Bolo's bubble for the
   // current turn — the word-reveal animation is skipped in that case, since
   // the learner has already been reading the full text during synthesis.
@@ -931,6 +935,9 @@ export default function ChatPage() {
     const text = textInputValue.trim();
     if (!text) return;
     if (phase === "processing" || phase === "recording") return;
+    // Guard against concurrent invocations (e.g. simultaneous Enter + Send tap).
+    if (textSendingRef.current) return;
+    textSendingRef.current = true;
 
     // Stop any in-progress playback or word-reveal.
     if (playbackRef.current) {
@@ -1092,6 +1099,8 @@ export default function ChatPage() {
       if (err instanceof TypeError) msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
       setErrorMsg(msg);
       setPhase("error");
+    } finally {
+      textSendingRef.current = false;
     }
   }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation]);
 

@@ -207,6 +207,10 @@ export default function ChatScreen() {
   const recorderPreparedRef = React.useRef(false);
   const preparePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const finishingRef = React.useRef(false);
+  // Guards handleSendText against concurrent invocations (e.g. simultaneous
+  // Return key + Send button tap). Separate from finishingRef so voice and
+  // text turns don't interfere with each other's guard state.
+  const textSendingRef = React.useRef(false);
   // True once the early `replyText` SSE event has shown Bolo's bubble for the
   // current turn — the word-reveal animation is skipped in that case, since
   // the learner has already been reading the full text during synthesis.
@@ -361,6 +365,7 @@ export default function ChatScreen() {
         }
         recorderPreparedRef.current = false;
         finishingRef.current = false;
+        textSendingRef.current = false;
         isPressingRef.current = false;
         silenceSinceRef.current = null;
         setPhase('idle');
@@ -1171,8 +1176,12 @@ export default function ChatScreen() {
     const text = textInputValue.trim();
     if (!text) return;
     if (phase === 'processing' || phase === 'recording') return;
+    // Guard against concurrent invocations (e.g. simultaneous Return key + Send button tap).
+    if (textSendingRef.current) return;
+    textSendingRef.current = true;
 
     if (!isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null && secondsRemaining <= 0) {
+      textSendingRef.current = false;
       router.push('/(app)/paywall');
       return;
     }
@@ -1365,6 +1374,8 @@ export default function ChatScreen() {
       } else {
         setErrorMsg('Bolo ran into a snag — try again!');
       }
+    } finally {
+      textSendingRef.current = false;
     }
   };
 
