@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -1588,6 +1589,16 @@ export default function ChatScreen() {
       {/* Tip card — shown while Bolo is processing a reply */}
       {phase === 'processing' && <TipCard />}
 
+      {/* KeyboardAvoidingView wraps the transcript + input row so the text
+          input floats above the software keyboard on iOS and Android.
+          flex:1 is only applied when messages are present so the mascot's
+          own flex:1 (mascotAreaFull) continues to drive layout on the
+          empty-state screen. */}
+      <KeyboardAvoidingView
+        style={messages.length > 0 ? { flex: 1 } : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+
       {/* Static greeting bubble — shown before the first exchange, client-side only, never sent to the API */}
       {messages.length === 0 && (
         <Animated.View
@@ -1732,6 +1743,8 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
       </View>
+
+      </KeyboardAvoidingView>
 
       {/* Language picker modal */}
       <Modal
