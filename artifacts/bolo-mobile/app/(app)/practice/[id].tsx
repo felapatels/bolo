@@ -297,6 +297,147 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   );
 }
 
+// ── Summary ring row ─────────────────────────────────────────────────────────
+
+/**
+ * A compact ring used only on the session-summary screen.
+ * Smaller than the practice ScoreRing (r=20) and no count-up animation,
+ * since the score is already known by the time the summary renders.
+ */
+const MINI_R = 20;
+const MINI_STROKE = 4;
+const MINI_CIRCUM = 2 * Math.PI * MINI_R;
+const MINI_SIZE = MINI_R * 2 + MINI_STROKE;
+
+function MiniScoreRing({ score, color }: { score: number; color: string }) {
+  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
+  const progress = useSharedValue(0);
+
+  React.useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(score / 100, { duration: 700 });
+  }, [score]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: MINI_CIRCUM * (1 - progress.value),
+  }));
+
+  const center = MINI_SIZE / 2;
+  const trackColor = color + '28';
+
+  return (
+    <View style={{ width: MINI_SIZE, height: MINI_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg
+        width={MINI_SIZE}
+        height={MINI_SIZE}
+        style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
+        accessibilityElementsHidden
+      >
+        <Circle cx={center} cy={center} r={MINI_R} fill="none" stroke={trackColor} strokeWidth={MINI_STROKE} />
+        <AnimatedCircle
+          cx={center} cy={center} r={MINI_R} fill="none" stroke={color}
+          strokeWidth={MINI_STROKE} strokeLinecap="round"
+          strokeDasharray={MINI_CIRCUM} animatedProps={animatedProps}
+        />
+      </Svg>
+      <Text style={{ fontFamily: AppFonts.extrabold, fontSize: 9, color, lineHeight: 11 }}>
+        {score}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Horizontally scrollable row of mini score rings for the session summary.
+ * Tapping a ring reveals inline feedback for that phrase.
+ */
+function SummaryRingRow({
+  list,
+  scores,
+  feedback,
+  colors,
+}: {
+  list: { id: number; english: string }[];
+  scores: Record<number, number>;
+  feedback: Record<number, { feedback: string; tip: string }>;
+  colors: { success: string; primary: string; destructive: string; card: string; border: string; foreground: string; mutedForeground: string; muted: string };
+}) {
+  const [selectedIdx, setSelectedIdx] = React.useState<number | null>(null);
+  const attempted = list.filter((_, i) => scores[i] !== undefined);
+  if (attempted.length === 0) return null;
+
+  const ringColor = (score: number) =>
+    score >= 80 ? colors.success : score >= 60 ? colors.primary : colors.destructive;
+
+  const selected = selectedIdx !== null ? {
+    phrase: list[selectedIdx],
+    score: scores[selectedIdx],
+    fb: feedback[selectedIdx],
+  } : null;
+
+  return (
+    <View style={{ width: '100%', marginTop: 20 }}>
+      <Text style={[styles.summaryRingLabel, { color: colors.mutedForeground }]}>
+        Per-phrase scores
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.summaryRingRow}
+      >
+        {list.map((phrase, i) => {
+          const score = scores[i];
+          if (score === undefined) return null;
+          const color = ringColor(score);
+          const isSelected = selectedIdx === i;
+          return (
+            <Pressable
+              key={phrase.id}
+              onPress={() => setSelectedIdx(isSelected ? null : i)}
+              style={[
+                styles.summaryRingItem,
+                isSelected && { borderColor: color, borderWidth: 1.5, borderRadius: 12 },
+              ]}
+              accessibilityLabel={`Phrase ${i + 1}: ${phrase.english}, score ${score}`}
+              accessibilityRole="button"
+            >
+              <MiniScoreRing score={score} color={color} />
+              <Text
+                style={[styles.summaryRingEng, { color: colors.mutedForeground }]}
+                numberOfLines={1}
+              >
+                {phrase.english}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* Inline feedback panel for the tapped phrase */}
+      {selected && (
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          style={[styles.summaryFeedbackCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <Text style={[styles.summaryFeedbackTitle, { color: colors.foreground }]}>
+            {selected.phrase.english}
+          </Text>
+          {selected.fb?.feedback ? (
+            <Text style={[styles.summaryFeedbackBody, { color: colors.mutedForeground }]}>
+              {selected.fb.feedback}
+            </Text>
+          ) : null}
+          {selected.fb?.tip ? (
+            <Text style={[styles.summaryFeedbackTip, { color: colors.mutedForeground }]}>
+              {selected.fb.tip}
+            </Text>
+          ) : null}
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
 // Turns whatever the evaluation pipeline threw into a short, actionable
 // message for the learner (mirrors the web practice flow).
 function describeEvaluationError(error: unknown): string {
@@ -378,6 +519,8 @@ export default function PracticeScreen() {
   // Keyed by phrase index so retrying phrase N replaces that dot rather than
   // pushing a new score onto the next phrase's position.
   const [scores, setScores] = React.useState<Record<number, number>>({});
+  // Feedback text per phrase index — used on the summary screen.
+  const [sessionFeedback, setSessionFeedback] = React.useState<Record<number, { feedback: string; tip: string }>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [selfPlaying, setSelfPlaying] = React.useState(false);
   /** The learner's own recording from the most recent attempt (base64 m4a). */
@@ -878,6 +1021,7 @@ export default function PracticeScreen() {
           : null;
       setResult(res);
       setScores((prev) => ({ ...prev, [index]: res.score }));
+      setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
       setPhaseSync('result');
 
       // Full-bleed color flash: green for pass ≥ 70, amber for near-miss 50–69, red for fail.
@@ -1151,6 +1295,13 @@ export default function PracticeScreen() {
               </Text>
             </Animated.View>
           )}
+          {/* Per-phrase score rings — tap any ring to see its feedback */}
+          <SummaryRingRow
+            list={list}
+            scores={scores}
+            feedback={sessionFeedback}
+            colors={colors}
+          />
           <ChunkyButton
             title="Back to home"
             icon="home"
@@ -1854,5 +2005,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     marginTop: 2,
+  },
+
+  // ── Summary ring row ────────────────────────────────────────────────────
+  summaryRingLabel: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  summaryRingRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 4,
+  },
+  summaryRingItem: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  summaryRingEng: {
+    fontFamily: AppFonts.regular,
+    fontSize: 9,
+    maxWidth: 52,
+    textAlign: 'center',
+  },
+  summaryFeedbackCard: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 4,
+  },
+  summaryFeedbackTitle: {
+    fontFamily: AppFonts.bold,
+    fontSize: 14,
+  },
+  summaryFeedbackBody: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  summaryFeedbackTip: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: 'italic',
+    opacity: 0.75,
   },
 });

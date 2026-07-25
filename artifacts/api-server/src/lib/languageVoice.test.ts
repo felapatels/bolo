@@ -94,58 +94,36 @@ test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID
 });
 
 // Spot-check specific language families — all unified to Laura after task #643.
+const LAURA = DEFAULT_MULTILINGUAL_VOICE_ID;
+
 test("getVoiceIdForLanguage: North Indian languages resolve to the Laura Auto-default", () => {
-  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["hi", "pa", "mr", "ne", "sa"]) {
-    assert.equal(
-      getVoiceIdForLanguage(code),
-      laura,
-      `${code} should map to Laura (unified Auto default)`,
-    );
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
 test("getVoiceIdForLanguage: Dravidian languages resolve to the Laura Auto-default", () => {
   const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["ta", "te", "kn", "ml"]) {
-    assert.equal(
-      getVoiceIdForLanguage(code),
-      laura,
-      `${code} should map to Laura (unified Auto default)`,
-    );
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
 test("getVoiceIdForLanguage: East Indian languages resolve to the Laura Auto-default", () => {
-  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["bn", "or", "as"]) {
-    assert.equal(
-      getVoiceIdForLanguage(code),
-      laura,
-      `${code} should map to Laura (unified Auto default)`,
-    );
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
 test("getVoiceIdForLanguage: West Indian languages resolve to the Laura Auto-default", () => {
-  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["gu", "raj"]) {
-    assert.equal(
-      getVoiceIdForLanguage(code),
-      laura,
-      `${code} should map to Laura (unified Auto default)`,
-    );
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
 test("getVoiceIdForLanguage: Perso-Arabic script languages resolve to the Laura Auto-default", () => {
-  const laura = DEFAULT_MULTILINGUAL_VOICE_ID;
   for (const code of ["ur", "ks", "sd"]) {
-    assert.equal(
-      getVoiceIdForLanguage(code),
-      laura,
-      `${code} should map to Laura (unified Auto default)`,
-    );
+    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
   }
 });
 
@@ -272,6 +250,8 @@ test("getLanguageIdForCode: every mapped code returns a non-undefined language_i
 // This block is skipped when ELEVENLABS_API_KEY is not set so CI without the
 // key stays green.
 
+// Post-#643 all languages use Laura (DEFAULT_MULTILINGUAL_VOICE_ID).
+// A single smoke case is enough to verify the voice is available on the plan.
 const VOICE_SMOKE_CASES: Array<{
   voiceName: string;
   voiceId: string;

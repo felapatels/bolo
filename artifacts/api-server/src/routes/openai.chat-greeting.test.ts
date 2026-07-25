@@ -402,12 +402,12 @@ test("getVoiceIdForLanguage returns the same voice for mapped and unmapped langu
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
   const unknownVoiceId = getVoiceIdForLanguage("xx"); // unmapped → default
-  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Gujarati must resolve to the Laura Auto-default after unification");
-  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Hindi must resolve to the Laura Auto-default after unification");
-  assert.equal(unknownVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Unknown language code must also resolve to the Laura Auto-default");
+  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Gujarati must resolve to the Laura Auto-default after unification");
+  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Hindi must resolve to the Laura Auto-default after unification");
+  assert.equal(unknownVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Unknown language code must also resolve to the Laura Auto-default");
+  assert.ok(guVoiceId && guVoiceId.length > 0, "Gujarati voice ID must be a non-empty string");
+  assert.ok(hiVoiceId && hiVoiceId.length > 0, "Hindi voice ID must be a non-empty string");
+  assert.ok(unknownVoiceId && unknownVoiceId.length > 0, "Unknown language must still produce a non-empty voice ID");
 });
 
 test("getVoiceIdForLanguage is idempotent: same language code always returns the same voice ID", () => {

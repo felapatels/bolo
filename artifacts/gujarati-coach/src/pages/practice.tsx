@@ -38,13 +38,24 @@ type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluati
 // ScoreRing — animates a circular SVG arc from 0 to the earned score,
 // with a centered number that springs in once the arc reaches it.
 // Colors shift by band: green ≥80, amber 60–79, red below 60.
+// Pass size="small" for the compact variant used in the session summary.
 const RING_R = 44;
 const RING_STROKE = 8;
 const RING_CIRCUM = 2 * Math.PI * RING_R;
 const RING_SIZE = RING_R * 2 + RING_STROKE;
 
-function ScoreRing({ score }: { score: number }) {
+const SMALL_RING_R = 24;
+const SMALL_RING_STROKE = 5;
+const SMALL_RING_CIRCUM = 2 * Math.PI * SMALL_RING_R;
+const SMALL_RING_SIZE = SMALL_RING_R * 2 + SMALL_RING_STROKE;
+
+function ScoreRing({ score, size = "normal" }: { score: number; size?: "normal" | "small" }) {
   const reduceMotion = useReducedMotion();
+  const isSmall = size === "small";
+  const r = isSmall ? SMALL_RING_R : RING_R;
+  const stroke = isSmall ? SMALL_RING_STROKE : RING_STROKE;
+  const circum = isSmall ? SMALL_RING_CIRCUM : RING_CIRCUM;
+  const ringSize = isSmall ? SMALL_RING_SIZE : RING_SIZE;
   const color =
     score >= 80 ? "hsl(var(--success))" :
     score >= 60 ? "hsl(var(--primary))" :
@@ -53,14 +64,14 @@ function ScoreRing({ score }: { score: number }) {
     score >= 80 ? "hsl(var(--success) / 0.15)" :
     score >= 60 ? "hsl(var(--primary) / 0.15)" :
     "hsl(var(--destructive) / 0.15)";
-  const targetOffset = RING_CIRCUM * (1 - score / 100);
-  const center = RING_SIZE / 2;
+  const targetOffset = circum * (1 - score / 100);
+  const center = ringSize / 2;
 
   return (
     <div className="relative inline-flex items-center justify-center my-1" data-testid="score-ring">
       <svg
-        width={RING_SIZE}
-        height={RING_SIZE}
+        width={ringSize}
+        height={ringSize}
         style={{ transform: "rotate(-90deg)" }}
         aria-hidden="true"
       >
@@ -68,22 +79,22 @@ function ScoreRing({ score }: { score: number }) {
         <circle
           cx={center}
           cy={center}
-          r={RING_R}
+          r={r}
           fill="none"
           stroke={trackColor}
-          strokeWidth={RING_STROKE}
+          strokeWidth={stroke}
         />
         {/* Animated progress arc */}
         <motion.circle
           cx={center}
           cy={center}
-          r={RING_R}
+          r={r}
           fill="none"
           stroke={color}
-          strokeWidth={RING_STROKE}
+          strokeWidth={stroke}
           strokeLinecap="round"
-          strokeDasharray={RING_CIRCUM}
-          initial={{ strokeDashoffset: RING_CIRCUM }}
+          strokeDasharray={circum}
+          initial={{ strokeDashoffset: circum }}
           animate={{ strokeDashoffset: targetOffset }}
           transition={
             reduceMotion
@@ -102,7 +113,7 @@ function ScoreRing({ score }: { score: number }) {
             ? { duration: 0 }
             : { type: "spring", stiffness: 380, damping: 22, delay: 0.28 }
         }
-        className="absolute font-black text-2xl leading-none"
+        className={cn("absolute font-black leading-none", isSmall ? "text-[10px]" : "text-2xl")}
         style={{ color }}
         aria-hidden="true"
       >
@@ -220,7 +231,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<SessionState>("intro");
   const [result, setResult] = useState<{ score: number; feedback: string; tip: string } | null>(null);
-  const [sessionResults, setSessionResults] = useState<{ phraseId: number; score: number }[]>([]);
+  // Keyed by phraseId so retrying a phrase overwrites its previous entry
+  // instead of appending a duplicate. The summary derives an ordered list from
+  // `phrases` so phrase ordering is preserved.
+  const [sessionResults, setSessionResults] = useState<Record<number, {
+    phraseId: number;
+    score: number;
+    feedback: string;
+    tip: string;
+    nativeScript: string;
+    english: string;
+  }>>({});
+  // Which phrase ring is expanded in the summary (index into orderedSummaryEntries).
+  const [summarySelectedIdx, setSummarySelectedIdx] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
   const [evalError, setEvalError] = useState<string | null>(null);
@@ -451,7 +474,18 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         feedback: evalRes.feedback,
         tip: evalRes.tip,
       });
-      setSessionResults(prev => [...prev, { phraseId: phrase!.id, score: evalRes.score }]);
+      // Overwrite by phraseId so retries replace rather than duplicate.
+      setSessionResults(prev => ({
+        ...prev,
+        [phrase!.id]: {
+          phraseId: phrase!.id,
+          score: evalRes.score,
+          feedback: evalRes.feedback,
+          tip: evalRes.tip,
+          nativeScript: phrase!.nativeScript,
+          english: phrase!.english,
+        },
+      }));
 
       // The learner has their score — show it now. Saving the attempt below
       // must never take the result away from them.
@@ -652,10 +686,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }
 
   if (state === "summary") {
-    const avgScore = Math.round(sessionResults.reduce((a, b) => a + b.score, 0) / (sessionResults.length || 1));
-    const isPerfect = sessionResults.length > 0 && sessionResults.every(r => r.score >= 80);
+    // Build an ordered, deduplicated list of results: one entry per phrase,
+    // in the order they appear in the phrase list. Retries have already
+    // overwritten earlier attempts in the record, so we get the latest score.
+    const orderedSummaryEntries = phrases
+      .map(p => sessionResults[p.id])
+      .filter((r): r is NonNullable<typeof r> => r !== undefined);
+    const attemptCount = orderedSummaryEntries.length;
+    const avgScore = attemptCount > 0
+      ? Math.round(orderedSummaryEntries.reduce((a, b) => a + b.score, 0) / attemptCount)
+      : 0;
+    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.score >= 80);
     // XP: rounded-to-tens of avg score × phrase count, capped at 50
-    const xpEarned = Math.min(Math.round(avgScore / 10) * sessionResults.length, 50);
+    const xpEarned = Math.min(Math.round(avgScore / 10) * attemptCount, 50);
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
         <Confetti active={isPerfect || avgScore >= 70} variant={isPerfect ? "perfect" : "default"} />
@@ -693,7 +736,60 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
               +{xpEarned} XP earned
             </div>
-            <p className="text-muted-foreground mt-3 font-medium">You practiced {sessionResults.length} {isSentences ? "sentences" : "phrases"}.</p>
+            <p className="text-muted-foreground mt-3 font-medium">You practiced {attemptCount} {isSentences ? "sentences" : "phrases"}.</p>
+
+            {/* ── Per-phrase score rings ──────────────────────────────── */}
+            {orderedSummaryEntries.length > 0 && (
+              <div className="mt-4 w-full">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Per-phrase scores
+                </p>
+                <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+                  {orderedSummaryEntries.map((r, i) => (
+                    <button
+                      key={r.phraseId}
+                      onClick={() => setSummarySelectedIdx(summarySelectedIdx === i ? null : i)}
+                      className="flex flex-col items-center gap-0.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      aria-label={`Phrase ${i + 1}: ${r.english}, score ${r.score}`}
+                      aria-expanded={summarySelectedIdx === i}
+                    >
+                      <ScoreRing score={r.score} size="small" />
+                      <span className="text-[9px] text-muted-foreground max-w-[56px] truncate leading-tight">
+                        {r.english}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Expandable feedback panel for the selected phrase */}
+                <AnimatePresence>
+                  {summarySelectedIdx !== null && orderedSummaryEntries[summarySelectedIdx] && (
+                    <motion.div
+                      key={summarySelectedIdx}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.18 }}
+                      className="mt-3 rounded-xl border border-card-border bg-muted/50 p-3 text-left space-y-1"
+                    >
+                      <p className="font-bold text-sm text-foreground">
+                        {orderedSummaryEntries[summarySelectedIdx].english}
+                      </p>
+                      {orderedSummaryEntries[summarySelectedIdx].feedback && (
+                        <p className="text-sm text-muted-foreground">
+                          {orderedSummaryEntries[summarySelectedIdx].feedback}
+                        </p>
+                      )}
+                      {orderedSummaryEntries[summarySelectedIdx].tip && (
+                        <p className="text-xs text-muted-foreground/75 italic">
+                          {orderedSummaryEntries[summarySelectedIdx].tip}
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </motion.div>
         </div>
         

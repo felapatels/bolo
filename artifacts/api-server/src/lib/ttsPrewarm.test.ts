@@ -498,6 +498,7 @@ test("warmGreetings uses the unified Laura voice for all languages (task #643)",
     capturedVoiceIds["Gujarati"] && capturedVoiceIds["Hindi"],
     "Both Gujarati and Hindi greetings must have been synthesized",
   );
+  const expectedVoice = getVoiceIdForLanguage("gu");
   assert.equal(
     capturedVoiceIds["Gujarati"],
     DEFAULT_MULTILINGUAL_VOICE_ID,
