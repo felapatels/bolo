@@ -1,6 +1,6 @@
 import { useGetProgressSummary, useListRecentAttempts } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { Star, Target, CalendarDays, Loader2, Sparkles } from "lucide-react";
+import { Star, Target, CalendarDays, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
@@ -10,6 +10,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BadgesGallery } from "@/components/badges-gallery";
 import { NextBadgeSpotlight } from "@/components/next-badge-spotlight";
 import { AdvancedAnalytics } from "@/components/advanced-analytics";
+import { Link } from "wouter";
 
 export default function Progress() {
   const { activeLang, activeLanguage } = useLanguage();
@@ -110,6 +111,16 @@ export default function Progress() {
                       <div className="bg-muted/50 rounded-xl p-3 mt-1">
                         <p className="text-sm text-foreground font-medium">"{attempt.feedback}"</p>
                       </div>
+                    )}
+
+                    {attempt.categoryId != null && attempt.phraseId != null && (
+                      <Link
+                        href={`/practice/${attempt.categoryId}?phrase=${attempt.phraseId}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors self-start"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Retake
+                      </Link>
                     )}
                   </motion.div>
                 ))}
