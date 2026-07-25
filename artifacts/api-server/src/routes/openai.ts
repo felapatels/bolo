@@ -612,6 +612,10 @@ router.post(
         return;
       }
       // fastPathWrongPhrase === true: fall through to the LLM path below.
+      req.log.info(
+        { transcript, sim: targetSim.sim },
+        "Fast-path wrong-phrase-cap: falling through to LLM",
+      );
     }
 
     try {
@@ -697,9 +701,14 @@ Always be kind and motivating, never harsh. This feedback is going to be READ AL
         otherPhrases,
       });
       if (guarded.guard) {
-        req.log.info(
-          { guard: guarded.guard, llmScore, score: guarded.score },
-          "Pronunciation guardrail adjusted the LLM score",
+        req.log.warn(
+          {
+            guard: guarded.guard,
+            transcript,
+            score: guarded.score,
+            sim: targetSim.comparable ? targetSim.sim : null,
+          },
+          "Pronunciation guard fired — LLM score overridden",
         );
       }
       const { score, passed } = guarded;
