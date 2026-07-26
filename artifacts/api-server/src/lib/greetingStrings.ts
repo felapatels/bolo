@@ -12,7 +12,7 @@
  * Bump this string whenever the greeting text changes so the stale cached
  * audio is automatically invalidated and re-synthesized.
  */
-export const GREETING_CACHE_KEY_VERSION = "v3";
+export const GREETING_CACHE_KEY_VERSION = "v4";
 
 /**
  * Stable per-language cache key stored in tts_cache.

@@ -1273,7 +1273,7 @@ router.get(
 
     // --- cache miss: synthesize on-demand using the language-appropriate voice ---
     const greetingVoiceId = getVoiceIdForLanguage(languageCode);
-    const BOLO_MODEL = "eleven_flash_v2_5";
+    const BOLO_MODEL = "eleven_multilingual_v2";
     try {
       const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL, getLanguageIdForCode(languageCode));
       const audioBase64 = buffer.toString("base64");

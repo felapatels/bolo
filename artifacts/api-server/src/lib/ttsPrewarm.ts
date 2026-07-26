@@ -285,8 +285,8 @@ export function scheduleTtsPrewarm(): void {
       );
 
       // After phrase prewarm, synthesize greeting audio for each language.
-      // These use Bolo's chat voice (Jessica/flash) rather than the default
-      // phrase voice, so they're cached under dedicated greeting keys.
+      // These use Bolo's chat voice (Laura/multilingual_v2) rather than the
+      // default phrase voice, so they're cached under dedicated greeting keys.
       await warmGreetings();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
@@ -296,9 +296,9 @@ export function scheduleTtsPrewarm(): void {
   })();
 }
 
-// Model for greeting synthesis — flash tier for speed; the voice is selected
-// per-language via getVoiceIdForLanguage so each language gets authentic audio.
-const BOLO_GREETING_MODEL = "eleven_flash_v2_5";
+// Model for greeting synthesis — multilingual_v2 for correct Indic script
+// support (flash_v2_5 doesn't handle Gujarati and similar scripts accurately).
+const BOLO_GREETING_MODEL = "eleven_multilingual_v2";
 
 /** Injectable dependencies for warmGreetings — real implementations are the defaults. */
 export type WarmGreetingsDeps = {

@@ -276,12 +276,17 @@ async function boloTTS(text: string, languageName: string, _languageCode: string
 }
 
 // ElevenLabs voice + model for Bolo's live chat replies.
-// Voice: "Jessica" (premade, cgSgspJ2msm6clMCkdW9) — bright, playful, and
-// expressive; the closest premade match for the cheerful parrot character.
-// Model: eleven_flash_v2_5 — ElevenLabs' low-latency flash model (~75 ms model
-// latency), chosen over multilingual_v2 because chat is latency-sensitive.
-const BOLO_ELEVENLABS_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
-const BOLO_ELEVENLABS_MODEL = "eleven_flash_v2_5";
+// Voice: "Laura" (premade, FGY2WhTYpPnrIDTdsKH5) — bright, upbeat, bubbly
+// female; consistent with the phrase-practice voice so learners hear the same
+// familiar voice throughout the app.
+// Model: eleven_multilingual_v2 — required for correct Gujarati (and other
+// Indic script) phoneme rendering. eleven_flash_v2_5 only supports a small
+// set of European + Hindi/Arabic languages; Gujarati sent to the flash model
+// returns distorted, garbled audio. Multilingual_v2 adds ~1–2 s synthesis
+// latency vs flash but is the only model that handles the full Indic script
+// inventory accurately.
+const BOLO_ELEVENLABS_VOICE_ID = "FGY2WhTYpPnrIDTdsKH5"; // Laura
+const BOLO_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 
 // Fast ElevenLabs synthesis for Bolo's chat replies.
 async function boloTTSElevenLabs(text: string, languageName: string, languageCode: string): Promise<Buffer> {
