@@ -652,11 +652,19 @@ function validateTranscript(
   }
 
   // 4. Substantial word overlap: ≥50 % of the hint's words appear in the
-  //    transcript. A silent recording that echoes most of the vocabulary list
-  //    is caught here even if extra prefix words (e.g. "context:") are present.
+  //    transcript. Only applied when:
+  //    (a) the transcript is at least 8 words long — short legitimate answers
+  //        (e.g. "haan") score 100 % overlap by design and must not be rejected;
+  //    (b) the transcript contains the literal phrase "or English." (case-insensitive),
+  //        which is distinctive to the hint prefix and will never appear in learner speech.
+  const transcriptWords = normTranscript.split(" ").filter(Boolean);
   const hintWords = normHint.split(" ").filter(Boolean);
-  if (hintWords.length > 0) {
-    const transcriptWordSet = new Set(normTranscript.split(" ").filter(Boolean));
+  if (
+    hintWords.length > 0 &&
+    transcriptWords.length >= 8 &&
+    trimmed.toLowerCase().includes("or english.")
+  ) {
+    const transcriptWordSet = new Set(transcriptWords);
     const matchCount = hintWords.filter((w) => transcriptWordSet.has(w)).length;
     if (matchCount / hintWords.length >= 0.5) {
       return { ok: false, reason: "hint_echo" };
