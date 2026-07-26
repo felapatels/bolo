@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTour } from "@/lib/tour-context";
 import { springs } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { Mascot } from "@/components/mascot";
 
 const NAV_HIGHLIGHT_LABELS: Record<string, string> = {
   home: "Home",
@@ -43,6 +44,8 @@ function cardPositionClasses(pos: "top" | "center" | "bottom" | undefined) {
  *
  * The card re-mounts (with entry animation) whenever its `cardPosition`
  * changes between steps, so it visually travels to the relevant screen area.
+ * Bolo the parrot hovers above the card and swaps poses with a springy
+ * entrance on each step advance.
  */
 export function GuidedTourOverlay() {
   const { isOpen, currentStep, steps, nextStep, prevStep, skipTour, currentNavHighlight } =
@@ -64,6 +67,11 @@ export function GuidedTourOverlay() {
   // Changing the key causes the card to unmount + remount with its entry
   // animation whenever the desired screen position changes between steps.
   const cardKey = `tour-card-${step?.cardPosition ?? "center"}`;
+
+  // Current pose — fall back to "wave" if a custom step doesn't specify one.
+  const mascotPose = step?.mascotPose ?? "wave";
+  // Final step celebrates; all others use the gentle float.
+  const mascotIdle = isLast ? "cheer" : "float";
 
   return (
     <AnimatePresence>
@@ -90,7 +98,7 @@ export function GuidedTourOverlay() {
             aria-describedby="tour-body"
             className={cn(
               "fixed inset-x-4 z-[201] mx-auto max-w-sm",
-              "rounded-3xl border border-card-border bg-card p-6 shadow-2xl",
+              "overflow-visible rounded-3xl border border-card-border bg-card shadow-2xl",
               cardPositionClasses(step.cardPosition),
             )}
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.97 }}
@@ -98,112 +106,146 @@ export function GuidedTourOverlay() {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
             transition={reduceMotion ? { duration: 0.15 } : springs.bouncy}
           >
-            {/* Header row */}
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {/* Step dots */}
-                <div className="flex gap-1.5" aria-hidden="true">
-                  {steps.map((_, i) => (
-                    <span
-                      key={i}
-                      className={cn(
-                        "h-2 rounded-full transition-all duration-300",
-                        i === currentStep
-                          ? "w-5 bg-primary"
-                          : "w-2 bg-muted-foreground/30",
-                      )}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {currentStep + 1} / {total}
-                </span>
-              </div>
-
-              <button
-                onClick={skipTour}
-                aria-label="Skip tour"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
+            {/* Bolo the parrot — floats centered above the card's top edge */}
+            <div className="absolute inset-x-0 -top-14 flex justify-center" aria-hidden="true">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep}
+                  initial={
+                    reduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, scale: 0.55, y: 12 }
+                  }
+                  animate={
+                    reduceMotion
+                      ? { opacity: 1 }
+                      : { opacity: 1, scale: 1, y: 0 }
+                  }
+                  exit={
+                    reduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, scale: 0.8, y: -8 }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.15 }
+                      : { type: "spring", stiffness: 260, damping: 18 }
+                  }
+                >
+                  <Mascot pose={mascotPose} size={104} idle={mascotIdle} />
+                </motion.div>
+              </AnimatePresence>
             </div>
 
-            {/* Step content */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStep}
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
-                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
-                transition={reduceMotion ? { duration: 0.1 } : springs.snappy}
-              >
-                <h2
-                  id="tour-title"
-                  className="mb-2 text-xl font-black tracking-tight text-foreground"
-                >
-                  {step.title}
-                </h2>
-                <p
-                  id="tour-body"
-                  className="text-sm leading-relaxed text-muted-foreground"
-                >
-                  {step.body}
-                </p>
+            {/* Card content — padded on top to clear the mascot overlap */}
+            <div className="p-6 pt-16">
+              {/* Header row */}
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  {/* Step dots */}
+                  <div className="flex gap-1.5" aria-hidden="true">
+                    {steps.map((_, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "h-2 rounded-full transition-all duration-300",
+                          i === currentStep
+                            ? "w-5 bg-primary"
+                            : "w-2 bg-muted-foreground/30",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {currentStep + 1} / {total}
+                  </span>
+                </div>
 
-                {/* Nav highlight hint */}
-                {highlightLabel && (
-                  <p className="mt-3 hidden text-xs font-semibold text-primary/80 lg:block">
-                    👈 See the <span className="font-black">{highlightLabel}</span> section in the sidebar
-                  </p>
-                )}
-                {highlightLabel && (
-                  <p className="mt-3 text-xs font-semibold text-primary/80 lg:hidden">
-                    👇 See the <span className="font-black">{highlightLabel}</span> tab below
-                  </p>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation */}
-            <div className="mt-6 flex items-center gap-2">
-              {!isFirst && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={prevStep}
-                  aria-label="Previous step"
-                  className="shrink-0"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              )}
-
-              <Button
-                onClick={isLast ? skipTour : nextStep}
-                className="flex-1"
-                size="sm"
-              >
-                {isLast ? (
-                  "Get started"
-                ) : (
-                  <>
-                    Next
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-
-              {!isLast && (
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={skipTour}
-                  className="shrink-0 text-muted-foreground"
+                  aria-label="Skip tour"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  Skip
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Step content */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                  transition={reduceMotion ? { duration: 0.1 } : springs.snappy}
+                >
+                  <h2
+                    id="tour-title"
+                    className="mb-2 text-xl font-black tracking-tight text-foreground"
+                  >
+                    {step.title}
+                  </h2>
+                  <p
+                    id="tour-body"
+                    className="text-sm leading-relaxed text-muted-foreground"
+                  >
+                    {step.body}
+                  </p>
+
+                  {/* Nav highlight hint */}
+                  {highlightLabel && (
+                    <p className="mt-3 hidden text-xs font-semibold text-primary/80 lg:block">
+                      👈 See the <span className="font-black">{highlightLabel}</span> section in the sidebar
+                    </p>
+                  )}
+                  {highlightLabel && (
+                    <p className="mt-3 text-xs font-semibold text-primary/80 lg:hidden">
+                      👇 See the <span className="font-black">{highlightLabel}</span> tab below
+                    </p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Navigation */}
+              <div className="mt-6 flex items-center gap-2">
+                {!isFirst && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={prevStep}
+                    aria-label="Previous step"
+                    className="shrink-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                )}
+
+                <Button
+                  onClick={isLast ? skipTour : nextStep}
+                  className="flex-1"
+                  size="sm"
+                >
+                  {isLast ? (
+                    "Get started"
+                  ) : (
+                    <>
+                      Next
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
-              )}
+
+                {!isLast && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={skipTour}
+                    className="shrink-0 text-muted-foreground"
+                  >
+                    Skip
+                  </Button>
+                )}
+              </div>
             </div>
           </motion.div>
         </>

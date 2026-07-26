@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation } from "wouter";
+import type { MascotPose } from "@/components/mascot";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +34,11 @@ export interface TourStep {
    * - "bottom" — just above the bottom nav, useful when pointing at a nav tab
    */
   cardPosition?: "top" | "center" | "bottom";
+  /**
+   * Which Bolo pose to show for this step. Defaults to "wave" if omitted.
+   * Each pose conveys a mood that matches the step content.
+   */
+  mascotPose?: MascotPose;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +53,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/app",
     navHighlight: "home",
     cardPosition: "center",
+    mascotPose: "wave",
   },
   {
     title: "Pick a topic 🗂️",
@@ -54,6 +61,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/app",
     navHighlight: "home",
     cardPosition: "top",
+    mascotPose: "thinking",
   },
   {
     title: "Chat with Bolo 🦜",
@@ -61,6 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/chat",
     navHighlight: "chat",
     cardPosition: "center",
+    mascotPose: "cheer",
   },
   {
     title: "Play your way to fluency 🎮",
@@ -68,6 +77,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/games",
     navHighlight: "games",
     cardPosition: "bottom",
+    mascotPose: "thumbsup",
   },
   {
     title: "Watch yourself grow 📈",
@@ -75,6 +85,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/progress",
     navHighlight: "progress",
     cardPosition: "bottom",
+    mascotPose: "thinking",
   },
   {
     title: "You're all set! 🎉",
@@ -82,6 +93,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/app",
     navHighlight: "home",
     cardPosition: "center",
+    mascotPose: "cheer",
   },
 ];
 
