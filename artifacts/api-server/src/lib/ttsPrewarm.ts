@@ -2,6 +2,7 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { ttsCacheKey } from "./ttsCache";
+import { USE_ELEVENLABS_TTS } from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
 import { logger } from "./logger";
 import {
@@ -284,10 +285,12 @@ export function scheduleTtsPrewarm(): void {
         "TTS pre-warm: complete",
       );
 
-      // After phrase prewarm, synthesize greeting audio for each language.
-      // These use Bolo's chat voice (Laura/multilingual_v2) rather than the
-      // default phrase voice, so they're cached under dedicated greeting keys.
-      await warmGreetings();
+      // After phrase prewarm, synthesize greeting audio (ElevenLabs only).
+      // When USE_ELEVENLABS_TTS is false, greetings are synthesized with
+      // gpt-audio on first request instead — no pre-warm needed.
+      if (USE_ELEVENLABS_TTS) {
+        await warmGreetings();
+      }
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
       // Log and swallow — pre-warm is best-effort, never critical.

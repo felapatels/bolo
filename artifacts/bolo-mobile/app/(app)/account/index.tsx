@@ -504,13 +504,15 @@ export default function AccountScreen() {
                 }}
               />
             </View>
-            <Divider />
+            {/* Voice row — temporarily disabled while TTS provider is being
+                evaluated. Re-enable by removing the {false && …} wrapper. */}
+            {false && (<><Divider />
             <NavRow
               icon="volume-2"
               label="Voice"
               value={voiceLabel(prefs?.learning.ttsVoice ?? null)}
               onPress={() => router.push('/(app)/account/voice')}
-            />
+            /></>)}
             <Divider />
             <NavRow
               icon="map"

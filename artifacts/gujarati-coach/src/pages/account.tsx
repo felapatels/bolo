@@ -592,7 +592,9 @@ export default function Account() {
             </div>
           </div>
 
-          {/* Voice picker */}
+          {/* Voice picker — temporarily disabled while TTS provider is being
+              evaluated. Re-enable by removing the {false && …} wrapper below. */}
+          {false && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Volume2 className="h-4 w-4 text-muted-foreground" />
@@ -635,6 +637,7 @@ export default function Account() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Replay guided tour */}
           <button

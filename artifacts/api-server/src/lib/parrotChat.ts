@@ -12,6 +12,7 @@ import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
+import { USE_ELEVENLABS_TTS } from "./ttsConfig";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -435,23 +436,30 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     };
   },
 
-  // Fast ElevenLabs flash voice first; gpt-audio remains an automatic
-  // fallback so a Bolo reply is never silent just because ElevenLabs is
-  // unavailable (mirrors the phrase-audio path's resilience approach).
-  synthesize: makeSynthesizeWithFallback(boloTTSElevenLabs, boloTTS),
+  // Primary synthesizer: ElevenLabs (Laura, eleven_multilingual_v2) when
+  // USE_ELEVENLABS_TTS is true; gpt-audio (shimmer) when false.
+  // makeSynthesizeWithFallback keeps gpt-audio as an automatic safety net
+  // when ElevenLabs is the primary, so chat is never silently broken.
+  synthesize: USE_ELEVENLABS_TTS
+    ? makeSynthesizeWithFallback(boloTTSElevenLabs, boloTTS)
+    : boloTTS,
 
-  // Streaming variant of the same ElevenLabs flash voice. No fallback baked
-  // in here — runParrotTurn catches a streaming failure and reruns the
-  // buffered `synthesize` (which has its own gpt-audio fallback).
-  synthesizeStream: (text, _languageName, languageCode, onChunk) =>
-    textToSpeechElevenLabsStream(
-      text,
-      BOLO_ELEVENLABS_VOICE_ID,
-      _languageName,
-      BOLO_ELEVENLABS_MODEL,
-      getLanguageIdForCode(languageCode),
-      onChunk,
-    ),
+  // Streaming synthesis — ElevenLabs only (gpt-audio has no streaming API).
+  // Omitted when USE_ELEVENLABS_TTS is false so runParrotTurn falls through
+  // to the buffered synthesize above for every turn.
+  ...(USE_ELEVENLABS_TTS
+    ? {
+        synthesizeStream: (text, _languageName, languageCode, onChunk) =>
+          textToSpeechElevenLabsStream(
+            text,
+            BOLO_ELEVENLABS_VOICE_ID,
+            _languageName,
+            BOLO_ELEVENLABS_MODEL,
+            getLanguageIdForCode(languageCode),
+            onChunk,
+          ),
+      }
+    : {}),
 };
 
 // Builds the Whisper transcription prompt, optionally seeding it with

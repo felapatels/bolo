@@ -32,6 +32,7 @@ import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
+import { USE_ELEVENLABS_TTS } from "../lib/ttsConfig";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -314,9 +315,12 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     }
   }
 
-  // Include the resolved ElevenLabs voice ID in the cache key so entries for
-  // different languages (which map to different voices) never collide.
-  const cacheKey = ttsCacheKey(text, chosen, languageName, elevenLabsVoiceId);
+  // Cache key: includes ElevenLabs voice ID when ElevenLabs is the active
+  // provider (so different-voice entries never collide); uses the legacy key
+  // format (no voice ID) for gpt-audio so previously-synthesized entries hit.
+  const cacheKey = USE_ELEVENLABS_TTS
+    ? ttsCacheKey(text, chosen, languageName, elevenLabsVoiceId)
+    : legacyTtsCacheKey(text, chosen, languageName);
 
   // --- cache hit ---
   try {
@@ -332,7 +336,28 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     req.log.warn({ err }, "TTS cache read failed, synthesizing fresh");
   }
 
-  // --- cache miss: synthesize then store ---
+  // --- gpt-audio path (USE_ELEVENLABS_TTS = false) ---
+  // All ElevenLabs code below is fully preserved — flip USE_ELEVENLABS_TTS
+  // to true in lib/ttsConfig.ts to re-activate it with no other changes.
+  if (!USE_ELEVENLABS_TTS) {
+    try {
+      const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+      if (buffer.length === 0) throw new Error("gpt-audio returned empty audio");
+      const audioBase64 = buffer.toString("base64");
+      db.insert(ttsCacheTable)
+        .values({ cacheKey, audioBase64, format: "mp3" })
+        .onConflictDoNothing()
+        .execute()
+        .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
+      res.json({ audioBase64, format: "mp3" });
+    } catch (err) {
+      req.log.error({ err }, "gpt-audio TTS failed");
+      res.status(502).json({ error: "Could not generate speech" });
+    }
+    return;
+  }
+
+  // --- ElevenLabs path (USE_ELEVENLABS_TTS = true) ---
 
   // Proactive quota guard: if the cached quota shows ElevenLabs credits are
   // exhausted, skip the API call entirely and jump straight to the fallback
@@ -1271,42 +1296,65 @@ router.get(
       req.log.warn({ err }, "Greeting cache read failed, synthesizing fresh");
     }
 
-    // --- cache miss: synthesize on-demand using the language-appropriate voice ---
-    const greetingVoiceId = getVoiceIdForLanguage(languageCode);
-    const BOLO_MODEL = "eleven_multilingual_v2";
-    try {
-      const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL, getLanguageIdForCode(languageCode));
-      const audioBase64 = buffer.toString("base64");
-
-      // Cache for future requests (best-effort, race-safe).
-      db.insert(ttsCacheTable)
-        .values({ cacheKey, audioBase64, format: "mp3" })
-        .onConflictDoNothing()
-        .execute()
-        .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
-
-      res.json({
-        text: displayText,
-        english: englishText,
-        audioBase64,
-        format: "mp3",
-        squawkVariant: GREETING_SQUAWK_VARIANT,
-      });
-    } catch (err) {
-      // ElevenLabs failed — fall back to gpt-audio.
-      req.log.warn({ err }, "Greeting ElevenLabs synthesis failed, falling back to gpt-audio");
+    // --- cache miss: synthesize on-demand ---
+    if (USE_ELEVENLABS_TTS) {
+      // ElevenLabs path — language-appropriate voice, eleven_multilingual_v2.
+      // Re-enable: set USE_ELEVENLABS_TTS = true in lib/ttsConfig.ts.
+      const greetingVoiceId = getVoiceIdForLanguage(languageCode);
+      const BOLO_MODEL = "eleven_multilingual_v2";
       try {
-        const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
-        if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+        const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL, getLanguageIdForCode(languageCode));
+        const audioBase64 = buffer.toString("base64");
+        db.insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: "mp3" })
+          .onConflictDoNothing()
+          .execute()
+          .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
         res.json({
           text: displayText,
           english: englishText,
-          audioBase64: buffer.toString("base64"),
+          audioBase64,
           format: "mp3",
           squawkVariant: GREETING_SQUAWK_VARIANT,
         });
-      } catch (fallbackErr) {
-        req.log.error({ err: fallbackErr }, "Greeting synthesis failed (both providers)");
+      } catch (err) {
+        // ElevenLabs failed — fall back to gpt-audio.
+        req.log.warn({ err }, "Greeting ElevenLabs synthesis failed, falling back to gpt-audio");
+        try {
+          const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
+          if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+          res.json({
+            text: displayText,
+            english: englishText,
+            audioBase64: buffer.toString("base64"),
+            format: "mp3",
+            squawkVariant: GREETING_SQUAWK_VARIANT,
+          });
+        } catch (fallbackErr) {
+          req.log.error({ err: fallbackErr }, "Greeting synthesis failed (both providers)");
+          res.status(502).json({ error: "Could not generate greeting audio" });
+        }
+      }
+    } else {
+      // gpt-audio path (USE_ELEVENLABS_TTS = false) — always available.
+      try {
+        const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
+        if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+        const audioBase64 = buffer.toString("base64");
+        db.insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: "mp3" })
+          .onConflictDoNothing()
+          .execute()
+          .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+        res.json({
+          text: displayText,
+          english: englishText,
+          audioBase64,
+          format: "mp3",
+          squawkVariant: GREETING_SQUAWK_VARIANT,
+        });
+      } catch (err) {
+        req.log.error({ err }, "Greeting gpt-audio synthesis failed");
         res.status(502).json({ error: "Could not generate greeting audio" });
       }
     }
