@@ -368,6 +368,7 @@ export default function ChatPage() {
       let binary = "";
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const audioBase64 = btoa(binary);
+      const audioMimeType = blob.type || undefined;
 
       // ── First-turn greeting path ───────────────────────────────────────────
       // Show Bolo's pre-synthesized welcome message immediately, eliminating
@@ -425,7 +426,7 @@ export default function ChatPage() {
           gRes = await fetch(chatUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-            body: JSON.stringify({ languageCode: chatLang, audioBase64, history: [] }),
+            body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history: [] }),
           });
         } catch {
           // Network error — greeting already playing, let it finish naturally.
@@ -564,7 +565,7 @@ export default function ChatPage() {
             ? { "X-Audio-Stream": "1" }
             : {}),
         },
-        body: JSON.stringify({ languageCode: chatLang, audioBase64, history }),
+        body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history }),
       });
 
       // Non-ok responses (400, 402, 404, 502…) come as plain JSON before SSE

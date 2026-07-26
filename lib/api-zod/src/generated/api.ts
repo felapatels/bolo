@@ -1070,6 +1070,7 @@ export const GeneratePhraseResponse = zod.object({
 export const ChatTurnBody = zod.object({
   "languageCode": zod.string().describe('The language the learner is chatting in (e.g. \"hi\", \"gu\").'),
   "audioBase64": zod.string().min(1).optional().describe('The learner\'s recorded speech for this turn. Required when textInput is not provided.'),
+  "mimeType": zod.string().optional().describe('MIME type of the recorded audio (e.g. "audio/webm;codecs=opus"). Used as a format hint when magic-byte detection fails so short recordings are passed to Whisper directly instead of routing through ffmpeg.'),
   "textInput": zod.string().min(1).optional().describe('Pre-supplied text transcript for text-input turns. When set the STT step is skipped and no chat-time seconds are charged. Required when audioBase64 is not provided.'),
   "history": zod.array(zod.object({
   "role": zod.string().describe('learner | parrot'),

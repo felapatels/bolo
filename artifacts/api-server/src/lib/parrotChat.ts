@@ -110,6 +110,14 @@ export interface ParrotTurnInput {
    * measurement, saving ~200–400 ms of ffmpeg overhead per turn.
    */
   clientDurationSeconds?: number;
+  /**
+   * MIME type of the recorded audio as reported by the client (e.g.
+   * "audio/webm;codecs=opus"). Used as a fallback hint in ensureCompatibleFormat
+   * when magic-byte detection fails — short recordings whose container headers
+   * are incomplete are passed directly to Whisper instead of through ffmpeg,
+   * which would crash with "Invalid data found when processing input".
+   */
+  mimeType?: string;
 }
 
 // Per-stage wall-clock durations for one chat turn, in milliseconds.
@@ -563,7 +571,9 @@ export async function runParrotTurn(
     input.onTranscript?.(transcript, durationSeconds);
   } else {
     // Audio path: transcribe the recorded audio via Whisper.
-    const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer!);
+    // Pass the client-reported mimeType as a fallback hint so very short
+    // recordings whose magic bytes aren't detected skip the ffmpeg path.
+    const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer!, input.mimeType);
 
     // When the client supplies its own duration measurement we skip the WAV
     // conversion step that exists solely for duration measurement — saving
