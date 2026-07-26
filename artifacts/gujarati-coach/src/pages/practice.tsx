@@ -355,7 +355,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
     let cancelled = false;
     synthesize
-      .mutateAsync({ data: { text: nextPhrase.nativeScript, languageName: activeLanguage?.name } })
+      .mutateAsync({ data: { text: nextPhrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } })
       .then((res) => {
         if (!cancelled) {
           coachAudioCacheRef.current.set(nextPhrase.id, {
@@ -379,7 +379,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const playCoach = async () => {
         try {
           const cached = coachAudioCacheRef.current.get(phrase.id);
-          const res = cached ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } });
+          const res = cached ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } });
           coachAudioCacheRef.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
           if (cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
