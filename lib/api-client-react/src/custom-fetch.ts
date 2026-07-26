@@ -382,6 +382,12 @@ export async function customFetch<T = unknown>(
   const response = await fetch(input, { ...init, method, headers });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Instrumentation: one line per 401, no token or cookie values logged.
+      const path = requestInfo.url.split("?")[0];
+      const hadBearer = headers.has("authorization");
+      console.warn(`[auth] 401 path=${path} had_bearer=${hadBearer}`);
+    }
     const errorData = await parseErrorBody(response, method);
     throw new ApiError(response, errorData, requestInfo);
   }

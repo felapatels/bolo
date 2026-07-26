@@ -1,0 +1,17 @@
+Green light, with three amendments. The finding that the plumbing already exists and only the registration is missing is the best possible outcome. Mobile already does this, so you have a working reference in-repo.
+
+One correction to the findings before you proceed: credentials: "same-origin" is not the failure cause. Your API is same-origin with the app in both contexts. The failure is cookie partitioning handing over a stale JWT copy. It matters because it means nobody should "fix" this by switching to credentials: "include".
+
+And finding 3 is the one load-bearing claim the agent asserted without quoting code, which is what the spec asked for. Not worth a round trip to verify, since the instrumentation catches it: if bearer tokens are rejected, you get [auth] 401 had_bearer=true immediately.
+
+Paste this to proceed:
+
+Phase 1 confirmed. Proceed with Phase 2 as specified, with three amendments.
+
+Amendment 1, registration point. Register the token getter from inside a component that sits within ClerkProvider, using getToken from useAuth(). Do not pass getToken directly to setAuthTokenGetter, because its identity can change across renders and the module-level reference would go stale. Instead, store the latest getToken in a ref that updates on every render, and register a stable getter function that reads from that ref. Register in an effect that runs as early as possible in the tree.
+
+Amendment 2, startup race. Any request fired before registration completes falls back to cookie-only auth and may 401. Report how you have handled this. Either register before the first query can fire, or have the query client wait until registration is complete. State which approach you used and why.
+
+Amendment 3, retry config. Note that TanStack Query defaults to retry: 3, which is why each endpoint appeared four times. Keep that default for non-auth failures and skip retries only for 401 and 403, per Section 4.3.
+
+Everything else in the spec stands. Do not change credentials. Do not touch the audio path, the pending bubble, or the history window.

@@ -19,6 +19,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
 import { GuidedTourOverlay } from '@/components/guided-tour-overlay';
 import { TourAutoLauncher } from '@/components/tour-auto-launcher';
+import { ClerkAuthSync } from '@/components/clerk-auth-sync';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
@@ -319,6 +320,9 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      {/* Registers a fresh Clerk bearer token getter before QueryClientProvider
+          and its children render, closing the startup race. Must be first. */}
+      <ClerkAuthSync />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>
