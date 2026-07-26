@@ -198,20 +198,36 @@ test("runParrotTurn: history turns are forwarded to reply", async () => {
   assert.ok(capturedUserPrompt.includes("Shu naam chhe?"), "current transcript should appear in prompt");
 });
 
-test("runParrotTurn: system prompt contains the language name", async () => {
+test("runParrotTurn: system prompt contains the language rules block; language name appears in user prompt, not interpolated into system prompt", async () => {
   const wav = makeWavBuffer(1);
   let capturedSystemPrompt = "";
+  let capturedUserPrompt = "";
   await runParrotTurn(
     { audioBuffer: wav, languageName: "Punjabi", languageCode: "pa", history: [] },
     makeDeps({
-      reply: async (systemPrompt) => {
+      reply: async (systemPrompt, userPrompt) => {
         capturedSystemPrompt = systemPrompt;
+        capturedUserPrompt = userPrompt;
         return { text: "Sat sri akal!", english: "God is truth!", transcriptEnglish: "" };
       },
     }),
   );
-  assert.ok(capturedSystemPrompt.includes("Punjabi"),
-    "system prompt should mention the language");
+  // System prompt must contain the static language rules block (all 22 languages).
+  assert.ok(
+    capturedSystemPrompt.includes("Gurmukhi"),
+    "system prompt should contain the language rules block (Punjabi entry lists Gurmukhi script)",
+  );
+  // System prompt must not contain a runtime-interpolated language reference —
+  // the rules block is a static constant with no per-request template substitution.
+  assert.ok(
+    !capturedSystemPrompt.includes("Language: Punjabi"),
+    "system prompt should not contain a runtime-interpolated language reference",
+  );
+  // The language name must appear in the user message instead.
+  assert.ok(
+    capturedUserPrompt.includes("Punjabi"),
+    "user prompt should contain the language name",
+  );
 });
 
 test("runParrotTurn: system prompt allows general everyday conversation topics", async () => {

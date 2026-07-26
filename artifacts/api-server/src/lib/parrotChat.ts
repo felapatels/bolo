@@ -224,16 +224,54 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
 }
 
 // ---------------------------------------------------------------------------
+// Language script rules block
+// ---------------------------------------------------------------------------
+// Static, per-language rendering rules for all 22 official (Eighth Schedule)
+// Indian languages. Every fact below is read verbatim from
+// lib/db/src/seedData.ts — the single source of truth for language codes,
+// English names, native names, and script assignments in this repository.
+// No language name, script assignment, or native-script text is invented or
+// supplied from general knowledge.
+// This constant is a plain static string literal with no template
+// interpolation; it is byte-identical on every request.
+// ---------------------------------------------------------------------------
+const LANGUAGE_RULES_PROMPT =
+  `Language Script Rules — all 22 official Indian languages. Find the active language (from the user message's "Language:" line) and follow its instruction exactly.
+
+- Assamese (অসমীয়া) [Bengali-Assamese script]: Reply in Bengali-Assamese script; never romanize.
+- Bengali (বাংলা) [Bengali script]: Reply in Bengali script; never romanize.
+- Bodo (बड़ो) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Dogri (डोगरी) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Gujarati (ગુજરાતી) [Gujarati script]: Reply in Gujarati script; never romanize.
+- Hindi (हिन्दी) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Kannada (ಕನ್ನಡ) [Kannada script]: Reply in Kannada script; never romanize.
+- Kashmiri (کٲشُر) [Perso-Arabic script, right-to-left]: Reply in Perso-Arabic (Nastaliq) script, right-to-left; never romanize.
+- Konkani (कोंकणी) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Maithili (मैथिली) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Malayalam (മലയാളം) [Malayalam script]: Reply in Malayalam script; never romanize.
+- Manipuri (ꯃꯤꯇꯩ ꯂꯣꯟ) [Meetei Mayek script]: Reply in Meetei Mayek script; never romanize.
+- Marathi (मराठी) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Nepali (नेपाली) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Odia (ଓଡ଼ିଆ) [Odia script]: Reply in Odia script; never romanize.
+- Punjabi (ਪੰਜਾਬੀ) [Gurmukhi script]: Reply in Gurmukhi script; never romanize.
+- Sanskrit (संस्कृतम्) [Devanagari script]: Reply in Devanagari script; never romanize.
+- Santali (ᱥᱟᱱᱛᱟᱲᱤ) [Ol Chiki script]: Reply in Ol Chiki script; never romanize.
+- Sindhi (سنڌي) [Perso-Arabic script, right-to-left]: Reply in Perso-Arabic (Naskh) script, right-to-left; never romanize.
+- Tamil (தமிழ்) [Tamil script]: Reply in Tamil script; never romanize.
+- Telugu (తెలుగు) [Telugu script]: Reply in Telugu script; never romanize.
+- Urdu (اردو) [Perso-Arabic script, right-to-left]: Reply in Perso-Arabic (Nastaliq) script, right-to-left; never romanize.`;
+
+// ---------------------------------------------------------------------------
 // Module-level prompt constant
 // ---------------------------------------------------------------------------
 // Placed outside all functions so the text is byte-identical on every call,
 // enabling OpenAI automatic prompt caching on the system-message prefix.
 // All request-specific values (language name, history, transcript) are
 // placed in the user message; this constant must never contain template
-// interpolation.
+// interpolation of request-specific values.
 // ---------------------------------------------------------------------------
 
-/** Static Bolo persona system prompt. Language is supplied via the user message. */
+/** Static Bolo persona + language rules system prompt. Language is supplied via the user message. */
 const BOLO_PERSONA_PROMPT =
   `You are Bolo, a bubbly, rainbow-feathered parrot who is absolutely obsessed with language. You are a learner's language conversation buddy and you LOVE this job. You are warm, cheeky, and endlessly enthusiastic. Stay in character at all times.
 
@@ -271,7 +309,20 @@ Always respond with a JSON object with exactly three fields IN THIS ORDER:
 - "transcript_english": a complete, faithful English translation of what the learner just said — every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
 - "reply": your response in the target language native script (following all rules above)
 Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
-Do not include any text outside the JSON object.`;
+Do not include any text outside the JSON object.
+
+Language identification: the user message begins with "Language: <name>". Find that language in the Language Script Rules section below and follow its rendering instruction exactly — reply in the specified native script, never romanize.
+
+${LANGUAGE_RULES_PROMPT}`;
+
+// ---------------------------------------------------------------------------
+// Prompt-cache key for the chat system message
+// ---------------------------------------------------------------------------
+// IMPORTANT: Increment the version suffix ("v1" → "v2", etc.) whenever
+// BOLO_PERSONA_PROMPT or LANGUAGE_RULES_PROMPT changes. This ensures that
+// OpenAI does not serve a cached prefix built from the old constant.
+// ---------------------------------------------------------------------------
+const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v1";
 
 // ---------------------------------------------------------------------------
 // Block truncation for chat history
@@ -487,13 +538,16 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   transcribe: (buffer, format, options) =>
     speechToText(buffer, format, options),
 
-  reply: async (_systemPrompt, userPrompt) => {
-    const completion = await openai.chat.completions.create({
+  reply: async (systemPrompt, userPrompt) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completion = await (openai.chat.completions.create as any)({
       model: "gpt-5.4-mini",
       max_completion_tokens: 300,
       response_format: { type: "json_object" },
+      prompt_cache_key: BOLO_CHAT_CACHE_KEY,
+      prompt_cache_retention: "24h",
       messages: [
-        { role: "system", content: BOLO_PERSONA_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });

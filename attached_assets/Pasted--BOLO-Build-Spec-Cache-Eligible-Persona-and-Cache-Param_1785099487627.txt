@@ -1,0 +1,132 @@
+# BOLO Build Spec: Cache-Eligible Persona and Cache Parameters
+
+Follow-up to the prompt caching reorder. Paste this entire spec into Replit Agent as a single message. Build exactly what is specified.
+
+---
+
+## 0. Session Rules
+
+Project: BOLO (language learning app, 22 official Indian languages). If any file or symbol named below does not exist in this codebase, stop and report it. Do not search for a substitute.
+
+1. Do not run a planning or discovery phase. This spec names every file and function to change.
+2. Do not refactor, rename, or reformat any code not named in Section 2.
+3. Do not add, remove, or upgrade dependencies.
+4. Do not change the database schema.
+5. Do not change any UI, styling, or user-visible behavior.
+6. Do not change any model string. `gpt-5.4-mini` stays exactly as it is.
+7. Do not invent linguistic facts. Every language and script fact must be read from existing configuration in this repository. See Section 5.2.
+8. Make the smallest change that satisfies this spec, then stop and report what changed.
+9. If anything is ambiguous, stop and ask. Do not guess.
+
+---
+
+## 1. Feature Summary
+
+The previous change correctly restructured prompts for caching, but the chat prompt totals roughly 870 tokens and OpenAI only caches prefixes of 1024 tokens or more. No cache hits are possible at that size, so the change currently saves nothing.
+
+That change also removed the language name from eleven places in the persona and replaced it with the generic phrase "the target language," which is a quality regression risk for an app covering 22 languages across roughly 12 script families.
+
+This spec fixes both at once. A static block of per-language script and behavior rules covering all 22 languages is appended to the persona. That block is byte-identical on every request, so it caches. It restores language specificity more precisely than the removed interpolation did. And it carries the prefix past the 1024-token threshold with content that earns its place rather than filler.
+
+This spec covers the chat route only. The pronunciation route is deliberately excluded. See Section 7.
+
+## 2. Scope Boundaries
+
+Allowed files:
+- `artifacts/api-server/src/lib/parrotChat.ts`
+- The existing test file that asserts on `runParrotTurn` and `deps.reply`
+- The existing language configuration file identified in Section 5.2, read-only
+
+Every other file in the repository is off limits.
+
+Explicitly do NOT:
+- Do not touch `artifacts/api-server/src/routes/openai.ts`. The pronunciation route stays exactly as it is.
+- Do not touch the STT path, the TTS path, `client.ts`, or `lessonGenerator.ts`.
+- Do not change `max_completion_tokens`, temperature, or response format.
+- Do not rewrite the existing Bolo persona wording. Append to it, do not edit it.
+- Do not modify the block truncation logic added previously. It is correct.
+
+## 3. Data Model Changes
+
+None. No schema changes, no migrations.
+
+## 4. UI Spec
+
+None.
+
+## 5. Behavior and Logic
+
+### 5.1 Language rules block
+
+1. Add a module-level constant named `LANGUAGE_RULES_PROMPT` in `parrotChat.ts`, declared once outside any function.
+2. It must be a plain static string literal with no template interpolation of any kind.
+3. It must contain one compact entry per language for all 22 languages, each stating: the language name, its native script name, and a one-line instruction on how Bolo should render replies in that language.
+4. Keep each entry to a single line. The goal is coverage, not prose. Total block target is roughly 500 to 700 tokens.
+5. Append `LANGUAGE_RULES_PROMPT` to `BOLO_PERSONA_PROMPT` so the combined static system message reads as persona first, then rules. The combined constant must remain byte-identical across every request.
+
+### 5.2 Source of linguistic facts, mandatory
+
+6. Read the language list, language codes, native names, and script assignments from the existing language configuration already present in this codebase. Locate it first and report the file path before writing the block.
+7. Do not invent, guess, or supply from general knowledge any language name, script assignment, or language code. If the existing configuration does not specify the script for a given language, stop and ask rather than filling the gap.
+8. If the configuration contains a number of languages other than 22, stop and report the discrepancy before proceeding.
+
+### 5.3 Threshold verification
+
+9. After assembling the combined system message, measure and report its token count. Report the number in your summary.
+10. The combined system message must exceed 1024 tokens on its own so that the cacheable prefix does not depend on the variable user turn. If it lands under 1024, stop and report the count. Do not pad with filler to reach it and do not duplicate content.
+
+### 5.4 Cache parameters
+
+11. Add `prompt_cache_key` to the chat completion request with the static value `bolo-chat-persona-v1`.
+12. Add a module-level comment above that constant stating that the version suffix must be incremented whenever `BOLO_PERSONA_PROMPT` or `LANGUAGE_RULES_PROMPT` changes.
+13. Add `prompt_cache_retention` to the chat completion request with the value `"24h"`.
+14. If either parameter is rejected by the installed SDK version, stop and report the error. Do not upgrade the SDK and do not work around it.
+
+### 5.5 Language name in the user message
+
+15. Keep the existing `Language: ${languageName}` line at the start of the user message. Do not move it back into the system prompt.
+16. Add one line to the persona instructing the model to locate the named language in the rules block and follow that entry.
+
+### 5.6 Dependency injection fix
+
+17. `defaultParrotChatDeps.reply` currently ignores its passed system-prompt argument and uses the module constant directly, while `runParrotTurn` passes that same constant in. Change `reply` to use the argument it is given.
+18. Do not change the call site in `runParrotTurn`. It already passes the correct value.
+
+### 5.7 Test update
+
+19. Update the failing `runParrotTurn` test that asserts the system prompt contains the language name. Its old assertion no longer reflects intended behavior.
+20. Replace it with assertions that: the system prompt contains the language rules block, the system prompt contains no interpolated value, and the user prompt contains the language name.
+21. Do not touch the two failing TTS cache tests. They were failing before this work began and are out of scope.
+
+## 6. Acceptance Checklist
+
+1. The system shall send a static system message on the chat route that is byte-identical across all requests regardless of language, user, or conversation.
+2. The system shall include script and rendering rules for all 22 languages in that static system message.
+3. The system shall derive every language name, code, and script assignment from existing repository configuration rather than from general knowledge.
+4. The system shall produce a combined static system message exceeding 1024 tokens.
+5. The system shall send `prompt_cache_key` with the value `bolo-chat-persona-v1` on every chat completion request.
+6. The system shall send `prompt_cache_retention` with the value `"24h"` on every chat completion request.
+7. The system shall continue to log `[cache] route=chat prompt_tokens=<n> cached_tokens=<n>` after each call.
+8. The system shall reply in the correct native script for each of the 22 languages, verified by manual spot check on at least four languages spanning four different script families.
+9. The system shall use the system-prompt argument passed into `deps.reply` rather than ignoring it.
+10. The system shall preserve the existing block truncation behavior unchanged.
+11. The system shall pass typecheck with no errors.
+
+## 7. Out of Scope Reminder
+
+Reminder before you finish:
+- Do not touch `openai.ts`. The pronunciation route is intentionally excluded because its prompt is far below the caching threshold and padding it to reach 1024 tokens would likely cost more than it saves.
+- Do not invent any linguistic fact. Read it from configuration or stop and ask.
+- Do not pad with filler to reach the token threshold.
+- Do not fix the two pre-existing TTS test failures.
+- Do not change the model string.
+
+---
+
+## After The Build
+
+Run a chat session of at least four turns in a single language, then check the logs.
+
+Expected: turn one shows `cached_tokens=0`, which is the cache write. Turns two onward should show `cached_tokens` at roughly 1024 or higher, rising in 128-token increments as history accumulates.
+
+If `cached_tokens` stays at 0 past turn one, either the combined prefix is still under 1024 tokens or something in the system message is still varying between requests. Send the log output and the reported token count back for diagnosis.
