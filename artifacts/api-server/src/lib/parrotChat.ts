@@ -146,6 +146,15 @@ export interface ParrotTurnResult {
   durationSeconds: number;
 }
 
+/**
+ * Returned by runParrotTurn when the transcript is rejected before any LLM or
+ * TTS call is made (silent recording, prompt echo, etc.).
+ */
+export interface NoSpeechResult {
+  noSpeech: true;
+  reason: "empty" | "hint_echo";
+}
+
 // ALL bird-sound tokens the LLM may insert. Stripped from TTS so the voice
 // never pronounces them — the client plays a real parrot SFX instead.
 const SQUAWK_RE =
@@ -603,6 +612,60 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     : {}),
 };
 
+// ---------------------------------------------------------------------------
+// Transcript validation
+// ---------------------------------------------------------------------------
+// Whisper echoes the transcription prompt back as the transcript when the
+// submitted audio contains no intelligible speech. We catch this before
+// spending any LLM or TTS tokens, and also reject empty/punctuation-only
+// transcripts which cause the model to hallucinate a repeat of its last reply.
+
+function validateTranscript(
+  transcript: string,
+  hint: string,
+): { ok: true } | { ok: false; reason: "empty" | "hint_echo" } {
+  const trimmed = transcript.trim();
+
+  // 1. Empty, whitespace-only, or punctuation/symbol-only.
+  if (!trimmed || /^[\s\p{P}\p{S}]+$/u.test(trimmed)) {
+    return { ok: false, reason: "empty" };
+  }
+
+  // 2. Contains the ### delimiter that Whisper injects around its context
+  //    prompt when it echoes it back verbatim.
+  if (trimmed.includes("###")) {
+    return { ok: false, reason: "hint_echo" };
+  }
+
+  // Normalize both strings: lowercase, remove punctuation/symbols, collapse
+  // whitespace. Leaves Latin letters, digits, and native-script characters
+  // (Devanagari, Gujarati, etc.) intact.
+  const normalize = (s: string): string =>
+    s.toLowerCase().replace(/[\p{P}\p{S}]/gu, " ").replace(/\s+/g, " ").trim();
+
+  const normTranscript = normalize(trimmed);
+  const normHint = normalize(hint);
+
+  // 3. Normalized transcript is identical to the normalized hint.
+  if (normTranscript === normHint) {
+    return { ok: false, reason: "hint_echo" };
+  }
+
+  // 4. Substantial word overlap: ≥50 % of the hint's words appear in the
+  //    transcript. A silent recording that echoes most of the vocabulary list
+  //    is caught here even if extra prefix words (e.g. "context:") are present.
+  const hintWords = normHint.split(" ").filter(Boolean);
+  if (hintWords.length > 0) {
+    const transcriptWordSet = new Set(normTranscript.split(" ").filter(Boolean));
+    const matchCount = hintWords.filter((w) => transcriptWordSet.has(w)).length;
+    if (matchCount / hintWords.length >= 0.5) {
+      return { ok: false, reason: "hint_echo" };
+    }
+  }
+
+  return { ok: true };
+}
+
 // Builds the Whisper transcription prompt, optionally seeding it with
 // high-frequency romanized and/or native-script words from the active
 // language's phrase library.
@@ -686,7 +749,7 @@ function buildUserPrompt(
 export async function runParrotTurn(
   input: ParrotTurnInput,
   deps: ParrotChatDeps = defaultParrotChatDeps,
-): Promise<ParrotTurnResult> {
+): Promise<ParrotTurnResult | NoSpeechResult> {
   const turnStart = Date.now();
 
   let durationSeconds: number;
@@ -709,6 +772,12 @@ export async function runParrotTurn(
     // recordings whose magic bytes aren't detected skip the ffmpeg path.
     const { buffer, format } = await ensureCompatibleFormat(input.audioBuffer!, input.mimeType);
 
+    // Build the transcription hint once so we can pass the exact same string
+    // to Whisper AND compare against it during validation below.
+    const transcriptionHint = buildTranscriptionPrompt(
+      input.languageName, input.seedWords, input.seedNativeWords,
+    );
+
     // When the client supplies its own duration measurement we skip the WAV
     // conversion step that exists solely for duration measurement — saving
     // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
@@ -718,22 +787,26 @@ export async function runParrotTurn(
       // Fast path: transcribe only, no WAV conversion needed.
       durationSeconds = input.clientDurationSeconds;
       transcript = (
-        await deps.transcribe(buffer, format, {
-          prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
-        })
+        await deps.transcribe(buffer, format, { prompt: transcriptionHint })
       ).trim();
     } else {
       // Legacy path: run WAV conversion and transcription in parallel.
       const [wavBuffer, t] = await Promise.all([
         format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-        deps.transcribe(buffer, format, {
-          prompt: buildTranscriptionPrompt(input.languageName, input.seedWords, input.seedNativeWords),
-        }).then((t) => t.trim()),
+        deps.transcribe(buffer, format, { prompt: transcriptionHint }).then((t) => t.trim()),
       ]);
       durationSeconds = wavDurationSeconds(wavBuffer);
       transcript = t;
     }
     transcribeMs = Date.now() - transcribeStart;
+
+    // Validate before firing onTranscript or making any LLM/TTS call.
+    // Whisper echoes the transcription hint back when audio is silent; empty
+    // and punctuation-only transcripts cause the model to hallucinate.
+    const transcriptValidation = validateTranscript(transcript, transcriptionHint);
+    if (!transcriptValidation.ok) {
+      return { noSpeech: true, reason: transcriptValidation.reason };
+    }
 
     // Fire the early-transcript callback so the SSE route can flush a
     // `transcript` event to the client before the LLM+TTS call starts.

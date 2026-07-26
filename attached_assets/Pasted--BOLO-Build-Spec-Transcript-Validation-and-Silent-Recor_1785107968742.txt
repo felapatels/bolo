@@ -1,0 +1,137 @@
+# BOLO Build Spec: Transcript Validation and Silent Recording Rejection
+
+Paste this entire spec into Replit Agent as a single message.
+
+Section 3 is a short verification step. Complete it, report, and proceed to Section 5 only if the finding matches. If it does not match, stop and report.
+
+---
+
+## 0. Session Rules
+
+Project: BOLO (language learning app, 22 official Indian languages).
+
+1. Do not run a broad planning or discovery phase. This spec names what to inspect.
+2. Do not refactor, rename, or reformat any code not named in Section 2.
+3. Do not add, remove, or upgrade dependencies.
+4. Do not change the database schema.
+5. Do not change any AI model string.
+6. Do not touch auth, the fetch wrapper, the query client, or the audio playback guards.
+7. Do not change `BOLO_PERSONA_PROMPT` or `BOLO_CHAT_CACHE_KEY`.
+8. Make the smallest change that satisfies this spec, then stop and report.
+9. Stop and ask if anything is ambiguous. Do not guess.
+
+---
+
+## 1. Problem Statement
+
+**Observed defect.** A learner message bubble rendered with this text:
+
+```
+context: ### Hindi or English. ek, khaana, namaste, maa, haan, एक, खाना, नमस्ते, माँ, हाँ ###
+```
+
+That is the vocabulary hint passed to the speech-to-text call, not anything the user said. It was rendered in the UI, translated into the gloss line, sent to the chat model, and answered. Internal prompt scaffolding reached the user.
+
+**Cause.** Whisper-family transcription models echo their prompt back as the transcript when the audio contains no intelligible speech. Nothing in the pipeline validates the transcript before using it.
+
+**Related defect, likely the same root cause.** In a separate incident, Bolo replied with a byte-identical repeat of its own previous message in response to an unrelated user message. An empty transcript would produce a prompt ending in a bare `Learner:` line, causing the model to continue from the last complete exchange. Same missing guard, different bad transcript.
+
+**Cost impact.** A silent or unintelligible recording currently bills speech-to-text, a chat completion, and text-to-speech to produce a garbage turn.
+
+## 2. Scope Boundaries
+
+Files in scope:
+- The speech-to-text call site and wherever the transcription hint string is constructed
+- The chat route handler that consumes the transcript, in `artifacts/api-server/src/routes/openai.ts`
+- The client recording path in `chat.tsx`
+
+Explicitly do NOT:
+- Do not change the pronunciation scoring route or its fast-path logic.
+- Do not change the persona prompt or the cache key.
+- Do not change the audio playback guards added previously.
+- Do not remove or shorten the transcription hint itself. It improves accuracy. The fix is validating output, not removing input.
+
+## 3. Verification Step
+
+Report before making any change:
+
+1. Locate where the transcription hint containing `###` and the vocabulary list is constructed. State the file and the exact construction.
+2. Confirm the hint is passed to the speech-to-text call as a prompt or context parameter. Quote the call.
+3. State whether any validation currently exists between receiving the transcript and using it for the chat completion.
+4. State whether the client performs any silence, duration, or amplitude check before uploading audio.
+
+If finding 1 or 2 does not match the description in Section 1, stop and report. Do not proceed.
+
+## 4. Data Model and UI
+
+No schema changes. The only user-visible change is a friendly retry prompt replacing garbage turns, per 5.3.
+
+## 5. Behavior and Logic
+
+### 5.1 Server-side transcript validation
+
+1. Add a validation function that runs immediately after the transcript is received and before any chat completion or text-to-speech call is made.
+2. Reject the transcript if any of the following is true:
+   - It is empty, or contains only whitespace and punctuation
+   - It contains the `###` delimiter sequence
+   - It contains a substantial portion of the transcription hint text, compared case-insensitively after trimming
+   - Its normalized form equals the normalized hint text
+3. Build the comparison against the same hint string that was passed to the transcription call. Do not hardcode a copy of the vocabulary list, since the hint varies by language.
+4. On rejection, return a structured response indicating no speech was detected. Do not call the chat completion. Do not call text-to-speech. Do not append anything to conversation history.
+5. Log one line on rejection: `[stt] rejected reason=<empty|hint_echo> lang=<code>`. Do not log the transcript text.
+
+### 5.2 Client-side silence gate
+
+6. Before uploading a recording, check its duration. If it is below a short minimum threshold, do not upload. Choose a threshold that a real one-word utterance would clear.
+7. Report the threshold chosen and the reasoning.
+8. On rejection, do not create a pending message bubble and do not enter the processing phase.
+9. Log one line: `[stt] skipped reason=too_short`.
+
+### 5.3 User-facing handling
+
+10. When the server returns the no-speech response, or the client silence gate fires, show a brief friendly message inviting the user to try again. Match the existing error copy style.
+11. Do not render a learner message bubble for a rejected turn.
+12. Ensure no pending bubble is left in state after a rejection. This must not reproduce the stranded-bubble defect.
+13. The conversation must remain usable. The next turn must proceed normally.
+
+### 5.4 Do not weaken transcription
+
+14. The hint passed to the transcription call stays exactly as it is. Do not shorten it, remove the delimiters, or change the vocabulary.
+
+## 6. Acceptance Checklist
+
+1. The system shall validate every transcript before using it for a chat completion.
+2. The system shall reject transcripts that are empty or contain only whitespace and punctuation.
+3. The system shall reject transcripts containing the `###` delimiter sequence.
+4. The system shall reject transcripts that substantially match the transcription hint passed for that request.
+5. The system shall derive the comparison text from the hint actually used, not from a hardcoded copy.
+6. The system shall not call the chat completion or text-to-speech when a transcript is rejected.
+7. The system shall not append a rejected turn to conversation history.
+8. The system shall not render a learner message bubble for a rejected turn.
+9. The system shall not leave a pending bubble in state after a rejection.
+10. The system shall show a brief retry message when a turn is rejected.
+11. The system shall skip upload for recordings below the minimum duration threshold.
+12. The system shall log `[stt] rejected reason=<empty|hint_echo> lang=<code>` and `[stt] skipped reason=too_short` without including transcript text.
+13. The system shall leave the transcription hint content unchanged.
+14. The system shall allow the conversation to continue normally after a rejected turn.
+15. The system shall pass typecheck with no errors.
+
+## 7. Out of Scope Reminder
+
+- Do not change the persona prompt or the cache key.
+- Do not change the pronunciation scoring route.
+- Do not touch the audio playback guards.
+- Do not shorten or remove the transcription hint.
+- Do not add an `AbortController`. That remains a separate spec.
+
+---
+
+## After The Build
+
+Test by recording deliberate silence: hold to talk, say nothing, release after a couple of seconds. Repeat three times.
+
+Expected: a friendly retry message each time, no learner bubble containing `###` or vocabulary lists, no Bolo reply, and `[stt] rejected` or `[stt] skipped` lines in the log.
+
+Then record a very short real utterance, a single word, and confirm it still goes through. If the silence threshold is too aggressive it will swallow legitimate one-word answers, which matters for a language app where "haan" is a complete sentence.
+
+Finally, run four normal turns and confirm nothing regressed.

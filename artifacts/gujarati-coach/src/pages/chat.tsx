@@ -393,6 +393,33 @@ export default function ChatPage() {
         return;
       }
 
+      // Duration gate: reject recordings too short to contain a real utterance.
+      // Threshold = 400 ms — comfortably clears a single short syllable ("ek",
+      // "haan") while catching accidental taps. When the browser cannot read the
+      // blob duration (NaN / Infinity) the gate is skipped so we never
+      // incorrectly reject a valid recording due to an unreliable measurement.
+      try {
+        const objectUrl = URL.createObjectURL(blob);
+        const blobDuration = await new Promise<number>((resolve) => {
+          const probe = new Audio(objectUrl);
+          probe.addEventListener("loadedmetadata", () => resolve(probe.duration), { once: true });
+          probe.addEventListener("error", () => resolve(NaN), { once: true });
+          // Bail out after 500 ms so a stuck probe never blocks the turn.
+          setTimeout(() => resolve(NaN), 500);
+        });
+        URL.revokeObjectURL(objectUrl);
+        if (Number.isFinite(blobDuration) && blobDuration < 0.4) {
+          console.log("[stt] skipped reason=too_short");
+          setMessages((prev) => prev.filter((m) => !m.pending));
+          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+          setPhase("idle");
+          finishingRef.current = false;
+          return;
+        }
+      } catch {
+        // Duration probe failed — let the recording through.
+      }
+
       // Convert blob to base64.
       const buf = await blob.arrayBuffer();
       const bytes = new Uint8Array(buf);
@@ -501,6 +528,23 @@ export default function ChatPage() {
               const t = (gPayload.transcript as string) ?? "";
               setMessages((prev) => [...prev, { role: "learner", text: t }]);
             } else if (evtName === "reply") {
+              // Server rejected transcript — no parrot reply. Let the greeting
+              // audio finish naturally, then return to idle with a retry message.
+              if (gPayload.noSpeech) {
+                const handleNoSpeech = () => {
+                  if (activeTurnRef.current === myTurn) {
+                    setPhase("idle");
+                    setErrorMsg("I didn't catch that — please try again!");
+                  }
+                };
+                if (greetingEnded) {
+                  handleNoSpeech();
+                } else {
+                  pendingPlay = handleNoSpeech;
+                }
+                break gOuter;
+              }
+
               const rText = (gPayload.replyText as string) ?? "";
               const rEnglish = (gPayload.replyEnglish as string) ?? "";
               const rTranscriptEnglish = (gPayload.transcriptEnglish as string) ?? "";
@@ -718,6 +762,16 @@ export default function ChatPage() {
               teardownStream();
               reader.cancel().catch(() => {});
               return;
+            }
+
+            // Server rejected the transcript (silent recording / prompt echo).
+            // Remove the pending bubble and show a friendly retry message.
+            if (payload.noSpeech) {
+              teardownStream();
+              setMessages((prev) => prev.filter((m) => !m.pending));
+              setErrorMsg("I didn't catch that — please try again!");
+              setPhase("idle");
+              break outer;
             }
 
             const replyText = (payload.replyText as string) ?? "";

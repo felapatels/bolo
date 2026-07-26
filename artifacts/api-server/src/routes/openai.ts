@@ -1146,6 +1146,20 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       },
     );
 
+    // Guard: no speech detected (silent recording or transcription hint echo).
+    // No LLM/TTS was called; nothing to bill. Return immediately.
+    if ("noSpeech" in result) {
+      req.log.info(`[stt] rejected reason=${result.reason} lang=${languageCode}`);
+      const noSpeechPayload = { noSpeech: true };
+      if (wantsSSE) {
+        sseWrite(res, "reply", noSpeechPayload);
+        res.end();
+      } else {
+        res.json(noSpeechPayload);
+      }
+      return;
+    }
+
     // Record usage from the server-measured duration, not any client claim.
     // Use the value captured by onTranscript (same as result.durationSeconds).
     await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);

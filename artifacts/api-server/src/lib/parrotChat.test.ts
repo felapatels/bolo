@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, type ParrotChatDeps, type ChatHistoryTurn } from "./parrotChat";
+import { runParrotTurn as _runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, type ParrotChatDeps, type ChatHistoryTurn, type ParrotTurnResult } from "./parrotChat";
+
+// Narrowing wrapper: all existing tests supply valid transcripts and never
+// trigger the no-speech path. Asserting the result shape here keeps all call
+// sites unchanged and surfaces an unexpected rejection as a test failure.
+async function runParrotTurn(...args: Parameters<typeof _runParrotTurn>): Promise<ParrotTurnResult> {
+  const r = await _runParrotTurn(...args);
+  assert.ok(!("noSpeech" in r), `Unexpected NoSpeechResult (reason: ${(r as { reason?: string }).reason})`);
+  return r as ParrotTurnResult;
+}
 import { wavDurationSeconds } from "./audioDuration";
 
 // Unit-tests for the conversational turn helper. All OpenAI calls are replaced
