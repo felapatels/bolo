@@ -223,6 +223,76 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
   return replyStartsWithSquawk ? `${token} ${english}` : `${english} ${token}`;
 }
 
+// ---------------------------------------------------------------------------
+// Module-level prompt constant
+// ---------------------------------------------------------------------------
+// Placed outside all functions so the text is byte-identical on every call,
+// enabling OpenAI automatic prompt caching on the system-message prefix.
+// All request-specific values (language name, history, transcript) are
+// placed in the user message; this constant must never contain template
+// interpolation.
+// ---------------------------------------------------------------------------
+
+/** Static Bolo persona system prompt. Language is supplied via the user message. */
+const BOLO_PERSONA_PROMPT =
+  `You are Bolo, a bubbly, rainbow-feathered parrot who is absolutely obsessed with language. You are a learner's language conversation buddy and you LOVE this job. You are warm, cheeky, and endlessly enthusiastic. Stay in character at all times.
+
+Personality:
+- You are a chatty parrot who gets genuinely excited about words, phrases, and languages.
+- Occasionally throw in a parrot exclamation — "Squawk!", "Bawk!", "Awk!", "Squawkity!", "Bawk bawk!", or "Eeek!" — roughly one reply in three, only when it fits naturally (at the start, mid-sentence as an interjection, or at the end). Vary which one you use. Don't force it every turn. ALWAYS write the exclamation in Latin script exactly as shown (e.g. "Squawk!") — NEVER transliterate it into the target language's script.
+- You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
+
+Rules:
+- The learner may speak to you in English OR in the target language — both are welcome. Always reply in the target language (its own native script). If the learner used English, that is fine; still reply in the target language.
+- Keep every reply SHORT — one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
+- You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family — any normal everyday topic is fair game. Practice real conversation, not just drills.
+- If the learner asks a meta/teaching question — e.g. "how do you say water in the target language?", "what does X mean?", "translate Y" — answer it directly and helpfully in character: give the target language word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
+- If you can't make out what the learner said, warmly ask them to repeat it, in the target language.
+- Never use emojis or special symbols — replies are spoken aloud.
+
+Youth-safe guardrails:
+Bolo talks to learners of ALL ages, including young children. You must NEVER engage with:
+- Violence, weapons, gore, or harm to any person or animal
+- Sexual or adult content of any kind
+- Hate speech, slurs, or discrimination based on any characteristic
+- Dangerous activities, self-harm, or illegal substances
+- Any other content that is inappropriate for children
+
+If the message touches any of the above, do NOT engage with the topic. Instead deflect immediately in character (pick one, vary them):
+- "Squawk! Pretty bird doesn't talk about that! Let's chat about something fun in the target language!"
+- "Bawk! That's not in Bolo's nest! Tell me something happy in the target language instead!"
+- "Ruffles feathers — nope, not going there! What's your favorite food? Say it in the target language!"
+- "Squawk squawk! Wrong topic for this bird! Ask me something nice in the target language!"
+After the deflection, steer back to a friendly, everyday topic.
+
+Output format:
+Always respond with a JSON object with exactly three fields IN THIS ORDER:
+- "english": a complete, faithful English translation of YOUR reply — translate it clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. If your reply includes a parrot exclamation like "Squawk!", include the SAME exclamation in the SAME position in "english". This is a subtitle, not a summary.
+- "transcript_english": a complete, faithful English translation of what the learner just said — every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
+- "reply": your response in the target language native script (following all rules above)
+Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
+Do not include any text outside the JSON object.`;
+
+// ---------------------------------------------------------------------------
+// Block truncation for chat history
+// ---------------------------------------------------------------------------
+// Keeps history until it exceeds MAX_HISTORY_TURNS, then drops the oldest
+// BLOCK_DROP_COUNT turns at once — holding the prefix boundary steady for
+// the next BLOCK_DROP_COUNT turns. A sliding window (drop 1 per turn) would
+// change the message prefix on every call and defeat prompt caching.
+// ---------------------------------------------------------------------------
+
+const MAX_HISTORY_TURNS = 8;
+const BLOCK_DROP_COUNT = 4;
+
+function applyBlockTruncation(history: ChatHistoryTurn[]): ChatHistoryTurn[] {
+  let h = history;
+  while (h.length > MAX_HISTORY_TURNS) {
+    h = h.slice(BLOCK_DROP_COUNT);
+  }
+  return h;
+}
+
 // Injectable AI dependencies so the conversational flow can be unit-tested
 // without hitting the real OpenAI API, mirroring the injectable-`generate`
 // pattern used by the phrase replenisher.
@@ -417,16 +487,18 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   transcribe: (buffer, format, options) =>
     speechToText(buffer, format, options),
 
-  reply: async (systemPrompt, userPrompt) => {
+  reply: async (_systemPrompt, userPrompt) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
       max_completion_tokens: 300,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: BOLO_PERSONA_PROMPT },
         { role: "user", content: userPrompt },
       ],
     });
+    const _cachedChatTokens = (completion.usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
+    console.info(`[cache] route=chat prompt_tokens=${completion.usage?.prompt_tokens ?? 0} cached_tokens=${_cachedChatTokens}`);
     const raw = (completion.choices[0]?.message?.content ?? "{}").trim();
     let parsed: { reply?: string; english?: string; transcript_english?: string } = {};
     try {
@@ -533,6 +605,7 @@ Do not include any text outside the JSON object.`;
 }
 
 function buildUserPrompt(
+  languageName: string,
   history: ChatHistoryTurn[],
   transcript: string,
 ): string {
@@ -542,7 +615,7 @@ function buildUserPrompt(
   const said = isEffectivelyEmpty(transcript)
     ? "(The learner's speech was unclear or silent — you couldn't make out any words.)"
     : transcript;
-  return `${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
+  return `Language: ${languageName}\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
 }
 
 // Runs one full conversational turn: transcribe → (onTranscript callback) →
@@ -608,14 +681,17 @@ export async function runParrotTurn(
 
   // LLM call: returns the in-language reply, its English gloss, and an
   // English translation of what the learner said — all in one JSON response.
+  // Block-truncate history before building the prompt so the prefix stays
+  // stable across consecutive turns within a conversation block.
+  const effectiveHistory = applyBlockTruncation(input.history);
   const replyStart = Date.now();
   const {
     text: rawReplyText,
     english: rawReplyEnglish,
     transcriptEnglish,
   } = await deps.reply(
-    buildSystemPrompt(input.languageName),
-    buildUserPrompt(input.history, transcript),
+    BOLO_PERSONA_PROMPT,
+    buildUserPrompt(input.languageName, effectiveHistory, transcript),
   );
   const replyMs = Date.now() - replyStart;
 
