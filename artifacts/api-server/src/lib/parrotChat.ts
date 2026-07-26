@@ -306,16 +306,16 @@ After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
 Always respond with a JSON object with exactly three fields IN THIS ORDER:
+- "reply": YOUR response in the target language native script (following all rules above).
 - "english": the English translation of YOUR OWN reply — what YOU (Bolo) just said, translated into English, clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. If your reply includes a parrot exclamation, include the SAME exclamation in the SAME position in "english". This is a subtitle of your reply, not a summary and not a translation of the learner's words.
 - "transcript_english": the English translation of WHAT THE LEARNER JUST SAID — their words, not yours; every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent.
-- "reply": YOUR response in the target language native script (following all rules above).
 
 Field ownership rules — read carefully:
 - "english" contains YOUR words in English. It must never contain a translation of the learner's utterance. That is what "transcript_english" is for. Confusing these two fields is the single most common error — do not make it.
 - "transcript_english" contains THE LEARNER'S words in English. It must never contain your reply.
 - Before returning, verify: does "english" read as a translation of "reply"? If not, you have the fields wrong — fix them before outputting.
 
-Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
+Always write "reply" first; "english" is the translation of "reply" and must be written after it.
 Do not include any text outside the JSON object.
 
 Language identification: the user message begins with "Language: <name>". Find that language in the Language Script Rules section below and follow its rendering instruction exactly — reply in the specified native script, never romanize.
@@ -329,7 +329,7 @@ ${LANGUAGE_RULES_PROMPT}`;
 // BOLO_PERSONA_PROMPT or LANGUAGE_RULES_PROMPT changes. This ensures that
 // OpenAI does not serve a cached prefix built from the old constant.
 // ---------------------------------------------------------------------------
-const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v3";
+const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v4";
 
 // ---------------------------------------------------------------------------
 // Block truncation for chat history
@@ -658,10 +658,10 @@ After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
 Always respond with a JSON object with exactly three fields IN THIS ORDER:
+- "reply": your response in ${languageName} native script (following all rules above)
 - "english": a complete, faithful English translation of YOUR reply — translate it clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. If your reply includes a parrot exclamation like "Squawk!", include the SAME exclamation in the SAME position in "english". This is a subtitle, not a summary.
 - "transcript_english": a complete, faithful English translation of what the learner just said — every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
-- "reply": your response in ${languageName} native script (following all rules above)
-Always write "english" and "transcript_english" BEFORE "reply" so they are never cut off.
+Always write "reply" first; "english" is the translation of "reply" and must be written after it.
 Do not include any text outside the JSON object.`;
 }
 
