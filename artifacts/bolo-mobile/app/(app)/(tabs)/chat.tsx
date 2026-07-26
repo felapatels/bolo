@@ -654,7 +654,7 @@ export default function ChatScreen() {
           };
           xhr.onerror = () => reject(new TypeError('Network error'));
           xhr.ontimeout = () => reject(new TypeError('Request timed out'));
-          xhr.send(JSON.stringify({ languageCode: chatLang, audioBase64, history: [], clientDurationSeconds }));
+          xhr.send(JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: 'audio/m4a', history: [], clientDurationSeconds }));
         });
       } catch {
         // Network error — greeting already playing, let it finish.
@@ -954,6 +954,7 @@ export default function ChatScreen() {
         xhr.send(JSON.stringify({
           languageCode: chatLang,
           audioBase64,
+          mimeType: 'audio/m4a',
           history,
           clientDurationSeconds,
         }));

@@ -589,15 +589,35 @@ export default function PracticeScreen() {
   React.useEffect(() => {
     if (appliedStartRef.current || list.length === 0) return;
     appliedStartRef.current = true;
+    let startIdx = 0;
     if (startPhraseId != null) {
       const idx = list.findIndex((p) => p.id === Number(startPhraseId));
-      if (idx > 0) setIndex(idx);
+      if (idx > 0) { startIdx = idx; setIndex(idx); }
     } else if (skipMastered === 'true') {
       const idx = list.findIndex(
         (p) => !p.mastered || p.bestScore == null,
       );
-      if (idx > 0) setIndex(idx);
+      if (idx > 0) { startIdx = idx; setIndex(idx); }
     }
+    // Pre-warm the starting phrase's coach audio as soon as the list loads,
+    // before playCoach() runs — gpt-audio synthesis takes 1–2 s and without
+    // this the record button stays blocked (coachPlaying=true) for that whole
+    // window.
+    void (async () => {
+      const silent = await loadSilentMode();
+      if (silent) return;
+      const startPhrase = list[startIdx];
+      if (!startPhrase) return;
+      const cacheKey = `${startPhrase.id}:${ttsVoice}`;
+      if (audioCacheRef.current.has(cacheKey)) return;
+      startingPhraseAudioRef.current = synth
+        .mutateAsync({ data: { text: startPhrase.nativeScript, languageName: activeLanguage?.name } })
+        .then((res) => {
+          audioCacheRef.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format || 'mp3' });
+          return res;
+        })
+        .catch(() => null);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list.length]);
 
@@ -613,6 +633,15 @@ export default function PracticeScreen() {
   // Feedback-voice synthesis started as soon as the evaluation returns, so
   // the result card can play it with minimal extra wait.
   const feedbackAudioRef = React.useRef<Promise<{
+    audioBase64: string;
+    format?: string;
+  } | null> | null>(null);
+
+  // Pre-warmed audio for the starting phrase — kicked off when the phrase list
+  // first loads so the coach voice plays instantly instead of waiting 1–2 s
+  // for gpt-audio synthesis after coachPlaying flips to true (which blocks
+  // the record button for the whole synthesis window).
+  const startingPhraseAudioRef = React.useRef<Promise<{
     audioBase64: string;
     format?: string;
   } | null> | null>(null);
@@ -726,14 +755,20 @@ export default function PracticeScreen() {
       setCoachPlaying(true);
       const cacheKey = `${phrase.id}:${ttsVoice}`;
       const cached = audioCacheRef.current.get(cacheKey);
+      // Consume any pre-warmed synthesis promise started when the list loaded.
+      const pendingPrewarm = !cached ? startingPhraseAudioRef.current : null;
+      if (pendingPrewarm) startingPhraseAudioRef.current = null;
+      const prewarm = pendingPrewarm ? await pendingPrewarm : null;
       const res =
         cached ??
+        prewarm ??
         (await synth.mutateAsync({
           data: {
             text: phrase.nativeScript,
             languageName: activeLanguage?.name,
           },
         }));
+      if (!res) { if (token === playTokenRef.current) setCoachPlaying(false); return; }
       audioCacheRef.current.set(cacheKey, {
         audioBase64: res.audioBase64,
         format: res.format || 'mp3',
