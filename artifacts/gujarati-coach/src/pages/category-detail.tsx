@@ -138,6 +138,10 @@ export default function CategoryDetail() {
   }
 
   const masteredCount = phrases?.filter(p => p.mastered).length || 0;
+  const totalCount = phrases?.length ?? 0;
+  // Show "Resume" (and skip to the first unmastered phrase) when the learner
+  // has made some progress but hasn't mastered everything yet.
+  const canResume = masteredCount > 0 && masteredCount < totalCount;
 
   // Show the "more phrases coming" hint only to Free learners who have engaged
   // (attempted or mastered) at least 80 % of the topic's visible phrases and
@@ -193,11 +197,11 @@ export default function CategoryDetail() {
             )}
 
             <Link
-              href={`/practice/${id}`}
+              href={canResume ? `/practice/${id}?skipMastered=true` : `/practice/${id}`}
               className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
             >
               <Play className="w-6 h-6 fill-current" />
-              <span>Practice All</span>
+              <span>{canResume ? "Resume" : "Practice All"}</span>
             </Link>
           </motion.div>
 
