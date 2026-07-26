@@ -82,6 +82,19 @@ export default function CategoryScreen() {
     },
   });
 
+  // "Resume" vs "Start practice": show Resume (and skip to the first unmastered
+  // phrase) when the learner has already mastered at least one phrase but hasn't
+  // finished them all. The all-mastered case already shows a "Review phrases"
+  // card and starting over from phrase 1 would be confusing there.
+  const phraseList = phrases.data ?? [];
+  const isPhraseResume =
+    phraseList.some((p) => p.mastered) && !phraseList.every((p) => p.mastered);
+
+  const sentenceList = sentences.data ?? [];
+  const isSentenceResume =
+    sentenceList.some((p) => p.mastered) &&
+    !sentenceList.every((p) => p.mastered);
+
   // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry" —
   // route the learner to the paywall, mirroring the web UpgradeScreen. Any
   // other failure (e.g. a 502 when AI generation fails) is retry-able: nothing
@@ -287,11 +300,13 @@ export default function CategoryScreen() {
                     />
                   ))}
                   <ChunkyButton
-                    title="Practice sentences"
+                    title={isSentenceResume ? 'Resume sentences' : 'Practice sentences'}
                     icon="mic"
                     onPress={() =>
                       router.push(
-                        `/(app)/practice/${categoryId}?stage=sentences`,
+                        isSentenceResume
+                          ? `/(app)/practice/${categoryId}?stage=sentences&skipMastered=true`
+                          : `/(app)/practice/${categoryId}?stage=sentences`,
                       )
                     }
                     style={{ marginTop: 4 }}
@@ -310,9 +325,15 @@ export default function CategoryScreen() {
           style={[styles.footer, { backgroundColor: colors.background }]}
         >
           <ChunkyButton
-            title="Start practice"
+            title={isPhraseResume ? 'Resume' : 'Start practice'}
             icon="mic"
-            onPress={() => router.push(`/(app)/practice/${categoryId}`)}
+            onPress={() =>
+              router.push(
+                isPhraseResume
+                  ? `/(app)/practice/${categoryId}?skipMastered=true`
+                  : `/(app)/practice/${categoryId}`,
+              )
+            }
           />
         </Animated.View>
       ) : null}
