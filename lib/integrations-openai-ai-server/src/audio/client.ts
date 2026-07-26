@@ -268,16 +268,20 @@ export async function textToSpeechElevenLabs(
       // When a language_id is available, include it so the model selects the
       // correct phoneme inventory rather than guessing from the Unicode script.
       ...(languageId ? { language_id: languageId } : {}),
-      // Improve clarity and consistency for non-Latin scripts. stability=0.7
-      // keeps the voice steady without sounding robotic; similarity_boost=0.8
-      // preserves the chosen voice's character; style=0.2 adds natural prosodic
-      // variation so the output sounds like a native speaker rather than a flat
-      // TTS reading; use_speaker_boost adds a final audio enhancement pass that
-      // helps non-Latin phonemes come through more clearly on device speakers.
+      // Voice settings tuned for eleven_multilingual_v2 + Laura.
+      // stability=0.5: balanced — lets the model insert natural breath pauses
+      //   and prosodic variation (0.7 was calibrated for the flash model and
+      //   runs too steadily / without natural pauses on multilingual_v2).
+      // similarity_boost=0.8: preserves Laura's voice character.
+      // style=0.3: slightly more expressive to support natural pacing.
+      // use_speaker_boost: final audio enhancement pass for non-Latin clarity.
+      // speed=0.9 (top-level): 10% slower delivery — prevents the rushed
+      //   cadence that multilingual_v2 defaults to with Latin-script settings.
+      speed: 0.9,
       voice_settings: {
-        stability: 0.7,
+        stability: 0.5,
         similarity_boost: 0.8,
-        style: 0.2,
+        style: 0.3,
         use_speaker_boost: true,
       },
     }),
@@ -416,11 +420,12 @@ export async function textToSpeechElevenLabsStream(
       text,
       model_id: modelId,
       ...(languageId ? { language_id: languageId } : {}),
-      // Same voice_settings as the non-streaming endpoint for consistent output.
+      // Same voice_settings + speed as the non-streaming endpoint.
+      speed: 0.9,
       voice_settings: {
-        stability: 0.7,
+        stability: 0.5,
         similarity_boost: 0.8,
-        style: 0.2,
+        style: 0.3,
         use_speaker_boost: true,
       },
     }),
