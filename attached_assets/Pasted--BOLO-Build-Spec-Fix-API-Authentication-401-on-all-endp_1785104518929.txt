@@ -1,0 +1,124 @@
+# BOLO Build Spec: Fix API Authentication (401 on all endpoints)
+
+Paste this entire spec into Replit Agent as a single message.
+
+This spec has two phases. **Phase 1 is read-only.** Do not write any code until Phase 1 findings are reported and confirmed.
+
+---
+
+## 0. Session Rules
+
+Project: BOLO (language learning app, 22 official Indian languages). Auth provider is Clerk.
+
+1. Do not run a broad discovery phase. This spec names the files to inspect.
+2. Do not refactor, rename, or reformat any code not named in Section 2.
+3. Do not add, remove, or upgrade dependencies without reporting first and stopping.
+4. Do not change the database schema.
+5. Do not change any UI, styling, or copy.
+6. Do not change any AI model string or prompt content.
+7. Do not touch the chat audio playback path, the pending-bubble handling, or the history window. Those are a separate spec.
+8. Stop and ask if anything is ambiguous. Do not guess.
+
+---
+
+## 1. Problem Statement
+
+Every authenticated API endpoint returns 401 Unauthorized. Confirmed from a browser console capture covering 2,027 lines: `/api/entitlements`, `/api/account`, `/api/categories`, `/api/progress/summary`, `/api/attempts/recent`, `/api/review/phrases`, `/api/badges`, `/api/openai/chat-greeting`, and `/api/openai/chat` all return 401. No other error type appears in the capture.
+
+Every one of those failures passes through the same stack frame: `custom-fetch.ts:382`.
+
+Downstream symptoms, all caused by this single failure:
+- Home page topic grid renders empty (`/api/categories` 401)
+- Sidebar shows "Free plan" for a Plus account (`/api/entitlements` and `/api/account` 401)
+- Chat fails with a client-side runtime error (`/api/openai/chat` 401)
+
+Cookie inspection shows Clerk cookies (`__session`, `__clerk_db_jwt`, `__client_uat`) each present in **two copies with different values**, one partitioned and one not, all with `SameSite=None` and `Secure` set. The two copies hold different JWTs and drift apart, so whichever copy the browser sends may carry a stale token.
+
+Additionally, a second symptom pattern reported by the user: the first chat turn of a session succeeds and the second fails with 401. Clerk session tokens are short-lived and require continuous refresh. A voice turn takes several seconds (record, upload, transcribe, generate, synthesize), so a token captured once at page mount can expire mid-session.
+
+**Hypothesis to verify in Phase 1:** the client fetch wrapper relies on cookies for API authentication rather than requesting a fresh Clerk token per request.
+
+## 2. Scope Boundaries
+
+Files in scope:
+- The client fetch wrapper containing line 382 (`custom-fetch.ts`)
+- The TanStack Query client configuration
+- The server-side auth middleware, read-only in Phase 1
+
+Every other file is off limits. Explicitly do NOT touch `parrotChat.ts`, `chat.tsx`, `openai.ts`, `client.ts`, or `seedData.ts`.
+
+---
+
+## 3. Phase 1: Read-Only Findings
+
+Report all of the following. Change nothing.
+
+1. Show the full implementation of the fetch wrapper around `custom-fetch.ts:382`. State exactly how the request is authenticated: whether `credentials` is set and to what value, whether any `Authorization` header is attached, and whether any Clerk SDK method is called to obtain a token.
+2. State how the server verifies authentication on these routes. Name the middleware and the file. State whether it reads the session from a cookie, from an `Authorization: Bearer` header, or both.
+3. Confirm whether the installed Clerk server middleware accepts a bearer token on the `Authorization` header. Quote the relevant code or configuration. This determines whether Phase 2 requires a server change or is client-only.
+4. State which Clerk client SDK is installed and its version, and confirm whether a token-getter method is available in this codebase (for example `getToken()` from the Clerk session or auth hook).
+5. Report the TanStack Query client's default `retry` configuration. The console capture shows `/api/entitlements` and `/api/account` each requested four times, indicating retries on 401.
+6. Report whether any Clerk cookie option in this codebase sets the `Partitioned` attribute, or whether the duplicate partitioned cookies are produced by Clerk defaults.
+
+**Stop after reporting. Do not proceed to Phase 2 until the user confirms.**
+
+---
+
+## 4. Phase 2: Implementation
+
+Build only after Phase 1 is confirmed.
+
+### 4.1 Per-request bearer token
+
+1. In the fetch wrapper, obtain a fresh Clerk session token immediately before each request using the Clerk SDK's token-getter method. Do not capture a token once at module load, at component mount, or in a closure.
+2. Attach the token as `Authorization: Bearer <token>` on every outgoing API request.
+3. Keep `credentials: "include"` if it is already set. Do not remove cookie-based auth in this change. The bearer token is added as the primary mechanism while the cookie path remains as fallback.
+4. If the token-getter returns null or throws, do not send an `Authorization` header and do not throw. Let the request proceed and fail normally so the existing error path still works.
+5. Do not cache the token in a module-level variable. The Clerk SDK handles its own caching and refresh internally.
+
+### 4.2 Server acceptance
+
+6. If Phase 1 finding 3 shows the server middleware does not accept bearer tokens, stop and report. Do not modify server auth without confirmation.
+7. If it does accept bearer tokens, no server change is required.
+
+### 4.3 Retry configuration
+
+8. Configure the TanStack Query client so queries do not retry on 401 or 403 responses. Retrying an authentication failure cannot succeed and multiplies request volume.
+9. Leave retry behavior for all other status codes unchanged.
+
+### 4.4 Instrumentation
+
+10. On any API response with status 401, log one line: `[auth] 401 path=<path> had_bearer=<true|false>`.
+11. This log must not include the token value, any part of it, or any cookie value.
+
+## 5. Acceptance Checklist
+
+1. The system shall request a fresh Clerk session token immediately before each authenticated API request.
+2. The system shall attach that token as an `Authorization: Bearer` header on every authenticated API request.
+3. The system shall not store a session token in a module-level variable or a closure captured at mount.
+4. The system shall proceed with the request without an `Authorization` header when the token-getter returns null, rather than throwing.
+5. The system shall not retry queries that fail with 401 or 403.
+6. The system shall log `[auth] 401 path=<path> had_bearer=<true|false>` on any 401 response.
+7. The system shall never log a token value, a partial token, or a cookie value.
+8. The system shall load the home page topic grid populated for a signed-in user.
+9. The system shall display the correct plan tier in the sidebar for a Plus account.
+10. The system shall complete at least four consecutive chat turns in one session without a 401.
+11. The system shall pass typecheck with no errors.
+
+## 6. Out of Scope Reminder
+
+- Do not touch the chat audio playback path, the pending message bubble, the history window, or `applyBlockTruncation`.
+- Do not change any AI model string or prompt constant.
+- Do not modify server auth middleware without reporting and stopping first.
+- Do not fix the two pre-existing TTS cache test failures.
+
+---
+
+## After The Build
+
+Test in this order:
+
+1. Open the app in a normal browser tab, not the Replit editor preview. Confirm topics load and the sidebar reads Plus.
+2. Open the app inside the Replit editor preview. Confirm the same. This is the partitioned-cookie case and is the stricter test.
+3. Run a chat session of at least four turns, deliberately pausing about a minute between turn one and turn two. This is the token-expiry case that produced the original report.
+4. Check the console for any `[auth] 401` lines. If any appear with `had_bearer=true`, the token is being sent but rejected, which points at server-side verification rather than the client.
