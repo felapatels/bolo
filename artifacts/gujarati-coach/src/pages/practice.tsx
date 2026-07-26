@@ -304,7 +304,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // after scoring. Mirrored in React state so the header quick-toggle applies
   // instantly without a full remount, matching the mobile quick-mute pattern.
   const [spokenFeedback, setSpokenFeedback] = useState<boolean>(loadSpokenFeedback);
+  // Ref mirror so finishRecording (a useCallback) always sees the live value
+  // without needing spokenFeedback in its deps and causing excess re-creation.
+  const spokenFeedbackRef = useRef(spokenFeedback);
   const changeSpokenFeedback = (enabled: boolean) => {
+    spokenFeedbackRef.current = enabled;
     setSpokenFeedback(enabled);
     saveSpokenFeedback(enabled);
   };
@@ -324,22 +328,44 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every "hear it again" sometimes yields a different (wrong) reading.
   const coachAudioCacheRef = useRef(new Map<number, { audioBase64: string; format: string }>());
+  // Pre-warmed audio for the starting phrase — kicked off when phrases first
+  // load so the coach voice plays instantly instead of waiting 1–2 s for
+  // gpt-audio synthesis after state flips to "playing_coach".
+  const startingPhraseAudioRef = useRef<Promise<{ audioBase64: string; format: string } | null> | null>(null);
+  // Pre-synthesized feedback audio — started in parallel with createAttempt
+  // so the voice is ready (or nearly ready) when the result card appears.
+  const feedbackAudioPendingRef = useRef<Promise<{ audioBase64: string; format: string } | null> | null>(null);
 
   const phrase = phrases?.[currentIndex];
 
   // Auto-start when phrases load (jump to a specific phrase if requested)
   useEffect(() => {
     if (phrases && phrases.length > 0 && state === "intro") {
+      let startIdx = 0;
       if (startPhraseId != null) {
         const idx = phrases.findIndex(p => p.id === parseInt(startPhraseId, 10));
-        if (idx >= 0) setCurrentIndex(idx);
+        if (idx >= 0) startIdx = idx;
       } else if (skipMastered) {
         // Advance past already-mastered phrases so the session starts where
         // the learner actually has work to do. Falls back to index 0 if
         // every phrase is mastered (avoids an empty session).
         const firstUnmastered = phrases.findIndex(p => !p.mastered);
-        if (firstUnmastered > 0) setCurrentIndex(firstUnmastered);
+        if (firstUnmastered > 0) startIdx = firstUnmastered;
       }
+      if (startIdx > 0) setCurrentIndex(startIdx);
+
+      // Pre-warm the starting phrase's audio immediately so the coach voice
+      // plays as soon as state flips to "playing_coach". Without this, gpt-audio
+      // synthesis (1–2 s) happens *after* the state change, leaving a window
+      // where the belly button looks tappable but recordings are silently dropped.
+      const startPhrase = phrases[startIdx];
+      if (!silentModeRef.current && startPhrase && !coachAudioCacheRef.current.has(startPhrase.id)) {
+        startingPhraseAudioRef.current = synthesize
+          .mutateAsync({ data: { text: startPhrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } })
+          .then(res => { coachAudioCacheRef.current.set(startPhrase.id, res); return res; })
+          .catch(() => null);
+      }
+
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentModeRef.current ? "idle" : "playing_coach");
     }
@@ -379,7 +405,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const playCoach = async () => {
         try {
           const cached = coachAudioCacheRef.current.get(phrase.id);
-          const res = cached ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } });
+          // Consume any pre-warmed synthesis promise that was started when
+          // phrases first loaded — avoids a redundant gpt-audio API call.
+          const pendingPrewarm = !cached ? startingPhraseAudioRef.current : null;
+          if (pendingPrewarm) startingPhraseAudioRef.current = null;
+          const prewarm = pendingPrewarm ? await pendingPrewarm : null;
+          const res = cached ?? prewarm ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } });
           coachAudioCacheRef.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
           if (cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
@@ -418,8 +449,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       let cancelled = false;
       const speak = async () => {
         try {
-          const res = await synthesize.mutateAsync({ data: { text: spokenText } });
-          if (cancelled) return;
+          // Consume the pre-synthesized audio started in finishRecording
+          // (parallel with createAttempt). If it's ready the voice plays
+          // immediately; if not, we just await the same in-flight promise.
+          const pending = feedbackAudioPendingRef.current;
+          feedbackAudioPendingRef.current = null;
+          const res = pending
+            ? await pending
+            : await synthesize.mutateAsync({ data: { text: spokenText } });
+          if (!res || cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           feedbackAudioRef.current = audio;
           await audio.play();
@@ -508,6 +546,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           english: phrase!.english,
         },
       }));
+
+      // Kick off spoken-feedback TTS in parallel with createAttempt so the
+      // voice is ready (or nearly ready) when the result card appears.
+      // gpt-audio synthesis takes ~1–2 s; pre-warming here cuts that delay.
+      const fbText = [evalRes.feedback, evalRes.tip].filter(Boolean).join(" ");
+      if (fbText && spokenFeedbackRef.current) {
+        feedbackAudioPendingRef.current = synthesize
+          .mutateAsync({ data: { text: fbText } })
+          .then(res => res)
+          .catch(() => null);
+      }
 
       // The learner has their score — show it now. Saving the attempt below
       // must never take the result away from them.
@@ -627,6 +676,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   const handleNext = () => {
+    feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
     setResult(null);
     setShowConfetti(false);
     if (phrases && currentIndex < phrases.length - 1) {
@@ -655,6 +705,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   const handleRetry = () => {
+    feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
     setResult(null);
     setShowConfetti(false);
     // Return through the coach playback so the learner hears the model

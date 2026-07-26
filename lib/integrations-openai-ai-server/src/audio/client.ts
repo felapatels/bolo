@@ -106,9 +106,15 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
  * through unchanged. Only truly unrecognised formats go through the ffmpeg
  * WAV conversion path; this avoids ffmpeg crashes on short recordings that
  * produce a valid WebM/MP4 container but no decodable frames.
+ *
+ * @param mimeTypeHint  The MIME type reported by the client (e.g.
+ *   "audio/webm;codecs=opus"). Used as a fallback when magic-byte detection
+ *   fails (e.g. very short recordings whose headers are incomplete), so we
+ *   pass the buffer directly to Whisper instead of routing it through ffmpeg.
  */
 export async function ensureCompatibleFormat(
-  audioBuffer: Buffer
+  audioBuffer: Buffer,
+  mimeTypeHint?: string,
 ): Promise<{ buffer: Buffer; format: "wav" | "mp3" | "webm" | "mp4" | "ogg" }> {
   const detected = detectAudioFormat(audioBuffer);
   if (detected === "wav")  return { buffer: audioBuffer, format: "wav" };
@@ -118,6 +124,21 @@ export async function ensureCompatibleFormat(
   if (detected === "webm") return { buffer: audioBuffer, format: "webm" };
   if (detected === "mp4")  return { buffer: audioBuffer, format: "mp4" };
   if (detected === "ogg")  return { buffer: audioBuffer, format: "ogg" };
+
+  // Magic bytes didn't match — use the client-reported MIME type as a
+  // fallback before routing through ffmpeg. Short recordings (< 100 ms)
+  // can produce a container skeleton whose magic bytes are intact in the
+  // raw stream but get lost during chunking; trusting the MIME type here
+  // lets Whisper handle them gracefully instead of crashing ffmpeg.
+  if (mimeTypeHint) {
+    const h = mimeTypeHint.toLowerCase();
+    if (h.includes("webm")) return { buffer: audioBuffer, format: "webm" };
+    if (h.includes("mp4") || h.includes("m4a")) return { buffer: audioBuffer, format: "mp4" };
+    if (h.includes("ogg"))  return { buffer: audioBuffer, format: "ogg" };
+    if (h.includes("mp3") || h.includes("mpeg")) return { buffer: audioBuffer, format: "mp3" };
+    if (h.includes("wav"))  return { buffer: audioBuffer, format: "wav" };
+  }
+
   // Unknown container: attempt a WAV conversion via ffmpeg as a last resort.
   const wavBuffer = await convertToWav(audioBuffer);
   return { buffer: wavBuffer, format: "wav" };

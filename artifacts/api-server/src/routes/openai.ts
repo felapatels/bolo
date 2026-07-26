@@ -525,7 +525,9 @@ router.post(
     let transcript = "";
     try {
       const rawBuffer = Buffer.from(audioBase64, "base64");
-      const { buffer, format } = await ensureCompatibleFormat(rawBuffer);
+      // Pass the client-reported mimeType as a fallback hint so very short
+      // recordings whose magic bytes aren't detected skip the ffmpeg path.
+      const { buffer, format } = await ensureCompatibleFormat(rawBuffer, parsed.data.mimeType);
       transcript = (await speechToText(buffer, format, sttOptions)).trim();
 
       // Second pass with the higher-quality model when the fast pass heard
