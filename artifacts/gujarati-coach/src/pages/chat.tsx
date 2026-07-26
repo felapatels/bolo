@@ -146,6 +146,27 @@ export default function ChatPage() {
     }
   }, []);
 
+  /**
+   * Stops and releases whatever audio element is currently in playbackRef.
+   * Safe to call when the ref is null or the element is already disposed.
+   * All reply-playback paths call this before assigning a new element so no
+   * audio is ever orphaned.
+   */
+  const stopCurrentPlayback = useCallback(() => {
+    const el = playbackRef.current;
+    if (!el) return;
+    try {
+      el.pause();
+      el.onended = null;
+      el.onerror = null;
+      el.onplay = null;
+      el.currentTime = 0;
+    } catch {
+      // Detached or already-disposed element — ignore.
+    }
+    playbackRef.current = null;
+  }, []);
+
   // Clear conversation when language changes.
   useEffect(() => {
     clearWordReveal();
@@ -332,6 +353,8 @@ export default function ChatPage() {
       setPhase("playing");
       const play = () => {
         if (s.failed || activeTurnRef.current !== myTurn) return;
+        console.log('[audio] play path=stream');
+        stopCurrentPlayback();
         playbackRef.current = s.audio;
         s.audio.onended = () => {
           s.ended = true;
@@ -344,9 +367,17 @@ export default function ChatPage() {
       if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
         const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][s.squawkVariant];
         const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
-        sfx.onended = play;
-        sfx.onerror = play;
-        sfx.play().catch(play);
+        // One-shot guard: whichever of onended / onerror / play().catch fires
+        // first wins; subsequent callbacks are silently dropped.
+        let sfxFired = false;
+        const oncePlay = () => {
+          if (sfxFired) { console.log('[audio] duplicate blocked path=stream'); return; }
+          sfxFired = true;
+          play();
+        };
+        sfx.onended = oncePlay;
+        sfx.onerror = oncePlay;
+        sfx.play().catch(oncePlay);
       } else {
         play();
       }
@@ -506,6 +537,8 @@ export default function ChatPage() {
                 setPhase("playing");
                 const playRealAudio = () => {
                   if (activeTurnRef.current !== myTurn) return;
+                  console.log('[audio] play path=reply');
+                  stopCurrentPlayback();
                   const ra = new Audio(`data:audio/${rFmt};base64,${rAudio}`);
                   playbackRef.current = ra;
                   ra.onended = () => {
@@ -520,9 +553,15 @@ export default function ChatPage() {
                 if (rSquawk !== null && rSquawk !== undefined) {
                   const rSfxFile = ["squawk_a", "squawk_b", "squawk_c"][rSquawk];
                   const rSfx = new Audio(`/gujarati-coach/sounds/${rSfxFile}.mp3`);
-                  rSfx.onended = playRealAudio;
-                  rSfx.onerror = playRealAudio;
-                  rSfx.play().catch(playRealAudio);
+                  let rSfxFired = false;
+                  const onceRealAudio = () => {
+                    if (rSfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
+                    rSfxFired = true;
+                    playRealAudio();
+                  };
+                  rSfx.onended = onceRealAudio;
+                  rSfx.onerror = onceRealAudio;
+                  rSfx.play().catch(onceRealAudio);
                 } else {
                   playRealAudio();
                 }
@@ -823,6 +862,8 @@ export default function ChatPage() {
             setPhase("playing");
 
             const playReply = () => {
+              console.log('[audio] play path=reply');
+              stopCurrentPlayback();
               const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
@@ -832,9 +873,15 @@ export default function ChatPage() {
             if (squawkVariant !== null && squawkVariant !== undefined) {
               const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
               const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
-              sfx.onended = playReply;
-              sfx.onerror = playReply;
-              sfx.play().catch(playReply);
+              let sfxFired = false;
+              const onceReply = () => {
+                if (sfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
+                sfxFired = true;
+                playReply();
+              };
+              sfx.onended = onceReply;
+              sfx.onerror = onceReply;
+              sfx.play().catch(onceReply);
             } else {
               playReply();
             }
@@ -893,7 +940,7 @@ export default function ChatPage() {
         finishingRef.current = false;
       }
     }
-  }, [recorder, chatLang, messages, setLocation, clearWordReveal, prefersReducedMotion]);
+  }, [recorder, chatLang, messages, setLocation, clearWordReveal, prefersReducedMotion, stopCurrentPlayback]);
 
   const showTimeIndicator =
     !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
@@ -903,12 +950,9 @@ export default function ChatPage() {
   const capExhausted = showTimeIndicator && secondsRemaining! <= 0;
 
   const stopPlayback = useCallback(() => {
-    if (playbackRef.current) {
-      playbackRef.current.pause();
-      playbackRef.current = null;
-    }
+    stopCurrentPlayback();
     setPhase("idle");
-  }, []);
+  }, [stopCurrentPlayback]);
 
   const startRecording = useCallback(async () => {
     // Cap check for free users.
@@ -1068,6 +1112,8 @@ export default function ChatPage() {
             setPhase("playing");
             const playReply = () => {
               if (activeTurnRef.current !== myTurn) return;
+              console.log('[audio] play path=reply');
+              stopCurrentPlayback();
               const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
@@ -1076,9 +1122,15 @@ export default function ChatPage() {
             if (squawkVariant !== null && squawkVariant !== undefined) {
               const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
               const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
-              sfx.onended = playReply;
-              sfx.onerror = playReply;
-              sfx.play().catch(playReply);
+              let sfxFired = false;
+              const onceReply = () => {
+                if (sfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
+                sfxFired = true;
+                playReply();
+              };
+              sfx.onended = onceReply;
+              sfx.onerror = onceReply;
+              sfx.play().catch(onceReply);
             } else {
               playReply();
             }
@@ -1110,7 +1162,7 @@ export default function ChatPage() {
     } finally {
       textSendingRef.current = false;
     }
-  }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation]);
+  }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation, stopCurrentPlayback]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
     if (capExhausted) return;
