@@ -3,7 +3,7 @@
 //  1. keeping the device's scheduled notifications in sync with the learner's
 //     progress (skip today once practiced, streak-aware copy), and
 //  2. routing a tapped reminder straight into a practice session.
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
@@ -18,27 +18,32 @@ import {
   rescheduleReminders,
 } from '@/lib/reminders';
 
-// Show reminders even if the app happens to be foregrounded when one fires.
-// Wrapped defensively: this runs at import time inside the signed-in tree, so
-// a missing/limited native module (e.g. Expo Go) must never crash the app.
-if (remindersSupported) {
-  try {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-  } catch {
-    // Best-effort; reminders simply won't present while foregrounded.
-  }
-}
-
 export function ReminderScheduler() {
   const router = useRouter();
   const { activeLang } = useLanguage();
+
+  // Register the foreground notification handler inside useEffect instead of
+  // at module load time. Calling Notifications.setNotificationHandler() at
+  // module level (before React initialises) triggers a silent native crash on
+  // physical iOS devices running Expo Go with New Architecture — the
+  // expo-notifications Turbo Module isn't fully bound yet at that point. Moving
+  // it here means the call happens after the JS runtime and native bridge are
+  // both fully ready.
+  React.useEffect(() => {
+    if (!remindersSupported) return;
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+    } catch {
+      // Best-effort; reminders simply won't present while foregrounded.
+    }
+  }, []);
   const summary = useGetProgressSummary(
     { lang: activeLang },
     {

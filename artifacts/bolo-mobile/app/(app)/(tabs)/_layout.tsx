@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   Easing,
@@ -201,14 +201,21 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
     };
   });
 
+  // Wrap in Animated.View rather than using Animated.Image: Reanimated's
+  // Animated.Image crashes on physical iOS devices running Expo Go with New
+  // Architecture (Fabric) enabled — the animated wrapper's prop pipeline
+  // diverges from the simulator's Old Arch path at render time. A plain Image
+  // inside an Animated.View avoids the crash while keeping all the transforms.
   return (
-    <Animated.Image
-      source={POSE_SOURCES[pose]}
-      style={[styles.boloImage, animatedStyle]}
-      resizeMode="contain"
-      accessibilityRole="image"
-      accessibilityLabel="Bolo the parrot"
-    />
+    <Animated.View style={[styles.boloImage, animatedStyle]}>
+      <Image
+        source={POSE_SOURCES[pose]}
+        style={styles.boloImage}
+        resizeMode="contain"
+        accessibilityRole="image"
+        accessibilityLabel="Bolo the parrot"
+      />
+    </Animated.View>
   );
 }
 
