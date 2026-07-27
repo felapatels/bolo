@@ -1,8 +1,8 @@
 import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-import { textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
-import { ttsCacheKey } from "./ttsCache";
-import { USE_ELEVENLABS_TTS } from "./ttsConfig";
+import { openai, textToSpeech, textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
+import { phraseTtsCacheKey } from "./ttsCache";
+import { USE_ELEVENLABS_TTS, TTS_PROVIDER, phraseAudioIdentity } from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
 import { logger } from "./logger";
 import {
@@ -16,10 +16,6 @@ import {
   MAX_CONSECUTIVE_FAILURES,
   isQuotaExhaustedError,
 } from "./ttsUtils";
-
-// Default voice used when learners tap the speaker button without selecting a
-// specific voice — must match the default in routes/openai.ts.
-const DEFAULT_VOICE = "nova" as const;
 
 // The language warmed first and in full: the default catalog every new
 // learner starts with, so its phrases are by far the most-played.
@@ -149,13 +145,24 @@ export function scheduleTtsPrewarm(): void {
         return;
       }
 
-      // Compute what keys we would need.  languageName and elevenLabsVoiceId
-      // are both included so the key is byte-for-byte identical to what
-      // /openai/tts produces at runtime when the client passes languageCode.
-      const keyed = phrases.map((p) => ({
-        phrase: p,
-        key: ttsCacheKey(p.nativeScript, DEFAULT_VOICE, p.languageName, p.elevenLabsVoiceId),
-      }));
+      // Compute the synthesis identity and cache key for each phrase using the
+      // same resolver and key function that /openai/tts uses at request time.
+      // Both sides call phraseAudioIdentity(languageCode) and phraseTtsCacheKey
+      // so they always target the same key namespace regardless of provider.
+      const keyed = phrases.map((p) => {
+        const identity = phraseAudioIdentity(p.languageCode);
+        return {
+          phrase: p,
+          identity,
+          key: phraseTtsCacheKey(
+            p.nativeScript,
+            identity.provider,
+            identity.model,
+            identity.voice,
+            p.languageName,
+          ),
+        };
+      });
 
       // Find which keys are already cached in a single query.
       const allKeys = keyed.map((k) => k.key);
@@ -222,8 +229,10 @@ export function scheduleTtsPrewarm(): void {
       await pool(
         batch,
         CONCURRENCY,
-        async ({ phrase, key }) => {
-          if (quotaExhausted) {
+        async ({ phrase, key, identity }) => {
+          // ElevenLabs quota guard — only consulted when the configured
+          // provider is ElevenLabs. Other providers do not use this flag.
+          if (TTS_PROVIDER === "elevenlabs" && quotaExhausted) {
             skipped++;
             return;
           }
@@ -240,15 +249,36 @@ export function scheduleTtsPrewarm(): void {
           }
 
           try {
-            const buffer = await textToSpeechElevenLabs(
-              phrase.nativeScript,
-              // Use the per-language voice so pre-warmed audio matches what
-              // /openai/tts synthesizes at runtime for the same languageCode.
-              phrase.elevenLabsVoiceId,
-              phrase.languageName || undefined,
-              undefined,
-              phrase.languageId,
-            );
+            let buffer: Buffer;
+            if (TTS_PROVIDER === "gpt-4o-mini-tts") {
+              const response = await openai.audio.speech.create({
+                model: "gpt-4o-mini-tts",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                voice: identity.voice as any,
+                input: phrase.nativeScript,
+                response_format: "mp3",
+              });
+              buffer = Buffer.from(await response.arrayBuffer());
+            } else if (TTS_PROVIDER === "elevenlabs") {
+              // Use resolver-derived voice so synthesis and cache key are consistent.
+              buffer = await textToSpeechElevenLabs(
+                phrase.nativeScript,
+                identity.voice,
+                phrase.languageName || undefined,
+                undefined,
+                phrase.languageId,
+              );
+            } else {
+              // gpt-audio (default)
+              buffer = await textToSpeech(
+                phrase.nativeScript,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                identity.voice as any,
+                "mp3",
+                phrase.languageName || undefined,
+              );
+            }
+
             const audioBase64 = buffer.toString("base64");
 
             await db
@@ -260,7 +290,11 @@ export function scheduleTtsPrewarm(): void {
             done++;
           } catch (err) {
             failed++;
-            if (!quotaExhausted && isQuotaExhaustedError(err)) {
+            if (
+              TTS_PROVIDER === "elevenlabs" &&
+              !quotaExhausted &&
+              isQuotaExhaustedError(err)
+            ) {
               quotaExhausted = true;
               logger.warn(
                 { err },
@@ -281,8 +315,14 @@ export function scheduleTtsPrewarm(): void {
       );
 
       logger.info(
-        { done, failed, skipped, quotaExhausted, attempted: batch.length, deferred },
-        "TTS pre-warm: complete",
+        {
+          provider: TTS_PROVIDER,
+          cached: existing.size,
+          synthesized: done,
+          failed,
+          budgetReached: deferred > 0,
+        },
+        "[phrase-tts] prewarm complete",
       );
 
       // After phrase prewarm, synthesize greeting audio (ElevenLabs only).

@@ -30,9 +30,9 @@ import { upgradeRequired } from "../lib/entitlements";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
-import { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
+import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
-import { USE_ELEVENLABS_TTS } from "../lib/ttsConfig";
+import { USE_ELEVENLABS_TTS, TTS_PROVIDER, phraseAudioIdentity } from "../lib/ttsConfig";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -341,12 +341,26 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     }
   }
 
-  // Cache key: includes ElevenLabs voice ID when ElevenLabs is the active
-  // provider (so different-voice entries never collide); uses the legacy key
-  // format (no voice ID) for gpt-audio so previously-synthesized entries hit.
-  const cacheKey = USE_ELEVENLABS_TTS
-    ? ttsCacheKey(text, chosen, languageName, elevenLabsVoiceId)
-    : legacyTtsCacheKey(text, chosen, languageName);
+  // Obtain the provider, model, and phrase-audio voice from the single source
+  // of truth. For ElevenLabs the synthesis voice is the per-user preference
+  // already resolved above (elevenLabsVoiceId); for other providers it is the
+  // fixed constant returned by the resolver, ensuring prewarm and playback
+  // always target the same cache key namespace.
+  const phraseIdentity = phraseAudioIdentity(languageCode);
+  const synthesisVoice =
+    TTS_PROVIDER === "elevenlabs" ? elevenLabsVoiceId : phraseIdentity.voice;
+
+  // Unified phrase cache key: incorporates provider, model, and voice so the
+  // prewarm and the playback route always target the same namespace.
+  const cacheKey = phraseTtsCacheKey(
+    text,
+    phraseIdentity.provider,
+    phraseIdentity.model,
+    synthesisVoice,
+    languageName ?? "",
+  );
+
+  const t0 = Date.now();
 
   // --- cache hit ---
   try {
@@ -354,6 +368,18 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       where: eq(ttsCacheTable.cacheKey, cacheKey),
     });
     if (cached) {
+      req.log.info(
+        {
+          provider: phraseIdentity.provider,
+          model: phraseIdentity.model,
+          voice: synthesisVoice,
+          language: languageName ?? "",
+          chars: text.length,
+          hit: true,
+          ms: Date.now() - t0,
+        },
+        "[phrase-tts]",
+      );
       res.json({ audioBase64: cached.audioBase64, format: cached.format });
       return;
     }
@@ -362,12 +388,13 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     req.log.warn({ err }, "TTS cache read failed, synthesizing fresh");
   }
 
-  // --- gpt-audio path (USE_ELEVENLABS_TTS = false) ---
-  // All ElevenLabs code below is fully preserved — flip USE_ELEVENLABS_TTS
-  // to true in lib/ttsConfig.ts to re-activate it with no other changes.
-  if (!USE_ELEVENLABS_TTS) {
+  // --- gpt-audio path ---
+  // All ElevenLabs code below is fully preserved — set TTS_PROVIDER to
+  // "elevenlabs" in lib/ttsConfig.ts to re-activate it with no other changes.
+  if (TTS_PROVIDER === "gpt-audio") {
     try {
-      const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const buffer = await textToSpeech(text, phraseIdentity.voice as any, "mp3", languageName);
       if (buffer.length === 0) throw new Error("gpt-audio returned empty audio");
       const audioBase64 = buffer.toString("base64");
       db.insert(ttsCacheTable)
@@ -375,9 +402,59 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         .onConflictDoNothing()
         .execute()
         .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
+      req.log.info(
+        {
+          provider: phraseIdentity.provider,
+          model: phraseIdentity.model,
+          voice: phraseIdentity.voice,
+          language: languageName ?? "",
+          chars: text.length,
+          hit: false,
+          ms: Date.now() - t0,
+        },
+        "[phrase-tts]",
+      );
       res.json({ audioBase64, format: "mp3" });
     } catch (err) {
       req.log.error({ err }, "gpt-audio TTS failed");
+      res.status(502).json({ error: "Could not generate speech" });
+    }
+    return;
+  }
+
+  // --- gpt-4o-mini-tts path ---
+  if (TTS_PROVIDER === "gpt-4o-mini-tts") {
+    try {
+      const response = await openai.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        voice: phraseIdentity.voice as any,
+        input: text,
+        response_format: "mp3",
+      });
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length === 0) throw new Error("gpt-4o-mini-tts returned empty audio");
+      const audioBase64 = buffer.toString("base64");
+      db.insert(ttsCacheTable)
+        .values({ cacheKey, audioBase64, format: "mp3" })
+        .onConflictDoNothing()
+        .execute()
+        .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
+      req.log.info(
+        {
+          provider: phraseIdentity.provider,
+          model: phraseIdentity.model,
+          voice: phraseIdentity.voice,
+          language: languageName ?? "",
+          chars: text.length,
+          hit: false,
+          ms: Date.now() - t0,
+        },
+        "[phrase-tts]",
+      );
+      res.json({ audioBase64, format: "mp3" });
+    } catch (err) {
+      req.log.error({ err }, "gpt-4o-mini-tts TTS failed");
       res.status(502).json({ error: "Could not generate speech" });
     }
     return;
@@ -438,6 +515,18 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     // credits and warns before the monthly allowance runs out.
     void elevenLabsQuotaMonitor.maybeCheck();
 
+    req.log.info(
+      {
+        provider: phraseIdentity.provider,
+        model: phraseIdentity.model,
+        voice: synthesisVoice,
+        language: languageName ?? "",
+        chars: text.length,
+        hit: false,
+        ms: Date.now() - t0,
+      },
+      "[phrase-tts]",
+    );
     res.json({ audioBase64, format: "mp3" });
     return;
   } catch (err) {

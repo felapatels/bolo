@@ -50,6 +50,55 @@ export function ttsCacheKey(
  * silence or an error. The eviction endpoint also deletes these keys so
  * phrase corrections purge the fallback audio too.
  */
+/**
+ * Key scheme version for the unified phrase TTS cache.
+ *
+ * Bump this string whenever the phrase synthesis path changes in a way
+ * learners can hear (different provider, model, or voice), so old entries
+ * become clean misses rather than serving stale audio under a different voice.
+ */
+const PHRASE_KEY_SCHEME = "phrase:v1";
+
+/**
+ * Phrase-audio cache key: SHA-256 hex of the five synthesis inputs plus an
+ * explicit key scheme version.
+ *
+ * Used by both the phrase prewarm (ttsPrewarm.ts) and the /openai/tts
+ * playback route to ensure writes and reads always target the same namespace.
+ * Both sides MUST derive provider, model, and voice exclusively from
+ * phraseAudioIdentity() in ttsConfig.ts — never hardcoded — so the inputs
+ * to this function are always identical on both sides for the same phrase
+ * under the same configuration.
+ *
+ * @param text               - Phrase text (native script) passed to synthesis.
+ * @param provider           - TTS provider name (e.g. "gpt-audio").
+ * @param model              - Synthesis model name (e.g. "gpt-4o-mini-tts").
+ * @param voice              - Synthesis voice (fixed or per-language).
+ * @param languageIdentifier - Language display name as sent by the client,
+ *                             matching what /openai/tts receives as languageName.
+ */
+export function phraseTtsCacheKey(
+  text: string,
+  provider: string,
+  model: string,
+  voice: string,
+  languageIdentifier: string,
+): string {
+  return createHash("sha256")
+    .update(text)
+    .update("\x00")
+    .update(provider)
+    .update("\x00")
+    .update(model)
+    .update("\x00")
+    .update(voice)
+    .update("\x00")
+    .update(languageIdentifier)
+    .update("\x00")
+    .update(PHRASE_KEY_SCHEME)
+    .digest("hex");
+}
+
 export function legacyTtsCacheKey(
   text: string,
   voice: string,
