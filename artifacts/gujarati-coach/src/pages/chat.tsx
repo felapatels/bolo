@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import {
   getChatTurnUrl,
   type ChatTurnMessage,
-  ApiError,
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { ArrowLeft, Globe, ChevronDown, Check, Lock, Mic, Square, SkipForward, AlertCircle, Loader2, Send } from "lucide-react";
@@ -46,6 +45,8 @@ type ChatMessage = {
   englishText?: string;
   /** True while we're waiting for the transcript — renders as a greyed sending bubble */
   pending?: boolean;
+  /** True when the turn errored after the transcript arrived. Shows a retry control. */
+  failed?: boolean;
   /**
    * Word-by-word typewriter reveal for parrot bubbles.
    * undefined = show full text (animation complete or not started).
@@ -119,6 +120,15 @@ export default function ChatPage() {
   // newer one when the user cancels mid-flight and immediately starts again.
   const activeTurnRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // AbortController for the in-flight chat fetch — aborted at the start of
+  // each new turn and on unmount so stale connections drop immediately.
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // The audio blob from the most recent recording, retained so a failed turn
+  // can be retried without re-recording.
+  const currentBlobRef = useRef<Blob | null>(null);
+  // When set by handleRetry, finishRecording uses this blob instead of
+  // calling recorder.stopRecording() again.
+  const retryBlobRef = useRef<Blob | null>(null);
 
   // Pre-fetched first-turn greeting for the active chat language. Populated on
   // mount and whenever chatLang changes. Stored in a ref so reads never trigger
@@ -203,9 +213,10 @@ export default function ChatPage() {
     return () => { cancelled = true; };
   }, [chatLang]);
 
-  // Stop playback and word-reveal on unmount.
+  // Stop playback, word-reveal, and any in-flight request on unmount.
   useEffect(
     () => () => {
+      abortControllerRef.current?.abort();
       clearWordReveal();
       if (playbackRef.current) {
         playbackRef.current.pause();
@@ -225,11 +236,25 @@ export default function ChatPage() {
   const finishRecording = useCallback(async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
+
+    // Abort any in-flight turn and arm a fresh controller for this one.
+    // The signal is passed to both fetch calls so an interrupted turn drops
+    // its connection immediately.
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Capture this turn's ID before any await — only apply the result if the
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     earlyReplyShownRef.current = false;
     setErrorMsg(null);
+
+    // If a retry blob was staged by handleRetry, use it instead of recording
+    // a new clip so the same audio is sent without re-recording.
+    const retryBlob = retryBlobRef.current;
+    retryBlobRef.current = null;
+    const isRetry = retryBlob !== null;
 
     // First-turn greeting: if the greeting is prefetched and this is the very
     // first turn, show and speak it immediately while the real API call runs
@@ -244,10 +269,13 @@ export default function ChatPage() {
       webHaptic('medium');
       setPhase("processing");
       setProcessingStep("transcribing");
-      setMessages((prev) => [
-        ...prev.filter((m) => !m.pending),
-        { role: "learner", text: "", pending: true },
-      ]);
+      if (!isRetry) {
+        setMessages((prev) => [
+          ...prev.filter((m) => !m.pending),
+          { role: "learner", text: "", pending: true },
+        ]);
+      }
+      // Retry: handleRetry already restored the failed bubble to pending.
     }
 
     // ── Streaming voice playback (MSE) ────────────────────────────────────
@@ -383,42 +411,51 @@ export default function ChatPage() {
       }
     };
 
+    // Tracks whether a transcript SSE event arrived before any error; used in
+    // the catch block to decide between a failed bubble and a removed bubble.
+    let transcriptForCatch = "";
+
     try {
-      const blob = await recorder.stopRecording();
+      const blob = isRetry ? retryBlob! : await recorder.stopRecording();
 
-      if (blob.size === 0) {
-        setErrorMsg("We didn't capture any audio. Check your microphone and try again.");
-        setPhase("error");
-        finishingRef.current = false;
-        return;
-      }
-
-      // Duration gate: reject recordings too short to contain a real utterance.
-      // Threshold = 400 ms — comfortably clears a single short syllable ("ek",
-      // "haan") while catching accidental taps. When the browser cannot read the
-      // blob duration (NaN / Infinity) the gate is skipped so we never
-      // incorrectly reject a valid recording due to an unreliable measurement.
-      try {
-        const objectUrl = URL.createObjectURL(blob);
-        const blobDuration = await new Promise<number>((resolve) => {
-          const probe = new Audio(objectUrl);
-          probe.addEventListener("loadedmetadata", () => resolve(probe.duration), { once: true });
-          probe.addEventListener("error", () => resolve(NaN), { once: true });
-          // Bail out after 500 ms so a stuck probe never blocks the turn.
-          setTimeout(() => resolve(NaN), 500);
-        });
-        URL.revokeObjectURL(objectUrl);
-        if (Number.isFinite(blobDuration) && blobDuration < 0.4) {
-          console.log("[stt] skipped reason=too_short");
-          setMessages((prev) => prev.filter((m) => !m.pending));
-          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
-          setPhase("idle");
+      if (!isRetry) {
+        if (blob.size === 0) {
+          setErrorMsg("We didn't capture any audio. Check your microphone and try again.");
+          setPhase("error");
           finishingRef.current = false;
           return;
         }
-      } catch {
-        // Duration probe failed — let the recording through.
+
+        // Duration gate: reject recordings too short to contain a real utterance.
+        // Threshold = 400 ms — comfortably clears a single short syllable ("ek",
+        // "haan") while catching accidental taps. When the browser cannot read the
+        // blob duration (NaN / Infinity) the gate is skipped so we never
+        // incorrectly reject a valid recording due to an unreliable measurement.
+        try {
+          const objectUrl = URL.createObjectURL(blob);
+          const blobDuration = await new Promise<number>((resolve) => {
+            const probe = new Audio(objectUrl);
+            probe.addEventListener("loadedmetadata", () => resolve(probe.duration), { once: true });
+            probe.addEventListener("error", () => resolve(NaN), { once: true });
+            // Bail out after 500 ms so a stuck probe never blocks the turn.
+            setTimeout(() => resolve(NaN), 500);
+          });
+          URL.revokeObjectURL(objectUrl);
+          if (Number.isFinite(blobDuration) && blobDuration < 0.4) {
+            console.log("[stt] skipped reason=too_short");
+            setMessages((prev) => prev.filter((m) => !m.pending));
+            setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+            setPhase("idle");
+            finishingRef.current = false;
+            return;
+          }
+        } catch {
+          // Duration probe failed — let the recording through.
+        }
       }
+
+      // Store blob so a failed turn can be retried without re-recording.
+      currentBlobRef.current = blob;
 
       // Convert blob to base64.
       const buf = await blob.arrayBuffer();
@@ -479,25 +516,23 @@ export default function ChatPage() {
 
         // Fire the real API call (no streaming audio — we just need the reply).
         const chatUrl = getChatTurnUrl();
-        let gRes: Response;
-        try {
-          gRes = await fetch(chatUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-            body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history: [] }),
-          });
-        } catch {
-          // Network error — greeting already playing, let it finish naturally.
-          return;
-        }
+        const gRes = await fetch(chatUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+          body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history: [] }),
+          signal: abortController.signal,
+        });
 
         if (!gRes.ok) {
-          // Server error — greeting already playing, just let it end gracefully.
-          return;
+          const gErrBody = await gRes.text().catch(() => "");
+          throw new Error(`Chat API responded with ${gRes.status}: ${gErrBody.slice(0, 200)}`);
+        }
+        if (!gRes.body) {
+          throw new Error("Chat API response contained no body");
         }
 
         // Parse SSE events from the real chat call.
-        const gReader = gRes.body!.getReader();
+        const gReader = gRes.body.getReader();
         const gDecoder = new TextDecoder();
         let gSseBuffer = "";
         let transcriptAdded = false;
@@ -526,6 +561,7 @@ export default function ChatPage() {
               // Add learner bubble below the greeting bubble.
               transcriptAdded = true;
               const t = (gPayload.transcript as string) ?? "";
+              transcriptForCatch = t;
               setMessages((prev) => [...prev, { role: "learner", text: t }]);
             } else if (evtName === "reply") {
               // Server rejected transcript — no parrot reply. Let the greeting
@@ -624,11 +660,14 @@ export default function ChatPage() {
           }
         }
         // Function returns here; finally block releases finishingRef.
+        currentBlobRef.current = null;
+        abortControllerRef.current = null;
         return;
       }
       // ── End greeting path ─────────────────────────────────────────────────
 
       const history: ChatTurnMessage[] = messages
+        .filter((m) => !m.pending && !m.failed)
         .slice(-HISTORY_WINDOW)
         .map((m) => ({ role: m.role === "parrot" ? "parrot" : "learner", text: m.text }));
 
@@ -649,17 +688,19 @@ export default function ChatPage() {
             : {}),
         },
         body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history }),
+        signal: abortController.signal,
       });
 
-      // Non-ok responses (400, 402, 404, 502…) come as plain JSON before SSE
-      // headers are set.
       if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new ApiError(res, errData, { method: "POST", url: chatUrl });
+        const body = await res.text().catch(() => "");
+        throw new Error(`Chat API responded with ${res.status}: ${body.slice(0, 200)}`);
+      }
+      if (!res.body) {
+        throw new Error("Chat API response contained no body");
       }
 
       // Read the SSE stream line-by-line.
-      const reader = res.body!.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
 
@@ -691,6 +732,9 @@ export default function ChatPage() {
               reader.cancel().catch(() => {});
               return;
             }
+            // Record transcript so the catch block can mark the bubble failed
+            // rather than removing it if this turn errors after this point.
+            transcriptForCatch = transcriptText;
             // Replace the pending bubble with the real transcript text.
             // English gloss will be back-filled on the reply event.
             setMessages((prev) => {
@@ -946,15 +990,48 @@ export default function ChatPage() {
           }
         }
       }
+      // Turn completed successfully.
+      currentBlobRef.current = null;
+      abortControllerRef.current = null;
     } catch (err) {
       // Stop any half-played streaming audio before surfacing the error.
       teardownStream();
-      // A newer turn started while this one was in flight — drop this error
-      // silently so it doesn't disrupt the active turn's UI state.
+
+      const isAbort = err instanceof Error && err.name === "AbortError";
+
+      // Resolve the pending learner bubble: if a transcript arrived before the
+      // failure, convert it to a failed bubble (shows a retry control);
+      // otherwise remove it entirely.
+      const resolvePendingBubble = () => {
+        setMessages((prev) => {
+          if (transcriptForCatch) {
+            for (let bi = prev.length - 1; bi >= 0; bi--) {
+              if (prev[bi].role === "learner" && !prev[bi].failed) {
+                return prev.map((m, idx) => idx === bi ? { ...m, failed: true } : m);
+              }
+            }
+            return prev;
+          }
+          return prev.filter((m) => !m.pending);
+        });
+      };
+
+      // A newer turn started — drop this error silently.
       if (activeTurnRef.current !== myTurn) {
+        resolvePendingBubble();
         finishingRef.current = false;
         return;
       }
+
+      // Intentional abort (new turn started or component unmounted) — silent.
+      if (isAbort) {
+        resolvePendingBubble();
+        setPhase("idle");
+        finishingRef.current = false;
+        return;
+      }
+
+      resolvePendingBubble();
 
       const upgrade = asUpgradeRequired(err);
       if (upgrade) {
@@ -978,11 +1055,12 @@ export default function ChatPage() {
       }
 
       let msg = "Bolo ran into a snag — hold to try again!";
-      if (err instanceof ApiError) {
-        if (err.status === 502) msg = "Bolo couldn't process that squawk 🦜 — give it another try!";
-        else if (err.status === 429) msg = "Slow down a bit! Wait a moment and try again.";
-      } else if (err instanceof TypeError) {
+      if (err instanceof TypeError) {
         msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
+      } else if (err instanceof Error && /Chat API responded with 502/.test(err.message)) {
+        msg = "Bolo couldn't process that squawk 🦜 — give it another try!";
+      } else if (err instanceof Error && /Chat API responded with 429/.test(err.message)) {
+        msg = "Slow down a bit! Wait a moment and try again.";
       }
       setErrorMsg(msg);
       setPhase("error");
@@ -1007,6 +1085,20 @@ export default function ChatPage() {
     stopCurrentPlayback();
     setPhase("idle");
   }, [stopCurrentPlayback]);
+
+  // Retry a failed turn by re-submitting the stored audio blob without
+  // re-recording. The failed bubble is restored to pending in-place so the
+  // conversation order is preserved.
+  const handleRetry = useCallback((messageIndex: number) => {
+    const blob = currentBlobRef.current;
+    if (!blob) return; // no blob available — user must re-record
+    retryBlobRef.current = blob;
+    setMessages((prev) => prev.map((m, i) =>
+      i === messageIndex ? { ...m, failed: undefined, pending: true, text: "" } : m,
+    ));
+    finishingRef.current = false;
+    void finishRecording();
+  }, [finishRecording]);
 
   const startRecording = useCallback(async () => {
     // Cap check for free users.
@@ -1043,6 +1135,11 @@ export default function ChatPage() {
     if (textSendingRef.current) return;
     textSendingRef.current = true;
 
+    // Abort any in-flight voice turn before starting this text turn.
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Stop any in-progress playback or word-reveal.
     if (playbackRef.current) {
       playbackRef.current.pause();
@@ -1067,6 +1164,7 @@ export default function ChatPage() {
     ]);
 
     const history: ChatTurnMessage[] = messages
+      .filter((m) => !m.pending && !m.failed)
       .slice(-HISTORY_WINDOW)
       .map((m) => ({ role: m.role === "parrot" ? "parrot" : "learner", text: m.text }));
 
@@ -1076,14 +1174,18 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
         body: JSON.stringify({ languageCode: chatLang, textInput: text, history }),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new ApiError(res, errData, { method: "POST", url: chatUrl });
+        const body = await res.text().catch(() => "");
+        throw new Error(`Chat API responded with ${res.status}: ${body.slice(0, 200)}`);
+      }
+      if (!res.body) {
+        throw new Error("Chat API response contained no body");
       }
 
-      const reader = res.body!.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
 
@@ -1194,8 +1296,16 @@ export default function ChatPage() {
           }
         }
       }
+      // Turn completed successfully.
+      abortControllerRef.current = null;
     } catch (err) {
       if (activeTurnRef.current !== myTurn) return;
+
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      if (isAbort) {
+        setPhase("idle");
+        return;
+      }
 
       const upgrade = asUpgradeRequired(err);
       if (upgrade) {
@@ -1475,7 +1585,7 @@ export default function ChatPage() {
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: msg.pending ? 0.55 : 1, y: 0 }}
+                animate={{ opacity: (msg.pending || msg.failed) ? 0.7 : 1, y: 0 }}
                 transition={{ ...springs.snappy, delay: 0.04 }}
                 className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -1529,6 +1639,15 @@ export default function ChatPage() {
                         <span className="text-xs text-primary-foreground/70 mt-1 italic">
                           {msg.englishText}
                         </span>
+                      )}
+                      {msg.failed && (
+                        <button
+                          type="button"
+                          onClick={() => handleRetry(i)}
+                          className="mt-1 self-start text-xs underline underline-offset-2 opacity-80 hover:opacity-100 focus:outline-none"
+                        >
+                          Retry
+                        </button>
                       )}
                     </div>
                   </div>
