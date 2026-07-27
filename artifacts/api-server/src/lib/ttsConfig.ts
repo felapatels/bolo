@@ -1,16 +1,30 @@
 /**
- * PRIMARY TTS PROVIDER SWITCH
+ * PRIMARY TTS PROVIDER SELECTOR
  * ─────────────────────────────────────────────────────────────────────────────
- * Set USE_ELEVENLABS_TTS = true  → phrase practice, parrot chat, and greetings
- *                                  all use ElevenLabs (Laura, eleven_multilingual_v2)
- *                                  with gpt-audio as an automatic fallback.
+ * Set TTS_PROVIDER to one of the three supported values:
  *
- * Set USE_ELEVENLABS_TTS = false → all voice synthesis uses gpt-audio (OpenAI)
- *                                  directly; ElevenLabs is never called.
+ *   'gpt-audio'       → all voice synthesis uses gpt-audio via chat completions
+ *                       (current default — no behaviour change).
  *
- * All ElevenLabs integration code — voice IDs, voice settings, quota monitors,
- * streaming paths, per-language voice catalog — is fully preserved in the
- * codebase. Nothing was deleted. Flip this flag back to true and restart the
- * server to restore ElevenLabs with no further changes required.
+ *   'gpt-4o-mini-tts' → uses the dedicated speech endpoint (gpt-4o-mini-tts),
+ *                       with gpt-audio as an automatic fallback. Audio output
+ *                       is billed at the dedicated speech rate, not the
+ *                       multimodal chat rate.
+ *
+ *   'elevenlabs'      → phrase practice, parrot chat, and greetings all use
+ *                       ElevenLabs (Laura, eleven_multilingual_v2) with
+ *                       gpt-audio as an automatic fallback.
+ *
+ * All provider code is fully preserved in the codebase. Nothing was deleted.
+ * Changing this value and restarting the server is all that is required to
+ * switch providers.
  */
-export const USE_ELEVENLABS_TTS = false;
+export type TtsProvider = "gpt-audio" | "gpt-4o-mini-tts" | "elevenlabs";
+
+export const TTS_PROVIDER = "gpt-audio" as TtsProvider;
+
+/**
+ * Derived from TTS_PROVIDER for backward compatibility with existing readers
+ * in ttsPrewarm.ts and routes/openai.ts. Do not remove.
+ */
+export const USE_ELEVENLABS_TTS = TTS_PROVIDER === "elevenlabs";

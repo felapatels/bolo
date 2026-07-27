@@ -12,7 +12,7 @@ import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
-import { USE_ELEVENLABS_TTS } from "./ttsConfig";
+import { TTS_PROVIDER } from "./ttsConfig";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -392,33 +392,75 @@ export interface ParrotChatDeps {
   ) => Promise<Buffer>;
 }
 
+// Voice constant for the gpt-audio model. Declared at module scope so it can
+// be replaced by name without touching the function body. Must not be merged
+// with BOLO_MINI_TTS_VOICE — the two models have different voice sets.
+const BOLO_GPT_AUDIO_VOICE = "shimmer";
+
 // Custom TTS for Bolo — uses gpt-audio via chat completions (the Replit AI
 // integrations proxy only supports /v1/chat/completions, not /v1/audio/speech).
 // _languageCode is accepted for API symmetry with boloTTSElevenLabs but not
 // used here (gpt-audio uses the languageName hint instead).
 async function boloTTS(text: string, languageName: string, _languageCode: string): Promise<Buffer> {
   const langHint = languageName ? ` The text is in ${languageName}.` : "";
-  const response = await openai.chat.completions.create({
-    model: "gpt-audio",
-    modalities: ["text", "audio"],
+  const t0 = Date.now();
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-audio",
+      modalities: ["text", "audio"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      audio: { voice: BOLO_GPT_AUDIO_VOICE, format: "mp3" } as any,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a text-to-speech reader. " +
+            "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
+            "Read the text EXACTLY as written, word for word. " +
+            "Do NOT add, change, or omit any words, sounds, or exclamations." +
+            langHint,
+        },
+        { role: "user", content: `Say exactly: ${text}` },
+      ],
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    audio: { voice: "shimmer", format: "mp3" } as any,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a text-to-speech reader. " +
-          "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
-          "Read the text EXACTLY as written, word for word. " +
-          "Do NOT add, change, or omit any words, sounds, or exclamations." +
-          langHint,
-      },
-      { role: "user", content: `Say exactly: ${text}` },
-    ],
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
-  return Buffer.from(audioData, "base64");
+    const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
+    const buf = Buffer.from(audioData, "base64");
+    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-audio chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0}`);
+    return buf;
+  } catch (err) {
+    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-audio chars=${text.length} error=${err instanceof Error ? err.message : err}`);
+    throw err;
+  }
+}
+
+// Voice constant for gpt-4o-mini-tts. This model has a different voice set
+// from gpt-audio (e.g. it adds ash, ballad, coral, sage, verse, marin, cedar).
+// Must not be merged with BOLO_GPT_AUDIO_VOICE even if the string value is the same.
+const BOLO_MINI_TTS_VOICE = "shimmer";
+
+// TTS for Bolo using the dedicated speech endpoint (gpt-4o-mini-tts). Cheaper
+// than gpt-audio for audio output because it uses the dedicated speech billing
+// rate rather than the multimodal chat rate. Errors propagate unchanged so
+// makeSynthesizeWithFallback can classify them (e.g. quota exhaustion).
+// _languageName and _languageCode: accepted for API symmetry with the other
+// synthesis functions; gpt-4o-mini-tts auto-detects language from the input.
+async function boloTTSMini(text: string, _languageName: string, _languageCode: string): Promise<Buffer> {
+  const t0 = Date.now();
+  try {
+    const response = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: BOLO_MINI_TTS_VOICE,
+      input: text,
+      response_format: "mp3",
+    });
+    const buf = Buffer.from(await response.arrayBuffer());
+    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0}`);
+    return buf;
+  } catch (err) {
+    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} error=${err instanceof Error ? err.message : err}`);
+    throw err;
+  }
 }
 
 // ElevenLabs voice + model for Bolo's live chat replies.
@@ -586,18 +628,37 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     };
   },
 
-  // Primary synthesizer: ElevenLabs (Laura, eleven_multilingual_v2) when
-  // USE_ELEVENLABS_TTS is true; gpt-audio (shimmer) when false.
-  // makeSynthesizeWithFallback keeps gpt-audio as an automatic safety net
-  // when ElevenLabs is the primary, so chat is never silently broken.
-  synthesize: USE_ELEVENLABS_TTS
-    ? makeSynthesizeWithFallback(boloTTSElevenLabs, boloTTS)
-    : boloTTS,
+  // Primary synthesizer selected by TTS_PROVIDER:
+  //   'gpt-audio'       → boloTTS directly (current behavior, no fallback wrapper).
+  //   'gpt-4o-mini-tts' → boloTTSMini with boloTTS as automatic fallback.
+  //   'elevenlabs'      → ElevenLabs (Laura, eleven_multilingual_v2) with boloTTS fallback.
+  // The [tts] log line fires inside each synthesis function on the path that
+  // actually produced the audio, so the logged model name is always correct
+  // even when makeSynthesizeWithFallback routes to the fallback.
+  synthesize:
+    TTS_PROVIDER === "gpt-4o-mini-tts"
+      ? makeSynthesizeWithFallback(boloTTSMini, boloTTS)
+      : TTS_PROVIDER === "elevenlabs"
+        ? makeSynthesizeWithFallback(
+            async (text, languageName, languageCode) => {
+              const t0 = Date.now();
+              try {
+                const buf = await boloTTSElevenLabs(text, languageName, languageCode);
+                console.info(`[tts] provider=elevenlabs model=${BOLO_ELEVENLABS_MODEL} chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0}`);
+                return buf;
+              } catch (err) {
+                console.info(`[tts] provider=elevenlabs model=${BOLO_ELEVENLABS_MODEL} chars=${text.length} error=${err instanceof Error ? err.message : err}`);
+                throw err;
+              }
+            },
+            boloTTS,
+          )
+        : boloTTS,
 
-  // Streaming synthesis — ElevenLabs only (gpt-audio has no streaming API).
-  // Omitted when USE_ELEVENLABS_TTS is false so runParrotTurn falls through
-  // to the buffered synthesize above for every turn.
-  ...(USE_ELEVENLABS_TTS
+  // Streaming synthesis — ElevenLabs only (gpt-audio and gpt-4o-mini-tts have
+  // no streaming speech API). Omitted for those selectors so runParrotTurn
+  // falls through to the buffered synthesize path on every turn.
+  ...(TTS_PROVIDER === "elevenlabs"
     ? {
         synthesizeStream: (text, _languageName, languageCode, onChunk) =>
           textToSpeechElevenLabsStream(
