@@ -601,7 +601,28 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     const completion = await (openai.chat.completions.create as any)({
       model: "gpt-5.4-mini",
       max_completion_tokens: 300,
-      response_format: { type: "json_object" },
+      temperature: 0.7,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "bolo_reply",
+          strict: true,
+          schema: {
+            type: "object",
+            // Property order is behaviorally significant: reply must be declared
+            // before english so the model generates the target-language reply first
+            // and then translates it. Reversing this order caused a prior defect
+            // where the English gloss was produced before the reply it should translate.
+            properties: {
+              reply: { type: "string" },
+              english: { type: "string" },
+              transcript_english: { type: "string" },
+            },
+            required: ["reply", "english", "transcript_english"],
+            additionalProperties: false,
+          },
+        },
+      },
       prompt_cache_key: BOLO_CHAT_CACHE_KEY,
       prompt_cache_retention: "24h",
       messages: [
@@ -611,15 +632,21 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     });
     const _cachedChatTokens = (completion.usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
     console.info(`[cache] route=chat prompt_tokens=${completion.usage?.prompt_tokens ?? 0} cached_tokens=${_cachedChatTokens}`);
-    const raw = (completion.choices[0]?.message?.content ?? "{}").trim();
+    const raw = (completion.choices[0]?.message?.content ?? "").trim();
+    const finishReason = (completion.choices[0]?.finish_reason ?? "unknown") as string;
     let parsed: { reply?: string; english?: string; transcript_english?: string } = {};
     try {
       parsed = JSON.parse(raw) as typeof parsed;
     } catch {
-      parsed = { reply: raw, english: "", transcript_english: "" };
+      console.error(`[reply] parse failure chars=${raw.length} finish_reason=${finishReason}`);
+      throw new Error(`Reply JSON parse failure (finish_reason=${finishReason})`);
+    }
+    if (!parsed.reply || typeof parsed.reply !== "string" || !parsed.reply.trim()) {
+      console.error(`[reply] parse failure chars=${raw.length} finish_reason=${finishReason}`);
+      throw new Error(`Reply validation failure: reply field missing or empty (finish_reason=${finishReason})`);
     }
     return {
-      text: parsed.reply?.trim() ?? "",
+      text: parsed.reply.trim(),
       // Do not fall back to the target-language text — an empty string is
       // the correct signal that no English translation was produced, and the
       // client hides the caption when the value is empty.
@@ -811,6 +838,13 @@ function buildUserPrompt(
   return `Language: ${languageName}\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
 }
 
+// Maximum character count of the TTS-bound text after squawk stripping and
+// trimming. A reply exceeding this is refused rather than synthesized, so that
+// runaway model output is never submitted for audio billing. 600 characters is
+// approximately 8–9 seconds of speech at normal Bolo pacing. Revisit once
+// [tts] logging has accumulated real character counts across normal turns.
+const TTS_MAX_CHARS = 600;
+
 // Runs one full conversational turn: transcribe → (onTranscript callback) →
 // combined LLM+TTS reply. Callers are responsible for gating (language/time
 // caps) before calling this, and for recording usage afterwards — this
@@ -915,6 +949,15 @@ export async function runParrotTurn(
   // Fire the early reply-text callback so the SSE route can flush Bolo's
   // bubble to the client while voice synthesis is still in flight.
   input.onReplyReady?.(rawText, replyEnglish, squawkVariant);
+
+  // Synthesis length guard: refuse to synthesize a runaway reply. Applied to
+  // the post-squawk-stripped, post-trimmed string — exactly the string that
+  // would be billed — so audio cost is bounded even when the model misbehaves.
+  // Must sit before the synthesis call so a runaway reply is never submitted.
+  if (ttsText.length > TTS_MAX_CHARS) {
+    console.error(`[reply] synthesis guard chars=${ttsText.length} limit=${TTS_MAX_CHARS}`);
+    throw new Error(`Reply too long for synthesis: ${ttsText.length} chars exceeds limit of ${TTS_MAX_CHARS}`);
+  }
 
   // TTS call: speaks only the cleaned reply text using Bolo's character voice.
   // When the caller wants streaming audio (SSE clients) and the deps provide
