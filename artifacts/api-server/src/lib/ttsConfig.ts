@@ -23,7 +23,7 @@ import { getVoiceIdForLanguage } from "./languageVoice";
  */
 export type TtsProvider = "gpt-audio" | "gpt-4o-mini-tts" | "elevenlabs";
 
-export const TTS_PROVIDER = "gpt-audio" as TtsProvider;
+export const TTS_PROVIDER = "gpt-4o-mini-tts" as TtsProvider;
 
 /**
  * Derived from TTS_PROVIDER for backward compatibility with existing readers
@@ -65,7 +65,9 @@ export type PhraseAudioIdentity = {
  * different languages never collide. For other providers it is a fixed
  * constant because those providers are language-agnostic at the voice level.
  */
-export function phraseAudioIdentity(languageCode?: string): PhraseAudioIdentity {
+export function phraseAudioIdentity(
+  languageCode?: string,
+): PhraseAudioIdentity {
   switch (TTS_PROVIDER) {
     case "elevenlabs":
       return {
