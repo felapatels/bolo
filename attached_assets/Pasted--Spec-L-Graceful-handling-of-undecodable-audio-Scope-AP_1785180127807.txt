@@ -1,0 +1,101 @@
+# Spec L: Graceful handling of undecodable audio
+
+Scope: API server only. Converts an unhandled transcription 400 into a clean no-speech outcome so the learner gets useful guidance instead of a generic failure.
+
+**Runs after Spec K. Spec K stops most bad recordings from being sent; this spec handles the ones that still get through.**
+
+---
+
+## 1. Session rules
+
+1. No discovery phase. Only the files named in Section 3 may be modified.
+2. Anchors describe code by name and behavior. If what you find does not match, **stop and ask**. A mismatch is a hard stop. Do not infer intent, do not reason around the discrepancy, do not proceed on a best guess.
+3. If satisfying this spec appears to require changing a file not listed in Section 3, **stop and ask**.
+4. One spec per session. Do not begin Spec C, G, H, or I.
+
+---
+
+## 2. Problem statement
+
+**2.1 An undecodable audio 400 crashes the turn.** The error handler in `speechToText` inspects 400 responses and retries only those matching the language-code rejection pattern. A 400 reading that the audio file may be corrupted or unsupported falls through to a bare rethrow. It propagates out of `deps.transcribe`, out of `runParrotTurn`, and reaches the route's catch block, which returns a generic failed turn.
+
+This is the wrong outcome for the wrong reason. Undecodable audio is not a system error, it is the learner not having said anything the system could hear. The application already has a correct path for that case, the `noSpeech` outcome, which clears the pending bubble and tells the learner what to do differently. That path is not reached because the condition arrives as an exception rather than as a result.
+
+**2.2 The failure is invisible in logs.** There is no log line recording that transcription rejected the audio, nor the size or format of the buffer that caused it. The only trace is a generic route-level error, which is why this bug went undiagnosed while appearing to the learner as a recurring inability to be heard.
+
+---
+
+## 3. Scope boundaries
+
+### In scope
+
+1. `lib/integrations-openai-ai-server/src/audio/client.ts`, limited to the error handling inside `speechToText`
+2. `artifacts/api-server/src/lib/parrotChat.ts`, limited to the transcription call site in `runParrotTurn` and its handling of the transcription result
+
+### Named anchors
+
+- `speechToText`, calling `openai.audio.transcriptions.create` with the buffer wrapped via `toFile(audioBuffer, "audio." + format)`, and its error handler that retries only 400s matching the language-code rejection pattern before rethrowing.
+- `ensureCompatibleFormat` and `detectAudioFormat`, which classify the buffer by magic bytes before transcription.
+- The transcription call site in `runParrotTurn`, calling `deps.transcribe(buffer, format, { prompt: transcriptionHint })`.
+- `validateTranscript` and the existing `noSpeech` outcome, which clears the pending bubble and returns learner-facing guidance.
+
+### Do not touch
+
+1. Any client file.
+2. `validateTranscript` rules, including the 8-word floor.
+3. `buildTranscriptionPrompt` or the hint text.
+4. The existing language-code 400 retry behavior.
+5. `ensureCompatibleFormat`, `detectAudioFormat`, or `convertToWav`.
+6. The transcription model or its parameters.
+7. TTS, caching, history, the reply call, or the Spec E guard.
+
+---
+
+## 4. Behavior and logic
+
+### 4.1 Classify the undecodable case
+
+1. Extend the `speechToText` error handling to recognise a 400 indicating the audio could not be decoded, distinctly from the existing language-code case.
+2. Match on the response status together with the error message content. Do not match on message content alone, and do not broaden the existing language-code branch to cover this.
+3. This classification must not swallow other errors. Authentication failures, rate limits, server errors, and network failures must continue to propagate exactly as they do today.
+
+### 4.2 Surface it as no-speech, not as a crash
+
+1. When the undecodable case is recognised, the turn must reach the existing `noSpeech` outcome rather than throwing.
+2. Do not invent a new outcome type, a new SSE event, or a new learner-facing message. Reuse what `noSpeech` already provides so the client needs no change.
+3. Do not retry the transcription call. The audio contains nothing to transcribe and a retry costs time and money for a certain failure.
+4. Do not attempt a WAV conversion or any other repair as a fallback. If you believe a repair path is warranted, stop and ask.
+
+### 4.3 Logging
+
+1. Log one warn-level line prefixed `[stt]` when the undecodable case is recognised, recording the detected format, the buffer byte length, and the reason.
+2. Do not log audio content or base64 payloads.
+3. Leave existing logging on other error paths unchanged.
+
+---
+
+## 5. Acceptance checklist
+
+1. The system shall recognise a transcription 400 indicating undecodable audio as a distinct case from the existing language-code rejection.
+2. The system shall match on response status together with message content, not message content alone.
+3. The system shall continue to propagate authentication failures, rate limits, server errors, and network failures unchanged.
+4. The system shall route the undecodable case to the existing `noSpeech` outcome rather than throwing.
+5. The system shall not introduce a new outcome type, SSE event, or learner-facing message.
+6. The system shall not retry the transcription call for undecodable audio.
+7. The system shall not attempt WAV conversion or any other repair as a fallback.
+8. The system shall log a warn-level `[stt]` line recording detected format, buffer byte length, and reason.
+9. The system shall not log audio content or base64 payloads.
+10. The system shall leave `validateTranscript`, the transcription hint, the language-code retry, the audio format helpers, and the transcription model parameters unmodified.
+
+---
+
+## 6. Open questions
+
+1. The exact wording of the API's undecodable-audio 400 is not guaranteed stable. Match loosely enough to survive minor rewording, but keep the status code check so the branch cannot capture unrelated errors. If you cannot find the current message text in the codebase or logs, stop and ask rather than guessing at a pattern.
+2. If the `noSpeech` outcome is produced somewhere that the transcription call site cannot reach without restructuring, stop and ask rather than restructuring.
+
+---
+
+## 7. Out of scope reminder
+
+This spec does not touch the client, does not change transcript validation or the hint, does not alter audio format detection or conversion, does not modify the transcription model or its parameters, does not add retries or repair paths, and does not touch TTS, caching, history, or the reply call. If you believe any of those are required, stop and ask.

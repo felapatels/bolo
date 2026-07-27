@@ -1,3 +1,4 @@
+- [Bolo codebase inventory](bolo-codebase-inventory.md) — full reference: tech stack, all routes, content model, scoring/XP, spaced repetition, badges, onboarding, audio, copy tone.
 - [Bolo Parrot chat weekly cap](chat-weekly-cap.md) — schema, gate shape, injectable turn logic, duration measurement for the conversational chat API.
 - [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.
 - [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.
