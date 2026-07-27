@@ -40,6 +40,13 @@ export function useVoiceRecorder() {
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string | undefined>(undefined);
 
+  // Wall-clock timestamps for reliable duration measurement.
+  // startTimeRef is set the moment the MediaRecorder fires its onstart event.
+  // lastDurationSecondsRef is written (before resolve) in every onstop callback
+  // so getLastDurationSeconds() always returns a finite number.
+  const startTimeRef = useRef<number | null>(null);
+  const lastDurationSecondsRef = useRef<number>(0);
+
   // Pre-warmed microphone stream, so startRecording doesn't have to wait on
   // permission prompts / device acquisition at click time (which clips the
   // first syllables of speech).
@@ -122,8 +129,13 @@ export function useVoiceRecorder() {
 
       // Only report "recording" once the recorder has actually started
       // capturing, so UIs don't show a recording indicator prematurely.
+      // Stamp the wall-clock start time here so elapsed duration is measured
+      // from the moment the hardware actually begins capturing.
       await new Promise<void>((resolve, reject) => {
-        recorder.onstart = () => resolve();
+        recorder.onstart = () => {
+          startTimeRef.current = performance.now();
+          resolve();
+        };
         recorder.onerror = () => reject(new Error("Recorder failed to start"));
         recorder.start(100);
       });
@@ -214,6 +226,18 @@ export function useVoiceRecorder() {
         const blobType = mimeTypeRef.current ?? recorder.mimeType ?? "audio/webm";
         const blob = new Blob(chunksRef.current, { type: blobType });
 
+        // Compute wall-clock duration. startTimeRef is set in onstart so this
+        // measures exactly the hardware-capture window. Guard against any edge
+        // case (onstart never fired) so the value is always a finite number ≥ 0.
+        const stopTime = performance.now();
+        const elapsed =
+          startTimeRef.current !== null
+            ? (stopTime - startTimeRef.current) / 1000
+            : 0;
+        lastDurationSecondsRef.current =
+          Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
+        startTimeRef.current = null;
+
         // Stop the recorder's own stream tracks directly. Relying on
         // streamRef.current here would be a race: a concurrent prewarm promise
         // may have already overwritten streamRef with a *different* stream
@@ -289,5 +313,15 @@ export function useVoiceRecorder() {
     return () => abortRecording();
   }, [abortRecording]);
 
-  return { state, prepare, startRecording, stopRecording, abortRecording };
+  /**
+   * Returns the wall-clock duration of the most recent recording in seconds.
+   * Always a finite number ≥ 0 — never NaN, Infinity, or undefined.
+   * Call this immediately after awaiting stopRecording with no intervening await
+   * so a concurrent recording cannot overwrite the value before it is read.
+   */
+  const getLastDurationSeconds = useCallback((): number => {
+    return lastDurationSecondsRef.current;
+  }, []);
+
+  return { state, prepare, startRecording, stopRecording, abortRecording, getLastDurationSeconds };
 }

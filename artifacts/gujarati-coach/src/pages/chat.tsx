@@ -417,6 +417,9 @@ export default function ChatPage() {
 
     try {
       const blob = isRetry ? retryBlob! : await recorder.stopRecording();
+      // Read the wall-clock duration immediately after stopRecording with no
+      // intervening await so a concurrent recording cannot overwrite the value.
+      const wallClockDuration = recorder.getLastDurationSeconds();
 
       if (!isRetry) {
         if (blob.size === 0) {
@@ -426,31 +429,30 @@ export default function ChatPage() {
           return;
         }
 
-        // Duration gate: reject recordings too short to contain a real utterance.
-        // Threshold = 400 ms — comfortably clears a single short syllable ("ek",
-        // "haan") while catching accidental taps. When the browser cannot read the
-        // blob duration (NaN / Infinity) the gate is skipped so we never
-        // incorrectly reject a valid recording due to an unreliable measurement.
-        try {
-          const objectUrl = URL.createObjectURL(blob);
-          const blobDuration = await new Promise<number>((resolve) => {
-            const probe = new Audio(objectUrl);
-            probe.addEventListener("loadedmetadata", () => resolve(probe.duration), { once: true });
-            probe.addEventListener("error", () => resolve(NaN), { once: true });
-            // Bail out after 500 ms so a stuck probe never blocks the turn.
-            setTimeout(() => resolve(NaN), 500);
-          });
-          URL.revokeObjectURL(objectUrl);
-          if (Number.isFinite(blobDuration) && blobDuration < 0.4) {
-            console.log("[stt] skipped reason=too_short");
-            setMessages((prev) => prev.filter((m) => !m.pending));
-            setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
-            setPhase("idle");
-            finishingRef.current = false;
-            return;
-          }
-        } catch {
-          // Duration probe failed — let the recording through.
+        // Duration gate: wall-clock elapsed time supplied by the recorder.
+        // Threshold = 0.25 s — wall-clock includes button-press/release overhead
+        // that decoded audio length does not, and a single short word ("haan",
+        // "ek") can be under 400 ms of speech. The value is always finite so the
+        // gate always evaluates; no skip-on-Infinity behaviour needed.
+        if (wallClockDuration < 0.25) {
+          console.log(`[stt] skipped reason=too_short duration=${wallClockDuration.toFixed(3)}s`);
+          setMessages((prev) => prev.filter((m) => !m.pending));
+          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+          setPhase("idle");
+          finishingRef.current = false;
+          return;
+        }
+
+        // Size floor: reject containers whose byte length is too small to hold
+        // real audio frames. A WebM blob can carry valid EBML headers but zero
+        // encoded frames; duration alone does not reliably catch that case.
+        if (blob.size < 2048) {
+          console.log(`[stt] skipped reason=too_small size=${blob.size}`);
+          setMessages((prev) => prev.filter((m) => !m.pending));
+          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+          setPhase("idle");
+          finishingRef.current = false;
+          return;
         }
       }
 
@@ -519,7 +521,7 @@ export default function ChatPage() {
         const gRes = await fetch(chatUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-          body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history: [] }),
+          body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history: [] }),
           signal: abortController.signal,
         });
 
@@ -687,7 +689,7 @@ export default function ChatPage() {
             ? { "X-Audio-Stream": "1" }
             : {}),
         },
-        body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, history }),
+        body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history }),
         signal: abortController.signal,
       });
 
