@@ -227,3 +227,36 @@ test("duplicate completions for the same day do not double-count", async () => {
   const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
+
+// ---------------------------------------------------------------------------
+// Non-UTC timezone — exercises the localDayKey path with a real IANA zone.
+// Pacific/Auckland is UTC+12/13, well ahead of UTC, which maximises the chance
+// that "today" differs between the two timezones in CI environments that run
+// close to the UTC midnight boundary.
+// ---------------------------------------------------------------------------
+
+test("streak counts correctly when a real non-UTC timezone is supplied", async () => {
+  // Seed three consecutive UTC days ending today.  In any timezone the learner
+  // who completed on days [0, 1, 2] UTC has at minimum a streak of 2 (at least
+  // yesterday+today overlap regardless of local midnight position), so the
+  // result must be ≥ 2 and ≤ 3.
+  await seedCompletion(daysAgoUtc(0));
+  await seedCompletion(daysAgoUtc(1));
+  await seedCompletion(daysAgoUtc(2));
+
+  const streakUtc      = await computeQuizStreak(TEST_USER_ID, LANG, null);
+  const streakAuckland = await computeQuizStreak(TEST_USER_ID, LANG, "Pacific/Auckland");
+
+  // Both must be positive — the run is unambiguously active.
+  assert.ok(streakUtc      >= 1, `UTC streak was ${streakUtc}, expected ≥ 1`);
+  assert.ok(streakAuckland >= 1, `Auckland streak was ${streakAuckland}, expected ≥ 1`);
+
+  // The Auckland timezone path must produce a plausible result — not a crash
+  // or a wildly wrong value.  The max possible is 3 (all three days fit the
+  // local window) and the min is 1 (only one day aligns with local today/
+  // yesterday), so the value must sit in [1, 3].
+  assert.ok(
+    streakAuckland >= 1 && streakAuckland <= 3,
+    `Auckland streak ${streakAuckland} is outside the expected [1, 3] range`,
+  );
+});

@@ -303,11 +303,31 @@ async function _runBackfill(): Promise<void> {
       "Backfill v2: mastered-count comparison",
     );
     if (dropRatio > MAX_MASTERED_DROP_RATIO) {
-      throw new Error(
-        `Backfill v2 aborted: FSRS mastered count would drop by ${(dropRatio * 100).toFixed(1)} % ` +
-          `(old=${totalOldMastered}, new=${totalNewMastered}, threshold=${MAX_MASTERED_DROP_RATIO * 100} %). ` +
-          "Investigate FSRS parameter tuning or the stability-seeding rule before deploying.",
-      );
+      if (process.env.SCORING_V2_GATE_OVERRIDE === "1") {
+        // Emergency override: set SCORING_V2_GATE_OVERRIDE=1 to bypass the
+        // mastered-count safety gate without a code change. Use only when you
+        // have confirmed the drop is expected (e.g. a data-quality incident
+        // where old scores were inflated) and a deploy outage is worse than
+        // proceeding. The log below is ERROR-level so it appears in all
+        // monitoring channels; the deployment is still unsafe by definition.
+        logger.error(
+          {
+            totalOldMastered,
+            totalNewMastered,
+            dropRatio: dropRatio.toFixed(3),
+            threshold: MAX_MASTERED_DROP_RATIO,
+          },
+          "SCORING_V2_GATE_OVERRIDE=1 — safety gate BYPASSED; mastered-count " +
+            "drop exceeds threshold but proceeding anyway. Investigate urgently.",
+        );
+      } else {
+        throw new Error(
+          `Backfill v2 aborted: FSRS mastered count would drop by ${(dropRatio * 100).toFixed(1)} % ` +
+            `(old=${totalOldMastered}, new=${totalNewMastered}, threshold=${MAX_MASTERED_DROP_RATIO * 100} %). ` +
+            "Investigate FSRS parameter tuning or the stability-seeding rule before deploying. " +
+            "To bypass in an emergency set SCORING_V2_GATE_OVERRIDE=1.",
+        );
+      }
     }
   } else {
     logger.info("Backfill v2: no active users with mastered phrases — skipping drop check");

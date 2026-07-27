@@ -1,0 +1,21 @@
+Item 4 is not resolved. The normalizeNative change does not make हिंदी and हिन्दी match, and it typechecks clean because it is a logic bug, not a type bug.
+
+Trace it: the final .replace(/[^\p{L}]/gu, "") strips all Devanagari marks, because matras, virama, and anusvara are all category M, not L. So हिंदी reduces to हद while हिन्दी reduces to हनद, because न is a letter and survives. They do not match.
+
+Also note the explicit anusvara removal line is dead code. U+0902 is a nonspacing mark and would have been stripped by the non-letter rule on the next line regardless.
+
+Fix: before the non-letter strip, collapse nasal consonant plus virama sequences. For Devanagari that means removing the sequence [\u0919\u091E\u0923\u0928\u092E] followed by \u094D, so that the conjunct nasal disappears the same way the anusvara does. Then both forms reduce identically.
+
+Add a unit test asserting normalizeNative("हिंदी") === normalizeNative("हिन्दी"), and a second asserting that two genuinely different words do NOT collapse to the same value, so we catch over-normalization.
+
+Implement for Devanagari only right now. The same pattern is needed for the other script families and that is a separate task, not this one.
+
+Three more things:
+
+A. The migration file was written after the DDL was applied ad hoc, which means it has never actually run against a clean database. Create a fresh empty database, run the full migration chain from zero, and confirm the API server starts against it. That is the only test that proves production will work.
+
+B. The 250 ms guard checks latencyMs !== undefined && latencyMs < 250, so any client that simply omits the field bypasses the guard entirely. That is an anti-abuse rule with an opt-out. Keep it optional for back-compat, but add a flag to the attempt row when latencyMs is absent so we can measure how many attempts are unguarded before making it required.
+
+C. The safety gate throwing before app.listen means a failed gate on production is a crash loop and an outage. Add an environment variable override, for example SCORING_V2_GATE_OVERRIDE=1, that logs loudly and proceeds. I want the gate to halt by default and I want a way to unblock it at 2am without a code change.
+
+Also: all 11 test call sites pass null for timezone, which means no test exercises non-UTC behavior. Change at least one streak test to use a real timezone such as Pacific/Auckland, which is acceptance item 4.

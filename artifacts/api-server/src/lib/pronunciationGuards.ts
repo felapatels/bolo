@@ -64,27 +64,39 @@ export function normalizeLatin(text: string): string {
  *  2. Nukta canonicalization via NFC — e.g. ड + ़ (nukta) → ड़ as a single
  *     precomposed codepoint, so both forms compare as identical.
  *
- *  3. Anusvara/chandrabindu equivalence: the anusvara ँ (U+0901) and
- *     chandrabindu ं (U+0902) mark the same nasalization and are interchangeable
- *     in pronunciation. Both are dropped here; the consonant cluster that
- *     follows (ṃ, ṅ, ñ, n, m) carries the phoneme.
+ *  3. Anusvara/chandrabindu equivalence (Devanagari): anusvara ं (U+0902) and
+ *     chandrabindu ँ (U+0901) mark nasalization already carried by the
+ *     following consonant. Both are dropped. Note: U+0902/U+0901 are category
+ *     Mn (nonspacing marks) and would be removed by the non-letter strip in
+ *     step 5 regardless; the explicit drop here documents the intent.
  *
- *  4. Conjunct-nasal equivalence: explicit nasal consonants before stops
- *     (ङ+ক, ञ+চ, ण+ट, न+त, म+प) may or may not be written out; normalize by
- *     stripping them when immediately followed by a homorganic stop, letting
- *     the anusvara-drop above cover the implicit-nasal case too.
+ *  4. Conjunct-nasal equivalence (Devanagari only): Hindi may write a nasal
+ *     phoneme as either an anusvara (हिंदी) or an explicit nasal consonant +
+ *     virama conjunct (हिन्दी, where न + ् = न्). After step 3 the anusvara
+ *     form already loses the anusvara; this step removes the nasal consonant
+ *     letter (ङ U+0919, ञ U+091E, ण U+0923, न U+0928, म U+092E) when it is
+ *     immediately followed by virama (् U+094D), so both spellings reduce to
+ *     the same string (हिंदी → हद, हिन्दी → हद). The same pattern exists in
+ *     other Indic script families; those are handled separately.
+ *
+ *  5. Non-letter strip: matras, virama, and all other Unicode marks (category
+ *     M) are not letters, so they are removed here. Only base letter codepoints
+ *     (category L) survive.
  */
 export function normalizeNative(text: string): string {
   return (
     text
-      // Strip ZWJ / ZWNJ (invisible joiners that affect rendering, not sound).
+      // 1. Strip ZWJ / ZWNJ.
       .replace(/[\u200C\u200D]/g, "")
-      // NFC normalizes nukta combinations to precomposed codepoints.
+      // 2. NFC: nukta → precomposed.
       .normalize("NFC")
-      // Drop anusvara (U+0902) and chandrabindu (U+0901) — both mark
-      // nasalization that is already implicit in the following consonant cluster.
+      // 3. Drop Devanagari anusvara (U+0902) and chandrabindu (U+0901).
       .replace(/[\u0901\u0902]/g, "")
-      // Strip everything that is not a Unicode letter.
+      // 4. Drop Devanagari conjunct nasals: nasal letter + virama → nothing.
+      //    Covers ङ् ञ् ण् न् म् so that "हिन्दी" and "हिंदी" collapse
+      //    identically once marks are stripped in the next step.
+      .replace(/[\u0919\u091E\u0923\u0928\u092E]\u094D/g, "")
+      // 5. Strip everything that is not a Unicode letter (marks, digits, etc.).
       .replace(/[^\p{L}]/gu, "")
       .toLowerCase()
   );

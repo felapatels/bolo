@@ -44,6 +44,37 @@ Backfill runs before any traffic. Both are advisory-locked with different keys.
 
 `'attempt'` (ref_id=attempt.id), `'game_session'` (ref_id=game_session.id), `'daily_quiz'` (ref_id=daily_quiz_completion.id)
 
+## normalizeNative (Devanagari)
+
+Logic bug fixed: nasal consonant + virama (e.g. न् in हिन्दी) survived the
+non-letter strip because the consonant letter (category L) was not dropped.
+Fix: `.replace(/[\u0919\u091E\u0923\u0928\u092E]\u094D/g, "")` BEFORE the
+`/[^\p{L}]/gu` strip. Now हिंदी and हिन्दी reduce identically to हद.
+
+The explicit anusvara drop (U+0902/U+0901) is technically dead code — both are
+category Mn and would be stripped by the non-letter rule anyway — but kept for
+clarity of intent.
+
+Conjunct-nasal fix is Devanagari-only. Same pattern needed for Gujarati,
+Bengali, Tamil, Telugu, etc. — separate task.
+
+## latencyMs flagging
+
+`attempts.flags = "latency_missing"` when `claims.latencyMs == null` (client
+did not report). Measure adoption before making the field required.
+250ms guard is in `/openai/pronunciation` — returns 400 `tap_too_fast`.
+
+## SCORING_V2_GATE_OVERRIDE
+
+`SCORING_V2_GATE_OVERRIDE=1` env var bypasses the mastered-count safety gate
+with ERROR-level log. Use only in an emergency; the gate throws by default.
+
+## Migration verified on fresh DB
+
+`lib/db/drizzle/0020_scoring_core_v2.sql` + journal entry confirmed via:
+`CREATE DATABASE` → full drizzle migration chain from 0 → table + column
+verification → `DROP DATABASE`. All 20 migrations ran clean in sequence.
+
 ## What was NOT shipped (Task 2 — deferred)
 
 - Removing `score` from pronunciation API response

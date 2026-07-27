@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   normalizeLatin,
+  normalizeNative,
   compareToTarget,
   isEffectivelyEmpty,
   applyScoreGuards,
@@ -327,4 +328,41 @@ test("cross-language ambiguity: wrong-phrase-cap fires when the sibling list con
   assert.equal(r.passed, false, "transcript matching a sibling, not the target, must not pass");
   assert.ok(r.score <= 40, `wrong-phrase-cap must limit score to ≤ 40, got ${r.score}`);
   assert.equal(r.guard, "wrong-phrase-cap");
+});
+
+// ---------------------------------------------------------------------------
+// normalizeNative — conjunct-nasal / anusvara equivalence (Devanagari)
+// ---------------------------------------------------------------------------
+
+test("normalizeNative: anusvara form and conjunct-nasal form produce the same key", () => {
+  // हिंदी  = ह + ि + anusvara (U+0902) + द + ी
+  // हिन्दी = ह + ि + न + virama (U+094D) + द + ी
+  // Both should normalize to the same letter-only string so pronunciation
+  // scoring treats them as identical spellings of the same word.
+  assert.equal(
+    normalizeNative("हिंदी"),
+    normalizeNative("हिन्दी"),
+    "anusvara form and conjunct-nasal form of 'Hindi' must normalize identically",
+  );
+});
+
+test("normalizeNative: genuinely different Devanagari words do NOT collapse to the same key", () => {
+  // हिंदी (Hindi, language) and मराठी (Marathi, language) have completely
+  // different consonant skeletons and must remain distinguishable after
+  // normalization, proving we are not over-normalizing.
+  assert.notEqual(
+    normalizeNative("हिंदी"),
+    normalizeNative("मराठी"),
+    "distinct words must not collapse to the same normalized key",
+  );
+});
+
+test("normalizeNative: ZWJ and ZWNJ are stripped and do not affect the key", () => {
+  // Some STT engines emit ZWJ (U+200D) or ZWNJ (U+200C) in Devanagari output.
+  // They must not create a mismatch against a clean reference string.
+  assert.equal(
+    normalizeNative("नम\u200Dस्ते"),  // ZWJ inserted mid-word
+    normalizeNative("नमस्ते"),
+    "ZWJ inside a word must not change the normalized key",
+  );
 });

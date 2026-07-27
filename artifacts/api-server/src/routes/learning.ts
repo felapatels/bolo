@@ -996,6 +996,9 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       fsrsRating,
       thetaDelta,
       latencyMs: claims.latencyMs ?? null,
+      // Flag attempts where the client did not report latency so we can measure
+      // what fraction of attempts are unguarded before making the field required.
+      flags: claims.latencyMs == null ? "latency_missing" : null,
     })
     .returning();
 
