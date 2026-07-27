@@ -510,6 +510,23 @@ export interface SpeechToTextOptions {
   highQuality?: boolean;
 }
 
+/**
+ * Thrown by speechToText when the API returns HTTP 400 and the error message
+ * indicates the audio buffer is corrupted or in an unsupported format.
+ * Callers can catch this specifically to return a graceful noSpeech outcome
+ * rather than surfacing a generic server error to the learner.
+ */
+export class UndecodableAudioError extends Error {
+  readonly format: string;
+  readonly byteLength: number;
+  constructor(format: string, byteLength: number, message?: string) {
+    super(message ?? `Audio could not be decoded (format=${format} bytes=${byteLength})`);
+    this.name = "UndecodableAudioError";
+    this.format = format;
+    this.byteLength = byteLength;
+  }
+}
+
 /** Speech-to-Text using gpt-4o-mini-transcribe (or gpt-4o-transcribe). */
 export async function speechToText(
   audioBuffer: Buffer,
@@ -544,6 +561,22 @@ export async function speechToText(
         ...(options.prompt ? { prompt: options.prompt } : {}),
       });
       return response.text;
+    }
+    // Detect corrupted / unsupported-format audio (status 400, message
+    // contains "corrupted" or "unsupported"). Guard with !languageRejected so
+    // this branch cannot overlap with the language-code retry above.
+    if (
+      e?.status === 400 &&
+      !languageRejected &&
+      /corrupted|unsupported/i.test(e?.message ?? "")
+    ) {
+      console.warn("[stt] undecodable_audio", {
+        format,
+        byteLength: audioBuffer.length,
+        reason: "undecodable_audio",
+        message: e?.message,
+      });
+      throw new UndecodableAudioError(format, audioBuffer.length, e?.message);
     }
     throw err;
   }

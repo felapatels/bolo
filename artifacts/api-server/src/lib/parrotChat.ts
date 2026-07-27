@@ -1,6 +1,7 @@
 import {
   openai,
   speechToText,
+  UndecodableAudioError,
   textToSpeechElevenLabs,
   textToSpeechElevenLabsStream,
   ensureCompatibleFormat,
@@ -945,20 +946,32 @@ export async function runParrotTurn(
     // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
     // measurement (parallel WAV conversion) when the field is absent.
     const transcribeStart = Date.now();
-    if (input.clientDurationSeconds != null) {
-      // Fast path: transcribe only, no WAV conversion needed.
-      durationSeconds = input.clientDurationSeconds;
-      transcript = (
-        await deps.transcribe(buffer, format, { prompt: transcriptionHint })
-      ).trim();
-    } else {
-      // Legacy path: run WAV conversion and transcription in parallel.
-      const [wavBuffer, t] = await Promise.all([
-        format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
-        deps.transcribe(buffer, format, { prompt: transcriptionHint }).then((t) => t.trim()),
-      ]);
-      durationSeconds = wavDurationSeconds(wavBuffer);
-      transcript = t;
+    try {
+      if (input.clientDurationSeconds != null) {
+        // Fast path: transcribe only, no WAV conversion needed.
+        durationSeconds = input.clientDurationSeconds;
+        transcript = (
+          await deps.transcribe(buffer, format, { prompt: transcriptionHint })
+        ).trim();
+      } else {
+        // Legacy path: run WAV conversion and transcription in parallel.
+        const [wavBuffer, t] = await Promise.all([
+          format === "wav" ? Promise.resolve(buffer) : convertToWav(buffer),
+          deps.transcribe(buffer, format, { prompt: transcriptionHint }).then((t) => t.trim()),
+        ]);
+        durationSeconds = wavDurationSeconds(wavBuffer);
+        transcript = t;
+      }
+    } catch (err) {
+      // Corrupted or unsupported-format recordings are a known edge case (e.g.
+      // a silent WebM that the browser emitted with no audio track, or a
+      // partial buffer from a cancelled recording). Convert to the existing
+      // noSpeech outcome so the learner sees the "nothing was heard" message
+      // instead of a generic 500 error.
+      if (err instanceof UndecodableAudioError) {
+        return { noSpeech: true, reason: "empty" };
+      }
+      throw err;
     }
     transcribeMs = Date.now() - transcribeStart;
 

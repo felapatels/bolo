@@ -15,6 +15,7 @@ export {
   textToSpeechElevenLabsStream,
   textToSpeechStream,
   speechToText,
+  UndecodableAudioError,
   type SpeechToTextOptions,
   speechToTextStream,
 } from "./client";
