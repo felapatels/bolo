@@ -1,4 +1,5 @@
 - [Bolo codebase inventory](bolo-codebase-inventory.md) — full reference: tech stack, all routes, content model, scoring/XP, spaced repetition, badges, onboarding, audio, copy tone.
+- [Scoring Core v2](scoring-core-v2.md) — FSRS+Elo+XP ledger schema, backfill seeding rule (threshold=1), ts-fsrs Grade cast, startup order, deferred Task 2 items.
 - [Bolo Parrot chat weekly cap](chat-weekly-cap.md) — schema, gate shape, injectable turn logic, duration measurement for the conversational chat API.
 - [Running one-off tsx scripts](tsx-scripts.md) — tsx isn't hoisted to root .bin nor exec-resolvable; use the pnpm virtual store bin path.
 - [orval path+query param collision](orval-param-collision.md) — api-zod barrel exports only ./generated/api (values); path+query GET endpoints make `<Op>Params` collide.

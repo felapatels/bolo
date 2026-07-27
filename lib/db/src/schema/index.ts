@@ -15,3 +15,6 @@ export * from "./contactSubmissions";
 export * from "./scriptTraceProgress";
 export * from "./dailyQuizzes";
 export * from "./gameSessions";
+export * from "./userItemMemory";
+export * from "./userAbility";
+export * from "./xpLedger";

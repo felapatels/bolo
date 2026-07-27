@@ -8,6 +8,7 @@ import {
   phrasesTable,
   attemptsTable,
   gameSessionsTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -18,6 +19,8 @@ import {
   loadExtendedMetrics,
   languageCodeFromChapter,
 } from "../lib/badgeAward";
+import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
+import { writeGameSessionXp, writeDailyQuizXp, computeGameDecayMultiplier, computeGameDifficultyMultiplier, applyGameXpMultipliers } from "../lib/xpEngine";
 
 const router: IRouter = Router();
 
@@ -26,6 +29,18 @@ const publicRouter: IRouter = Router();
 
 function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
+}
+
+function getUserTimezone(req: Request): string | null {
+  const tz = req.headers["x-timezone"];
+  const raw = Array.isArray(tz) ? tz[0] : tz;
+  if (!raw) return null;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: raw });
+    return raw;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +217,15 @@ function isCorrectAnswer(q: QuizQuestion, answer: string | null | undefined): bo
  * Returns 0 when the most-recent completion is older than yesterday (broken
  * streak), so the learner always sees an accurate, motivating number.
  */
-export async function computeQuizStreak(userId: string, languageCode: string): Promise<number> {
+// Accepts an optional IANA `timeZone` string (Rule 34): uses localDayKey for
+// "today" so the streak anchor matches the learner's local calendar day rather
+// than always UTC midnight. This unifies the quiz-streak anchor with the
+// pronunciation-streak anchor in computeStreakDays.
+export async function computeQuizStreak(
+  userId: string,
+  languageCode: string,
+  timeZone?: string | null,
+): Promise<number> {
   const completions = await db
     .select({ quizDate: dailyQuizCompletionsTable.quizDate })
     .from(dailyQuizCompletionsTable)
@@ -216,36 +239,8 @@ export async function computeQuizStreak(userId: string, languageCode: string): P
 
   if (completions.length === 0) return 0;
 
-  const today = todayUtc();
-  const yesterday = (() => {
-    const d = new Date(today + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() - 1);
-    return d.toISOString().slice(0, 10);
-  })();
-
-  const mostRecent = completions[0]!.quizDate;
-  // If the most recent completion is older than yesterday, the streak is broken.
-  if (mostRecent !== today && mostRecent !== yesterday) return 0;
-
-  let streak = 1;
-  let prevDate = mostRecent;
-
-  for (let i = 1; i < completions.length; i++) {
-    const curr = completions[i]!.quizDate;
-    // Calculate the date one day before prevDate.
-    const dt = new Date(prevDate + "T00:00:00Z");
-    dt.setUTCDate(dt.getUTCDate() - 1);
-    const expectedPrev = dt.toISOString().slice(0, 10);
-
-    if (curr === expectedPrev) {
-      streak++;
-      prevDate = curr;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  const quizDates = completions.map((c) => c.quizDate);
+  return computeDailyQuizStreak(quizDates, timeZone);
 }
 
 // ---------------------------------------------------------------------------
@@ -391,16 +386,19 @@ router.post(
 
           if (existing.length === 0) {
             // First time completing this chapter — record session + phantom attempt.
-            await Promise.all([
-              db.insert(gameSessionsTable).values({
-                userId,
-                languageCode: langCode,
-                game: "script-trace",
-                correctCount: CHAPTER_SIZE,
-                totalCount: CHAPTER_SIZE,
-                xpAwarded: SCRIPT_TRACE_XP,
-                context: chapter,
-              }),
+            const [[traceSession]] = await Promise.all([
+              db
+                .insert(gameSessionsTable)
+                .values({
+                  userId,
+                  languageCode: langCode,
+                  game: "script-trace",
+                  correctCount: CHAPTER_SIZE,
+                  totalCount: CHAPTER_SIZE,
+                  xpAwarded: SCRIPT_TRACE_XP,
+                  context: chapter,
+                })
+                .returning({ id: gameSessionsTable.id }),
               db.insert(attemptsTable).values({
                 userId,
                 languageCode: langCode,
@@ -414,6 +412,20 @@ router.post(
                 feedback: "",
               }),
             ]);
+
+            // XP ledger write (idempotent).
+            if (traceSession && SCRIPT_TRACE_XP > 0) {
+              await db
+                .insert(xpLedgerTable)
+                .values({
+                  userId,
+                  languageCode: langCode,
+                  source: "game_session",
+                  refId: String(traceSession.id),
+                  xp: SCRIPT_TRACE_XP,
+                })
+                .onConflictDoNothing();
+            }
 
             scriptTraceXpAwarded = SCRIPT_TRACE_XP;
             chapterComplete = true;
@@ -635,16 +647,19 @@ router.post(
 
       // Record a game_session row so quiz XP is included in the extended
       // progress metrics (streak, XP milestones, Daily Devotee badge).
-      // A phantom attempt (phraseId=null, score=0) keeps the day's streak alive.
-      await Promise.all([
-        db.insert(gameSessionsTable).values({
-          userId,
-          languageCode: lang,
-          game: "daily-quiz",
-          correctCount: score,
-          totalCount: 5,
-          xpAwarded,
-        }),
+      // Capture session id for xp_ledger write.
+      const [[quizSession]] = await Promise.all([
+        db
+          .insert(gameSessionsTable)
+          .values({
+            userId,
+            languageCode: lang,
+            game: "daily-quiz",
+            correctCount: score,
+            totalCount: 5,
+            xpAwarded,
+          })
+          .returning({ id: gameSessionsTable.id }),
         db.insert(attemptsTable).values({
           userId,
           languageCode: lang,
@@ -657,11 +672,39 @@ router.post(
           passed: false,
           feedback: "",
         }),
+        // XP ledger: daily_quiz completion row
+        xpAwarded > 0
+          ? db
+              .insert(xpLedgerTable)
+              .values({
+                userId,
+                languageCode: lang,
+                source: "daily_quiz",
+                refId: String(completion.id),
+                xp: xpAwarded,
+              })
+              .onConflictDoNothing()
+          : Promise.resolve(),
       ]);
 
+      // XP ledger: game_session row (needs the session id from the returning clause)
+      if (quizSession && xpAwarded > 0) {
+        await db
+          .insert(xpLedgerTable)
+          .values({
+            userId,
+            languageCode: lang,
+            source: "game_session",
+            refId: String(quizSession.id),
+            xp: xpAwarded,
+          })
+          .onConflictDoNothing();
+      }
+
+      const timezone = getUserTimezone(req);
       const [metrics, quizStreak] = await Promise.all([
         loadExtendedMetrics(userId, lang),
-        computeQuizStreak(userId, lang),
+        computeQuizStreak(userId, lang, timezone),
       ]);
       const newlyEarnedBadges = await awardNewlyEarnedBadges(userId, lang, metrics);
 

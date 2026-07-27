@@ -146,13 +146,22 @@ export function computeStreakDays(
   return streak;
 }
 
-// Computes consecutive-day streak from UTC date strings "YYYY-MM-DD" (quiz
-// completion dates). The streak counts backward from today (UTC); if today has
-// no completion the anchor backs up to yesterday. Each quiz date counts at most
-// once regardless of how many completions share the same date.
-export function computeDailyQuizStreak(quizDates: string[]): number {
+// Computes consecutive-day streak from "YYYY-MM-DD" quiz completion date strings.
+// The streak counts backward from today; if today has no completion the anchor
+// backs up to yesterday. Each quiz date counts at most once.
+//
+// Timezone unification (Rule 34): accepts the same optional IANA `timeZone`
+// parameter as `computeStreakDays` so "today" is always the learner's local
+// calendar day rather than UTC. The stored quiz-date strings remain UTC-bucketed
+// (no schema change), but the anchor point now uses the learner's local midnight,
+// which prevents a quiz completed at 11 pm local time from being treated as
+// "yesterday" just because UTC has already rolled over.
+export function computeDailyQuizStreak(
+  quizDates: string[],
+  timeZone?: string | null,
+): number {
   const days = new Set(quizDates);
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDayKey(new Date(), timeZone);
   let streak = 0;
   let cursor = days.has(todayKey) ? todayKey : previousDayKey(todayKey);
   while (days.has(cursor)) {

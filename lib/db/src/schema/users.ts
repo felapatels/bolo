@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, date } from "drizzle-orm/pg-core";
 
 // Local mirror of the authenticated user, keyed by the Clerk user id.
 // Rows are provisioned just-in-time on the first authenticated request.
@@ -83,6 +83,11 @@ export const usersTable = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // ── Scoring Core v2 ──
+  // The calendar day on which the server last inferred and persisted the
+  // learner's timezone from a request header (one free auto-set per day
+  // if the learner hasn't set an explicit preference yet). Null = never used.
+  tzGraceUsedOn: date("tz_grace_used_on"),
 });
 
 export type User = typeof usersTable.$inferSelect;

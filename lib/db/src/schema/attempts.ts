@@ -5,6 +5,7 @@ import {
   integer,
   boolean,
   timestamp,
+  real,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -30,6 +31,23 @@ export const attemptsTable = pgTable("attempts", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // ── Scoring Core v2 columns (all nullable; null = attempt predates the upgrade) ──
+  // How long the learner took to tap "Record" after the phrase played, ms.
+  latencyMs: integer("latency_ms"),
+  // Duration of the submitted audio clip, ms.
+  audioDurationMs: integer("audio_duration_ms"),
+  // Qualitative outcome band: 'nailed' | 'close' | 'retry' | 'nocatch'.
+  band: text("band"),
+  // FSRS rating applied to the item-memory row: 1=Again 2=Hard 3=Good 4=Easy.
+  fsrsRating: integer("fsrs_rating"),
+  // Change in learner-ability (theta) produced by this attempt.
+  thetaDelta: real("theta_delta"),
+  // Change in phrase difficulty (beta) produced by this attempt.
+  betaDelta: real("beta_delta"),
+  // XP credited to the ledger for this attempt.
+  xpAwarded: integer("xp_awarded"),
+  // Comma-separated guard/flag tags for observability (e.g. 'fast_path,near_match_floor').
+  flags: text("flags"),
 });
 
 export const insertAttemptSchema = createInsertSchema(attemptsTable).omit({

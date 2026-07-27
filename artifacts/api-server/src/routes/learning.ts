@@ -7,6 +7,9 @@ import {
   attemptsTable,
   badgesTable,
   gameSessionsTable,
+  userItemMemoryTable,
+  userAbilityTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { asc, desc, eq, and, ne, inArray, sql } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
@@ -76,6 +79,9 @@ import {
   FREE_PHRASE_CEILING,
 } from "../lib/phraseReplenisher";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
+import { applyFsrsRating, scoreAndBandToRating } from "../lib/fsrsScheduler";
+import type { PronunciationBand } from "../lib/fsrsScheduler";
+import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
 
 const router: IRouter = Router();
 
@@ -786,40 +792,44 @@ router.get(
     )
       return;
 
-    // Scheduling needs each attempt's timestamp, so pull createdAt alongside the
-    // score/phrase used for the weakest-first stats.
-    const attempts = await db
-      .select({
-        phraseId: attemptsTable.phraseId,
-        score: attemptsTable.score,
-        createdAt: attemptsTable.createdAt,
-      })
-      .from(attemptsTable)
-      .where(
-        and(
-          eq(attemptsTable.userId, userId),
-          eq(attemptsTable.languageCode, lang),
+    // FSRS review queue: phrases that (a) have at least one rep recorded and
+    // (b) whose scheduled due date has arrived or passed, ordered soonest-due
+    // first so the most overdue item is drilled first. Stability < 21 days
+    // excludes phrases the learner has truly mastered, keeping the session
+    // focused on items that need reinforcement.
+    // Also load attempt history in parallel so serializePhrase can surface
+    // best scores and mastery status alongside the FSRS ordering.
+    const [memories, allAttempts] = await Promise.all([
+      db
+        .select({
+          phraseId: userItemMemoryTable.phraseId,
+          dueAt: userItemMemoryTable.dueAt,
+        })
+        .from(userItemMemoryTable)
+        .where(
+          and(
+            eq(userItemMemoryTable.userId, userId),
+            sql`${userItemMemoryTable.reps} > 0`,
+            sql`${userItemMemoryTable.stability} < 21`,
+            sql`${userItemMemoryTable.dueAt} <= NOW()`,
+          ),
+        )
+        .orderBy(asc(userItemMemoryTable.dueAt))
+        .limit(REVIEW_SESSION_SIZE),
+      db
+        .select({
+          phraseId: attemptsTable.phraseId,
+          score: attemptsTable.score,
+          createdAt: attemptsTable.createdAt,
+        })
+        .from(attemptsTable)
+        .where(
+          and(eq(attemptsTable.userId, userId), eq(attemptsTable.languageCode, lang)),
         ),
-      );
-    const stats = buildPhraseStats(attempts);
-    const schedule = buildReviewSchedule(attempts);
+    ]);
+    const stats = buildPhraseStats(allAttempts);
 
-    // Every entry in `stats` has been practiced at least once; keep the ones
-    // that haven't cleared mastery. Order by the spaced-repetition schedule:
-    // phrases whose review is due (or overdue) come first — earliest due date
-    // first — with the weakest best score breaking ties, so a phrase practiced
-    // well and recently waits its interval instead of dominating the session.
-    const nowMs = Date.now();
-    const weakIds = [...stats.entries()]
-      .filter(([, s]) => !s.mastered)
-      .sort((a, b) => {
-        const dueA = schedule.get(a[0])?.dueAt.getTime() ?? nowMs;
-        const dueB = schedule.get(b[0])?.dueAt.getTime() ?? nowMs;
-        if (dueA !== dueB) return dueA - dueB;
-        return (a[1].bestScore ?? 0) - (b[1].bestScore ?? 0);
-      })
-      .slice(0, REVIEW_SESSION_SIZE)
-      .map(([phraseId]) => phraseId);
+    const weakIds = memories.map((m) => m.phraseId);
 
     if (weakIds.length === 0) {
       res.json([]);
@@ -917,6 +927,57 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // Free records progress for Hindi only; other languages require Bolo! Plus.
   if (denyLockedLanguage(req, res, claims.languageCode)) return;
 
+  // ── Scoring Core v2: prepare FSRS + Elo inputs before the insert ──────────
+  const band: PronunciationBand = claims.band ?? (claims.passed ? "nailed" : claims.score >= 55 ? "close" : "retry");
+  const xpAwarded = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
+
+  // Load current FSRS memory and learner ability in parallel (only when phraseId is known).
+  const [memoryRow, abilityRow] = await Promise.all([
+    claims.phraseId != null
+      ? db.query.userItemMemoryTable.findFirst({
+          where: (t, { and: andFn, eq: eqFn }) =>
+            andFn(eqFn(t.userId, userId), eqFn(t.phraseId, claims.phraseId!)),
+        })
+      : Promise.resolve(null),
+    db.query.userAbilityTable.findFirst({
+      where: (t, { and: andFn, eq: eqFn }) =>
+        andFn(eqFn(t.userId, userId), eqFn(t.languageCode, claims.languageCode)),
+    }),
+  ]);
+
+  // Elo update: learner ability (theta) and phrase difficulty offset (beta).
+  const theta = abilityRow?.theta ?? 0;
+  const beta = 0; // phrase beta: will be populated by a future drift sweep
+  const K_THETA = 0.15;
+  const outcome = band === "nailed" ? 1.0 : band === "close" ? 0.5 : 0.0;
+  const expected = 1 / (1 + Math.exp(-(theta - beta)));
+  const thetaDelta = K_THETA * (outcome - expected);
+
+  // FSRS rating and next card state (only when a catalog phrase is attached).
+  const now = new Date();
+  let fsrsRating: number | undefined;
+  let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
+  if (claims.phraseId != null) {
+    const rating = scoreAndBandToRating(claims.score, band);
+    fsrsRating = rating;
+    fsrsUpdate = applyFsrsRating(
+      memoryRow
+        ? {
+            stability: memoryRow.stability,
+            difficulty: memoryRow.difficulty,
+            state: memoryRow.state,
+            reps: memoryRow.reps,
+            lapses: memoryRow.lapses,
+            scheduledDays: memoryRow.scheduledDays,
+            dueAt: memoryRow.dueAt,
+            lastReviewAt: memoryRow.lastReviewAt,
+          }
+        : null,
+      rating,
+      now,
+    );
+  }
+
   const [row] = await db
     .insert(attemptsTable)
     .values({
@@ -930,8 +991,77 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       score: claims.score,
       passed: claims.passed,
       feedback: claims.feedback,
+      band,
+      xpAwarded,
+      fsrsRating,
+      thetaDelta,
     })
     .returning();
+
+  // ── Side effects: xp_ledger + FSRS memory + Elo ability + exposure count ──
+  // These are non-critical to the response (failure is logged but never 500s
+  // the caller) — fire-and-await in parallel.
+  await Promise.all([
+    // XP ledger (idempotent: ON CONFLICT DO NOTHING)
+    xpAwarded > 0
+      ? writeAttemptXp(userId, claims.languageCode, row.id, xpAwarded)
+      : Promise.resolve(),
+    // FSRS memory upsert (only new rows; live data beats backfill state)
+    fsrsUpdate != null && claims.phraseId != null
+      ? db
+          .insert(userItemMemoryTable)
+          .values({
+            userId,
+            phraseId: claims.phraseId,
+            stability: fsrsUpdate.stability,
+            difficulty: fsrsUpdate.difficulty,
+            state: fsrsUpdate.state,
+            reps: fsrsUpdate.reps,
+            lapses: fsrsUpdate.lapses,
+            scheduledDays: fsrsUpdate.scheduledDays,
+            dueAt: fsrsUpdate.dueAt,
+            lastReviewAt: fsrsUpdate.lastReviewAt,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: [userItemMemoryTable.userId, userItemMemoryTable.phraseId],
+            set: {
+              stability: fsrsUpdate.stability,
+              difficulty: fsrsUpdate.difficulty,
+              state: fsrsUpdate.state,
+              reps: fsrsUpdate.reps,
+              lapses: fsrsUpdate.lapses,
+              scheduledDays: fsrsUpdate.scheduledDays,
+              dueAt: fsrsUpdate.dueAt,
+              lastReviewAt: fsrsUpdate.lastReviewAt,
+              updatedAt: now,
+            },
+          })
+      : Promise.resolve(),
+    // Elo ability upsert
+    db
+      .insert(userAbilityTable)
+      .values({
+        userId,
+        languageCode: claims.languageCode,
+        theta: theta + thetaDelta,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [userAbilityTable.userId, userAbilityTable.languageCode],
+        set: {
+          theta: sql`${userAbilityTable.theta} + ${thetaDelta}`,
+          updatedAt: now,
+        },
+      }),
+    // Increment phrase exposure count
+    claims.phraseId != null
+      ? db
+          .update(phrasesTable)
+          .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })
+          .where(eq(phrasesTable.id, claims.phraseId))
+      : Promise.resolve(),
+  ]);
 
   // Re-evaluate the badge catalog against this user's now-current per-language
   // progress (the attempt above is already persisted, so it's included) and
@@ -1120,22 +1250,22 @@ router.get(
             eq(phrasesTable.stage, "phrase"),
           ),
         ),
-      // Sum all game-session XP so the progress screen reflects the learner's
-      // full effort, not just pronunciation-attempt scores.
+      // Total XP from the append-only ledger: includes pronunciation attempts,
+      // game sessions, and daily quiz completions.
       db
-        .select({ total: sql<number>`COALESCE(SUM(${gameSessionsTable.xpAwarded}), 0)` })
-        .from(gameSessionsTable)
+        .select({ total: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)` })
+        .from(xpLedgerTable)
         .where(
           and(
-            eq(gameSessionsTable.userId, userId),
-            eq(gameSessionsTable.languageCode, lang),
+            eq(xpLedgerTable.userId, userId),
+            eq(xpLedgerTable.languageCode, lang),
           ),
         ),
     ]);
 
     const totalPhrases = phrases.length;
     const metrics = computeProgressMetrics(attempts, timezone);
-    const totalXp = metrics.xp + Number(gameXpRow?.total ?? 0);
+    const totalXp = Number(gameXpRow?.total ?? 0);
 
     const scores = attempts.map((a) => a.score);
     const averageScore =
@@ -1295,18 +1425,37 @@ router.get(
       });
     }
 
-    // How many practiced-but-unmastered phrases are due for review right now.
-    const nowMs = now.getTime();
-    let reviewDueCount = 0;
-    for (const [phraseId, s] of stats.entries()) {
-      if (s.mastered) continue;
-      const dueAt = schedule.get(phraseId)?.dueAt.getTime() ?? nowMs;
-      if (dueAt <= nowMs) reviewDueCount += 1;
-    }
+    // How many FSRS-scheduled phrases are due for review right now.
+    // Uses user_item_memory (stability < 21 = not mastered, reps > 0 = practiced).
+    const [reviewDueRow, ledgerXpRow] = await Promise.all([
+      db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(userItemMemoryTable)
+        .where(
+          and(
+            eq(userItemMemoryTable.userId, userId),
+            sql`${userItemMemoryTable.reps} > 0`,
+            sql`${userItemMemoryTable.stability} < 21`,
+            sql`${userItemMemoryTable.dueAt} <= ${now}`,
+          ),
+        ),
+      db
+        .select({ total: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)` })
+        .from(xpLedgerTable)
+        .where(
+          and(
+            eq(xpLedgerTable.userId, userId),
+            eq(xpLedgerTable.languageCode, lang),
+          ),
+        ),
+    ]);
+
+    const reviewDueCount = Number(reviewDueRow[0]?.count ?? 0);
+    const analyticsXp = Number(ledgerXpRow[0]?.total ?? metrics.xp);
 
     res.json({
       languageCode: lang,
-      totalXp: metrics.xp,
+      totalXp: analyticsXp,
       reviewDueCount,
       categories: categoryBreakdown,
       daily,
@@ -1437,18 +1586,21 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     if (accuracy >= bonusConfig.accuracyThreshold) xpEarned += bonusConfig.bonus;
   }
 
-  // Persist the session and a phantom attempt in parallel. The phantom attempt
-  // (phraseId=null, score=0) contributes to streak continuity — a game session
-  // counts as an active day — without inflating phrase mastery or bestScore.
-  await Promise.all([
-    db.insert(gameSessionsTable).values({
-      userId,
-      languageCode,
-      game,
-      correctCount,
-      totalCount,
-      xpAwarded: xpEarned,
-    }),
+  // Persist the session and a phantom attempt (phraseId=null, score=0).
+  // The phantom keeps the day's streak alive without inflating phrase mastery.
+  // Capture the session id so we can write the XP ledger row.
+  const [[session]] = await Promise.all([
+    db
+      .insert(gameSessionsTable)
+      .values({
+        userId,
+        languageCode,
+        game,
+        correctCount,
+        totalCount,
+        xpAwarded: xpEarned,
+      })
+      .returning({ id: gameSessionsTable.id }),
     db.insert(attemptsTable).values({
       userId,
       languageCode,
@@ -1462,6 +1614,20 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
       feedback: "",
     }),
   ]);
+
+  // XP ledger write (idempotent). Non-critical: does not affect the response.
+  if (session && xpEarned > 0) {
+    await db
+      .insert(xpLedgerTable)
+      .values({
+        userId,
+        languageCode,
+        source: "game_session",
+        refId: String(session.id),
+        xp: xpEarned,
+      })
+      .onConflictDoNothing();
+  }
 
   // Badge evaluation uses extended metrics so game-achievement badges unlock
   // as soon as the session that satisfies their condition is recorded.

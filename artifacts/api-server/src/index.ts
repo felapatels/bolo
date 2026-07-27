@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
+import { runBackfillScoringV2 } from "./scripts/backfillScoringV2";
 import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
 import { scheduleStripeReconcileSweep } from "./lib/stripeReconcile";
 
@@ -22,6 +23,12 @@ if (Number.isNaN(port) || port <= 0) {
 // a content-empty database renders every learner-facing endpoint useless, so
 // failing loudly here is better than serving an empty app.
 await runStartupSeed();
+
+// Backfill Scoring Core v2: populate xp_ledger, user_item_memory, and
+// user_ability from existing attempt/game/quiz history. Idempotent — safe to
+// run on every deploy; subsequent runs are fast (all ON CONFLICT DO NOTHING).
+// Throws (killing startup) if the FSRS mastered-count drop exceeds 30 %.
+await runBackfillScoringV2();
 
 app.listen(port, (err) => {
   if (err) {

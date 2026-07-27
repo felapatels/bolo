@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { PronunciationBand } from "./fsrsScheduler";
 
 // The authoritative evaluation the server computed for a single spoken attempt.
 // It is signed by the server at pronunciation time and later replayed, verbatim,
@@ -15,6 +16,12 @@ export interface EvaluationClaims {
   score: number;
   passed: boolean;
   feedback: string;
+  // ── Scoring Core v2 additions (optional so tokens issued before this upgrade
+  //    remain valid; verifyEvaluation fills safe defaults for missing fields) ──
+  // Qualitative band for this attempt: 'nailed' | 'close' | 'retry' | 'nocatch'.
+  band?: PronunciationBand;
+  // XP to credit when this attempt is recorded.  0 for retry/nocatch bands.
+  xpAwarded?: number;
 }
 
 interface SignedPayload extends EvaluationClaims {
@@ -97,5 +104,14 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
   }
 
   const { exp: _exp, ...claims } = payload;
-  return claims;
+
+  // Back-compat: tokens issued before the v2 upgrade won't have band/xpAwarded.
+  // Provide safe defaults so old tokens aren't rejected outright — the
+  // attempt write path will store band=null/xp=0 for them.
+  const safeband: PronunciationBand =
+    (claims.band as PronunciationBand | undefined) ??
+    (claims.passed ? "nailed" : claims.score >= 55 ? "close" : "retry");
+  const safeXp: number = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
+
+  return { ...claims, band: safeband, xpAwarded: safeXp };
 }

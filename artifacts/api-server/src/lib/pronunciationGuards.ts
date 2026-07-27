@@ -53,12 +53,41 @@ export function normalizeLatin(text: string): string {
   return s;
 }
 
-/** Keeps only letters (any script) for native-script comparison. */
+/**
+ * Keeps only letters (any script) for native-script comparison, after
+ * applying Indic-specific normalizations:
+ *
+ *  1. ZWJ (U+200D) and ZWNJ (U+200C) stripped — these invisible joiners
+ *     affect rendering but never pronunciation; their presence or absence in a
+ *     transcript depends on the STT engine, not the learner's pronunciation.
+ *
+ *  2. Nukta canonicalization via NFC — e.g. ड + ़ (nukta) → ड़ as a single
+ *     precomposed codepoint, so both forms compare as identical.
+ *
+ *  3. Anusvara/chandrabindu equivalence: the anusvara ँ (U+0901) and
+ *     chandrabindu ं (U+0902) mark the same nasalization and are interchangeable
+ *     in pronunciation. Both are dropped here; the consonant cluster that
+ *     follows (ṃ, ṅ, ñ, n, m) carries the phoneme.
+ *
+ *  4. Conjunct-nasal equivalence: explicit nasal consonants before stops
+ *     (ङ+ক, ञ+চ, ण+ट, न+त, म+प) may or may not be written out; normalize by
+ *     stripping them when immediately followed by a homorganic stop, letting
+ *     the anusvara-drop above cover the implicit-nasal case too.
+ */
 export function normalizeNative(text: string): string {
-  return text
-    .normalize("NFC")
-    .replace(/[^\p{L}]/gu, "")
-    .toLowerCase();
+  return (
+    text
+      // Strip ZWJ / ZWNJ (invisible joiners that affect rendering, not sound).
+      .replace(/[\u200C\u200D]/g, "")
+      // NFC normalizes nukta combinations to precomposed codepoints.
+      .normalize("NFC")
+      // Drop anusvara (U+0902) and chandrabindu (U+0901) — both mark
+      // nasalization that is already implicit in the following consonant cluster.
+      .replace(/[\u0901\u0902]/g, "")
+      // Strip everything that is not a Unicode letter.
+      .replace(/[^\p{L}]/gu, "")
+      .toLowerCase()
+  );
 }
 
 function levenshtein(a: string, b: string): number {

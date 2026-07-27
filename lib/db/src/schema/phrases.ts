@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -35,6 +35,20 @@ export const phrasesTable = pgTable("phrases", {
   // sentences a learner graduates to after the phrase list. Defaulting to
   // "phrase" keeps every pre-existing row in the phrase list unchanged.
   stage: text("stage").notNull().default("phrase"),
+  // ── Scoring Core v2 columns (all nullable; null = not yet computed) ──
+  // Alternative correct answers accepted by the STT/LLM scorer, as a JSON
+  // array of strings. Null = use only nativeScript.
+  acceptedAnswers: jsonb("accepted_answers"),
+  // Elo-style difficulty offset (beta) for this phrase. Higher = harder.
+  // Null = not yet estimated; the Elo updater populates this after the
+  // first scored attempt.
+  eloDifficulty: real("elo_difficulty"),
+  // Reliability radius for the Elo difficulty estimate (Glicko-style RD).
+  eloDifficultyRd: real("elo_difficulty_rd"),
+  // Total number of times this phrase has been attempted by any learner.
+  // Incremented by the attempt write path; used by the Elo updater to
+  // weight how aggressively difficulty is adjusted.
+  exposureCount: integer("exposure_count").notNull().default(0),
 });
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

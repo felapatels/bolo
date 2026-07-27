@@ -18,6 +18,8 @@ import {
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
+import type { PronunciationBand } from "../lib/fsrsScheduler";
+import { computePronunciationXp } from "../lib/xpEngine";
 import {
   applyScoreGuards,
   compareToTarget,
@@ -596,6 +598,9 @@ router.post(
     let targetEnglish = parsed.data.targetEnglish;
     let languageCode = "";
     let resolvedPhraseId: number | null = null;
+    // Phrase difficulty (1–3), used for XP computation. Defaults to 1 when no
+    // catalog phrase is attached (free-practice or custom phrase).
+    let phraseDifficulty = 1;
 
     if (phraseId != null) {
       const phrase = await db.query.phrasesTable.findFirst({
@@ -610,6 +615,7 @@ router.post(
       targetRomanized = phrase.romanized;
       targetEnglish = phrase.english;
       languageCode = phrase.languageCode;
+      phraseDifficulty = phrase.difficulty ?? 1;
     }
 
     // When a phraseId was supplied, look up the canonical language name from the
@@ -686,10 +692,12 @@ router.post(
     if (isEffectivelyEmpty(transcript)) {
       const feedback =
         "I couldn't hear anything that time! Tap the button and say it nice and clear.";
+      const nocatchBand: PronunciationBand = "nocatch";
       res.json({
         transcript: "",
         score: 0,
         passed: false,
+        band: nocatchBand,
         feedback,
         tip: "Hold your phone a little closer and speak up.",
         evaluationToken: signEvaluation({
@@ -703,6 +711,8 @@ router.post(
           score: 0,
           passed: false,
           feedback,
+          band: nocatchBand,
+          xpAwarded: 0,
         }),
       });
       return;
@@ -850,10 +860,13 @@ router.post(
             Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
           ]!;
         const { feedback, tip } = pick;
+        const nailedBand: PronunciationBand = "nailed";
+        const nailedXp = computePronunciationXp(nailedBand, phraseDifficulty);
         res.json({
           transcript,
           score,
           passed: true,
+          band: nailedBand,
           feedback,
           tip,
           evaluationToken: signEvaluation({
@@ -867,6 +880,8 @@ router.post(
             score,
             passed: true,
             feedback,
+            band: nailedBand,
+            xpAwarded: nailedXp,
           }),
         });
         return;
@@ -957,6 +972,8 @@ router.post(
         );
       }
       const { score, passed } = guarded;
+      const llmBand: PronunciationBand = passed ? "nailed" : score >= 55 ? "close" : "retry";
+      const llmXp = computePronunciationXp(llmBand, phraseDifficulty);
       const feedback =
         result.feedback ??
         "Nice effort! Keep practicing and you'll get it even better.";
@@ -964,6 +981,7 @@ router.post(
         transcript,
         score,
         passed,
+        band: llmBand,
         feedback,
         tip: result.tip ?? "Try to say each syllable slowly and clearly.",
         evaluationToken: signEvaluation({
@@ -977,6 +995,8 @@ router.post(
           score,
           passed,
           feedback,
+          band: llmBand,
+          xpAwarded: llmXp,
         }),
       });
     } catch (err) {
