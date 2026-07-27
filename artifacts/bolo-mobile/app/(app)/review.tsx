@@ -294,7 +294,7 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
 function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     const status = (error as { status?: number }).status;
-    if (status === 502) return "Bolo's squawker hit a snag 🦜 — give it another try!";
+    if (status === 502) return "Bolo hit a snag 🦜 — give it another try!";
     if (status === 429) return "Whoa, that's a lot of practice! Wait a moment, then try again.";
     return 'Something went wrong while scoring. Please try again.';
   }

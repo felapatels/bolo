@@ -1187,7 +1187,7 @@ export default function ChatScreen() {
       setPhase('error');
       if (err instanceof ApiError) {
         if ((err as { status?: number }).status === 502) {
-          setErrorMsg("Bolo couldn't process that squawk 🦜 — give it another try!");
+          setErrorMsg("Bolo couldn't catch that 🦜 — give it another try!");
         } else if ((err as { status?: number }).status === 429) {
           setErrorMsg('Slow down a bit! Wait a moment and try again.');
         } else {
@@ -1662,8 +1662,8 @@ export default function ChatScreen() {
           ]}
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
-            {'Squawk! I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in English or ' +
-              (chatLanguage?.name ?? chatLang) + '! Awk!'}
+            {'I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in English or ' +
+              (chatLanguage?.name ?? chatLang) + '!'}
           </Text>
         </Animated.View>
       )}

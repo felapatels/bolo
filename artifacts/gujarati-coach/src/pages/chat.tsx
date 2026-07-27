@@ -1060,7 +1060,7 @@ export default function ChatPage() {
       if (err instanceof TypeError) {
         msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
       } else if (err instanceof Error && /Chat API responded with 502/.test(err.message)) {
-        msg = "Bolo couldn't process that squawk 🦜 — give it another try!";
+        msg = "Bolo couldn't catch that 🦜 — give it another try!";
       } else if (err instanceof Error && /Chat API responded with 429/.test(err.message)) {
         msg = "Slow down a bit! Wait a moment and try again.";
       }
@@ -1577,7 +1577,7 @@ export default function ChatPage() {
                   transition={{ ...springs.snappy, delay: 0.1 }}
                   className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
                 >
-                  Squawk! I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}! Awk!
+                  I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}!
                 </motion.div>
               </>
             )}

@@ -1,0 +1,99 @@
+# Spec P: Remove squawks from client copy
+
+Scope: Client only, web and mobile. Removes parrot onomatopoeia from seven hardcoded user-facing strings.
+
+**Run after Spec O. Spec O stops the model generating squawks; this removes the ones written by hand.**
+
+---
+
+## 1. Session rules
+
+1. No discovery phase. Only the files and lines named in Section 3 may be modified.
+2. This is a copy change. Do not alter logic, control flow, conditions, state, or component structure anywhere.
+3. If a string at a named location does not match the text quoted below, **stop and ask**. Do not search elsewhere for a similar string and edit that instead.
+4. If you find squawk tokens in a file not listed in Section 3, report the location and **stop and ask**. Do not edit it.
+5. A failing test outside this spec's scope is a stop-and-ask. You may fix a fixture invalidated by a copy change, but you may not change assertions, change test logic, or delete or skip tests.
+6. One spec per session. Do not begin Spec C, G, H, I, or L.
+
+---
+
+## 2. Problem statement
+
+Seven hardcoded user-facing strings across the web and mobile clients contain parrot onomatopoeia. Spec O removes model-generated squawks, but these are written by hand and are unaffected by it. Left alone, a learner would see "Squawk!" in the empty state and in error messages while Bolo itself never says it, which reads as inconsistent rather than characterful.
+
+---
+
+## 3. Scope boundaries
+
+### In scope, with exact locations
+
+**Web (`artifacts/gujarati-coach`)**
+
+1. `src/pages/chat.tsx`, the empty-state prompt shown before the learner first speaks. Opens with a squawk token and closes with another, around a line offering to chat in English or the selected language.
+2. `src/pages/chat.tsx`, the failed-turn error message reading that Bolo could not process that squawk, with a parrot emoji, inviting another try.
+3. `src/pages/practice.tsx`, the failed pronunciation turn error message referring to Bolo's squawker hitting a snag, with a parrot emoji.
+
+**Mobile (`artifacts/bolo-mobile`)**
+
+4. `app/(app)/(tabs)/chat.tsx`, the mobile empty-state prompt, the same copy as item 1 with the language name supplied by an expression.
+5. `app/(app)/(tabs)/chat.tsx`, the mobile failed-turn error message, the same copy as item 2.
+6. `app/(app)/practice/[id].tsx`, the mobile practice error, the same copy as item 3.
+7. `app/(app)/review.tsx`, the mobile review error on a 502, the same copy as item 3.
+
+### Do not touch
+
+1. Any server file. Spec O owns those.
+2. The 🦜 emoji. It stays in every string that currently has it. Only the written onomatopoeia is removed.
+3. The mascot image, animation, poses, or any other visual parrot element.
+4. Any logic, condition, state variable, hook, or component structure. Strings only.
+5. Any string not listed above, including phrase data, tip cards, loading messages, onboarding copy, and the India facts list.
+6. Error handling behavior, retry affordances, or which message displays under which condition.
+
+---
+
+## 4. Behavior and logic
+
+### 4.1 Empty-state prompts (items 1 and 4)
+
+1. Remove the leading and trailing parrot exclamations.
+2. Preserve the rest of the copy: Bolo introducing itself, the invitation to hold the button, and the offer to chat in English or the selected language.
+3. Preserve the dynamic language name expression exactly as it is. The web and mobile versions resolve it differently and neither may change.
+4. The web and mobile versions must end up with identical wording.
+
+### 4.2 Error messages (items 2, 3, 5, 6, 7)
+
+1. Rewrite each so it carries no form of the word squawk, including as a noun such as "squawker".
+2. Keep each message short, friendly, and inviting another attempt, matching the current tone.
+3. Keep the 🦜 emoji in each string that currently has it.
+4. Items 2 and 5 are the same message on two platforms and must end up identical. Items 3, 6, and 7 are the same message on three surfaces and must also end up identical to each other.
+5. Do not merge these into a shared constant. That is a refactor, not a copy change.
+
+---
+
+## 5. Acceptance checklist
+
+1. The system shall contain no parrot onomatopoeia in the web empty-state prompt.
+2. The system shall contain no parrot onomatopoeia in the mobile empty-state prompt.
+3. The system shall produce identical wording for the web and mobile empty-state prompts.
+4. The system shall preserve the dynamic language name expression in each empty-state prompt exactly as written.
+5. The system shall contain no form of the word squawk, including "squawker", in any of the five error messages.
+6. The system shall keep each error message short, friendly, and inviting another attempt.
+7. The system shall retain the 🦜 emoji in every string that currently contains it.
+8. The system shall produce identical wording for the two failed-turn error messages across web and mobile.
+9. The system shall produce identical wording for the three practice and review error messages across web and mobile.
+10. The system shall not introduce a shared constant or otherwise refactor these strings.
+11. The system shall change no logic, condition, state, hook, or component structure.
+12. The system shall leave all server files, the mascot, and every string outside the seven named locations unmodified.
+
+---
+
+## 6. Open questions
+
+1. If any of the seven strings has already been changed and no longer matches the description, stop and ask rather than guessing at the intended replacement.
+2. The mobile app has not been tested at all during this work. This spec deliberately changes only strings there so the risk stays near zero. Do not take on anything else in `artifacts/bolo-mobile` while you are in those files.
+
+---
+
+## 7. Out of scope reminder
+
+This spec does not touch the server, does not remove the parrot emoji or the mascot, does not change any logic or control flow, does not consolidate strings into constants, and does not modify any copy outside the seven named locations. If you believe any of those are required, stop and ask.

@@ -143,7 +143,7 @@ function ScoreRing({ score, size = "normal" }: { score: number; size?: "normal" 
 function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 502) {
-      return "Bolo's squawker hit a snag 🦜 — give it another try!";
+      return "Bolo hit a snag 🦜 — give it another try!";
     }
     if (error.status === 429) {
       return "Whoa, that's a lot of practice! Wait a moment, then try again.";
