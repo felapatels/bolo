@@ -32,7 +32,13 @@ import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
-import { USE_ELEVENLABS_TTS, TTS_PROVIDER, phraseAudioIdentity } from "../lib/ttsConfig";
+import {
+  USE_ELEVENLABS_TTS,
+  TTS_PROVIDER,
+  phraseAudioIdentity,
+  BOLO_CHAT_TTS_INSTRUCTIONS,
+  BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+} from "../lib/ttsConfig";
 import {
   createChatAudioStream,
   getChatAudioStream,
@@ -1390,9 +1396,27 @@ router.get(
     });
     const languageName = language?.name ?? languageCode;
 
-    const cacheKey = greetingAudioCacheKey(languageCode);
+    // Resolve synthesis identity from the single source of truth.
+    // Voice is per-language (ElevenLabs) or a fixed constant (other providers).
+    // Greetings are conversational so we use BOLO_CHAT_TTS_INSTRUCTIONS rather
+    // than the phrase pronunciation instructions.
+    const greetingIdentity = {
+      ...phraseAudioIdentity(languageCode),
+      instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
+    };
+
+    const cacheKey = greetingAudioCacheKey(
+      languageCode,
+      greetingIdentity.provider,
+      greetingIdentity.model,
+      greetingIdentity.voice,
+      BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+    );
+
     const { display: displayText, tts: ttsText, english: englishText } =
       buildGreetingTexts(languageCode, languageName);
+
+    const t0 = Date.now();
 
     // --- cache hit ---
     try {
@@ -1400,6 +1424,17 @@ router.get(
         where: eq(ttsCacheTable.cacheKey, cacheKey),
       });
       if (cached) {
+        req.log.info(
+          {
+            provider: greetingIdentity.provider,
+            model: greetingIdentity.model,
+            voice: greetingIdentity.voice,
+            language: languageName,
+            hit: true,
+            ms: Date.now() - t0,
+          },
+          "[greeting-tts]",
+        );
         res.json({
           text: displayText,
           english: englishText,
@@ -1413,20 +1448,40 @@ router.get(
       req.log.warn({ err }, "Greeting cache read failed, synthesizing fresh");
     }
 
-    // --- cache miss: synthesize on-demand ---
-    if (USE_ELEVENLABS_TTS) {
-      // ElevenLabs path — language-appropriate voice, eleven_multilingual_v2.
-      // Re-enable: set USE_ELEVENLABS_TTS = true in lib/ttsConfig.ts.
-      const greetingVoiceId = getVoiceIdForLanguage(languageCode);
-      const BOLO_MODEL = "eleven_multilingual_v2";
+    // --- cache miss: synthesize on-demand using the configured provider ---
+
+    if (greetingIdentity.provider === "gpt-4o-mini-tts") {
       try {
-        const buffer = await textToSpeechElevenLabs(ttsText, greetingVoiceId, languageName, BOLO_MODEL, getLanguageIdForCode(languageCode));
+        const response = await openai.audio.speech.create({
+          model: "gpt-4o-mini-tts",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          voice: greetingIdentity.voice as any,
+          input: ttsText,
+          ...(greetingIdentity.instructions
+            ? { instructions: greetingIdentity.instructions }
+            : {}),
+          response_format: "mp3",
+        });
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.length === 0)
+          throw new Error("gpt-4o-mini-tts returned empty greeting audio");
         const audioBase64 = buffer.toString("base64");
         db.insert(ttsCacheTable)
           .values({ cacheKey, audioBase64, format: "mp3" })
           .onConflictDoNothing()
           .execute()
           .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+        req.log.info(
+          {
+            provider: greetingIdentity.provider,
+            model: greetingIdentity.model,
+            voice: greetingIdentity.voice,
+            language: languageName,
+            hit: false,
+            ms: Date.now() - t0,
+          },
+          "[greeting-tts]",
+        );
         res.json({
           text: displayText,
           english: englishText,
@@ -1435,11 +1490,53 @@ router.get(
           squawkVariant: GREETING_SQUAWK_VARIANT,
         });
       } catch (err) {
-        // ElevenLabs failed — fall back to gpt-audio.
-        req.log.warn({ err }, "Greeting ElevenLabs synthesis failed, falling back to gpt-audio");
+        req.log.error({ err }, "Greeting gpt-4o-mini-tts synthesis failed");
+        res.status(502).json({ error: "Could not generate greeting audio" });
+      }
+    } else if (greetingIdentity.provider === "elevenlabs") {
+      try {
+        const buffer = await textToSpeechElevenLabs(
+          ttsText,
+          greetingIdentity.voice,
+          languageName,
+          greetingIdentity.model,
+          getLanguageIdForCode(languageCode),
+        );
+        const audioBase64 = buffer.toString("base64");
+        db.insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: "mp3" })
+          .onConflictDoNothing()
+          .execute()
+          .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+        req.log.info(
+          {
+            provider: greetingIdentity.provider,
+            model: greetingIdentity.model,
+            voice: greetingIdentity.voice,
+            language: languageName,
+            hit: false,
+            ms: Date.now() - t0,
+          },
+          "[greeting-tts]",
+        );
+        res.json({
+          text: displayText,
+          english: englishText,
+          audioBase64,
+          format: "mp3",
+          squawkVariant: GREETING_SQUAWK_VARIANT,
+        });
+      } catch (err) {
+        // ElevenLabs failed — fall back to gpt-audio (not cached so the next
+        // request retries ElevenLabs once it recovers).
+        req.log.warn(
+          { err },
+          "Greeting ElevenLabs synthesis failed, falling back to gpt-audio",
+        );
         try {
           const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
-          if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+          if (buffer.length === 0)
+            throw new Error("gpt-audio returned empty audio for greeting");
           res.json({
             text: displayText,
             english: englishText,
@@ -1448,21 +1545,37 @@ router.get(
             squawkVariant: GREETING_SQUAWK_VARIANT,
           });
         } catch (fallbackErr) {
-          req.log.error({ err: fallbackErr }, "Greeting synthesis failed (both providers)");
+          req.log.error(
+            { err: fallbackErr },
+            "Greeting synthesis failed (both providers)",
+          );
           res.status(502).json({ error: "Could not generate greeting audio" });
         }
       }
     } else {
-      // gpt-audio path (USE_ELEVENLABS_TTS = false) — always available.
+      // gpt-audio path — always available.
       try {
-        const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
-        if (buffer.length === 0) throw new Error("gpt-audio returned empty audio for greeting");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
+        if (buffer.length === 0)
+          throw new Error("gpt-audio returned empty audio for greeting");
         const audioBase64 = buffer.toString("base64");
         db.insert(ttsCacheTable)
           .values({ cacheKey, audioBase64, format: "mp3" })
           .onConflictDoNothing()
           .execute()
           .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+        req.log.info(
+          {
+            provider: greetingIdentity.provider,
+            model: greetingIdentity.model,
+            voice: greetingIdentity.voice,
+            language: languageName,
+            hit: false,
+            ms: Date.now() - t0,
+          },
+          "[greeting-tts]",
+        );
         res.json({
           text: displayText,
           english: englishText,

@@ -2,7 +2,13 @@ import { db, phrasesTable, ttsCacheTable, languagesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { openai, textToSpeech, textToSpeechElevenLabs } from "@workspace/integrations-openai-ai-server/audio";
 import { phraseTtsCacheKey } from "./ttsCache";
-import { USE_ELEVENLABS_TTS, TTS_PROVIDER, phraseAudioIdentity } from "./ttsConfig";
+import {
+  TTS_PROVIDER,
+  phraseAudioIdentity,
+  type PhraseAudioIdentity,
+  BOLO_CHAT_TTS_INSTRUCTIONS,
+  BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+} from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
 import { logger } from "./logger";
 import {
@@ -325,12 +331,9 @@ export function scheduleTtsPrewarm(): void {
         "[phrase-tts] prewarm complete",
       );
 
-      // After phrase prewarm, synthesize greeting audio (ElevenLabs only).
-      // When USE_ELEVENLABS_TTS is false, greetings are synthesized with
-      // gpt-audio on first request instead — no pre-warm needed.
-      if (USE_ELEVENLABS_TTS) {
-        await warmGreetings();
-      }
+      // After phrase prewarm, synthesize greeting audio for whichever provider
+      // is configured. Greeting prewarm is no longer gated on ElevenLabs.
+      await warmGreetings();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
       // Log and swallow — pre-warm is best-effort, never critical.
@@ -338,10 +341,6 @@ export function scheduleTtsPrewarm(): void {
     }
   })();
 }
-
-// Model for greeting synthesis — multilingual_v2 for correct Indic script
-// support (flash_v2_5 doesn't handle Gujarati and similar scripts accurately).
-const BOLO_GREETING_MODEL = "eleven_multilingual_v2";
 
 /** Injectable dependencies for warmGreetings — real implementations are the defaults. */
 export type WarmGreetingsDeps = {
@@ -358,12 +357,16 @@ export type WarmGreetingsDeps = {
     audioBase64: string;
     format: string;
   }) => Promise<void>;
-  /** Synthesizes speech audio and returns it as a Buffer. */
+  /**
+   * Synthesizes speech audio and returns it as a Buffer.
+   * Receives the full resolver identity (provider, model, voice, instructions)
+   * so the implementation can dispatch to the correct provider without
+   * independently re-deriving those values.
+   */
   synthesize: (
     text: string,
-    voiceId: string,
+    identity: PhraseAudioIdentity,
     langName: string,
-    model: string,
     languageId?: string,
   ) => Promise<Buffer>;
 };
@@ -383,8 +386,31 @@ const defaultWarmGreetingsDeps: WarmGreetingsDeps = {
       .onConflictDoNothing()
       .execute()
       .then(() => undefined),
-  synthesize: (text, voiceId, langName, model, languageId) =>
-    textToSpeechElevenLabs(text, voiceId, langName, model, languageId),
+  synthesize: async (text, identity, langName, languageId) => {
+    if (identity.provider === "gpt-4o-mini-tts") {
+      const response = await openai.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        voice: identity.voice as any,
+        input: text,
+        ...(identity.instructions ? { instructions: identity.instructions } : {}),
+        response_format: "mp3",
+      });
+      return Buffer.from(await response.arrayBuffer());
+    } else if (identity.provider === "elevenlabs") {
+      return textToSpeechElevenLabs(
+        text,
+        identity.voice,
+        langName,
+        identity.model,
+        languageId,
+      );
+    } else {
+      // gpt-audio
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return textToSpeech(text, identity.voice as any, "mp3", langName);
+    }
+  },
 };
 
 /**
@@ -403,19 +429,41 @@ export async function warmGreetings(
 
     if (languages.length === 0) return;
 
-    logger.info({ count: languages.length }, "TTS pre-warm: warming greeting audio");
+    // Derive the provider from the current config for the log summary.
+    // Voice is per-language for ElevenLabs; the provider/model are constant.
+    const { provider } = phraseAudioIdentity();
 
-    let done = 0;
-    let skipped = 0;
+    logger.info(
+      { provider, count: languages.length },
+      "TTS pre-warm: warming greeting audio",
+    );
+
+    let synthesized = 0;
+    let alreadyCached = 0;
     let failed = 0;
 
     await pool(languages, CONCURRENCY, async (lang) => {
-      const cacheKey = greetingAudioCacheKey(lang.code);
+      // Resolve per-language identity so voice is correct for ElevenLabs.
+      // For non-ElevenLabs providers the voice is a fixed constant across
+      // all languages but we still call through the resolver to stay consistent.
+      const greetingIdentity = {
+        ...phraseAudioIdentity(lang.code),
+        // Greetings are conversational — use chat instructions, not phrase ones.
+        instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
+      };
+
+      const cacheKey = greetingAudioCacheKey(
+        lang.code,
+        greetingIdentity.provider,
+        greetingIdentity.model,
+        greetingIdentity.voice,
+        BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+      );
 
       // Skip if already cached.
       const existing = await deps.findCached(cacheKey);
       if (existing) {
-        skipped++;
+        alreadyCached++;
         return;
       }
 
@@ -423,22 +471,27 @@ export async function warmGreetings(
       try {
         const buffer = await deps.synthesize(
           ttsText,
-          getVoiceIdForLanguage(lang.code),
+          greetingIdentity,
           lang.name,
-          BOLO_GREETING_MODEL,
           getLanguageIdForCode(lang.code),
         );
         const audioBase64 = buffer.toString("base64");
         await deps.insertCache({ cacheKey, audioBase64, format: "mp3" });
-        done++;
+        synthesized++;
       } catch (err) {
         failed++;
-        logger.warn({ err, languageCode: lang.code }, "TTS pre-warm: greeting synthesis failed");
+        logger.warn(
+          { err, languageCode: lang.code },
+          "TTS pre-warm: greeting synthesis failed",
+        );
         throw err; // re-throw so pool() circuit breaker counts it
       }
     });
 
-    logger.info({ done, skipped, failed }, "TTS pre-warm: greeting warm-up complete");
+    logger.info(
+      { provider, alreadyCached, synthesized, failed },
+      "[greeting-tts] prewarm complete",
+    );
   } catch (err) {
     logger.warn({ err }, "TTS pre-warm: greeting warm-up error (non-fatal)");
   }

@@ -12,15 +12,30 @@
  * Bump this string whenever the greeting text changes so the stale cached
  * audio is automatically invalidated and re-synthesized.
  */
-export const GREETING_CACHE_KEY_VERSION = "v5";
+export const GREETING_CACHE_KEY_VERSION = "v6";
 
 /**
- * Stable per-language cache key stored in tts_cache.
- * Uses a plain prefix + languageCode (not a SHA-256 hash) because the
- * greeting text is computed deterministically from the languageCode alone.
+ * Provider-aware per-language cache key stored in tts_cache.
+ *
+ * Incorporates provider, model, voice, and a digest of the chat instructions
+ * in effect so that any configuration change (provider switch, voice change,
+ * or instructions edit) automatically orphans old entries and forces fresh
+ * synthesis. The instructionsDigest must be BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST
+ * from ttsConfig — never the phrase digest — because greetings are
+ * conversational, not pronunciation-reference audio.
+ *
+ * Both the /openai/chat-greeting route and warmGreetings() MUST call this
+ * function with resolver-derived values. Neither may derive provider, model,
+ * voice, or instructions independently.
  */
-export function greetingAudioCacheKey(languageCode: string): string {
-  return `bolo-greeting-${GREETING_CACHE_KEY_VERSION}::${languageCode}`;
+export function greetingAudioCacheKey(
+  languageCode: string,
+  provider: string,
+  model: string,
+  voice: string,
+  instructionsDigest: string,
+): string {
+  return `bolo-greeting-${GREETING_CACHE_KEY_VERSION}::${provider}::${model}::${voice}::${instructionsDigest}::${languageCode}`;
 }
 
 /**

@@ -8,6 +8,22 @@ import { eq } from "drizzle-orm";
 import openaiRouter from "./openai";
 import { greetingAudioCacheKey, buildGreetingDisplayText, GREETING_SQUAWK_VARIANT } from "../lib/greetingStrings";
 import { getVoiceIdForLanguage, LANGUAGE_VOICE_MAP, DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
+import { phraseAudioIdentity, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "../lib/ttsConfig";
+
+/**
+ * Compute the greeting cache key the same way the route does:
+ * resolver-derived provider/model/voice + chat instructions digest.
+ */
+function makeGreetingKey(langCode: string): string {
+  const id = phraseAudioIdentity(langCode);
+  return greetingAudioCacheKey(
+    langCode,
+    id.provider,
+    id.model,
+    id.voice,
+    BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  );
+}
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Tests for GET /openai/chat-greeting?languageCode=<code>
@@ -135,7 +151,7 @@ after(async () => {
   // Remove all greeting cache entries that this suite may have written.
   await db
     .delete(ttsCacheTable)
-    .where(eq(ttsCacheTable.cacheKey, greetingAudioCacheKey(TEST_LANG)));
+    .where(eq(ttsCacheTable.cacheKey, makeGreetingKey(TEST_LANG)));
 
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER));
@@ -179,7 +195,7 @@ test("GET /openai/chat-greeting — 400 when languageCode is blank", async () =>
 // ─── Cache hit ────────────────────────────────────────────────────────────────
 
 test("GET /openai/chat-greeting — cache hit returns correct shape immediately", async () => {
-  const cacheKey = greetingAudioCacheKey(TEST_LANG);
+  const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Pre-seed the cache entry so no synthesis call is needed.
   await db
@@ -249,7 +265,7 @@ test("GET /openai/chat-greeting — cache hit returns correct shape immediately"
 // bytes may come from the seeded entry or from real synthesis.
 
 test("GET /openai/chat-greeting — cache miss synthesizes, caches result, returns correct shape", async () => {
-  const cacheKey = greetingAudioCacheKey(TEST_LANG);
+  const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Ensure no stale entry exists.
   await db.delete(ttsCacheTable).where(eq(ttsCacheTable.cacheKey, cacheKey));
@@ -312,7 +328,7 @@ test("GET /openai/chat-greeting — cache miss synthesizes, caches result, retur
 // response is received — by which point the write has completed.
 
 test("GET /openai/chat-greeting — second hit after a cache-miss is served from cache, not re-synthesized", async () => {
-  const cacheKey = greetingAudioCacheKey(TEST_LANG);
+  const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Seed a known entry (simulates the result of the first miss + synthesis).
   await db

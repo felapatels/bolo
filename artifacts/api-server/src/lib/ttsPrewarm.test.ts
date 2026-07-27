@@ -7,7 +7,23 @@ import { getVoiceIdForLanguage, DEFAULT_MULTILINGUAL_VOICE_ID } from "./language
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
 import { greetingAudioCacheKey } from "./greetingStrings";
+import { phraseAudioIdentity, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
 import { ensureUsersColumns } from "./testDbCompat";
+
+/**
+ * Compute the greeting cache key the same way warmGreetings and the route do:
+ * resolver-derived provider/model/voice + chat instructions digest.
+ */
+function makeGreetingKey(langCode: string): string {
+  const id = phraseAudioIdentity(langCode);
+  return greetingAudioCacheKey(
+    langCode,
+    id.provider,
+    id.model,
+    id.voice,
+    BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // TTS pre-warm cache-key alignment tests
@@ -302,7 +318,7 @@ function makeGreetingDeps(
       }),
     synthesize:
       overrides.synthesize ??
-      ((_text, _voiceId, _langName, _model) =>
+      ((_text, _identity, _langName, _languageId) =>
         Promise.resolve(Buffer.from("fake-audio"))),
   };
 }
@@ -318,7 +334,7 @@ test("warmGreetings writes a tts_cache row keyed by greetingAudioCacheKey for ea
   await warmGreetings(deps);
 
   for (const lang of languages) {
-    const expectedKey = greetingAudioCacheKey(lang.code);
+    const expectedKey = makeGreetingKey(lang.code);
     assert.ok(
       deps.cache.has(expectedKey),
       `Expected greeting cache entry for language "${lang.code}" (key: ${expectedKey})`,
@@ -339,14 +355,14 @@ test("warmGreetings skips languages whose greeting is already cached", async () 
 
   // Pre-populate the cache for Gujarati so it should be skipped.
   const prePopulated = new Map<string, string>([
-    [greetingAudioCacheKey("gu"), "already-cached"],
+    [makeGreetingKey("gu"), "already-cached"],
   ]);
 
   let synthesizeCalls = 0;
   const deps = makeGreetingDeps({
     languages,
     cache: prePopulated,
-    synthesize: (_text, _voiceId, _langName, _model) => {
+    synthesize: (_text, _identity, _langName, _languageId) => {
       synthesizeCalls++;
       return Promise.resolve(Buffer.from("new-audio"));
     },
@@ -363,14 +379,14 @@ test("warmGreetings skips languages whose greeting is already cached", async () 
 
   // The pre-cached Gujarati entry must be untouched.
   assert.equal(
-    deps.cache.get(greetingAudioCacheKey("gu")),
+    deps.cache.get(makeGreetingKey("gu")),
     "already-cached",
     "Pre-cached entry must not be overwritten",
   );
 
   // Hindi must have been synthesized and cached.
   assert.ok(
-    deps.cache.has(greetingAudioCacheKey("hi")),
+    deps.cache.has(makeGreetingKey("hi")),
     "Hindi greeting must be cached after warmGreetings",
   );
 });
@@ -415,17 +431,17 @@ test("warmGreetings logs a quota-exhaustion error and continues warming the rema
     "Marathi must be synthesized despite the Gujarati quota error",
   );
   assert.ok(
-    deps.cache.has(greetingAudioCacheKey("hi")),
+    deps.cache.has(makeGreetingKey("hi")),
     "Hindi greeting must be in cache",
   );
   assert.ok(
-    deps.cache.has(greetingAudioCacheKey("mr")),
+    deps.cache.has(makeGreetingKey("mr")),
     "Marathi greeting must be in cache",
   );
 
   // Gujarati must not have been cached (it failed).
   assert.equal(
-    deps.cache.has(greetingAudioCacheKey("gu")),
+    deps.cache.has(makeGreetingKey("gu")),
     false,
     "Gujarati greeting must not be cached when synthesis failed",
   );
@@ -443,13 +459,13 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
     { code: "hi", name: "Hindi" },
   ];
 
-  // Capture the (voiceId) passed for each language.
+  // Capture the voice from the resolver identity passed for each language.
   const capturedVoiceIds: Record<string, string> = {};
 
   const deps = makeGreetingDeps({
     languages,
-    synthesize: (_text, voiceId, langName, _model) => {
-      capturedVoiceIds[langName] = voiceId;
+    synthesize: (_text, identity, langName, _languageId) => {
+      capturedVoiceIds[langName] = identity.voice;
       return Promise.resolve(Buffer.from("audio"));
     },
   });
@@ -487,8 +503,8 @@ test("warmGreetings uses the unified Laura voice for all languages (task #643)",
 
   const deps = makeGreetingDeps({
     languages,
-    synthesize: (_text, voiceId, langName, _model) => {
-      capturedVoiceIds[langName] = voiceId;
+    synthesize: (_text, identity, langName, _languageId) => {
+      capturedVoiceIds[langName] = identity.voice;
       return Promise.resolve(Buffer.from("audio"));
     },
   });
