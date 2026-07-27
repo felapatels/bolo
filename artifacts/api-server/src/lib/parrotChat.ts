@@ -463,6 +463,60 @@ async function boloTTSMini(text: string, _languageName: string, _languageCode: s
   }
 }
 
+// Streaming TTS for Bolo using gpt-4o-mini-tts. Emits raw MP3 chunks via
+// onChunk as they arrive so the client can begin playback before synthesis
+// finishes, and resolves with the complete concatenated buffer so callers
+// that need the full clip (e.g. the non-streaming fallback in runParrotTurn)
+// also work correctly.
+// _languageName and _languageCode: accepted for API symmetry; gpt-4o-mini-tts
+// auto-detects language from the input text.
+// Errors propagate unchanged so runParrotTurn's fallback to deps.synthesize fires.
+async function boloTTSMiniStream(
+  text: string,
+  _languageName: string,
+  _languageCode: string,
+  onChunk: (chunk: Buffer) => void,
+): Promise<Buffer> {
+  const t0 = Date.now();
+  let firstChunkMs: number | null = null;
+  try {
+    const response = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: BOLO_MINI_TTS_VOICE,
+      input: text,
+      response_format: "mp3",
+      stream_format: "audio",
+    });
+
+    if (!response.body) {
+      throw new Error("gpt-4o-mini-tts streaming response had no body");
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Buffer[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (firstChunkMs === null) firstChunkMs = Date.now() - t0;
+      const chunk = Buffer.from(value);
+      chunks.push(chunk);
+      onChunk(chunk);
+    }
+
+    const buf = Buffer.concat(chunks);
+    console.info(
+      `[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0} firstChunkMs=${firstChunkMs ?? 0}`,
+    );
+    return buf;
+  } catch (err) {
+    console.info(
+      `[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} error=${err instanceof Error ? err.message : err}`,
+    );
+    throw err;
+  }
+}
+
 // ElevenLabs voice + model for Bolo's live chat replies.
 // Voice: "Laura" (premade, FGY2WhTYpPnrIDTdsKH5) — bright, upbeat, bubbly
 // female; consistent with the phrase-practice voice so learners hear the same
@@ -682,9 +736,10 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
           )
         : boloTTS,
 
-  // Streaming synthesis — ElevenLabs only (gpt-audio and gpt-4o-mini-tts have
-  // no streaming speech API). Omitted for those selectors so runParrotTurn
-  // falls through to the buffered synthesize path on every turn.
+  // Streaming synthesis — populated for ElevenLabs and gpt-4o-mini-tts.
+  // Omitted for gpt-audio (that path goes through chat completions and has no
+  // streaming speech API) so runParrotTurn falls through to the buffered
+  // synthesize path on every gpt-audio turn.
   ...(TTS_PROVIDER === "elevenlabs"
     ? {
         synthesizeStream: (text, _languageName, languageCode, onChunk) =>
@@ -697,7 +752,9 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
             onChunk,
           ),
       }
-    : {}),
+    : TTS_PROVIDER === "gpt-4o-mini-tts"
+      ? { synthesizeStream: boloTTSMiniStream }
+      : {}),
 };
 
 // ---------------------------------------------------------------------------
