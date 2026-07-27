@@ -1,32 +1,36 @@
 ---
-name: TTS provider switch (ElevenLabs ↔ gpt-audio)
-description: How the app's voice provider is controlled and why it was switched to gpt-audio
+name: TTS provider switch
+description: How to change the active TTS provider, current setting, and what each switch affects.
 ---
 
-## The flag
+## Current state
 
-`artifacts/api-server/src/lib/ttsConfig.ts` exports `USE_ELEVENLABS_TTS` (boolean).
-Set to `true` → ElevenLabs (Laura, eleven_multilingual_v2) for phrases, parrot chat, and greetings.
-Set to `false` (current) → gpt-audio (OpenAI shimmer voice) for everything.
-Restart the server after changing it — no other code changes needed.
+`TTS_PROVIDER = "gpt-4o-mini-tts"` in `artifacts/api-server/src/lib/ttsConfig.ts`.
 
-## Why gpt-audio is currently active
+`USE_ELEVENLABS_TTS` is derived (`TTS_PROVIDER === "elevenlabs"`) and kept for backward compat with ttsPrewarm.ts and routes/openai.ts — do not remove.
 
-ElevenLabs multilingual_v2 + Laura had audible quality issues: too fast, no natural pauses, and sounded different from what the user expected. The user preferred the gpt-audio default voice overall. All ElevenLabs code is fully preserved.
+## How to switch
 
-## What ElevenLabs brings back when re-enabled
+Change `TTS_PROVIDER` on line 27 of `ttsConfig.ts` and restart the server. No other changes needed.
 
-- Correct phoneme rendering for Gujarati and other Indic scripts (eleven_flash_v2_5 was the original bug — it doesn't support Gujarati, produces garbled audio; multilingual_v2 is the right model)
-- Laura voice (FGY2WhTYpPnrIDTdsKH5) for phrases and parrot
-- Streaming audio for parrot chat (gpt-audio has no streaming path)
-- Per-language voice catalog and Plus user voice selection
+## What each value affects
 
-## Key notes for re-enabling
+- `"gpt-audio"` — all voice synthesis via chat completions (no `instructions` parameter, uses BOLO_GPT_AUDIO_VOICE = "shimmer")
+- `"gpt-4o-mini-tts"` — dedicated speech endpoint with `instructions` parameter; chat uses BOLO_MINI_TTS_VOICE = "sage" + BOLO_CHAT_TTS_INSTRUCTIONS; phrase prewarm uses phraseAudioIdentity() which returns BOLO_PHRASE_TTS_INSTRUCTIONS
+- `"elevenlabs"` — ElevenLabs eleven_multilingual_v2 (must use multilingual_v2, not flash); requires ELEVENLABS_API_KEY
 
-- **Model must be eleven_multilingual_v2**, not eleven_flash_v2_5 — flash doesn't support Gujarati
-- Voice settings for multilingual_v2 need different tuning than flash: stability ≤ 0.5 to get natural pauses; speed = 0.9 to prevent rushed cadence
-- Greeting cache version is currently v5 — bump again if re-enabling to evict gpt-audio cached greetings
-- ElevenLabs API key lacks `voices_read` permission (can't list/look up voices), but TTS itself works fine
+## Instruction constants (gpt-4o-mini-tts only)
 
-**Why:**
-User found the ElevenLabs voice quality (fast cadence, no natural pauses) worse than gpt-audio default in practice, despite multilingual_v2 being the technically correct model for Gujarati. Preserving all integration work as a flag for future re-evaluation.
+`BOLO_CHAT_TTS_INSTRUCTIONS` and `BOLO_PHRASE_TTS_INSTRUCTIONS` in `ttsConfig.ts` — two separate constants, currently identical. Their SHA-256 digests are exported as `BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST` and `BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST` (first 8 hex chars each).
+
+**Why:** Chat personality and phrase pronunciation guidance need to diverge — the cheerleader delivery is wrong for pronunciation reference audio. Keeping them separate avoids coupling that tuning to a cache key change on the chat side.
+
+**How to apply:** Change `BOLO_PHRASE_TTS_INSTRUCTIONS`; the digest changes automatically, which bumps the phrase cache key scheme, orphaning stale entries. No manual migration needed.
+
+## Phrase cache key scheme
+
+`PHRASE_KEY_SCHEME = \`phrase:v2:${BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST}\`` in `ttsCache.ts`. Automatically rotates when instructions change. `ttsCache.ts` imports `BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST` from `ttsConfig.ts` — no circular dep (ttsConfig does not import ttsCache).
+
+## Prewarm budget
+
+`TTS_PREWARM_CHAR_BUDGET` env var controls how many chars are prewarmed at startup. Default 4000 was calibrated for ElevenLabs free tier. With `gpt-4o-mini-tts` there is no credit constraint — raising to 40000–80000 is safe and covers more of the 22-language catalog. Currently the env var appears to be 0 in the running environment (prewarm skips entirely).

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
 
 /**
  * TTS provider version segment baked into every cache key.
@@ -57,7 +58,7 @@ export function ttsCacheKey(
  * learners can hear (different provider, model, or voice), so old entries
  * become clean misses rather than serving stale audio under a different voice.
  */
-const PHRASE_KEY_SCHEME = "phrase:v1";
+const PHRASE_KEY_SCHEME = `phrase:v2:${BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST}`;
 
 /**
  * Phrase-audio cache key: SHA-256 hex of the five synthesis inputs plus an

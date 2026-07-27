@@ -1,0 +1,135 @@
+# Spec M: Voice and delivery instructions
+
+Scope: API server only. Sets the `gpt-4o-mini-tts` voice to `sage`, adds delivery instructions to both synthesis paths, and puts the instructions into the cache key so changing them cannot serve stale audio.
+
+---
+
+## 1. Session rules
+
+1. No discovery phase. Only the files named in Section 3 may be modified.
+2. Anchors describe code by name and behavior. If what you find does not match, **stop and ask**. A mismatch is a hard stop. Do not infer intent, do not reason around the discrepancy, do not proceed on a best guess.
+3. If satisfying this spec appears to require changing a file not listed in Section 3, **stop and ask**.
+4. One spec per session. Do not begin Spec C, G, H, I, K, or L.
+
+---
+
+## 2. Problem statement
+
+**2.1 The voice is wrong and the delivery is unconfigured.** `BOLO_MINI_TTS_VOICE` is not set to the voice chosen through comparison testing, and no `instructions` parameter is passed to `audio.speech.create`. `gpt-4o-mini-tts` accepts `instructions` to steer accent, tone, pace, and emphasis. Without it the model uses a default delivery that has been judged unsatisfactory for Indic languages, where accent guidance materially changes output quality.
+
+**2.2 Two synthesis paths would diverge.** `boloTTSMini` (buffered) and `boloTTSMiniStream` (streaming) issue independent calls. Configuring one and not the other produces a voice whose character depends on whether streaming engaged, which is a browser capability check the learner never sees.
+
+**2.3 Instructions are not part of any cache key.** Spec J established that provider, model, and voice must be in the phrase cache key so a configuration change cannot silently serve audio produced under different settings. Instructions have exactly the same property and are not covered. Changing them later would leave every cached clip serving old delivery under an unchanged key.
+
+---
+
+## 3. Scope boundaries
+
+### In scope
+
+1. `artifacts/api-server/src/lib/ttsConfig.ts`
+2. `artifacts/api-server/src/lib/parrotChat.ts`, limited to `BOLO_MINI_TTS_VOICE`, `boloTTSMini`, and `boloTTSMiniStream`
+3. `artifacts/api-server/src/lib/ttsCache.ts`, limited to the phrase cache key function added by Spec J
+
+### Named anchors
+
+- `BOLO_MINI_TTS_VOICE`, a module-level constant in `parrotChat.ts`.
+- `boloTTSMini`, calling `audio.speech.create` with model `gpt-4o-mini-tts`, `response_format: "mp3"`, and the voice constant.
+- `boloTTSMiniStream`, calling `audio.speech.create` with the same model and voice plus `stream_format: "audio"`, reading `response.body` via `getReader()`.
+- The Spec J resolver in `ttsConfig.ts` returning provider, model, and phrase voice.
+- The Spec J phrase cache key function in `ttsCache.ts`, incorporating text, provider, model, voice, language identifier, and a scheme version.
+
+### Do not touch
+
+1. Any client file.
+2. `response_format`. It stays `mp3` on both paths. Do not change it to `pcm` or anything else.
+3. `stream_format` on the streaming path.
+4. `boloTTS`, `boloTTSElevenLabs`, the gpt-audio voice constant, or any ElevenLabs code.
+5. `TTS_PROVIDER` and its current value.
+6. `ttsCacheKey`, `legacyTtsCacheKey`, `TTS_PROVIDER_VERSION`, `greetingAudioCacheKey`, or `GREETING_CACHE_KEY_VERSION`.
+7. The Spec D `[tts]` logging format, the Spec E guard, the Spec F streaming wiring, or the Spec J prewarm changes.
+8. History, transcription, the reply call, or the SSE route.
+
+---
+
+## 4. Behavior and logic
+
+### 4.1 Voice
+
+1. Set `BOLO_MINI_TTS_VOICE` to `sage`.
+2. Both `boloTTSMini` and `boloTTSMiniStream` must continue to reference this single constant. Do not introduce a second voice constant.
+
+### 4.2 Instructions constants
+
+1. Add two module-level instruction constants in `ttsConfig.ts`: one for chat reply audio, one for phrase audio.
+2. Set both to the following string. Use real newlines, not escaped `\n` sequences.
+
+```
+Personality/affect: a high-energy cheerleader helping with administrative tasks
+
+Voice: Enthusiastic, and bubbly, with an uplifting and motivational quality with an indian tone.
+
+Tone: Encouraging and playful, making even simple tasks feel exciting and fun.
+
+Dialect: Casual and upbeat, using informal phrasing and pep talk-style expressions.
+
+Pronunciation: Crisp and lively, with exaggerated emphasis on positive words to keep the energy high.
+
+Features: Uses motivational phrases, cheerful exclamations, and an energetic rhythm to create a sense of excitement and engagement.
+```
+
+3. They are two separate constants holding the same value deliberately, so chat personality and phrase pronunciation guidance can diverge later without restructuring or a second cache key change.
+4. Extend the Spec J resolver to expose the instructions applicable to each surface alongside the provider, model, and voice it already returns.
+
+### 4.3 Apply to both synthesis paths
+
+1. Pass the chat instructions constant as the `instructions` parameter on `audio.speech.create` in `boloTTSMini`.
+2. Pass the same constant as `instructions` in `boloTTSMiniStream`.
+3. Both calls must send byte-identical instruction text. If the two paths could receive different values, **stop and ask**.
+4. Do not pass `instructions` on any `gpt-audio` or ElevenLabs path. The parameter does not apply there.
+
+### 4.4 Cache key
+
+1. Extend the Spec J phrase cache key function to incorporate the instructions applicable to that surface.
+2. Include a hash or digest of the instruction text rather than the raw string, so the key stays a bounded length.
+3. Bump the scheme version segment in that key function by one, so entries written before this change are not read back.
+4. Do not delete orphaned rows and do not write a migration.
+
+### 4.5 Logging
+
+1. Extend the `[tts]` log line with a short stable identifier for the instructions in effect, such as the first eight characters of the digest used in the key. Do not log the full instruction text.
+2. Leave every other field in that line unchanged.
+
+---
+
+## 5. Acceptance checklist
+
+1. The system shall set the mini TTS voice constant to `sage`.
+2. The system shall reference that single voice constant from both the buffered and streaming mini synthesis functions.
+3. The system shall define separate chat and phrase instruction constants, both initially holding the specified text with real newlines.
+4. The system shall expose the applicable instructions for each surface through the existing resolver.
+5. The system shall pass the chat instructions as the `instructions` parameter in the buffered mini synthesis function.
+6. The system shall pass byte-identical instructions in the streaming mini synthesis function.
+7. The system shall not pass `instructions` on any gpt-audio or ElevenLabs path.
+8. The system shall keep `response_format` as `mp3` on both mini paths.
+9. The system shall keep `stream_format` unchanged on the streaming path.
+10. The system shall incorporate the applicable instructions into the phrase cache key.
+11. The system shall include a digest of the instruction text in the key rather than the raw string.
+12. The system shall bump the phrase key scheme version by one.
+13. The system shall not delete orphaned cache rows and shall not include a migration.
+14. The system shall include a short stable instructions identifier in the `[tts]` line without logging the full text.
+15. The system shall leave `ttsCacheKey`, `legacyTtsCacheKey`, `TTS_PROVIDER_VERSION`, the greeting key helpers, the gpt-audio and ElevenLabs paths, and the active provider unmodified.
+
+---
+
+## 6. Open questions
+
+1. **Phrase instructions are almost certainly wrong as set.** Phrase audio is a pronunciation reference learners imitate, and exaggerated emphasis with pep-talk rhythm works against that. This spec sets both constants identically only to avoid coupling a voice change to a product decision. Revisit the phrase constant separately once you have heard phrase audio with it applied.
+2. This change orphans the phrase cache a second time. That cost is low now because little has been prewarmed since Spec J, and it is far cheaper to absorb before raising `TTS_PREWARM_CHAR_BUDGET` than after.
+3. Greeting audio remains cached under keys carrying no provider, voice, or instructions identity. Your pre-canned greeting will continue to play in the old voice until that key scheme is addressed, which is out of scope here.
+
+---
+
+## 7. Out of scope reminder
+
+This spec does not touch the client, does not change the active provider, does not modify the gpt-audio or ElevenLabs synthesis paths, does not alter greeting cache keys, does not change `response_format` or `stream_format`, does not raise the prewarm budget, does not add a migration, and does not touch history, transcription, the reply call, or the SSE route. If you believe any of those are required, stop and ask.

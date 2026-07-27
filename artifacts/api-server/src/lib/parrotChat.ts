@@ -12,7 +12,7 @@ import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
-import { TTS_PROVIDER } from "./ttsConfig";
+import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -437,7 +437,7 @@ async function boloTTS(text: string, languageName: string, _languageCode: string
 // Voice constant for gpt-4o-mini-tts. This model has a different voice set
 // from gpt-audio (e.g. it adds ash, ballad, coral, sage, verse, marin, cedar).
 // Must not be merged with BOLO_GPT_AUDIO_VOICE even if the string value is the same.
-const BOLO_MINI_TTS_VOICE = "shimmer";
+const BOLO_MINI_TTS_VOICE = "sage";
 
 // TTS for Bolo using the dedicated speech endpoint (gpt-4o-mini-tts). Cheaper
 // than gpt-audio for audio output because it uses the dedicated speech billing
@@ -453,9 +453,10 @@ async function boloTTSMini(text: string, _languageName: string, _languageCode: s
       voice: BOLO_MINI_TTS_VOICE,
       input: text,
       response_format: "mp3",
+      instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
     });
     const buf = Buffer.from(await response.arrayBuffer());
-    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0}`);
+    console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0} instr=${BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST}`);
     return buf;
   } catch (err) {
     console.info(`[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} error=${err instanceof Error ? err.message : err}`);
@@ -486,6 +487,7 @@ async function boloTTSMiniStream(
       input: text,
       response_format: "mp3",
       stream_format: "audio",
+      instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
     });
 
     if (!response.body) {
@@ -506,7 +508,7 @@ async function boloTTSMiniStream(
 
     const buf = Buffer.concat(chunks);
     console.info(
-      `[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0} firstChunkMs=${firstChunkMs ?? 0}`,
+      `[tts] provider=${TTS_PROVIDER} model=gpt-4o-mini-tts chars=${text.length} bytes=${buf.length} ms=${Date.now() - t0} firstChunkMs=${firstChunkMs ?? 0} instr=${BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST}`,
     );
     return buf;
   } catch (err) {
