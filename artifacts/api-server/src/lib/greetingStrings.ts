@@ -186,11 +186,10 @@ export function buildGreetingTexts(
 /**
  * The full English greeting text shown in Bolo's bubble when no native-script
  * entry exists for the given language.
- * "Squawk!" is a bird-sound placeholder that clients replace with a squawk SFX;
- * the emoji is kept for display but stripped before TTS synthesis.
+ * The emoji is kept for display but stripped before TTS synthesis.
  */
 export function buildGreetingDisplayText(languageName: string): string {
-  return `Hi! I'm Bolo, your language coach! Squawk! You can chat with me in English or ${languageName}! 🦜`;
+  return `Hi! I'm Bolo, your language coach! You can chat with me in English or ${languageName}! 🦜`;
 }
 
 /**
