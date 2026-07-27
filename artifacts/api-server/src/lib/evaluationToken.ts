@@ -22,6 +22,9 @@ export interface EvaluationClaims {
   band?: PronunciationBand;
   // XP to credit when this attempt is recorded.  0 for retry/nocatch bands.
   xpAwarded?: number;
+  // Time in ms between phrase audio ending and the learner tapping Record.
+  // Null means the client did not report it (older app version).
+  latencyMs?: number | null;
 }
 
 interface SignedPayload extends EvaluationClaims {

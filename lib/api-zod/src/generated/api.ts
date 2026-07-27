@@ -1027,7 +1027,8 @@ export const EvaluatePronunciationBody = zod.object({
   "targetEnglish": zod.string(),
   "languageName": zod.string().optional(),
   "audioBase64": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "latencyMs": zod.number().int().nonnegative().optional().describe('Time in ms between phrase audio ending and the learner tapping Record. The server rejects attempts under 250 ms as too fast to have actually said the phrase.')
 })
 
 export const EvaluatePronunciationResponse = zod.object({

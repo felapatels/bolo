@@ -586,8 +586,20 @@ router.post(
       res.status(400).json({ error: "Invalid pronunciation payload" });
       return;
     }
-    const { phraseId, audioBase64, languageName } = parsed.data;
+    const { phraseId, audioBase64, languageName, latencyMs } = parsed.data;
     const userId = (req as AuthedRequest).userId;
+
+    // Rule 47: Discard attempts where the recording started under 250 ms after
+    // the phrase finished playing — the learner cannot have said it that fast.
+    // Prevents tap-spam and pre-tapped recordings from receiving a score.
+    if (latencyMs !== undefined && latencyMs < 250) {
+      res.status(400).json({
+        error: "tap_too_fast",
+        message:
+          "Tap Record after you hear the phrase — you tapped too quickly this time.",
+      });
+      return;
+    }
 
     // When a catalog phrase id is supplied, the phrase's stored text — not the
     // client-provided target strings — is the authoritative content that gets
@@ -713,6 +725,7 @@ router.post(
           feedback,
           band: nocatchBand,
           xpAwarded: 0,
+          latencyMs: latencyMs ?? null,
         }),
       });
       return;
@@ -882,6 +895,7 @@ router.post(
             feedback,
             band: nailedBand,
             xpAwarded: nailedXp,
+            latencyMs: latencyMs ?? null,
           }),
         });
         return;
@@ -997,6 +1011,7 @@ router.post(
           feedback,
           band: llmBand,
           xpAwarded: llmXp,
+          latencyMs: latencyMs ?? null,
         }),
       });
     } catch (err) {

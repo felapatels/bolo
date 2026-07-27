@@ -224,7 +224,7 @@ function isCorrectAnswer(q: QuizQuestion, answer: string | null | undefined): bo
 export async function computeQuizStreak(
   userId: string,
   languageCode: string,
-  timeZone?: string | null,
+  timeZone: string | null,
 ): Promise<number> {
   const completions = await db
     .select({ quizDate: dailyQuizCompletionsTable.quizDate })
@@ -528,7 +528,7 @@ router.get(
     }
 
     if (completion) {
-      const quizStreak = await computeQuizStreak(userId, lang);
+      const quizStreak = await computeQuizStreak(userId, lang, getUserTimezone(req));
       res.json({
         quizDate: today,
         completed: true,
@@ -542,7 +542,7 @@ router.get(
       return;
     }
 
-    const quizStreak = await computeQuizStreak(userId, lang);
+    const quizStreak = await computeQuizStreak(userId, lang, getUserTimezone(req));
     res.json({
       quizDate: today,
       completed: false,

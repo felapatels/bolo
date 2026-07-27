@@ -995,6 +995,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       xpAwarded,
       fsrsRating,
       thetaDelta,
+      latencyMs: claims.latencyMs ?? null,
     })
     .returning();
 

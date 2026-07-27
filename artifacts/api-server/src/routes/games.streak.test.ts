@@ -115,7 +115,7 @@ after(async () => {
 // ---------------------------------------------------------------------------
 
 test("returns 0 when there are no completions", async () => {
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 0);
 });
 
@@ -125,13 +125,13 @@ test("returns 0 when there are no completions", async () => {
 
 test("returns 1 when the learner completed only today", async () => {
   await seedCompletion(daysAgoUtc(0));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
 
 test("returns 1 when the learner completed only yesterday", async () => {
   await seedCompletion(daysAgoUtc(1));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
 
@@ -143,7 +143,7 @@ test("returns 3 for three consecutive days ending today", async () => {
   await seedCompletion(daysAgoUtc(0));
   await seedCompletion(daysAgoUtc(1));
   await seedCompletion(daysAgoUtc(2));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 3);
 });
 
@@ -153,7 +153,7 @@ test("returns 5 for five consecutive days ending yesterday", async () => {
   await seedCompletion(daysAgoUtc(3));
   await seedCompletion(daysAgoUtc(4));
   await seedCompletion(daysAgoUtc(5));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 5);
 });
 
@@ -164,13 +164,13 @@ test("returns 5 for five consecutive days ending yesterday", async () => {
 test("returns 0 when the most-recent completion is two days ago", async () => {
   await seedCompletion(daysAgoUtc(2));
   await seedCompletion(daysAgoUtc(3));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 0);
 });
 
 test("returns 0 when the most-recent completion is much older", async () => {
   await seedCompletion(daysAgoUtc(10));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 0);
 });
 
@@ -183,7 +183,7 @@ test("counts only the unbroken tail when there is an internal gap", async () => 
   // gap: daysAgoUtc(2) intentionally skipped
   await seedCompletion(daysAgoUtc(3));
   await seedCompletion(daysAgoUtc(4));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 2);
 });
 
@@ -193,7 +193,7 @@ test("a gap of exactly two days (skip one day) breaks the streak", async () => {
   await seedCompletion(daysAgoUtc(1));
   // gap: daysAgoUtc(2) skipped
   await seedCompletion(daysAgoUtc(3));
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
 
@@ -211,7 +211,7 @@ test("counts correctly across a month boundary", async () => {
     dates.push(daysAgoUtc(i));
   }
   for (const d of dates) await seedCompletion(d);
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 7);
 });
 
@@ -224,6 +224,6 @@ test("duplicate completions for the same day do not double-count", async () => {
   // onConflictDoNothing, so the streak should still be 1 and not 2.
   await seedCompletion(daysAgoUtc(0));
   await seedCompletion(daysAgoUtc(0)); // duplicate — swallowed
-  const streak = await computeQuizStreak(TEST_USER_ID, LANG);
+  const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
