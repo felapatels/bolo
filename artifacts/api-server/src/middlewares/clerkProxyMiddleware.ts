@@ -5,10 +5,10 @@
  * authentication on custom domains and .replit.app deployments without
  * requiring CNAME DNS configuration.
  *
- * AUTH CONFIGURATION: To manage users, enable/disable login providers
- * (Google, GitHub, etc.), change app branding, or configure OAuth credentials,
- * use the Auth pane in the workspace toolbar. There is no external Clerk
- * dashboard — all auth configuration is done through the Auth pane.
+ * AUTH CONFIGURATION: This project uses a self-managed Clerk instance
+ * (free-bedbug-6.clerk.accounts.dev). To manage users, login providers,
+ * OAuth credentials, or branding, log in to your Clerk dashboard at
+ * https://dashboard.clerk.com.
  *
  * IMPORTANT:
  * - Only active in production (Clerk proxying doesn't work for dev instances)

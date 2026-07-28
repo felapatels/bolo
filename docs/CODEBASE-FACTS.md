@@ -2,7 +2,7 @@
 
 Living reference. Paste the relevant sections at the top of every spec so the agent does not re-derive them.
 
-Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, and Spec D2 Step 0.
+Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, Spec D2 Step 0, and Task 787 (self-managed Clerk migration).
 
 **Maintenance rule:** after every completed task, append what changed. Anything in here that turns out to be wrong is worth more than the correction itself, because it means a spec was written against it.
 
@@ -29,7 +29,7 @@ Monorepo, pnpm workspace, root at `/home/runner/workspace`.
 | `lib/api-zod/src/generated/types/` | Generated Zod types |
 | `lib/integrations-openai-ai-react/src/audio/` | Web audio recording hook |
 
-**Stack:** Postgres, Drizzle ORM with drizzle-kit migrate, Clerk auth, OpenAI direct key (Whisper STT, chat, TTS), ts-fsrs v5, expo-audio on mobile.
+**Stack:** Postgres, Drizzle ORM with drizzle-kit migrate, Clerk auth (self-managed, instance `free-bedbug-6.clerk.accounts.dev`), OpenAI direct key (Whisper STT, chat, TTS), ts-fsrs v5, expo-audio on mobile.
 
 **Never hand-edit** anything under `generated/` or `dist/`. Change `openapi.yaml` and regenerate.
 
@@ -262,6 +262,7 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 
 | Item | Notes |
 |---|---|
+| Clerk self-managed (dev only) | Auth runs against `free-bedbug-6.clerk.accounts.dev` (dev instance). Production requires the `pk_live_` / `sk_live_` keys from that instance set as EAS env vars before any store build. Configure via `eas env:create --environment production --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value pk_live_...` (see `artifacts/bolo-mobile/.env.production.example`). |
 | No cue audio files | `playCue` exists on both platforms with nothing to play. Source real tabla or dholak samples; do not synthesize |
 | `latencyMs` unenforced | Neither client sends it. Spec 0 rule 47 is a no-op. #777 has nothing to measure |
 | `todayXp` in-memory filter | `learning.ts` pulls the full ledger and filters in application code. Needs a SQL date-range filter |
