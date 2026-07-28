@@ -41,7 +41,7 @@ Monorepo, pnpm workspace, root at `/home/runner/workspace`.
 
 ### Pre-existing
 
-**users:** `id` text PK, `timezone` text nullable (IANA), `daily_goal` int default 10, `tz_grace_used_on` date nullable
+**users:** `id` text PK, `timezone` text nullable (IANA), `daily_goal` int default 50 (was 10 until migration 0025, July 28, 2026; existing rows untouched), `tz_grace_used_on` date nullable
 
 **attempts:** `id` serial PK, `user_id`, `language_code`, `phrase_id` nullable, `native_script`, `romanized`, `english`, `transcript`, `score` int 0-100, `passed` bool, `feedback`, `created_at`, plus added in Task 1: `latency_ms`, `audio_duration_ms`, `band`, `fsrs_rating`, `theta_delta`, `beta_delta`, `xp_awarded`, `flags` jsonb
 
@@ -317,7 +317,7 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 | `phrases.register` unpopulated | Spec D2 added the nullable column + `(language_code, register)` index; no authoring or filtering yet — all rows are NULL |
 | ~~Stale drizzle meta snapshots~~ | **Resolved with 0021.** Task 1's ad-hoc DDL left `meta/` lagging the committed migrations, so `generate` re-emitted applied DDL. The 0021 repair rewrote the terminal snapshot to the full current schema; `generate` now emits "No schema changes", and `check-drift` runs a trial generate on every pass so regression cannot land silently |
 | Web pre-existing test failures | `account.test.tsx` x6, `chat-error-banner.test.tsx` x2 |
-| `daily_goal` default of 10 | Met by a single nailed attempt. Miscalibrated. Needs data before changing |
+| ~~`daily_goal` default of 10~~ | **Resolved (July 28, 2026).** Migration `0025_daily_goal_default_50` set the column default to 50 for NEW users only; the 4 existing rows at 10 were deliberately left unchanged. Server-side missing-row fallback in learning.ts updated to 50; client display fallbacks (`?? 10` in home.tsx/XpCounter) are loading placeholders and were left as-is. No prior cleanup pass had changed this |
 | FSRS is mobile-only on the client | Review queue and `/review/phrases` have no web surface |
 | #776 | Conjunct-nasal normalization for scripts other than Devanagari. Gated on native speaker review |
 | Web `EmptyState` | May be unused while `friends.tsx` has its own inline version |

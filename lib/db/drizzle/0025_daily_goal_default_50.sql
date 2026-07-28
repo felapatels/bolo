@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "daily_goal" SET DEFAULT 50;

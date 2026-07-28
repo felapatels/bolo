@@ -1305,7 +1305,7 @@ router.get(
     const totalPhrases = phrases.length;
     const metrics = computeProgressMetrics(attempts, timezone);
     const totalXp = Number(gameXpRow?.total ?? 0);
-    const dailyGoal = userRow?.dailyGoal ?? 10;
+    const dailyGoal = userRow?.dailyGoal ?? 50;
 
     const scores = attempts.map((a) => a.score);
     const averageScore =

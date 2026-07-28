@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones, HeadphoneOff } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
@@ -1121,7 +1121,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               : "bg-muted text-muted-foreground",
           )}
         >
-          <Headphones className="w-4 h-4" />
+          {/* Icon communicates state on its own (not just the tint):
+              headphones = feedback is read aloud, slashed = muted. */}
+          {spokenFeedback ? (
+            <Headphones className="w-4 h-4" />
+          ) : (
+            <HeadphoneOff className="w-4 h-4" />
+          )}
         </button>
       </header>
 
@@ -1207,7 +1213,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           an absolutely-positioned transparent button on the lower-center of the
           image area so the interaction feels spatially tied to the character.
         */}
-        <div className="flex-1 relative flex flex-col items-center justify-center min-h-0 mt-1">
+        {/* When the result/error panel is up, the parrot gives back most of its
+            space so score + feedback stay above the fold on small (390x844)
+            viewports; it stays visible but compact. */}
+        <div
+          className={cn(
+            "relative flex flex-col items-center justify-center min-h-0 mt-1",
+            state === "result" || state === "error"
+              ? "flex-none h-[110px] shrink-0"
+              : "flex-1",
+          )}
+        >
           {/* Parrot image */}
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Glow ring while recording */}
@@ -1297,8 +1313,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             toastKey={activeToast?.key ?? null}
           />
 
-          {/* ── Instruction label ───────────────────────────────────────── */}
-          <div className="shrink-0 h-12 flex items-center justify-center mt-1">
+          {/* ── Instruction label (hidden while the result panel needs the
+                 vertical room; it only ever shows idle/recording copy) ────── */}
+          <div
+            className={cn(
+              "shrink-0 h-12 flex items-center justify-center mt-1",
+              (state === "result" || state === "error") && "hidden",
+            )}
+          >
             <AnimatePresence mode="wait">
               {state === "idle" && (
                 <motion.p

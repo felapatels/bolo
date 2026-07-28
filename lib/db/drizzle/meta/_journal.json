@@ -169,6 +169,13 @@
       "when": 1785269626545,
       "tag": "0024_phrase_group_position_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785274049006,
+      "tag": "0025_daily_goal_default_50",
+      "breakpoints": true
     }
   ]
 }
