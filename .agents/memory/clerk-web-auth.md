@@ -48,3 +48,10 @@ On the web client, just call the relative API — no token plumbing.
 - The Replit deployment's Vite build bakes WORKSPACE secrets into `VITE_*` values; production env vars (which held pk_live) never reached the build, so the published bundle carried pk_test and `publishableKeyFromHost`'s dev-fallback short-circuit served free-bedbug-6 on bolo-india.app.
 - Fix: App.tsx now derives pk_live from `window.location.hostname` at runtime when the host is bolo-india.app or www.bolo-india.app (no fallback passed); every other host keeps the baked dev key. replit.app default domain intentionally stays on the dev instance.
 - General rule: NEVER rely on production env vars for any build-time `VITE_*` value in this repl; either derive at runtime or commit public write-only values gated on `import.meta.env.PROD` (done for the web Sentry DSN and PostHog key).
+
+## Stale dev-cookie poisoning after the prod key fix (July 28, 2026)
+- Symptom set: OAuth ends at clerk.<domain>/v1/oauth_callback?err_code=authorization_invalid, email sign-up silently creates no user, instance shows "watching for users" — while curl/clean browsers work end to end.
+- Mechanism: browsers that visited the prod domain during the dev-keyed window carry dev-instance JS cookies on the apex (__client, __client_uat*, __clerk_db_jwt*); they ride to clerk.<domain> and the FAPI resolves the wrong client, so the OAuth state never matches.
+- Diagnosis order that worked: bundle greps (proxy/dev refs) -> FAPI /v1/environment -> raw curl sign-up (fails ONLY captcha_missing_token = healthy) -> oauth_callback with mismatched cookie reproduces authorization_invalid exactly.
+- Remedy: one-time versioned cookie purge on the prod host before Clerk init (src/lib/clerkCookieCleanup.ts); MUST no-op when localStorage is unavailable or it signs users out on every load. Remove after the affected window ages out.
+- Turnstile note: captcha_oauth_bypass=[] on this instance; headless probes always stall at interactive Turnstile — not evidence of breakage.
