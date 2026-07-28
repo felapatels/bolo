@@ -6,7 +6,18 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 
 const connectors = new ReplitConnectors();
 
-const FROM_EMAIL = process.env.INVITE_FROM_EMAIL ?? "onboarding@resend.dev";
+// Same env-configured sender as inviteEmail.ts; no hardcoded fallback so a
+// missing INVITE_FROM_EMAIL fails loudly instead of sending from the wrong
+// address.
+function requireFromEmail(): string {
+  const from = process.env.INVITE_FROM_EMAIL;
+  if (!from) {
+    throw new Error(
+      "INVITE_FROM_EMAIL is not set — family invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+    );
+  }
+  return from;
+}
 const APP_NAME = "Bolo!";
 
 function escapeHtml(str: string): string {
@@ -98,7 +109,7 @@ export async function sendFamilyInviteEmail(opts: {
   if (process.env.SKIP_INVITE_EMAIL === "1") return;
 
   const payload = {
-    from: `${APP_NAME} <${FROM_EMAIL}>`,
+    from: `${APP_NAME} <${requireFromEmail()}>`,
     to: [opts.toEmail],
     subject: `${opts.inviterName} invited you to their ${APP_NAME} family plan`,
     html: buildHtml(opts.inviterName, opts.joinUrl),
@@ -106,7 +117,7 @@ export async function sendFamilyInviteEmail(opts: {
   };
 
   const response = await connectors.proxy(
-    "conn_resend_01KXKHKJCCZD0N30PZCPDH0XPX",
+    "resend",
     "/emails",
     {
       method: "POST",

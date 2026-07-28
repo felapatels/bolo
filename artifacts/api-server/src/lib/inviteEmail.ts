@@ -4,9 +4,10 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 // yet. Uses the Resend connector (managed by Replit) so no API key needs to be
 // stored in application secrets.
 //
-// The FROM address can be overridden via INVITE_FROM_EMAIL; it defaults to
-// onboarding@resend.dev which works on the Resend free tier without domain
-// verification.
+// The FROM address MUST be configured via INVITE_FROM_EMAIL (e.g.
+// hello@bolo-india.app — the bolo-india.app domain is verified with Resend).
+// There is deliberately no hardcoded fallback: a missing value fails loudly
+// at send time instead of silently sending from the wrong address.
 
 const connectors = new ReplitConnectors();
 
@@ -14,8 +15,15 @@ const connectors = new ReplitConnectors();
 const APP_STORE_URL =
   process.env.APP_STORE_URL ?? "https://apps.apple.com/app/id982107779";
 
-const FROM_EMAIL =
-  process.env.INVITE_FROM_EMAIL ?? "onboarding@resend.dev";
+function requireFromEmail(): string {
+  const from = process.env.INVITE_FROM_EMAIL;
+  if (!from) {
+    throw new Error(
+      "INVITE_FROM_EMAIL is not set — invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+    );
+  }
+  return from;
+}
 
 const APP_NAME = "Bolo!";
 
@@ -120,7 +128,7 @@ export async function sendFriendInviteEmail(opts: {
   const appStoreUrl = APP_STORE_URL;
 
   const payload = {
-    from: `${APP_NAME} <${FROM_EMAIL}>`,
+    from: `${APP_NAME} <${requireFromEmail()}>`,
     to: [toEmail],
     subject: `${inviterName} wants to practice Indian languages with you`,
     html: buildHtml(inviterName, appStoreUrl),
@@ -128,7 +136,7 @@ export async function sendFriendInviteEmail(opts: {
   };
 
   const response = await connectors.proxy(
-    "conn_resend_01KXKHKJCCZD0N30PZCPDH0XPX",
+    "resend",
     "/emails",
     {
       method: "POST",
