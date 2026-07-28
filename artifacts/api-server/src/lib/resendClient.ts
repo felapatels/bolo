@@ -15,10 +15,19 @@ function getResend(): Resend | null {
   return resend;
 }
 
-// The verified sender address.  Fall back to a standard noreply on the
-// app's domain if RESEND_FROM is not explicitly configured.
+// The verified sender address. Deliberately no hardcoded fallback (matching
+// the invite sender pattern): a missing RESEND_FROM throws here, which the
+// send path catches and logs, recording email_sent=false instead of silently
+// sending from an unverified address (the old noreply@boloapp.in default was
+// unverified with Resend and 403'd on every send).
 function fromAddress(): string {
-  return process.env.RESEND_FROM ?? "noreply@boloapp.in";
+  const from = process.env.RESEND_FROM;
+  if (!from) {
+    throw new Error(
+      "RESEND_FROM is not set — contact notification emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+    );
+  }
+  return from;
 }
 
 export interface ContactNotificationParams {

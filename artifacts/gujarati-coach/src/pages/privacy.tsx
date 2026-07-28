@@ -21,7 +21,7 @@ export default function Privacy() {
       {/* Nav */}
       <header className="px-6 pt-8 flex items-center justify-between max-w-3xl mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Bolo!" className="h-9 w-9" />
+          <img src={`${import.meta.env.BASE_URL}mascot/mascot-wave.png`} alt="Bolo!" className="h-9 w-9 object-contain" />
           <span className="text-2xl font-black text-foreground tracking-tight">Bolo!</span>
         </Link>
         <Link

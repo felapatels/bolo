@@ -62,9 +62,9 @@ export function DesktopNav() {
         className="flex items-center gap-2.5 px-6 pt-8 pb-6 button-spring"
       >
         <img
-          src={`${import.meta.env.BASE_URL}logo.svg`}
+          src={`${import.meta.env.BASE_URL}mascot/mascot-wave.png`}
           alt="Bolo!"
-          className="h-9 w-9"
+          className="h-9 w-9 object-contain"
         />
         <span className="text-2xl font-black tracking-tight text-foreground">
           Bolo!

@@ -11,9 +11,15 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 
 const connectors = new ReplitConnectors();
 
-// App Store / TestFlight link — same link used in the store submission assets.
-const APP_STORE_URL =
-  process.env.APP_STORE_URL ?? "https://apps.apple.com/app/id982107779";
+// Invite CTA destination. The iOS App Store listing is not live yet, so the
+// CTA points at the web app; at iOS launch, flip INVITE_CTA_URL to the App
+// Store link — no code change needed. The default is the always-safe web URL.
+const INVITE_CTA_URL =
+  process.env.INVITE_CTA_URL ?? "https://bolo-india.app";
+
+// Mascot image for the email header — hosted on the production web app so it
+// renders in all email clients (Gmail strips base64 data URIs).
+const MASCOT_IMG_URL = "https://bolo-india.app/mascot/mascot-wave.png";
 
 function requireFromEmail(): string {
   const from = process.env.INVITE_FROM_EMAIL;
@@ -27,11 +33,13 @@ function requireFromEmail(): string {
 
 const APP_NAME = "Bolo!";
 
-function buildHtml(inviterName: string, appStoreUrl: string): string {
+function buildHtml(inviterName: string, ctaUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FFFBF5;font-family:system-ui,sans-serif;">
+  <!-- Preheader: hidden preview text (must stay invisible in the body) -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHtml(inviterName)} invited you to learn Indian languages together on ${APP_NAME}.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFBF5;padding:40px 16px;">
     <tr><td align="center">
       <table width="540" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E8E0D4;max-width:540px;width:100%;">
@@ -39,7 +47,7 @@ function buildHtml(inviterName: string, appStoreUrl: string): string {
         <!-- Header -->
         <tr>
           <td style="background:#FF6B35;padding:32px 40px;text-align:center;">
-            <p style="margin:0;font-size:40px;">🦜</p>
+            <img src="${MASCOT_IMG_URL}" width="72" alt="Bolo! the parrot" style="display:block;margin:0 auto;width:72px;height:auto;border:0;">
             <h1 style="margin:8px 0 0;color:#FFFFFF;font-size:28px;font-weight:800;letter-spacing:-0.5px;">${APP_NAME}</h1>
             <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">Learn Indian languages, together</p>
           </td>
@@ -62,9 +70,9 @@ function buildHtml(inviterName: string, appStoreUrl: string): string {
             <table cellpadding="0" cellspacing="0" width="100%">
               <tr>
                 <td align="center" style="padding-bottom:28px;">
-                  <a href="${escapeHtml(appStoreUrl)}"
+                  <a href="${escapeHtml(ctaUrl)}"
                      style="display:inline-block;background:#FF6B35;color:#FFFFFF;font-size:16px;font-weight:700;text-decoration:none;padding:16px 36px;border-radius:14px;letter-spacing:0.2px;">
-                    Download ${APP_NAME} on the App Store →
+                    Start learning at bolo-india.app →
                   </a>
                 </td>
               </tr>
@@ -72,7 +80,7 @@ function buildHtml(inviterName: string, appStoreUrl: string): string {
 
             <p style="margin:0;font-size:14px;color:#888;line-height:1.5;border-top:1px solid #F0E8DE;padding-top:20px;">
               Can't click the button? Copy this link into your browser:<br>
-              <a href="${escapeHtml(appStoreUrl)}" style="color:#FF6B35;word-break:break-all;">${escapeHtml(appStoreUrl)}</a>
+              <a href="${escapeHtml(ctaUrl)}" style="color:#FF6B35;word-break:break-all;">${escapeHtml(ctaUrl)}</a>
             </p>
           </td>
         </tr>
@@ -94,7 +102,7 @@ function buildHtml(inviterName: string, appStoreUrl: string): string {
 </html>`;
 }
 
-function buildText(inviterName: string, appStoreUrl: string): string {
+function buildText(inviterName: string, ctaUrl: string): string {
   return [
     `Hey there!`,
     ``,
@@ -102,8 +110,8 @@ function buildText(inviterName: string, appStoreUrl: string): string {
     ``,
     `Learn together, challenge each other on the leaderboard, and actually start speaking a new language.`,
     ``,
-    `Download ${APP_NAME} on the App Store:`,
-    appStoreUrl,
+    `Start learning ${APP_NAME} on the web:`,
+    ctaUrl,
     ``,
     `You received this because ${inviterName} entered your email in ${APP_NAME}. If you didn't expect this, you can safely ignore it.`,
   ].join("\n");
@@ -125,14 +133,13 @@ export async function sendFriendInviteEmail(opts: {
   if (process.env.SKIP_INVITE_EMAIL === "1") return;
 
   const { inviterName, toEmail } = opts;
-  const appStoreUrl = APP_STORE_URL;
 
   const payload = {
     from: `${APP_NAME} <${requireFromEmail()}>`,
     to: [toEmail],
     subject: `${inviterName} wants to practice Indian languages with you`,
-    html: buildHtml(inviterName, appStoreUrl),
-    text: buildText(inviterName, appStoreUrl),
+    html: buildHtml(inviterName, INVITE_CTA_URL),
+    text: buildText(inviterName, INVITE_CTA_URL),
   };
 
   const response = await connectors.proxy(

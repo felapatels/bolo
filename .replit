@@ -239,6 +239,8 @@ SENTRY_DSN = "https://c857e6d43ad5d219bf68a3281015841c@o4511813816352768.ingest.
 VITE_POSTHOG_KEY = "phc_rVRdQdrVqY8WCSSuN5LmDCJmbNP3jcev6Fj38rizwHnZ"
 VITE_SENTRY_DSN = "https://1a5b9d149bf8569510161800f39804e8@o4511813816352768.ingest.us.sentry.io/4511813831294976"
 INVITE_FROM_EMAIL = "hello@bolo-india.app"
+INVITE_CTA_URL = "https://bolo-india.app"
+RESEND_FROM = "hello@bolo-india.app"
 
 [userenv.production]
 CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk"
@@ -247,3 +249,5 @@ SENTRY_DSN = "https://c857e6d43ad5d219bf68a3281015841c@o4511813816352768.ingest.
 VITE_POSTHOG_KEY = "phc_rVRdQdrVqY8WCSSuN5LmDCJmbNP3jcev6Fj38rizwHnZ"
 VITE_SENTRY_DSN = "https://1a5b9d149bf8569510161800f39804e8@o4511813816352768.ingest.us.sentry.io/4511813831294976"
 INVITE_FROM_EMAIL = "hello@bolo-india.app"
+INVITE_CTA_URL = "https://bolo-india.app"
+RESEND_FROM = "hello@bolo-india.app"

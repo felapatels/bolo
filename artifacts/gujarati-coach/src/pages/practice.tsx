@@ -1115,19 +1115,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           aria-pressed={spokenFeedback}
           title={spokenFeedback ? "Spoken feedback on — tap to silence it" : "Tap to hear score feedback aloud"}
           className={cn(
-            "shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all",
+            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
             spokenFeedback
               ? "bg-secondary text-white shadow-sm"
               : "bg-muted text-muted-foreground",
           )}
         >
           {/* Icon communicates state on its own (not just the tint):
-              headphones = feedback is read aloud, slashed = muted. */}
+              headphones = feedback is read aloud, slashed = muted. The text
+              label makes the toggle's purpose self-evident to new users. */}
           {spokenFeedback ? (
             <Headphones className="w-4 h-4" />
           ) : (
             <HeadphoneOff className="w-4 h-4" />
           )}
+          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
+            Read aloud
+          </span>
         </button>
       </header>
 

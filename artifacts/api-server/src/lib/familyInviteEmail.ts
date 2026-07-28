@@ -20,6 +20,10 @@ function requireFromEmail(): string {
 }
 const APP_NAME = "Bolo!";
 
+// Mascot image for the email header — hosted on the production web app so it
+// renders in all email clients (Gmail strips base64 data URIs).
+const MASCOT_IMG_URL = "https://bolo-india.app/mascot/mascot-wave.png";
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -33,12 +37,14 @@ function buildHtml(inviterName: string, joinUrl: string): string {
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FFFBF5;font-family:system-ui,sans-serif;">
+  <!-- Preheader: hidden preview text (must stay invisible in the body) -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHtml(inviterName)} shared their ${APP_NAME} family plan with you — full Plus access, free.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFBF5;padding:40px 16px;">
     <tr><td align="center">
       <table width="540" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E8E0D4;max-width:540px;width:100%;">
         <tr>
           <td style="background:#FF6B35;padding:32px 40px;text-align:center;">
-            <p style="margin:0;font-size:40px;">🦜</p>
+            <img src="${MASCOT_IMG_URL}" width="72" alt="Bolo! the parrot" style="display:block;margin:0 auto;width:72px;height:auto;border:0;">
             <h1 style="margin:8px 0 0;color:#FFFFFF;font-size:28px;font-weight:800;letter-spacing:-0.5px;">${APP_NAME}</h1>
             <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">Learn Indian languages, together</p>
           </td>
