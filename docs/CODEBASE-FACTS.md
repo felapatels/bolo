@@ -321,6 +321,9 @@ Paste this block into every spec.
 
 ---
 
+### Journey map design decision (July 28, 2026)
+D1b direction decided: **Gujarat Express (Mockup C) merged** — rail-line layout base, postcards from B as the collectible layer, scenic markers from A as garnish. Full record: `docs/BOLO-Journey-Map-Design-Decision.md`. Mockups live in `artifacts/mockup-sandbox/src/components/mockups/Journey*.tsx` (task #794, merged). Prerequisite: D1a lesson grouping.
+
 ## 10. Spec status
 
 | Spec | State |
