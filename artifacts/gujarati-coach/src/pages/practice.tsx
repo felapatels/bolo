@@ -19,8 +19,9 @@ import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones } from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
+import { prefersReducedMotion } from "@/lib/motionPrefs";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { Mascot, type MascotPose } from "@/components/mascot";
@@ -184,6 +185,50 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
   }, []);
   const reduceMotion = useReducedMotion();
+  // ── Spec D2: live input amplitude ──────────────────────────────────────
+  // A single rAF loop samples recorder.getAmplitude() while recording and
+  // feeds two animation bindings — the waveform bars and the mascot scale —
+  // through MotionValues, never React state. React state is only touched for
+  // slow-changing facts: the zero-input hint and the reduced-motion level
+  // segments (which change a few times per second at most).
+  const amplitudeMv = useMotionValue(0);
+  const mascotScaleRaw = useTransform(amplitudeMv, (a) => 1 + Math.min(1, a) * 0.08);
+  const mascotScale = useSpring(mascotScaleRaw, { stiffness: 300, damping: 22 });
+  // Zero-input state: visible once >1.5s passes with near-zero amplitude
+  // while recording (mic muted / wrong device), per Spec D2 rule 7.
+  const [noInput, setNoInput] = useState(false);
+  // Reduced motion: static level indicator segments (0..5), not a waveform.
+  const [levelSegments, setLevelSegments] = useState(0);
+  useEffect(() => {
+    if (state !== "recording") {
+      amplitudeMv.set(0);
+      setNoInput(false);
+      setLevelSegments(0);
+      return;
+    }
+    let raf = 0;
+    let lastLoudAt = performance.now();
+    const loop = () => {
+      const amp = recorder.getAmplitude();
+      // Re-check each frame so an OS preference change mid-recording switches
+      // the animated feed <-> static meter immediately (matchMedia is cheap).
+      if (!prefersReducedMotion()) {
+        amplitudeMv.set(amp);
+      } else {
+        // Park the mascot at rest so a mid-recording switch to reduced motion
+        // doesn't freeze it partially scaled.
+        amplitudeMv.set(0);
+        setLevelSegments(Math.min(5, Math.round(Math.min(1, amp) * 5)));
+      }
+      const now = performance.now();
+      if (amp > 0.04) lastLoudAt = now;
+      setNoInput(now - lastLoudAt > 1500);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
   const [evalError, setEvalError] = useState<string | null>(null);
   // When true, the attempt scored but saving progress failed — the learner
@@ -1056,17 +1101,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{
                   opacity: state === "evaluating" ? 0.55 : 1,
-                  scale: state === "recording" ? 1.04 : 1,
+                  scale: 1,
                 }}
                 exit={{ opacity: 0, scale: 0.92 }}
                 transition={springs.snappy}
                 className="w-full h-full"
               >
-                <Mascot
-                  pose={mascotPose}
-                  fill
-                  idle={state === "result" && result?.passed ? "cheer" : "float"}
-                />
+                {/* Spec D2: mascot "hears" the learner — scale rides the live
+                    amplitude MotionValue (1.0–1.08) while recording. The rAF
+                    loop leaves amplitudeMv at 0 under reduced motion or when
+                    not recording, so this settles to scale 1 in those cases. */}
+                <motion.div className="w-full h-full" style={{ scale: mascotScale }}>
+                  <Mascot
+                    pose={mascotPose}
+                    fill
+                    idle={state === "result" && result?.passed ? "cheer" : "float"}
+                  />
+                </motion.div>
               </motion.div>
             </AnimatePresence>
 
@@ -1132,10 +1183,44 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   transition={springs.snappy}
                   className="flex flex-col items-center gap-1.5"
                 >
-                  <SoundWavePulse className="text-accent" size={22} bars={7} />
-                  <p className="text-center text-accent font-bold uppercase tracking-widest text-xs">
-                    Listening…
-                  </p>
+                  {reduceMotion ? (
+                    // Reduced motion: static level indicator (Spec D2 rule 6).
+                    // Segments light up with input level; nothing loops or
+                    // dances, but mic-is-working feedback stays visible.
+                    <div
+                      className="flex items-center gap-1"
+                      role="img"
+                      aria-label="Microphone level"
+                    >
+                      {[1, 2, 3, 4, 5].map((seg) => (
+                        <span
+                          key={seg}
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            seg <= levelSegments ? "bg-accent" : "bg-muted",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <SoundWavePulse
+                      className="text-accent"
+                      size={22}
+                      bars={7}
+                      amplitude={amplitudeMv}
+                    />
+                  )}
+                  {noInput ? (
+                    // Zero-input state (Spec D2 rule 7): >1.5s of near-silence
+                    // while recording — most likely a muted or wrong mic.
+                    <p className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs">
+                      We can't hear you — check your mic
+                    </p>
+                  ) : (
+                    <p className="text-center text-accent font-bold uppercase tracking-widest text-xs">
+                      Listening…
+                    </p>
+                  )}
                 </motion.div>
               )}
               {state === "playing_coach" && (

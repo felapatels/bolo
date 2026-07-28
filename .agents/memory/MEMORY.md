@@ -18,6 +18,7 @@
 - [Premium phrase library](premium-phrase-library.md) — Free starter vs Plus extended split via `phrases.premium` derived BY INDEX at seed time; locked count lives on /categories listing, phrases endpoint stays a filtered array.
 - [Entitlement gating (Free/Plus)](entitlement-gating.md) — server-authoritative tier gates return 402 upgrade_required; any router that gates must run behind the entitlements loader, and tier-agnostic route tests need a Plus test user.
 - [RevenueCat payments](revenuecat-payments.md) — connector is the @replit/connectors-sdk PROXY (not typed SDK); webhook derives state from payload, reconcile-on-read gated on REVENUECAT_PROJECT_ID.
+- [drizzle-kit generate from stale snapshots](drizzle-stale-snapshot-generate.md) — generate can re-emit already-applied DDL; hand-repair migration+snapshot+journal, validate via db-drift + db-migrations.
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade uses real Stripe checkout (redirect-away); client sends BASE_URL so return URLs keep the artifact base path; webhook is the only tier-write path.
 - [Stripe connector broken here](stripe-connector-broken.md) — Replit Stripe connector's credential-listing + proxy both fail in this repl despite "added"; fall back to a user-provided secret key.
@@ -64,5 +65,6 @@
 - [Script Trace coverage scoring](script-trace-coverage-scoring.md) — score = coverage×precision×spread (40 pass); adaptive-res skeleton + hairline outline fallback, loop-safe RDP; RN demo on UI thread.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
 - [Pronunciation band derivation](band-derivation.md) — band is score-only (80/55 thresholds), never from LLM `passed`; UI branches key on band, null band falls back to score.
+- [Codebase facts doc](codebase-facts-doc.md) — docs/CODEBASE-FACTS.md must be updated at the end of every task (changes, debt); section numbering never changes.
 - [Motion & Feedback Engine](motion-feedback-engine.md) — nocatch = system miss (nothing negative); session confetti needs half good; count-up chips are animated TextInputs (assert via label).
 - [TTS provider switch](tts-provider-switch.md) — USE_ELEVENLABS_TTS flag in lib/ttsConfig.ts; currently false (gpt-audio); flip to true + restart to restore ElevenLabs (must use multilingual_v2, not flash).

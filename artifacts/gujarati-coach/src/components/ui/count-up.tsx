@@ -36,11 +36,25 @@ export function CountUp({
     return () => controls.stop();
   }, [value, reduceMotion, durationMs]);
 
+  // Tabular figures + a min-width sized to the final value keep the container
+  // from reflowing as the digit count grows (0 → 120 changes width twice).
+  const finalText = `${prefix}${value}${suffix}`;
   return (
-    <span className={className} aria-label={`${prefix}${value}${suffix}`}>
-      {prefix}
-      {display}
-      {suffix}
+    <span className={className}>
+      <span
+        aria-hidden="true"
+        style={{
+          fontVariantNumeric: "tabular-nums",
+          display: "inline-block",
+          minWidth: `${finalText.length}ch`,
+          textAlign: "center",
+        }}
+      >
+        {prefix}
+        {display}
+        {suffix}
+      </span>
+      <span className="sr-only">{finalText}</span>
     </span>
   );
 }

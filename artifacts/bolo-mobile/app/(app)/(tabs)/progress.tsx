@@ -151,6 +151,15 @@ export default function ProgressScreen() {
                 value={s?.currentStreakDays ?? 0}
                 label="Day streak"
               />
+              {/* Spec D2: speaking streak — days with a nailed/close attempt.
+                  Mic icon so it reads as distinct from the general streak. */}
+              <Stat
+                index={4}
+                icon="mic"
+                tint={colors.primary}
+                value={s?.speakingStreakDays ?? 0}
+                label="Speaking streak"
+              />
             </View>
 
             {/* Overall mastery */}

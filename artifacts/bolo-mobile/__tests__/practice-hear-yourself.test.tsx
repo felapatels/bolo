@@ -68,6 +68,7 @@ jest.mock('expo-audio', () => ({
 // resolves cleanly. Individual tests override this for self-playback tests
 // where we need to control when onDone fires.
 jest.mock('@/lib/audio', () => ({
+  meteringToAmplitude: (db: number) => Math.min(1, Math.max(0, (db + 50) / 50)),
   prepareRecordingSession: jest.fn(async () => true),
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),

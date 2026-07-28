@@ -78,6 +78,7 @@ jest.mock('expo-audio', () => ({
 }));
 
 jest.mock('@/lib/audio', () => ({
+  meteringToAmplitude: (db: number) => Math.min(1, Math.max(0, (db + 50) / 50)),
   prepareRecordingSession: jest.fn(),
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),

@@ -58,6 +58,7 @@ import {
   buildPhraseStats,
   buildReviewSchedule,
   computeProgressMetrics,
+  computeSpeakingStreakDays,
   localDayKey,
   type PhraseStats,
 } from "../lib/progressMetrics";
@@ -1323,6 +1324,10 @@ router.get(
       averageScore,
       bestScore: metrics.bestScore,
       currentStreakDays: metrics.currentStreakDays,
+      // Spec D2: consecutive days with at least one nailed/close attempt.
+      // Derived at query time from the same attempts rows; optional field
+      // for installed-client back-compat.
+      speakingStreakDays: computeSpeakingStreakDays(attempts, timezone),
       attemptsToday,
       xp: totalXp,
       todayXp,

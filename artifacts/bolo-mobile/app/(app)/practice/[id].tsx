@@ -22,11 +22,13 @@ import Animated, {
   interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
   withSpring,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
 import { XpCounter } from '@/components/XpCounter';
@@ -71,14 +73,16 @@ import {
   SILENCE_DURATION_MS,
   SPEECH_MIN_DB,
   SILENCE_DROP_DB,
+  meteringToAmplitude,
   type PlaybackHandle,
 } from '@/lib/audio';
+import { Waveform } from '@/components/Waveform';
+import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode } from '@/lib/settings';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
 import { glyphsForLanguage } from '@/lib/scriptGlyphs';
-import { useReducedMotion } from 'react-native-reanimated';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
 
@@ -881,13 +885,65 @@ export default function PracticeScreen() {
   // the recording on its own — a safety net so the learner never has to
   // release and re-hold if they paused too long mid-phrase.
   // The learner's hold-gesture release is still the primary stop action.
-  const recorderState = useAudioRecorderState(recorder, 250);
+  // 60ms poll (Spec D2): tight enough for a live waveform; the silence
+  // auto-stop below is wall-clock based (Date.now() countdown against
+  // adaptive dB thresholds), so polling faster only adds samples — it never
+  // shifts the auto-stop timing.
+  const recorderState = useAudioRecorderState(recorder, 60);
   const silenceSinceRef = React.useRef<number | null>(null);
   // Loudest level heard this recording; the silence threshold adapts to it so
   // ordinary room tone (often above a fixed floor on phone mics) can't keep
   // resetting the countdown forever.
   const peakDbRef = React.useRef(-160);
   const metering = recorderState?.metering;
+
+  // ── Spec D2: live amplitude ────────────────────────────────────────────
+  // dBFS → 0..1 via meteringToAmplitude, into a Reanimated shared value so
+  // the waveform bars and mascot scale animate on the UI thread — no React
+  // state per frame. React state is only used for slow-changing facts: the
+  // zero-input hint and the reduced-motion level segments.
+  const liveAmp = useSharedValue(0);
+  const [ampLevel, setAmpLevel] = React.useState(0);
+  const [noInput, setNoInput] = React.useState(false);
+  const lastLoudAtRef = React.useRef(0);
+  React.useEffect(() => {
+    if (phase !== 'recording') {
+      liveAmp.value = withTiming(0, { duration: 120 });
+      setAmpLevel(0);
+      setNoInput(false);
+      lastLoudAtRef.current = 0;
+      return;
+    }
+    if (typeof metering !== 'number') return;
+    const amp = meteringToAmplitude(metering);
+    liveAmp.value = withTiming(amp, { duration: 80 });
+    if (prefersReducedMotion()) {
+      // Static level indicator input; coarse so it rarely re-renders.
+      setAmpLevel(Math.round(amp * 5) / 5);
+    }
+    const now = Date.now();
+    if (lastLoudAtRef.current === 0) lastLoudAtRef.current = now;
+    if (amp > 0.08) lastLoudAtRef.current = now;
+    // Zero-input state: >1.5s of near-zero amplitude while recording.
+    setNoInput(now - lastLoudAtRef.current > 1500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, metering]);
+
+  // Spec D2: mascot "hears" the learner — scale rides the live amplitude
+  // (1.0–1.08) on the UI thread. Disabled under reduced motion (rule 10,
+  // via motionPrefs); liveAmp resets to 0 outside recording so the mascot
+  // settles back to scale 1 on its own.
+  const mascotAmpDisabled = prefersReducedMotion();
+  const mascotAmpStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: mascotAmpDisabled
+          ? 1
+          : 1 + Math.min(1, Math.max(0, liveAmp.value)) * 0.08,
+      },
+    ],
+  }));
+
   React.useEffect(() => {
     if (phase !== 'recording') {
       silenceSinceRef.current = null;
@@ -1427,13 +1483,15 @@ export default function PracticeScreen() {
       >
         {/* Reacting mascot */}
         <View style={styles.mascotRow}>
-          <Mascot
-            pose={mascotPose}
-            size={104}
-            motion={mascotMotion}
-            entering
-            celebrateBounce={celebrateBounceCount}
-          />
+          <Animated.View style={mascotAmpStyle}>
+            <Mascot
+              pose={mascotPose}
+              size={104}
+              motion={mascotMotion}
+              entering
+              celebrateBounce={celebrateBounceCount}
+            />
+          </Animated.View>
         </View>
 
         {/* Phrase card — keyed so entering/exiting fires on phrase change */}
@@ -1581,7 +1639,14 @@ export default function PracticeScreen() {
                   <Feather
                     name="refresh-cw"
                     size={40}
-                    color={bandColor(result.band, colors)}
+                    // nocatch is a system miss, not a learner error: keep the
+                    // retry affordance but drop the destructive red so it
+                    // doesn't read as blame.
+                    color={
+                      result.band === 'nocatch'
+                        ? colors.mutedForeground
+                        : bandColor(result.band, colors)
+                    }
                   />
                 </Pressable>
               )}
@@ -1688,6 +1753,9 @@ export default function PracticeScreen() {
               isPressingRef.current = false;
               if (phase === 'recording') void stopRecording();
             }}
+            amplitude={liveAmp}
+            ampLevel={ampLevel}
+            noInput={noInput}
           />
         )}
       </View>
@@ -1789,11 +1857,17 @@ function RecordButton({
   coachPlaying,
   onPressIn,
   onPressOut,
+  amplitude,
+  ampLevel,
+  noInput,
 }: {
   phase: Phase;
   coachPlaying: boolean;
   onPressIn: () => void;
   onPressOut: () => void;
+  amplitude: SharedValue<number>;
+  ampLevel: number;
+  noInput: boolean;
 }) {
   const colors = useColors();
   const pulse = useSharedValue(0);
@@ -1873,13 +1947,19 @@ function RecordButton({
           )}
         </Pressable>
       </View>
+      {/* Spec D2: live waveform — only while actually recording. */}
+      {recording ? (
+        <Waveform amplitude={amplitude} level={ampLevel} height={22} />
+      ) : null}
       <Text style={[styles.recordHint, { color: colors.mutedForeground }]}>
         {evaluating
           ? 'Scoring your pronunciation...'
           : coachPlaying
             ? 'Listen first...'
             : recording
-              ? 'Release to score'
+              ? noInput
+                ? "We can't hear you - check your mic"
+                : 'Release to score'
               : 'Hold and say it out loud'}
       </Text>
     </View>

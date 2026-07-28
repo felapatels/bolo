@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -49,7 +49,15 @@ export const phrasesTable = pgTable("phrases", {
   // Incremented by the attempt write path; used by the Elo updater to
   // weight how aggressively difficulty is adjusted.
   exposureCount: integer("exposure_count").notNull().default(0),
-});
+  // ── Spec D2 ──
+  // Speech register of the phrase: 'formal', 'colloquial', or 'code_switched'.
+  // Null = unclassified. No content is authored against this yet; the column
+  // exists so code-switch drills can later be built on real data without a
+  // migration at that time. Nothing filters or sorts by it in this release.
+  register: text("register"),
+}, (table) => [
+  index("phrases_language_register_idx").on(table.languageCode, table.register),
+]);
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({
   id: true,

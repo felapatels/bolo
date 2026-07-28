@@ -85,6 +85,7 @@ vi.mock("@/lib/entitlements", () => ({
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
+    getAmplitude: () => 0,
     state: "idle",
     startRecording: h.startRecording,
     stopRecording: h.stopRecording,

@@ -311,6 +311,7 @@ export const GetProgressSummaryResponse = zod.object({
   "averageScore": zod.number(),
   "bestScore": zod.number(),
   "currentStreakDays": zod.number(),
+  "speakingStreakDays": zod.number().optional().describe('Spec D2 speaking streak: consecutive calendar days (learner\'s IANA timezone) each containing at least one attempt with band \'nailed\' or \'close\'. Optional for installed-client back-compat; derived at query time, never stored.'),
   "attemptsToday": zod.number(),
   "xp": zod.number(),
   "todayXp": zod.number(),

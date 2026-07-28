@@ -4,6 +4,7 @@ import {
   buildPhraseStats,
   buildReviewSchedule,
   computeProgressMetrics,
+  computeSpeakingStreakDays,
   computeStreakDays,
   localDayKey,
   MASTERY_THRESHOLD,
@@ -303,4 +304,65 @@ test("scheduling ignores attempts with no phrase id", () => {
   ]);
   assert.equal(schedule.size, 1);
   assert.equal(schedule.has(2), true);
+});
+
+// --- Speaking streak (Spec D2) ------------------------------------------------
+// Consecutive days with at least one nailed/close attempt. Bands retry and
+// nocatch never qualify a day, and the date bucketing must match the general
+// streak exactly (same localDayKey + mid-day fallback).
+
+test("speaking streak counts only days with a nailed or close attempt", () => {
+  const streak = computeSpeakingStreakDays([
+    { createdAt: todayAt(9), band: "nailed" },
+    { createdAt: utcDaysAgo(1), band: "close" },
+    { createdAt: utcDaysAgo(2), band: "nailed" },
+  ]);
+  assert.equal(streak, 3);
+});
+
+test("retry and nocatch attempts never qualify a speaking-streak day", () => {
+  // Yesterday only has retry/nocatch attempts — the run breaks there.
+  const streak = computeSpeakingStreakDays([
+    { createdAt: todayAt(9), band: "nailed" },
+    { createdAt: utcDaysAgo(1), band: "retry" },
+    { createdAt: utcDaysAgo(1), band: "nocatch" },
+    { createdAt: utcDaysAgo(2), band: "close" },
+  ]);
+  assert.equal(streak, 1);
+});
+
+test("null-band (pre-band) attempts do not qualify a speaking-streak day", () => {
+  assert.equal(
+    computeSpeakingStreakDays([{ createdAt: todayAt(9), band: null }]),
+    0,
+  );
+});
+
+test("speaking streak anchors on yesterday when today has no qualifying attempt yet", () => {
+  const streak = computeSpeakingStreakDays([
+    { createdAt: utcDaysAgo(1), band: "close" },
+    { createdAt: utcDaysAgo(2), band: "nailed" },
+  ]);
+  assert.equal(streak, 2);
+});
+
+test("speaking streak matches general streak bucketing for a Pacific/Auckland learner", () => {
+  // Parity requirement: for a learner whose attempts all qualify, the
+  // speaking streak must equal the general streak in the same zone —
+  // including positive-offset zones where local evenings sit on the
+  // previous UTC day.
+  const AKL = "Pacific/Auckland";
+  const key = localDayKey(new Date(), AKL);
+  const mk = (localDaysAgo: number) => {
+    // 9am local on the learner's local day; +12/+13 offset handled by Date.
+    const d = new Date(`${key}T09:00:00.000+12:00`);
+    d.setUTCDate(d.getUTCDate() - localDaysAgo);
+    return d;
+  };
+  const dates = [mk(0), mk(1), mk(2)];
+  const qualifying = dates.map((createdAt) => ({ createdAt, band: "nailed" }));
+  assert.equal(
+    computeSpeakingStreakDays(qualifying, AKL),
+    computeStreakDays(dates, AKL),
+  );
 });

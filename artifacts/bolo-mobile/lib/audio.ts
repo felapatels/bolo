@@ -52,6 +52,16 @@ export const SILENCE_DURATION_MS = 2000;
 export const SPEECH_MIN_DB = -40;
 export const SILENCE_DROP_DB = 14;
 
+/**
+ * Maps recorder metering (dBFS, negative, 0 = full scale) to a normalized
+ * 0..1 amplitude for visualization (Spec D2). Roughly -50 dBFS (quiet room)
+ * maps to 0 and 0 dBFS (full scale) to 1, clamped at both ends. Visual
+ * mapping only — silence auto-stop keeps using raw dBFS thresholds above.
+ */
+export function meteringToAmplitude(db: number): number {
+  return Math.min(1, Math.max(0, (db + 50) / 50));
+}
+
 // iOS routes playback to the quiet earpiece (receiver) whenever the audio
 // session category is `playAndRecord` — expo-audio never adds the
 // `defaultToSpeaker` option and exposes no iOS routing control. Since the

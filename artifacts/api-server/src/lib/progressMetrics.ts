@@ -146,6 +146,26 @@ export function computeStreakDays(
   return streak;
 }
 
+// Speaking streak (Spec D2): consecutive calendar days, in the learner's IANA
+// timezone, each containing at least one attempt whose band is 'nailed' or
+// 'close'. Bands 'retry' and 'nocatch' never qualify a day — a day of failed
+// attempts does not count, and a day where the microphone never worked does
+// not count. Derived from attempts at query time (never stored), and reuses
+// computeStreakDays so the date bucketing and the mid-day fallback (a day with
+// no qualifying attempt yet anchors to yesterday) are byte-for-byte the same
+// as the general streak.
+export function computeSpeakingStreakDays(
+  attempts: { createdAt: Date; band: string | null }[],
+  timeZone?: string | null,
+): number {
+  return computeStreakDays(
+    attempts
+      .filter((a) => a.band === "nailed" || a.band === "close")
+      .map((a) => a.createdAt),
+    timeZone,
+  );
+}
+
 // Computes consecutive-day streak from "YYYY-MM-DD" quiz completion date strings.
 // The streak counts backward from today; if today has no completion the anchor
 // backs up to yesterday. Each quiz date counts at most once.

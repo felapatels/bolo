@@ -141,6 +141,13 @@
       "when": 1785370000000,
       "tag": "0020_scoring_core_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785209576514,
+      "tag": "0021_spec_d2_register",
+      "breakpoints": true
     }
   ]
 }

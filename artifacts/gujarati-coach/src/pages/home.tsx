@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
 import { Link } from "wouter";
 import { useGetProgressSummary, useGetAccount, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
@@ -318,6 +318,15 @@ export default function Home() {
                 value={summary.currentStreakDays}
                 label="Day Streak"
                 delay={0.16}
+              />
+              <div className="w-px self-stretch bg-white/25" />
+              {/* Spec D2: speaking streak — days with a nailed/close attempt.
+                  Mic icon so it reads as distinct from the general streak. */}
+              <StatCell
+                icon={<Mic className="w-6 h-6" />}
+                value={summary.speakingStreakDays ?? 0}
+                label="Speaking Streak"
+                delay={0.2}
               />
               <div className="w-px self-stretch bg-white/25" />
               <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" delay={0.24} />

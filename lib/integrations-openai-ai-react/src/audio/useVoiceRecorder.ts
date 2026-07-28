@@ -82,8 +82,12 @@ export function useVoiceRecorder() {
     });
   }, [releaseStream]);
 
-  // Silence detection
+  // Live audio analysis (one AudioContext + AnalyserNode per recording).
+  // Feeds both silence auto-stop and the live amplitude readout — never
+  // create a second AudioContext for either.
   const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const timeDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onSilenceRef = useRef<(() => void) | null>(null);
 
@@ -96,8 +100,37 @@ export function useVoiceRecorder() {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
+    analyserRef.current = null;
+    timeDataRef.current = null;
     onSilenceRef.current = null;
   }, []);
+
+  /** RMS (0..1) of the current analyser frame, or 0 when not analysing. */
+  const readRms = useCallback((): number => {
+    const analyser = analyserRef.current;
+    const data = timeDataRef.current;
+    const ctx = audioContextRef.current;
+    if (!analyser || !data || !ctx || ctx.state !== "running") return 0;
+    analyser.getByteTimeDomainData(data);
+    let sumSq = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sumSq += v * v;
+    }
+    return Math.sqrt(sumSq / data.length);
+  }, []);
+
+  /**
+   * Live input amplitude, normalised 0..1 for visualisation (Spec D2).
+   * Maps the mic's RMS so ordinary speech spans most of the range: quiet
+   * room tone reads near 0, conversational speech ~0.3–0.9, loud input
+   * clamps at 1. Returns 0 whenever no recording analysis is active.
+   * Pull-based on purpose: sample it from an animation frame loop and feed
+   * an animation primitive; do not push it through React state.
+   */
+  const getAmplitude = useCallback((): number => {
+    return Math.min(1, readRms() * 5);
+  }, [readRms]);
 
   const startRecording = useCallback(
     async (options?: StartRecordingOptions): Promise<void> => {
@@ -141,35 +174,40 @@ export function useVoiceRecorder() {
       });
       setState("recording");
 
-      // Optional: auto-stop when the user stops talking.
-      if (options?.onSilence) {
-        onSilenceRef.current = options.onSilence;
-        const silenceDurationMs = options.silenceDurationMs ?? 1500;
-        const threshold = options.silenceThreshold ?? 0.015;
-        const minSpeechMs = options.minSpeechMs ?? 300;
+      // Live analysis: always attach one AudioContext + AnalyserNode to the
+      // recording stream so getAmplitude() has a real signal (Spec D2
+      // waveform). Silence auto-stop reuses this same analyser when a
+      // callback is provided — never a second AudioContext.
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        const audioContext = new AudioCtx();
+        audioContextRef.current = audioContext;
+        // The context is created after `await getUserMedia(...)`, i.e.
+        // outside the click gesture's task — browsers may start it in the
+        // "suspended" state, where the analyser reads permanent silence and
+        // auto-stop can never arm. Resume explicitly before analysing.
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        if (audioContext.state !== "running") {
+          throw new Error("AudioContext failed to start");
+        }
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+        timeDataRef.current = new Uint8Array(analyser.fftSize);
 
-        try {
-          const AudioCtx =
-            window.AudioContext ||
-            (window as unknown as { webkitAudioContext: typeof AudioContext })
-              .webkitAudioContext;
-          const audioContext = new AudioCtx();
-          audioContextRef.current = audioContext;
-          // The context is created after `await getUserMedia(...)`, i.e.
-          // outside the click gesture's task — browsers may start it in the
-          // "suspended" state, where the analyser reads permanent silence and
-          // auto-stop can never arm. Resume explicitly before analysing.
-          if (audioContext.state === "suspended") {
-            await audioContext.resume();
-          }
-          if (audioContext.state !== "running") {
-            throw new Error("AudioContext failed to start");
-          }
-          const source = audioContext.createMediaStreamSource(stream);
-          const analyser = audioContext.createAnalyser();
-          analyser.fftSize = 2048;
-          source.connect(analyser);
-          const data = new Uint8Array(analyser.fftSize);
+        // Optional: auto-stop when the user stops talking.
+        if (options?.onSilence) {
+          onSilenceRef.current = options.onSilence;
+          const silenceDurationMs = options.silenceDurationMs ?? 1500;
+          const threshold = options.silenceThreshold ?? 0.015;
+          const minSpeechMs = options.minSpeechMs ?? 300;
 
           const startedAt = performance.now();
           let hasSpoken = false;
@@ -178,13 +216,7 @@ export function useVoiceRecorder() {
           const tick = () => {
             if (!audioContextRef.current) return;
             if (audioContextRef.current.state !== "running") return;
-            analyser.getByteTimeDomainData(data);
-            let sumSq = 0;
-            for (let i = 0; i < data.length; i++) {
-              const v = (data[i] - 128) / 128;
-              sumSq += v * v;
-            }
-            const rms = Math.sqrt(sumSq / data.length);
+            const rms = readRms();
             const now = performance.now();
 
             if (rms > threshold) {
@@ -204,13 +236,14 @@ export function useVoiceRecorder() {
           // A timer (not requestAnimationFrame) so detection keeps running
           // when the tab is throttled/backgrounded and rAF stops firing.
           pollTimerRef.current = setInterval(tick, 50);
-        } catch {
-          // If audio analysis is unavailable, fall back to manual stop.
-          cleanupSilenceDetection();
         }
+      } catch {
+        // If audio analysis is unavailable, fall back to manual stop and a
+        // zero amplitude readout.
+        cleanupSilenceDetection();
       }
     },
-    [cleanupSilenceDetection],
+    [cleanupSilenceDetection, readRms],
   );
 
   const stopRecording = useCallback((): Promise<Blob> => {
@@ -323,5 +356,5 @@ export function useVoiceRecorder() {
     return lastDurationSecondsRef.current;
   }, []);
 
-  return { state, prepare, startRecording, stopRecording, abortRecording, getLastDurationSeconds };
+  return { state, prepare, startRecording, stopRecording, abortRecording, getLastDurationSeconds, getAmplitude };
 }

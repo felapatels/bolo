@@ -1,6 +1,8 @@
 import {
   motion,
   useReducedMotion,
+  useTransform,
+  type MotionValue,
   type Transition,
   type MotionProps,
 } from "framer-motion";
@@ -206,23 +208,84 @@ export function FloatingTag({
 
 const WAVE_HEIGHTS = [0.45, 0.8, 1, 0.65, 0.9, 0.5];
 
+/**
+ * One amplitude-driven bar. The height tracks the shared amplitude
+ * MotionValue directly (no React state, no re-renders per frame); `peak`
+ * staggers each bar's sensitivity so the array reads as a wave rather than
+ * six identical columns.
+ */
+function AmplitudeBar({
+  amplitude,
+  peak,
+  size,
+  className,
+}: {
+  amplitude: MotionValue<number>;
+  peak: number;
+  size: number;
+  className?: string;
+}) {
+  const height = useTransform(
+    amplitude,
+    (a) => Math.max(size * 0.18, Math.min(1, a) * peak * size),
+  );
+  return (
+    <motion.span
+      className={cn("w-[3px] rounded-full bg-current", className)}
+      style={{ height }}
+    />
+  );
+}
+
 export function SoundWavePulse({
   className,
   barClassName,
   bars = WAVE_HEIGHTS.length,
   /** Overall height of the wave, in px. */
   size = 20,
+  amplitude,
 }: {
   className?: string;
   barClassName?: string;
   bars?: number;
   size?: number;
+  /**
+   * Optional live input level (0..1) as a framer-motion MotionValue. When
+   * provided, the bars are driven by it (real audio, Spec D2). When absent,
+   * the pre-existing time-based loop runs unchanged.
+   */
+  amplitude?: MotionValue<number>;
 }) {
   const reduceMotion = useReducedMotion();
   const heights = Array.from(
     { length: bars },
     (_, i) => WAVE_HEIGHTS[i % WAVE_HEIGHTS.length],
   );
+
+  // Live-driven mode (Spec D2): bar heights bind to the amplitude
+  // MotionValue via useTransform — updates bypass React state entirely.
+  // Under reduced motion the amplitude-driven branch below is NOT used;
+  // callers render their own static level indicator (the waveform must not
+  // dance, but mic-is-working feedback must not disappear either).
+  if (amplitude && !reduceMotion) {
+    return (
+      <span
+        className={cn("flex items-center gap-[3px]", className)}
+        style={{ height: size }}
+        aria-hidden="true"
+      >
+        {heights.map((peak, i) => (
+          <AmplitudeBar
+            key={i}
+            amplitude={amplitude}
+            peak={peak}
+            size={size}
+            className={barClassName}
+          />
+        ))}
+      </span>
+    );
+  }
 
   return (
     <span
