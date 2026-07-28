@@ -21,6 +21,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEntitlements } from "@/lib/entitlements";
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import {
   beginOneLanguageCheckout,
@@ -154,6 +155,12 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   const { languages } = useLanguage();
   const { allowedLanguages } = useEntitlements();
 
+  // The paywall surface was reached (Free or lapsed learner).
+  useEffect(() => {
+    track(ANALYTICS_EVENTS.PAYWALL_VIEWED, { lapsed });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // The locked surface that routed here can preselect a plan (and, for a locked
   // language, pre-pick it) via ?plan=one_language&lang=xx or ?plan=plus. We read
   // it once for the initial state; the learner can still change everything.
@@ -213,6 +220,9 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     if (!outcome) return;
     if (outcome === "cancel") {
       setError("Checkout was cancelled — you haven't been charged.");
+    }
+    if (outcome === "success") {
+      track(ANALYTICS_EVENTS.PURCHASE_COMPLETED);
     }
     void refreshAfterBilling(queryClient);
     params.delete("checkout");

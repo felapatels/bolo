@@ -1,4 +1,10 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { Sentry } from "./lib/sentry";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
@@ -105,6 +111,27 @@ app.use(
   })),
 );
 
+// Dev-only deliberate error to verify Sentry reporting end to end.
+// Gated on NODE_ENV: this route does not exist in production.
+if (process.env.NODE_ENV !== "production") {
+  app.get("/api/__sentry-test", () => {
+    throw new Error("Sentry verification error (api-server, dev only)");
+  });
+}
+
 app.use("/api", router);
+
+// Capture unhandled route errors in Sentry (no-op when SENTRY_DSN unset),
+// then respond 500 without leaking error internals to the client. This is
+// the first global express error handler; before it, errors fell through to
+// Express's default handler.
+Sentry.setupExpressErrorHandler(app);
+app.use(
+  (err: unknown, req: Request, res: Response, _next: NextFunction): void => {
+    req.log?.error({ err }, "Unhandled route error");
+    if (res.headersSent) return;
+    res.status(500).json({ error: "Internal server error" });
+  },
+);
 
 export default app;

@@ -25,6 +25,7 @@ import {
   Square,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
+import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetAccount,
@@ -271,6 +272,7 @@ export default function Account() {
     // Reflect the choice in the running app immediately, then persist it so it
     // syncs across devices.
     setActiveLang(code);
+    track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
     void savePreferences({ activeLanguage: code });
   }
 

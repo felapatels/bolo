@@ -1,3 +1,5 @@
+// Sentry must initialize before the app (and its instrumented deps) load.
+import "./lib/sentry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";

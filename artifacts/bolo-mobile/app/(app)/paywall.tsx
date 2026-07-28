@@ -29,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
+import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
 // Hindi is always free, so it is never a One-Language "chosen" language.
 const FREE_LANGUAGE = 'hi';
@@ -161,6 +162,12 @@ export default function PaywallScreen() {
       (activeLang !== FREE_LANGUAGE ? activeLang : null),
   );
 
+  // The paywall surface was reached.
+  useEffect(() => {
+    track(ANALYTICS_EVENTS.PAYWALL_VIEWED);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Keep the tier valid for what the store actually exposes and the caller's
   // plan (a One-Language subscriber can only buy all-access).
   useEffect(() => {
@@ -227,6 +234,7 @@ export default function PaywallScreen() {
       setStatus(null);
       const outcome = await purchase(pkg);
       if (outcome === 'success') {
+        track(ANALYTICS_EVENTS.PURCHASE_COMPLETED, { tier });
         // Record the chosen language for the middle tier so entitlements
         // resolve to Hindi + that language. Best-effort: a locked (409) choice
         // just means it's already set; either way we refetch the server truth.

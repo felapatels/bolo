@@ -11,6 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
+import { track, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -911,6 +912,14 @@ export default function PracticeScreen() {
     }
   }, [phase, prepareRecorder]);
 
+  // First-ever practice session on this install (trackOnce dedupes).
+  React.useEffect(() => {
+    if (list.length > 0) {
+      void trackOnce(ANALYTICS_EVENTS.FIRST_PRACTICE_SESSION_STARTED, { language: activeLang });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.length > 0]);
+
   // --- Silence auto-stop ---
   // A continuous stretch of quiet (metering stays below the threshold) ends
   // the recording on its own — a safety net so the learner never has to
@@ -1084,6 +1093,7 @@ export default function PracticeScreen() {
         return;
       }
 
+      void trackOnce(ANALYTICS_EVENTS.FIRST_PHRASE_ATTEMPTED, { language: activeLang });
       const res = await evaluate.mutateAsync({
         data: {
           phraseId: phrase.id,
@@ -1260,6 +1270,10 @@ export default function PracticeScreen() {
       setIndex((i) => i + 1);
       setPhaseSync('idle');
     } else {
+      track(ANALYTICS_EVENTS.SESSION_COMPLETED, {
+        language: activeLang,
+        total: list.length,
+      });
       setPhaseSync('done');
     }
   };

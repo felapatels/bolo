@@ -2,7 +2,7 @@
 
 Living reference. Paste the relevant sections at the top of every spec so the agent does not re-derive them.
 
-Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, Spec D2 Step 0, and Task 787 (self-managed Clerk migration).
+Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, Spec D2 Step 0, Task 787 (self-managed Clerk migration), and the observability pass (Sentry + PostHog, July 28, 2026).
 
 **Maintenance rule:** after every completed task, append what changed. Anything in here that turns out to be wrong is worth more than the correction itself, because it means a spec was written against it.
 
@@ -258,11 +258,30 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 
 ---
 
+## 7b. Observability (Sentry + PostHog, July 28, 2026)
+
+**Sentry (error reporting, all three apps).** Initialized ONLY when the DSN env var is present; without it every call is a no-op. Each init scrubs PII in `beforeSend`/`beforeBreadcrumb`: emails masked by regex, and keys like `transcript`, `audioBase64`, `nativeScript`, `romanized`, `english`, `email*` redacted. `tracesSampleRate: 0` (errors only), `sendDefaultPii: false`, Sentry user = id only.
+
+| App | Init file | DSN env var | Notes |
+|---|---|---|---|
+| api-server | `src/lib/sentry.ts` (imported FIRST in `index.ts`) | `SENTRY_DSN` | `Sentry.setupExpressErrorHandler(app)` + a new global express error handler in `app.ts` (500 JSON, logs via pino). `@sentry/node` is in build.mjs `external`. Dev-only test route `GET /api/__sentry-test` (throws; absent when NODE_ENV=production) |
+| gujarati-coach | `src/lib/sentry.ts`, called from `main.tsx` | `VITE_SENTRY_DSN` | Dev-only verification: open with `?sentry_test=1`. `setSentryUser` synced from Clerk in `App.tsx` `AnalyticsIdentitySync` |
+| bolo-mobile | `lib/sentry.ts`, called at module load in `app/_layout.tsx`; root export is `Sentry.wrap(RootLayout)` | `EXPO_PUBLIC_SENTRY_DSN` | `@sentry/react-native` config plugin added to app.json (source map upload at EAS build; needs `SENTRY_AUTH_TOKEN` + org/project — see debt). Dev-only verification: `EXPO_PUBLIC_SENTRY_TEST=1` |
+
+**PostHog (product analytics, both clients).** Event names live in ONE constants file per app — `src/lib/analyticsEvents.ts` (web) and `lib/analyticsEvents.ts` (mobile) — the deliberate, complete set: `sign_up_completed`, `language_selected`, `first_practice_session_started`, `first_phrase_attempted`, `session_completed`, `paywall_viewed`, `purchase_completed`. Wrappers in `src/lib/analytics.ts` / `lib/analytics.ts` (`track`, `trackOnce` — once per browser/install via localStorage/AsyncStorage `bolo.analytics.once.*`, `identifyUser` — Clerk user id only). Autocapture, pageviews, and session recording OFF. Init only when `VITE_POSTHOG_KEY` / `EXPO_PUBLIC_POSTHOG_KEY` present (`VITE_POSTHOG_HOST`/`EXPO_PUBLIC_POSTHOG_HOST` optional, default US cloud). **Payload rule: no phrase content, transcripts, audio, or email — user id and language code only** (plus numeric counts).
+
+Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity sync), `account.tsx` `handleChangeLanguage`, `practice.tsx` (session start effect, evaluate call, summary transition), `upgrade.tsx` (`Paywall` mount, `?checkout=success`). Mobile `app/_layout.tsx` (`AnalyticsIdentitySync`, same createdAt rule — covers email/Google/Apple without touching auth screens), `language.tsx` `choose`, `practice/[id].tsx` (list-loaded effect, evaluate call, done transition), `paywall.tsx` (mount, `runPurchase` success).
+
+**Correction to section 5:** web practice's summary state literal is `"summary"` (line ~791 `setState("summary")`), not `"done"` as previously written; `"done"` is mobile-only (`phase === 'done'`).
+
+---
+
 ## 8. Known debt and open items
 
 | Item | Notes |
 |---|---|
 | Clerk self-managed (dev only) | Auth runs against `free-bedbug-6.clerk.accounts.dev` (dev instance). Production requires the `pk_live_` / `sk_live_` keys from that instance set as EAS env vars before any store build. Configure via `eas env:create --environment production --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value pk_live_...` (see `artifacts/bolo-mobile/.env.production.example`). |
+| Sentry DSNs + PostHog keys pending manual creation | Observability code ships dark until the env vars exist: `SENTRY_DSN` (api-server), `VITE_SENTRY_DSN` + `VITE_POSTHOG_KEY` (web), `EXPO_PUBLIC_SENTRY_DSN` + `EXPO_PUBLIC_POSTHOG_KEY` (mobile, also as EAS env vars), plus `SENTRY_AUTH_TOKEN` + real org/project slugs in app.json's `@sentry/react-native` plugin entry for mobile source map upload |
 | No cue audio files | `playCue` exists on both platforms with nothing to play. Source real tabla or dholak samples; do not synthesize |
 | `latencyMs` unenforced | Neither client sends it. Spec 0 rule 47 is a no-op. #777 has nothing to measure |
 | `todayXp` in-memory filter | `learning.ts` pulls the full ledger and filters in application code. Needs a SQL date-range filter |

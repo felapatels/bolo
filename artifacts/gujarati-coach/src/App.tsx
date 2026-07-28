@@ -1,4 +1,7 @@
-import { ClerkProvider, SignIn, SignUp, Show } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
+import { useEffect } from 'react';
+import { identifyUser, trackOnce, ANALYTICS_EVENTS } from './lib/analytics';
+import { setSentryUser } from './lib/sentry';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -293,6 +296,25 @@ function AppRouter() {
   );
 }
 
+// Keeps PostHog + Sentry identity in sync with the Clerk session (user id
+// only, never email), and fires sign_up_completed exactly once for a freshly
+// created account. Detection is deliberately outside the auth screens: a user
+// whose account was created moments ago is a new sign-up.
+function AnalyticsIdentitySync() {
+  const { user, isLoaded } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    identifyUser(user?.id ?? null);
+    setSentryUser(user?.id ?? null);
+    if (user?.createdAt && Date.now() - user.createdAt.getTime() < 2 * 60 * 1000) {
+      trackOnce(ANALYTICS_EVENTS.SIGN_UP_COMPLETED);
+    }
+  }, [isLoaded, user?.id, user?.createdAt]);
+
+  return null;
+}
+
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
 
@@ -323,6 +345,7 @@ function ClerkProviderWithRoutes() {
       {/* Registers a fresh Clerk bearer token getter before QueryClientProvider
           and its children render, closing the startup race. Must be first. */}
       <ClerkAuthSync />
+      <AnalyticsIdentitySync />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>

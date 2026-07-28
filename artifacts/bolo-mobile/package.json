@@ -84,6 +84,7 @@
     "@expo-google-fonts/noto-sans-oriya": "^0.4.2",
     "@expo-google-fonts/noto-sans-tamil": "^0.4.3",
     "@expo-google-fonts/noto-sans-telugu": "^0.4.2",
+    "@sentry/react-native": "~7.2.0",
     "expo-apple-authentication": "~8.0.8",
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
@@ -93,6 +94,7 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-notifications": "^0.32.17",
     "expo-secure-store": "~15.0.8",
+    "posthog-react-native": "^4.61.0",
     "react-native-purchases": "9.15.2"
   }
 }

@@ -32,6 +32,7 @@ import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
+import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
@@ -404,6 +405,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentModeRef.current ? "idle" : "playing_coach");
+      trackOnce(ANALYTICS_EVENTS.FIRST_PRACTICE_SESSION_STARTED, { language: activeLang });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrases, state]);
@@ -563,6 +565,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const audioBase64 = btoa(binary);
 
+      trackOnce(ANALYTICS_EVENTS.FIRST_PHRASE_ATTEMPTED, { language: activeLang });
       const evalRes = await evaluate.mutateAsync({
         data: {
           phraseId: phrase!.id,
@@ -788,6 +791,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (_entries.length > 0 && _good * 2 >= _entries.length) {
         playCue('session_complete');
       }
+      track(ANALYTICS_EVENTS.SESSION_COMPLETED, {
+        language: activeLang,
+        total: _entries.length,
+        good: _good,
+      });
       setState("summary");
     }
   };

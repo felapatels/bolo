@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { PlusPill } from '@/components/PlusUpsell';
+import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -26,6 +27,7 @@ export default function LanguageModal() {
 
   const choose = (code: string) => {
     setActiveLang(code);
+    track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
     router.back();
   };
 

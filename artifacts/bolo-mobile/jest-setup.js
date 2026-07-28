@@ -129,3 +129,23 @@ jest.mock('expo-linear-gradient', () => {
       React.createElement(View, { style }, children),
   };
 });
+
+// Sentry + PostHog are no-ops without env keys, but their native modules are
+// absent under Jest, so mock them wholesale (observability pass, July 2026).
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  wrap: (c) => c,
+  setUser: jest.fn(),
+  captureException: jest.fn(),
+}));
+
+jest.mock('posthog-react-native', () => {
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      capture: jest.fn(),
+      identify: jest.fn(),
+      reset: jest.fn(),
+    })),
+  };
+});
