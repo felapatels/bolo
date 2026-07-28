@@ -1,0 +1,59 @@
+# BOLO Spec M1: Language Teaser (3 Free Phrases Before Paywall)
+
+## Session rules
+
+- Read docs/CODEBASE-FACTS.md before anything else, especially the gating section and the Slice 2 unlock model section.
+- Stop and ask on any mismatch. A mismatch is a hard stop. Inferring intent is not permitted.
+- Step 0 is report-only. STOP after Step 0 for confirmation before any code or DDL.
+- Scope: api-server gating/entitlements plus the web upgrade-prompt surface. bolo-mobile is OUT of scope in this task (mobile picks the behavior up via the shared API; its UI is milestone work).
+- Commit after verification before any next task.
+
+## Step 0 (report, then stop)
+
+1. Inventory lib/gating.ts: current denyLockedLanguage logic, the UpgradeRequiredPayload shape, and every call site. The teaser modifies this path; list everything that consumes the 402 payload.
+2. Report how a "phrase attempted" is durably recorded per user per phrase (attempts table shape), and whether teaser consumption can be derived from existing attempt data (count of distinct phrases with any attempt in a locked language) rather than a new table. Recommend derive-vs-table with rationale; prefer derivation if reliable.
+3. Report how the practice flow fetches phrases for a language/category, to confirm the teaser can serve exactly the first 3 phrases of group 1 of Greetings (canonical order: position within the first lesson_group of category id 1) without new endpoints.
+4. Report where the web app currently handles the 402 UpgradeRequiredPayload and what upgrade UI exists today.
+
+## Feature summary
+
+Free and One Language users get a teaser in every locked language: the first 3 phrases of the first Greetings lesson group, with the full experience (TTS, speaking, scoring, XP). After the 3rd phrase is attempted, further access in that language returns the paywall. Teaser is lifetime per language per user, not recurring.
+
+## Behavior
+
+1. Language access check becomes three-state: allowed (plan covers the language), teaser (locked language, fewer than 3 distinct teaser phrases attempted), exhausted (locked language, 3 attempted).
+2. In teaser state, the user may access ONLY the 3 teaser phrases: the first 3 phrases by position of the first lesson_group of the Greetings category for that language. All other phrases, groups, categories, stages, games, and chat in that language remain denied.
+3. Teaser phrases run the full normal pipeline: TTS, speaking evaluation, scoring, XP, attempts recorded. No degraded mode.
+4. Attempting a teaser phrase counts it consumed regardless of score. Consumption is per (user, language), lifetime, derived per the Step 0 item 2 decision.
+5. In exhausted state, denial responses carry a distinguishable reason (extend UpgradeRequiredPayload with a teaser field or new reason value, additive only) so the client can render "you tried it, here is what you unlock" rather than a generic lock.
+6. The 402 payload in both teaser and exhausted states includes teaser progress (consumed count, limit 3) so clients can show remaining teaser phrases.
+7. Hindi and any plan-covered language are never teaser-limited; existing allowed behavior unchanged.
+8. Entitlement evaluation order is unchanged: this modifies what denyLockedLanguage returns, not when it runs. Slice 2 unlock logic still only executes for allowed languages; teaser access does not create unlock progression beyond the teaser phrases themselves (attempts and XP persist and count normally if the user later upgrades).
+9. Web UI: when the 3rd teaser phrase completes, show an upgrade prompt on the existing surface (post-result or on return to the category view per what Step 0 item 4 finds), stating the language is unlockable with One Language or Plus. When D1b ships, the map renders teaser and exhausted states; that is out of scope here but the API fields above must support it.
+
+## Verification
+
+- Tests: allowed/teaser/exhausted state transitions; only the 3 canonical phrases accessible in teaser state; consumption on attempt regardless of score; lifetime persistence across sessions; Hindi and covered languages unaffected; payload fields present; entitlement-order regression (Free caller still 402s on non-teaser content before any unlock computation).
+- Full-suite failures reconciled by name against the enumerated baseline in the facts doc.
+- Facts doc updated: gating section gains the three-state model.
+
+## Acceptance: the system shall
+
+1. The system shall permit a user without entitlement to a language to access exactly the first 3 phrases of the first Greetings lesson group of that language.
+2. The system shall provide the full learning pipeline for teaser phrases, including TTS, speech evaluation, scoring, XP, and attempt recording.
+3. The system shall count a teaser phrase as consumed upon attempt regardless of outcome and shall persist consumption per user and language for the lifetime of the account.
+4. The system shall deny access to all non-teaser content in a locked language with a response that distinguishes teaser-available, teaser-exhausted, and standard locked states and includes teaser progress.
+5. The system shall leave access behavior for Hindi and plan-covered languages unchanged.
+6. The system shall evaluate entitlements in the existing order and shall not expose unlock state for languages the plan does not cover beyond the teaser phrases.
+7. The system shall present a web upgrade prompt after the third teaser phrase completes.
+8. The system shall leave bolo-mobile unchanged.
+
+## Open questions and assumptions
+
+- Open: derive-vs-table for consumption (Step 0 item 2, agent recommends, Aakesh confirms).
+- Open: exact upgrade-prompt placement on current web surfaces (Step 0 item 4 informs, propose in Step 0 report).
+- Assumption: the first lesson_group of Greetings exists for all 22 languages (Slice 1 data says yes: every language has 5 or 6 Greetings groups).
+
+## Out of scope (repeated on purpose)
+
+bolo-mobile UI, journey map rendering, pricing/RevenueCat configuration, trial mechanics, any change to unlock/latch logic from Slice 2, dependency versions. Out of scope means do not touch.
