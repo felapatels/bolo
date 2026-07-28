@@ -346,15 +346,30 @@ test("normalizeNative: anusvara form and conjunct-nasal form produce the same ke
   );
 });
 
-test("normalizeNative: genuinely different Devanagari words do NOT collapse to the same key", () => {
-  // हिंदी (Hindi, language) and मराठी (Marathi, language) have completely
-  // different consonant skeletons and must remain distinguishable after
-  // normalization, proving we are not over-normalizing.
+test("normalizeNative: standalone nasal survives; only nasal+virama is stripped (minimal pair)", () => {
+  // हिन्दी has न् (nasal + virama U+094D) — the conjunct is stripped → "हद"
+  // हिनदी has न  (standalone nasal, no virama)  — the letter survives → "हनद"
+  // The two strings differ ONLY in whether the nasal carries a virama.
+  // If the rule were too aggressive (stripping all nasals), both would reduce
+  // to the same key; this test catches that regression.
   assert.notEqual(
-    normalizeNative("हिंदी"),
-    normalizeNative("मराठी"),
-    "distinct words must not collapse to the same normalized key",
+    normalizeNative("हिन्दी"),   // nasal + virama → stripped → "हद"
+    normalizeNative("हिनदी"),    // standalone nasal → kept   → "हनद"
+    "nasal+virama must be stripped but a standalone nasal letter must survive",
   );
+});
+
+test("normalizeNative is idempotent: applying it twice gives the same result as once", () => {
+  // Catches ordering bugs in the replace chain — e.g. a step that produces
+  // new strippable input for a later step, causing a second pass to differ.
+  const inputs = ["हिन्दी", "हिंदी", "नम\u200Dस्ते", "kem chho", "केम छो"];
+  for (const x of inputs) {
+    assert.equal(
+      normalizeNative(normalizeNative(x)),
+      normalizeNative(x),
+      `normalizeNative must be idempotent for input: ${x}`,
+    );
+  }
 });
 
 test("normalizeNative: ZWJ and ZWNJ are stripped and do not affect the key", () => {

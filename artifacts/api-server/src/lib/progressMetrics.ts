@@ -159,9 +159,10 @@ export function computeStreakDays(
 export function computeDailyQuizStreak(
   quizDates: string[],
   timeZone?: string | null,
+  now: Date = new Date(),
 ): number {
   const days = new Set(quizDates);
-  const todayKey = localDayKey(new Date(), timeZone);
+  const todayKey = localDayKey(now, timeZone);
   let streak = 0;
   let cursor = days.has(todayKey) ? todayKey : previousDayKey(todayKey);
   while (days.has(cursor)) {

@@ -225,6 +225,7 @@ export async function computeQuizStreak(
   userId: string,
   languageCode: string,
   timeZone: string | null,
+  now?: Date,
 ): Promise<number> {
   const completions = await db
     .select({ quizDate: dailyQuizCompletionsTable.quizDate })
@@ -240,7 +241,7 @@ export async function computeQuizStreak(
   if (completions.length === 0) return 0;
 
   const quizDates = completions.map((c) => c.quizDate);
-  return computeDailyQuizStreak(quizDates, timeZone);
+  return computeDailyQuizStreak(quizDates, timeZone, now);
 }
 
 // ---------------------------------------------------------------------------

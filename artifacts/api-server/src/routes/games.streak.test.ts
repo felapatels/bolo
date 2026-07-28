@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { computeQuizStreak } from "./games";
+import { localDayKey } from "../lib/progressMetrics";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Unit tests for computeQuizStreak — covers every edge case that matters for
@@ -235,28 +236,39 @@ test("duplicate completions for the same day do not double-count", async () => {
 // close to the UTC midnight boundary.
 // ---------------------------------------------------------------------------
 
-test("streak counts correctly when a real non-UTC timezone is supplied", async () => {
-  // Seed three consecutive UTC days ending today.  In any timezone the learner
-  // who completed on days [0, 1, 2] UTC has at minimum a streak of 2 (at least
-  // yesterday+today overlap regardless of local midnight position), so the
-  // result must be ≥ 2 and ≤ 3.
-  await seedCompletion(daysAgoUtc(0));
-  await seedCompletion(daysAgoUtc(1));
-  await seedCompletion(daysAgoUtc(2));
+// ---------------------------------------------------------------------------
+// Non-UTC timezone — deterministic frozen-clock test
+// ---------------------------------------------------------------------------
 
-  const streakUtc      = await computeQuizStreak(TEST_USER_ID, LANG, null);
-  const streakAuckland = await computeQuizStreak(TEST_USER_ID, LANG, "Pacific/Auckland");
-
-  // Both must be positive — the run is unambiguously active.
-  assert.ok(streakUtc      >= 1, `UTC streak was ${streakUtc}, expected ≥ 1`);
-  assert.ok(streakAuckland >= 1, `Auckland streak was ${streakAuckland}, expected ≥ 1`);
-
-  // The Auckland timezone path must produce a plausible result — not a crash
-  // or a wildly wrong value.  The max possible is 3 (all three days fit the
-  // local window) and the min is 1 (only one day aligns with local today/
-  // yesterday), so the value must sit in [1, 3].
-  assert.ok(
-    streakAuckland >= 1 && streakAuckland <= 3,
-    `Auckland streak ${streakAuckland} is outside the expected [1, 3] range`,
+test("localDayKey converts a UTC instant to the correct Auckland calendar date", () => {
+  // 2026-03-10T12:00:00Z = 2026-03-11T01:00:00+13:00 (NZDT, UTC+13).
+  // NZ daylight saving ends the first Sunday of April, so March is still NZDT.
+  const frozenUtc = new Date("2026-03-10T12:00:00Z");
+  assert.equal(
+    localDayKey(frozenUtc, "Pacific/Auckland"),
+    "2026-03-11",
+    "Auckland local date must be 2026-03-11, not the UTC date 2026-03-10",
   );
+  assert.equal(
+    localDayKey(frozenUtc, null),
+    "2026-03-10",
+    "null timezone must produce the UTC date",
+  );
+});
+
+test("streak uses the learner's local date, not UTC, when a timezone is given", async () => {
+  // Frozen instant: 2026-03-10T12:00:00Z — UTC date is 2026-03-10,
+  // Auckland date is 2026-03-11.  Seed exactly one completion on the
+  // Auckland date.  With the Auckland timezone the streak is 1 (today
+  // matches); with UTC the streak is 0 (no completion on 2026-03-10 and
+  // nothing yesterday in UTC either, so the anchor falls back to
+  // 2026-03-09, which also has no completion).
+  const frozenUtc = new Date("2026-03-10T12:00:00Z");
+  await seedCompletion("2026-03-11");
+
+  const streakAuckland = await computeQuizStreak(TEST_USER_ID, LANG, "Pacific/Auckland", frozenUtc);
+  assert.equal(streakAuckland, 1, "Auckland streak must be 1: today (2026-03-11) has a completion");
+
+  const streakUtc = await computeQuizStreak(TEST_USER_ID, LANG, null, frozenUtc);
+  assert.equal(streakUtc, 0, "UTC streak must be 0: no completion on 2026-03-10 or 2026-03-09");
 });
