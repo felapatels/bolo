@@ -113,7 +113,8 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
   // attempt write path will store band=null/xp=0 for them.
   const safeband: PronunciationBand =
     (claims.band as PronunciationBand | undefined) ??
-    (claims.passed ? "nailed" : claims.score >= 55 ? "close" : "retry");
+    // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
+    (claims.score >= 80 ? "nailed" : claims.score >= 55 ? "close" : "retry");
   const safeXp: number = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
   return { ...claims, band: safeband, xpAwarded: safeXp };

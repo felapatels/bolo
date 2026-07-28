@@ -990,7 +990,10 @@ router.post(
         );
       }
       const { score, passed } = guarded;
-      const llmBand: PronunciationBand = passed ? "nailed" : score >= 55 ? "close" : "retry";
+      // Band derives from score only (Spec 0 rule 40): >=80 nailed, 55-79 close,
+      // <55 retry. Never derive it from `passed` — a trusted LLM `passed` boolean
+      // could otherwise produce band 'nailed' at a sub-80 score.
+      const llmBand: PronunciationBand = score >= 80 ? "nailed" : score >= 55 ? "close" : "retry";
       const llmXp = computePronunciationXp(llmBand, phraseDifficulty);
       const feedback =
         result.feedback ??

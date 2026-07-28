@@ -843,7 +843,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     state === "result" && result
       ? result.band === "nailed"
         ? "cheer"
-        : result.passed
+        : result.band === "close"
           ? "thumbsup"
           : "tryagain"
       : state === "error"

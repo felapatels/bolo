@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AttemptBand } from './attemptBand';
 
 export interface Attempt {
   id: number;
@@ -22,6 +23,11 @@ export interface Attempt {
   transcript: string;
   score: number;
   passed: boolean;
+  /**
+     * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+     * @nullable
+     */
+  band: AttemptBand;
   feedback: string;
   createdAt: Date;
 }

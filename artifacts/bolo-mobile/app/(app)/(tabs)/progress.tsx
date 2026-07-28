@@ -331,14 +331,14 @@ export default function ProgressScreen() {
                       style={[
                         styles.scoreBadge,
                         {
-                          backgroundColor: `${scoreColor(a.score, colors)}22`,
+                          backgroundColor: `${scoreColor(a.score, colors, a.band)}22`,
                         },
                       ]}
                     >
                       <Text
                         style={[
                           styles.scoreVal,
-                          { color: scoreColor(a.score, colors) },
+                          { color: scoreColor(a.score, colors, a.band) },
                         ]}
                       >
                         {a.score}

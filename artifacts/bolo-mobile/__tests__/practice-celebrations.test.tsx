@@ -415,14 +415,14 @@ describe('perfect-session detection', () => {
     mockState.phrases = successQuery(PHRASES.slice(0, 3));
     mockState.evaluateQueue = [
       { score: 85, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 79, passed: true, band: 'nailed', xpAwarded: 8 }, // one score below threshold
+      { score: 79, passed: false, band: 'close', xpAwarded: 4 }, // one score below threshold (79 → close, not passed)
       { score: 88, passed: true, band: 'nailed', xpAwarded: 8 }, // kept below 90 to avoid a real setTimeout for hapticHeavy
     ];
 
     render(<PracticeScreen />);
 
     await doRecordCycle({ resultLabel: 'Excellent 🌟' });
-    await doRecordCycle({ resultLabel: 'Excellent 🌟' });
+    await doRecordCycle({ resultLabel: 'Good 👍' });
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -450,8 +450,8 @@ describe('perfect-session detection', () => {
 });
 
 describe('XP chip', () => {
-  test('matches Math.round(avg / 10) * count formula', async () => {
-    // 3 phrases × avg score 70 → Math.round(70/10)*3 = 7*3 = 21 → "+21 XP"
+  test('shows the sum of server-awarded XP across attempts', async () => {
+    // Spec 1a: XP is server-authoritative. 3 attempts × xpAwarded 8 → "+24 XP"
     mockState.phrases = successQuery(PHRASES.slice(0, 3));
     mockState.evaluateQueue = [
       { score: 70, passed: true, band: 'nailed', xpAwarded: 8 },
@@ -481,12 +481,13 @@ describe('XP chip', () => {
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
     await waitFor(() =>
-      expect(screen.getByText('+21 XP')).toBeOnTheScreen(),
+      expect(screen.getByText('+24 XP')).toBeOnTheScreen(),
     );
   });
 
-  test('caps at 50 when the uncapped formula would exceed it', async () => {
-    // 6 phrases × avg score 85 → Math.round(85/10)*6 = Math.round(8.5)*6 = 9*6 = 54 → capped to 50 → "+50 XP"
+  test('sums server-awarded XP over a full 6-phrase session (no client cap)', async () => {
+    // Spec 1a: the old client-side Math.round(avg/10)*count formula and its 50
+    // cap are gone — the chip sums server xpAwarded. 6 × 8 → "+48 XP".
     // Score kept below 90 to avoid a real 140 ms hapticHeavy setTimeout that
     // would fire after Jest tears down the environment.
     mockState.phrases = successQuery(PHRASES); // all 6
@@ -517,7 +518,7 @@ describe('XP chip', () => {
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
     await waitFor(() =>
-      expect(screen.getByText('+50 XP')).toBeOnTheScreen(),
+      expect(screen.getByText('+48 XP')).toBeOnTheScreen(),
     );
   });
 });

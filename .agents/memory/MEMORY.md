@@ -63,4 +63,5 @@
 - [Script Trace glyph guides](script-trace-glyph-guides.md) — outlines are M/L/Q/C only; Z→closing L unconditionally; curve samplers must hit t=1 exactly or winding leaks phantom geometry.
 - [Script Trace coverage scoring](script-trace-coverage-scoring.md) — score = coverage×precision×spread (40 pass); adaptive-res skeleton + hairline outline fallback, loop-safe RDP; RN demo on UI thread.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
+- [Pronunciation band derivation](band-derivation.md) — band is score-only (80/55 thresholds), never from LLM `passed`; UI branches key on band, null band falls back to score.
 - [TTS provider switch](tts-provider-switch.md) — USE_ELEVENLABS_TTS flag in lib/ttsConfig.ts; currently false (gpt-audio); flip to true + restart to restore ElevenLabs (must use multilingual_v2, not flash).

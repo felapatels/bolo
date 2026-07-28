@@ -929,7 +929,8 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   if (denyLockedLanguage(req, res, claims.languageCode)) return;
 
   // ── Scoring Core v2: prepare FSRS + Elo inputs before the insert ──────────
-  const band: PronunciationBand = claims.band ?? (claims.passed ? "nailed" : claims.score >= 55 ? "close" : "retry");
+  // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
+  const band: PronunciationBand = claims.band ?? (claims.score >= 80 ? "nailed" : claims.score >= 55 ? "close" : "retry");
   const xpAwarded = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
   // Load current FSRS memory and learner ability in parallel (only when phraseId is known).
@@ -1180,6 +1181,7 @@ router.get(
         transcript: attemptsTable.transcript,
         score: attemptsTable.score,
         passed: attemptsTable.passed,
+        band: attemptsTable.band,
         feedback: attemptsTable.feedback,
         createdAt: attemptsTable.createdAt,
         categoryId: phrasesTable.categoryId,
@@ -1210,6 +1212,7 @@ router.get(
         transcript: row.transcript,
         score: row.score,
         passed: row.passed,
+        band: row.band ?? null,
         feedback: row.feedback,
         createdAt: row.createdAt.toISOString(),
       })),

@@ -14,9 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Guards the score-trail dots above the practice progress bar.
 //
 // Each phrase attempt is represented by a colored dot:
-//   green  (colors.success)     — score ≥ 70
-//   amber  (colors.gold)        — score 50–69
-//   red    (colors.destructive) — score  < 50
+//   green  (colors.success)     — band 'nailed' (score ≥ 80)
+//   amber  (colors.gold)        — band 'close'  (score 55–79)
+//   red    (colors.destructive) — band 'retry'/'nocatch' (score < 55)
 //   muted primary               — current, unattempted phrase
 //   muted                       — future, unattempted phrase
 //
@@ -527,7 +527,7 @@ describe('ScoreTrail dot colors', () => {
     expect(screen.getByLabelText('Close')).toBeOnTheScreen();
   });
 
-  test('score exactly 50 shows an amber dot (not red)', async () => {
+  test('score exactly 50 shows a red dot (below the 55 close threshold)', async () => {
     mockState.phrases = successQuery([phraseA, phraseB, phraseC]);
     mockState.evaluate = jest.fn(async () => ({
       score: 50,
@@ -544,8 +544,8 @@ describe('ScoreTrail dot colors', () => {
     await waitForRecordReady();
     await doAttempt();
 
-    // Exactly 50 satisfies score >= 50 → amber, not red
-    expect(getDotColor(0)).toBe(COLORS.gold);
+    // 50 < 55 → band 'retry' → red dot (Spec 0 rule 40)
+    expect(getDotColor(0)).toBe(COLORS.destructive);
     expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
   });
 

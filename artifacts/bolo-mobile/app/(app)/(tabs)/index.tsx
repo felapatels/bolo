@@ -48,7 +48,7 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
-import { categoryIcon } from '@/lib/ui';
+import { categoryIcon, scoreColor } from '@/lib/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
@@ -537,12 +537,7 @@ export default function HomeScreen() {
                       style={[
                         styles.scoreBadge,
                         {
-                          backgroundColor:
-                            Number(a.score) >= 80
-                              ? colors.success
-                              : Number(a.score) >= 50
-                              ? colors.primary
-                              : colors.destructive,
+                          backgroundColor: scoreColor(Number(a.score), colors, a.band),
                         },
                       ]}
                     >
@@ -551,9 +546,9 @@ export default function HomeScreen() {
                           styles.scoreText,
                           {
                             color:
-                              Number(a.score) >= 80
+                              scoreColor(Number(a.score), colors, a.band) === colors.success
                                 ? colors.successForeground
-                                : Number(a.score) >= 50
+                                : scoreColor(Number(a.score), colors, a.band) === colors.primary
                                 ? colors.primaryForeground
                                 : colors.destructiveForeground,
                           },

@@ -17,6 +17,7 @@ export * from './accountProfileResult';
 export * from './accountSubscriptionSummary';
 export * from './addPhrasesInput';
 export * from './attempt';
+export * from './attemptBand';
 export * from './attemptInput';
 export * from './attemptResult';
 export * from './badge';

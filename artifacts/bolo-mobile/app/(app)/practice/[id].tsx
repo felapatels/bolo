@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
+import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -994,11 +994,15 @@ export default function PracticeScreen() {
         consecutiveGoodRef.current = 0;
       }
 
-      hapticNotify(
-        res.passed
-          ? Haptics.NotificationFeedbackType.Success
-          : Haptics.NotificationFeedbackType.Warning,
-      );
+      // Band-driven feedback: nailed celebrates, close gets a gentle tap
+      // (it's a passing-adjacent result, not a failure), retry/nocatch warn.
+      if (res.band === 'nailed') {
+        hapticNotify(Haptics.NotificationFeedbackType.Success);
+      } else if (res.band === 'close') {
+        hapticLight();
+      } else {
+        hapticNotify(Haptics.NotificationFeedbackType.Warning);
+      }
 
       // Bigger reward for a nailed attempt: confetti rains, and an extra celebratory haptic fires.
       if (res.band === 'nailed') {
@@ -1291,7 +1295,7 @@ export default function PracticeScreen() {
         : phase === 'result' && result
           ? result.band === 'nailed'
             ? 'cheer'
-            : result.passed
+            : result.band === 'close'
               ? 'thumbsup'
               : 'tryagain'
           : 'wave';
@@ -1461,9 +1465,17 @@ export default function PracticeScreen() {
                   }
                 />
               </Pressable>
-              {result.passed ? (
+              {result.band === 'nailed' ? (
                 <Feather
                   name="check-circle"
+                  size={40}
+                  color={bandColor(result.band, colors)}
+                />
+              ) : result.band === 'close' ? (
+                // Close is not a failure — neutral icon, band-colored, no retry affordance here
+                // (the "Record again" button below still offers the retry).
+                <Feather
+                  name="thumbs-up"
                   size={40}
                   color={bandColor(result.band, colors)}
                 />

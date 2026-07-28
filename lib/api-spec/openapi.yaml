@@ -2176,6 +2176,10 @@ components:
           type: integer
         passed:
           type: boolean
+        band:
+          type: ["string", "null"]
+          enum: ["nailed", "close", "retry", "nocatch", null]
+          description: Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
         feedback:
           type: string
         createdAt:
@@ -2192,6 +2196,7 @@ components:
         - transcript
         - score
         - passed
+        - band
         - feedback
         - createdAt
 

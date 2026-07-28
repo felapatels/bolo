@@ -325,6 +325,20 @@ export interface AttemptInput {
   evaluationToken: string;
 }
 
+/**
+ * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+ * @nullable
+ */
+export type AttemptBand = typeof AttemptBand[keyof typeof AttemptBand] | null;
+
+
+export const AttemptBand = {
+  nailed: 'nailed',
+  close: 'close',
+  retry: 'retry',
+  nocatch: 'nocatch',
+} as const;
+
 export interface Attempt {
   id: number;
   /** @nullable */
@@ -341,6 +355,11 @@ export interface Attempt {
   transcript: string;
   score: number;
   passed: boolean;
+  /**
+     * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+     * @nullable
+     */
+  band: AttemptBand;
   feedback: string;
   createdAt: string;
 }

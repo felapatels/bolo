@@ -21,17 +21,21 @@ export function categoryIcon(iconName: string): FeatherName {
 }
 
 /**
- * Colour for a pronunciation score badge.
- * Thresholds match the ScoreTrail dots and flash overlay in the practice screen:
- *   green  ≥ 70  (pass)
- *   amber  ≥ 50  (near-miss)
- *   red    < 50  (fail)
+ * Colour for a pronunciation score badge, keyed by band (Spec 0 rule 40):
+ *   green  — nailed (score ≥ 80)
+ *   amber  — close  (score 55–79)
+ *   red    — retry/nocatch (score < 55)
+ * Prefers the stored band when present; falls back to computing it from the
+ * score with the same thresholds for older rows where band is null.
  */
 export function scoreColor(
   score: number,
   palette: { success: string; primary: string; destructive: string },
+  band?: string | null,
 ): string {
-  if (score >= 70) return palette.success;
-  if (score >= 50) return palette.primary;
+  const effective =
+    band ?? (score >= 80 ? 'nailed' : score >= 55 ? 'close' : 'retry');
+  if (effective === 'nailed') return palette.success;
+  if (effective === 'close') return palette.primary;
   return palette.destructive;
 }

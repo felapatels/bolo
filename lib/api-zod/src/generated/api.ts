@@ -269,6 +269,7 @@ export const ListRecentAttemptsResponseItem = zod.object({
   "transcript": zod.string(),
   "score": zod.number(),
   "passed": zod.boolean(),
+  "band": zod.union([zod.literal('nailed'),zod.literal('close'),zod.literal('retry'),zod.literal('nocatch'),zod.literal(null)]).nullable().describe('Pronunciation quality band for this attempt; null for rows recorded before banding shipped.'),
   "feedback": zod.string(),
   "createdAt": zod.coerce.date()
 })
