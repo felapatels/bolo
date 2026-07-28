@@ -1,0 +1,171 @@
+# BOLO Spec 1a: Persistent XP Counter (v2)
+
+Paste this into Replit Agent as a single message, before Spec 1.
+
+This is a small prerequisite. The XP arc in Spec 1 needs something to fly into, and no persistent XP display currently exists. It also adds one settings toggle that Spec 1 will consume.
+
+---
+
+## SESSION RULES
+
+1. Do not run a discovery or planning phase beyond the questions in Step 0.
+2. Do not refactor, redesign, or improve anything not named here.
+3. If a named file or component does not match, STOP and ask.
+4. Do not hand-edit anything under `generated/` or `dist/`.
+5. Do not change any scoring, FSRS, Elo, XP calculation, or streak logic. Spec 0 is complete. This spec displays values, it does not compute them.
+
+### Known current state (do not re-investigate)
+
+- Web is `artifacts/gujarati-coach`, React. Web has no review screen.
+- Mobile is `artifacts/bolo-mobile`, Expo with expo-router.
+- Web practice: `src/pages/practice.tsx`. Session summary inline around line 780 when `state === "done"`.
+- Mobile practice: `app/(app)/practice/[id].tsx`. Session summary inline at line 1277 when `phase === "done"`.
+- Mobile review: `app/(app)/review.tsx`. Session summary inline at line 924.
+- Web account screen: `src/pages/account.tsx`, which now has a timezone input in the Learning section.
+- Mobile account screen: `app/(app)/account/index.tsx`, using local `NavRow` and `StepperRow` patterns, which now has a timezone row with a modal.
+- `xp_ledger` exists and `GET /progress/*` reads XP from it.
+- No sound is played anywhere in either app today.
+
+### Step 0: three questions
+
+Answer these, then STOP and wait.
+
+1. Does `GET /progress/summary` already return today's XP total scoped to the user's local calendar day, or only a lifetime total? If neither, what does it return?
+2. What is the persistent chrome on each app, meaning the header, tab bar, or nav that is visible across home and list screens? File and component name for each app.
+3. On mobile, is the nav header visible during a practice session at `app/(app)/practice/[id].tsx`, or is the session full-screen?
+
+---
+
+## 1. FEATURE SUMMARY
+
+Add a persistent XP display that shows progress toward today's goal, not a lifetime total.
+
+A lifetime total is the wrong thing to animate into. It is a large number that barely moves, so an eight point gain is invisible and the feedback loop does nothing. Today's XP against `users.daily_goal` moves visibly on every answer, resets daily so it always feels achievable, and reinforces the daily habit that drives the streak.
+
+The counter has two surfaces because it has to be on screen at the moment XP is earned. A persistent version lives in the app chrome. A session version lives inside the practice and review screens, which may be full-screen. Both expose a measurable position so the Spec 1 arc can target whichever is currently mounted.
+
+This spec also adds a sound on and off preference to the account screens. Nothing plays sound yet. The setting exists now because Spec 1 will add the audio layer that reads it, and both account screens are already being edited in this task.
+
+---
+
+## 2. SCOPE BOUNDARIES
+
+Do NOT build, touch, or modify:
+
+- Any XP calculation, FSRS, Elo, or streak logic.
+- `xpEngine.ts`, `fsrsScheduler.ts`, or `progressMetrics.ts` computation. A read-only query addition is acceptable; changing how XP is computed is not.
+- The `daily_goal` value or its default. See the open note in section 6.
+- Any animation. Spec 1 owns motion. This spec renders a static, reactive number.
+- Any audio playback. This spec adds a preference only.
+- `BandPill`, `EmptyState`, `Mascot`, or `Confetti`.
+- Copy or tone beyond the strings named here.
+
+---
+
+## 3. DATA AND API CHANGES
+
+If Step 0 confirms today's XP is not already available:
+
+Add a `todayXp` field to the existing progress summary response, computed as the sum of `xp_ledger.amount` for the current calendar day in the user's IANA timezone. Reuse the existing `localDayKey()` helper. Do not write a second date-bucketing implementation.
+
+Also return `dailyGoal` from `users.daily_goal` so the client does not need a second request.
+
+Update the schema source and regenerate. Do not hand-edit generated types.
+
+The sound preference is client-local only. Do not add a column, an API field, or a schema change for it.
+
+---
+
+## 4. UI SPEC
+
+### 4.1 XP counter component
+
+Create one per platform:
+
+- `artifacts/gujarati-coach/src/components/XpCounter.tsx`
+- `artifacts/bolo-mobile/components/XpCounter.tsx`
+
+Props: `{ variant: "chrome" | "session" }`.
+
+Renders today's XP, the daily goal, and a progress indicator. Keep it small and quiet. This is chrome, not a feature. Derive all colors and spacing from the existing design tokens identified in Step 0. Do not introduce new tokens.
+
+### 4.2 Placement
+
+**Chrome variant:** place in the persistent header or nav identified in Step 0, on both apps.
+
+**Session variant:** place in the practice and review screens, at `app/(app)/practice/[id].tsx`, `app/(app)/review.tsx`, and `src/pages/practice.tsx`. If Step 0 confirms the mobile nav header stays visible during a session, the session variant is not needed on mobile and the chrome variant serves as the arc target. Report which case applies.
+
+### 4.3 Position exposure
+
+Each instance must expose its screen position to the motion layer that Spec 1 will add:
+
+- Web: forward a ref, readable via `getBoundingClientRect()`.
+- Mobile: forward a ref, readable via `measureInWindow()`.
+
+Register the currently mounted instance in a small module-level accessor so that a caller can ask for the active XP counter position without knowing which variant is on screen. If both are mounted, the session variant wins.
+
+### 4.4 Reactivity
+
+The counter updates immediately when XP is earned, without a full refetch. Optimistically increment from the `xpAwarded` value already returned in the pronunciation response, then reconcile against the server value on the next summary fetch.
+
+### 4.5 Goal reached
+
+When today's XP reaches or exceeds the daily goal, the indicator shows a completed state. No animation, no celebration. Spec 1 owns that moment.
+
+### 4.6 Sound preference
+
+Add a sound on and off toggle to both account screens, adjacent to the timezone row added in Task 2.
+
+- Web: `src/pages/account.tsx`, Learning section, following the existing row pattern in that section.
+- Mobile: `app/(app)/account/index.tsx`, following the existing `NavRow` pattern in that file.
+
+Default on. Persist locally per platform, using whatever local persistence each app already uses. Do not introduce a new persistence library.
+
+Create a small reader module per platform so Spec 1 can consume the value without knowing where it is stored:
+
+- `artifacts/gujarati-coach/src/lib/soundPref.ts`
+- `artifacts/bolo-mobile/lib/soundPref.ts`
+
+Each exposes a getter and a setter. Nothing else reads it in this release.
+
+Label the toggle `Sound effects`.
+
+---
+
+## 5. BEHAVIOR AND LOGIC
+
+1. The system shall display XP earned today in the user's local calendar day, not a lifetime total and not a UTC day.
+2. The system shall compute the local day using the existing `localDayKey()` helper and shall not introduce a second date-bucketing implementation.
+3. The system shall display progress against `users.daily_goal`.
+4. The system shall render the chrome variant on every screen with persistent app chrome.
+5. The system shall render a session variant on any screen where the chrome is not visible during practice.
+6. The system shall expose the screen position of the currently mounted counter through a single accessor, preferring the session variant when both are mounted.
+7. The system shall increment optimistically from `xpAwarded` on the pronunciation response and reconcile on the next summary fetch.
+8. The system shall reset to zero at local midnight without requiring an app restart.
+9. The system shall handle a missing or null timezone by falling back to the timezone reported by the client, consistent with Spec 0 rule 37.
+10. The system shall render a zero state without error for a user with no XP today.
+11. The system shall persist a sound on and off preference locally, defaulting to on, and shall expose it through a reader module.
+12. The system shall play no audio in this release. The preference is stored and read by nothing.
+
+---
+
+## 6. ACCEPTANCE CHECKLIST
+
+1. The system shall show today's XP, not lifetime XP, on both apps.
+2. The system shall show a different value for a user whose local date differs from UTC, verified with a test user in `Pacific/Auckland`.
+3. The system shall increment visibly within one interaction of earning XP, without a manual refresh.
+4. The system shall expose a non-null position from the counter accessor while a practice session is active on each app.
+5. The system shall reset to zero at local midnight without an app restart.
+6. The system shall render correctly at zero XP and at XP above the daily goal.
+7. The system shall persist the sound preference across an app restart on both platforms.
+8. The system shall play no audio anywhere, verified by confirming no audio API is called.
+
+**Open note, not a build item:** `users.daily_goal` defaults to 10, and under the current XP economy a single nailed pronunciation attempt at neutral difficulty awards roughly 10 XP. The daily goal is therefore met in one attempt. That is worth recalibrating, but it is a product decision and not part of this task. Do not change the default. Report the observed median daily XP once there is data.
+
+---
+
+## 7. OUT OF SCOPE REMINDER
+
+1. **Do not change any XP calculation or streak logic.** This spec reads and displays.
+2. **Do not add animation or audio playback.** Spec 1 owns motion and sound. This spec adds a number and a preference.
+3. **Do not change the `daily_goal` default.** Flagged for a product decision, not this task.

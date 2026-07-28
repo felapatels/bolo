@@ -37,6 +37,7 @@ import {
   Mail,
 } from "lucide-react";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
@@ -697,24 +698,6 @@ function FriendsList() {
 
 function SectionLoader() {
   return <FunFactSectionLoader />;
-}
-
-function EmptyState({
-  pose,
-  title,
-  body,
-}: {
-  pose: "wave" | "thinking";
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center py-8 px-6 bg-white rounded-3xl border border-dashed border-border">
-      <Mascot pose={pose} size={80} idle="float" className="mb-3" />
-      <p className="text-lg font-bold text-foreground mb-1">{title}</p>
-      <p className="text-sm text-muted-foreground max-w-xs">{body}</p>
-    </div>
-  );
 }
 
 function ErrorState({
