@@ -39,7 +39,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
@@ -70,7 +70,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));
@@ -146,6 +147,9 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
+    band: "nailed",
+    passed: true,
+    xpAwarded: 9,
     feedback: "Great!",
     tip: "Keep going.",
     evaluationToken: "signed-token",
@@ -196,7 +200,7 @@ async function scoreAndNext() {
     fireEvent.pointerUp(releaseTarget);
   });
   // Wait for result screen.
-  await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
   // Tap "Next".
   fireEvent.click(screen.getByText("Next"));
 }
@@ -210,7 +214,7 @@ async function scorePhrase() {
       document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +368,9 @@ describe("belly zone availability", () => {
     await act(async () => {
       resolveEval({
         score: 90,
+        band: "nailed",
+        passed: true,
+        xpAwarded: 9,
         feedback: "Great!",
         tip: "",
         evaluationToken: "tok",
@@ -432,7 +439,7 @@ describe("audio prefetch", () => {
         document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
       fireEvent.pointerUp(releaseTarget);
     });
-    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
 
     // Reset synth call count so we can count only what happens during phrase1's
     // coach play.

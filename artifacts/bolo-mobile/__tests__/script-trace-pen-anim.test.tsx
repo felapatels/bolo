@@ -93,6 +93,8 @@ jest.mock('@/lib/game-data/script-trace-chapters', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   recordScriptTraceProgress: jest.fn(),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
 // ─── Import AnimPenStroke AFTER mocks are in place ───────────────────────────

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { LanguagePicker } from "@/components/language-picker";
 import { useLanguage } from "@/lib/language-context";
 import { useTour } from "@/lib/tour-context";
+import { XpCounter } from "@/components/XpCounter";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -19,7 +20,11 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-safe lg:hidden">
-      <div className="flex h-16 items-center justify-around px-2 max-w-md mx-auto">
+      {/* Daily XP counter — sits above the nav icons as a thin strip */}
+      <div className="max-w-md mx-auto px-5 pt-1.5 pb-0">
+        <XpCounter variant="chrome" />
+      </div>
+      <div className="flex h-14 items-center justify-around px-2 max-w-md mx-auto">
         <Link 
           href="/app" 
           className={cn(

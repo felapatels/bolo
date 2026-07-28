@@ -31,6 +31,7 @@ jest.mock('@workspace/api-client-react', () => ({
     isRefetching: false,
     refetch: jest.fn(),
   }),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress', 'summary']),
   useListRecentAttempts: () => mockState.attempts,
   useListBadges: () => ({
     data: [],

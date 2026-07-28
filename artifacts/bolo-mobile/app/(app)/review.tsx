@@ -39,6 +39,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
+import { XpCounter } from '@/components/XpCounter';
 import { EmptyState } from '@/components/EmptyState';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
@@ -251,7 +252,10 @@ function ReviewHeader({ onClose, label }: { onClose: () => void; label: string }
       >
         <Feather name="x" size={22} color={colors.foreground} />
       </Pressable>
-      <Text style={[styles.headerLabel, { color: colors.foreground }]}>{label}</Text>
+      <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+        <Text style={[styles.headerLabel, { color: colors.foreground }]}>{label}</Text>
+        <XpCounter variant="session" />
+      </View>
       <View style={{ width: 44 }} />
     </View>
   );
@@ -762,6 +766,12 @@ export default function ReviewScreen() {
         // Invalidate review list so the badge count updates immediately when
         // the learner returns to the home screen.
         queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey(reviewParams) });
+        // Optimistic: increment todayXp immediately so the XpCounter reacts
+        // before the background refetch resolves.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        queryClient.setQueryData(getGetProgressSummaryQueryKey({ lang: activeLang }), (old: any) =>
+          old ? { ...old, todayXp: (old.todayXp ?? 0) + res.xpAwarded } : old,
+        );
         queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
@@ -1139,7 +1149,7 @@ export default function ReviewScreen() {
             <Pressable
               onPress={tryAgain}
               accessibilityRole="button"
-              accessibilityLabel="Try again"
+              accessibilityLabel="Record again"
               testID="retry-button"
               style={[styles.retryBtn, { borderColor: colors.border }]}
             >
@@ -1153,7 +1163,7 @@ export default function ReviewScreen() {
             />
           </View>
         ) : phase === 'error' ? (
-          <ChunkyButton title="Try again" icon="rotate-ccw" onPress={retryAfterError} />
+          <ChunkyButton title="Record again" icon="rotate-ccw" onPress={retryAfterError} />
         ) : (
           <RecordButton
             phase={phase}

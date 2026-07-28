@@ -29,6 +29,8 @@ const mockState = {
 };
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   useListIncomingFriendRequests: () => mockState.incoming,
 }));
 

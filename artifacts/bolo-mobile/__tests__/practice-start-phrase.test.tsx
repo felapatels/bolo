@@ -57,6 +57,7 @@ jest.mock('@workspace/api-client-react', () => ({
   }),
   useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
   useCreateAttempt: () => ({ mutateAsync: jest.fn() }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -65,7 +66,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({

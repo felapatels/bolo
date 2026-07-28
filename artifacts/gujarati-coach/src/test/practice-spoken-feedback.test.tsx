@@ -41,7 +41,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
@@ -72,7 +72,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));
@@ -125,6 +126,9 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
+    band: "nailed",
+    passed: true,
+    xpAwarded: 9,
     feedback: "Nice work on that greeting!",
     tip: "Soften the t sound.",
     evaluationToken: "signed-token",
@@ -153,7 +157,7 @@ async function recordAndScore() {
       document.querySelector('[aria-label="Release to submit"]') ?? belly;
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
 }
 
 describe("spoken feedback after scoring", () => {

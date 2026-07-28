@@ -59,7 +59,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 // Practice pulls in the voice recorder; stub it so the component mounts without
@@ -97,7 +97,8 @@ vi.mock("@workspace/api-client-react", () => ({
   getListCategorySentencesQueryKey: () => ["category-sentences"],
   getListCategoriesQueryKey: () => ["categories"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));

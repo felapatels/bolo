@@ -15,6 +15,12 @@ vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({ activeLang: "gu", activeLanguage: undefined, languages: [], setActiveLang: () => {}, isLoading: false }),
 }));
 
+
+// XpCounter renders inside BottomNav; stub it out since this test only checks nav structure.
+vi.mock("@/components/XpCounter", () => ({
+  XpCounter: () => null,
+}));
+
 // BottomNav shows Home, Games, Bolo (chat), and Progress tabs.
 // Friends moved to the Account/Profile page so is no longer in the bottom nav.
 // Imported after the mock is declared.

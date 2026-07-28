@@ -311,7 +311,9 @@ export const GetProgressSummaryResponse = zod.object({
   "bestScore": zod.number(),
   "currentStreakDays": zod.number(),
   "attemptsToday": zod.number(),
-  "xp": zod.number()
+  "xp": zod.number(),
+  "todayXp": zod.number(),
+  "dailyGoal": zod.number()
 })
 
 

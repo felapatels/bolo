@@ -66,6 +66,7 @@ import { useEntitlements } from "@/lib/entitlements";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
+import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -182,6 +183,14 @@ export default function Account() {
   function handleChangeSilentMode(enabled: boolean) {
     setSilentMode(enabled);
     saveSilentMode(enabled);
+  }
+
+  // Device-local preference: whether sound effects (audio cues) play during
+  // practice. Default on. Lives in localStorage — same pattern as the above.
+  const [soundOn, setSoundOn] = useState(loadSoundPref);
+  function handleChangeSoundOn(enabled: boolean) {
+    setSoundOn(enabled);
+    saveSoundPref(enabled);
   }
 
   // Profile form — seeded from the account snapshot once it loads.
@@ -628,6 +637,25 @@ export default function Account() {
                   Used for daily streak. Detected: {Intl.DateTimeFormat().resolvedOptions().timeZone}
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Sound effects */}
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Volume2 className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Sound effects</p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Play audio cues during practice sessions
+                </p>
+              </div>
+              <Switch
+                checked={soundOn}
+                onCheckedChange={handleChangeSoundOn}
+              />
             </div>
           </div>
 

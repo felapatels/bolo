@@ -45,6 +45,7 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     invalidateQueries: h.invalidateQueries,
     clear: h.clear,
+    setQueryData: vi.fn(),
   }),
 }));
 
@@ -80,6 +81,8 @@ vi.mock("@workspace/api-client-react", () => ({
   ApiError,
   getGetAccountQueryKey: () => ["account"],
   useGetAccount: () => h.account,
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useUpdateAccountProfile: () => h.updateProfile,
   useUpdateAccountPreferences: () => h.updatePrefs,
   useDeleteAccount: () => h.deleteAccount,

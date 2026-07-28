@@ -18,12 +18,14 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn(), refetchQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), refetchQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
   useSetChosenLanguage: () => ({ mutateAsync: jest.fn() }),
   getGetEntitlementsQueryKey: () => ['entitlements'],
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
 jest.mock('@/contexts/PurchasesContext', () => ({

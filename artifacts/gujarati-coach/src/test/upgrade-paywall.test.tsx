@@ -32,11 +32,13 @@ vi.mock("@/lib/language-context", () => ({
 
 vi.mock("@workspace/api-client-react", () => ({
   useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   getGetEntitlementsQueryKey: () => ["entitlements"],
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@/lib/billing", () => ({

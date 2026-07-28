@@ -44,6 +44,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -52,7 +53,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -141,9 +142,12 @@ function successQuery(data: unknown) {
 }
 
 function goodResult(score = 80) {
+  const band = score >= 70 ? 'nailed' : score >= 55 ? 'close' : 'retry';
   return {
     score,
-    passed: true,
+    passed: band !== 'retry',
+    band,
+    xpAwarded: band === 'nailed' ? Math.round(score / 10) : 0,
     transcript: 'ok',
     feedback: 'Good!',
     tip: null,
@@ -155,6 +159,8 @@ function badResult() {
   return {
     score: 45,
     passed: false,
+    band: 'retry',
+    xpAwarded: 0,
     transcript: 'bad',
     feedback: 'Keep trying.',
     tip: null,
@@ -357,6 +363,8 @@ describe('session summary XP chip', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 4,
       passed: false,
+      band: 'retry',
+      xpAwarded: 0,
       transcript: 'nothing',
       feedback: 'Try again.',
       tip: null,
@@ -370,8 +378,8 @@ describe('session summary XP chip', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText('Session complete!')).toBeOnTheScreen(),
+      expect(screen.getByText('Great effort!')).toBeOnTheScreen(),
     );
-    expect(screen.queryByText(/XP/)).toBeNull();
+    expect(screen.queryByText(/^\+\d+ XP$/)).toBeNull();
   });
 });

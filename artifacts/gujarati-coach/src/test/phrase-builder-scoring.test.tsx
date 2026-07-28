@@ -24,7 +24,8 @@ vi.mock("@workspace/api-client-react", () => ({
       opts?.onSuccess?.({ xpEarned: 12 });
     },
   }),
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
 }));
 
 vi.mock("@/lib/language-context", () => ({

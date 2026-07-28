@@ -38,6 +38,7 @@ const mockState: Record<string, any> = {
 };
 
 const mockQueryClient = {
+  setQueryData: jest.fn(),
   invalidateQueries: jest.fn(),
   removeQueries: jest.fn(),
 };
@@ -70,6 +71,8 @@ jest.mock('@workspace/api-client-react', () => ({
   useDeclineFriendRequest: () => mockState.decline,
   useRemoveFriend: () => mockState.remove,
   useGetFriendsLeaderboard: () => mockState.leaderboard,
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   getSearchFriendByEmailQueryKey: () => ['search-friend'],
   getListIncomingFriendRequestsQueryKey: () => ['incoming'],
   getListOutgoingFriendRequestsQueryKey: () => ['outgoing'],

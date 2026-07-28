@@ -34,11 +34,12 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategoryPhrases: () => mockState.phrases,
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   useRecordGameSession: () => ({ mutate: jest.fn() }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('@/lib/audio', () => ({

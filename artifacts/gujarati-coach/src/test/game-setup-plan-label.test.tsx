@@ -18,7 +18,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useListCategories: () => ({ data: [{ id: 1, title: "Basics" }], isLoading: false }),
   useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   useRecordGameSession: () => ({ mutate: vi.fn() }),
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
 }));
 
 vi.mock("@/lib/language-context", () => ({

@@ -26,6 +26,12 @@ const h = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
+
+// Home renders BottomNav → XpCounter; stub it so this test doesn't need a react-query provider.
+vi.mock("@/components/XpCounter", () => ({
+  XpCounter: () => null,
+}));
+
 vi.mock("@clerk/react", () => ({
   useUser: () => ({ isSignedIn: true, user: { firstName: "Test" } }),
   useClerk: () => ({ signOut: h.signOut }),

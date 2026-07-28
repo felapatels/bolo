@@ -36,6 +36,8 @@ vi.mock("@/lib/language-context", () => ({
 
 vi.mock("@workspace/api-client-react", () => ({
   useGetDailyQuiz: () => ({ data: h.quizData, isLoading: false }),
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useCompleteDailyQuiz: () => ({ mutateAsync: h.completeMutateAsync }),
   useSynthesizeSpeech: () => ({ mutateAsync: vi.fn(), isPending: false }),
   getGetDailyQuizQueryKey: () => ["daily-quiz"],

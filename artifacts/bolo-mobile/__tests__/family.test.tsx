@@ -21,6 +21,7 @@ const mockState: Record<string, any> = {
 
 const mockRouter = { push: jest.fn(), back: jest.fn() };
 const mockQueryClient = {
+  setQueryData: jest.fn(),
   invalidateQueries: jest.fn().mockResolvedValue(undefined),
   refetchQueries: jest.fn().mockResolvedValue(undefined),
 };
@@ -36,6 +37,8 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetFamily: () => mockState.family,
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   getGetFamilyQueryKey: () => ['family'],
   getGetEntitlementsQueryKey: () => ['entitlements'],
   useCreateFamilyInvite: () => mockState.invite,

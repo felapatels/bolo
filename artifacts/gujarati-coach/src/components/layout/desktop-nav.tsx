@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Home, Trophy, Gamepad2, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
+import { XpCounter } from "@/components/XpCounter";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
@@ -70,6 +71,11 @@ export function DesktopNav() {
         </span>
         <SoundWavePulse className="ml-0.5 text-primary" size={18} bars={4} />
       </Link>
+
+      {/* Daily XP counter */}
+      <div className="px-5 pb-3">
+        <XpCounter variant="chrome" />
+      </div>
 
       {/* Primary destinations */}
       <nav className="flex flex-1 flex-col gap-1.5 px-4">

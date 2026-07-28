@@ -31,7 +31,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('react-native-svg', () => {
@@ -52,6 +52,8 @@ jest.mock('@/lib/entrance', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetProgressSummary: () => mockState.summary,
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress', 'summary']),
+  setQueryData: jest.fn(),
   useListCategories: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
   useListRecentAttempts: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
   useGetDailyQuiz: () => ({ data: undefined, isLoading: false }),

@@ -57,6 +57,8 @@ jest.mock('@workspace/api-client-react', () => ({
   }),
   getListCategorySentencesQueryKey: () => ['sentences'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({

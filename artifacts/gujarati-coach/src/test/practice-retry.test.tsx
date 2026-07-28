@@ -43,7 +43,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
@@ -79,7 +79,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));
@@ -131,6 +132,9 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 42,
+    band: "retry",
+    passed: false,
+    xpAwarded: 0,
     feedback: "Almost!",
     tip: "Slow down.",
     evaluationToken: "signed-token",

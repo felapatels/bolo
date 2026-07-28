@@ -34,6 +34,8 @@ const mockState: Record<string, any> = {
 jest.mock('@workspace/api-client-react', () => ({
   useListLanguages: () => ({ data: mockState.languages, isLoading: false }),
   useGetAccount: () => ({ data: mockState.accountData }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   useUpdateAccountPreferences: () => ({ mutate: jest.fn() }),
   getGetAccountQueryKey: () => ['account'],
 }));

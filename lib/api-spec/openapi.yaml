@@ -2313,6 +2313,10 @@ components:
           type: integer
         xp:
           type: integer
+        todayXp:
+          type: integer
+        dailyGoal:
+          type: integer
       required:
         - totalAttempts
         - phrasesPracticed
@@ -2323,6 +2327,8 @@ components:
         - currentStreakDays
         - attemptsToday
         - xp
+        - todayXp
+        - dailyGoal
 
     VoiceCatalogEntry:
       type: object

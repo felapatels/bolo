@@ -12,7 +12,8 @@ import * as Haptics from 'expo-haptics';
  * instead of calling expo-haptics directly.
  */
 function impact(style: Haptics.ImpactFeedbackStyle) {
-  if (Platform.OS === 'web') return;
+  // Guard: Platform may be undefined when a timer fires after the Jest environment tears down.
+  if (!Platform || Platform.OS === 'web') return;
   // Fire-and-forget: haptics must never delay or break the tap handler.
   // (Promise.resolve tolerates stubbed implementations returning undefined.)
   try {
@@ -35,7 +36,7 @@ export function hapticHeavy() {
 }
 
 export function hapticNotify(type: Haptics.NotificationFeedbackType) {
-  if (Platform.OS === 'web') return;
+  if (!Platform || Platform.OS === 'web') return;
   try {
     Promise.resolve(Haptics.notificationAsync(type)).catch(() => {});
   } catch {

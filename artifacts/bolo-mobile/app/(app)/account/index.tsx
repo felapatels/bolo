@@ -44,6 +44,7 @@ import {
   loadSilentMode,
   saveSilentMode,
 } from '@/lib/settings';
+import { loadSoundPref, saveSoundPref } from '@/lib/soundPref';
 import { useTour } from '@/contexts/TourContext';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
@@ -107,6 +108,23 @@ export default function AccountScreen() {
   const changeSilentMode = (enabled: boolean) => {
     setSilentMode(enabled);
     void saveSilentMode(enabled);
+  };
+
+  // Device-local: whether sound effects (audio cues) play during practice.
+  // Default on. Same async-load pattern as spokenFeedback / silentMode above.
+  const [soundOn, setSoundOn] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSoundPref().then((enabled) => {
+      if (!cancelled) setSoundOn(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeSoundOn = (enabled: boolean) => {
+    setSoundOn(enabled);
+    void saveSoundPref(enabled);
   };
   const [name, setName] = React.useState('');
   const [avatarBusy, setAvatarBusy] = React.useState(false);
@@ -527,6 +545,26 @@ export default function AccountScreen() {
                 setTimezoneModalVisible(true);
               }}
             />
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="volume-2" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Sound effects
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Play audio cues during practice
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Sound effects"
+                value={soundOn}
+                onValueChange={changeSoundOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
             <Divider />
             <NavRow
               icon="map"

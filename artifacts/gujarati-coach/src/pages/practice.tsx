@@ -31,6 +31,7 @@ import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
+import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, type Band } from "@/components/ui/band-pill";
@@ -508,6 +509,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           }
         });
 
+        // Optimistic: increment todayXp immediately so the XpCounter reacts
+        // before the background refetch resolves.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        queryClient.setQueryData(getGetProgressSummaryQueryKey({ lang: activeLang }), (old: any) =>
+          old ? { ...old, todayXp: (old.todayXp ?? 0) + evalRes.xpAwarded } : old,
+        );
         // Invalidate queries so progress updates
         queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });
@@ -869,6 +876,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </div>
         </div>
         <div className="font-bold text-sm text-muted-foreground shrink-0">{currentIndex + 1}/{phrases.length}</div>
+        {/* Daily XP counter — compact session variant */}
+        <XpCounter variant="session" />
         {/* Silent mode toggle lives in the header so it stays accessible */}
         <button
           onClick={() => changeSilentMode(!silentMode)}
@@ -1139,7 +1148,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   onClick={handleErrorRetry}
                   className="w-full bg-primary text-primary-foreground font-black text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
                 >
-                  <RefreshCcw className="w-5 h-5" /> Try again
+                  <RefreshCcw className="w-5 h-5" /> Record again
                 </button>
               ) : (
                 <div className="flex gap-3">

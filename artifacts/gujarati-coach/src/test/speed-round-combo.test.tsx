@@ -37,7 +37,7 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 // A single phrase pool — buildOptions will produce exactly one button (always correct).
@@ -69,7 +69,8 @@ vi.mock("@workspace/api-client-react", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
 }));
 
 import SpeedRoundPage from "@/pages/games/speed-round";

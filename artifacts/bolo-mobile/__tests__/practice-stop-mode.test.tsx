@@ -39,6 +39,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -47,7 +48,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -144,6 +145,8 @@ beforeEach(async () => {
   mockState.evaluate = jest.fn(async () => ({
     score: 88,
     passed: true,
+    band: 'nailed',
+    xpAwarded: 8,
     transcript: 'namaste',
     feedback: 'Nice!',
     tip: '',
@@ -284,7 +287,7 @@ describe('scoring failure handling', () => {
 
     // Retry returns to the mic, ready to record again.
     await act(async () => {
-      fireEvent.press(screen.getByText('Try again'));
+      fireEvent.press(screen.getByText('Record again'));
     });
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
     expect(screen.queryByTestId('eval-error-card')).not.toBeOnTheScreen();

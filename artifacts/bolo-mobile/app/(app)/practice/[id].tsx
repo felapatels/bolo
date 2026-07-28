@@ -29,6 +29,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
+import { XpCounter } from '@/components/XpCounter';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
@@ -1012,6 +1013,12 @@ export default function PracticeScreen() {
         const attempt = await createAttempt.mutateAsync({
           data: { evaluationToken: res.evaluationToken },
         });
+        // Optimistic: increment todayXp immediately so the XpCounter reacts
+        // before the background refetch resolves.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        queryClient.setQueryData(getGetProgressSummaryQueryKey({ lang: activeLang }), (old: any) =>
+          old ? { ...old, todayXp: (old.todayXp ?? 0) + res.xpAwarded } : old,
+        );
         queryClient.invalidateQueries({
           queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
         });
@@ -1548,7 +1555,7 @@ export default function PracticeScreen() {
             <Pressable
               onPress={tryAgain}
               accessibilityRole="button"
-              accessibilityLabel="Try again"
+              accessibilityLabel="Record again"
               testID="retry-button"
               style={[styles.retryBtn, { borderColor: colors.border }]}
             >
@@ -1563,7 +1570,7 @@ export default function PracticeScreen() {
           </View>
         ) : phase === 'error' ? (
           <ChunkyButton
-            title="Try again"
+            title="Record again"
             icon="rotate-ccw"
             onPress={retryAfterError}
           />
@@ -1629,9 +1636,12 @@ function PracticeHeader({
       >
         <Feather name="x" size={22} color={colors.foreground} />
       </Pressable>
-      <Text style={[styles.headerLabel, { color: colors.foreground }]}>
-        {label}
-      </Text>
+      <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+        <Text style={[styles.headerLabel, { color: colors.foreground }]}>
+          {label}
+        </Text>
+        <XpCounter variant="session" />
+      </View>
       {onToggleSilentMode !== undefined ? (
         <Pressable
           onPress={onToggleSilentMode}

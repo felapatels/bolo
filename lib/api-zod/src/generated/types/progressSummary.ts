@@ -16,4 +16,6 @@ export interface ProgressSummary {
   currentStreakDays: number;
   attemptsToday: number;
   xp: number;
+  todayXp: number;
+  dailyGoal: number;
 }

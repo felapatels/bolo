@@ -38,6 +38,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -46,7 +47,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -127,6 +128,8 @@ beforeEach(async () => {
   mockState.evaluate = jest.fn(async () => ({
     score: 88,
     passed: true,
+    band: 'nailed',
+    xpAwarded: 8,
     transcript: 'namaste',
     feedback: 'Great!',
     tip: null,
@@ -163,11 +166,11 @@ describe('score trail — phrase-index alignment', () => {
     await waitForRecordReady();
     await recordAndScore();
 
-    // Dot for phrase 0 should be accessible with "Score: 88"
-    expect(screen.getByLabelText('Score: 88')).toBeOnTheScreen();
+    // Dot for phrase 0 should be accessible with the band label "Nailed it"
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
     // Dot for phrase 1 should still be unattempted (no accessibilityLabel)
-    expect(screen.queryByLabelText(/Score:/)).toHaveLength ? undefined : undefined;
-    const allScoreLabels = screen.queryAllByLabelText(/Score:/);
+    // Dot for phrase 1 should still be unattempted (no band label yet)
+    const allScoreLabels = screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/);
     expect(allScoreLabels).toHaveLength(1);
   });
 
@@ -176,6 +179,8 @@ describe('score trail — phrase-index alignment', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 40,
       passed: false,
+      band: 'retry',
+      xpAwarded: 0,
       transcript: 'namast',
       feedback: 'Try again.',
       tip: null,
@@ -187,14 +192,16 @@ describe('score trail — phrase-index alignment', () => {
     await recordAndScore();
 
     // After first attempt, phrase 0 dot = 40
-    expect(screen.getByLabelText('Score: 40')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
     // Only one scored dot so far
-    expect(screen.queryAllByLabelText(/Score:/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
 
     // Retry same phrase with a better score
     mockState.evaluate = jest.fn(async () => ({
       score: 82,
       passed: true,
+      band: 'nailed',
+      xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Much better!',
       tip: null,
@@ -208,32 +215,33 @@ describe('score trail — phrase-index alignment', () => {
     await recordAndScore();
 
     // Dot 0 should now show 82, not 40
-    expect(screen.queryByLabelText('Score: 40')).toBeNull();
-    expect(screen.getByLabelText('Score: 82')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Try again')).toBeNull();
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
     // Phrase 1 dot must still be unattempted — only one scored dot total
-    expect(screen.queryAllByLabelText(/Score:/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
   });
 
   test('advancing to phrase 1 gives each phrase its own dot score', async () => {
     // Phrase 0 scores 75, phrase 1 scores 55
-    const scores = [75, 55];
+    // phrase 0: score=75, passed=true → "nailed" → "Nailed it"
+    // phrase 1: score=40, passed=false → "retry" → "Try again"
+    const results = [
+      { score: 75, passed: true, band: 'nailed', xpAwarded: 7 },
+      { score: 40, passed: false, band: 'retry', xpAwarded: 0 },
+    ];
     let call = 0;
-    mockState.evaluate = jest.fn(async () => ({
-      score: scores[call++],
-      passed: true,
-      transcript: 'ok',
-      feedback: 'Good.',
-      tip: null,
-      evaluationToken: `tok-${call}`,
-    }));
+    mockState.evaluate = jest.fn(async () => {
+      const r = results[call++];
+      return { score: r.score, passed: r.passed, band: r.band, xpAwarded: r.xpAwarded, transcript: 'ok', feedback: 'Good.', tip: null, evaluationToken: `tok-${call}` };
+    });
 
     render(<PracticeScreen />);
     await waitForRecordReady();
     await recordAndScore();
 
     // Phrase 0 dot = 75
-    expect(screen.getByLabelText('Score: 75')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/Score:/)).toHaveLength(1);
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
 
     // Advance to phrase 1
     await act(async () => {
@@ -243,8 +251,8 @@ describe('score trail — phrase-index alignment', () => {
     await recordAndScore();
 
     // Both dots should now be scored with their own values
-    expect(screen.getByLabelText('Score: 75')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Score: 55')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/Score:/)).toHaveLength(2);
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
+    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(2);
   });
 });

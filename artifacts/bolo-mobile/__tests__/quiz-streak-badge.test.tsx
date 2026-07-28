@@ -26,6 +26,8 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetDailyQuiz: (_params: unknown, _opts: unknown) => mockState.quiz,
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
   getGetDailyQuizQueryKey: () => ['daily-quiz'],
   useGetAccount: () => ({ data: { preferences: { learning: { ttsVoice: 'auto' } } } }),
@@ -33,7 +35,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('@/hooks/useColors', () => ({

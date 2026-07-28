@@ -40,7 +40,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: h.invalidateQueries }),
+  useQueryClient: () => ({ invalidateQueries: h.invalidateQueries, setQueryData: vi.fn() }),
 }));
 
 vi.mock("@/lib/entitlements", () => ({
@@ -65,6 +65,8 @@ vi.mock("@/lib/billing", () => ({
 vi.mock("@workspace/api-client-react", () => ({
   ApiError,
   useGetAccountSubscription: () => h.sub,
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useCancelAccountSubscription: () => ({ mutateAsync: h.cancel }),
   usePauseAccountSubscription: () => ({ mutateAsync: h.pause }),
   useUnpauseAccountSubscription: () => ({ mutateAsync: h.unpause, isPending: false }),

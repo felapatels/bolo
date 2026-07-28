@@ -40,6 +40,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -48,7 +49,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -136,6 +137,8 @@ beforeEach(async () => {
   mockState.evaluate = jest.fn(async () => ({
     score: 88,
     passed: true,
+    band: 'nailed',
+    xpAwarded: 8,
     transcript: 'namaste',
     feedback: 'Nice work on that greeting!',
     tip: 'Soften the t sound.',

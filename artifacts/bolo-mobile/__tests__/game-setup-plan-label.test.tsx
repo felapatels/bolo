@@ -21,11 +21,12 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategories: () => ({ data: [{ id: 1, title: 'Basics', slug: 'basics' }], isLoading: false }),
   useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   useRecordGameSession: () => ({ mutate: jest.fn() }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress-summary'],
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('@/contexts/LanguageContext', () => ({

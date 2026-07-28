@@ -51,6 +51,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getChatTurnUrl: () => '/api/chat/turn',
   getConfiguredBaseUrl: () => '',
   getConfiguredAuthToken: jest.fn().mockResolvedValue('mock-token'),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
 jest.mock('@/constants/fonts', () => ({

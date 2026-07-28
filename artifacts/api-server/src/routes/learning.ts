@@ -10,8 +10,9 @@ import {
   userItemMemoryTable,
   userAbilityTable,
   xpLedgerTable,
+  usersTable,
 } from "@workspace/db";
-import { asc, desc, eq, and, ne, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, and, ne, inArray, sql, gte } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -1233,43 +1234,64 @@ router.get(
 
     const timezone = getUserTimezone(req);
 
-    const [attempts, phrases, [gameXpRow]] = await Promise.all([
-      db
-        .select()
-        .from(attemptsTable)
-        .where(
-          and(
-            eq(attemptsTable.userId, userId),
-            eq(attemptsTable.languageCode, lang),
+    // 2-day lookback for today's XP: any entry from the past 48 h is a
+    // candidate; we then bucket by local calendar day using localDayKey().
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+    const [attempts, phrases, [gameXpRow], [userRow], recentXpRows] =
+      await Promise.all([
+        db
+          .select()
+          .from(attemptsTable)
+          .where(
+            and(
+              eq(attemptsTable.userId, userId),
+              eq(attemptsTable.languageCode, lang),
+            ),
           ),
-        ),
-      db
-        .select({ id: phrasesTable.id })
-        .from(phrasesTable)
-        .where(
-          and(
-            eq(phrasesTable.languageCode, lang),
-            // Keep the summary's phrase totals stable: the Plus-only sentence
-            // stage is a separate step and doesn't inflate totalPhrases.
-            eq(phrasesTable.stage, "phrase"),
+        db
+          .select({ id: phrasesTable.id })
+          .from(phrasesTable)
+          .where(
+            and(
+              eq(phrasesTable.languageCode, lang),
+              // Keep the summary's phrase totals stable: the Plus-only sentence
+              // stage is a separate step and doesn't inflate totalPhrases.
+              eq(phrasesTable.stage, "phrase"),
+            ),
           ),
-        ),
-      // Total XP from the append-only ledger: includes pronunciation attempts,
-      // game sessions, and daily quiz completions.
-      db
-        .select({ total: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)` })
-        .from(xpLedgerTable)
-        .where(
-          and(
-            eq(xpLedgerTable.userId, userId),
-            eq(xpLedgerTable.languageCode, lang),
+        // Total (lifetime) XP from the append-only ledger.
+        db
+          .select({ total: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)` })
+          .from(xpLedgerTable)
+          .where(
+            and(
+              eq(xpLedgerTable.userId, userId),
+              eq(xpLedgerTable.languageCode, lang),
+            ),
           ),
-        ),
-    ]);
+        // User row for dailyGoal.
+        db
+          .select({ dailyGoal: usersTable.dailyGoal })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId)),
+        // Recent XP entries for today's sum (filtered in JS by localDayKey).
+        db
+          .select({ xp: xpLedgerTable.xp, createdAt: xpLedgerTable.createdAt })
+          .from(xpLedgerTable)
+          .where(
+            and(
+              eq(xpLedgerTable.userId, userId),
+              eq(xpLedgerTable.languageCode, lang),
+              gte(xpLedgerTable.createdAt, twoDaysAgo),
+            ),
+          ),
+      ]);
 
     const totalPhrases = phrases.length;
     const metrics = computeProgressMetrics(attempts, timezone);
     const totalXp = Number(gameXpRow?.total ?? 0);
+    const dailyGoal = userRow?.dailyGoal ?? 10;
 
     const scores = attempts.map((a) => a.score);
     const averageScore =
@@ -1284,6 +1306,12 @@ router.get(
       (a) => localDayKey(a.createdAt, timezone) === today,
     ).length;
 
+    // Today's XP: sum entries whose local calendar day (in the user's timezone)
+    // matches today. Uses localDayKey() — same bucketing as streak and attemptsToday.
+    const todayXp = recentXpRows
+      .filter((r) => localDayKey(r.createdAt, timezone) === today)
+      .reduce((sum, r) => sum + r.xp, 0);
+
     res.json({
       totalAttempts: metrics.totalAttempts,
       phrasesPracticed: metrics.phrasesPracticed,
@@ -1294,6 +1322,8 @@ router.get(
       currentStreakDays: metrics.currentStreakDays,
       attemptsToday,
       xp: totalXp,
+      todayXp,
+      dailyGoal,
     });
   },
 );

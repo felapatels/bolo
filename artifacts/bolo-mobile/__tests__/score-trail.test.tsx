@@ -102,6 +102,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -110,7 +111,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -265,6 +266,10 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 85,
       passed: true,
+      band: 'nailed',
+      xpAwarded: 8,
+      band: 'nailed',
+      xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Great!',
       tip: '',
@@ -287,6 +292,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 85,
       passed: true,
+      band: 'nailed',
+      xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Excellent!',
       tip: '',
@@ -299,8 +306,8 @@ describe('ScoreTrail dot colors', () => {
 
     // Dot 0 should now be green (score 85 ≥ 70)
     expect(getDotColor(0)).toBe(COLORS.success);
-    // It also gains the accessibility label with the score
-    expect(screen.getByLabelText('Score: 85')).toBeOnTheScreen();
+    // It also gains the accessibility label with the band
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
   });
 
   test('score 50–69 shows an amber dot (gold color)', async () => {
@@ -308,6 +315,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 55,
       passed: false,
+      band: 'close',
+      xpAwarded: 5,
       transcript: 'namasthe',
       feedback: 'Getting there.',
       tip: 'Soften the ending.',
@@ -320,7 +329,7 @@ describe('ScoreTrail dot colors', () => {
 
     // Dot 0 should be amber (score 55: 50 ≤ 55 < 70)
     expect(getDotColor(0)).toBe(COLORS.gold);
-    expect(screen.getByLabelText('Score: 55')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Close')).toBeOnTheScreen();
   });
 
   test('score < 50 shows a red dot (destructive color)', async () => {
@@ -328,6 +337,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 30,
       passed: false,
+      band: 'retry',
+      xpAwarded: 0,
       transcript: '',
       feedback: 'Keep trying.',
       tip: 'Listen carefully first.',
@@ -340,7 +351,7 @@ describe('ScoreTrail dot colors', () => {
 
     // Dot 0 should be red (score 30 < 50)
     expect(getDotColor(0)).toBe(COLORS.destructive);
-    expect(screen.getByLabelText('Score: 30')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
   });
 
   test('all three color buckets appear correctly after a full three-phrase session', async () => {
@@ -350,6 +361,8 @@ describe('ScoreTrail dot colors', () => {
       .mockResolvedValueOnce({
         score: 85,
         passed: true,
+        band: 'nailed',
+        xpAwarded: 8,
         transcript: 'namaste',
         feedback: 'Great!',
         tip: '',
@@ -359,6 +372,8 @@ describe('ScoreTrail dot colors', () => {
       .mockResolvedValueOnce({
         score: 58,
         passed: false,
+        band: 'close',
+        xpAwarded: 5,
         transcript: 'aabhaar',
         feedback: 'Getting there.',
         tip: 'Stress the second syllable.',
@@ -368,6 +383,8 @@ describe('ScoreTrail dot colors', () => {
       .mockResolvedValueOnce({
         score: 32,
         passed: false,
+        band: 'retry',
+        xpAwarded: 0,
         transcript: '',
         feedback: 'Keep trying.',
         tip: 'Listen to the model again.',
@@ -387,7 +404,7 @@ describe('ScoreTrail dot colors', () => {
 
     // After scoring: dot 0 green, dot 1 now current (muted-primary), dot 2 muted
     expect(getDotColor(0)).toBe(COLORS.success);
-    expect(screen.getByLabelText('Score: 85')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
 
     await tapNext();
 
@@ -400,7 +417,7 @@ describe('ScoreTrail dot colors', () => {
     // dot 0 stays green, dot 1 becomes amber
     expect(getDotColor(0)).toBe(COLORS.success);
     expect(getDotColor(1)).toBe(COLORS.gold);
-    expect(screen.getByLabelText('Score: 58')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Close')).toBeOnTheScreen();
 
     await tapNext();
 
@@ -414,7 +431,7 @@ describe('ScoreTrail dot colors', () => {
     expect(getDotColor(0)).toBe(COLORS.success);
     expect(getDotColor(1)).toBe(COLORS.gold);
     expect(getDotColor(2)).toBe(COLORS.destructive);
-    expect(screen.getByLabelText('Score: 32')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
   });
 
   test('retry replaces the dot color rather than pushing a new one', async () => {
@@ -424,6 +441,8 @@ describe('ScoreTrail dot colors', () => {
       .mockResolvedValueOnce({
         score: 40,
         passed: false,
+        band: 'retry',
+        xpAwarded: 0,
         transcript: '',
         feedback: 'Keep trying.',
         tip: '',
@@ -433,6 +452,8 @@ describe('ScoreTrail dot colors', () => {
       .mockResolvedValueOnce({
         score: 80,
         passed: true,
+        band: 'nailed',
+        xpAwarded: 8,
         transcript: 'namaste',
         feedback: 'Much better!',
         tip: '',
@@ -456,8 +477,8 @@ describe('ScoreTrail dot colors', () => {
     // Retry overwrites the same slot — should now be green, not a new dot
     expect(getDotColor(0)).toBe(COLORS.success);
     // There's still only one scored dot for phrase index 0
-    expect(screen.getByLabelText('Score: 80')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Score: 40')).toBeNull();
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Try again')).toBeNull();
   });
 
   // ── Boundary / fence-post tests ──────────────────────────────────────────
@@ -467,6 +488,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 70,
       passed: true,
+      band: 'nailed',
+      xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Good!',
       tip: '',
@@ -479,7 +502,7 @@ describe('ScoreTrail dot colors', () => {
 
     // Exactly 70 satisfies score >= 70 → green, not amber
     expect(getDotColor(0)).toBe(COLORS.success);
-    expect(screen.getByLabelText('Score: 70')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
   });
 
   test('score exactly 69 shows an amber dot (not green)', async () => {
@@ -487,6 +510,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 69,
       passed: false,
+      band: 'close',
+      xpAwarded: 5,
       transcript: 'namasthe',
       feedback: 'Getting there.',
       tip: '',
@@ -499,7 +524,7 @@ describe('ScoreTrail dot colors', () => {
 
     // 69 < 70, so falls into the amber band (>= 50)
     expect(getDotColor(0)).toBe(COLORS.gold);
-    expect(screen.getByLabelText('Score: 69')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Close')).toBeOnTheScreen();
   });
 
   test('score exactly 50 shows an amber dot (not red)', async () => {
@@ -507,6 +532,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 50,
       passed: false,
+      band: 'close',
+      xpAwarded: 5,
       transcript: 'namasthe',
       feedback: 'Keep at it.',
       tip: '',
@@ -519,7 +546,7 @@ describe('ScoreTrail dot colors', () => {
 
     // Exactly 50 satisfies score >= 50 → amber, not red
     expect(getDotColor(0)).toBe(COLORS.gold);
-    expect(screen.getByLabelText('Score: 50')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
   });
 
   test('score exactly 49 shows a red dot (not amber)', async () => {
@@ -527,6 +554,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 49,
       passed: false,
+      band: 'retry',
+      xpAwarded: 0,
       transcript: '',
       feedback: 'Keep trying.',
       tip: 'Listen carefully first.',
@@ -539,7 +568,7 @@ describe('ScoreTrail dot colors', () => {
 
     // 49 < 50 → red, not amber
     expect(getDotColor(0)).toBe(COLORS.destructive);
-    expect(screen.getByLabelText('Score: 49')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
   });
 
   test('tapping a scored dot shows the tooltip with phrase number and score', async () => {
@@ -547,6 +576,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 72,
       passed: true,
+      band: 'nailed',
+      xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Good!',
       tip: '',
@@ -559,12 +590,12 @@ describe('ScoreTrail dot colors', () => {
 
     // Dot 0 is now scored — tap it
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Score: 72'));
+      fireEvent.press(screen.getByLabelText('Nailed it'));
     });
 
     // Tooltip should appear with the phrase number and score
     await waitFor(() =>
-      expect(screen.getByText('Phrase 1: 72 / 100')).toBeOnTheScreen(),
+      expect(screen.getByText('Phrase 1: Nailed it')).toBeOnTheScreen(),
     );
   });
 });

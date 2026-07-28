@@ -15,6 +15,8 @@ import { type Category } from '@workspace/api-client-react';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
+jest.mock('../components/XpCounter', () => ({ XpCounter: () => null }));
+
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     primary: '#6C3FC5',

@@ -31,7 +31,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
@@ -75,7 +75,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));

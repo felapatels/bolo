@@ -25,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { appear, useAppearSkip } from '@/lib/entrance';
+import { XpCounter } from '@/components/XpCounter';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -300,6 +301,10 @@ export default function HomeScreen() {
                 Ready to speak {activeLanguage.name}?
               </Text>
             ) : null}
+            {/* Daily XP counter below the greeting */}
+            <View style={{ marginTop: 6 }}>
+              <XpCounter variant="chrome" />
+            </View>
           </View>
           <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
           <Pressable

@@ -45,7 +45,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
@@ -76,7 +76,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));
@@ -129,6 +130,9 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
+    band: "nailed",
+    passed: true,
+    xpAwarded: 9,
     feedback: "Great!",
     tip: "Keep going.",
     evaluationToken: "signed-token",
@@ -214,7 +218,7 @@ describe("hold-to-talk recording mechanics", () => {
 
     await waitFor(() => expect(h.stopRecording).toHaveBeenCalled());
     await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
   });
 });
 
@@ -227,10 +231,10 @@ describe("evaluation error surfacing", () => {
     await waitFor(() =>
       expect(screen.getByText("Oops, that didn't work")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/squawker hit a snag/i)).toBeInTheDocument();
+    expect(screen.getByText(/snag/i)).toBeInTheDocument();
 
     // Retry recovers cleanly back to the belly zone.
-    fireEvent.click(screen.getByText("Try again"));
+    fireEvent.click(screen.getByText("Record again"));
     await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
   });
 
@@ -260,7 +264,7 @@ describe("evaluation error surfacing", () => {
     await reachIdle();
     await recordAndStop();
 
-    await waitFor(() => expect(screen.getByText("Score: 90")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
     expect(screen.getByText(/couldn't be saved to your progress/i)).toBeInTheDocument();
   });
 });

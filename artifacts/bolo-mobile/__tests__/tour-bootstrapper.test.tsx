@@ -30,6 +30,8 @@ const mockState = {
 jest.mock('@workspace/api-client-react', () => ({
   setAuthTokenGetter: jest.fn(),
   useGetAccount: () => ({
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
     data:
       mockState.hasCompletedTour === null
         ? undefined

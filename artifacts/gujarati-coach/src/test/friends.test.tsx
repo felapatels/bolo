@@ -62,7 +62,7 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: h.invalidateQueries }),
+  useQueryClient: () => ({ invalidateQueries: h.invalidateQueries, setQueryData: vi.fn() }),
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
@@ -76,6 +76,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useListFriends: () => h.friends,
   useRemoveFriend: () => h.remove,
   useGetFriendsLeaderboard: () => h.leaderboard,
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   getSearchFriendByEmailQueryKey: () => ["search-friend"],
   getListIncomingFriendRequestsQueryKey: () => ["incoming"],
   getListOutgoingFriendRequestsQueryKey: () => ["outgoing"],
