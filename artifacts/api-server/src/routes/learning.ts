@@ -4,6 +4,8 @@ import {
   categoriesTable,
   lessonsTable,
   lessonGroupsTable,
+  lessonGroupProgressTable,
+  lessonGroupTestoutsTable,
   phrasesTable,
   attemptsTable,
   badgesTable,
@@ -72,7 +74,16 @@ import {
   dailyLessonCapDenial,
   recordLessonGeneration,
 } from "../lib/lessonLimits";
-import { UpgradeRequiredError, featuresForPlan } from "../lib/entitlements";
+import {
+  UpgradeRequiredError,
+  featuresForPlan,
+  upgradeRequired,
+} from "../lib/entitlements";
+import {
+  deriveGroupStatuses,
+  testoutRequiredCorrect,
+  TESTOUT_SAMPLE_SIZE,
+} from "../lib/lessonGroupUnlock";
 import {
   phraseKey,
   replenishPhrases,
@@ -1724,7 +1735,8 @@ router.get(
     // Free is limited to Hindi; other languages require Bolo! Plus.
     if (denyLockedLanguage(req, res, lang)) return;
 
-    const [groups, members, attempts, [unassigned]] = await Promise.all([
+    const [groups, members, attempts, [unassigned], progressRows] =
+      await Promise.all([
       db
         .select()
         .from(lessonGroupsTable)
@@ -1758,6 +1770,13 @@ router.get(
             isNull(phrasesTable.lessonGroupId),
           ),
         ),
+      db
+        .select({
+          lessonGroupId: lessonGroupProgressTable.lessonGroupId,
+          status: lessonGroupProgressTable.status,
+        })
+        .from(lessonGroupProgressTable)
+        .where(eq(lessonGroupProgressTable.userId, userId)),
     ]);
 
     const stats = buildPhraseStats(attempts);
@@ -1768,6 +1787,23 @@ router.get(
       list.push(m.id);
       byGroup.set(m.lessonGroupId, list);
     }
+
+    // D1a Slice 2: sequential unlock, derived at read time. Entitlements were
+    // evaluated FIRST (denyLockedLanguage above); unlock state composes after.
+    const testedOut = new Set(
+      progressRows
+        .filter((r) => r.status === "tested_out")
+        .map((r) => r.lessonGroupId),
+    );
+    const statuses = deriveGroupStatuses(
+      groups.map((g) => ({
+        id: g.id,
+        position: g.position,
+        phraseIds: byGroup.get(g.id) ?? [],
+      })),
+      stats,
+      testedOut,
+    );
 
     res.json({
       lessonGroups: groups.map((g) => {
@@ -1786,6 +1822,7 @@ router.get(
           phraseCount: phraseIds.length,
           attemptedCount: attempted,
           masteredCount: mastered,
+          status: statuses.get(g.id) ?? "locked",
         };
       }),
       unassignedCount: unassigned?.n ?? 0,
@@ -1835,6 +1872,184 @@ router.get(
       ? phrases
       : phrases.filter((p) => !p.premium);
     res.json(accessible.map((p) => serializePhrase(p, stats)));
+  },
+);
+
+// ── D1a Slice 2: test-out assessment ──────────────────────────────────────
+// A learner may skip ahead past a locked group by demonstrating
+// mastery-equivalent performance: GET samples up to TESTOUT_SAMPLE_SIZE of the
+// group's phrases (accessible to the caller — premium text is never sent to a
+// caller without extended-library access); POST submits the server-signed
+// evaluation tokens for those attempts. Pass = band 'nailed' (score >= 80) on
+// at least ceil(0.8 * sampleSize). Entitlement gates run FIRST, so unlock
+// state never grants access that entitlements deny.
+
+// Loads a test-out target group and the caller's accessible phrase-stage rows,
+// enforcing the shared gates. Returns null after responding on any denial.
+async function loadTestoutGroup(
+  req: Request,
+  res: Response,
+): Promise<{ groupId: number; phrases: (typeof phrasesTable.$inferSelect)[] } | null> {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid lesson group id" });
+    return null;
+  }
+  const group = await db.query.lessonGroupsTable.findFirst({
+    where: (t, { eq: eqFn }) => eqFn(t.id, id),
+  });
+  if (!group) {
+    res.status(404).json({ error: "Lesson group not found" });
+    return null;
+  }
+  // Entitlements evaluate first — before any unlock/test-out logic.
+  if (denyLockedLanguage(req, res, group.languageCode)) return null;
+
+  const { resolvedPlan } = req as EntitledRequest;
+  const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
+  const rows = await db
+    .select()
+    .from(phrasesTable)
+    .where(eq(phrasesTable.lessonGroupId, id))
+    .orderBy(asc(phrasesTable.lessonGroupPosition));
+  const accessible = canAccessPremium ? rows : rows.filter((p) => !p.premium);
+  if (accessible.length === 0) {
+    // Every phrase in this group is premium: the assessment itself is gated.
+    sendUpgradeRequired(
+      res,
+      upgradeRequired(
+        "feature_locked",
+        "This group's phrases are part of the extended library. Upgrade to Bolo! Plus to test out of it.",
+        "extendedLibrary",
+      ),
+    );
+    return null;
+  }
+  return { groupId: id, phrases: accessible };
+}
+
+// GET /lesson-groups/:id/test-out — a fresh random sample for one assessment.
+// Failing is retryable with a new sample, so no seeding/persistence here; the
+// POST validates membership, not that the exact GET sample was used.
+router.get(
+  "/lesson-groups/:id/test-out",
+  async (req: Request, res: Response): Promise<void> => {
+    const loaded = await loadTestoutGroup(req, res);
+    if (!loaded) return;
+    const userId = getUserId(req);
+    const group = await db.query.lessonGroupsTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, loaded.groupId),
+    });
+    const attempts = await fetchUserAttempts(userId, group!.languageCode);
+    const stats = buildPhraseStats(attempts);
+
+    const pool = [...loaded.phrases];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+    const sample = pool.slice(0, Math.min(TESTOUT_SAMPLE_SIZE, pool.length));
+    res.json({
+      phrases: sample.map((p) => serializePhrase(p, stats)),
+      sampleSize: sample.length,
+      requiredCorrect: testoutRequiredCorrect(sample.length),
+    });
+  },
+);
+
+const TestoutBody = z.object({
+  attempts: z
+    .array(
+      z.object({
+        phraseId: z.number().int(),
+        evaluationToken: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(TESTOUT_SAMPLE_SIZE),
+});
+
+// POST /lesson-groups/:id/test-out — grade a submitted assessment. Every
+// attempt must carry the server-signed evaluation token (scores are never
+// client-asserted). Each submission is persisted (pass or fail) so rate
+// limiting can be layered on later.
+router.post(
+  "/lesson-groups/:id/test-out",
+  async (req: Request, res: Response): Promise<void> => {
+    const loaded = await loadTestoutGroup(req, res);
+    if (!loaded) return;
+    const userId = getUserId(req);
+
+    const parsed = TestoutBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid test-out submission" });
+      return;
+    }
+
+    const sampleSize = Math.min(TESTOUT_SAMPLE_SIZE, loaded.phrases.length);
+    const required = testoutRequiredCorrect(sampleSize);
+    const accessibleIds = new Set(loaded.phrases.map((p) => p.id));
+
+    const seen = new Set<number>();
+    let verified = 0;
+    let nailed = 0;
+    for (const a of parsed.data.attempts) {
+      const claims = verifyEvaluation(a.evaluationToken);
+      if (
+        !claims ||
+        claims.userId !== userId ||
+        claims.phraseId !== a.phraseId ||
+        !accessibleIds.has(a.phraseId) ||
+        seen.has(a.phraseId)
+      ) {
+        res.status(400).json({
+          error:
+            "Test-out attempts must carry valid evaluation tokens for distinct phrases of this group",
+        });
+        return;
+      }
+      seen.add(a.phraseId);
+      verified++;
+      if (claims.band === "nailed") nailed++;
+    }
+    if (verified !== sampleSize) {
+      res.status(400).json({
+        error: `A test-out for this group requires ${sampleSize} distinct phrase attempts`,
+      });
+      return;
+    }
+
+    const passed = nailed >= required;
+    await db.transaction(async (tx) => {
+      await tx.insert(lessonGroupTestoutsTable).values({
+        userId,
+        lessonGroupId: loaded.groupId,
+        passed,
+      });
+      if (passed) {
+        // Persist the skip. Keyed by group ID (never position), so replenisher
+        // position shifts can never orphan or misattribute this row. Never
+        // downgraded: derivation prefers 'completed' when both apply.
+        await tx
+          .insert(lessonGroupProgressTable)
+          .values({ userId, lessonGroupId: loaded.groupId, status: "tested_out" })
+          .onConflictDoUpdate({
+            target: [
+              lessonGroupProgressTable.userId,
+              lessonGroupProgressTable.lessonGroupId,
+            ],
+            set: { status: "tested_out", updatedAt: new Date() },
+          });
+      }
+    });
+
+    res.json({
+      passed,
+      correctCount: nailed,
+      requiredCorrect: required,
+      sampleSize,
+      status: passed ? "tested_out" : undefined,
+    });
   },
 );
 

@@ -51,6 +51,14 @@ export const lessonGroupsTable = pgTable(
       t.categoryId,
       t.position,
     ),
+    // Target for the composite FK from phrases (D1a Slice 2 hardening): lets
+    // phrases reference (id, language_code, category_id) as one unit so a
+    // phrase's group is guaranteed to share the phrase's language + category.
+    unique("lesson_groups_id_language_category_unique").on(
+      t.id,
+      t.languageCode,
+      t.categoryId,
+    ),
     index("lesson_groups_language_category_position_idx").on(
       t.languageCode,
       t.categoryId,

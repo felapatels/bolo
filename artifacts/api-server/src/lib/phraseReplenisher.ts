@@ -10,8 +10,14 @@
 //     dedups overlapping triggers both in-process (same server, topic opened
 //     twice quickly) and across processes/devices (a Postgres advisory lock),
 //     so a topic is never double-replenished.
-import { db, pool, phrasesTable, lessonGenerationsTable } from "@workspace/db";
-import { and, eq, gte } from "drizzle-orm";
+import {
+  db,
+  pool,
+  phrasesTable,
+  lessonGroupsTable,
+  lessonGenerationsTable,
+} from "@workspace/db";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import {
   generateAdditionalPhrases,
   type AdditionalPhrasesRequest,
@@ -44,6 +50,20 @@ export const REPLENISH_COOLDOWN_MS = 10 * 60 * 1000;
 // so the starter set grows modestly without ballooning.
 export const FREE_REPLENISH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const FREE_PHRASE_CEILING = 20; // max phrases a Free topic may grow to
+
+// D1a Slice 2: size cap for appending replenished phrases to the last
+// phrase-stage lesson group. 14 = the largest group Slice 1's partitioner
+// itself produces (target 10 + merged tail of up to 4). At or above the cap a
+// new phrase-stage group is created instead.
+export const GROUP_SIZE_CAP = 14;
+
+// Postgres unique_violation, possibly wrapped by drizzle (err.cause).
+function isUniqueViolation(err: unknown): boolean {
+  const code =
+    (err as { code?: string } | null)?.code ??
+    ((err as { cause?: { code?: string } } | null)?.cause?.code ?? null);
+  return code === "23505";
+}
 
 // Loose key for de-duplicating phrases by their native-script text (shared
 // with the manual "Add more phrases" endpoint's guard).
@@ -243,23 +263,165 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
 
     const startOrder =
       existing.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1;
-    const inserted = await db
-      .insert(phrasesTable)
-      .values(
-        fresh.map((p, i) => ({
-          lessonId: lesson.id,
-          languageCode,
-          categoryId,
-          nativeScript: p.nativeScript,
-          romanized: p.romanized,
-          english: p.english,
-          difficulty: p.difficulty,
-          sortOrder: startOrder + i,
-          stage: "phrase",
-        })),
-      )
-      .returning({ id: phrasesTable.id });
-    return inserted.length;
+
+    // ── D1a Slice 2: insert-time lesson-group assignment (strategy A) ──
+    // Fresh phrase-stage rows append to the LAST phrase-stage group while it
+    // is below the size cap; overflow creates a new phrase-stage group at
+    // (last phrase-stage position + 1), shifting any sentence-stage groups up
+    // by one so the Slice 1 invariants hold: stage blocks stay pure and
+    // phrase-stage groups keep the lower positions. Everything — the shift,
+    // new groups, and the phrase inserts — happens in ONE transaction, so a
+    // concurrent unlock-state read can never observe a mid-shift ordering
+    // (MVCC: readers see the pre-transaction snapshot until commit). Progress
+    // is keyed by group ID, never position, so shifts cannot orphan it.
+    // The whole operation also still runs under this topic's advisory lock.
+    //
+    // Race hardening: the Free and Plus replenishers use DIFFERENT advisory
+    // locks for the same topic, and the startup regroup backfill uses a third
+    // — so two writers can, rarely, plan the same group positions. The unique
+    // constraints then roll back one transaction; we retry once against the
+    // fresh state, and as a last resort insert the phrases UNASSIGNED
+    // (legal — nullable, surfaces in unassignedCount) rather than crash a
+    // background job or duplicate a position.
+    const insertAssigned = () => db.transaction(async (tx) => {
+      const groupRows = await tx
+        .select({
+          id: lessonGroupsTable.id,
+          position: lessonGroupsTable.position,
+          size: sql<number>`count(${phrasesTable.id})::int`,
+          maxPos: sql<number>`coalesce(max(${phrasesTable.lessonGroupPosition}), 0)::int`,
+          stage: sql<string | null>`min(${phrasesTable.stage})`,
+        })
+        .from(lessonGroupsTable)
+        .leftJoin(
+          phrasesTable,
+          eq(phrasesTable.lessonGroupId, lessonGroupsTable.id),
+        )
+        .where(
+          and(
+            eq(lessonGroupsTable.languageCode, languageCode),
+            eq(lessonGroupsTable.categoryId, categoryId),
+          ),
+        )
+        .groupBy(lessonGroupsTable.id, lessonGroupsTable.position)
+        .orderBy(asc(lessonGroupsTable.position));
+
+      const phraseGroups = groupRows.filter(
+        (g) => g.size > 0 && g.stage === "phrase",
+      );
+      const lastPhrase = phraseGroups[phraseGroups.length - 1] ?? null;
+      const lastPhrasePos = lastPhrase?.position ?? 0;
+
+      // Plan each fresh row's slot. Placeholder ids (-1, -2, …) mark groups
+      // that must be created; they map to positions lastPhrasePos+1, +2, ….
+      type Slot = { groupId: number; groupPosition: number };
+      const slots: Slot[] = [];
+      let curId: number | null = lastPhrase?.id ?? null;
+      let curFill = lastPhrase?.maxPos ?? 0;
+      let newGroups = 0;
+      for (let i = 0; i < fresh.length; i++) {
+        if (curId == null || curFill >= GROUP_SIZE_CAP) {
+          newGroups++;
+          curId = -newGroups;
+          curFill = 0;
+        }
+        curFill++;
+        slots.push({ groupId: curId, groupPosition: curFill });
+      }
+
+      const realId = new Map<number, number>();
+      if (newGroups > 0) {
+        // Make room: shift every group past the phrase-stage block up by
+        // newGroups. Two-phase sign flip because the (language, category,
+        // position) unique constraint is checked per row.
+        await tx
+          .update(lessonGroupsTable)
+          .set({ position: sql`-(${lessonGroupsTable.position} + ${newGroups})` })
+          .where(
+            and(
+              eq(lessonGroupsTable.languageCode, languageCode),
+              eq(lessonGroupsTable.categoryId, categoryId),
+              sql`${lessonGroupsTable.position} > ${lastPhrasePos}`,
+            ),
+          );
+        await tx
+          .update(lessonGroupsTable)
+          .set({ position: sql`-${lessonGroupsTable.position}` })
+          .where(
+            and(
+              eq(lessonGroupsTable.languageCode, languageCode),
+              eq(lessonGroupsTable.categoryId, categoryId),
+              sql`${lessonGroupsTable.position} < 0`,
+            ),
+          );
+        for (let k = 1; k <= newGroups; k++) {
+          const [created] = await tx
+            .insert(lessonGroupsTable)
+            .values({
+              languageCode,
+              categoryId,
+              position: lastPhrasePos + k,
+            })
+            .returning({ id: lessonGroupsTable.id });
+          realId.set(-k, created!.id);
+        }
+      }
+
+      const rows = await tx
+        .insert(phrasesTable)
+        .values(
+          fresh.map((p, i) => ({
+            lessonId: lesson.id,
+            languageCode,
+            categoryId,
+            nativeScript: p.nativeScript,
+            romanized: p.romanized,
+            english: p.english,
+            difficulty: p.difficulty,
+            sortOrder: startOrder + i,
+            stage: "phrase",
+            lessonGroupId:
+              slots[i]!.groupId < 0
+                ? realId.get(slots[i]!.groupId)!
+                : slots[i]!.groupId,
+            lessonGroupPosition: slots[i]!.groupPosition,
+          })),
+        )
+        .returning({ id: phrasesTable.id });
+      return rows.length;
+    });
+
+    const insertUnassigned = async () => {
+      const rows = await db
+        .insert(phrasesTable)
+        .values(
+          fresh.map((p, i) => ({
+            lessonId: lesson.id,
+            languageCode,
+            categoryId,
+            nativeScript: p.nativeScript,
+            romanized: p.romanized,
+            english: p.english,
+            difficulty: p.difficulty,
+            sortOrder: startOrder + i,
+            stage: "phrase",
+          })),
+        )
+        .returning({ id: phrasesTable.id });
+      return rows.length;
+    };
+
+    try {
+      return await insertAssigned();
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      try {
+        return await insertAssigned();
+      } catch (err2) {
+        if (!isUniqueViolation(err2)) throw err2;
+        return await insertUnassigned();
+      }
+    }
   } finally {
     if (locked) {
       await client.query("SELECT pg_advisory_unlock(hashtext($1))", [lockKey]);

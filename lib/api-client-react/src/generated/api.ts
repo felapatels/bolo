@@ -59,6 +59,9 @@ import type {
   Language,
   LeaderboardEntry,
   LessonGroupList,
+  LessonGroupTestoutInput,
+  LessonGroupTestoutResult,
+  LessonGroupTestoutSample,
   ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
@@ -435,6 +438,155 @@ export function useListCategoryLessonGroups<TData = Awaited<ReturnType<typeof li
 
 
 
+
+export const getGetLessonGroupTestoutUrl = (id: number,) => {
+
+
+
+
+  return `/api/lesson-groups/${id}/test-out`
+}
+
+/**
+ * @summary Sample phrases for a test-out assessment of one lesson group
+ */
+export const getLessonGroupTestout = async (id: number, options?: RequestInit): Promise<LessonGroupTestoutSample> => {
+
+  return customFetch<LessonGroupTestoutSample>(getGetLessonGroupTestoutUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLessonGroupTestoutQueryKey = (id: number,) => {
+    return [
+    `/api/lesson-groups/${id}/test-out`
+    ] as const;
+    }
+
+
+export const getGetLessonGroupTestoutQueryOptions = <TData = Awaited<ReturnType<typeof getLessonGroupTestout>>, TError = ErrorType<UpgradeRequired | Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLessonGroupTestout>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLessonGroupTestoutQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLessonGroupTestout>>> = ({ signal }) => getLessonGroupTestout(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLessonGroupTestout>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLessonGroupTestoutQueryResult = NonNullable<Awaited<ReturnType<typeof getLessonGroupTestout>>>
+export type GetLessonGroupTestoutQueryError = ErrorType<UpgradeRequired | Error>
+
+
+/**
+ * @summary Sample phrases for a test-out assessment of one lesson group
+ */
+
+export function useGetLessonGroupTestout<TData = Awaited<ReturnType<typeof getLessonGroupTestout>>, TError = ErrorType<UpgradeRequired | Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLessonGroupTestout>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLessonGroupTestoutQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitLessonGroupTestoutUrl = (id: number,) => {
+
+
+
+
+  return `/api/lesson-groups/${id}/test-out`
+}
+
+/**
+ * @summary Submit a test-out assessment (server-signed evaluation tokens only)
+ */
+export const submitLessonGroupTestout = async (id: number,
+    lessonGroupTestoutInput: LessonGroupTestoutInput, options?: RequestInit): Promise<LessonGroupTestoutResult> => {
+
+  return customFetch<LessonGroupTestoutResult>(getSubmitLessonGroupTestoutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(lessonGroupTestoutInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitLessonGroupTestoutMutationOptions = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitLessonGroupTestout>>, TError,{id: number;data: BodyType<LessonGroupTestoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitLessonGroupTestout>>, TError,{id: number;data: BodyType<LessonGroupTestoutInput>}, TContext> => {
+
+const mutationKey = ['submitLessonGroupTestout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitLessonGroupTestout>>, {id: number;data: BodyType<LessonGroupTestoutInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitLessonGroupTestout(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitLessonGroupTestoutMutationResult = NonNullable<Awaited<ReturnType<typeof submitLessonGroupTestout>>>
+    export type SubmitLessonGroupTestoutMutationBody = BodyType<LessonGroupTestoutInput>
+    export type SubmitLessonGroupTestoutMutationError = ErrorType<Error | UpgradeRequired>
+
+    /**
+ * @summary Submit a test-out assessment (server-signed evaluation tokens only)
+ */
+export const useSubmitLessonGroupTestout = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitLessonGroupTestout>>, TError,{id: number;data: BodyType<LessonGroupTestoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitLessonGroupTestout>>,
+        TError,
+        {id: number;data: BodyType<LessonGroupTestoutInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitLessonGroupTestoutMutationOptions(options));
+    }
 
 export const getListLessonGroupPhrasesUrl = (id: number,) => {
 

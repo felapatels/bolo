@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LessonGroupSummaryStatus } from './lessonGroupSummaryStatus';
 
 export interface LessonGroupSummary {
   id?: number;
@@ -14,4 +15,6 @@ export interface LessonGroupSummary {
   phraseCount?: number;
   attemptedCount?: number;
   masteredCount?: number;
+  /** Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed/tested_out; tested_out when the learner passed the test-out assessment. Optional/additive - older clients may ignore it. */
+  status?: LessonGroupSummaryStatus;
 }

@@ -282,6 +282,20 @@ export interface Phrase {
   attemptCount: number;
 }
 
+/**
+ * Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed/tested_out; tested_out when the learner passed the test-out assessment. Optional/additive - older clients may ignore it.
+ */
+export type LessonGroupSummaryStatus = typeof LessonGroupSummaryStatus[keyof typeof LessonGroupSummaryStatus];
+
+
+export const LessonGroupSummaryStatus = {
+  locked: 'locked',
+  unlocked: 'unlocked',
+  in_progress: 'in_progress',
+  completed: 'completed',
+  tested_out: 'tested_out',
+} as const;
+
 export interface LessonGroupSummary {
   id?: number;
   position?: number;
@@ -290,6 +304,43 @@ export interface LessonGroupSummary {
   phraseCount?: number;
   attemptedCount?: number;
   masteredCount?: number;
+  /** Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed/tested_out; tested_out when the learner passed the test-out assessment. Optional/additive - older clients may ignore it. */
+  status?: LessonGroupSummaryStatus;
+}
+
+export interface LessonGroupTestoutSample {
+  phrases?: Phrase[];
+  sampleSize?: number;
+  requiredCorrect?: number;
+}
+
+export type LessonGroupTestoutInputAttemptsItem = {
+  phraseId: number;
+  /** @minLength 1 */
+  evaluationToken: string;
+};
+
+export interface LessonGroupTestoutInput {
+  /**
+     * @minItems 1
+     * @maxItems 5
+     */
+  attempts: LessonGroupTestoutInputAttemptsItem[];
+}
+
+export type LessonGroupTestoutResultStatus = typeof LessonGroupTestoutResultStatus[keyof typeof LessonGroupTestoutResultStatus];
+
+
+export const LessonGroupTestoutResultStatus = {
+  tested_out: 'tested_out',
+} as const;
+
+export interface LessonGroupTestoutResult {
+  passed?: boolean;
+  correctCount?: number;
+  requiredCorrect?: number;
+  sampleSize?: number;
+  status?: LessonGroupTestoutResultStatus;
 }
 
 export interface LessonGroupList {

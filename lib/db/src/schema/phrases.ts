@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -74,6 +74,20 @@ export const phrasesTable = pgTable("phrases", {
     table.lessonGroupId,
     table.lessonGroupPosition,
   ),
+  // D1a Slice 2 hardening: a phrase's lesson group must agree with the
+  // phrase's (language, category). True composite FK (Postgres supports it via
+  // the unique (id, language_code, category_id) key on lesson_groups). MATCH
+  // SIMPLE semantics: rows with lesson_group_id NULL are unconstrained, so
+  // unassigned phrases remain legal.
+  foreignKey({
+    name: "phrases_lesson_group_scope_fk",
+    columns: [table.lessonGroupId, table.languageCode, table.categoryId],
+    foreignColumns: [
+      lessonGroupsTable.id,
+      lessonGroupsTable.languageCode,
+      lessonGroupsTable.categoryId,
+    ],
+  }),
 ]);
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

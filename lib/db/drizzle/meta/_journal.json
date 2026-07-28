@@ -176,6 +176,13 @@
       "when": 1785274049006,
       "tag": "0025_daily_goal_default_50",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785279193293,
+      "tag": "0026_slice2_unlock_model",
+      "breakpoints": true
     }
   ]
 }

@@ -73,9 +73,65 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "title": zod.string().nullish(),
   "phraseCount": zod.number().optional(),
   "attemptedCount": zod.number().optional(),
-  "masteredCount": zod.number().optional()
+  "masteredCount": zod.number().optional(),
+  "status": zod.enum(['locked', 'unlocked', 'in_progress', 'completed', 'tested_out']).optional().describe('Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed\/tested_out; tested_out when the learner passed the test-out assessment. Optional\/additive - older clients may ignore it.')
 })).optional(),
   "unassignedCount": zod.number().optional()
+})
+
+
+/**
+ * @summary Sample phrases for a test-out assessment of one lesson group
+ */
+export const GetLessonGroupTestoutParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetLessonGroupTestoutResponse = zod.object({
+  "phrases": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number()
+})).optional(),
+  "sampleSize": zod.number().optional(),
+  "requiredCorrect": zod.number().optional()
+})
+
+
+/**
+ * @summary Submit a test-out assessment (server-signed evaluation tokens only)
+ */
+export const SubmitLessonGroupTestoutParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const submitLessonGroupTestoutBodyAttemptsMax = 5;
+
+
+
+export const SubmitLessonGroupTestoutBody = zod.object({
+  "attempts": zod.array(zod.object({
+  "phraseId": zod.number(),
+  "evaluationToken": zod.string().min(1)
+})).min(1).max(submitLessonGroupTestoutBodyAttemptsMax)
+})
+
+export const SubmitLessonGroupTestoutResponse = zod.object({
+  "passed": zod.boolean().optional(),
+  "correctCount": zod.number().optional(),
+  "requiredCorrect": zod.number().optional(),
+  "sampleSize": zod.number().optional(),
+  "status": zod.enum(['tested_out']).optional()
 })
 
 

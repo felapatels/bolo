@@ -8,6 +8,7 @@ import {
   categoriesTable,
   languagesTable,
   lessonGenerationsTable,
+  lessonGroupsTable,
   usersTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -148,6 +149,10 @@ after(async () => {
     .delete(lessonGenerationsTable)
     .where(eq(lessonGenerationsTable.userId, USER));
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  // Slice 2: the replenisher now creates lesson_groups at insert time.
+  await db
+    .delete(lessonGroupsTable)
+    .where(eq(lessonGroupsTable.languageCode, LANG));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.id, categoryId));
   await db.delete(languagesTable).where(eq(languagesTable.code, LANG));

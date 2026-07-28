@@ -13,6 +13,7 @@ import {
   phrasesTable,
   attemptsTable,
   lessonGenerationsTable,
+  lessonGroupsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -285,6 +286,10 @@ after(async () => {
     .where(eq(lessonGenerationsTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  // Slice 2: the replenisher now creates lesson_groups at insert time.
+  await db
+    .delete(lessonGroupsTable)
+    .where(eq(lessonGroupsTable.languageCode, LANG));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.id, categoryId));
   await db.delete(languagesTable).where(eq(languagesTable.code, LANG));

@@ -111,6 +111,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /lesson-groups/{id}/test-out:
+    get:
+      operationId: getLessonGroupTestout
+      tags: [learning]
+      summary: Sample phrases for a test-out assessment of one lesson group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A fresh random sample plus the pass requirement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonGroupTestoutSample"
+        "402":
+          description: Upgrade required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: submitLessonGroupTestout
+      tags: [learning]
+      summary: Submit a test-out assessment (server-signed evaluation tokens only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonGroupTestoutInput"
+      responses:
+        "200":
+          description: Graded result; a pass persists tested_out for the group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonGroupTestoutResult"
+        "400":
+          description: Invalid submission (bad tokens, wrong phrases, or wrong count)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Upgrade required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /lesson-groups/{id}/phrases:
     get:
       operationId: listLessonGroupPhrases
@@ -2166,6 +2238,60 @@ components:
           type: integer
         masteredCount:
           type: integer
+        status:
+          type: string
+          enum: [locked, unlocked, in_progress, completed, tested_out]
+          description: >-
+            Sequential unlock state, derived at read time. A group is completed
+            when at least 80% of its phrases reach bestScore >= 80; unlocked
+            when it is first or its predecessor is completed/tested_out;
+            tested_out when the learner passed the test-out assessment.
+            Optional/additive - older clients may ignore it.
+
+    LessonGroupTestoutSample:
+      type: object
+      properties:
+        phrases:
+          type: array
+          items:
+            $ref: "#/components/schemas/Phrase"
+        sampleSize:
+          type: integer
+        requiredCorrect:
+          type: integer
+
+    LessonGroupTestoutInput:
+      type: object
+      properties:
+        attempts:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              phraseId:
+                type: integer
+              evaluationToken:
+                type: string
+                minLength: 1
+            required: [phraseId, evaluationToken]
+      required: [attempts]
+
+    LessonGroupTestoutResult:
+      type: object
+      properties:
+        passed:
+          type: boolean
+        correctCount:
+          type: integer
+        requiredCorrect:
+          type: integer
+        sampleSize:
+          type: integer
+        status:
+          type: string
+          enum: [tested_out]
 
     LessonGroupList:
       type: object
