@@ -12,8 +12,12 @@
 //   - locked: everything else.
 //
 // Monotonicity ("never re-locks"): bestScore only rises and tested_out rows
-// are never deleted, so a group that was ever completed or tested_out can
-// never revert to locked.
+// are never deleted — but the group DENOMINATOR can grow (the replenisher
+// appends fresh phrases to the last under-cap phrase group), which would
+// dilute a completed group's ratio below the threshold. So `completed` is
+// LATCHED: the read endpoint persists a lesson_group_progress row the first
+// time completion is observed, and the derivation honors persisted
+// completed/tested_out rows regardless of the current ratio.
 //
 // Entitlement precedence is handled by the CALLER: the deny* gates run before
 // any unlock computation, so unlock state can never grant access that
@@ -54,11 +58,15 @@ export function deriveGroupStatuses(
   groups: GroupForUnlock[],
   stats: Map<number, PhraseStats>,
   testedOutGroupIds: Set<number>,
+  // Persisted completion latch: groups that were EVER observed completed stay
+  // completed even if replenishment later grew their denominator.
+  completedGroupIds: Set<number> = new Set(),
 ): Map<number, LessonGroupStatus> {
   const out = new Map<number, LessonGroupStatus>();
   let previousClears = true; // first group is always unlocked
   for (const g of groups) {
-    const completed = isGroupCompleted(g.phraseIds, stats);
+    const completed =
+      completedGroupIds.has(g.id) || isGroupCompleted(g.phraseIds, stats);
     const testedOut = testedOutGroupIds.has(g.id);
     let status: LessonGroupStatus;
     if (completed) {

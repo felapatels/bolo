@@ -622,6 +622,33 @@ test("overflow creates a new phrase-stage group and shifts the sentence group up
   assert.equal(progress[0]!.status, "tested_out");
 });
 
+test("completion is latched: dilution by replenishment never re-locks a cleared group's successor", async () => {
+  // PLUS_USER completed g1 earlier; that GET latched a persisted 'completed'
+  // row. Simulate the replenisher appending fresh (unmastered) phrases to g1,
+  // dropping the live mastered ratio to 2/6 (33%), well below 80%.
+  const existing = await db
+    .select({ id: phrasesTable.id })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.lessonGroupId, g1Id));
+  await db.insert(phrasesTable).values(
+    Array.from({ length: 4 }, (_, i) => ({
+      lessonId,
+      languageCode: LANG,
+      categoryId,
+      nativeScript: `dilute-${i}`,
+      romanized: `dilute-${i}`,
+      english: `dilute-${i}`,
+      sortOrder: 200 + i,
+      stage: "phrase",
+      lessonGroupId: g1Id,
+      lessonGroupPosition: existing.length + i + 1,
+    })),
+  );
+  const statuses = await groupStatuses(PLUS_USER);
+  assert.equal(statuses.get(g1Id), "completed"); // latched, not re-derived away
+  assert.notEqual(statuses.get(g2Id), "locked"); // successor never regresses
+});
+
 test("race: concurrent Free+Plus replenishment never duplicates positions or crashes", async () => {
   const [a, b] = await Promise.all([
     replenishPhrases({

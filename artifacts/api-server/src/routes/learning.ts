@@ -1795,6 +1795,11 @@ router.get(
         .filter((r) => r.status === "tested_out")
         .map((r) => r.lessonGroupId),
     );
+    const persistedCompleted = new Set(
+      progressRows
+        .filter((r) => r.status === "completed")
+        .map((r) => r.lessonGroupId),
+    );
     const statuses = deriveGroupStatuses(
       groups.map((g) => ({
         id: g.id,
@@ -1803,7 +1808,36 @@ router.get(
       })),
       stats,
       testedOut,
+      persistedCompleted,
     );
+
+    // Latch newly observed completions so later replenishment (which grows a
+    // group's denominator with fresh phrases) can never dilute the ratio and
+    // re-lock this group's successor. Idempotent write-through; 'completed'
+    // outranks a prior 'tested_out' row.
+    const newlyCompleted = groups
+      .map((g) => g.id)
+      .filter(
+        (gid) => statuses.get(gid) === "completed" && !persistedCompleted.has(gid),
+      );
+    if (newlyCompleted.length > 0) {
+      await db
+        .insert(lessonGroupProgressTable)
+        .values(
+          newlyCompleted.map((gid) => ({
+            userId,
+            lessonGroupId: gid,
+            status: "completed",
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [
+            lessonGroupProgressTable.userId,
+            lessonGroupProgressTable.lessonGroupId,
+          ],
+          set: { status: "completed", updatedAt: new Date() },
+        });
+    }
 
     res.json({
       lessonGroups: groups.map((g) => {
