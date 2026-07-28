@@ -4,6 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
 import { runBackfillScoringV2 } from "./scripts/backfillScoringV2";
+import { runBackfillLessonGroups } from "./scripts/backfillLessonGroups";
 import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
 import { scheduleStripeReconcileSweep } from "./lib/stripeReconcile";
 
@@ -31,6 +32,11 @@ await runStartupSeed();
 // run on every deploy; subsequent runs are fast (all ON CONFLICT DO NOTHING).
 // Throws (killing startup) if the FSRS mastered-count drop exceeds 30 %.
 await runBackfillScoringV2();
+
+// D1a Slice 1: partition existing phrases into lesson groups (journey-map
+// stations). Idempotent and advisory-locked; pairs already grouped are
+// skipped, so subsequent startups are fast.
+await runBackfillLessonGroups();
 
 app.listen(port, (err) => {
   if (err) {

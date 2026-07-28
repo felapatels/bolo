@@ -59,6 +59,51 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
 
 /**
+ * @summary List a category's lesson groups (journey-map stations) for a language, with per-user progress
+ */
+export const ListCategoryLessonGroupsParams = zod.object({
+  "id": zod.coerce.number(),
+  "lang": zod.coerce.string()
+})
+
+export const ListCategoryLessonGroupsResponse = zod.object({
+  "lessonGroups": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "position": zod.number().optional(),
+  "title": zod.string().nullish(),
+  "phraseCount": zod.number().optional(),
+  "attemptedCount": zod.number().optional(),
+  "masteredCount": zod.number().optional()
+})).optional(),
+  "unassignedCount": zod.number().optional()
+})
+
+
+/**
+ * @summary List the ordered phrases of one lesson group (same phrase shape as the category listing)
+ */
+export const ListLessonGroupPhrasesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListLessonGroupPhrasesResponseItem = zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number()
+})
+export const ListLessonGroupPhrasesResponse = zod.array(ListLessonGroupPhrasesResponseItem)
+
+
+/**
  * The topic's final step after the phrase list — full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
  * @summary List the topic's Plus-only sentence stage for a language
  */

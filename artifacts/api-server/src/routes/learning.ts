@@ -3,6 +3,7 @@ import {
   db,
   categoriesTable,
   lessonsTable,
+  lessonGroupsTable,
   phrasesTable,
   attemptsTable,
   badgesTable,
@@ -12,7 +13,7 @@ import {
   xpLedgerTable,
   usersTable,
 } from "@workspace/db";
-import { asc, desc, eq, and, ne, inArray, sql, gte } from "drizzle-orm";
+import { asc, desc, eq, and, ne, inArray, sql, gte, isNull } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -1691,5 +1692,150 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     newlyEarnedBadges,
   });
 });
+
+// ── D1a Slice 1: lesson-group read endpoints (additive; data layer only) ──
+// Nothing about how practice works changes — these exist so the journey map
+// (D1b) and future sequential gating have data to read.
+
+// GET /categories/:id/lesson-groups/:lang — ordered lesson groups for one
+// (category, language), with a per-user progress summary derived at read time
+// from existing attempt data (no stored counters). unassignedCount surfaces
+// phrases inserted after the grouping backfill (e.g. by the replenisher) that
+// no group claims yet — Slice 2 adds insert-time assignment.
+router.get(
+  "/categories/:id/lesson-groups/:lang",
+  async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid category id" });
+      return;
+    }
+    const lang = String(req.params.lang ?? "");
+    const userId = getUserId(req);
+
+    const category = await db.query.categoriesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, id),
+    });
+    if (!category) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+
+    // Free is limited to Hindi; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, lang)) return;
+
+    const [groups, members, attempts, [unassigned]] = await Promise.all([
+      db
+        .select()
+        .from(lessonGroupsTable)
+        .where(
+          and(
+            eq(lessonGroupsTable.languageCode, lang),
+            eq(lessonGroupsTable.categoryId, id),
+          ),
+        )
+        .orderBy(asc(lessonGroupsTable.position)),
+      db
+        .select({
+          id: phrasesTable.id,
+          lessonGroupId: phrasesTable.lessonGroupId,
+        })
+        .from(phrasesTable)
+        .where(
+          and(
+            eq(phrasesTable.languageCode, lang),
+            eq(phrasesTable.categoryId, id),
+          ),
+        ),
+      fetchUserAttempts(userId, lang),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(phrasesTable)
+        .where(
+          and(
+            eq(phrasesTable.languageCode, lang),
+            eq(phrasesTable.categoryId, id),
+            isNull(phrasesTable.lessonGroupId),
+          ),
+        ),
+    ]);
+
+    const stats = buildPhraseStats(attempts);
+    const byGroup = new Map<number, number[]>();
+    for (const m of members) {
+      if (m.lessonGroupId == null) continue;
+      const list = byGroup.get(m.lessonGroupId) ?? [];
+      list.push(m.id);
+      byGroup.set(m.lessonGroupId, list);
+    }
+
+    res.json({
+      lessonGroups: groups.map((g) => {
+        const phraseIds = byGroup.get(g.id) ?? [];
+        let attempted = 0;
+        let mastered = 0;
+        for (const pid of phraseIds) {
+          const s = stats.get(pid);
+          if (s && s.attemptCount > 0) attempted++;
+          if (s?.mastered) mastered++;
+        }
+        return {
+          id: g.id,
+          position: g.position,
+          title: g.title,
+          phraseCount: phraseIds.length,
+          attemptedCount: attempted,
+          masteredCount: mastered,
+        };
+      }),
+      unassignedCount: unassigned?.n ?? 0,
+    });
+  },
+);
+
+// GET /lesson-groups/:id/phrases — the ordered phrases of one lesson group, in
+// the SAME per-phrase shape as the category-phrases endpoint so a future
+// client can swap scope without a new contract. Premium rows are filtered for
+// callers without extended-library access, exactly like the category endpoint.
+router.get(
+  "/lesson-groups/:id/phrases",
+  async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid lesson group id" });
+      return;
+    }
+    const userId = getUserId(req);
+
+    const group = await db.query.lessonGroupsTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, id),
+    });
+    if (!group) {
+      res.status(404).json({ error: "Lesson group not found" });
+      return;
+    }
+
+    // Free is limited to Hindi; other languages require Bolo! Plus.
+    if (denyLockedLanguage(req, res, group.languageCode)) return;
+
+    const { resolvedPlan } = req as EntitledRequest;
+    const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
+
+    const [phrases, attempts] = await Promise.all([
+      db
+        .select()
+        .from(phrasesTable)
+        .where(eq(phrasesTable.lessonGroupId, id))
+        .orderBy(asc(phrasesTable.lessonGroupPosition)),
+      fetchUserAttempts(userId, group.languageCode),
+    ]);
+
+    const stats = buildPhraseStats(attempts);
+    const accessible = canAccessPremium
+      ? phrases
+      : phrases.filter((p) => !p.premium);
+    res.json(accessible.map((p) => serializePhrase(p, stats)));
+  },
+);
 
 export default router;

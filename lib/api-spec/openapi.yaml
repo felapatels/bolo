@@ -75,6 +75,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/UpgradeRequired"
 
+  /categories/{id}/lesson-groups/{lang}:
+    get:
+      operationId: listCategoryLessonGroups
+      tags: [learning]
+      summary: List a category's lesson groups (journey-map stations) for a language, with per-user progress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ordered lesson groups plus the count of phrases not yet assigned to any group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonGroupList"
+        "402":
+          description: Upgrade required (this language is Bolo! Plus-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /lesson-groups/{id}/phrases:
+    get:
+      operationId: listLessonGroupPhrases
+      tags: [learning]
+      summary: List the ordered phrases of one lesson group (same phrase shape as the category listing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ordered phrases of the lesson group
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phrase"
+        "402":
+          description: Upgrade required (this language is Bolo! Plus-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /categories/{id}/sentences/{lang}:
     get:
       operationId: listCategorySentences
@@ -2081,6 +2150,32 @@ components:
         - bestScore
         - mastered
         - attemptCount
+
+    LessonGroupSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        position:
+          type: integer
+        title:
+          type: ["string", "null"]
+        phraseCount:
+          type: integer
+        attemptedCount:
+          type: integer
+        masteredCount:
+          type: integer
+
+    LessonGroupList:
+      type: object
+      properties:
+        lessonGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonGroupSummary"
+        unassignedCount:
+          type: integer
 
     GameSessionInput:
       type: object

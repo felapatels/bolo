@@ -278,6 +278,18 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 
 ---
 
+## 7c. D1a Slice 1 — lesson grouping data layer (July 28, 2026)
+
+- NEW table `lesson_groups` (lib/db/src/schema/lessonGroups.ts): the journey-map "station" unit — ordered partitions of a (language, category)'s phrases into ~10-phrase chunks. Unique (language_code, category_id, position) — NOT the spec's (category_id, position), because categories are shared across languages. `title` null pending fare-zone/station naming.
+- NEW nullable columns `phrases.lesson_group_id` (FK) and `phrases.lesson_group_position` (1-based within group).
+- Migration: `0023_lesson_groups` (drizzle generated it as a duplicate `0022_` prefix — artifact of the healed journal; file + journal tag renamed to 0023 by hand, DDL untouched).
+- Grouping backfill: `artifacts/api-server/src/scripts/backfillLessonGroups.ts`, run at startup after scoring v2 (advisory lock 727_003). Idempotent: skips any (language, category) that already has groups. Ordering tiebreak inside a stage block: `(sort_order, id)`. Stage blocks (phrase, then sentence) are never interleaved within a group; positions number phrase-stage groups first. Tail chunks of ≤4 merge into the previous group (sizes mostly 8-13; a stage block of ≤7 with no previous group stays small — observed mins 5-7 in gu/mni/brx).
+- Result on migration day: 620 groups over 132 (language, category) pairs, 22 languages, median size 10, ZERO unassigned phrases; concatenation property (group order reproduces (sort_order, id) order per stage) verified for gu/hi/ta.
+- NEW endpoints (both additive; openapi.yaml + regenerated clients): `GET /categories/{id}/lesson-groups/{lang}` → `{ lessonGroups: [{id, position, title, phraseCount, attemptedCount, masteredCount}], unassignedCount }` (progress derived at read time from attempts; no stored counters); `GET /lesson-groups/{id}/phrases` → same per-phrase shape as the category listing (Phrase schema), ordered by lesson_group_position, premium-filtered identically. Existing endpoints untouched.
+- The existing `lessons` table is a per-(language, category) AI-content-cache record — a MISNOMER kept as-is (renaming is non-additive; deferred cleanup, see debt). The journey-map grouping is `lesson_groups`.
+- Tests: `learning.lesson-groups.test.ts` (endpoints + partitionIds unit).
+- Post-review hardening: migration `0024_phrase_group_position_unique` adds a UNIQUE index on `phrases (lesson_group_id, lesson_group_position)` (NULLs never conflict), guarding the concatenation invariant against future writers. The backfill runs strictly BEFORE the server listens, so the replenisher cannot race it in practice; a cross-scope composite FK (group and phrase agreeing on language/category) and a race regression test are deferred to Slice 2 (see debt).
+
 ## 8. Known debt and open items
 
 | Item | Notes |
@@ -300,6 +312,11 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 | `CountUpText` type cast | Needs `as unknown as Partial<TextInputProps>`; the prop is valid natively but absent from public TS types |
 | Duplicate `useReducedMotion` imports | In both mobile practice screens. Harmless, typecheck-clean |
 | Web review screen | See the contradiction noted in section 5 |
+| `lesson_groups.title` all NULL | Pending fare-zone/station naming (content work, per journey-map decision record `docs/BOLO-Journey-Map-Design-Decision.md`) |
+| Replenished phrases stay ungrouped | phraseReplenisher inserts rows with `lesson_group_id` NULL; Slice 2 must add insert-time assignment. The gap is observable via `unassignedCount` on the lesson-groups listing; acceptance was "zero null lesson_group_id for rows existing at migration time" |
+| Lesson-group scope not DB-enforced | A phrase's FK doesn't require its group to share language/category (needs a composite key/FK — non-trivial, deferred to Slice 2). Position uniqueness IS enforced (0024). No writer today can violate scope; Slice 2's insert-time assignment must keep it that way and add a replenisher/backfill race regression test |
+| `lessons` table misnomer | It is a per-(language, category) content-cache record, not a lesson. Rename deferred as a future NON-additive cleanup |
+| TRAP: dev-DB `drizzle-kit migrate` recorded 0023 without executing its DDL | July 28, 2026: migrate reported success and inserted the hash row, but `lesson_groups` did not exist; DDL applied by hand via psql afterwards. Fresh-DB full-chain (`db-migrations`) applies 0023 cleanly, so the anomaly is dev-DB-local. If a table is "missing" despite migrate success, check `to_regclass` before trusting the hash table |
 
 ---
 

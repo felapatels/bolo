@@ -282,6 +282,21 @@ export interface Phrase {
   attemptCount: number;
 }
 
+export interface LessonGroupSummary {
+  id?: number;
+  position?: number;
+  /** @nullable */
+  title?: string | null;
+  phraseCount?: number;
+  attemptedCount?: number;
+  masteredCount?: number;
+}
+
+export interface LessonGroupList {
+  lessonGroups?: LessonGroupSummary[];
+  unassignedCount?: number;
+}
+
 /**
  * Identifier for the mini game played.
  */

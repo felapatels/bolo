@@ -155,6 +155,20 @@
       "when": 1785239324805,
       "tag": "0022_speech_capability",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785268820176,
+      "tag": "0023_lesson_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785269626545,
+      "tag": "0024_phrase_group_position_unique",
+      "breakpoints": true
     }
   ]
 }

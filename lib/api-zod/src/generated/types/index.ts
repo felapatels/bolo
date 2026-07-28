@@ -65,6 +65,8 @@ export * from './joinFamilyInput';
 export * from './language';
 export * from './languageSpeechCapability';
 export * from './leaderboardEntry';
+export * from './lessonGroupList';
+export * from './lessonGroupSummary';
 export * from './listBadgesParams';
 export * from './listCategoriesParams';
 export * from './listenIdentifyQuestion';

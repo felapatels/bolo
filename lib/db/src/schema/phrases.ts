@@ -1,7 +1,8 @@
-import { pgTable, text, serial, integer, boolean, jsonb, real, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
+import { lessonGroupsTable } from "./lessonGroups";
 import { languagesTable } from "./languages";
 import { categoriesTable } from "./categories";
 
@@ -55,8 +56,24 @@ export const phrasesTable = pgTable("phrases", {
   // exists so code-switch drills can later be built on real data without a
   // migration at that time. Nothing filters or sorts by it in this release.
   register: text("register"),
+  // ── D1a Slice 1: journey-map lesson grouping (additive; see lessonGroups.ts) ──
+  // Which lesson group ("station") this phrase belongs to. Nullable: rows
+  // inserted after the grouping migration (e.g. by the phrase replenisher)
+  // stay unassigned until Slice 2 adds insert-time assignment.
+  lessonGroupId: integer("lesson_group_id").references(
+    () => lessonGroupsTable.id,
+  ),
+  // 1-based order within the lesson group; mirrors (sort_order, id) order.
+  lessonGroupPosition: integer("lesson_group_position"),
 }, (table) => [
   index("phrases_language_register_idx").on(table.languageCode, table.register),
+  // Guards the concatenation invariant: within a group, positions must be
+  // unique so ordered playback is never ambiguous. NULLs (unassigned rows)
+  // never conflict under Postgres unique semantics.
+  uniqueIndex("phrases_lesson_group_position_unique").on(
+    table.lessonGroupId,
+    table.lessonGroupPosition,
+  ),
 ]);
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

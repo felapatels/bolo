@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "phrases_lesson_group_position_unique" ON "phrases" USING btree ("lesson_group_id","lesson_group_position");

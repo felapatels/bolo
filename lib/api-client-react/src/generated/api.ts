@@ -58,6 +58,7 @@ import type {
   JoinFamilyInput,
   Language,
   LeaderboardEntry,
+  LessonGroupList,
   ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
@@ -341,6 +342,165 @@ export function useListCategories<TData = Awaited<ReturnType<typeof listCategori
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCategoriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCategoryLessonGroupsUrl = (id: number,
+    lang: string,) => {
+
+
+
+
+  return `/api/categories/${id}/lesson-groups/${lang}`
+}
+
+/**
+ * @summary List a category's lesson groups (journey-map stations) for a language, with per-user progress
+ */
+export const listCategoryLessonGroups = async (id: number,
+    lang: string, options?: RequestInit): Promise<LessonGroupList> => {
+
+  return customFetch<LessonGroupList>(getListCategoryLessonGroupsUrl(id,lang),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCategoryLessonGroupsQueryKey = (id: number,
+    lang: string,) => {
+    return [
+    `/api/categories/${id}/lesson-groups/${lang}`
+    ] as const;
+    }
+
+
+export const getListCategoryLessonGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listCategoryLessonGroups>>, TError = ErrorType<UpgradeRequired | Error>>(id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryLessonGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategoryLessonGroupsQueryKey(id,lang);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategoryLessonGroups>>> = ({ signal }) => listCategoryLessonGroups(id,lang, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && lang !== null && lang !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategoryLessonGroups>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCategoryLessonGroupsQueryResult = NonNullable<Awaited<ReturnType<typeof listCategoryLessonGroups>>>
+export type ListCategoryLessonGroupsQueryError = ErrorType<UpgradeRequired | Error>
+
+
+/**
+ * @summary List a category's lesson groups (journey-map stations) for a language, with per-user progress
+ */
+
+export function useListCategoryLessonGroups<TData = Awaited<ReturnType<typeof listCategoryLessonGroups>>, TError = ErrorType<UpgradeRequired | Error>>(
+ id: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategoryLessonGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCategoryLessonGroupsQueryOptions(id,lang,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListLessonGroupPhrasesUrl = (id: number,) => {
+
+
+
+
+  return `/api/lesson-groups/${id}/phrases`
+}
+
+/**
+ * @summary List the ordered phrases of one lesson group (same phrase shape as the category listing)
+ */
+export const listLessonGroupPhrases = async (id: number, options?: RequestInit): Promise<Phrase[]> => {
+
+  return customFetch<Phrase[]>(getListLessonGroupPhrasesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLessonGroupPhrasesQueryKey = (id: number,) => {
+    return [
+    `/api/lesson-groups/${id}/phrases`
+    ] as const;
+    }
+
+
+export const getListLessonGroupPhrasesQueryOptions = <TData = Awaited<ReturnType<typeof listLessonGroupPhrases>>, TError = ErrorType<UpgradeRequired | Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLessonGroupPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLessonGroupPhrasesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLessonGroupPhrases>>> = ({ signal }) => listLessonGroupPhrases(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLessonGroupPhrases>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLessonGroupPhrasesQueryResult = NonNullable<Awaited<ReturnType<typeof listLessonGroupPhrases>>>
+export type ListLessonGroupPhrasesQueryError = ErrorType<UpgradeRequired | Error>
+
+
+/**
+ * @summary List the ordered phrases of one lesson group (same phrase shape as the category listing)
+ */
+
+export function useListLessonGroupPhrases<TData = Awaited<ReturnType<typeof listLessonGroupPhrases>>, TError = ErrorType<UpgradeRequired | Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLessonGroupPhrases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLessonGroupPhrasesQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
