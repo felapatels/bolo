@@ -3,6 +3,8 @@ name: Clerk web auth (same-domain monorepo)
 description: How Clerk auth is wired for a web artifact + API that share one domain, and what NOT to "fix".
 ---
 
+> Update (July 28, 2026): the project moved OFF Replit-managed Clerk to a self-managed instance (`free-bedbug-6.clerk.accounts.dev`); secrets hold that instance's keys and config lives at dashboard.clerk.com (the Auth pane no longer governs the active instance, but the old managed tenant may still exist there until deleted). Headless E2E: `?__clerk_ticket=` in the URL is NOT consumed by this app's landing page — use `Clerk.client.signIn.create({strategy:'ticket', ticket})` + `setActive` via CDP. Server-minted session tokens work as Bearer for the mobile path (60s expiry — mint and use immediately; hit the dev domain, not localhost).
+
 # Clerk web auth in this monorepo
 
 The web artifact and the API server are served on the **same domain** (web at
