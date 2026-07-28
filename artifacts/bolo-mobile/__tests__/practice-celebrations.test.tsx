@@ -229,6 +229,8 @@ beforeEach(async () => {
     return {
       score: entry.score,
       passed: entry.passed,
+      band: entry.band,
+      xpAwarded: entry.xpAwarded,
       transcript: 'test',
       feedback: 'Good!',
       tip: null,

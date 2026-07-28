@@ -532,8 +532,8 @@ describe('ScoreTrail dot colors', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 50,
       passed: false,
-      band: 'close',
-      xpAwarded: 5,
+      band: 'retry',
+      xpAwarded: 0,
       transcript: 'namasthe',
       feedback: 'Keep at it.',
       tip: '',

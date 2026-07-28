@@ -170,7 +170,7 @@ describe('score trail — phrase-index alignment', () => {
     expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
     // Dot for phrase 1 should still be unattempted (no accessibilityLabel)
     // Dot for phrase 1 should still be unattempted (no band label yet)
-    const allScoreLabels = screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/);
+    const allScoreLabels = screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/);
     expect(allScoreLabels).toHaveLength(1);
   });
 
@@ -194,7 +194,7 @@ describe('score trail — phrase-index alignment', () => {
     // After first attempt, phrase 0 dot = 40
     expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
     // Only one scored dot so far
-    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
 
     // Retry same phrase with a better score
     mockState.evaluate = jest.fn(async () => ({
@@ -218,7 +218,7 @@ describe('score trail — phrase-index alignment', () => {
     expect(screen.queryByLabelText('Try again')).toBeNull();
     expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
     // Phrase 1 dot must still be unattempted — only one scored dot total
-    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
   });
 
   test('advancing to phrase 1 gives each phrase its own dot score', async () => {
@@ -241,7 +241,7 @@ describe('score trail — phrase-index alignment', () => {
 
     // Phrase 0 dot = 75
     expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
 
     // Advance to phrase 1
     await act(async () => {
@@ -253,6 +253,6 @@ describe('score trail — phrase-index alignment', () => {
     // Both dots should now be scored with their own values
     expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
     expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/Nailed it|Close|Try again|Didn't catch that/)).toHaveLength(2);
+    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(2);
   });
 });
