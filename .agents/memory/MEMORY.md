@@ -69,4 +69,5 @@
 - [Motion & Feedback Engine](motion-feedback-engine.md) — nocatch = system miss (nothing negative); session confetti needs half good; count-up chips are animated TextInputs (assert via label).
 - [Speech capability tiers](speech-capability.md) — per-language STT flag (ks/sat degraded, mni/brx unsupported); script-mismatch = nocatch universally; Latin sim<0.45 rule.
 - [Observability (Sentry + PostHog)](observability-sentry-posthog.md) — env-gated inits, scrub rules (drop req.body!), 7-event allowlist, @opentelemetry/api drizzle-orm dedup trap.
+- [Screenshot tool img quirk](screenshot-tool-img-quirk.md) — Screenshot tool shows broken <img> for mockup-sandbox public PNGs that real browsers load fine; verify with Nix chromium 138 dump-dom.
 - [TTS provider switch](tts-provider-switch.md) — USE_ELEVENLABS_TTS flag in lib/ttsConfig.ts; currently false (gpt-audio); flip to true + restart to restore ElevenLabs (must use multilingual_v2, not flash).

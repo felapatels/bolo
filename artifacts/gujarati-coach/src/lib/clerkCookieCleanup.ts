@@ -90,4 +90,8 @@ export function cleanupStaleDevClerkCookies(prodDomain: string): void {
     document.cookie = `${name}=; ${expiry}; domain=${prodDomain}`;
     document.cookie = `${name}=; ${expiry}; domain=.${prodDomain}`;
   }
+
+  // One year, first-party, SameSite=Lax. If cookies themselves don't persist
+  // the trigger cookies won't persist either, so no loop is possible.
+  document.cookie = `${MARKER_NAME}=${MARKER_GENERATION}; max-age=31536000; path=/; SameSite=Lax`;
 }

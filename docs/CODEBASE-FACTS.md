@@ -331,6 +331,7 @@ Paste this block into every spec.
 | Spec 1 v3 (motion engine) | Built |
 | Spec D2 v2 (speaking system) | Built (register column, speaking streak, live waveforms + mascot amplitude on web and mobile) |
 | Spec D1 (map and journey) | Not written. Blocked on whether a lesson map screen exists |
+| Spec D1b (journey map mockups) | Built — 3 static mockups in `artifacts/mockup-sandbox/src/components/mockups/` (`JourneyWindingPath`, `JourneyRegionChapters`, `JourneyGujaratExpress`), shared mock data in `src/lib/journeyData.ts`, mascot PNGs copied (256px) to `artifacts/mockup-sandbox/public/mascot/`. Exploration only; no production screens touched |
 | Spec D3 (Rishta Tree, real-world quests) | Not written |
 | Spec B (onboarding) | Not written |
 | Spec E (copy and voice) | Not written |
