@@ -48,12 +48,28 @@ import Privacy from '@/pages/privacy';
 import Terms from '@/pages/terms';
 import NotFound from '@/pages/not-found';
 
-// REQUIRED — copy verbatim. Resolves the key from window.location.hostname so the
-// same build serves multiple Clerk custom domains.
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+// Clerk publishable key resolution.
+//
+// Trap (hit in production, July 2026): the Vite deployment build bakes whatever
+// VITE_CLERK_PUBLISHABLE_KEY it sees at build time — and the Replit deployment
+// build saw the workspace pk_test secret, not the production env var. Worse,
+// publishableKeyFromHost returns a DEV fallback key unconditionally, so host
+// derivation never ran and bolo-india.app served the dev Clerk instance.
+//
+// Fix: on the production custom domain, derive the pk_live from the hostname at
+// runtime and ignore the baked env entirely (pk_live is deterministic:
+// base64("clerk.<domain>$")). Every other host (replit.dev, replit.app,
+// localhost) keeps using the baked dev key.
+const PROD_CLERK_DOMAIN = 'bolo-india.app';
+const pageHost = window.location.hostname.toLowerCase();
+const isProdClerkHost =
+  pageHost === PROD_CLERK_DOMAIN || pageHost === `www.${PROD_CLERK_DOMAIN}`;
+const clerkPubKey = isProdClerkHost
+  ? publishableKeyFromHost(PROD_CLERK_DOMAIN)
+  : publishableKeyFromHost(
+      window.location.hostname,
+      import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+    );
 
 // REQUIRED — copy verbatim. Empty in dev, auto-set in prod. Do NOT gate on env.
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;

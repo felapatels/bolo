@@ -9,7 +9,15 @@ import { ANALYTICS_EVENTS, type AnalyticsEvent } from "./analyticsEvents";
 // Autocapture and automatic pageviews are OFF — the event set in
 // analyticsEvents.ts is the complete, deliberate list.
 
-const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
+// Committed production fallback: a PostHog project key is public and
+// write-only (it ships in every client bundle). The Replit deployment build
+// does not reliably see production env vars at build time (see App.tsx Clerk
+// note), so a missing VITE_POSTHOG_KEY in a production build falls back here.
+const PROD_POSTHOG_KEY = "phc_rVRdQdrVqY8WCSSuN5LmDCJmbNP3jcev6Fj38rizwHnZ";
+
+const key =
+  (import.meta.env.VITE_POSTHOG_KEY as string | undefined) ??
+  (import.meta.env.PROD ? PROD_POSTHOG_KEY : undefined);
 const host =
   (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ??
   "https://us.i.posthog.com";

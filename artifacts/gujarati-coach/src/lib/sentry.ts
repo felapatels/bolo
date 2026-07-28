@@ -57,7 +57,16 @@ export function scrubEvent<T extends Sentry.Event>(event: T): T {
   return scrubValue(event) as T;
 }
 
-const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+// Committed production fallback: a Sentry DSN is a public, write-only value
+// that ships in every client bundle anyway. The Replit deployment build does
+// not reliably see production env vars at build time (see App.tsx Clerk note),
+// so a missing VITE_SENTRY_DSN in a production build falls back to this.
+const PROD_WEB_DSN =
+  "https://1a5b9d149bf8569510161800f39804e8@o4511813816352768.ingest.us.sentry.io/4511813831294976";
+
+const dsn =
+  (import.meta.env.VITE_SENTRY_DSN as string | undefined) ??
+  (import.meta.env.PROD ? PROD_WEB_DSN : undefined);
 
 export const sentryEnabled = Boolean(dsn);
 

@@ -43,3 +43,8 @@ On the web client, just call the relative API — no token plumbing.
 - pk_live is deterministic: `pk_live_` + base64(`clerk.<domain>$`) → `pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk`. Never need the user to paste a publishable key.
 - **Trap:** `publishableKeyFromHost(host, fallback)` returns the fallback whenever it is a DEV key — so production env MUST carry live keys or prod silently runs against free-bedbug-6. Live pk set in Replit production env vars (CLERK_PUBLISHABLE_KEY, VITE_CLERK_PUBLISHABLE_KEY) and EAS production env; sk_live is owner-set in the Publishing tool's deployment secrets.
 - Workspace secrets keep the pk_test/sk_test dev keys; workspace secrets do NOT auto-sync to the production deployment, which is what keeps dev/prod instances separate.
+
+## Production bake trap (July 28, 2026) — RESOLVED client-side
+- The Replit deployment's Vite build bakes WORKSPACE secrets into `VITE_*` values; production env vars (which held pk_live) never reached the build, so the published bundle carried pk_test and `publishableKeyFromHost`'s dev-fallback short-circuit served free-bedbug-6 on bolo-india.app.
+- Fix: App.tsx now derives pk_live from `window.location.hostname` at runtime when the host is bolo-india.app or www.bolo-india.app (no fallback passed); every other host keeps the baked dev key. replit.app default domain intentionally stays on the dev instance.
+- General rule: NEVER rely on production env vars for any build-time `VITE_*` value in this repl; either derive at runtime or commit public write-only values gated on `import.meta.env.PROD` (done for the web Sentry DSN and PostHog key).
