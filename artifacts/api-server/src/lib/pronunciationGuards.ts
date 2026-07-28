@@ -196,7 +196,13 @@ export interface GuardResult {
   score: number;
   passed: boolean;
   /** Which deterministic rule fired, for logging; undefined when LLM stands. */
-  guard?: "near-match-floor" | "wrong-phrase-cap" | "partial-match-cap" | "cross-script-cap";
+  guard?: "near-match-floor" | "wrong-phrase-cap" | "partial-match-cap" | "script-mismatch-nocatch";
+  /**
+   * True when the transcript's script proves the RECOGNIZER failed, not the
+   * learner. The route must resolve this to band 'nocatch' (no XP, but no
+   * failure messaging, no streak break, no mastery penalty) — never 'retry'.
+   */
+  nocatch?: true;
 }
 
 /**
@@ -205,7 +211,22 @@ export interface GuardResult {
  * a band the transcript evidence supports.
  *
  * Guard ladder (highest priority first):
- *   1. cross-script-cap  — comparable=false: cap at 85, no unverifiable perfect scores.
+ *   1. script-mismatch-nocatch — the transcript's Unicode script does not match
+ *      the phrase's expected script and cannot be verified against the target:
+ *      the RECOGNIZER failed, not the learner. Resolves to nocatch in every
+ *      language, including fully supported ones. Two forms:
+ *        a. non-Latin transcript in a different block than the target (e.g.
+ *           Bengali script for a Manipuri phrase) — always nocatch;
+ *        b. Latin transcript for a non-Latin-script phrase with sim < 0.45 —
+ *           the recognizer wrote the wrong script AND the romanized transcript
+ *           shares almost nothing with the target; indistinguishable from
+ *           recognizer noise, so it resolves in the learner's favor as nocatch.
+ *           Latin transcripts with sim ≥ 0.45 remain scoreable: partial
+ *           phonetic overlap in romanization is evidence of a real attempt
+ *           (the normal ladder still caps/fails weak ones).
+ *      (wrong-phrase-cap still takes precedence over form b: a Latin transcript
+ *      that clearly matches a DIFFERENT catalog phrase is affirmative evidence
+ *      of a wrong attempt, not recognizer noise.)
  *   2. near-match-floor  — sim ≥ 0.90: floor at 85/90, near-exact match can never fail.
  *      Raised from 0.85 → 0.90 for consistency with the fast-path threshold: on a
  *      6-character normalized string, sim=0.85 still allows one substitution, which
@@ -213,23 +234,26 @@ export interface GuardResult {
  *   3. wrong-phrase-cap  — transcript matches a *different* known phrase: cap at 40.
  *   4. partial-match-cap — sim < 0.70 & score ≥ 80: cap at 72. Closes the gap where
  *      the STT hint biases a wrong attempt's transcript toward the target, landing it
- *      in the 0.25–0.70 range, and the LLM then over-rewards it.
+ *      in the 0.25–0.70 range, and the LLM then over-rewards it. After guard 1b,
+ *      this only fires for same-script (native) transcripts.
  */
 export function applyScoreGuards(input: GuardInput): GuardResult {
   const { transcript, targetNative, targetRomanized, otherPhrases } = input;
   let score = Math.max(0, Math.min(100, Math.round(input.score)));
 
+  const SCRIPT_MISMATCH: GuardResult = {
+    score: 0,
+    passed: false,
+    guard: "script-mismatch-nocatch",
+    nocatch: true,
+  };
+
   const target = compareToTarget(transcript, targetNative, targetRomanized);
   if (!target.comparable) {
-    // Cross-script transcript (e.g. Devanagari for a Gujarati phrase): the LLM
-    // judged by sound, which is correct, but we can't verify similarity at all.
-    // Cap at 85 so an unverifiable transcript can't award a perfect score.
-    const capped = Math.min(score, 85);
-    return {
-      score: capped,
-      passed: capped >= 80,
-      ...(score > 85 ? { guard: "cross-script-cap" as const } : {}),
-    };
+    // The transcript is in a script that lines up with neither the native
+    // target nor romanization (e.g. Bengali script for a Manipuri phrase).
+    // The recognizer failed; the learner must not wear it.
+    return SCRIPT_MISMATCH;
   }
 
   // A near-exact phonetic match can never fail — but when the score is already
@@ -261,6 +285,19 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
         };
       }
     }
+  }
+
+  // Guard 1b: a Latin transcript for a non-Latin-script phrase, with romanized
+  // similarity too low to verify the attempt (sim < 0.70): the recognizer wrote
+  // the wrong script and the evidence can't separate recognizer noise from a
+  // wrong attempt — resolve in the learner's favor as nocatch. (A transcript
+  // matching a different catalog phrase was already caught above.)
+  // Threshold 0.45, deliberately below the 0.70 scoring bar: sim in
+  // [0.45, 0.70) is partial evidence of a real attempt (e.g. "kem so" for
+  // "kem chho" at 0.67) and must stay scoreable; below 0.45 the transcript
+  // shares almost nothing with the romanized target.
+  if (isLatin(transcript) && !isLatin(targetNative) && target.sim < 0.45) {
+    return SCRIPT_MISMATCH;
   }
 
   // A transcript below 70% phonetic similarity to the target can't pass.

@@ -63,6 +63,7 @@ export * from './healthStatus';
 export * from './joinFamily200';
 export * from './joinFamilyInput';
 export * from './language';
+export * from './languageSpeechCapability';
 export * from './leaderboardEntry';
 export * from './listBadgesParams';
 export * from './listCategoriesParams';

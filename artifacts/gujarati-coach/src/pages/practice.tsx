@@ -26,7 +26,7 @@ import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { Mascot, type MascotPose } from "@/components/mascot";
 import { cn } from "@/lib/utils";
-import { useLanguage, useNativeText } from "@/lib/language-context";
+import { useLanguage, useNativeText, useSpeechCapability } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
@@ -41,7 +41,13 @@ import { XpArc } from "@/components/XpArc";
 import { CountUp } from "@/components/ui/count-up";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
-type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
+type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare";
+
+// localStorage key that records the learner has already seen the "feedback is
+// approximate" notice for a given (degraded) language, so it shows only once.
+function approxNoticeKey(code: string): string {
+  return `bolo.approxNoticeSeen.${code}`;
+}
 
 // Maps a pronunciation band to its CSS color (mirrors ScoreRing color thresholds).
 function bandCss(band: Band): string {
@@ -114,6 +120,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
+  // Speech-recognition capability for the active language decides how practice
+  // handles feedback: "supported" scores normally; "degraded" scores but shows
+  // a one-time "feedback is approximate" notice; "unsupported" drops scoring
+  // entirely for a listen-record-compare (ear-training) flow.
+  const speechCapability = useSpeechCapability();
+  const isUnsupported = speechCapability === "unsupported";
+  const isDegraded = speechCapability === "degraded";
+  const languageName = activeLanguage?.name ?? "this language";
 
   // Where "back" goes: the review session lives off the Home dashboard, while a
   // normal lesson belongs to its category.
@@ -235,6 +249,56 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
   const [xpExpanded, setXpExpanded] = useState(false);
+
+  // ── Degraded-language notice (spec 1) ────────────────────────────────────
+  // Show a one-time, dismissible "feedback is approximate" heads-up the first
+  // time a learner opens a recording surface in a degraded language. The seen
+  // state persists per language code so it never reappears.
+  const [showApproxNotice, setShowApproxNotice] = useState(false);
+  useEffect(() => {
+    if (!isDegraded || !activeLang) {
+      setShowApproxNotice(false);
+      return;
+    }
+    try {
+      if (localStorage.getItem(approxNoticeKey(activeLang)) === "1") return;
+    } catch {
+      // localStorage unavailable (private mode); still show it this session.
+    }
+    setShowApproxNotice(true);
+  }, [isDegraded, activeLang]);
+
+  const dismissApproxNotice = () => {
+    setShowApproxNotice(false);
+    try {
+      localStorage.setItem(approxNoticeKey(activeLang), "1");
+    } catch {
+      // Ignore storage failures; the notice stays dismissed for this session.
+    }
+  };
+
+  // ── Unsupported-language playback (spec 2) ───────────────────────────────
+  // In ear-training mode we keep the learner's recording so they can play it
+  // back and compare it to the coach. Held as an object URL that is revoked
+  // when replaced or on unmount to avoid leaking blobs.
+  const [ownRecordingUrl, setOwnRecordingUrl] = useState<string | null>(null);
+  const ownRecordingUrlRef = useRef<string | null>(null);
+  const ownAudioRef = useRef<HTMLAudioElement | null>(null);
+  const setOwnRecording = useCallback((blob: Blob | null) => {
+    if (ownRecordingUrlRef.current) {
+      URL.revokeObjectURL(ownRecordingUrlRef.current);
+      ownRecordingUrlRef.current = null;
+    }
+    const url = blob ? URL.createObjectURL(blob) : null;
+    ownRecordingUrlRef.current = url;
+    setOwnRecordingUrl(url);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (ownRecordingUrlRef.current) URL.revokeObjectURL(ownRecordingUrlRef.current);
+      if (ownAudioRef.current) ownAudioRef.current.pause();
+    };
+  }, []);
 
   const [silentMode, setSilentMode] = useState<boolean>(loadSilentMode);
   // Read by effects so the current value is always visible inside callbacks.
@@ -468,7 +532,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     if (!isRecordingRef.current) return;
     isRecordingRef.current = false;
     finishingRef.current = true;
-    setState("evaluating");
+    // Ear-training mode never scores, so there's no "evaluating" stage — the
+    // learner goes straight to a compare stage once we have their recording.
+    setState(isUnsupported ? "recording" : "evaluating");
     setEvalError(null);
     setSaveFailed(false);
     try {
@@ -479,6 +545,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         // failed). Tell the learner rather than sending an empty payload.
         setEvalError("We didn't capture any audio. Check your microphone and try again.");
         setState("error");
+        return;
+      }
+
+      // Unsupported language: no evaluation request is ever sent. Keep the
+      // recording so the learner can play it back and compare (spec 2).
+      if (isUnsupported) {
+        setOwnRecording(blob);
+        setState("compare");
         return;
       }
 
@@ -627,7 +701,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       finishingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage]);
+  }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage, isUnsupported, setOwnRecording]);
 
   const startRecording = async () => {
     if (state !== "idle") return;
@@ -688,6 +762,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
     setResult(null);
     setShowConfetti(false);
+    setOwnRecording(null); // release any ear-training playback for this phrase
     if (phrases && currentIndex < phrases.length - 1) {
       const nextIndex = currentIndex + 1;
       // Mid-session milestone toasts — fire at most once each per session.
@@ -721,6 +796,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
     setResult(null);
     setShowConfetti(false);
+    setOwnRecording(null); // release any ear-training playback for this phrase
     // Return through the coach playback so the learner hears the model
     // pronunciation again before re-recording. In silent mode, skip straight
     // to idle so the mic is available immediately.
@@ -729,6 +805,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   const playAgain = () => {
     setState("playing_coach");
+  };
+
+  // Ear-training mode (spec 2): replay the learner's own recording so they can
+  // compare it to the coach. No evaluation is ever involved.
+  const playOwnRecording = () => {
+    if (!ownRecordingUrl) return;
+    try {
+      if (ownAudioRef.current) ownAudioRef.current.pause();
+      const audio = new Audio(ownRecordingUrl);
+      ownAudioRef.current = audio;
+      void audio.play();
+    } catch {
+      // Playback is best-effort; a failure shouldn't interrupt practice.
+    }
   };
 
   const upgrade = asUpgradeRequired(error);
@@ -952,9 +1042,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             : "tryagain"
       : state === "error"
         ? "tryagain"
-        : state === "playing_coach" || state === "recording" || state === "evaluating"
-          ? "thinking"
-          : "thumbsup";
+        : state === "compare"
+          ? "cheer" // ear-training always counts — celebrate the effort
+          : state === "playing_coach" || state === "recording" || state === "evaluating"
+            ? "thinking"
+            : "thumbsup";
 
   // The belly zone is interactive only when the learner can actually record.
   const bellyActive = state === "idle" || state === "recording";
@@ -1026,6 +1118,44 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-4 pb-4 min-h-0">
+
+        {/* ── Approximate-feedback notice (degraded languages, spec 1) ────── */}
+        <AnimatePresence>
+          {showApproxNotice && (
+            <motion.div
+              key="approx-notice"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={springs.snappy}
+              role="status"
+              className="shrink-0 mb-2 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3"
+            >
+              <p className="flex-1 text-sm font-medium text-amber-900 dark:text-amber-200 leading-snug">
+                Heads up: speech recognition is still learning {languageName}, so feedback may be approximate.
+              </p>
+              <button
+                onClick={dismissApproxNotice}
+                aria-label="Dismiss notice"
+                className="shrink-0 text-xs font-black text-amber-700 dark:text-amber-300 rounded-lg px-2 py-1 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+              >
+                Got it
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Ear-training explainer (unsupported languages, spec 2) ──────── */}
+        {isUnsupported && (
+          <div
+            role="status"
+            className="shrink-0 mb-2 rounded-2xl border border-secondary/30 bg-secondary/10 px-4 py-3"
+          >
+            <p className="text-sm font-medium text-foreground leading-snug">
+              Speech recognition can't hear {languageName} reliably yet, so this is ear-training practice: listen, record, and compare. It still counts!
+            </p>
+          </div>
+        )}
 
         {/* ── Phrase card ─────────────────────────────────────────────────── */}
         <AnimatePresence mode="wait">
@@ -1171,7 +1301,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   transition={springs.snappy}
                   className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs"
                 >
-                  Hold to speak
+                  {isUnsupported ? "Hold to record" : "Hold to speak"}
                 </motion.p>
               )}
               {state === "recording" && (
@@ -1250,6 +1380,52 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             </AnimatePresence>
           </div>
         </div>
+
+        {/* ── Compare panel: ear-training playback + advance (spec 2) ───── */}
+        {state === "compare" && (
+          <motion.div
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={springs.bouncy}
+            className="shrink-0 space-y-3 mt-2"
+          >
+            <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
+              <p className="text-xl font-black mb-1 text-foreground">Nice work!</p>
+              <p className="text-foreground font-medium text-sm leading-snug mb-3">
+                Play the phrase and your recording back to back, and listen for the difference.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={playAgain}
+                  className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <Volume2 className="w-5 h-5" /> Hear the phrase
+                </button>
+                <button
+                  onClick={playOwnRecording}
+                  disabled={!ownRecordingUrl}
+                  className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 disabled:opacity-40 transition-all"
+                >
+                  <Headphones className="w-5 h-5" /> Hear yourself
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRetry}
+                className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <RefreshCcw className="w-5 h-5" /> Practice again
+              </button>
+              <button
+                onClick={handleNext}
+                className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+              >
+                Next <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Bottom panel: result / error / action buttons ────────────── */}
         {(state === "result" || state === "error") && (

@@ -78,13 +78,16 @@ import {
 } from '@/lib/audio';
 import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
-import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode } from '@/lib/settings';
+import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
 import { glyphsForLanguage } from '@/lib/scriptGlyphs';
 
-type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
+// 'compare' is the unsupported-language stage: the learner recorded but we
+// never sent an evaluation, so instead of a scored 'result' they get a
+// listen-record-compare card (no band, no XP).
+type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'compare' | 'error' | 'done';
 
 const BAND_LABEL: Record<Band, string> = {
   nailed: 'Nailed it',
@@ -357,7 +360,13 @@ export default function PracticeScreen() {
     skipMastered?: string;
   }>();
   const categoryId = Number(id);
-  const { activeLang, activeLanguage } = useLanguage();
+  const { activeLang, activeLanguage, speechCapability } = useLanguage();
+  // Speech-recognition gating (server-classified, defaults to full scoring):
+  //  • 'unsupported' → listen-record-compare only, never send an evaluation.
+  //  • 'degraded'    → scored practice continues, plus a one-time approx notice.
+  const isUnsupported = speechCapability === 'unsupported';
+  const isDegraded = speechCapability === 'degraded';
+  const languageName = activeLanguage?.name ?? 'this language';
 
   // `?stage=sentences` runs the same practice flow over the topic's Plus-only
   // sentence stage instead of its phrase list. The server enforces the gate —
@@ -406,6 +415,9 @@ export default function PracticeScreen() {
   // Keyed by phrase index so retrying phrase N replaces that dot rather than
   // pushing a new band onto the next phrase's position.
   const [bands, setBands] = React.useState<Record<number, Band>>({});
+  // Unsupported languages record no bands, so the summary count comes from the
+  // set of phrase indices the learner reached the compare stage on.
+  const [comparedIdx, setComparedIdx] = React.useState<Set<number>>(new Set());
   // XP data per phrase index — xp earned and optional breakdown text.
   const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
   // Whether the XP breakdown panel in the summary is expanded.
@@ -422,6 +434,25 @@ export default function PracticeScreen() {
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
   const [evalError, setEvalError] = React.useState<string | null>(null);
+
+  // One-time "feedback is approximate" notice for degraded-recognition
+  // languages. Shown the first time the learner reaches a recording surface in
+  // this language, then persisted per language code so it never reappears.
+  const [showApproxNotice, setShowApproxNotice] = React.useState(false);
+  React.useEffect(() => {
+    if (!isDegraded) return;
+    let cancelled = false;
+    loadApproxNoticeSeen(activeLang).then((seen) => {
+      if (!cancelled && !seen) setShowApproxNotice(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDegraded, activeLang]);
+  const dismissApproxNotice = React.useCallback(() => {
+    setShowApproxNotice(false);
+    void saveApproxNoticeSeen(activeLang);
+  }, [activeLang]);
 
   // ── Hot-streak & milestone toast state ──────────────────────────────────
   /** Consecutive scores ≥ 70 in this session. */
@@ -1036,8 +1067,23 @@ export default function PracticeScreen() {
     setSaveFailed(false);
     try {
       const audioBase64 = await stopAndReadRecording(recorder);
-      // Stash the raw recording so the result card can play it back.
+      // Stash the raw recording so the result/compare card can play it back.
       lastRecordingBase64Ref.current = audioBase64;
+
+      // Unsupported language: recognition can't hear it reliably, so we never
+      // send an evaluation. Move straight to the compare stage — no score,
+      // no band, no XP — where the learner listens, records, and compares.
+      if (isUnsupported) {
+        setComparedIdx((prev) => {
+          const nextSet = new Set(prev);
+          nextSet.add(index);
+          return nextSet;
+        });
+        setPhaseSync('compare');
+        finishingRef.current = false;
+        return;
+      }
+
       const res = await evaluate.mutateAsync({
         data: {
           phraseId: phrase.id,
@@ -1300,6 +1346,9 @@ export default function PracticeScreen() {
     const totalXp = Object.values(xpData).reduce((sum, d) => sum + d.xp, 0);
     const isPerfect = bandVals.length > 0 && bandVals.every((b) => b === 'nailed');
     const anyPassed = bandVals.some((b) => b === 'nailed' || b === 'close');
+    // Unsupported languages score nothing; the count comes from the ear-training
+    // compare stages the learner completed.
+    const practicedCount = isUnsupported ? comparedIdx.size : bandVals.length;
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
@@ -1314,18 +1363,24 @@ export default function PracticeScreen() {
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
             ]}
           >
-            {isPerfect ? 'PERFECT SESSION! 🏆' : anyPassed ? 'Session complete!' : 'Great effort!'}
+            {isUnsupported
+              ? 'Nice practice! 🎧'
+              : isPerfect
+                ? 'PERFECT SESSION! 🏆'
+                : anyPassed
+                  ? 'Session complete!'
+                  : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
             entering={skipEnter ? undefined : FadeInDown.delay(240).springify()}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
-            You practiced {bandVals.length}{' '}
+            You practiced {practicedCount}{' '}
             {isSentences
-              ? bandVals.length === 1
+              ? practicedCount === 1
                 ? 'sentence'
                 : 'sentences'
-              : bandVals.length === 1
+              : practicedCount === 1
                 ? 'phrase'
                 : 'phrases'}.
           </Animated.Text>
@@ -1425,7 +1480,8 @@ export default function PracticeScreen() {
   }
 
   // --- Practice card ---
-  const progress = ((index + (phase === 'result' ? 1 : 0)) / list.length) * 100;
+  const progress =
+    ((index + (phase === 'result' || phase === 'compare' ? 1 : 0)) / list.length) * 100;
 
   // Bolo reacts to the moment: listening while you record, cheering a big win,
   // encouraging a good attempt, and gently nudging after a miss.
@@ -1434,15 +1490,17 @@ export default function PracticeScreen() {
       ? 'thinking'
       : phase === 'error'
         ? 'tryagain'
-        : phase === 'result' && result
-          ? result.band === 'nailed'
-            ? 'cheer'
-            : result.band === 'close'
-              ? 'thumbsup'
-              : result.band === 'nocatch'
-                ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
-                : 'tryagain'
-          : 'wave';
+        : phase === 'compare'
+          ? 'thumbsup' // ear-training practice always "counts" — never blame
+          : phase === 'result' && result
+            ? result.band === 'nailed'
+              ? 'cheer'
+              : result.band === 'close'
+                ? 'thumbsup'
+                : result.band === 'nocatch'
+                  ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
+                  : 'tryagain'
+            : 'wave';
   const mascotMotion =
     phase === 'recording'
       ? 'sway'
@@ -1533,13 +1591,109 @@ export default function PracticeScreen() {
           </Pressable>
         </Animated.View>
 
-        {phrase.hint && phase !== 'result' ? (
+        {phrase.hint && phase !== 'result' && phase !== 'compare' ? (
           <View style={styles.hintRow}>
             <Feather name="info" size={14} color={colors.mutedForeground} />
             <Text style={[styles.hint, { color: colors.mutedForeground }]}>
               {phrase.hint}
             </Text>
           </View>
+        ) : null}
+
+        {/* Degraded recognition: one-time, dismissible "feedback is
+            approximate" heads-up. Scored practice continues unchanged. */}
+        {isDegraded && showApproxNotice ? (
+          <View
+            testID="approx-notice"
+            accessibilityRole="alert"
+            style={[
+              styles.noticeCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Feather name="info" size={16} color={colors.primary} />
+            <Text style={[styles.noticeText, { color: colors.foreground }]}>
+              Heads up: speech recognition is still learning {languageName}, so
+              feedback may be approximate.
+            </Text>
+            <Pressable
+              onPress={dismissApproxNotice}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss notice"
+              hitSlop={10}
+              testID="approx-notice-dismiss"
+            >
+              <Feather name="x" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Unsupported recognition: listen-record-compare card. No band, no
+            score, no XP — supportive ear-training copy only. */}
+        {phase === 'compare' ? (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            testID="compare-card"
+            style={[
+              styles.resultCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.gradeLabel, { color: colors.primary }]}>
+              Nice, you recorded it! 🎧
+            </Text>
+            <Text style={[styles.feedback, { color: colors.foreground }]}>
+              Speech recognition can't hear {languageName} reliably yet, so this
+              is ear-training practice: listen, record, and compare. It still
+              counts!
+            </Text>
+
+            <Pressable
+              onPress={() => playCoach()}
+              disabled={coachPlaying}
+              accessibilityRole="button"
+              accessibilityLabel={coachPlaying ? 'Listening to coach' : 'Play the target phrase'}
+              testID="compare-play-target"
+              style={[styles.listenBtn, { borderColor: colors.border, marginTop: 12 }]}
+            >
+              <Feather
+                name={coachPlaying ? 'volume-2' : 'play'}
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.listenText, { color: colors.primary }]}>
+                {coachPlaying ? 'Listening...' : 'Play target'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={playSelf}
+              accessibilityRole="button"
+              accessibilityLabel={selfPlaying ? 'Stop playback' : 'Hear yourself'}
+              testID="hear-yourself-button"
+              style={[
+                styles.hearSelfBtn,
+                {
+                  borderColor: selfPlaying ? colors.primary : colors.border,
+                  backgroundColor: selfPlaying ? `${colors.primary}14` : 'transparent',
+                },
+              ]}
+            >
+              <Feather
+                name={selfPlaying ? 'pause' : 'mic'}
+                size={15}
+                color={selfPlaying ? colors.primary : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.hearSelfText,
+                  { color: selfPlaying ? colors.primary : colors.mutedForeground },
+                ]}
+              >
+                {selfPlaying ? 'Playing...' : 'Hear yourself'}
+              </Text>
+            </Pressable>
+          </Animated.View>
         ) : null}
 
         {/* Scoring error */}
@@ -1717,12 +1871,12 @@ export default function PracticeScreen() {
 
       {/* Controls */}
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
-        {phase === 'result' ? (
+        {phase === 'result' || phase === 'compare' ? (
           <View style={styles.resultButtons}>
             <Pressable
               onPress={tryAgain}
               accessibilityRole="button"
-              accessibilityLabel="Record again"
+              accessibilityLabel={phase === 'compare' ? 'Practice again' : 'Record again'}
               testID="retry-button"
               style={[styles.retryBtn, { borderColor: colors.border }]}
             >
@@ -1745,6 +1899,7 @@ export default function PracticeScreen() {
           <RecordButton
             phase={phase}
             coachPlaying={coachPlaying}
+            unsupported={isUnsupported}
             onPressIn={() => {
               isPressingRef.current = true;
               if (phase === 'idle') void startRecording();
@@ -1855,6 +2010,7 @@ function PracticeHeader({
 function RecordButton({
   phase,
   coachPlaying,
+  unsupported,
   onPressIn,
   onPressOut,
   amplitude,
@@ -1863,6 +2019,8 @@ function RecordButton({
 }: {
   phase: Phase;
   coachPlaying: boolean;
+  /** Unsupported languages record without scoring, so the hint copy changes. */
+  unsupported?: boolean;
   onPressIn: () => void;
   onPressOut: () => void;
   amplitude: SharedValue<number>;
@@ -1953,13 +2111,17 @@ function RecordButton({
       ) : null}
       <Text style={[styles.recordHint, { color: colors.mutedForeground }]}>
         {evaluating
-          ? 'Scoring your pronunciation...'
+          ? unsupported
+            ? 'Saving your recording...'
+            : 'Scoring your pronunciation...'
           : coachPlaying
             ? 'Listen first...'
             : recording
               ? noInput
                 ? "We can't hear you - check your mic"
-                : 'Release to score'
+                : unsupported
+                  ? 'Release to compare'
+                  : 'Release to score'
               : 'Hold and say it out loud'}
       </Text>
     </View>
@@ -2042,6 +2204,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   hint: { fontFamily: AppFonts.regular, fontSize: 13, flex: 1 },
+  noticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  noticeText: { fontFamily: AppFonts.regular, fontSize: 13, flex: 1, lineHeight: 19 },
   resultCard: {
     marginTop: 20,
     borderRadius: 20,

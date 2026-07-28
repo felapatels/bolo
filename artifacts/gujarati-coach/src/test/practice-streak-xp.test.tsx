@@ -28,6 +28,7 @@ vi.mock("@/lib/language-context", () => ({
   }),
   useNativeText: () => ({ style: {}, dir: "ltr" as const, isNastaliq: false }),
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
+  useSpeechCapability: () => "supported" as const,
 }));
 
 vi.mock("@tanstack/react-query", () => ({

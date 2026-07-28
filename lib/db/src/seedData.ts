@@ -15,27 +15,38 @@ export type SeedLanguage = {
   script: string;
   fontFamily: string;
   rtl?: boolean;
+  /**
+   * Verified speech-recognition capability (see languages schema). Defaults to
+   * "supported" when omitted. Verdicts come from the July 28, 2026 probe
+   * (artifacts/api-server/scripts/probeSttLanguages.ts) — TTS-generated correct
+   * speech through the real pronunciation pipeline:
+   *  - ks  degraded    — correct speech scored 74/close.
+   *  - sat degraded    — recognizer flips Ol Chiki to Latin transliteration.
+   *  - mni unsupported — correct speech transcribed as Bengali gibberish (2/retry).
+   *  - brx unsupported — correct speech scored 38/retry.
+   */
+  speechCapability?: "supported" | "degraded" | "unsupported";
 };
 
 export const LANGUAGES: SeedLanguage[] = [
   { code: "as", name: "Assamese", nativeName: "অসমীয়া", script: "Bengali-Assamese", fontFamily: "Noto Sans Bengali" },
   { code: "bn", name: "Bengali", nativeName: "বাংলা", script: "Bengali", fontFamily: "Noto Sans Bengali" },
-  { code: "brx", name: "Bodo", nativeName: "बड़ो", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
+  { code: "brx", name: "Bodo", nativeName: "बड़ो", script: "Devanagari", fontFamily: "Noto Sans Devanagari", speechCapability: "unsupported" },
   { code: "doi", name: "Dogri", nativeName: "डोगरी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી", script: "Gujarati", fontFamily: "Noto Sans Gujarati" },
   { code: "hi", name: "Hindi", nativeName: "हिन्दी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "kn", name: "Kannada", nativeName: "ಕನ್ನಡ", script: "Kannada", fontFamily: "Noto Sans Kannada" },
-  { code: "ks", name: "Kashmiri", nativeName: "کٲشُر", script: "Perso-Arabic", fontFamily: "Noto Nastaliq Urdu", rtl: true },
+  { code: "ks", name: "Kashmiri", nativeName: "کٲشُر", script: "Perso-Arabic", fontFamily: "Noto Nastaliq Urdu", rtl: true, speechCapability: "degraded" },
   { code: "kok", name: "Konkani", nativeName: "कोंकणी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "mai", name: "Maithili", nativeName: "मैथिली", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "ml", name: "Malayalam", nativeName: "മലയാളം", script: "Malayalam", fontFamily: "Noto Sans Malayalam" },
-  { code: "mni", name: "Manipuri", nativeName: "ꯃꯤꯇꯩ ꯂꯣꯟ", script: "Meetei Mayek", fontFamily: "Noto Sans Meetei Mayek" },
+  { code: "mni", name: "Manipuri", nativeName: "ꯃꯤꯇꯩ ꯂꯣꯟ", script: "Meetei Mayek", fontFamily: "Noto Sans Meetei Mayek", speechCapability: "unsupported" },
   { code: "mr", name: "Marathi", nativeName: "मराठी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "ne", name: "Nepali", nativeName: "नेपाली", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "or", name: "Odia", nativeName: "ଓଡ଼ିଆ", script: "Odia", fontFamily: "Noto Sans Oriya" },
   { code: "pa", name: "Punjabi", nativeName: "ਪੰਜਾਬੀ", script: "Gurmukhi", fontFamily: "Noto Sans Gurmukhi" },
   { code: "sa", name: "Sanskrit", nativeName: "संस्कृतम्", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
-  { code: "sat", name: "Santali", nativeName: "ᱥᱟᱱᱛᱟᱲᱤ", script: "Ol Chiki", fontFamily: "Noto Sans Ol Chiki" },
+  { code: "sat", name: "Santali", nativeName: "ᱥᱟᱱᱛᱟᱲᱤ", script: "Ol Chiki", fontFamily: "Noto Sans Ol Chiki", speechCapability: "degraded" },
   { code: "sd", name: "Sindhi", nativeName: "سنڌي", script: "Perso-Arabic", fontFamily: "Noto Naskh Arabic", rtl: true },
   { code: "ta", name: "Tamil", nativeName: "தமிழ்", script: "Tamil", fontFamily: "Noto Sans Tamil" },
   { code: "te", name: "Telugu", nativeName: "తెలుగు", script: "Telugu", fontFamily: "Noto Sans Telugu" },

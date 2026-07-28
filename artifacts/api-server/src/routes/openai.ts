@@ -635,6 +635,7 @@ router.post(
     // mismatched language (e.g. "Hindi" for a Gujarati phrase).  Falls back to
     // the client-supplied value when the language record is not found.
     let language = languageName?.trim() || "the target language";
+    let speechCapability: string = "supported";
     if (phraseId != null && languageCode) {
       try {
         const langRow = await db.query.languagesTable.findFirst({
@@ -643,12 +644,52 @@ router.post(
         if (langRow?.name) {
           language = langRow.name;
         }
+        if (langRow?.speechCapability) {
+          speechCapability = langRow.speechCapability;
+        }
       } catch (err) {
         req.log.warn(
           { err },
           "Could not look up language name from DB; using client-supplied value",
         );
       }
+    }
+
+    // Server-authoritative capability gate: for a language where speech
+    // recognition verifiably fails on correct speech, never run STT/scoring —
+    // a score here would be noise presented as judgment. Clients switch to
+    // listen-record-compare mode; this branch is the backstop if one calls
+    // anyway. Band 'nocatch' = no XP, no streak break, no mastery penalty.
+    if (speechCapability === "unsupported") {
+      const nocatchBand: PronunciationBand = "nocatch";
+      const feedback =
+        `Speech recognition can't reliably hear ${language} yet, so we don't score it. Listen to the phrase, record yourself, and compare by ear. Your practice still counts!`;
+      res.json({
+        transcript: "",
+        score: 0,
+        passed: false,
+        band: nocatchBand,
+        xpAwarded: 0,
+        xpBreakdown: null,
+        feedback,
+        tip: "Play the phrase and your recording back to back to hear the difference.",
+        evaluationToken: signEvaluation({
+          userId,
+          phraseId: resolvedPhraseId,
+          languageCode,
+          nativeScript: targetNative,
+          romanized: targetRomanized,
+          english: targetEnglish,
+          transcript: "",
+          score: 0,
+          passed: false,
+          feedback,
+          band: nocatchBand,
+          xpAwarded: 0,
+          latencyMs: latencyMs ?? null,
+        }),
+      });
+      return;
     }
 
     // Hint the transcriber with the language only — omitting the target phrase
@@ -988,6 +1029,42 @@ router.post(
           },
           "Pronunciation guard fired — LLM score overridden",
         );
+      }
+
+      // Script mismatch = the RECOGNIZER failed, not the learner. Resolve to
+      // band 'nocatch' (no XP, but no failure messaging, no streak break, no
+      // mastery penalty) with honest, non-blaming copy. Universal: applies in
+      // every language, including fully supported ones.
+      if (guarded.nocatch) {
+        const nocatchBand: PronunciationBand = "nocatch";
+        const feedback =
+          "Our listener glitched on that one and didn't catch what you said. That's on us, not you. Give it one more go!";
+        res.json({
+          transcript,
+          score: 0,
+          passed: false,
+          band: nocatchBand,
+          xpAwarded: 0,
+          xpBreakdown: null,
+          feedback,
+          tip: "Nothing to fix on your end — just try the same thing again.",
+          evaluationToken: signEvaluation({
+            userId,
+            phraseId: resolvedPhraseId,
+            languageCode,
+            nativeScript: targetNative,
+            romanized: targetRomanized,
+            english: targetEnglish,
+            transcript,
+            score: 0,
+            passed: false,
+            feedback,
+            band: nocatchBand,
+            xpAwarded: 0,
+            latencyMs: latencyMs ?? null,
+          }),
+        });
+        return;
       }
       const { score, passed } = guarded;
       // Band derives from score only (Spec 0 rule 40): >=80 nailed, 55-79 close,

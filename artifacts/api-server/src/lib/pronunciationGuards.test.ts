@@ -147,9 +147,10 @@ test("mid-band close attempt: LLM score stands", () => {
   assert.equal(r.guard, undefined);
 });
 
-test("cross-script transcript: LLM score is trusted but capped at 85", () => {
-  // Devanagari transcript of Gujarati speech: sounds may line up but we can't
-  // verify similarity, so we cap at 85 to prevent unverifiable perfect scores.
+test("cross-script transcript resolves to nocatch — recognizer failure, not learner failure", () => {
+  // Devanagari transcript of Gujarati speech: the recognizer wrote the wrong
+  // script, so nothing about the learner's attempt is verifiable. Universal
+  // rule: script mismatch = nocatch in every language, even with a high LLM score.
   const r = applyScoreGuards({
     score: 90,
     passed: true,
@@ -158,12 +159,13 @@ test("cross-script transcript: LLM score is trusted but capped at 85", () => {
     targetRomanized: TARGET.romanized,
     otherPhrases: OTHERS,
   });
-  assert.equal(r.score, 85);
-  assert.ok(r.passed);
-  assert.equal(r.guard, "cross-script-cap");
+  assert.equal(r.score, 0);
+  assert.equal(r.passed, false);
+  assert.equal(r.guard, "script-mismatch-nocatch");
+  assert.equal(r.nocatch, true);
 });
 
-test("cross-script transcript below the cap passes through unchanged", () => {
+test("cross-script transcript with a low LLM score also resolves to nocatch", () => {
   const r = applyScoreGuards({
     score: 82,
     passed: true,
@@ -171,9 +173,55 @@ test("cross-script transcript below the cap passes through unchanged", () => {
     targetNative: TARGET.native,
     targetRomanized: TARGET.romanized,
   });
-  assert.equal(r.score, 82);
-  assert.ok(r.passed);
-  assert.equal(r.guard, undefined);
+  assert.equal(r.score, 0);
+  assert.equal(r.nocatch, true);
+  assert.equal(r.guard, "script-mismatch-nocatch");
+});
+
+test("Latin transcript for a non-Latin phrase with low romanized similarity resolves to nocatch", () => {
+  // The recognizer wrote English-looking words for Hindi speech. sim to the
+  // romanized target is far below 0.70, so this is recognizer noise — nocatch,
+  // never a learner failure, even when the LLM scored it as a pass.
+  const r = applyScoreGuards({
+    score: 84,
+    passed: true,
+    transcript: "a common gesture",
+    targetNative: TARGET.native,
+    targetRomanized: TARGET.romanized,
+  });
+  assert.equal(r.guard, "script-mismatch-nocatch");
+  assert.equal(r.nocatch, true);
+  assert.equal(r.score, 0);
+});
+
+test("Latin transcript with verifiable similarity (sim >= 0.70) stays scoreable — not a mismatch", () => {
+  // Slightly-off romanized attempt: affirmative evidence the learner said the
+  // phrase. Guard 1b must NOT fire; normal scoring applies.
+  const r = applyScoreGuards({
+    score: 75,
+    passed: false,
+    transcript: "kem cho",
+    targetNative: TARGET.native,
+    targetRomanized: TARGET.romanized,
+  });
+  assert.notEqual(r.guard, "script-mismatch-nocatch");
+  assert.equal(r.nocatch, undefined);
+});
+
+test("Latin transcript matching a DIFFERENT phrase still gets wrong-phrase-cap, not nocatch", () => {
+  // Wrong-phrase evidence takes precedence over the Latin-mismatch rule: the
+  // learner verifiably said another catalog phrase.
+  const r = applyScoreGuards({
+    score: 85,
+    passed: true,
+    transcript: OTHERS[0]!.romanized,
+    targetNative: TARGET.native,
+    targetRomanized: TARGET.romanized,
+    otherPhrases: OTHERS,
+  });
+  assert.equal(r.guard, "wrong-phrase-cap");
+  assert.equal(r.nocatch, undefined);
+  assert.ok(r.score <= 40);
 });
 
 test("near-match-floor threshold is 0.90: sim in [0.85, 0.90) no longer rescues a wrong attempt", () => {

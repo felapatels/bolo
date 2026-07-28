@@ -47,6 +47,7 @@ vi.mock("@/lib/entitlements", async (importOriginal) => {
 });
 
 vi.mock("@/lib/language-context", () => ({
+  useSpeechCapability: () => "supported" as const,
   useLanguage: () => ({
     languages: [{ code: "hi", name: "Hindi", nativeName: "हिन्दी" }],
     activeLang: "hi",

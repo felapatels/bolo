@@ -27,7 +27,8 @@ export const ListLanguagesResponseItem = zod.object({
   "script": zod.string(),
   "fontFamily": zod.string(),
   "rtl": zod.boolean(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "speechCapability": zod.enum(['supported', 'degraded', 'unsupported']).optional().describe('How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time \"feedback is approximate\" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`.\n')
 })
 export const ListLanguagesResponse = zod.array(ListLanguagesResponseItem)
 

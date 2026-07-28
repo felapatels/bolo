@@ -21,7 +21,9 @@ import { db, pool, phrasesTable, languagesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import openaiRouter from "../src/routes/openai";
 
-const PROBE_LANGS = ["or", "sat", "mni"];
+const PROBE_LANGS = process.env.PROBE_LANGS
+  ? process.env.PROBE_LANGS.split(",")
+  : ["hi","gu","bn","ta","te","kn","ml","mr","pa","ur","or","as","ne","sa","sd","ks","kok","mai","mni","brx","doi","sat"];
 const PROBE_USER = `__probe_stt_user_${process.pid}`;
 
 // Collect pipeline log lines so we can recover the internal similarity value,

@@ -148,6 +148,13 @@
       "when": 1785209576514,
       "tag": "0021_spec_d2_register",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785239324805,
+      "tag": "0022_speech_capability",
+      "breakpoints": true
     }
   ]
 }

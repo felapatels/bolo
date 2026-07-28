@@ -71,3 +71,29 @@ export async function saveChatHoldHintSeen(): Promise<void> {
     // Best-effort.
   }
 }
+
+/**
+ * "Feedback is approximate" notice for degraded-recognition languages: shown
+ * once, the first time the learner opens a practice/recording surface in that
+ * language, then never again. Persisted per language code so each language
+ * gets its own one-time notice. Not synced to the account.
+ */
+export function approxNoticeSeenKey(code: string): string {
+  return `bolo.approxNoticeSeen.${code}`;
+}
+
+export async function loadApproxNoticeSeen(code: string): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(approxNoticeSeenKey(code))) === 'yes';
+  } catch {
+    return false;
+  }
+}
+
+export async function saveApproxNoticeSeen(code: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(approxNoticeSeenKey(code), 'yes');
+  } catch {
+    // Best-effort.
+  }
+}

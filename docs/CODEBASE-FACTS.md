@@ -53,7 +53,7 @@ Monorepo, pnpm workspace, root at `/home/runner/workspace`.
 
 **badges:** `id`, `user_id`, `language_code`, `badge_key`, `earned_at`
 
-**languages:** `code`
+**languages:** `code` text PK, `name`, `native_name`, `script`, `font_family`, `rtl` bool, `sort_order` int, plus `speech_capability` text default `'supported'` (migration `0022_speech_capability.sql`; see section 4 "Speech capability")
 
 ### Added in Task 1 (migration `0020_scoring_core_v2.sql`)
 
@@ -150,6 +150,16 @@ A day with no activity yet falls back to yesterday, so a streak does not appear 
 Whisper `speechToText` → retry at high quality if transcript empty or similarity <= 0.40 → fast path if phonetic similarity >= 0.93 using `simToScore` (0.90-1.00 maps to 80-100) → otherwise LLM rubric via `PRONUNCIATION_RUBRIC_PROMPT` → `applyScoreGuards`.
 
 Guards include normalization, a wrong-phrase cap at 40 when a sibling phrase (up to 400 in the same language) beats the target at >= 0.80 similarity, and a Levenshtein floor/cap.
+
+### Speech capability + script-mismatch guard (July 2026)
+
+- `languages.speech_capability` (`supported` | `degraded` | `unsupported`, default `supported`, migration 0022) is server-authoritative, seeded from probe verdicts in `seedData.ts`, exposed as optional `speechCapability` on `GET /languages`. Verdicts: ks + sat degraded, mni + brx unsupported, rest supported.
+- **Probe limitation:** verdicts come from `artifacts/api-server/scripts/probeSttLanguages.ts` using TTS-generated audio, so `supported` means "best case with clean synthetic speech". Re-probing with real human recordings is pending and likely infeasible in this environment; if human audio shows a language materially worse, downgrade its seed value.
+- `/openai/pronunciation` short-circuits for `unsupported` languages BEFORE any STT call: returns band `nocatch`, xp 0, listen-record-compare copy. Clients never send evaluations for these languages, this is the backstop.
+- `applyScoreGuards` guard ladder changed: the old `cross-script-cap` (cap 85) is replaced by universal `script-mismatch-nocatch` — a transcript in the wrong Unicode script (or a Latin transcript with romanized sim < 0.45 against a non-Latin target) proves the recognizer failed, and resolves to band `nocatch` (score 0, no XP, no streak break) in ALL languages. Latin transcripts with sim >= 0.45 stay scoreable; wrong-phrase-cap takes precedence.
+- The STT language-code-rejected retry in `lib/integrations-openai-ai-server` is unchanged but now logs `[stt] language_code_rejected_retrying_without_hint` with the language code.
+- `POST /attempts` treats band `nocatch` as a system miss end to end: the attempt row is inserted for analytics, but Elo theta is untouched (`thetaDelta` 0, no ability upsert), no FSRS rating/memory write, and no phrase exposure bump. This is the server-authoritative safeguard; clients in unsupported-language compare mode never submit attempts at all.
+- Clients: web `practice.tsx` (also serves review mode) and mobile `practice/[id].tsx` + `review.tsx` read the active language's `speechCapability`. Degraded shows a one-time dismissible notice (key `bolo.approxNoticeSeen.<code>`, localStorage/AsyncStorage). Unsupported switches to a listen-record-compare stage (play target, hear yourself, no evaluation request, no band/XP).
 
 ### normalizeNative
 

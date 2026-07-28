@@ -221,6 +221,7 @@ export async function seedContent() {
         fontFamily: lang.fontFamily,
         rtl: lang.rtl ?? false,
         sortOrder: langSort++,
+        speechCapability: lang.speechCapability ?? "supported",
       })
       .onConflictDoUpdate({
         target: languagesTable.code,
@@ -231,6 +232,7 @@ export async function seedContent() {
           fontFamily: lang.fontFamily,
           rtl: lang.rtl ?? false,
           sortOrder: langSort - 1,
+          speechCapability: lang.speechCapability ?? "supported",
         },
       });
   }

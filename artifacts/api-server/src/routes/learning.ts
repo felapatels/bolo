@@ -949,18 +949,25 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   ]);
 
   // Elo update: learner ability (theta) and phrase difficulty offset (beta).
+  // Band 'nocatch' means the SYSTEM failed to capture usable audio (silence,
+  // recognizer script mismatch, or an unsupported-recognition language). The
+  // learner must wear none of it: no Elo movement, no FSRS lapse, no exposure
+  // bump. The attempt row is still inserted for analytics, flagged 'nocatch'.
+  const isNocatch = band === "nocatch";
+
   const theta = abilityRow?.theta ?? 0;
   const beta = 0; // phrase beta: will be populated by a future drift sweep
   const K_THETA = 0.15;
   const outcome = band === "nailed" ? 1.0 : band === "close" ? 0.5 : 0.0;
   const expected = 1 / (1 + Math.exp(-(theta - beta)));
-  const thetaDelta = K_THETA * (outcome - expected);
+  const thetaDelta = isNocatch ? 0 : K_THETA * (outcome - expected);
 
-  // FSRS rating and next card state (only when a catalog phrase is attached).
+  // FSRS rating and next card state (only when a catalog phrase is attached,
+  // and never for nocatch — a system miss is not evidence about memory).
   const now = new Date();
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
-  if (claims.phraseId != null) {
+  if (claims.phraseId != null && !isNocatch) {
     const rating = scoreAndBandToRating(claims.score, band);
     fsrsRating = rating;
     fsrsUpdate = applyFsrsRating(
@@ -1045,8 +1052,10 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
             },
           })
       : Promise.resolve(),
-    // Elo ability upsert
-    db
+    // Elo ability upsert (skipped for nocatch: zero delta, no state to record)
+    isNocatch
+      ? Promise.resolve()
+      : db
       .insert(userAbilityTable)
       .values({
         userId,
@@ -1061,8 +1070,8 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           updatedAt: now,
         },
       }),
-    // Increment phrase exposure count
-    claims.phraseId != null
+    // Increment phrase exposure count (not for nocatch: nothing was heard)
+    claims.phraseId != null && !isNocatch
       ? db
           .update(phrasesTable)
           .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })

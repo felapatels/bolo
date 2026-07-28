@@ -16,6 +16,7 @@ import {
   useUpdateAccountPreferences,
   type Account,
   type Language,
+  type LanguageSpeechCapability,
 } from '@workspace/api-client-react';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 
@@ -26,6 +27,12 @@ type LanguageContextValue = {
   languages: Language[];
   activeLang: string;
   activeLanguage: Language | undefined;
+  /**
+   * How well speech recognition hears the active language. Absent/undefined is
+   * treated as 'supported' so older servers (and languages that never carry the
+   * field) keep full scored practice.
+   */
+  speechCapability: LanguageSpeechCapability;
   setActiveLang: (code: string) => void;
   isLoading: boolean;
 };
@@ -162,11 +169,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [languages, allowedLanguages, isPlus, activeLang]);
 
   const activeLanguage = languages.find((l) => l.code === activeLang);
+  // Absence means the server hasn't classified this language (or is an older
+  // build); default to full scored practice.
+  const speechCapability = activeLanguage?.speechCapability ?? 'supported';
 
   const value: LanguageContextValue = {
     languages,
     activeLang,
     activeLanguage,
+    speechCapability,
     setActiveLang,
     isLoading,
   };

@@ -13,6 +13,9 @@ import {
   categoriesTable,
   lessonsTable,
   phrasesTable,
+  userAbilityTable,
+  userItemMemoryTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -107,6 +110,10 @@ async function getReviewPhrases(lang: string): Promise<{
 async function clearRows(): Promise<void> {
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  // Scoring-v2 side-effect rows, so per-test assertions on Elo/FSRS start clean.
+  await db.delete(userAbilityTable).where(eq(userAbilityTable.userId, TEST_USER_ID));
+  await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
 }
 
 async function storedAttempts() {
@@ -317,7 +324,11 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
-  // FK order: phrases → lessons → category, then the language + user.
+  // FK order: scoring-v2 side-effect rows first (they reference the language
+  // and phrases), then phrases → lessons → category, then the language + user.
+  await db.delete(userAbilityTable).where(eq(userAbilityTable.userId, TEST_USER_ID));
+  await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
@@ -378,6 +389,60 @@ test("records an attempt and persists progress + newly-earned badges", async () 
     "mastery_1",
     "perfect_100",
   ]);
+});
+
+test("a nocatch attempt persists for analytics but applies NO learning penalties", async () => {
+  // Band 'nocatch' = the system failed to capture usable audio (silence,
+  // recognizer script mismatch, or an unsupported-recognition language). The
+  // learner must not be penalized: no Elo movement, no FSRS memory write, no
+  // phrase exposure bump — but the row itself is stored for analytics.
+  const [phraseBefore] = await db
+    .select({ exposureCount: phrasesTable.exposureCount })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.id, 4242));
+
+  const token = signEvaluation({
+    userId: TEST_USER_ID,
+    phraseId: 4242,
+    languageCode: LANG,
+    nativeScript: "namaste",
+    romanized: "namaste",
+    english: "hello",
+    transcript: "কি আমাকে", // wrong-script transcript: recognizer failure
+    score: 0,
+    passed: false,
+    feedback: "Our listener glitched on that one.",
+    band: "nocatch",
+    xpAwarded: 0,
+  });
+
+  const { status, json } = await postAttempt({ evaluationToken: token });
+  assert.equal(status, 201);
+  assert.equal(json.score, 0);
+
+  const attempts = await storedAttempts();
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].band, "nocatch");
+  // Elo untouched: thetaDelta recorded as 0 and no ability row created.
+  assert.equal(attempts[0].thetaDelta, 0);
+  const abilityRows = await db
+    .select()
+    .from(userAbilityTable)
+    .where(eq(userAbilityTable.userId, TEST_USER_ID));
+  assert.equal(abilityRows.length, 0);
+  // FSRS untouched: no rating on the row, no memory row created.
+  assert.equal(attempts[0].fsrsRating, null);
+  const memoryRows = await db
+    .select()
+    .from(userItemMemoryTable)
+    .where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  assert.equal(memoryRows.length, 0);
+  // Exposure count unchanged: nothing was actually heard.
+  const [phraseAfter] = await db
+    .select({ exposureCount: phrasesTable.exposureCount })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.id, 4242));
+  assert.equal(phraseAfter.exposureCount, phraseBefore.exposureCount);
 });
 
 test("a second attempt persists but re-awards no already-earned badge", async () => {

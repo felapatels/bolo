@@ -22,6 +22,9 @@ import assert from "node:assert/strict";
 
 mock.module("@workspace/integrations-openai-ai-server/audio", {
   namedExports: {
+    // Error class imported by parrotChat.ts (transitively via the route file);
+    // must exist on the mock or module instantiation throws.
+    UndecodableAudioError: class UndecodableAudioError extends Error {},
     speechToText: async () => "",
     ensureCompatibleFormat: async (buf: Buffer) => ({ buffer: buf, format: "mp3" as const }),
     openai: { chat: { completions: { create: async () => ({ choices: [] }) } } },

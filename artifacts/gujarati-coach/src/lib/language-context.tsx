@@ -192,6 +192,24 @@ export function useLanguage(): LanguageContextValue {
   return ctx;
 }
 
+// How well speech recognition hears a language. The field is optional (mobile
+// back-compat), so absence is treated as full "supported" practice.
+export type SpeechCapability = "supported" | "degraded" | "unsupported";
+
+export function speechCapabilityOf(
+  language: Language | undefined,
+): SpeechCapability {
+  return language?.speechCapability ?? "supported";
+}
+
+// Reads the active language's speech-recognition capability, defaulting to
+// "supported" when the server omits the field. Practice/review surfaces use
+// this to soften (degraded) or replace (unsupported) scored feedback.
+export function useSpeechCapability(): SpeechCapability {
+  const { activeLanguage } = useLanguage();
+  return speechCapabilityOf(activeLanguage);
+}
+
 // Returns style + dir props to render text in the active language's own script
 // (correct font + right-to-left for Perso-Arabic scripts). Spread onto any
 // element that shows native-script text.

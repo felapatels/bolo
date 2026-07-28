@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LanguageSpeechCapability } from './languageSpeechCapability';
 
 export interface Language {
   code: string;
@@ -14,4 +15,6 @@ export interface Language {
   fontFamily: string;
   rtl: boolean;
   sortOrder: number;
+  /** How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`. */
+  speechCapability?: LanguageSpeechCapability;
 }

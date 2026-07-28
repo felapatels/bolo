@@ -76,6 +76,9 @@ let stubLanguage: StubLanguage | null = {
 
 mock.module("@workspace/integrations-openai-ai-server/audio", {
   namedExports: {
+    // Error class imported by parrotChat.ts (transitively via the route file);
+    // must exist on the mock or module instantiation throws.
+    UndecodableAudioError: class UndecodableAudioError extends Error {},
     speechToText: async (
       _buffer: Buffer,
       _format: string,
@@ -161,6 +164,12 @@ mock.module("@workspace/db", {
     ttsCacheTable: {},
     languagesTable: {},
     usersTable: {},
+    // Scoring Core v2 tables (imported by xpEngine/fsrsScheduler via the route chain).
+    xpLedgerTable: {},
+    attemptsTable: {},
+    gameSessionsTable: {},
+    userAbilityTable: {},
+    phraseScheduleTable: {},
     badgesTable: {},
     chatTurnsTable: {},
     familyPlansTable: {},
@@ -169,7 +178,6 @@ mock.module("@workspace/db", {
     friendshipsTable: {},
     lessonGenerationsTable: {},
     contactSubmissionsTable: {},
-    attemptsTable: {},
     categoriesTable: {},
     lessonsTable: {},
     pool: { end: async () => {} },

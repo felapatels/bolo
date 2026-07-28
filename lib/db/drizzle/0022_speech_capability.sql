@@ -1,0 +1,1 @@
+ALTER TABLE "languages" ADD COLUMN "speech_capability" text DEFAULT 'supported' NOT NULL;

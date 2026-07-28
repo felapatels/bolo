@@ -554,6 +554,12 @@ export async function speechToText(
       (e?.param === "language" ||
         /language(_| )?code|'language'|unsupported language/i.test(e?.message ?? ""));
     if (options.language && languageRejected) {
+      // Behavior unchanged — just record which language codes force the
+      // no-language-hint retry, so degraded-recognition patterns are traceable.
+      console.warn("[stt] language_code_rejected_retrying_without_hint", {
+        language: options.language,
+        model,
+      });
       const file = await toFile(audioBuffer, `audio.${format}`);
       const response = await openai.audio.transcriptions.create({
         file,

@@ -52,6 +52,9 @@ let sttCallCount = 0;
 
 mock.module("@workspace/integrations-openai-ai-server/audio", {
   namedExports: {
+    // Error class imported by parrotChat.ts (transitively via the route file);
+    // must exist on the mock or module instantiation throws.
+    UndecodableAudioError: class UndecodableAudioError extends Error {},
     // STT: pop from sttQueue if non-empty; otherwise return stubbedTranscript.
     // Tests that need different first-pass vs second-pass values push values
     // onto sttQueue before posting.

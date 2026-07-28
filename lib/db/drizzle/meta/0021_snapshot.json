@@ -1,6 +1,6 @@
 {
-  "id": "07b7f298-898f-4fa4-a94a-548ec5789bb2",
-  "prevId": "392614fb-27fd-460c-a11d-cdd90d456ec0",
+  "id": "4abb581f-1e2f-431c-81ce-aa52fe109140",
+  "prevId": "07b7f298-898f-4fa4-a94a-548ec5789bb2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -364,6 +364,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "speech_capability": {
+          "name": "speech_capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'supported'"
         }
       },
       "indexes": {},

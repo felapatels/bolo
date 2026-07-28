@@ -221,6 +221,18 @@ export interface SetChosenLanguageInput {
   language: string;
 }
 
+/**
+ * How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`.
+ */
+export type LanguageSpeechCapability = typeof LanguageSpeechCapability[keyof typeof LanguageSpeechCapability];
+
+
+export const LanguageSpeechCapability = {
+  supported: 'supported',
+  degraded: 'degraded',
+  unsupported: 'unsupported',
+} as const;
+
 export interface Language {
   code: string;
   name: string;
@@ -229,6 +241,8 @@ export interface Language {
   fontFamily: string;
   rtl: boolean;
   sortOrder: number;
+  /** How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`. */
+  speechCapability?: LanguageSpeechCapability;
 }
 
 export interface Category {
