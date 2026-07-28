@@ -19,6 +19,9 @@ Monorepo, pnpm workspace, root at `/home/runner/workspace`.
 | `artifacts/api-server` | Node/Express API |
 | `artifacts/gujarati-coach` | React web app |
 | `artifacts/bolo-mobile` | Expo React Native app, expo-router |
+| `artifacts/bolo-launch-video` | Marketing asset: programmatic launch video (React/Framer Motion, video-js scaffold). Not product code; nothing in the main apps depends on it |
+| `artifacts/bolo-social-clips` | Marketing asset: short social clips, same video-js scaffold. Not product code; no main-app dependencies |
+| `artifacts/mockup-sandbox` | Internal design tooling: vite preview server for canvas component mockups. Never shipped; no main-app dependencies |
 | `lib/db/src` | Drizzle schema |
 | `lib/db/drizzle/` | Migrations and `_journal.json` |
 | `lib/api-spec/openapi.yaml` | Schema source of truth |
