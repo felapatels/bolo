@@ -592,7 +592,7 @@ router.post(
     // Rule 47: Discard attempts where the recording started under 250 ms after
     // the phrase finished playing — the learner cannot have said it that fast.
     // Prevents tap-spam and pre-tapped recordings from receiving a score.
-    if (latencyMs !== undefined && latencyMs < 250) {
+    if (latencyMs != null && latencyMs < 250) {
       res.status(400).json({
         error: "tap_too_fast",
         message:
@@ -710,6 +710,8 @@ router.post(
         score: 0,
         passed: false,
         band: nocatchBand,
+        xpAwarded: 0,
+        xpBreakdown: null,
         feedback,
         tip: "Hold your phone a little closer and speak up.",
         evaluationToken: signEvaluation({
@@ -880,6 +882,8 @@ router.post(
           score,
           passed: true,
           band: nailedBand,
+          xpAwarded: nailedXp,
+          xpBreakdown: nailedXp > 0 ? `Full XP — nailed it` : null,
           feedback,
           tip,
           evaluationToken: signEvaluation({
@@ -996,6 +1000,11 @@ router.post(
         score,
         passed,
         band: llmBand,
+        xpAwarded: llmXp,
+        xpBreakdown:
+          llmBand === "nailed" ? `Full XP — nailed it` :
+          llmBand === "close"  ? `Half XP — close try` :
+          null,
         feedback,
         tip: result.tip ?? "Try to say each syllable slowly and clearly.",
         evaluationToken: signEvaluation({

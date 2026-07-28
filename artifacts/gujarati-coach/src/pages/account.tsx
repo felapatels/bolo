@@ -197,6 +197,14 @@ export default function Account() {
 
   const notifications = account?.preferences.notifications;
   const learning = account?.preferences.learning;
+  const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [timezoneInput, setTimezoneInput] = useState(learning?.timezone ?? "");
+  useEffect(() => {
+    if (learning?.timezone !== undefined) {
+      setTimezoneInput(learning.timezone ?? detectedTz);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [learning?.timezone]);
 
   const profileDirty =
     !!account &&
@@ -589,6 +597,37 @@ export default function Account() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Timezone */}
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Map className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-muted-foreground">Timezone</p>
+                <div className="mt-1 flex gap-2">
+                  <Input
+                    value={timezoneInput}
+                    onChange={e => setTimezoneInput(e.target.value)}
+                    placeholder="e.g. America/New_York"
+                    className="font-mono text-sm h-8"
+                  />
+                  {timezoneInput !== (learning?.timezone ?? detectedTz) && (
+                    <button
+                      onClick={() => savePreferences({ timezone: timezoneInput.trim() || null }, "Timezone saved")}
+                      className="shrink-0 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Used for daily streak. Detected: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                </p>
+              </div>
             </div>
           </div>
 

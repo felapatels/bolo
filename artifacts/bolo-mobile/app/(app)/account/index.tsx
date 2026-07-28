@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -90,6 +91,9 @@ export default function AccountScreen() {
 
   // Silent mode: skip coach voice auto-play on each phrase so the learner can
   // read the word themselves and record immediately. Device-local, like above.
+  const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [timezoneModalVisible, setTimezoneModalVisible] = React.useState(false);
+  const [timezoneInput, setTimezoneInput] = React.useState('');
   const [silentMode, setSilentMode] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
@@ -515,6 +519,16 @@ export default function AccountScreen() {
             /></>)}
             <Divider />
             <NavRow
+              icon="clock"
+              label="Timezone"
+              value={prefs?.learning.timezone ?? detectedTz}
+              onPress={() => {
+                setTimezoneInput(prefs?.learning.timezone ?? detectedTz);
+                setTimezoneModalVisible(true);
+              }}
+            />
+            <Divider />
+            <NavRow
               icon="map"
               label="Replay Tour"
               value="See the app intro again"
@@ -574,6 +588,57 @@ export default function AccountScreen() {
           </Pressable>
         </ScrollView>
       )}
+
+      {/* Timezone picker modal */}
+      <Modal
+        visible={timezoneModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTimezoneModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setTimezoneModalVisible(false)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Timezone</Text>
+            <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
+              IANA timezone name used for daily streak. Detected: {detectedTz}
+            </Text>
+            <TextInput
+              style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={timezoneInput}
+              onChangeText={setTimezoneInput}
+              placeholder="e.g. America/New_York"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                onPress={() => setTimezoneModalVisible(false)}
+                style={[styles.modalBtn, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  const tz = timezoneInput.trim() || null;
+                  setTimezoneModalVisible(false);
+                  await savePrefs({ timezone: tz });
+                }}
+                style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -915,6 +980,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   deleteText: { fontFamily: AppFonts.bold, fontSize: 15 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    gap: 12,
+  },
+  modalTitle: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  modalSub: { fontFamily: AppFonts.regular, fontSize: 13, lineHeight: 18 },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: AppFonts.regular,
+    fontSize: 14,
+  },
+  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  modalBtnPrimary: { borderWidth: 0 },
+  modalBtnText: { fontFamily: AppFonts.bold, fontSize: 14 },
   centerState: {
     alignItems: 'center',
     gap: 14,

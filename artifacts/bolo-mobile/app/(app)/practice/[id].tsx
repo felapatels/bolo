@@ -28,7 +28,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import { BandPill, type Band } from '@/components/BandPill';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListCategoryPhrases,
@@ -73,9 +73,21 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode } from '@/lib/settings';
-import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
+
+const BAND_LABEL: Record<Band, string> = {
+  nailed: 'Nailed it',
+  close: 'Close',
+  retry: 'Try again',
+  nocatch: "Didn't catch that",
+};
+
+function bandColor(band: Band, colors: { success: string; gold: string; destructive: string }): string {
+  if (band === 'nailed') return colors.success;
+  if (band === 'close') return colors.gold;
+  return colors.destructive;
+}
 
 // ── Score trail ──────────────────────────────────────────────────────────────
 
@@ -85,14 +97,14 @@ type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
  */
 function ScoreDot({
   index,
-  score,
+  band,
   isCurrent,
   dotColor,
   onPress,
   isSelected,
 }: {
   index: number;
-  score: number | null;
+  band: Band | null;
   isCurrent: boolean;
   dotColor: string;
   onPress?: () => void;
@@ -122,11 +134,11 @@ function ScoreDot({
   return (
     <Pressable
       testID={`score-dot-${index}`}
-      onPress={score !== null ? onPress : undefined}
-      disabled={score === null}
+      onPress={band !== null ? onPress : undefined}
+      disabled={band === null}
       hitSlop={6}
-      accessibilityRole={score !== null ? 'button' : undefined}
-      accessibilityLabel={score !== null ? `Score: ${score}` : undefined}
+      accessibilityRole={band !== null ? 'button' : undefined}
+      accessibilityLabel={band !== null ? BAND_LABEL[band] : undefined}
     >
       <Animated.View
         style={[
@@ -146,23 +158,23 @@ function ScoreDot({
 /** Row of colored dots — one per phrase — above the progress bar. */
 function ScoreTrail({
   total,
-  scores,
+  bands,
   currentIndex,
   colors,
 }: {
   total: number;
   /** Keyed by phrase index; a missing key means that phrase hasn't been attempted yet. */
-  scores: Record<number, number>;
+  bands: Record<number, Band>;
   currentIndex: number;
   colors: { success: string; gold: string; destructive: string; muted: string; primary: string; mutedForeground: string; foreground: string };
 }) {
-  const [tooltip, setTooltip] = React.useState<{ idx: number; score: number } | null>(null);
+  const [tooltip, setTooltip] = React.useState<{ idx: number; band: Band } | null>(null);
   const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipOpacity = useSharedValue(0);
 
-  const showTooltip = React.useCallback((idx: number, score: number) => {
+  const showTooltip = React.useCallback((idx: number, band: Band) => {
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-    setTooltip({ idx, score });
+    setTooltip({ idx, band });
     tooltipOpacity.value = withTiming(1, { duration: 150 });
     tooltipTimer.current = setTimeout(() => {
       tooltipOpacity.value = withTiming(0, { duration: 200 });
@@ -183,20 +195,16 @@ function ScoreTrail({
     <View style={styles.scoreTrailOuter}>
       {tooltip !== null && (
         <Animated.Text style={[styles.scoreTrailTooltip, { color: colors.mutedForeground }, tooltipStyle]}>
-          Phrase {tooltip.idx + 1}: {tooltip.score} / 100
+          Phrase {tooltip.idx + 1}: {BAND_LABEL[tooltip.band]}
         </Animated.Text>
       )}
       <View style={styles.scoreTrailRow}>
         {Array.from({ length: total }, (_, i) => {
-          const score = scores[i] ?? null;
+          const band = bands[i] ?? null;
           const isCurrent = i === currentIndex;
           const dotColor =
-            score !== null
-              ? score >= 70
-                ? colors.success
-                : score >= 50
-                  ? colors.gold
-                  : colors.destructive
+            band !== null
+              ? bandColor(band, colors)
               : isCurrent
                 ? colors.primary + '70'
                 : colors.muted;
@@ -204,10 +212,10 @@ function ScoreTrail({
             <ScoreDot
               key={i}
               index={i}
-              score={score}
+              band={band}
               isCurrent={isCurrent}
               dotColor={dotColor}
-              onPress={() => showTooltip(i, score!)}
+              onPress={() => showTooltip(i, band!)}
               isSelected={tooltip?.idx === i}
             />
           );
@@ -217,173 +225,37 @@ function ScoreTrail({
   );
 }
 
-// ScoreRing — circular SVG arc that animates from 0 to the earned score,
-// with a count-up number centred inside. Colors shift by band:
-// green ≥80, amber 60–79, red below 60.
-const RING_R = 48;
-const RING_STROKE = 9;
-const RING_CIRCUM = 2 * Math.PI * RING_R;
-const RING_SIZE = RING_R * 2 + RING_STROKE;
-function ScoreRing({ score, color }: { score: number; color: string }) {
-  // createAnimatedComponent inside useMemo: avoids module-level Reanimated+SVG
-  // evaluation on iOS New Architecture which can crash before any JS runs.
-  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
-  const progress = useSharedValue(0);
-
-  React.useEffect(() => {
-    progress.value = 0;
-    progress.value = withTiming(score / 100, { duration: 850 });
-  }, [score]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: RING_CIRCUM * (1 - progress.value),
-  }));
-
-  // Count-up display for the centre number
-  const [display, setDisplay] = React.useState(0);
-  React.useEffect(() => {
-    if (score === 0) { setDisplay(0); return; }
-    const DURATION = 700;
-    const STEPS = 35;
-    const intervalMs = DURATION / STEPS;
-    let step = 0;
-    const timer = setInterval(() => {
-      step += 1;
-      setDisplay(Math.round((score * step) / STEPS));
-      if (step >= STEPS) clearInterval(timer);
-    }, intervalMs);
-    return () => { clearInterval(timer); setDisplay(score); };
-  }, [score]);
-
-  const center = RING_SIZE / 2;
-  const trackColor = color + '28'; // ~16 % opacity track
-
-  return (
-    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg
-        width={RING_SIZE}
-        height={RING_SIZE}
-        style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
-        accessibilityElementsHidden
-      >
-        {/* Track */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={RING_R}
-          fill="none"
-          stroke={trackColor}
-          strokeWidth={RING_STROKE}
-        />
-        {/* Animated progress arc */}
-        <AnimatedCircle
-          cx={center}
-          cy={center}
-          r={RING_R}
-          fill="none"
-          stroke={color}
-          strokeWidth={RING_STROKE}
-          strokeLinecap="round"
-          strokeDasharray={RING_CIRCUM}
-          animatedProps={animatedProps}
-        />
-      </Svg>
-      {/* Centred score number */}
-      <View style={{ alignItems: 'center' }} accessibilityLabel={`Pronunciation result: ${score} out of 100`}>
-        <Text style={{ fontFamily: AppFonts.extrabold, fontSize: 30, color, lineHeight: 34 }}>
-          {display}
-        </Text>
-        <Text style={{ fontFamily: AppFonts.semibold, fontSize: 11, color, opacity: 0.65 }}>
-          / 100
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // ── Summary ring row ─────────────────────────────────────────────────────────
 
 /**
- * A compact ring used only on the session-summary screen.
- * Smaller than the practice ScoreRing (r=20) and no count-up animation,
- * since the score is already known by the time the summary renders.
- */
-const MINI_R = 20;
-const MINI_STROKE = 4;
-const MINI_CIRCUM = 2 * Math.PI * MINI_R;
-const MINI_SIZE = MINI_R * 2 + MINI_STROKE;
-
-function MiniScoreRing({ score, color }: { score: number; color: string }) {
-  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
-  const progress = useSharedValue(0);
-
-  React.useEffect(() => {
-    progress.value = 0;
-    progress.value = withTiming(score / 100, { duration: 700 });
-  }, [score]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: MINI_CIRCUM * (1 - progress.value),
-  }));
-
-  const center = MINI_SIZE / 2;
-  const trackColor = color + '28';
-
-  return (
-    <View style={{ width: MINI_SIZE, height: MINI_SIZE, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg
-        width={MINI_SIZE}
-        height={MINI_SIZE}
-        style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
-        accessibilityElementsHidden
-      >
-        <Circle cx={center} cy={center} r={MINI_R} fill="none" stroke={trackColor} strokeWidth={MINI_STROKE} />
-        <AnimatedCircle
-          cx={center} cy={center} r={MINI_R} fill="none" stroke={color}
-          strokeWidth={MINI_STROKE} strokeLinecap="round"
-          strokeDasharray={MINI_CIRCUM} animatedProps={animatedProps}
-        />
-      </Svg>
-      <Text style={{ fontFamily: AppFonts.extrabold, fontSize: 9, color, lineHeight: 11 }}>
-        {score}
-      </Text>
-    </View>
-  );
-}
-
-/**
- * Horizontally scrollable row of mini score rings for the session summary.
- * Tapping a ring reveals inline feedback for that phrase.
+ * Horizontally scrollable row of band indicators for the session summary.
+ * Tapping an item reveals inline feedback for that phrase.
  */
 function SummaryRingRow({
   list,
-  scores,
+  bands,
   feedback,
   colors,
 }: {
   list: { id: number; english: string }[];
-  scores: Record<number, number>;
+  bands: Record<number, Band>;
   feedback: Record<number, { feedback: string; tip: string }>;
-  colors: { success: string; primary: string; destructive: string; card: string; border: string; foreground: string; mutedForeground: string; muted: string };
+  colors: { success: string; gold: string; primary: string; destructive: string; card: string; border: string; foreground: string; mutedForeground: string; muted: string };
 }) {
   const [selectedIdx, setSelectedIdx] = React.useState<number | null>(null);
-  const attempted = list.filter((_, i) => scores[i] !== undefined);
+  const attempted = list.filter((_, i) => bands[i] !== undefined);
   if (attempted.length === 0) return null;
-
-  // Thresholds mirror ScoreTrail dots, flash overlay, and scoreColor() (70/50).
-  const ringColor = (score: number) =>
-    score >= 70 ? colors.success : score >= 50 ? colors.primary : colors.destructive;
 
   const selected = selectedIdx !== null ? {
     phrase: list[selectedIdx],
-    score: scores[selectedIdx],
+    band: bands[selectedIdx],
     fb: feedback[selectedIdx],
   } : null;
 
   return (
     <View style={{ width: '100%', marginTop: 20 }}>
       <Text style={[styles.summaryRingLabel, { color: colors.mutedForeground }]}>
-        Per-phrase scores
+        Per-phrase results
       </Text>
       <ScrollView
         horizontal
@@ -391,9 +263,9 @@ function SummaryRingRow({
         contentContainerStyle={styles.summaryRingRow}
       >
         {list.map((phrase, i) => {
-          const score = scores[i];
-          if (score === undefined) return null;
-          const color = ringColor(score);
+          const band = bands[i];
+          if (band === undefined) return null;
+          const color = bandColor(band, colors);
           const isSelected = selectedIdx === i;
           return (
             <Pressable
@@ -403,10 +275,10 @@ function SummaryRingRow({
                 styles.summaryRingItem,
                 isSelected && { borderColor: color, borderWidth: 1.5, borderRadius: 12 },
               ]}
-              accessibilityLabel={`Phrase ${i + 1}: ${phrase.english}, score ${score}`}
+              accessibilityLabel={`Phrase ${i + 1}: ${phrase.english}, ${BAND_LABEL[band]}`}
               accessibilityRole="button"
             >
-              <MiniScoreRing score={score} color={color} />
+              <View style={[styles.summaryBandDot, { backgroundColor: color }]} />
               <Text
                 style={[styles.summaryRingEng, { color: colors.mutedForeground }]}
                 numberOfLines={1}
@@ -522,8 +394,12 @@ export default function PracticeScreen() {
   }, []);
   const [result, setResult] = React.useState<PronunciationResult | null>(null);
   // Keyed by phrase index so retrying phrase N replaces that dot rather than
-  // pushing a new score onto the next phrase's position.
-  const [scores, setScores] = React.useState<Record<number, number>>({});
+  // pushing a new band onto the next phrase's position.
+  const [bands, setBands] = React.useState<Record<number, Band>>({});
+  // XP data per phrase index — xp earned and optional breakdown text.
+  const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
+  // Whether the XP breakdown panel in the summary is expanded.
+  const [xpExpanded, setXpExpanded] = React.useState(false);
   // Feedback text per phrase index — used on the summary screen.
   const [sessionFeedback, setSessionFeedback] = React.useState<Record<number, { feedback: string; tip: string }>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
@@ -902,7 +778,7 @@ export default function PracticeScreen() {
   React.useEffect(() => {
     if (phase === 'done') {
       fireConfetti(4000);
-      if (Object.keys(scores).length > 0 && Object.values(scores).every((s) => s >= 80)) {
+      if (Object.values(bands).length > 0 && Object.values(bands).every((b) => b === 'nailed')) {
         hapticHeavy();
       }
     }
@@ -1080,15 +956,16 @@ export default function PracticeScreen() {
               .catch(() => null)
           : null;
       setResult(res);
-      setScores((prev) => ({ ...prev, [index]: res.score }));
+      setBands((prev) => ({ ...prev, [index]: res.band }));
+      setXpData((prev) => ({ ...prev, [index]: { xp: res.xpAwarded, breakdown: res.xpBreakdown ?? null } }));
       setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
       setPhaseSync('result');
 
-      // Full-bleed color flash: green for pass ≥ 70, amber for near-miss 50–69, red for fail.
+      // Full-bleed color flash: green for nailed, amber for close, red for retry/nocatch.
       const fColor =
-        res.score >= 70
+        res.band === 'nailed'
           ? colors.success
-          : res.score >= 50
+          : res.band === 'close'
             ? '#F59E0B'
             : colors.destructive;
       setFlashColor(fColor);
@@ -1098,7 +975,7 @@ export default function PracticeScreen() {
       );
 
       // ── Hot-streak tracking ──────────────────────────────────────────────
-      if (res.score >= 70) {
+      if (res.band === 'nailed' || res.band === 'close') {
         consecutiveGoodRef.current += 1;
         const streak = consecutiveGoodRef.current;
         if (streak === 3 || streak === 5 || streak === 10) {
@@ -1122,9 +999,8 @@ export default function PracticeScreen() {
           : Haptics.NotificationFeedbackType.Warning,
       );
 
-      // Bigger reward for a strong attempt: confetti rains on an excellent score, and
-      // a solid pass gets an extra celebratory haptic pulse.
-      if (res.score >= 95) {
+      // Bigger reward for a nailed attempt: confetti rains, and an extra celebratory haptic fires.
+      if (res.band === 'nailed') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
@@ -1275,13 +1151,10 @@ export default function PracticeScreen() {
 
   // --- Summary ---
   if (phase === 'done') {
-    const scoreVals = Object.values(scores);
-    const avg =
-      scoreVals.length > 0
-        ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
-        : 0;
-    const isPerfect = scoreVals.length > 0 && scoreVals.every((s) => s >= 80);
-    const xpEarned = Math.min(50, Math.round(avg / 10) * scoreVals.length);
+    const bandVals = Object.values(bands);
+    const totalXp = Object.values(xpData).reduce((sum, d) => sum + d.xp, 0);
+    const isPerfect = bandVals.length > 0 && bandVals.every((b) => b === 'nailed');
+    const anyPassed = bandVals.some((b) => b === 'nailed' || b === 'close');
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
@@ -1296,37 +1169,23 @@ export default function PracticeScreen() {
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
             ]}
           >
-            {isPerfect ? 'PERFECT SESSION! 🏆' : 'Session complete!'}
+            {isPerfect ? 'PERFECT SESSION! 🏆' : anyPassed ? 'Session complete!' : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
             entering={skipEnter ? undefined : FadeInDown.delay(220)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
-            You practiced {scoreVals.length}{' '}
+            You practiced {bandVals.length}{' '}
             {isSentences
-              ? scoreVals.length === 1
+              ? bandVals.length === 1
                 ? 'sentence'
                 : 'sentences'
-              : scoreVals.length === 1
+              : bandVals.length === 1
                 ? 'phrase'
                 : 'phrases'}.
           </Animated.Text>
-          <Animated.View
-            entering={skipEnter ? undefined : ZoomIn.delay(300).springify().damping(13)}
-            style={[
-              styles.avgCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>
-              Average score
-            </Text>
-            <Text style={[styles.avgValue, { color: scoreColor(avg, colors) }]}>
-              {avg}
-            </Text>
-          </Animated.View>
-          {/* Score trail — lets learners review each phrase's result at a glance */}
-          {Object.keys(scores).length > 0 && (
+          {/* Band trail — lets learners review each phrase's result at a glance */}
+          {Object.keys(bands).length > 0 && (
             <Animated.View
               entering={skipEnter ? undefined : FadeInDown.delay(340)}
               style={styles.summaryTrailWrap}
@@ -1336,14 +1195,14 @@ export default function PracticeScreen() {
               </Text>
               <ScoreTrail
                 total={list.length}
-                scores={scores}
+                bands={bands}
                 currentIndex={-1}
                 colors={colors}
               />
             </Animated.View>
           )}
           {/* XP earned chip */}
-          {xpEarned > 0 && (
+          {totalXp > 0 && (
             <Animated.View
               entering={skipEnter ? undefined : FadeInDown.delay(380)}
               style={[
@@ -1352,14 +1211,47 @@ export default function PracticeScreen() {
               ]}
             >
               <Text style={[styles.xpChipText, { color: '#7C3AED' }]}>
-                +{xpEarned} XP
+                +{totalXp} XP
               </Text>
             </Animated.View>
           )}
-          {/* Per-phrase score rings — tap any ring to see its feedback */}
+          {/* XP breakdown — collapsed by default */}
+          {Object.values(xpData).some((d) => d.breakdown) && (
+            <Pressable
+              onPress={() => setXpExpanded((x) => !x)}
+              style={styles.xpBreakdownToggle}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.xpBreakdownLabel, { color: colors.mutedForeground }]}>
+                {xpExpanded ? '▲ XP breakdown' : '▼ XP breakdown'}
+              </Text>
+            </Pressable>
+          )}
+          {xpExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(180)}
+              style={[styles.xpBreakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              {list.map((phrase, i) => {
+                const d = xpData[i];
+                if (!d) return null;
+                return (
+                  <View key={phrase.id} style={styles.xpBreakdownRow}>
+                    <Text style={[styles.xpBreakdownPhrase, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {phrase.english}
+                    </Text>
+                    <Text style={[styles.xpBreakdownValue, { color: colors.foreground }]}>
+                      {d.breakdown ?? (d.xp > 0 ? `+${d.xp} XP` : '0 XP')}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Animated.View>
+          )}
+          {/* Per-phrase band indicators — tap any to see its feedback */}
           <SummaryRingRow
             list={list}
-            scores={scores}
+            bands={bands}
             feedback={sessionFeedback}
             colors={colors}
           />
@@ -1390,7 +1282,7 @@ export default function PracticeScreen() {
       : phase === 'error'
         ? 'tryagain'
         : phase === 'result' && result
-          ? result.score >= 90
+          ? result.band === 'nailed'
             ? 'cheer'
             : result.passed
               ? 'thumbsup'
@@ -1399,7 +1291,7 @@ export default function PracticeScreen() {
   const mascotMotion =
     phase === 'recording'
       ? 'sway'
-      : phase === 'result' && result?.score != null && result.score >= 90
+      : phase === 'result' && result?.band === 'nailed'
         ? 'bounce'
         : 'float';
 
@@ -1414,7 +1306,7 @@ export default function PracticeScreen() {
       <View style={styles.progressOuter}>
         <ScoreTrail
           total={list.length}
-          scores={scores}
+          bands={bands}
           currentIndex={index}
           colors={colors}
         />
@@ -1522,29 +1414,24 @@ export default function PracticeScreen() {
             style={[
               styles.resultCard,
               {
-                backgroundColor: `${scoreColor(result.score, colors)}12`,
-                borderColor: scoreColor(result.score, colors),
+                backgroundColor: `${bandColor(result.band, colors)}12`,
+                borderColor: bandColor(result.band, colors),
               },
             ]}
           >
             {/* Grade label row */}
             <Text
-              style={[styles.gradeLabel, { color: scoreColor(result.score, colors) }]}
+              style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}
             >
-              {/* Grade thresholds 70/50 match web SCORE_PASS/SCORE_NEAR_MISS
-                and the score-ring color bands — per sharedConstants contract test. */}
-            {result.score >= 70
+            {result.band === 'nailed'
                 ? 'Excellent 🌟'
-                : result.score >= 50
+                : result.band === 'close'
                   ? 'Good 👍'
                   : 'Keep trying 🔄'}
             </Text>
 
             <View style={styles.resultTop}>
-              <ScoreRing
-                score={result.score}
-                color={scoreColor(result.score, colors)}
-              />
+              <BandPill band={result.band} />
               <Pressable
                 onPress={toggleSpokenFeedback}
                 accessibilityRole="button"
@@ -1562,7 +1449,7 @@ export default function PracticeScreen() {
                   size={22}
                   color={
                     spokenEnabled
-                      ? scoreColor(result.score, colors)
+                      ? bandColor(result.band, colors)
                       : colors.mutedForeground
                   }
                 />
@@ -1571,7 +1458,7 @@ export default function PracticeScreen() {
                 <Feather
                   name="check-circle"
                   size={40}
-                  color={scoreColor(result.score, colors)}
+                  color={bandColor(result.band, colors)}
                 />
               ) : (
                 <Pressable
@@ -1585,7 +1472,7 @@ export default function PracticeScreen() {
                   <Feather
                     name="refresh-cw"
                     size={40}
-                    color={scoreColor(result.score, colors)}
+                    color={bandColor(result.band, colors)}
                   />
                 </Pressable>
               )}
@@ -1624,10 +1511,10 @@ export default function PracticeScreen() {
                 styles.hearSelfBtn,
                 {
                   borderColor: selfPlaying
-                    ? scoreColor(result.score, colors)
+                    ? bandColor(result.band, colors)
                     : colors.border,
                   backgroundColor: selfPlaying
-                    ? `${scoreColor(result.score, colors)}14`
+                    ? `${bandColor(result.band, colors)}14`
                     : 'transparent',
                 },
               ]}
@@ -1635,14 +1522,14 @@ export default function PracticeScreen() {
               <Feather
                 name={selfPlaying ? 'pause' : 'mic'}
                 size={15}
-                color={selfPlaying ? scoreColor(result.score, colors) : colors.mutedForeground}
+                color={selfPlaying ? bandColor(result.band, colors) : colors.mutedForeground}
               />
               <Text
                 style={[
                   styles.hearSelfText,
                   {
                     color: selfPlaying
-                      ? scoreColor(result.score, colors)
+                      ? bandColor(result.band, colors)
                       : colors.mutedForeground,
                   },
                 ]}
@@ -2123,6 +2010,44 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 8,
+  },
+  summaryBandDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  xpBreakdownToggle: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  xpBreakdownLabel: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+  },
+  xpBreakdownCard: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  xpBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  xpBreakdownPhrase: {
+    flex: 1,
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+  },
+  xpBreakdownValue: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
   },
   summaryRingEng: {
     fontFamily: AppFonts.regular,

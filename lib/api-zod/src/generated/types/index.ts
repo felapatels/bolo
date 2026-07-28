@@ -83,6 +83,7 @@ export * from './progressAnalytics';
 export * from './progressSummary';
 export * from './pronunciationInput';
 export * from './pronunciationResult';
+export * from './pronunciationResultBand';
 export * from './quizQuestion';
 export * from './regenerateFamilyCode200';
 export * from './scriptTraceCharacterProgress';

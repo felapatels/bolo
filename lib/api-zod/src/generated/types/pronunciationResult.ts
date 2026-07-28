@@ -5,10 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PronunciationResultBand } from './pronunciationResultBand';
 
 export interface PronunciationResult {
   transcript: string;
-  score: number;
+  /** Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional. */
+  score?: number;
+  /** Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP). */
+  band: PronunciationResultBand;
+  /** XP earned for this attempt. Display only — the signed token is authoritative. */
+  xpAwarded: number;
+  /** Human-readable explanation of the XP awarded, e.g. "Full XP — nailed it". */
+  xpBreakdown?: string | null;
   passed: boolean;
   feedback: string;
   tip: string;

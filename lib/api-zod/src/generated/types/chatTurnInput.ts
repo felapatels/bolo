@@ -11,12 +11,19 @@ export interface ChatTurnInput {
   /** The language the learner is chatting in (e.g. "hi", "gu"). */
   languageCode: string;
   /**
-     * The learner's recorded speech for this turn.
+     * The learner's recorded speech for this turn. Required when textInput is not provided.
      * @minLength 1
      */
-  audioBase64: string;
+  audioBase64?: string;
+  /**
+     * Pre-supplied text for text-input turns. When set the STT step is skipped, the value is used directly as the transcript, and no chat-time seconds are charged. Required when audioBase64 is not provided.
+     * @minLength 1
+     */
+  textInput?: string;
   /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
   history?: ChatTurnMessage[];
   /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients. */
   clientDurationSeconds?: number | null;
+  /** MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted by older clients that always send m4a. */
+  mimeType?: string;
 }

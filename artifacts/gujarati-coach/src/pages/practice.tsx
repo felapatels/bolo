@@ -33,109 +33,15 @@ import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
+import { BandPill, type Band } from "@/components/ui/band-pill";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
-// Shared pass/fail thresholds — must stay in sync with mobile's scoreColor()
-// in artifacts/bolo-mobile/lib/ui.ts so learners see identical feedback on
-// both platforms:
-//   green  ≥ SCORE_PASS      (pass)
-//   amber  ≥ SCORE_NEAR_MISS (near-miss)
-//   red    < SCORE_NEAR_MISS (fail)
-const SCORE_PASS = 70;
-const SCORE_NEAR_MISS = 50;
-// Celebration threshold — not a pass/fail cutoff. Confetti and "PERFECT
-// SESSION" fire when every phrase clears this bar (same bar on mobile).
-const SCORE_GREAT = 80;
-
-// ScoreRing — animates a circular SVG arc from 0 to the earned score,
-// with a centered number that springs in once the arc reaches it.
-// Colors shift by band: green ≥70 (pass), amber 50–69, red below 50 (fail).
-// Pass size="small" for the compact variant used in the session summary.
-const RING_R = 44;
-const RING_STROKE = 8;
-const RING_CIRCUM = 2 * Math.PI * RING_R;
-const RING_SIZE = RING_R * 2 + RING_STROKE;
-
-const SMALL_RING_R = 24;
-const SMALL_RING_STROKE = 5;
-const SMALL_RING_CIRCUM = 2 * Math.PI * SMALL_RING_R;
-const SMALL_RING_SIZE = SMALL_RING_R * 2 + SMALL_RING_STROKE;
-
-function ScoreRing({ score, size = "normal" }: { score: number; size?: "normal" | "small" }) {
-  const reduceMotion = useReducedMotion();
-  const isSmall = size === "small";
-  const r = isSmall ? SMALL_RING_R : RING_R;
-  const stroke = isSmall ? SMALL_RING_STROKE : RING_STROKE;
-  const circum = isSmall ? SMALL_RING_CIRCUM : RING_CIRCUM;
-  const ringSize = isSmall ? SMALL_RING_SIZE : RING_SIZE;
-  const color =
-    score >= SCORE_PASS ? "hsl(var(--success))" :
-    score >= SCORE_NEAR_MISS ? "hsl(var(--primary))" :
-    "hsl(var(--destructive))";
-  const trackColor =
-    score >= SCORE_PASS ? "hsl(var(--success) / 0.15)" :
-    score >= SCORE_NEAR_MISS ? "hsl(var(--primary) / 0.15)" :
-    "hsl(var(--destructive) / 0.15)";
-  const targetOffset = circum * (1 - score / 100);
-  const center = ringSize / 2;
-
-  return (
-    <div className="relative inline-flex items-center justify-center my-1" data-testid="score-ring">
-      <svg
-        width={ringSize}
-        height={ringSize}
-        style={{ transform: "rotate(-90deg)" }}
-        aria-hidden="true"
-      >
-        {/* Track ring */}
-        <circle
-          cx={center}
-          cy={center}
-          r={r}
-          fill="none"
-          stroke={trackColor}
-          strokeWidth={stroke}
-        />
-        {/* Animated progress arc */}
-        <motion.circle
-          cx={center}
-          cy={center}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circum}
-          initial={{ strokeDashoffset: circum }}
-          animate={{ strokeDashoffset: targetOffset }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { duration: 0.9, ease: [0.34, 1.0, 0.64, 1] }
-          }
-        />
-      </svg>
-      {/* Score number centred inside the ring */}
-      <motion.span
-        key={score}
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={
-          reduceMotion
-            ? { duration: 0 }
-            : { type: "spring", stiffness: 380, damping: 22, delay: 0.28 }
-        }
-        className={cn("absolute font-black leading-none", isSmall ? "text-[10px]" : "text-2xl")}
-        style={{ color }}
-        aria-hidden="true"
-      >
-        {score}
-      </motion.span>
-      {/* Screen-reader label — also keeps `getByText("Score: N")` test queries working */}
-      <span className="sr-only">Score: {score}</span>
-    </div>
-  );
+// Maps a pronunciation band to its CSS color (mirrors ScoreRing color thresholds).
+function bandCss(band: Band): string {
+  if (band === "nailed") return "hsl(var(--success))";
+  if (band === "close") return "hsl(var(--primary))";
+  return "hsl(var(--destructive))";
 }
 
 // Turns whatever the evaluation pipeline threw into a short, actionable
@@ -243,13 +149,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<SessionState>("intro");
-  const [result, setResult] = useState<{ score: number; feedback: string; tip: string } | null>(null);
+  const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string } | null>(null);
   // Keyed by phraseId so retrying a phrase overwrites its previous entry
   // instead of appending a duplicate. The summary derives an ordered list from
   // `phrases` so phrase ordering is preserved.
   const [sessionResults, setSessionResults] = useState<Record<number, {
     phraseId: number;
-    score: number;
+    band: Band;
+    xpAwarded: number;
+    xpBreakdown?: string | null;
     feedback: string;
     tip: string;
     nativeScript: string;
@@ -263,6 +171,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
+  const [xpExpanded, setXpExpanded] = useState(false);
 
   const [silentMode, setSilentMode] = useState<boolean>(loadSilentMode);
   // Read by effects so the current value is always visible inside callbacks.
@@ -530,7 +439,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       });
 
       setResult({
-        score: evalRes.score,
+        band: evalRes.band,
+        passed: evalRes.passed,
+        xpAwarded: evalRes.xpAwarded,
+        xpBreakdown: evalRes.xpBreakdown,
         feedback: evalRes.feedback,
         tip: evalRes.tip,
       });
@@ -539,7 +451,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         ...prev,
         [phrase!.id]: {
           phraseId: phrase!.id,
-          score: evalRes.score,
+          band: evalRes.band,
+          xpAwarded: evalRes.xpAwarded,
+          xpBreakdown: evalRes.xpBreakdown,
           feedback: evalRes.feedback,
           tip: evalRes.tip,
           nativeScript: phrase!.nativeScript,
@@ -563,20 +477,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       setState("result");
       // Web haptics — mirror the mobile practice pattern exactly.
       webHaptic('medium');
-      if (evalRes.score >= 90) {
+      if (evalRes.band === 'nailed') {
         webHaptic('heavy');
         setTimeout(() => webHaptic('heavy'), 140);
       }
 
-      if (evalRes.score >= SCORE_GREAT) {
+      if (evalRes.band === 'nailed') {
         setShowConfetti(true);
         if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
       }
 
-      // Hot-streak tracking: increment consecutive good counter (score ≥ 70)
+      // Hot-streak tracking: increment consecutive good counter (nailed or close)
       // using a ref so we always see the latest value inside this callback.
-      const newConsec = evalRes.score >= 70 ? consecutiveGoodRef.current + 1 : 0;
+      const newConsec = (evalRes.band === 'nailed' || evalRes.band === 'close') ? consecutiveGoodRef.current + 1 : 0;
       consecutiveGoodRef.current = newConsec;
       if (newConsec === 3) showToast("🔥 3 in a row!");
       else if (newConsec === 5) showToast("🔥🔥 On a roll!");
@@ -693,13 +607,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentMode ? "idle" : "playing_coach");
     } else {
-      // Fire a session-end haptic: success if the session passed, warning if not.
+      // Fire a session-end haptic: success if any phrase passed, warning if not.
       // Mirrors the mobile done-screen haptic in the phase==='done' effect.
       const _entries = (phrases ?? []).map(p => sessionResults[p.id]).filter(Boolean);
-      const _avg = _entries.length > 0
-        ? Math.round(_entries.reduce((a, b) => a + b.score, 0) / _entries.length)
-        : 0;
-      webHaptic(_avg >= SCORE_PASS ? 'success' : 'warning');
+      const _anyPassed = _entries.some(e => e.band === 'nailed' || e.band === 'close');
+      webHaptic(_anyPassed ? 'success' : 'warning');
       setState("summary");
     }
   };
@@ -776,22 +688,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   if (state === "summary") {
     // Build an ordered, deduplicated list of results: one entry per phrase,
     // in the order they appear in the phrase list. Retries have already
-    // overwritten earlier attempts in the record, so we get the latest score.
+    // overwritten earlier attempts in the record, so we get the latest band.
     const orderedSummaryEntries = phrases
       .map(p => sessionResults[p.id])
       .filter((r): r is NonNullable<typeof r> => r !== undefined);
     const attemptCount = orderedSummaryEntries.length;
-    const avgScore = attemptCount > 0
-      ? Math.round(orderedSummaryEntries.reduce((a, b) => a + b.score, 0) / attemptCount)
-      : 0;
-    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.score >= SCORE_GREAT);
-    // XP: rounded-to-tens of avg score × phrase count, capped at 50
-    const xpEarned = Math.min(Math.round(avgScore / 10) * attemptCount, 50);
+    const totalXp = orderedSummaryEntries.reduce((a, r) => a + r.xpAwarded, 0);
+    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.band === "nailed");
+    const anyPassed = orderedSummaryEntries.some(r => r.band === "nailed" || r.band === "close");
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
-        <Confetti active={isPerfect || avgScore >= 70} variant={isPerfect ? "perfect" : "default"} />
+        <Confetti active={isPerfect || anyPassed} variant={isPerfect ? "perfect" : "default"} />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <Mascot pose={avgScore >= SCORE_NEAR_MISS ? "cheer" : "thumbsup"} size={148} idle={avgScore >= SCORE_NEAR_MISS ? "cheer" : "float"} />
+          <Mascot pose={anyPassed ? "cheer" : "thumbsup"} size={148} idle={anyPassed ? "cheer" : "float"} />
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -801,7 +710,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               isPerfect ? "text-amber-500" : "text-foreground",
             )}
           >
-            {isPerfect ? "PERFECT SESSION! 🏆" : avgScore >= SCORE_PASS ? "You crushed it!" : avgScore >= SCORE_NEAR_MISS ? "Session Complete!" : "Great effort!"}
+            {isPerfect ? "PERFECT SESSION! 🏆" : anyPassed ? "Session Complete!" : "Great effort!"}
           </motion.h1>
 
           <motion.div
@@ -813,24 +722,52 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               isPerfect ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" : "bg-white border-card-border",
             )}
           >
-            <p className="text-muted-foreground font-bold uppercase tracking-wider mb-2">Average Score</p>
-            <div className={cn(
-              "text-6xl font-black",
-              avgScore >= SCORE_PASS ? "text-success" : avgScore >= SCORE_NEAR_MISS ? "text-primary" : "text-destructive"
-            )}>
-              {avgScore}
-            </div>
+            <p className="text-muted-foreground font-medium">You practiced {attemptCount} {isSentences ? "sentences" : "phrases"}.</p>
             {/* XP earned chip */}
-            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
-              +{xpEarned} XP earned
-            </div>
-            <p className="text-muted-foreground mt-3 font-medium">You practiced {attemptCount} {isSentences ? "sentences" : "phrases"}.</p>
+            {totalXp > 0 && (
+              <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
+                +{totalXp} XP earned
+              </div>
+            )}
 
-            {/* ── Per-phrase score rings ──────────────────────────────── */}
+            {/* XP breakdown — collapsed by default */}
+            {orderedSummaryEntries.some(r => r.xpBreakdown) && (
+              <div className="mt-3 text-left">
+                <button
+                  onClick={() => setXpExpanded(x => !x)}
+                  className="text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  aria-expanded={xpExpanded}
+                >
+                  {xpExpanded ? "▲" : "▼"} XP breakdown
+                </button>
+                <AnimatePresence>
+                  {xpExpanded && (
+                    <motion.ul
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      {orderedSummaryEntries.map((r, i) => (
+                        <li key={r.phraseId} className="text-xs text-muted-foreground flex justify-between gap-2">
+                          <span className="truncate">{r.english}</span>
+                          <span className="font-semibold whitespace-nowrap">
+                            {r.xpBreakdown ?? (r.xpAwarded > 0 ? `+${r.xpAwarded} XP` : "0 XP")}
+                          </span>
+                        </li>
+                      ))}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* ── Per-phrase band indicators ──────────────────────────── */}
             {orderedSummaryEntries.length > 0 && (
               <div className="mt-4 w-full">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Per-phrase scores
+                  Per-phrase results
                 </p>
                 <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
                   {orderedSummaryEntries.map((r, i) => (
@@ -838,10 +775,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       key={r.phraseId}
                       onClick={() => setSummarySelectedIdx(summarySelectedIdx === i ? null : i)}
                       className="flex flex-col items-center gap-0.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label={`Phrase ${i + 1}: ${r.english}, score ${r.score}`}
+                      aria-label={`Phrase ${i + 1}: ${r.english}, ${r.band}`}
                       aria-expanded={summarySelectedIdx === i}
                     >
-                      <ScoreRing score={r.score} size="small" />
+                      <span
+                        className="block w-5 h-5 rounded-full mx-auto border-2 border-white/60 shadow-sm"
+                        style={{ background: bandCss(r.band) }}
+                        aria-hidden="true"
+                      />
                       <span className="text-[9px] text-muted-foreground max-w-[56px] truncate leading-tight">
                         {r.english}
                       </span>
@@ -890,12 +831,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Bolo reacts to the moment: listening/thinking while the coach speaks or the
   // learner records, encouraging on their turn, and celebrating (or gently
-  // cheering back up) once a score lands.
+  // cheering back up) once a band lands.
   const mascotPose: MascotPose =
     state === "result" && result
-      ? result.score >= SCORE_PASS
+      ? result.band === "nailed"
         ? "cheer"
-        : result.score >= SCORE_NEAR_MISS
+        : result.passed
           ? "thumbsup"
           : "tryagain"
       : state === "error"
@@ -1048,7 +989,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <Mascot
                   pose={mascotPose}
                   fill
-                  idle={state === "result" && (result?.score ?? 0) >= SCORE_PASS ? "cheer" : "float"}
+                  idle={state === "result" && result?.passed ? "cheer" : "float"}
                 />
               </motion.div>
             </AnimatePresence>
@@ -1171,15 +1112,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
                   <p className={cn(
                     "text-xl font-black mb-1",
-                    result.score >= SCORE_PASS ? "text-success" :
-                    result.score >= SCORE_NEAR_MISS ? "text-primary" :
+                    result.band === "nailed" ? "text-success" :
+                    result.band === "close" ? "text-primary" :
                     "text-foreground"
                   )}>
-                    {/* Grade labels use SCORE_PASS=70 / SCORE_NEAR_MISS=50 to match the
-                      score-ring color bands. Contract-tested in sharedConstants.contract.test.ts. */}
-                  {result.score >= SCORE_PASS ? "Amazing!" : result.score >= SCORE_NEAR_MISS ? "Nice work!" : "Good try — keep going!"}
+                    {result.band === "nailed" ? "Amazing!" : result.band === "close" ? "Nice work!" : "Good try — keep going!"}
                   </p>
-                  <ScoreRing score={Math.round(result.score)} />
+                  <div className="my-2 flex justify-center">
+                    <BandPill band={result.band} />
+                  </div>
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
                   {result.tip && (
                     <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>

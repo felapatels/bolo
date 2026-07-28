@@ -38,7 +38,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import { BandPill, type Band } from '@/components/BandPill';
+import { EmptyState } from '@/components/EmptyState';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import {
   useListReviewPhrases,
@@ -77,20 +78,32 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/settings';
-import { scoreColor } from '@/lib/ui';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
+
+const BAND_LABEL: Record<Band, string> = {
+  nailed: 'Nailed it',
+  close: 'Close',
+  retry: 'Try again',
+  nocatch: "Didn't catch that",
+};
+
+function bandColor(band: Band, colors: { success: string; gold: string; destructive: string }): string {
+  if (band === 'nailed') return colors.success;
+  if (band === 'close') return colors.gold;
+  return colors.destructive;
+}
 
 // ── Score dot / trail ────────────────────────────────────────────────────────
 
 function ScoreDot({
-  score,
+  band,
   isCurrent,
   dotColor,
   onPress,
   isSelected,
 }: {
-  score: number | null;
+  band: Band | null;
   isCurrent: boolean;
   dotColor: string;
   onPress?: () => void;
@@ -114,11 +127,11 @@ function ScoreDot({
 
   return (
     <Pressable
-      onPress={score !== null ? onPress : undefined}
-      disabled={score === null}
+      onPress={band !== null ? onPress : undefined}
+      disabled={band === null}
       hitSlop={6}
-      accessibilityRole={score !== null ? 'button' : undefined}
-      accessibilityLabel={score !== null ? `Score: ${score}` : undefined}
+      accessibilityRole={band !== null ? 'button' : undefined}
+      accessibilityLabel={band !== null ? BAND_LABEL[band] : undefined}
     >
       <Animated.View
         style={[
@@ -133,12 +146,12 @@ function ScoreDot({
 
 function ScoreTrail({
   total,
-  scores,
+  bands,
   currentIndex,
   colors,
 }: {
   total: number;
-  scores: Record<number, number>;
+  bands: Record<number, Band>;
   currentIndex: number;
   colors: {
     success: string;
@@ -150,14 +163,14 @@ function ScoreTrail({
     foreground: string;
   };
 }) {
-  const [tooltip, setTooltip] = React.useState<{ idx: number; score: number } | null>(null);
+  const [tooltip, setTooltip] = React.useState<{ idx: number; band: Band } | null>(null);
   const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipOpacity = useSharedValue(0);
 
   const showTooltip = React.useCallback(
-    (idx: number, score: number) => {
+    (idx: number, band: Band) => {
       if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-      setTooltip({ idx, score });
+      setTooltip({ idx, band });
       tooltipOpacity.value = withTiming(1, { duration: 150 });
       tooltipTimer.current = setTimeout(() => {
         tooltipOpacity.value = withTiming(0, { duration: 200 });
@@ -183,107 +196,30 @@ function ScoreTrail({
         <Animated.Text
           style={[styles.scoreTrailTooltip, { color: colors.mutedForeground }, tooltipStyle]}
         >
-          Phrase {tooltip.idx + 1}: {tooltip.score} / 100
+          Phrase {tooltip.idx + 1}: {BAND_LABEL[tooltip.band]}
         </Animated.Text>
       )}
       <View style={styles.scoreTrailRow}>
         {Array.from({ length: total }, (_, i) => {
-          const score = scores[i] ?? null;
+          const band = bands[i] ?? null;
           const isCurrent = i === currentIndex;
           const dotColor =
-            score !== null
-              ? score >= 70
-                ? colors.success
-                : score >= 50
-                  ? colors.gold
-                  : colors.destructive
+            band !== null
+              ? bandColor(band, colors)
               : isCurrent
                 ? colors.primary + '70'
                 : colors.muted;
           return (
             <ScoreDot
               key={i}
-              score={score}
+              band={band}
               isCurrent={isCurrent}
               dotColor={dotColor}
-              onPress={() => showTooltip(i, score!)}
+              onPress={() => showTooltip(i, band!)}
               isSelected={tooltip?.idx === i}
             />
           );
         })}
-      </View>
-    </View>
-  );
-}
-
-// ── Score ring ───────────────────────────────────────────────────────────────
-
-const RING_R = 48;
-const RING_STROKE = 9;
-const RING_CIRCUM = 2 * Math.PI * RING_R;
-const RING_SIZE = RING_R * 2 + RING_STROKE;
-
-function ScoreRing({ score, color }: { score: number; color: string }) {
-  const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
-  const progress = useSharedValue(0);
-
-  React.useEffect(() => {
-    progress.value = 0;
-    progress.value = withTiming(score / 100, { duration: 850 });
-  }, [score]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: RING_CIRCUM * (1 - progress.value),
-  }));
-
-  const [display, setDisplay] = React.useState(0);
-  React.useEffect(() => {
-    if (score === 0) {
-      setDisplay(0);
-      return;
-    }
-    const DURATION = 700;
-    const STEPS = 35;
-    const intervalMs = DURATION / STEPS;
-    let step = 0;
-    const timer = setInterval(() => {
-      step += 1;
-      setDisplay(Math.round((score * step) / STEPS));
-      if (step >= STEPS) clearInterval(timer);
-    }, intervalMs);
-    return () => {
-      clearInterval(timer);
-      setDisplay(score);
-    };
-  }, [score]);
-
-  const center = RING_SIZE / 2;
-  const trackColor = color + '28';
-
-  return (
-    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg
-        width={RING_SIZE}
-        height={RING_SIZE}
-        style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
-        accessibilityElementsHidden
-      >
-        <Circle cx={center} cy={center} r={RING_R} fill="none" stroke={trackColor} strokeWidth={RING_STROKE} />
-        <AnimatedCircle
-          cx={center}
-          cy={center}
-          r={RING_R}
-          fill="none"
-          stroke={color}
-          strokeWidth={RING_STROKE}
-          strokeLinecap="round"
-          strokeDasharray={RING_CIRCUM}
-          animatedProps={animatedProps}
-        />
-      </Svg>
-      <View style={{ alignItems: 'center' }} accessibilityLabel={`Pronunciation result: ${score} out of 100`}>
-        <Text style={{ fontFamily: AppFonts.extrabold, fontSize: 30, color, lineHeight: 34 }}>{display}</Text>
-        <Text style={{ fontFamily: AppFonts.semibold, fontSize: 11, color, opacity: 0.65 }}>/ 100</Text>
       </View>
     </View>
   );
@@ -441,7 +377,9 @@ export default function ReviewScreen() {
   }, []);
 
   const [result, setResult] = React.useState<PronunciationResult | null>(null);
-  const [scores, setScores] = React.useState<Record<number, number>>({});
+  const [bands, setBands] = React.useState<Record<number, Band>>({});
+  const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
+  const [xpExpanded, setXpExpanded] = React.useState(false);
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [selfPlaying, setSelfPlaying] = React.useState(false);
   const lastRecordingBase64Ref = React.useRef<string | null>(null);
@@ -647,7 +585,7 @@ export default function ReviewScreen() {
   React.useEffect(() => {
     if (phase === 'done') {
       fireConfetti(4000);
-      if (Object.keys(scores).length > 0 && Object.values(scores).every((s) => s >= 80)) {
+      if (Object.values(bands).length > 0 && Object.values(bands).every((b) => b === 'nailed')) {
         hapticHeavy();
       }
     }
@@ -782,18 +720,19 @@ export default function ReviewScreen() {
           : null;
 
       setResult(res);
-      setScores((prev) => ({ ...prev, [index]: res.score }));
+      setBands((prev) => ({ ...prev, [index]: res.band }));
+      setXpData((prev) => ({ ...prev, [index]: { xp: res.xpAwarded, breakdown: res.xpBreakdown ?? null } }));
       setPhaseSync('result');
 
       const fColor =
-        res.score >= 70 ? colors.success : res.score >= 50 ? '#F59E0B' : colors.destructive;
+        res.band === 'nailed' ? colors.success : res.band === 'close' ? '#F59E0B' : colors.destructive;
       setFlashColor(fColor);
       flashOpacity.value = withSequence(
         withTiming(0.18, { duration: 150 }),
         withTiming(0, { duration: 250 }),
       );
 
-      if (res.score >= 70) {
+      if (res.band === 'nailed' || res.band === 'close') {
         consecutiveGoodRef.current += 1;
         const streak = consecutiveGoodRef.current;
         if (streak === 3 || streak === 5 || streak === 10) {
@@ -811,7 +750,7 @@ export default function ReviewScreen() {
         res.passed ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
       );
 
-      if (res.score >= 95) {
+      if (res.band === 'nailed') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
@@ -902,13 +841,7 @@ export default function ReviewScreen() {
       <Screen>
         <ReviewHeader onClose={() => router.back()} label="Review" />
         <View style={styles.emptyWrap}>
-          <Mascot pose="cheer" size={120} motion="float" />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            You're all caught up! 🎉
-          </Text>
-          <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-            No phrases are due for review right now. Keep practicing to build your streak.
-          </Text>
+          <EmptyState title="Nothing due right now" body="Everything's still fresh." />
           <ChunkyButton
             title="Back to home"
             icon="home"
@@ -922,13 +855,10 @@ export default function ReviewScreen() {
 
   // ── Summary ──────────────────────────────────────────────────────────────
   if (phase === 'done') {
-    const scoreVals = Object.values(scores);
-    const avg =
-      scoreVals.length > 0
-        ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
-        : 0;
-    const isPerfect = scoreVals.length > 0 && scoreVals.every((s) => s >= 80);
-    const xpEarned = Math.min(50, Math.round(avg / 10) * scoreVals.length);
+    const bandVals = Object.values(bands);
+    const totalXp = Object.values(xpData).reduce((sum, d) => sum + d.xp, 0);
+    const isPerfect = bandVals.length > 0 && bandVals.every((b) => b === 'nailed');
+    const anyPassed = bandVals.some((b) => b === 'nailed' || b === 'close');
 
     return (
       <Screen>
@@ -944,29 +874,60 @@ export default function ReviewScreen() {
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
             ]}
           >
-            {isPerfect ? 'PERFECT REVIEW! 🏆' : 'Review complete!'}
+            {isPerfect ? 'PERFECT REVIEW! 🏆' : anyPassed ? 'Review complete!' : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
             entering={skipEnter ? undefined : FadeInDown.delay(220)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
-            You reviewed {scoreVals.length} {scoreVals.length === 1 ? 'phrase' : 'phrases'}.
+            You reviewed {bandVals.length} {bandVals.length === 1 ? 'phrase' : 'phrases'}.
           </Animated.Text>
-          <Animated.View
-            entering={skipEnter ? undefined : ZoomIn.delay(300).springify().damping(13)}
-            style={[styles.avgCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>Average score</Text>
-            <Text style={[styles.avgValue, { color: scoreColor(avg, colors) }]}>{avg}</Text>
-          </Animated.View>
-          {xpEarned > 0 && (
+          {totalXp > 0 && (
             <Animated.View
               entering={skipEnter ? undefined : FadeInDown.delay(380)}
               style={[styles.xpChip, { backgroundColor: `${'#7C3AED'}18`, borderColor: '#7C3AED' }]}
             >
-              <Text style={[styles.xpChipText, { color: '#7C3AED' }]}>+{xpEarned} XP</Text>
+              <Text style={[styles.xpChipText, { color: '#7C3AED' }]}>+{totalXp} XP</Text>
             </Animated.View>
           )}
+          {Object.values(xpData).some((d) => d.breakdown) && (
+            <Pressable
+              onPress={() => setXpExpanded((x) => !x)}
+              style={styles.xpBreakdownToggle}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.xpBreakdownLabel, { color: colors.mutedForeground }]}>
+                {xpExpanded ? '▲ XP breakdown' : '▼ XP breakdown'}
+              </Text>
+            </Pressable>
+          )}
+          {xpExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(180)}
+              style={[styles.xpBreakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              {list.map((phrase, i) => {
+                const d = xpData[i];
+                if (!d) return null;
+                return (
+                  <View key={phrase.id} style={styles.xpBreakdownRow}>
+                    <Text style={[styles.xpBreakdownPhrase, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {phrase.english}
+                    </Text>
+                    <Text style={[styles.xpBreakdownValue, { color: colors.foreground }]}>
+                      {d.breakdown ?? (d.xp > 0 ? `+${d.xp} XP` : '0 XP')}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Animated.View>
+          )}
+          <ScoreTrail
+            total={list.length}
+            bands={bands}
+            currentIndex={-1}
+            colors={colors}
+          />
           <ChunkyButton
             title="Back to home"
             icon="home"
@@ -989,7 +950,7 @@ export default function ReviewScreen() {
       : phase === 'error'
         ? 'tryagain'
         : phase === 'result' && result
-          ? result.score >= 90
+          ? result.band === 'nailed'
             ? 'cheer'
             : result.passed
               ? 'thumbsup'
@@ -999,7 +960,7 @@ export default function ReviewScreen() {
   const mascotMotion =
     phase === 'recording'
       ? 'sway'
-      : phase === 'result' && result?.score != null && result.score >= 90
+      : phase === 'result' && result?.band === 'nailed'
         ? 'bounce'
         : 'float';
 
@@ -1008,7 +969,7 @@ export default function ReviewScreen() {
       <ReviewHeader onClose={() => router.back()} label={`${index + 1} of ${list.length}`} />
 
       <View style={styles.progressOuter}>
-        <ScoreTrail total={list.length} scores={scores} currentIndex={index} colors={colors} />
+        <ScoreTrail total={list.length} bands={bands} currentIndex={index} colors={colors} />
         <View style={[styles.progressBg, { backgroundColor: colors.muted }]}>
           <View
             style={{
@@ -1080,17 +1041,17 @@ export default function ReviewScreen() {
             style={[
               styles.resultCard,
               {
-                backgroundColor: `${scoreColor(result.score, colors)}12`,
-                borderColor: scoreColor(result.score, colors),
+                backgroundColor: `${bandColor(result.band, colors)}12`,
+                borderColor: bandColor(result.band, colors),
               },
             ]}
           >
-            <Text style={[styles.gradeLabel, { color: scoreColor(result.score, colors) }]}>
-              {result.score >= 90 ? 'Excellent 🌟' : result.score >= 70 ? 'Good 👍' : 'Keep trying 🔄'}
+            <Text style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}>
+              {result.band === 'nailed' ? 'Excellent 🌟' : result.band === 'close' ? 'Good 👍' : 'Keep trying 🔄'}
             </Text>
 
             <View style={styles.resultTop}>
-              <ScoreRing score={result.score} color={scoreColor(result.score, colors)} />
+              <BandPill band={result.band} />
               <Pressable
                 onPress={toggleSpokenFeedback}
                 accessibilityRole="button"
@@ -1102,11 +1063,11 @@ export default function ReviewScreen() {
                 <Feather
                   name={spokenEnabled ? 'volume-2' : 'volume-x'}
                   size={22}
-                  color={spokenEnabled ? scoreColor(result.score, colors) : colors.mutedForeground}
+                  color={spokenEnabled ? bandColor(result.band, colors) : colors.mutedForeground}
                 />
               </Pressable>
               {result.passed ? (
-                <Feather name="check-circle" size={40} color={scoreColor(result.score, colors)} />
+                <Feather name="check-circle" size={40} color={bandColor(result.band, colors)} />
               ) : (
                 <Pressable
                   onPress={tryAgain}
@@ -1116,7 +1077,7 @@ export default function ReviewScreen() {
                   style={styles.resultRetryIcon}
                   testID="result-retry-icon"
                 >
-                  <Feather name="refresh-cw" size={40} color={scoreColor(result.score, colors)} />
+                  <Feather name="refresh-cw" size={40} color={bandColor(result.band, colors)} />
                 </Pressable>
               )}
             </View>
@@ -1149,20 +1110,20 @@ export default function ReviewScreen() {
               style={[
                 styles.hearSelfBtn,
                 {
-                  borderColor: selfPlaying ? scoreColor(result.score, colors) : colors.border,
-                  backgroundColor: selfPlaying ? `${scoreColor(result.score, colors)}14` : 'transparent',
+                  borderColor: selfPlaying ? bandColor(result.band, colors) : colors.border,
+                  backgroundColor: selfPlaying ? `${bandColor(result.band, colors)}14` : 'transparent',
                 },
               ]}
             >
               <Feather
                 name={selfPlaying ? 'pause' : 'mic'}
                 size={15}
-                color={selfPlaying ? scoreColor(result.score, colors) : colors.mutedForeground}
+                color={selfPlaying ? bandColor(result.band, colors) : colors.mutedForeground}
               />
               <Text
                 style={[
                   styles.hearSelfText,
-                  { color: selfPlaying ? scoreColor(result.score, colors) : colors.mutedForeground },
+                  { color: selfPlaying ? bandColor(result.band, colors) : colors.mutedForeground },
                 ]}
               >
                 {selfPlaying ? 'Playing...' : 'Hear yourself'}
@@ -1376,6 +1337,37 @@ const styles = StyleSheet.create({
   summaryWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 20 },
   summaryTitle: { fontFamily: AppFonts.extrabold, fontSize: 26, marginTop: 24 },
   summarySub: { fontFamily: AppFonts.regular, fontSize: 15, marginTop: 6, textAlign: 'center' },
+  xpBreakdownToggle: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  xpBreakdownLabel: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+  },
+  xpBreakdownCard: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  xpBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  xpBreakdownPhrase: {
+    flex: 1,
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+  },
+  xpBreakdownValue: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+  },
   avgCard: {
     marginTop: 24,
     borderRadius: 16,

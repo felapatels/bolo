@@ -20,4 +20,6 @@ export interface PronunciationInput {
   /** @minLength 1 */
   audioBase64: string;
   mimeType?: string;
+  /** Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard. */
+  latencyMs?: number | null;
 }

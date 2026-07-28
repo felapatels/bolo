@@ -2421,6 +2421,13 @@ components:
           minLength: 1
         mimeType:
           type: string
+        latencyMs:
+          type: integer
+          nullable: true
+          description: >-
+            Client-measured milliseconds between the phrase finishing and the
+            learner tapping Record. When present and < 250 ms the server
+            rejects the attempt as a tap-spam guard.
       required:
         - targetNative
         - targetRomanized
@@ -2434,6 +2441,24 @@ components:
           type: string
         score:
           type: integer
+          description: >-
+            Deprecated — will be removed in a future release once all client
+            builds have updated. Use `band` instead. Omitted when the server
+            stops sending it; clients must treat this field as optional.
+        band:
+          type: string
+          enum: [nocatch, nailed, close, retry]
+          description: >-
+            Four-state pronunciation quality band. `nailed` = excellent (full
+            XP). `close` = passing attempt (half XP). `retry` = below passing
+            threshold (no XP). `nocatch` = no usable audio detected (no XP).
+        xpAwarded:
+          type: integer
+          description: XP earned for this attempt. Display only — the signed token is authoritative.
+        xpBreakdown:
+          type: string
+          nullable: true
+          description: Human-readable explanation of the XP awarded, e.g. "Full XP — nailed it".
         passed:
           type: boolean
         feedback:
@@ -2447,11 +2472,12 @@ components:
             to record the attempt with the authoritative score and feedback.
       required:
         - transcript
-        - score
         - passed
         - feedback
         - tip
         - evaluationToken
+        - band
+        - xpAwarded
 
     PhraseRequest:
       type: object
@@ -2528,6 +2554,11 @@ components:
             When present the server uses this value to debit the caller's weekly
             chat-time allowance instead of inferring it from audio length.
             Optional; omitted by older clients.
+        mimeType:
+          type: string
+          description: >-
+            MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted
+            by older clients that always send m4a.
       required:
         - languageCode
 

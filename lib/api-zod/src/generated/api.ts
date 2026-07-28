@@ -1028,12 +1028,15 @@ export const EvaluatePronunciationBody = zod.object({
   "languageName": zod.string().optional(),
   "audioBase64": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "latencyMs": zod.number().int().nonnegative().optional().describe('Time in ms between phrase audio ending and the learner tapping Record. The server rejects attempts under 250 ms as too fast to have actually said the phrase.')
+  "latencyMs": zod.number().nullish().describe('Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard.')
 })
 
 export const EvaluatePronunciationResponse = zod.object({
   "transcript": zod.string(),
-  "score": zod.number(),
+  "score": zod.number().optional().describe('Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional.'),
+  "band": zod.enum(['nocatch', 'nailed', 'close', 'retry']).describe('Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP).'),
+  "xpAwarded": zod.number().describe('XP earned for this attempt. Display only — the signed token is authoritative.'),
+  "xpBreakdown": zod.string().nullish().describe('Human-readable explanation of the XP awarded, e.g. \"Full XP — nailed it\".'),
   "passed": zod.boolean(),
   "feedback": zod.string(),
   "tip": zod.string(),
@@ -1068,16 +1071,17 @@ export const GeneratePhraseResponse = zod.object({
 
 
 
+
 export const ChatTurnBody = zod.object({
   "languageCode": zod.string().describe('The language the learner is chatting in (e.g. \"hi\", \"gu\").'),
   "audioBase64": zod.string().min(1).optional().describe('The learner\'s recorded speech for this turn. Required when textInput is not provided.'),
-  "mimeType": zod.string().optional().describe('MIME type of the recorded audio (e.g. "audio/webm;codecs=opus"). Used as a format hint when magic-byte detection fails so short recordings are passed to Whisper directly instead of routing through ffmpeg.'),
-  "textInput": zod.string().min(1).optional().describe('Pre-supplied text transcript for text-input turns. When set the STT step is skipped and no chat-time seconds are charged. Required when audioBase64 is not provided.'),
+  "textInput": zod.string().min(1).optional().describe('Pre-supplied text for text-input turns. When set the STT step is skipped, the value is used directly as the transcript, and no chat-time seconds are charged. Required when audioBase64 is not provided.'),
   "history": zod.array(zod.object({
   "role": zod.string().describe('learner | parrot'),
   "text": zod.string()
 }).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.'),
-  "clientDurationSeconds": zod.number().nullish().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients.')
+  "clientDurationSeconds": zod.number().nullish().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients.'),
+  "mimeType": zod.string().optional().describe('MIME type of the audio payload (e.g. \"audio\/m4a\"). Optional; omitted by older clients that always send m4a.')
 })
 
 export const ChatTurnResponse = zod.object({

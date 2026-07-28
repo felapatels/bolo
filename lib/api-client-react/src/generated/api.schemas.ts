@@ -429,7 +429,7 @@ export interface SpeechInput {
   languageName?: string;
   /** ISO-639-1 code of the language being synthesized (e.g. "gu", "hi", "ta"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice. */
   languageCode?: string;
-  /** When present and a valid VOICE_CATALOG ID, bypasses the user's saved preference and the language-voice mapping. Intended for voice-picker preview only. */
+  /** When present and a valid VOICE_CATALOG ID, bypasses the user's saved preference and the language-voice mapping and synthesizes using this specific ElevenLabs voice. Intended for voice-picker preview only. */
   previewVoiceId?: string;
 }
 
@@ -452,11 +452,33 @@ export interface PronunciationInput {
   /** @minLength 1 */
   audioBase64: string;
   mimeType?: string;
+  /** Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard. */
+  latencyMs?: number | null;
 }
+
+/**
+ * Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP).
+ */
+export type PronunciationResultBand = typeof PronunciationResultBand[keyof typeof PronunciationResultBand];
+
+
+export const PronunciationResultBand = {
+  nocatch: 'nocatch',
+  nailed: 'nailed',
+  close: 'close',
+  retry: 'retry',
+} as const;
 
 export interface PronunciationResult {
   transcript: string;
-  score: number;
+  /** Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional. */
+  score?: number;
+  /** Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP). */
+  band: PronunciationResultBand;
+  /** XP earned for this attempt. Display only — the signed token is authoritative. */
+  xpAwarded: number;
+  /** Human-readable explanation of the XP awarded, e.g. "Full XP — nailed it". */
+  xpBreakdown?: string | null;
   passed: boolean;
   feedback: string;
   tip: string;
@@ -493,14 +515,21 @@ export interface ChatTurnInput {
   /** The language the learner is chatting in (e.g. "hi", "gu"). */
   languageCode: string;
   /**
-     * The learner's recorded speech for this turn.
+     * The learner's recorded speech for this turn. Required when textInput is not provided.
      * @minLength 1
      */
-  audioBase64: string;
+  audioBase64?: string;
+  /**
+     * Pre-supplied text for text-input turns. When set the STT step is skipped, the value is used directly as the transcript, and no chat-time seconds are charged. Required when audioBase64 is not provided.
+     * @minLength 1
+     */
+  textInput?: string;
   /** A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual. */
   history?: ChatTurnMessage[];
   /** Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller's weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients. */
   clientDurationSeconds?: number | null;
+  /** MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted by older clients that always send m4a. */
+  mimeType?: string;
 }
 
 export interface ChatTurnResult {
