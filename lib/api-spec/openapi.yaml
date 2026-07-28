@@ -2196,7 +2196,6 @@ components:
         - transcript
         - score
         - passed
-        - band
         - feedback
         - createdAt
 

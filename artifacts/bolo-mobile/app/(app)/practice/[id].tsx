@@ -958,7 +958,16 @@ export default function PracticeScreen() {
           : null;
       setResult(res);
       setBands((prev) => ({ ...prev, [index]: res.band }));
-      setXpData((prev) => ({ ...prev, [index]: { xp: res.xpAwarded, breakdown: res.xpBreakdown ?? null } }));
+      // Accumulate across retries: the server writes an xp_ledger row per
+      // attempt, so the session chip must sum every award, not just the last
+      // take per phrase (which would under-report vs the ledger).
+      setXpData((prev) => ({
+        ...prev,
+        [index]: {
+          xp: (prev[index]?.xp ?? 0) + res.xpAwarded,
+          breakdown: res.xpBreakdown ?? null,
+        },
+      }));
       setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
       setPhaseSync('result');
 

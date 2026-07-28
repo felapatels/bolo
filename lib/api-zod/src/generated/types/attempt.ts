@@ -27,7 +27,7 @@ export interface Attempt {
      * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
      * @nullable
      */
-  band: AttemptBand;
+  band?: AttemptBand;
   feedback: string;
   createdAt: Date;
 }

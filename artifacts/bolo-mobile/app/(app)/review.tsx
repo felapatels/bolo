@@ -725,7 +725,15 @@ export default function ReviewScreen() {
 
       setResult(res);
       setBands((prev) => ({ ...prev, [index]: res.band }));
-      setXpData((prev) => ({ ...prev, [index]: { xp: res.xpAwarded, breakdown: res.xpBreakdown ?? null } }));
+      // Accumulate across retries so the session chip matches the server's
+      // per-attempt xp_ledger writes (overwriting under-reports on retakes).
+      setXpData((prev) => ({
+        ...prev,
+        [index]: {
+          xp: (prev[index]?.xp ?? 0) + res.xpAwarded,
+          breakdown: res.xpBreakdown ?? null,
+        },
+      }));
       setPhaseSync('result');
 
       const fColor =
@@ -967,7 +975,7 @@ export default function ReviewScreen() {
         : phase === 'result' && result
           ? result.band === 'nailed'
             ? 'cheer'
-            : result.passed
+            : result.band === 'close'
               ? 'thumbsup'
               : 'tryagain'
           : 'wave';
@@ -1081,8 +1089,12 @@ export default function ReviewScreen() {
                   color={spokenEnabled ? bandColor(result.band, colors) : colors.mutedForeground}
                 />
               </Pressable>
-              {result.passed ? (
+              {result.band === 'nailed' ? (
                 <Feather name="check-circle" size={40} color={bandColor(result.band, colors)} />
+              ) : result.band === 'close' ? (
+                // Close is not a failure — neutral icon, band-colored, no retry
+                // affordance here (matches the practice screen's treatment).
+                <Feather name="thumbs-up" size={40} color={bandColor(result.band, colors)} />
               ) : (
                 <Pressable
                   onPress={tryAgain}
