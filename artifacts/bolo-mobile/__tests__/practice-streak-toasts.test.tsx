@@ -352,7 +352,8 @@ describe('session summary XP chip', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText('+8 XP')).toBeOnTheScreen(),
+      // Count-up chip renders as an animated TextInput; assert via label.
+      expect(screen.getByLabelText('+8 XP')).toBeOnTheScreen(),
     );
   });
 

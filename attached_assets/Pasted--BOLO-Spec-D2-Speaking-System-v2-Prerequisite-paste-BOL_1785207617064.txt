@@ -1,0 +1,187 @@
+# BOLO Spec D2: Speaking System (v2)
+
+**Prerequisite: paste `BOLO-Codebase-Facts.md` sections 1 through 9 immediately before this document.** That file is authoritative for repository layout, schema, business rules, file paths, component names, and working rules. This spec does not repeat them.
+
+Supersedes v1. Same scope, state externalized to the facts document.
+
+First spec in the D series (uniquely BOLO mechanics).
+
+---
+
+## SESSION RULES
+
+Apply section 9 of the facts document in full. In addition:
+
+1. Do not run a discovery or planning phase beyond Step 0 below.
+2. Do not refactor, redesign, or improve anything not named here.
+3. Do not change the pronunciation scoring pipeline. See facts document section 4. Whisper, the fast path, the LLM rubric, and every guard in `pronunciationGuards.ts` stay exactly as they are.
+
+---
+
+## STEP 0: BOUNDED INVENTORY
+
+The facts document does not cover audio recording. Answer these as a plain list with file paths. No code, no diffs, no analysis. Then STOP and wait.
+
+1. What audio recording API or library does each app use, and in which file does the recording start and stop?
+2. On web, does the recording path use `MediaRecorder`, or does it already hold a `getUserMedia` stream that an `AudioContext` could attach to?
+3. On mobile, is metering enabled on the recording, and does the recording status callback expose an amplitude or dB value?
+4. What does the silent-mode toggle in `PracticeHeader` actually do?
+5. Do phrases have any register, formality, or tag field today? List any columns that classify a phrase beyond language and category.
+6. Does either app have any existing audio visualisation, level meter, or waveform?
+7. Where is the general streak displayed in each app? File and component.
+
+Question 3 is the one that matters most. If metering is not enabled, there is no real amplitude signal and the waveform has nothing to drive it. Report that plainly rather than simulating one.
+
+---
+
+## 1. FEATURE SUMMARY
+
+BOLO's pronunciation scoring is good. The experience around it is not. A learner taps a button, the interface goes still, and some seconds later a verdict appears. There is no signal that the microphone is working, no sense of being listened to, and no reason to speak rather than tap through a quiz.
+
+This spec adds three things and one data hook:
+
+1. **A live waveform** while recording, so the learner can see they are being heard.
+2. **A mascot that reacts to their voice**, scaling with amplitude, so something is listening back.
+3. **A Speaking Streak**, tracked separately from the general streak, so speaking is recognised distinctly from tapping.
+4. **A register field on phrases**, so code-switched and colloquial content can be authored and surfaced later.
+
+The scoring pipeline is untouched. This is presentation, a derived metric, and one column.
+
+---
+
+## 2. SCOPE BOUNDARIES
+
+Do NOT build, touch, or modify:
+
+- The pronunciation scoring pipeline, including Whisper transcription, the fast path, the LLM rubric prompt, `simToScore`, or any guard in `pronunciationGuards.ts`.
+- Any FSRS, Elo, or XP calculation.
+- The general streak or quiz streak definitions. This spec adds a third streak; it does not change the existing two.
+- `BandPill`, `EmptyState`, `XpCounter`, `XpArc`, `Confetti`, or the Spec 1a accessor.
+- `TalkingMascot.tsx` or the chat screen.
+- Script Trace.
+- Content authoring. This spec adds a column for register. It does not write phrases in any language.
+- The mobile silent-mode toggle's existing behaviour, until Step 0 explains what it does.
+
+Do NOT install a new audio library if the app already has one capable of amplitude metering. STOP and ask if it does not.
+
+---
+
+## 3. DATA MODEL CHANGES
+
+### 3.1 ALTER phrases
+
+| Column | Type | Notes |
+|---|---|---|
+| register | text nullable | One of `formal`, `colloquial`, `code_switched`. Null means unclassified. |
+
+Add an index on `(language_code, register)`.
+
+No content is authored in this task. The column exists so code-switch drills can be built on real data later rather than requiring a migration at that time.
+
+### 3.2 Speaking streak: no new table
+
+Derived from existing `attempts` rows, consistent with facts document section 3, "derive, do not store." Do not add a `speaking_streak` column, table, or counter.
+
+---
+
+## 4. UI SPEC
+
+### 4.1 Waveform component
+
+Create `Waveform` per platform, alongside the existing components listed in facts document sections 5 and 6.
+
+Props: `{ active: boolean; amplitude: number }`, amplitude normalised 0 to 1.
+
+Render a horizontal bar array that responds to live input level. A fixed number of bars, each scaling vertically. Do not build a scrolling oscilloscope or a frequency spectrum.
+
+Derive colours from the existing design tokens each app already uses. Do not introduce new tokens.
+
+### 4.2 Placement
+
+Replace the static state shown during recording on web practice, mobile practice, and mobile review. See facts document sections 5 and 6 for paths.
+
+The waveform appears while recording and disappears when recording stops. During processing, the existing `thinking` mascot pose and `TipCard` behaviour are unchanged.
+
+### 4.3 Mascot voice reaction
+
+While recording, bind the existing mascot's scale to the same normalised amplitude. Small range only, roughly 1.0 to 1.08. The mascot should feel like it is leaning in, not bouncing.
+
+Use the existing `thinking` pose. Do not add a pose.
+
+Drive this through the platform's existing animation primitive: framer-motion on web, a Reanimated shared value on mobile. Do not drive it through React state, which will drop frames.
+
+### 4.4 Speaking streak display
+
+Show the speaking streak alongside the general streak wherever the general streak is displayed, identified in Step 0. Label it `Speaking streak`.
+
+Where a flame or similar icon represents the general streak, use a visually distinct treatment. Do not reuse the same icon.
+
+---
+
+## 5. BEHAVIOR AND LOGIC
+
+### Waveform
+
+1. The system shall display a live waveform while audio is being recorded, on all three practice and review screens.
+2. The system shall drive the waveform from real input amplitude, not from a simulated or time-based animation.
+3. The system shall normalise amplitude to a 0 to 1 range before passing it to the component.
+4. The system shall update the waveform through the platform's animation primitive rather than React state.
+5. The system shall hide the waveform when recording stops.
+6. The system shall show a static, non-animating level indicator instead of a moving waveform when reduced motion is enabled, because the waveform conveys real information about whether the microphone is working and must not disappear entirely.
+7. The system shall display a clearly visible zero-input state when amplitude remains at or near zero for more than 1.5 seconds while recording, so a muted or failed microphone is obvious.
+
+### Mascot reaction
+
+8. The system shall scale the mascot with recording amplitude, within a range of 1.0 to 1.08.
+9. The system shall use the existing `thinking` pose during recording and shall not add a new pose.
+10. The system shall disable the amplitude scaling when reduced motion is enabled.
+
+### Speaking streak
+
+11. The system shall compute a speaking streak as consecutive calendar days, in the user's IANA timezone, containing at least one `attempts` row with `band` of `nailed` or `close`.
+12. The system shall exclude bands `retry` and `nocatch` from qualifying a day, so a day of failed attempts does not count, and a day where the microphone never worked does not count.
+13. The system shall reuse `localDayKey()` and `previousDayKey()` per facts document section 3, and shall not introduce a second date-bucketing implementation.
+14. The system shall apply the same mid-day fallback used by `computeStreakDays`.
+15. The system shall derive the speaking streak from `attempts` at query time and shall not store a counter.
+16. The system shall return the speaking streak from the existing progress summary endpoint rather than adding a new endpoint.
+17. The system shall add the speaking streak to the response as an optional field, per facts document section 3.
+
+### Register
+
+18. The system shall accept `formal`, `colloquial`, or `code_switched` in `phrases.register`, and shall treat null as unclassified.
+19. The system shall not filter, sort, or surface phrases by register in this release. The column is populated by content work that happens later.
+
+---
+
+## 6. ACCEPTANCE CHECKLIST
+
+1. The system shall show a waveform that visibly responds to speech volume while recording, on web practice, mobile practice, and mobile review.
+2. The system shall show a distinguishable zero-input state when the microphone is muted, verified by muting the input and recording.
+3. The system shall replace the moving waveform with a static level indicator, rather than removing it, when reduced motion is enabled.
+4. The system shall scale the mascot with voice amplitude during recording, and shall not scale it when reduced motion is enabled.
+5. The system shall compute a speaking streak that increments on a day containing at least one `nailed` or `close` attempt, and does not increment on a day containing only `retry` or `nocatch` attempts.
+6. The system shall return the same speaking streak value for a user in `Pacific/Auckland` as the general streak logic would for the same local dates, verified with a test user.
+7. The system shall display the speaking streak alongside the general streak with a visually distinct treatment.
+8. The system shall accept and persist a `register` value on a phrase, with null permitted.
+
+**Open note, not a build item:** the speaking streak threshold is one qualifying attempt per day, matching how permissive the general streak already is. If speaking streaks turn out to be trivially maintained once there is data, raising the threshold is a one-line change. Report the observed median speaking attempts per active day once there is data.
+
+---
+
+## 7. OUT OF SCOPE REMINDER
+
+1. **Do not touch the pronunciation scoring pipeline.** This spec visualises the input and derives a metric from the output.
+2. **Do not change the general or quiz streak.** This spec adds a third streak that shares their date logic.
+3. **Do not author content or populate `register`.** The column exists for later work.
+
+One note on the waveform: it is the only element in this spec the learner will consciously notice, and its job is to answer one question, am I being heard. Keep it legible rather than impressive.
+
+---
+
+## 8. REPORT BACK FOR THE FACTS DOCUMENT
+
+On completion, report:
+
+1. Any discrepancy found between the facts document and the actual codebase.
+2. A list of what to append to the facts document: new files created, new component names, new behavioral rules, and any debt introduced.
+3. The Step 0 answers, formatted so they can be pasted into the facts document as a new section on audio recording.

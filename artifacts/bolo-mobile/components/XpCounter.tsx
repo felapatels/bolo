@@ -18,13 +18,22 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
-import { registerXpCounter } from '@/lib/xpCounterRef';
+import { registerXpCounter, registerXpCounterPop } from '@/lib/xpCounterRef';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 
 export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
   const { activeLang } = useLanguage();
   const colors = useColors();
   const queryClient = useQueryClient();
   const viewRef = useRef<View>(null);
+  const reduceMotion = useReducedMotion();
+  const popScale = useSharedValue(1);
 
   const params = { lang: activeLang };
   const summary = useGetProgressSummary(params, {
@@ -34,13 +43,25 @@ export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
     },
   });
 
-  // Register position for Spec 1 arc targeting.
+  // Register position for Spec 1 arc targeting + landing pop.
   useEffect(() => {
     registerXpCounter(variant, viewRef.current);
+    registerXpCounterPop(variant, () => {
+      if (reduceMotion) return; // sound/haptics elsewhere still fire
+      popScale.value = withSequence(
+        withSpring(1.18, { damping: 12, stiffness: 400 }),
+        withSpring(1, { damping: 14, stiffness: 300 }),
+      );
+    });
     return () => {
       registerXpCounter(variant, null);
+      registerXpCounterPop(variant, null);
     };
-  }, [variant]);
+  }, [variant, reduceMotion, popScale]);
+
+  const popStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: popScale.value }],
+  }));
 
   // Invalidate at local midnight so the counter resets without an app restart.
   useEffect(() => {
@@ -75,7 +96,10 @@ export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
   const fontSize = isChrome ? 12 : 10;
 
   return (
-    <View ref={viewRef} style={isChrome ? styles.chrome : styles.session}>
+    <Animated.View
+      ref={viewRef}
+      style={[isChrome ? styles.chrome : styles.session, popStyle]}
+    >
       <View style={styles.row}>
         <Text
           style={[styles.xpNum, { color: textColor, fontSize }]}
@@ -100,7 +124,7 @@ export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
           ]}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

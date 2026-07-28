@@ -79,6 +79,11 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode } from '@/lib/settings';
+import { playCue } from '@/lib/sound';
+import { XpArc } from '@/components/XpArc';
+import { CountUpText } from '@/components/CountUpText';
+import { glyphsForLanguage } from '@/lib/scriptGlyphs';
+import { useReducedMotion } from 'react-native-reanimated';
 
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'error' | 'done';
 
@@ -405,6 +410,39 @@ export default function ReviewScreen() {
   const [flashColor, setFlashColor] = React.useState('#10B981');
   const flashOverlayStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
 
+  // ── Wrong-answer shake (Spec 1 rule: retry band only, never nocatch) ─────
+  const reduceMotion = useReducedMotion();
+  const shakeX = useSharedValue(0);
+  const triggerShake = React.useCallback(() => {
+    if (reduceMotion) return; // outcome is instant under reduced motion
+    // 3 horizontal cycles ≈80ms each, ≤8px, transform-only.
+    shakeX.value = withSequence(
+      withTiming(-8, { duration: 40 }),
+      withTiming(8, { duration: 80 }),
+      withTiming(-8, { duration: 80 }),
+      withTiming(8, { duration: 80 }),
+      withTiming(0, { duration: 40 }),
+    );
+  }, [reduceMotion, shakeX]);
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
+
+  // ── XP arc (Spec 1: nailed only; badge arcs from result to XP counter) ──
+  const xpArcTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+    },
+    [],
+  );
+  const [xpArc, setXpArc] = React.useState<{
+    key: number;
+    amount: number;
+    from: { x: number; y: number };
+  } | null>(null);
+  const resultCardRef = React.useRef<View>(null);
+
   const isPressingRef = React.useRef(false);
 
   const celebrateTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -586,10 +624,17 @@ export default function ReviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result, spokenEnabled]);
 
+  // Session-end celebration — confetti only when at least half of the phrases
+  // ended nailed or close (Spec 1 gating; no confetti on rough sessions).
   React.useEffect(() => {
     if (phase === 'done') {
-      fireConfetti(4000);
-      if (Object.values(bands).length > 0 && Object.values(bands).every((b) => b === 'nailed')) {
+      playCue('session_complete');
+      const vals = Object.values(bands);
+      const good = vals.filter((b) => b === 'nailed' || b === 'close').length;
+      if (vals.length > 0 && good * 2 >= vals.length) {
+        fireConfetti(4000);
+      }
+      if (vals.length > 0 && vals.every((b) => b === 'nailed')) {
         hapticHeavy();
       }
     }
@@ -758,18 +803,36 @@ export default function ReviewScreen() {
         consecutiveGoodRef.current = 0;
       }
 
-      // Band-driven feedback: nailed celebrates, close gets a gentle tap, retry/nocatch warn.
+      // Band-driven feedback: nailed celebrates, close gets a gentle tap,
+      // retry warns. nocatch is a system miss, not a learner error (Spec 1
+      // rule 16): no negative haptic, no wrong cue, no shake.
       if (res.band === 'nailed') {
         hapticNotify(Haptics.NotificationFeedbackType.Success);
+        playCue('correct');
       } else if (res.band === 'close') {
         hapticLight();
-      } else {
+      } else if (res.band === 'retry') {
         hapticNotify(Haptics.NotificationFeedbackType.Warning);
+        playCue('wrong');
+        triggerShake();
       }
 
       if (res.band === 'nailed') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
+        if (res.xpAwarded > 0) {
+          // Measure where the result card lands, then launch the arc from it.
+          if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+          xpArcTimerRef.current = setTimeout(() => {
+            resultCardRef.current?.measureInWindow((x, y, w) => {
+              setXpArc({
+                key: Date.now(),
+                amount: res.xpAwarded,
+                from: { x: x + w / 2, y: y + 20 },
+              });
+            });
+          }, 250);
+        }
       }
 
       try {
@@ -891,7 +954,7 @@ export default function ReviewScreen() {
             <Mascot pose="cheer" size={168} motion="bounce" />
           </Animated.View>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(150)}
+            entering={skipEnter ? undefined : FadeInDown.delay(120).springify()}
             style={[
               styles.summaryTitle,
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
@@ -900,17 +963,22 @@ export default function ReviewScreen() {
             {isPerfect ? 'PERFECT REVIEW! 🏆' : anyPassed ? 'Review complete!' : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(220)}
+            entering={skipEnter ? undefined : FadeInDown.delay(240).springify()}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You reviewed {bandVals.length} {bandVals.length === 1 ? 'phrase' : 'phrases'}.
           </Animated.Text>
           {totalXp > 0 && (
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.delay(380)}
+              entering={skipEnter ? undefined : FadeInDown.delay(360).springify()}
               style={[styles.xpChip, { backgroundColor: `${'#7C3AED'}18`, borderColor: '#7C3AED' }]}
             >
-              <Text style={[styles.xpChipText, { color: '#7C3AED' }]}>+{totalXp} XP</Text>
+              <CountUpText
+                value={totalXp}
+                prefix="+"
+                suffix=" XP"
+                style={[styles.xpChipText, { color: '#7C3AED' }]}
+              />
             </Animated.View>
           )}
           {Object.values(xpData).some((d) => d.breakdown) && (
@@ -958,7 +1026,12 @@ export default function ReviewScreen() {
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>
-        {celebrate ? <Confetti variant={isPerfect ? 'perfect' : 'default'} /> : null}
+        {celebrate ? (
+          <Confetti
+            variant={isPerfect ? 'perfect' : 'default'}
+            glyphs={glyphsForLanguage(activeLang)}
+          />
+        ) : null}
         <BadgeUnlock badges={unlockedBadges} onDismiss={() => setUnlockedBadges([])} />
       </Screen>
     );
@@ -977,7 +1050,9 @@ export default function ReviewScreen() {
             ? 'cheer'
             : result.band === 'close'
               ? 'thumbsup'
-              : 'tryagain'
+              : result.band === 'nocatch'
+                ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
+                : 'tryagain'
           : 'wave';
 
   const mascotMotion =
@@ -1060,6 +1135,7 @@ export default function ReviewScreen() {
 
         {phase === 'result' && result ? (
           <Animated.View
+            ref={resultCardRef}
             entering={FadeIn.duration(200)}
             style={[
               styles.resultCard,
@@ -1067,6 +1143,7 @@ export default function ReviewScreen() {
                 backgroundColor: `${bandColor(result.band, colors)}12`,
                 borderColor: bandColor(result.band, colors),
               },
+              shakeStyle,
             ]}
           >
             <Text style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}>
@@ -1202,6 +1279,14 @@ export default function ReviewScreen() {
         style={[StyleSheet.absoluteFill, { backgroundColor: flashColor, zIndex: 50 }, flashOverlayStyle]}
       />
       {celebrate ? <Confetti /> : null}
+      {xpArc ? (
+        <XpArc
+          key={xpArc.key}
+          amount={xpArc.amount}
+          from={xpArc.from}
+          onDone={() => setXpArc(null)}
+        />
+      ) : null}
       <BadgeUnlock badges={unlockedBadges} onDismiss={() => setUnlockedBadges([])} />
       <MilestoneToast
         message={toastMessage}

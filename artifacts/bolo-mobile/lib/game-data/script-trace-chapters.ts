@@ -4762,3 +4762,43 @@ export const SCRIPT_TRACE_CHAPTERS: TraceChapter[] = [
     ],
   },
 ];
+
+// ── Language → chapter mapping ────────────────────────────────────────────────
+
+/** Maps a language code to the Script Trace chapter IDs for its script. */
+export const LANG_CHAPTER_IDS: Record<string, string[]> = {
+  // Gujarati
+  gu:  ["gujarati-vowels", "gujarati-consonants", "gujarati-words", "gujarati-sentences"],
+  // Devanagari script languages
+  hi:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  mr:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  ne:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  sa:  ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  mai: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  kok: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  doi: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  brx: ["hindi-vowels", "hindi-consonants", "hindi-words", "hindi-sentences"],
+  // Bengali / Assamese
+  bn:  ["bengali-vowels", "bengali-consonants", "bengali-words", "bengali-sentences"],
+  as:  ["bengali-vowels", "bengali-consonants", "bengali-words", "bengali-sentences"],
+  // Punjabi / Gurmukhi
+  pa:  ["gurmukhi-vowels", "gurmukhi-consonants", "gurmukhi-words", "gurmukhi-sentences"],
+  // Odia
+  or:  ["odia-vowels", "odia-consonants", "odia-words", "odia-sentences"],
+  // Tamil
+  ta:  ["tamil-vowels", "tamil-consonants", "tamil-words", "tamil-sentences"],
+  // Telugu
+  te:  ["telugu-vowels", "telugu-consonants", "telugu-words", "telugu-sentences"],
+  // Kannada
+  kn:  ["kannada-vowels", "kannada-consonants", "kannada-words", "kannada-sentences"],
+  // Malayalam
+  ml:  ["malayalam-vowels", "malayalam-consonants", "malayalam-words", "malayalam-sentences"],
+  // Urdu / Sindhi / Kashmiri (Nastaliq)
+  ur:  ["urdu-letters", "urdu-words", "urdu-sentences"],
+  sd:  ["urdu-letters", "sindhi-additional", "urdu-words", "urdu-sentences"],
+  ks:  ["urdu-letters", "kashmiri-additional", "urdu-words", "urdu-sentences"],
+  // Santali / Ol Chiki
+  sat: ["olchiki-vowels", "olchiki-consonants", "olchiki-words", "olchiki-sentences"],
+  // Meitei / Meitei Mayek
+  mni: ["meitei-letters", "meitei-words", "meitei-sentences"],
+};

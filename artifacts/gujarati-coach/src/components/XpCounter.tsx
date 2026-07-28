@@ -1,11 +1,12 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProgressSummary,
   getGetProgressSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { useLanguage } from "@/lib/language-context";
-import { registerXpCounter } from "@/lib/xpCounterRef";
+import { registerXpCounter, registerXpCounterPop } from "@/lib/xpCounterRef";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,6 +25,9 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
   const { activeLang } = useLanguage();
   const queryClient = useQueryClient();
   const elRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  // Incremented each time the XP arc lands; keys a one-shot scale pop.
+  const [popKey, setPopKey] = useState(0);
 
   const params = { lang: activeLang };
   const summary = useGetProgressSummary(params, {
@@ -36,8 +40,10 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
   // Register position for Spec 1 arc targeting.
   useEffect(() => {
     registerXpCounter(variant, elRef.current);
+    registerXpCounterPop(variant, () => setPopKey((k) => k + 1));
     return () => {
       registerXpCounter(variant, null);
+      registerXpCounterPop(variant, null);
     };
   }, [variant]);
 
@@ -73,8 +79,13 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
   const isSession = variant === "session";
 
   return (
-    <div
+    <motion.div
       ref={elRef}
+      key={popKey}
+      animate={
+        popKey > 0 && !reduceMotion ? { scale: [1, 1.18, 1] } : undefined
+      }
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className={cn("flex flex-col gap-0.5", isSession ? "min-w-[72px]" : "w-full")}
       aria-label={`${todayXp} of ${dailyGoal} XP today`}
     >
@@ -110,6 +121,6 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }

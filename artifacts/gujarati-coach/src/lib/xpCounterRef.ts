@@ -26,3 +26,22 @@ export function registerXpCounter(
 export function getXpCounterRect(): DOMRect | null {
   return (_session ?? _chrome)?.getBoundingClientRect() ?? null;
 }
+
+// ── Pop trigger (Spec 1 XP arc lands) ────────────────────────────────────────
+
+let _sessionPop: (() => void) | null = null;
+let _chromePop: (() => void) | null = null;
+
+/** Counters register a callback that plays their landing "pop". */
+export function registerXpCounterPop(
+  variant: "session" | "chrome",
+  cb: (() => void) | null,
+): void {
+  if (variant === "session") _sessionPop = cb;
+  else _chromePop = cb;
+}
+
+/** Pops the active counter (session takes priority, same as the rect). */
+export function popXpCounter(): void {
+  (_session ? _sessionPop : _chromePop)?.();
+}

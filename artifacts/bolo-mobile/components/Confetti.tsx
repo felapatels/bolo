@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -43,6 +43,8 @@ type PieceSpec = {
   duration: number;
   drift: number;
   shape: PieceShape;
+  /** When set, the piece renders this letterform instead of a shape. */
+  glyph?: string;
 };
 
 function ConfettiPiece({ spec }: { spec: PieceSpec }) {
@@ -67,6 +69,26 @@ function ConfettiPiece({ spec }: { spec: PieceSpec }) {
     ],
     opacity: 1 - t.value * 0.2,
   }));
+
+  if (spec.glyph) {
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.piece, { left: spec.left }, style]}
+      >
+        <Text
+          style={{
+            color: spec.color,
+            fontSize: spec.size + 8,
+            fontWeight: '700',
+            includeFontPadding: false,
+          }}
+        >
+          {spec.glyph}
+        </Text>
+      </Animated.View>
+    );
+  }
 
   if (spec.shape === 'circle') {
     return (
@@ -157,13 +179,25 @@ const SHAPES: PieceShape[] = ['rect', 'circle', 'diamond'];
  *
  * `variant="perfect"` shifts the palette to amber/gold for a golden-moment feel.
  */
-export function Confetti({ variant = 'default' }: { variant?: ConfettiVariant }) {
+export function Confetti({
+  variant = 'default',
+  glyphs,
+}: {
+  variant?: ConfettiVariant;
+  /**
+   * Script letterforms to rain instead of shapes (Spec 1 glyph confetti).
+   * Empty/undefined falls back to the classic shape confetti. Glyph mode is
+   * capped at 25 pieces on mobile.
+   */
+  glyphs?: string[];
+}) {
   const reduceMotion = useReducedMotion();
   const palette = variant === 'perfect' ? PERFECT_COLORS : CONFETTI_COLORS;
+  const glyphMode = !!glyphs && glyphs.length > 0;
 
   const pieces = React.useMemo<PieceSpec[]>(
     () =>
-      Array.from({ length: PIECE_COUNT }, (_, i) => ({
+      Array.from({ length: glyphMode ? 25 : PIECE_COUNT }, (_, i) => ({
         id: i,
         left: Math.random() * width,
         size: 8 + Math.random() * 8,
@@ -172,10 +206,15 @@ export function Confetti({ variant = 'default' }: { variant?: ConfettiVariant })
         duration: 2200 + Math.random() * 1800,
         drift: 20 + Math.random() * 60,
         shape: SHAPES[i % SHAPES.length],
+        glyph: glyphMode ? glyphs![i % glyphs!.length] : undefined,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [variant],
+    [variant, glyphMode],
   );
+
+  // Spec 1 rule 25: reduced motion renders no confetti at all — the summary
+  // copy carries the celebration.
+  if (reduceMotion) return null;
 
   return (
     <Animated.View

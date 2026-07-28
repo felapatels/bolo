@@ -35,6 +35,10 @@ import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, type Band } from "@/components/ui/band-pill";
+import { playCue } from "@/lib/sound";
+import { XpArc } from "@/components/XpArc";
+import { CountUp } from "@/components/ui/count-up";
+import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary";
 
@@ -167,6 +171,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Which phrase ring is expanded in the summary (index into orderedSummaryEntries).
   const [summarySelectedIdx, setSummarySelectedIdx] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  // Spec 1: retry-band shake (increment retriggers), XP arc overlay state.
+  const [shakeKey, setShakeKey] = useState(0);
+  const [xpArc, setXpArc] = useState<{
+    key: number;
+    amount: number;
+    from: { x: number; y: number };
+  } | null>(null);
+  const resultPanelRef = useRef<HTMLDivElement | null>(null);
+  const xpArcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+  }, []);
+  const reduceMotion = useReducedMotion();
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
   const [evalError, setEvalError] = useState<string | null>(null);
   // When true, the attempt scored but saving progress failed — the learner
@@ -483,10 +500,34 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         setTimeout(() => webHaptic('heavy'), 140);
       }
 
+      // Band-driven cues (Spec 1): correct on nailed, wrong+shake on retry.
+      // nocatch is a system miss, not a learner error (rule 16): no wrong
+      // cue, no shake.
+      if (evalRes.band === 'nailed') {
+        playCue('correct');
+      } else if (evalRes.band === 'retry') {
+        playCue('wrong');
+        setShakeKey(k => k + 1);
+      }
+
       if (evalRes.band === 'nailed') {
         setShowConfetti(true);
         if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
+        // XP arc: badge flies from the result panel to the XP counter.
+        if (evalRes.xpAwarded > 0) {
+          if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+          xpArcTimerRef.current = setTimeout(() => {
+            const rect = resultPanelRef.current?.getBoundingClientRect();
+            setXpArc({
+              key: Date.now(),
+              amount: evalRes.xpAwarded,
+              from: rect
+                ? { x: rect.left + rect.width / 2, y: rect.top + 24 }
+                : { x: window.innerWidth / 2, y: window.innerHeight * 0.7 },
+            });
+          }, 250);
+        }
       }
 
       // Hot-streak tracking: increment consecutive good counter (nailed or close)
@@ -619,6 +660,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const _entries = (phrases ?? []).map(p => sessionResults[p.id]).filter(Boolean);
       const _anyPassed = _entries.some(e => e.band === 'nailed' || e.band === 'close');
       webHaptic(_anyPassed ? 'success' : 'warning');
+      playCue('session_complete');
       setState("summary");
     }
   };
@@ -703,15 +745,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     const totalXp = orderedSummaryEntries.reduce((a, r) => a + r.xpAwarded, 0);
     const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.band === "nailed");
     const anyPassed = orderedSummaryEntries.some(r => r.band === "nailed" || r.band === "close");
+    // Spec 1 gating: session confetti only when at least half of the phrases
+    // ended nailed or close — never on rough sessions.
+    const goodCount = orderedSummaryEntries.filter(r => r.band === "nailed" || r.band === "close").length;
+    const celebrateSession = attemptCount > 0 && goodCount * 2 >= attemptCount;
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
-        <Confetti active={isPerfect || anyPassed} variant={isPerfect ? "perfect" : "default"} />
+        <Confetti
+          active={celebrateSession}
+          variant={isPerfect ? "perfect" : "default"}
+          glyphs={glyphsForLanguage(activeLang)}
+        />
         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
           <Mascot pose={anyPassed ? "cheer" : "thumbsup"} size={148} idle={anyPassed ? "cheer" : "float"} />
           <motion.h1
-            initial={{ opacity: 0, y: 16 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
+            transition={reduceMotion ? { duration: 0 } : { delay: 0.12, type: "spring", stiffness: 260, damping: 20 }}
             className={cn(
               "text-4xl font-black",
               isPerfect ? "text-amber-500" : "text-foreground",
@@ -721,9 +771,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </motion.h1>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.25, type: "spring", stiffness: 260, damping: 18 }}
+            transition={reduceMotion ? { duration: 0 } : { delay: 0.24, type: "spring", stiffness: 260, damping: 18 }}
             className={cn(
               "p-6 rounded-3xl w-full max-w-sm border shadow-sm",
               isPerfect ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" : "bg-white border-card-border",
@@ -733,7 +783,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             {/* XP earned chip */}
             {totalXp > 0 && (
               <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
-                +{totalXp} XP earned
+                <CountUp value={totalXp} prefix="+" suffix=" XP earned" />
               </div>
             )}
 
@@ -845,7 +895,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         ? "cheer"
         : result.band === "close"
           ? "thumbsup"
-          : "tryagain"
+          : result.band === "nocatch"
+            ? "thinking" // system miss, not learner error (Spec 1 rule 16)
+            : "tryagain"
       : state === "error"
         ? "tryagain"
         : state === "playing_coach" || state === "recording" || state === "evaluating"
@@ -858,6 +910,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   return (
     <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
       <Confetti active={showConfetti} />
+      {xpArc && (
+        <XpArc
+          key={xpArc.key}
+          amount={xpArc.amount}
+          from={xpArc.from}
+          onDone={() => setXpArc(null)}
+        />
+      )}
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -1102,11 +1162,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         {/* ── Bottom panel: result / error / action buttons ────────────── */}
         {(state === "result" || state === "error") && (
             <motion.div
+              ref={resultPanelRef}
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={springs.bouncy}
               className="shrink-0 space-y-3 mt-2"
             >
+              {/* Retry-band shake: 3 horizontal cycles ≈80ms, ≤8px,
+                  transform-only; retriggers via key. Never fires for nocatch. */}
+              <motion.div
+                key={shakeKey}
+                animate={
+                  shakeKey > 0 && !reduceMotion && result?.band === "retry"
+                    ? { x: [0, -8, 8, -8, 8, 0] }
+                    : undefined
+                }
+                transition={{ duration: 0.32, ease: "easeInOut" }}
+              >
               {state === "error" && evalError && (
                 <div
                   className="bg-white rounded-2xl p-4 border border-destructive/30 shadow-sm text-center"
@@ -1141,6 +1213,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}
                 </div>
               )}
+              </motion.div>
 
               {/* Action buttons */}
               {state === "error" ? (

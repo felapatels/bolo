@@ -12,6 +12,8 @@ interface Particle {
   rotation: number;
   scale: number;
   shape: ParticleShape;
+  /** When set, the particle renders this letterform instead of a shape. */
+  glyph?: string;
 }
 
 const DEFAULT_COLORS = ['#4F46E5', '#0D9488', '#818CF8', '#2DD4BF', '#FBBF24'];
@@ -39,14 +41,29 @@ function getShapeStyle(shape: ParticleShape, color: string): React.CSSProperties
   }
 }
 
-export function Confetti({ active, variant = "default" }: { active: boolean; variant?: ConfettiVariant }) {
+export function Confetti({
+  active,
+  variant = "default",
+  glyphs,
+}: {
+  active: boolean;
+  variant?: ConfettiVariant;
+  /**
+   * Script letterforms to rain instead of shapes (Spec 1 glyph confetti).
+   * Empty/undefined falls back to the classic shape confetti. Glyph mode is
+   * capped at 40 pieces on web.
+   */
+  glyphs?: string[];
+}) {
   const reduceMotion = useReducedMotion();
   const [particles, setParticles] = useState<Particle[]>([]);
+  const glyphMode = !!glyphs && glyphs.length > 0;
 
   useEffect(() => {
     if (active && !reduceMotion) {
       const colors = variant === "perfect" ? PERFECT_COLORS : DEFAULT_COLORS;
-      const newParticles: Particle[] = Array.from({ length: 70 }).map((_, i) => ({
+      const count = glyphMode ? 40 : 70;
+      const newParticles: Particle[] = Array.from({ length: count }).map((_, i) => ({
         id: i,
         x: Math.random() * 100 - 50,
         y: -Math.random() * 100 - 20,
@@ -54,12 +71,14 @@ export function Confetti({ active, variant = "default" }: { active: boolean; var
         rotation: Math.random() * 360,
         scale: Math.random() * 0.5 + 0.5,
         shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
+        glyph: glyphMode ? glyphs![i % glyphs!.length] : undefined,
       }));
       setParticles(newParticles);
     } else {
       setParticles([]);
     }
-  }, [active, reduceMotion, variant]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, reduceMotion, variant, glyphMode]);
 
   if (!active || reduceMotion) return null;
 
@@ -77,12 +96,24 @@ export function Confetti({ active, variant = "default" }: { active: boolean; var
           }}
           transition={{ duration: 2, ease: "easeOut" }}
           className="absolute"
-          style={{
-            width: p.shape === "rect" ? "14px" : "12px",
-            height: p.shape === "rect" ? "6px" : "12px",
-            ...getShapeStyle(p.shape, p.color),
-          }}
-        />
+          style={
+            p.glyph
+              ? {
+                  color: p.color,
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  userSelect: "none",
+                }
+              : {
+                  width: p.shape === "rect" ? "14px" : "12px",
+                  height: p.shape === "rect" ? "6px" : "12px",
+                  ...getShapeStyle(p.shape, p.color),
+                }
+          }
+        >
+          {p.glyph ?? null}
+        </motion.div>
       ))}
     </div>
   );

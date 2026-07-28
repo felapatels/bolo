@@ -481,7 +481,9 @@ describe('XP chip', () => {
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
     await waitFor(() =>
-      expect(screen.getByText('+24 XP')).toBeOnTheScreen(),
+      // The chip is a count-up (animated TextInput); the final value is
+      // exposed via the accessibility label.
+      expect(screen.getByLabelText('+24 XP')).toBeOnTheScreen(),
     );
   });
 
@@ -518,7 +520,7 @@ describe('XP chip', () => {
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
     await waitFor(() =>
-      expect(screen.getByText('+48 XP')).toBeOnTheScreen(),
+      expect(screen.getByLabelText('+48 XP')).toBeOnTheScreen(),
     );
   });
 });
