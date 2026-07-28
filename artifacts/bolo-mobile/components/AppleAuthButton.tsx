@@ -5,6 +5,11 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { useSSO } from '@clerk/expo';
 import { useRouter } from 'expo-router';
+import {
+  authErrorMessage,
+  reportAuthError,
+  reportAuthIncompleteState,
+} from '@/lib/authErrors';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -50,10 +55,11 @@ export function AppleAuthButton() {
     setLoading(true);
     setError(null);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_apple',
-        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
-      });
+      const { createdSessionId, setActive, signIn, signUp } =
+        await startSSOFlow({
+          strategy: 'oauth_apple',
+          redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
+        });
 
       if (createdSessionId && setActive) {
         await setActive({
@@ -63,14 +69,30 @@ export function AppleAuthButton() {
           },
         });
       } else {
-        // Clerk returned an incomplete SSO state (extra requirements
-        // configured, or the user dismissed Apple's sheet). Don't strand the
-        // user silently — surface a recoverable message.
-        setError('Apple sign-in did not finish. Please try again.');
+        // No session created. If Clerk progressed to a resource with a
+        // status, surface + report that status; a bare return with no
+        // resources is most likely the user dismissing Apple's sheet
+        // (visible message, no Sentry noise).
+        const status = signIn?.status ?? signUp?.status ?? null;
+        if (status) {
+          const strategies = (signIn?.supportedFirstFactors ?? []).map(
+            (f) => f.strategy,
+          );
+          setError(
+            `Apple sign-in did not complete (status: ${status}${
+              strategies.length > 0
+                ? `; available sign-in methods: ${strategies.join(', ')}`
+                : ''
+            }). Please try again.`,
+          );
+          reportAuthIncompleteState('sso.oauth_apple', status, strategies);
+        } else {
+          setError('Apple sign-in did not finish. Please try again.');
+        }
       }
     } catch (err) {
-      console.error('Apple sign-in failed:', JSON.stringify(err, null, 2));
-      setError('Apple sign-in failed. Please try again.');
+      reportAuthError('sso.oauth_apple', err);
+      setError(`Apple sign-in failed: ${authErrorMessage(err)}`);
     } finally {
       inFlight.current = false;
       setLoading(false);

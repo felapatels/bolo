@@ -71,4 +71,5 @@
 - [Observability (Sentry + PostHog)](observability-sentry-posthog.md) — env-gated inits, scrub rules (drop req.body!), 7-event allowlist, @opentelemetry/api drizzle-orm dedup trap.
 - [Screenshot tool img quirk](screenshot-tool-img-quirk.md) — Screenshot tool shows broken <img> for mockup-sandbox public PNGs that real browsers load fine; verify with Nix chromium 138 dump-dom.
 - [drizzle migrate hash-without-DDL](drizzle-migrate-hash-without-ddl.md) — dev-DB migrate can record the hash row without running the DDL; verify with to_regclass, apply committed SQL via psql.
+- [Clerk mobile auth factors](clerk-mobile-auth-factors.md) — signIn.password() is one-shot, NOT complete-or-throw; branch on status/supportedFirstFactors; surface status+factors in UI and Sentry.
 - [TTS provider switch](tts-provider-switch.md) — USE_ELEVENLABS_TTS flag in lib/ttsConfig.ts; currently false (gpt-audio); flip to true + restart to restore ElevenLabs (must use multilingual_v2, not flash).

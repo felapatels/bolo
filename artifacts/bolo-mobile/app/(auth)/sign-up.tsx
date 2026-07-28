@@ -6,8 +6,20 @@ import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
+import {
+  authErrorMessage,
+  incompleteStateMessage,
+  isExpectedUserError,
+  reportAuthError,
+  reportAuthIncompleteState,
+} from '@/lib/authErrors';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+
+// Every Clerk call here checks its result. A returned error or an
+// unexpected status must end in a user-visible message (including the
+// status itself) and a Sentry event — never a silent no-op (July 2026
+// sign-in incident).
 
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
@@ -17,26 +29,97 @@ export default function SignUpScreen() {
   const [emailAddress, setEmailAddress] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [code, setCode] = React.useState('');
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const busy = fetchStatus === 'fetching';
   const finishNavigate = () => router.replace('/(app)/(tabs)');
 
+  const handleUnexpected = (context: string, error: unknown) => {
+    if (isExpectedUserError(error)) return; // field UI already shows these
+    reportAuthError(context, error);
+    setFormError(authErrorMessage(error));
+  };
+
+  const sendCode = async (context: string) => {
+    const { error } = await signUp.verifications.sendEmailCode();
+    if (error) {
+      reportAuthError(context, error);
+      setFormError(authErrorMessage(error));
+      return false;
+    }
+    return true;
+  };
+
+  const finalizeSignUp = async () => {
+    try {
+      const { error } = await signUp.finalize({ navigate: finishNavigate });
+      if (error) {
+        reportAuthError('signUp.finalize', error);
+        setFormError(
+          `Account created, but opening the app failed (${authErrorMessage(error)}). Please sign in.`,
+        );
+      }
+    } catch (err) {
+      reportAuthError('signUp.finalize', err);
+      setFormError(
+        `Account created, but opening the app failed (${authErrorMessage(err)}). Please sign in.`,
+      );
+    }
+  };
+
+  /** Surface + report any sign-up state we can't route to a next step. */
+  const handleUnroutableState = (context: string) => {
+    const status = signUp.status ?? 'unknown';
+    const missing = signUp.missingFields ?? [];
+    setFormError(incompleteStateMessage(status, missing));
+    reportAuthIncompleteState(context, status, missing);
+  };
+
   const handleSubmit = async () => {
+    setFormError(null);
     const { error } = await signUp.password({ emailAddress, password });
-    if (error) return;
-    await signUp.verifications.sendEmailCode();
+    if (error) {
+      handleUnexpected('signUp.password', error);
+      return;
+    }
+    if (signUp.status === 'complete') {
+      await finalizeSignUp();
+      return;
+    }
+    if (
+      signUp.status === 'missing_requirements' &&
+      signUp.unverifiedFields.includes('email_address')
+    ) {
+      // Expected path: send the code; the awaiting-code render takes over.
+      // If sending fails, sendCode surfaces + reports it.
+      await sendCode('signUp.sendEmailCode');
+      return;
+    }
+    // Any other state would leave the user stranded on the form — make the
+    // status observable instead.
+    handleUnroutableState('signUp.password');
   };
 
   const handleVerify = async () => {
-    await signUp.verifications.verifyEmailCode({ code });
-    if (signUp.status === 'complete') {
-      await signUp.finalize({ navigate: finishNavigate });
+    setFormError(null);
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      handleUnexpected('signUp.verifyEmailCode', error);
+      return;
     }
+    if (signUp.status === 'complete') {
+      await finalizeSignUp();
+      return;
+    }
+    // Verified but still not complete — surface the status, don't stall.
+    handleUnroutableState('signUp.verifyEmailCode');
   };
 
   const awaitingCode =
     signUp.status === 'missing_requirements' &&
     signUp.unverifiedFields.includes('email_address');
+
+  const formErrorLine = formError ?? fieldError(errors.raw?.[0]);
 
   if (awaitingCode) {
     return (
@@ -52,9 +135,12 @@ export default function SignUpScreen() {
           onChangeText={setCode}
           error={fieldError(errors.fields.code)}
         />
-        {fieldError(errors.raw?.[0]) ? (
-          <Text style={[styles.formError, { color: colors.destructive }]}>
-            {fieldError(errors.raw?.[0])}
+        {formErrorLine ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.formError, { color: colors.destructive }]}
+          >
+            {formErrorLine}
           </Text>
         ) : null}
         <ChunkyButton
@@ -67,7 +153,11 @@ export default function SignUpScreen() {
         />
         <Pressable
           style={styles.resend}
-          onPress={() => signUp.verifications.sendEmailCode()}
+          disabled={busy}
+          onPress={() => {
+            setFormError(null);
+            void sendCode('signUp.resendEmailCode');
+          }}
         >
           <Text style={[styles.footerLink, { color: colors.secondary }]}>
             Send a new code
@@ -101,9 +191,12 @@ export default function SignUpScreen() {
         error={fieldError(errors.fields.password)}
       />
 
-      {fieldError(errors.raw?.[0]) ? (
-        <Text style={[styles.formError, { color: colors.destructive }]}>
-          {fieldError(errors.raw?.[0])}
+      {formErrorLine ? (
+        <Text
+          accessibilityRole="alert"
+          style={[styles.formError, { color: colors.destructive }]}
+        >
+          {formErrorLine}
         </Text>
       ) : null}
 

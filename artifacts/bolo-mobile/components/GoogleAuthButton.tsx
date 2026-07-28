@@ -11,6 +11,11 @@ import * as AuthSession from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { useSSO } from '@clerk/expo';
 import { useRouter } from 'expo-router';
+import {
+  authErrorMessage,
+  reportAuthError,
+  reportAuthIncompleteState,
+} from '@/lib/authErrors';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -22,6 +27,7 @@ export function GoogleAuthButton() {
   const router = useRouter();
   const colors = useColors();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Warm up the browser on Android to speed up the OAuth handoff.
   useEffect(() => {
@@ -34,11 +40,13 @@ export function GoogleAuthButton() {
 
   const onPress = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
-      });
+      const { createdSessionId, setActive, signIn, signUp } =
+        await startSSOFlow({
+          strategy: 'oauth_google',
+          redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
+        });
 
       if (createdSessionId && setActive) {
         await setActive({
@@ -47,15 +55,38 @@ export function GoogleAuthButton() {
             router.replace('/(app)/(tabs)');
           },
         });
+      } else {
+        // OAuth returned without a session. If Clerk progressed to a
+        // resource with a status, surface + report that status; a bare
+        // return with no resources is most likely the user dismissing the
+        // browser (visible message, no Sentry noise).
+        const status = signIn?.status ?? signUp?.status ?? null;
+        if (status) {
+          const strategies = (signIn?.supportedFirstFactors ?? []).map(
+            (f) => f.strategy,
+          );
+          setError(
+            `Google sign-in did not complete (status: ${status}${
+              strategies.length > 0
+                ? `; available sign-in methods: ${strategies.join(', ')}`
+                : ''
+            }). Please try again.`,
+          );
+          reportAuthIncompleteState('sso.oauth_google', status, strategies);
+        } else {
+          setError('Google sign-in did not finish. Please try again.');
+        }
       }
     } catch (err) {
-      console.error('Google sign-in failed:', JSON.stringify(err, null, 2));
+      reportAuthError('sso.oauth_google', err);
+      setError(`Google sign-in failed: ${authErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
   }, [startSSOFlow, router]);
 
   return (
+    <>
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
@@ -80,6 +111,15 @@ export function GoogleAuthButton() {
         </>
       )}
     </Pressable>
+    {error ? (
+      <Text
+        accessibilityRole="alert"
+        style={[styles.error, { color: colors.destructive }]}
+      >
+        {error}
+      </Text>
+    ) : null}
+    </>
   );
 }
 
@@ -96,5 +136,10 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: AppFonts.semibold,
     fontSize: 16,
+  },
+  error: {
+    fontFamily: AppFonts.regular,
+    fontSize: 14,
+    marginTop: 8,
   },
 });

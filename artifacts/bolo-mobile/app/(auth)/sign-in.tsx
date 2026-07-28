@@ -6,8 +6,29 @@ import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
+import {
+  authErrorMessage,
+  incompleteStateMessage,
+  isExpectedUserError,
+  reportAuthError,
+  reportAuthIncompleteState,
+} from '@/lib/authErrors';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+
+// Sign-in supports the factors the account ACTUALLY has, discovered from
+// Clerk's sign-in response — never assumed:
+// - password (accounts created with one),
+// - email code (web sign-ups are passwordless; without this path those users
+//   cannot sign in on mobile at all),
+// - Apple / Google SSO.
+//
+// July 2026 production incident: `signIn.password()` is a ONE-SHOT create
+// call in this SDK — there is no separate attemptFirstFactor. The old code
+// assumed it either throws or completes; any other status fell through with
+// no UI change and no Sentry event. Every branch below therefore ends in
+// exactly one of: navigation, a user-visible error (including the Clerk
+// status + offered factors when a flow stops early), or a code-entry step.
 
 export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
@@ -16,19 +37,206 @@ export default function SignInScreen() {
 
   const [emailAddress, setEmailAddress] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [code, setCode] = React.useState('');
+  const [mode, setMode] = React.useState<'credentials' | 'emailCode'>(
+    'credentials',
+  );
+  // Non-field error line. Clerk's expected field errors (wrong password, bad
+  // code) render under their inputs via `errors`; this covers everything
+  // else so no failure is ever invisible.
+  const [formError, setFormError] = React.useState<string | null>(null);
+  // Context line for the code step ("we just sent a code to ...").
+  const [codeNotice, setCodeNotice] = React.useState<string | null>(null);
 
   const busy = fetchStatus === 'fetching';
-
   const finishNavigate = () => router.replace('/(app)/(tabs)');
 
-  const handleSubmit = async () => {
-    const { error } = await signIn.password({ emailAddress, password });
-    if (error) return;
+  /** Strategy names only — factor objects carry PII (safeIdentifier). */
+  const factorStrategies = (): string[] =>
+    (signIn.supportedFirstFactors ?? []).map((f) => f.strategy);
 
-    if (signIn.status === 'complete') {
-      await signIn.finalize({ navigate: finishNavigate });
+  const finalizeSession = async (context: string): Promise<void> => {
+    try {
+      // finalize both returns { error } and can throw (e.g. no created
+      // session) — cover both so neither path is silent.
+      const { error } = await signIn.finalize({ navigate: finishNavigate });
+      if (error) {
+        reportAuthError(`${context}.finalize`, error);
+        setFormError(
+          `Signed in, but opening the app failed (${authErrorMessage(error)}). Please try again.`,
+        );
+      }
+    } catch (err) {
+      reportAuthError(`${context}.finalize`, err);
+      setFormError(
+        `Signed in, but opening the app failed (${authErrorMessage(err)}). Please try again.`,
+      );
     }
   };
+
+  /**
+   * Route a successful-but-not-complete sign-in response. Returns true if it
+   * handled the state (navigated, switched to the code step, or surfaced an
+   * observable error).
+   */
+  const handleNonCompleteState = async (context: string): Promise<void> => {
+    const status = signIn.status ?? 'unknown';
+    const strategies = factorStrategies();
+    if (status === 'needs_first_factor' && strategies.includes('email_code')) {
+      // Route to the factor the account actually supports — but keep the
+      // encountered status + factors observable in the on-screen copy.
+      const detail = `status: ${status}; available sign-in methods: ${strategies.join(', ')}`;
+      if (strategies.includes('password')) {
+        // A password-holding account should have completed in one shot —
+        // this is the production-incident shape, so it also goes to Sentry.
+        reportAuthIncompleteState(context, status, strategies);
+        await sendCodeAndShowStep(
+          `Password sign-in did not complete (${detail}), so we emailed you a sign-in code instead.`,
+          context,
+        );
+      } else {
+        // Genuinely passwordless account: expected routing, no Sentry noise.
+        await sendCodeAndShowStep(
+          `This account signs in with an emailed code (${detail}) — we just sent you one.`,
+          context,
+        );
+      }
+      return;
+    }
+    // Unexpected state: make the status and offered factors observable in
+    // both the UI and Sentry (never a generic error).
+    setFormError(incompleteStateMessage(status, strategies));
+    reportAuthIncompleteState(context, status, strategies);
+  };
+
+  const sendCodeAndShowStep = async (
+    notice: string | null,
+    context: string,
+  ): Promise<void> => {
+    const { error } = await (signIn.id
+      ? signIn.emailCode.sendCode({})
+      : signIn.emailCode.sendCode({ emailAddress }));
+    if (error) {
+      reportAuthError(`${context}.sendEmailCode`, error, {
+        factorStrategies: factorStrategies(),
+      });
+      setFormError(authErrorMessage(error));
+      return;
+    }
+    setCode('');
+    setCodeNotice(notice);
+    setMode('emailCode');
+  };
+
+  const handlePasswordSubmit = async () => {
+    setFormError(null);
+    const { error } = await signIn.password({ emailAddress, password });
+    if (error) {
+      // Expected user mistakes render via `errors` under the fields; anything
+      // else gets a visible line + Sentry.
+      if (!isExpectedUserError(error)) {
+        reportAuthError('signIn.password', error);
+        setFormError(authErrorMessage(error));
+      }
+      return;
+    }
+    if (signIn.status === 'complete') {
+      await finalizeSession('signIn.password');
+      return;
+    }
+    await handleNonCompleteState('signIn.password');
+  };
+
+  const handleEmailCodeRequest = async () => {
+    setFormError(null);
+    if (!emailAddress) {
+      setFormError('Enter your email above first, then request a code.');
+      return;
+    }
+    await sendCodeAndShowStep(
+      `We sent a 6-digit sign-in code to ${emailAddress}.`,
+      'signIn.emailCodeRequest',
+    );
+  };
+
+  const handleVerifyCode = async () => {
+    setFormError(null);
+    const { error } = await signIn.emailCode.verifyCode({ code });
+    if (error) {
+      if (!isExpectedUserError(error)) {
+        reportAuthError('signIn.emailCode.verifyCode', error);
+        setFormError(authErrorMessage(error));
+      }
+      return;
+    }
+    if (signIn.status === 'complete') {
+      await finalizeSession('signIn.emailCode');
+      return;
+    }
+    await handleNonCompleteState('signIn.emailCode.verifyCode');
+  };
+
+  const formErrorLine = formError ?? fieldError(errors.raw?.[0]);
+
+  if (mode === 'emailCode') {
+    return (
+      <AuthShell
+        title="Enter your code"
+        subtitle={codeNotice ?? 'Enter the 6-digit code we emailed you.'}
+      >
+        <Field
+          label="Sign-in code"
+          keyboardType="number-pad"
+          placeholder="123456"
+          value={code}
+          onChangeText={setCode}
+          error={fieldError(errors.fields.code)}
+        />
+        {formErrorLine ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.formError, { color: colors.destructive }]}
+          >
+            {formErrorLine}
+          </Text>
+        ) : null}
+        <ChunkyButton
+          title="Verify & sign in"
+          icon="check"
+          onPress={handleVerifyCode}
+          loading={busy}
+          disabled={code.length < 6}
+          style={{ marginTop: 6 }}
+        />
+        <Pressable
+          style={styles.inlineLink}
+          disabled={busy}
+          onPress={() =>
+            sendCodeAndShowStep(
+              `We sent a new code to ${emailAddress || 'your email'}.`,
+              'signIn.emailCodeResend',
+            )
+          }
+        >
+          <Text style={[styles.footerLink, { color: colors.secondary }]}>
+            Send a new code
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.inlineLink}
+          disabled={busy}
+          onPress={() => {
+            setFormError(null);
+            setMode('credentials');
+          }}
+        >
+          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>
+            Back to password sign-in
+          </Text>
+        </Pressable>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
@@ -53,20 +261,40 @@ export default function SignInScreen() {
         error={fieldError(errors.fields.password)}
       />
 
-      {fieldError(errors.raw?.[0]) ? (
-        <Text style={[styles.formError, { color: colors.destructive }]}>
-          {fieldError(errors.raw?.[0])}
+      {formErrorLine ? (
+        <Text
+          accessibilityRole="alert"
+          style={[styles.formError, { color: colors.destructive }]}
+        >
+          {formErrorLine}
         </Text>
       ) : null}
 
       <ChunkyButton
         title="Sign in"
         icon="log-in"
-        onPress={handleSubmit}
+        onPress={handlePasswordSubmit}
         loading={busy}
         disabled={!emailAddress || !password}
         style={{ marginTop: 6 }}
       />
+
+      {/* Web sign-ups are passwordless; this is their explicit entry point
+          (the password path also falls over here automatically). */}
+      <Pressable
+        style={styles.inlineLink}
+        disabled={busy || !emailAddress}
+        onPress={handleEmailCodeRequest}
+      >
+        <Text
+          style={[
+            styles.footerLink,
+            { color: emailAddress ? colors.secondary : colors.mutedForeground },
+          ]}
+        >
+          Email me a sign-in code instead
+        </Text>
+      </Pressable>
 
       <View style={styles.dividerRow}>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -120,4 +348,5 @@ const styles = StyleSheet.create({
   },
   footerText: { fontFamily: AppFonts.regular, fontSize: 15 },
   footerLink: { fontFamily: AppFonts.bold, fontSize: 15 },
+  inlineLink: { alignItems: 'center', marginTop: 14 },
 });
