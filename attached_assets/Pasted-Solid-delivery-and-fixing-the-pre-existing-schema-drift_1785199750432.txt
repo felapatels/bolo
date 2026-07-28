@@ -1,0 +1,22 @@
+Solid delivery, and fixing the pre-existing schema drift was the right call. But that fix surfaced something and the report surfaced something else, and both matter.
+
+The latencyMs finding is bigger than it looks. latencyMs was missing from PronunciationInput in the OpenAPI spec, which means the generated client types never had the field, which means neither app could send it type-safely. Task 1 added the 250 ms guard as latencyMs !== undefined && latencyMs < 250. If the clients were never sending it, that guard has been a no-op since it shipped, and every attempt is carrying flags = "latency_missing". Worth confirming, because if true it means acceptance for Spec 0 rule 47 was never actually met.
+
+There is already a mascot and already confetti. The report mentions "mascot pose and confetti gated on band" in both practice screens. Spec 1 is written on the assumption that neither exists and both need building from scratch. That is now wrong, and I'd rather fix the spec than have the agent build a second mascot next to the first one.
+
+Paste this:
+
+Task 2 accepted pending verification. Answer these, do not change code yet.
+
+Was latencyMs ever actually being sent by either client before you added it to the schema? If the field was missing from the generated types, the 250 ms guard from Spec 0 rule 47 has been a no-op. Report what fraction of attempts rows have flags = "latency_missing", and confirm both clients now send it.
+Confirm acceptance item 2: score is still present in the raw POST /openai/pronunciation response.
+Confirm acceptance item 5: both apps render correctly when score is absent from a mocked response, with no validation error and no crash. This is the test that proves the later removal is safe. If you have not run it, run it now.
+Confirm acceptance item 8: grep both apps and confirm zero remaining references to ScoreRing or MiniScoreRing.
+Are the generated Zod response schemas strict or non-strict? If strict, an older client receiving the new band and xpAwarded fields will fail validation, which would be a live back-compat break.
+You created a web EmptyState but only reported using it on mobile review. Is it wired into the web review screen, or is it currently unused?
+
+Separately, and this is the important one, give me a plain inventory of what already exists for the mascot and confetti. No code, no analysis, just:
+
+Where is the mascot component defined in each app, what are its poses or states, and is it a static image, an SVG, a Lottie file, or something else?
+Where is confetti implemented in each app, and what library or technique does it use?
+What triggers each one today?
