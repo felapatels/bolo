@@ -1,8 +1,10 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useReducedMotion,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
@@ -41,7 +43,13 @@ function Bar({
   const style = useAnimatedStyle(() => {
     const a = Math.min(1, Math.max(0, amplitude.value));
     return {
-      height: Math.max(height * MIN_FRACTION, a * peak * height),
+      // The metering poll delivers ~16 samples/s; tween each bar to its new
+      // target over roughly one poll interval so heights glide between
+      // samples instead of stepping visibly at 16Hz.
+      height: withTiming(Math.max(height * MIN_FRACTION, a * peak * height), {
+        duration: 80,
+        easing: Easing.out(Easing.quad),
+      }),
     };
   });
   return (

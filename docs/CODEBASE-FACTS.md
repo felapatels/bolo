@@ -249,6 +249,7 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 | `todayXp` in-memory filter | `learning.ts` pulls the full ledger and filters in application code. Needs a SQL date-range filter |
 | #782 pre-existing API test failures | 15: progress/summary (xp=0), analytics x2, entitlementsGating, attempts, review ordering x3, warmGreetings x2, system-prompt x2, TTS cache/fallback x3 (all reproduce on a clean tree) |
 | `phrases.register` unpopulated | Spec D2 added the nullable column + `(language_code, register)` index; no authoring or filtering yet — all rows are NULL |
+| ~~Stale drizzle meta snapshots~~ | **Resolved with 0021.** Task 1's ad-hoc DDL left `meta/` lagging the committed migrations, so `generate` re-emitted applied DDL. The 0021 repair rewrote the terminal snapshot to the full current schema; `generate` now emits "No schema changes", and `check-drift` runs a trial generate on every pass so regression cannot land silently |
 | Web pre-existing test failures | `account.test.tsx` x6, `chat-error-banner.test.tsx` x2 |
 | `daily_goal` default of 10 | Met by a single nailed attempt. Miscalibrated. Needs data before changing |
 | FSRS is mobile-only on the client | Review queue and `/review/phrases` have no web surface |
