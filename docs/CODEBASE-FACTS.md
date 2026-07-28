@@ -2,7 +2,7 @@
 
 Living reference. Paste the relevant sections at the top of every spec so the agent does not re-derive them.
 
-Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, Spec D2 Step 0, Task 787 (self-managed Clerk migration), and the observability pass (Sentry + PostHog, July 28, 2026).
+Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-derivation follow-ups, Spec D2 Step 0, Task 787 (self-managed Clerk migration), and the observability pass (Sentry + PostHog, July 28, 2026; DSNs and keys wired into the development environment the same day).
 
 **Maintenance rule:** after every completed task, append what changed. Anything in here that turns out to be wrong is worth more than the correction itself, because it means a spec was written against it.
 
@@ -268,7 +268,7 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 |---|---|---|---|
 | api-server | `src/lib/sentry.ts` (imported FIRST in `index.ts`) | `SENTRY_DSN` | `Sentry.setupExpressErrorHandler(app)` + a new global express error handler in `app.ts` (500 JSON, logs via pino). `@sentry/node` is in build.mjs `external`. Dev-only test route `GET /api/__sentry-test` (throws; absent when NODE_ENV=production) |
 | gujarati-coach | `src/lib/sentry.ts`, called from `main.tsx` | `VITE_SENTRY_DSN` | Dev-only verification: open with `?sentry_test=1`. `setSentryUser` synced from Clerk in `App.tsx` `AnalyticsIdentitySync` |
-| bolo-mobile | `lib/sentry.ts`, called at module load in `app/_layout.tsx`; root export is `Sentry.wrap(RootLayout)` | `EXPO_PUBLIC_SENTRY_DSN` | `@sentry/react-native` config plugin added to app.json (source map upload at EAS build; needs `SENTRY_AUTH_TOKEN` + org/project — see debt). Dev-only verification: `EXPO_PUBLIC_SENTRY_TEST=1` |
+| bolo-mobile | `lib/sentry.ts`, called at module load in `app/_layout.tsx`; root export is `Sentry.wrap(RootLayout)` | `EXPO_PUBLIC_SENTRY_DSN` | app.json plugin is `["@sentry/react-native/expo", { organization: "lark-enterprises-llc", project: "bolo-mobile" }]`; source map upload at EAS build still needs `SENTRY_AUTH_TOKEN` as an EAS secret (see debt). Dev-only verification: `EXPO_PUBLIC_SENTRY_TEST=1` |
 
 **PostHog (product analytics, both clients).** Event names live in ONE constants file per app — `src/lib/analyticsEvents.ts` (web) and `lib/analyticsEvents.ts` (mobile) — the deliberate, complete set: `sign_up_completed`, `language_selected`, `first_practice_session_started`, `first_phrase_attempted`, `session_completed`, `paywall_viewed`, `purchase_completed`. Wrappers in `src/lib/analytics.ts` / `lib/analytics.ts` (`track`, `trackOnce` — once per browser/install via localStorage/AsyncStorage `bolo.analytics.once.*`, `identifyUser` — Clerk user id only). Autocapture, pageviews, and session recording OFF. Init only when `VITE_POSTHOG_KEY` / `EXPO_PUBLIC_POSTHOG_KEY` present (`VITE_POSTHOG_HOST`/`EXPO_PUBLIC_POSTHOG_HOST` optional, default US cloud). **Payload rule: no phrase content, transcripts, audio, or email — user id and language code only** (plus numeric counts).
 
@@ -283,7 +283,7 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 | Item | Notes |
 |---|---|
 | ~~Clerk production keys stale in EAS~~ | **Resolved (July 28, 2026).** Production Clerk instance `clerk.bolo-india.app` is live (DNS verified, Apple + Google SSO). EAS production env carries the correct `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` pk_live and the stale `EXPO_PUBLIC_CLERK_PROXY_URL` was removed. Remaining owner step: set `CLERK_SECRET_KEY` sk_live in the deployment settings of the Publishing tool and republish. See "Clerk key locations" in section 1 |
-| Sentry DSNs + PostHog keys pending manual creation | Observability code ships dark until the env vars exist: `SENTRY_DSN` (api-server), `VITE_SENTRY_DSN` + `VITE_POSTHOG_KEY` (web), `EXPO_PUBLIC_SENTRY_DSN` + `EXPO_PUBLIC_POSTHOG_KEY` (mobile, also as EAS env vars), plus `SENTRY_AUTH_TOKEN` + real org/project slugs in app.json's `@sentry/react-native` plugin entry for mobile source map upload |
+| Observability keys live in development only | Development env has all five vars set (`SENTRY_DSN`, `VITE_SENTRY_DSN`, `EXPO_PUBLIC_SENTRY_DSN`, `VITE_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_KEY`; Sentry org o4511813816352768 / lark-enterprises-llc, PostHog US cloud). Still manual: (a) production deployment env vars `SENTRY_DSN`, `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY`; (b) EAS production env `EXPO_PUBLIC_SENTRY_DSN`, `EXPO_PUBLIC_POSTHOG_KEY`; (c) `SENTRY_AUTH_TOKEN` as an EAS secret for source map upload. Dashboard-side arrival of the dev test events is unverified (no auth token available to the agent); confirm in Sentry/PostHog UIs |
 | No cue audio files | `playCue` exists on both platforms with nothing to play. Source real tabla or dholak samples; do not synthesize |
 | `latencyMs` unenforced | Neither client sends it. Spec 0 rule 47 is a no-op. #777 has nothing to measure |
 | `todayXp` in-memory filter | `learning.ts` pulls the full ledger and filters in application code. Needs a SQL date-range filter |
