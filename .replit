@@ -233,3 +233,7 @@ REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID = "one_language"
 
 [userenv.development]
 TTS_PREWARM_CHAR_BUDGET = "200000"
+
+[userenv.production]
+CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk"
+VITE_CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk"

@@ -29,7 +29,9 @@ Monorepo, pnpm workspace, root at `/home/runner/workspace`.
 | `lib/api-zod/src/generated/types/` | Generated Zod types |
 | `lib/integrations-openai-ai-react/src/audio/` | Web audio recording hook |
 
-**Stack:** Postgres, Drizzle ORM with drizzle-kit migrate, Clerk auth (self-managed, instance `free-bedbug-6.clerk.accounts.dev`), OpenAI direct key (Whisper STT, chat, TTS), ts-fsrs v5, expo-audio on mobile.
+**Stack:** Postgres, Drizzle ORM with drizzle-kit migrate, Clerk auth (self-managed; dev instance `free-bedbug-6.clerk.accounts.dev`, production instance on `clerk.bolo-india.app` with CNAME DNS verified and Apple + Google SSO custom credentials), OpenAI direct key (Whisper STT, chat, TTS), ts-fsrs v5, expo-audio on mobile.
+
+**Clerk key locations (dev and prod never share instances):** dev = workspace secrets `CLERK_PUBLISHABLE_KEY` / `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` (pk_test/sk_test, free-bedbug-6). Production = Replit production environment vars `CLERK_PUBLISHABLE_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` (both `pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk`, set) plus `CLERK_SECRET_KEY` sk_live as a deployment secret (owner sets it in the Publishing tool's deployment settings, then republishes). Mobile = EAS production env `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` (same pk_live, set). No proxy in production: CNAME custom domain and Clerk proxy are mutually exclusive; `VITE_CLERK_PROXY_URL` stays unset and the stale `EXPO_PUBLIC_CLERK_PROXY_URL` was deleted from EAS. `clerkProxyMiddleware` remains mounted but dormant (nothing routes to `/api/__clerk` when no client sets a proxyUrl). Note `publishableKeyFromHost` returns a dev fallback key when one is present, so the production env must carry live keys or the site would run against the dev instance.
 
 **Never hand-edit** anything under `generated/` or `dist/`. Change `openapi.yaml` and regenerate.
 
@@ -280,7 +282,7 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 
 | Item | Notes |
 |---|---|
-| Clerk self-managed (dev only) | Auth runs against `free-bedbug-6.clerk.accounts.dev` (dev instance). Production requires the `pk_live_` / `sk_live_` keys from that instance set as EAS env vars before any store build. Configure via `eas env:create --environment production --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value pk_live_...` (see `artifacts/bolo-mobile/.env.production.example`). |
+| ~~Clerk production keys stale in EAS~~ | **Resolved (July 28, 2026).** Production Clerk instance `clerk.bolo-india.app` is live (DNS verified, Apple + Google SSO). EAS production env carries the correct `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` pk_live and the stale `EXPO_PUBLIC_CLERK_PROXY_URL` was removed. Remaining owner step: set `CLERK_SECRET_KEY` sk_live in the deployment settings of the Publishing tool and republish. See "Clerk key locations" in section 1 |
 | Sentry DSNs + PostHog keys pending manual creation | Observability code ships dark until the env vars exist: `SENTRY_DSN` (api-server), `VITE_SENTRY_DSN` + `VITE_POSTHOG_KEY` (web), `EXPO_PUBLIC_SENTRY_DSN` + `EXPO_PUBLIC_POSTHOG_KEY` (mobile, also as EAS env vars), plus `SENTRY_AUTH_TOKEN` + real org/project slugs in app.json's `@sentry/react-native` plugin entry for mobile source map upload |
 | No cue audio files | `playCue` exists on both platforms with nothing to play. Source real tabla or dholak samples; do not synthesize |
 | `latencyMs` unenforced | Neither client sends it. Spec 0 rule 47 is a no-op. #777 has nothing to measure |

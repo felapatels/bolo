@@ -37,3 +37,9 @@ On the web client, just call the relative API — no token plumbing.
   a Playwright tester generally CANNOT complete sign-up end-to-end. Verify the
   auth *gating* (public landing, protected routes redirect when signed out,
   branded sign-in/up renders) rather than a full automated sign-up.
+
+## Production instance (clerk.bolo-india.app) — live July 2026
+- Production Clerk runs on CNAME custom domain `clerk.bolo-india.app` (DNS verified, Apple+Google SSO custom creds). CNAME and Clerk proxy are mutually exclusive — no client may set a proxyUrl in production; `clerkProxyMiddleware` stays mounted but dormant.
+- pk_live is deterministic: `pk_live_` + base64(`clerk.<domain>$`) → `pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk`. Never need the user to paste a publishable key.
+- **Trap:** `publishableKeyFromHost(host, fallback)` returns the fallback whenever it is a DEV key — so production env MUST carry live keys or prod silently runs against free-bedbug-6. Live pk set in Replit production env vars (CLERK_PUBLISHABLE_KEY, VITE_CLERK_PUBLISHABLE_KEY) and EAS production env; sk_live is owner-set in the Publishing tool's deployment secrets.
+- Workspace secrets keep the pk_test/sk_test dev keys; workspace secrets do NOT auto-sync to the production deployment, which is what keeps dev/prod instances separate.
