@@ -8,6 +8,7 @@
  * `fontMap` is spread into `useFonts()` in app/_layout.tsx. The object keys
  * double as the `fontFamily` string used in StyleSheet styles.
  */
+import { Platform } from 'react-native';
 import type { TextStyle } from 'react-native';
 import type { Language } from '@workspace/api-client-react';
 
@@ -87,7 +88,9 @@ export const fontMap = {
   NotoSansTamil_700Bold,
   NotoSansTelugu_400Regular,
   NotoSansTelugu_700Bold,
-  NotoSansMeeteiMayek_400Regular,
+  // Meetei Mayek is only used off-iOS (see SCRIPT_FONTS), so skip loading it
+  // on iOS entirely.
+  ...(Platform.OS !== 'ios' ? { NotoSansMeeteiMayek_400Regular } : {}),
   NotoSansOlChiki_400Regular,
   NotoNastaliqUrdu_400Regular,
   NotoNastaliqUrdu_700Bold,
@@ -142,10 +145,21 @@ const SCRIPT_FONTS: Record<string, { regular: string; bold: string }> = {
     regular: 'NotoSansTelugu_400Regular',
     bold: 'NotoSansTelugu_700Bold',
   },
-  // Meetei Mayek: intentionally omitted — the Expo-loaded Noto font bypasses
-  // iOS's OpenType shaper for this script, so combining vowel marks render as
-  // separate glyphs. iOS's built-in Unicode fallback shaping is correct, so we
-  // let the system pick the right font automatically.
+  // Meetei Mayek: mapped everywhere except iOS (Android + Expo web, where no
+  // system fallback is guaranteed). On iOS the Expo-loaded Noto font
+  // bypasses the system OpenType shaper for this script, so combining vowel
+  // marks render as separate glyphs; iOS ships its own Noto Sans Meetei Mayek
+  // as a Unicode fallback with correct shaping, so iOS stays on the system
+  // font. Android has no guaranteed system Meetei Mayek font (tofu on many
+  // devices), so the bundled font is used there.
+  ...(Platform.OS !== 'ios'
+    ? {
+        'Noto Sans Meetei Mayek': {
+          regular: 'NotoSansMeeteiMayek_400Regular',
+          bold: 'NotoSansMeeteiMayek_400Regular',
+        },
+      }
+    : {}),
   'Noto Sans Ol Chiki': {
     regular: 'NotoSansOlChiki_400Regular',
     bold: 'NotoSansOlChiki_400Regular',

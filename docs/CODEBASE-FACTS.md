@@ -198,6 +198,8 @@ Devanagari only. Other scripts are #776, gated on native speaker review.
 | `src/lib/soundPref.ts` | (Spec 1a) |
 | `src/lib/motionPrefs.ts` | `prefersReducedMotion()` (Spec 1 v3) |
 
+**Fonts (self-hosted since the fonts pass, July 28, 2026):** `src/fonts/fonts.css` declares all `@font-face` rules (Inter + 13 Noto script families incl. Ol Chiki and Meetei Mayek) from local woff2 subsets in `src/fonts/` (~2.0 MB total, `font-display: swap`, OFL.txt alongside). `index.css` imports it; there are **no** runtime Google Fonts CDN requests (index.html preconnect/link tags removed too). Regenerate via the css2-API fetch approach if families change.
+
 **Unresolved:** one inventory reported `src/pages/review.tsx` exists but does not call the eval endpoint. A later one reported the web app has no review screen. Resolve before writing any spec touching web review.
 
 ---
@@ -227,6 +229,8 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 | `lib/settings.ts` | `bolo.silentMode` in AsyncStorage |
 | `lib/sound.ts` | `playCue`, `CUE_SOURCES` static require registry, currently empty (Spec 1 v3) |
 | `lib/scriptGlyphs.ts`, `lib/soundPref.ts`, `lib/motionPrefs.ts` | (Spec 1 v3, 1a) |
+
+**Native-script fonts** (`constants/fonts.ts`): all 13 Noto script families are bundled via `@expo-google-fonts/*` packages — including Ol Chiki and Meetei Mayek (both bundled since the app's creation; an earlier audit note claiming they were missing was wrong). `SCRIPT_FONTS` maps backend `fontFamily` → loaded font. Meetei Mayek is mapped on **Android only** (Platform-gated since the fonts pass, July 28, 2026): on iOS the Expo-loaded font bypasses the OpenType shaper and mis-renders combining vowel marks, while iOS ships its own Noto Sans Meetei Mayek system fallback (since iOS 10) with correct shaping. Do not map it on iOS.
 
 **Mascot poses (both platforms, same five PNGs):** `wave`, `cheer`, `thumbsup`, `thinking`, `tryagain`.
 
