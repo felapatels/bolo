@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { prewarmMicIfGranted } from "@/lib/micPermission";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import {
   useEntitlements,
@@ -129,6 +130,12 @@ export default function ChatPage() {
   // When set by handleRetry, finishRecording uses this blob instead of
   // calling recorder.stopRecording() again.
   const retryBlobRef = useRef<Blob | null>(null);
+  // True when pointer-up fired while startRecording was still awaiting the
+  // mic (permission prompt / device acquisition). The hold is over by the
+  // time the mic resolves, so startRecording discards instead of starting a
+  // recording nobody is holding (released-before-start guard, as on the
+  // practice surface).
+  const isPendingStopRef = useRef(false);
 
   // Pre-fetched first-turn greeting for the active chat language. Populated on
   // mount and whenever chatLang changes. Stored in a ref so reads never trigger
@@ -142,9 +149,11 @@ export default function ChatPage() {
   };
   const greetingRef = useRef<GreetingData | null>(null);
 
-  // Warm up the mic on mount.
+  // Warm up the mic on mount — but only when permission is already granted,
+  // so first-time users never see a permission prompt on page load. Their
+  // prompt fires on the first record press instead.
   useEffect(() => {
-    recorder.prepare().catch(() => {});
+    return prewarmMicIfGranted(() => recorder.prepare());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1111,6 +1120,7 @@ export default function ChatPage() {
 
     setErrorMsg(null);
     finishingRef.current = false;
+    isPendingStopRef.current = false;
     if (playbackRef.current) {
       playbackRef.current.pause();
       playbackRef.current = null;
@@ -1121,6 +1131,15 @@ export default function ChatPage() {
         onSilence: () => { void finishRecording(); },
         silenceDurationMs: 1800,
       });
+      // Released-before-start guard: the pointer went up while we were still
+      // waiting on the permission prompt / device. Permission grant alone
+      // must never start a recording — discard, release the mic, stay idle.
+      if (isPendingStopRef.current) {
+        isPendingStopRef.current = false;
+        recorder.abortRecording();
+        setPhase("idle");
+        return;
+      }
       setPhase("recording");
     } catch {
       setErrorMsg("We couldn't access your microphone. Allow mic access in your browser, then try again.");
@@ -1359,6 +1378,10 @@ export default function ChatPage() {
   const handleMicPointerUp = useCallback(() => {
     if (phase === "recording") {
       void finishRecording();
+    } else {
+      // Recording hasn't started yet — flag the release so startRecording
+      // discards once the mic resolves (quick tap / permission-prompt lag).
+      isPendingStopRef.current = true;
     }
   }, [phase, finishRecording]);
 

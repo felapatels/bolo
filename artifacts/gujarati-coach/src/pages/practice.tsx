@@ -26,6 +26,7 @@ import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { Mascot, type MascotPose } from "@/components/mascot";
 import { cn } from "@/lib/utils";
+import { prewarmMicIfGranted } from "@/lib/micPermission";
 import { useLanguage, useNativeText, useSpeechCapability } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
@@ -352,11 +353,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Warm up the microphone as soon as the practice session mounts, so the
   // first hold starts capturing immediately and the first syllable isn't
-  // clipped. If permission is denied here, startRecording surfaces the
-  // existing error message at hold time. The hook releases the stream on
-  // unmount.
+  // clipped — but only when permission is already granted, so first-time
+  // users never see a permission prompt on page load. Their prompt fires on
+  // the first hold. The hook releases the stream on unmount.
   useEffect(() => {
-    recorder.prepare().catch(() => {});
+    return prewarmMicIfGranted(() => recorder.prepare());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

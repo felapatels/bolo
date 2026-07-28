@@ -205,7 +205,7 @@ beforeEach(async () => {
         dailyReminderEnabled: false,
         dailyReminderTime: null,
         activeLanguage: null,
-        dailyGoal: 10,
+        dailyGoal: 50,
         theme: "system",
       },
     });
@@ -237,7 +237,8 @@ test("GET /account returns profile, default preferences, and a free subscription
   assert.equal(json.profile.id, TEST_USER_ID);
   assert.equal(json.profile.email, "acct@example.test");
   assert.equal(json.preferences.notifications.dailyReminderEnabled, false);
-  assert.equal(json.preferences.learning.dailyGoal, 10);
+  // Column default is 50 since migration 0025 (daily_goal default change).
+  assert.equal(json.preferences.learning.dailyGoal, 50);
   assert.equal(json.preferences.learning.theme, "system");
   assert.equal(json.subscription.tier, "free");
   assert.equal(json.subscription.status, "none");
