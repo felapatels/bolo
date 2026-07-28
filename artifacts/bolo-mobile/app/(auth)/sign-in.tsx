@@ -4,6 +4,7 @@ import { useSignIn } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -75,6 +76,10 @@ export default function SignInScreen() {
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
       </View>
 
+      {/* Apple first on iOS per HIG guidance when Apple sign-in is offered
+          alongside other providers; renders null (including its own spacing)
+          on Android, leaving that layout unchanged. */}
+      <AppleAuthButton />
       <GoogleAuthButton />
 
       <View style={styles.footer}>
