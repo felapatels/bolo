@@ -1,0 +1,13 @@
+Fonts pass. Read docs/CODEBASE-FACTS.md first and apply section 9. Two items, both from the launch audit. Work through both, then run each suite once and report failures together.
+
+1. Bundle Ol Chiki and Meetei Mayek fonts on mobile. constants/fonts.ts bundles Noto Sans for thirteen scripts but not these two, so Santali and Manipuri render as tofu boxes on most devices. Add Noto Sans Ol Chiki and Noto Sans Meetei Mayek from the official Noto releases and wire them into the same font mapping the other thirteen use. They are OFL-licensed, so bundling is fine; include the license file alongside the font assets the same way the existing ones are handled.
+
+Then verify coverage systematically, not just for these two: report which script family each of the 22 languages resolves to in the font mapping, and flag any language that falls back to system fonts. I want the full table, because if a third language is silently unmapped I'd rather find out now.
+
+Verify rendering by actually rendering: display ᱥᱟᱞᱟᱢ (Ol Chiki) and ꯍꯦꯜꯂꯣ (Meetei Mayek) in a test or dev screen and confirm glyphs, not boxes. A font file being present is not the same as the mapping resolving to it.
+
+2. Self-host web fonts. src/index.css loads thirteen Noto families from Google Fonts at runtime, so offline or CDN-blocked users get the same tofu failure, and Google Fonts CDN requests leak user IPs to a third party, which is a GDPR consideration. Download the font files, serve them locally from the web app's static assets, and replace the runtime Google Fonts links with local @font-face declarations.
+
+Three constraints: subset or use the official per-script files rather than shipping full Noto builds, since thirteen script families at full weight would bloat the bundle badly; use font-display: swap so text renders immediately in a fallback while fonts load; and add Ol Chiki and Meetei Mayek to the web set too while you're in there, since the same two gaps exist on web whenever the CDN is unreachable.
+
+Report the total added asset weight for both platforms when done. If mobile app size grows by more than a couple of MB from the two new fonts, say so rather than silently shipping it.
