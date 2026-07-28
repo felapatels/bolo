@@ -1,0 +1,27 @@
+Step 0 answered the important question well, and it changes two things in the spec.
+
+Web already has a real amplitude signal. useVoiceRecorder holds an AudioContext and AnalyserNode computing RMS for silence auto-stop. It just isn't surfaced. So web needs no new audio plumbing at all, only an export.
+
+Web also already has a fake waveform. SoundWavePulse is a time-based 6-bar loop, which is exactly the thing D2 exists to replace. Creating a parallel Waveform next to it would be the duplicate-component problem again. Better to make SoundWavePulse real.
+
+The one genuine risk is mobile's 250ms metering poll. That's 4Hz, which will look like a stuttering bar chart rather than a waveform, and tightening it touches the silence auto-stop that consumes the same values.
+
+Paste this:
+
+Step 0 accepted. Six amendments to the spec before you implement.
+
+Web: do not create a new Waveform component. Extend the existing SoundWavePulse in src/lib/motion.tsx to accept an optional amplitude prop. When provided, drive the bars from it. When absent, keep the existing time-based loop exactly as it is, so speaking-demo.tsx is unaffected. Section 4.1 is amended accordingly.
+Web: surface the existing RMS. useVoiceRecorder already has an AudioContext and AnalyserNode. Return a normalized 0 to 1 amplitude from the hook. Do not create a second AudioContext or AnalyserNode.
+Mobile: create Waveform as specced. There is no existing component to extend.
+Mobile: tighten the metering poll from 250ms to roughly 60ms. At 4Hz the waveform will stutter rather than flow. Two constraints: verify the silence auto-stop in lib/audio.ts still behaves correctly with more frequent samples, since it consumes the same metering values, and if its timing shifts, adjust its thresholds rather than reverting the interval. Report any frame rate or battery impact you observe.
+Mobile metering is dBFS, not linear amplitude. Do not pass the raw value through. Map a usable speech range, roughly -50 to 0 dBFS, onto 0 to 1 with clamping at both ends. A linear read of dBFS will make the waveform look dead until someone shouts.
+Streak placement, per your own Step 0 answers: web src/pages/home.tsx StatCell next to the Flame icon, mobile app/(app)/(tabs)/progress.tsx Stat next to the Feather zap labeled "Day streak". Use a microphone-based icon for the speaking streak, not flame and not zap.
+
+Two dependencies from Spec 1 v3, which shipped since this spec was written:
+
+Consume prefersReducedMotion() from the motionPrefs.ts modules for rule 10. Do not write a second reduced-motion check.
+Spec 1 v3 added an XP arc firing from the result card on practice and review. Do not let waveform placement or mascot amplitude binding interfere with it.
+
+One note on the phrases table: it already has difficulty, stage, and premium. Add register as a new column per section 3.1. Do not overload stage.
+
+Your facts document discrepancy note is correct and will be applied. Proceed with implementation.

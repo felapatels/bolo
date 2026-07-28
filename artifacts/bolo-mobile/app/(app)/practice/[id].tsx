@@ -818,10 +818,12 @@ export default function PracticeScreen() {
   // If every phrase was nailed, fire a heavy haptic for the perfect moment.
   React.useEffect(() => {
     if (phase === 'done') {
-      playCue('session_complete');
       const vals = Object.values(bands);
       const good = vals.filter((b) => b === 'nailed' || b === 'close').length;
       if (vals.length > 0 && good * 2 >= vals.length) {
+        // The celebratory sound is gated on the same condition as confetti:
+        // a rough session gets neither.
+        playCue('session_complete');
         fireConfetti(4000);
       }
       if (vals.length > 0 && vals.every((b) => b === 'nailed')) {
@@ -1063,24 +1065,27 @@ export default function PracticeScreen() {
         triggerShake();
       }
 
-      // Bigger reward for a nailed attempt: confetti rains, an extra
-      // celebratory haptic fires, and the earned XP arcs to the counter.
+      // Bigger reward for a nailed attempt: confetti rains and an extra
+      // celebratory haptic fires.
       if (res.band === 'nailed') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
-        if (res.xpAwarded > 0) {
-          // Measure where the result card lands, then launch the arc from it.
-          if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
-          xpArcTimerRef.current = setTimeout(() => {
-            resultCardRef.current?.measureInWindow((x, y, w) => {
-              setXpArc({
-                key: Date.now(),
-                amount: res.xpAwarded,
-                from: { x: x + w / 2, y: y + 20 },
-              });
+      }
+      // XP arc fires whenever XP was actually awarded (nailed AND close —
+      // close earns at the 0.6 band factor, so the counter moves and the
+      // arc connects the result to it). retry/nocatch award no XP.
+      if ((res.band === 'nailed' || res.band === 'close') && res.xpAwarded > 0) {
+        // Measure where the result card lands, then launch the arc from it.
+        if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+        xpArcTimerRef.current = setTimeout(() => {
+          resultCardRef.current?.measureInWindow((x, y, w) => {
+            setXpArc({
+              key: Date.now(),
+              amount: res.xpAwarded,
+              from: { x: x + w / 2, y: y + 20 },
             });
-          }, 250);
-        }
+          });
+        }, 250);
       }
 
       // The learner has their score — saving the attempt below must never

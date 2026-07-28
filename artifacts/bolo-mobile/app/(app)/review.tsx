@@ -628,10 +628,11 @@ export default function ReviewScreen() {
   // ended nailed or close (Spec 1 gating; no confetti on rough sessions).
   React.useEffect(() => {
     if (phase === 'done') {
-      playCue('session_complete');
       const vals = Object.values(bands);
       const good = vals.filter((b) => b === 'nailed' || b === 'close').length;
       if (vals.length > 0 && good * 2 >= vals.length) {
+        // Celebratory sound gated on the same condition as confetti.
+        playCue('session_complete');
         fireConfetti(4000);
       }
       if (vals.length > 0 && vals.every((b) => b === 'nailed')) {
@@ -820,19 +821,21 @@ export default function ReviewScreen() {
       if (res.band === 'nailed') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
-        if (res.xpAwarded > 0) {
-          // Measure where the result card lands, then launch the arc from it.
-          if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
-          xpArcTimerRef.current = setTimeout(() => {
-            resultCardRef.current?.measureInWindow((x, y, w) => {
-              setXpArc({
-                key: Date.now(),
-                amount: res.xpAwarded,
-                from: { x: x + w / 2, y: y + 20 },
-              });
+      }
+      // XP arc fires whenever XP was actually awarded (nailed AND close —
+      // close earns at the 0.6 band factor). retry/nocatch award no XP.
+      if ((res.band === 'nailed' || res.band === 'close') && res.xpAwarded > 0) {
+        // Measure where the result card lands, then launch the arc from it.
+        if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+        xpArcTimerRef.current = setTimeout(() => {
+          resultCardRef.current?.measureInWindow((x, y, w) => {
+            setXpArc({
+              key: Date.now(),
+              amount: res.xpAwarded,
+              from: { x: x + w / 2, y: y + 20 },
             });
-          }, 250);
-        }
+          });
+        }, 250);
       }
 
       try {

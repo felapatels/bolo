@@ -514,20 +514,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         setShowConfetti(true);
         if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
-        // XP arc: badge flies from the result panel to the XP counter.
-        if (evalRes.xpAwarded > 0) {
-          if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
-          xpArcTimerRef.current = setTimeout(() => {
-            const rect = resultPanelRef.current?.getBoundingClientRect();
-            setXpArc({
-              key: Date.now(),
-              amount: evalRes.xpAwarded,
-              from: rect
-                ? { x: rect.left + rect.width / 2, y: rect.top + 24 }
-                : { x: window.innerWidth / 2, y: window.innerHeight * 0.7 },
-            });
-          }, 250);
-        }
+      }
+      // XP arc: badge flies from the result panel to the XP counter. Fires
+      // whenever XP was actually awarded (nailed AND close — close earns at
+      // the 0.6 band factor). retry/nocatch award no XP, so no arc.
+      if ((evalRes.band === 'nailed' || evalRes.band === 'close') && evalRes.xpAwarded > 0) {
+        if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
+        xpArcTimerRef.current = setTimeout(() => {
+          const rect = resultPanelRef.current?.getBoundingClientRect();
+          setXpArc({
+            key: Date.now(),
+            amount: evalRes.xpAwarded,
+            from: rect
+              ? { x: rect.left + rect.width / 2, y: rect.top + 24 }
+              : { x: window.innerWidth / 2, y: window.innerHeight * 0.7 },
+          });
+        }, 250);
       }
 
       // Hot-streak tracking: increment consecutive good counter (nailed or close)
@@ -660,7 +662,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const _entries = (phrases ?? []).map(p => sessionResults[p.id]).filter(Boolean);
       const _anyPassed = _entries.some(e => e.band === 'nailed' || e.band === 'close');
       webHaptic(_anyPassed ? 'success' : 'warning');
-      playCue('session_complete');
+      // Celebratory sound gated on the same condition as summary confetti:
+      // at least half of the phrases ended nailed or close.
+      const _good = _entries.filter(e => e.band === 'nailed' || e.band === 'close').length;
+      if (_entries.length > 0 && _good * 2 >= _entries.length) {
+        playCue('session_complete');
+      }
       setState("summary");
     }
   };
