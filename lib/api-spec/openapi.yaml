@@ -2249,6 +2249,22 @@ components:
             when it is first or its predecessor is completed/tested_out;
             tested_out when the learner passed the test-out assessment.
             Optional/additive - older clients may ignore it.
+        stage:
+          type: string
+          enum: [phrase, sentence]
+          description: >-
+            Which learning stage this group's members belong to: the starter
+            "phrase" list every topic opens with, or the Plus-only "sentence"
+            stage. Derived from the group's member phrases (groups are
+            homogeneous by construction); an empty group reads as "phrase".
+            Optional/additive - part of the journey-map contract mobile reuses.
+        teaserStation:
+          type: boolean
+          description: >-
+            True on the single station that hosts the M1 teaser phrases when
+            the caller views a plan-locked language in teaser mode (the
+            journey map's visibly marked "free taste" stop). Absent on every
+            other group and in every other access state.
 
     LessonGroupTestoutSample:
       type: object
