@@ -10,6 +10,10 @@
 // C1 batch-generated Gujarati sentence top-ups (see curatedSentencesC1()).
 // Statically imported so the content survives esbuild bundling in production.
 import curatedSentencesC1Json from "./data/curatedSentencesC1.json";
+// C1 rollout: batch-generated sentence top-ups for every NON-Gujarati
+// language, keyed language code → category slug (see curatedSentencesC1Rollout()).
+// Same provenance contract as the Gujarati file (origin="generated_c1").
+import curatedSentencesC1RolloutJson from "./data/curatedSentencesC1Rollout.json";
 
 // fontFamily = the Google "Noto" family that covers this language's script.
 export type SeedLanguage = {
@@ -154,10 +158,10 @@ export function extendedPhraseCount(categorySlug: string): number {
 export const SENTENCES_PER_LESSON = 8;
 
 // How many sentence-stage entries a curated lesson for `categorySlug` must
-// have. Uniform for the frozen non-Gujarati file; Gujarati (the C1 pilot)
-// additionally carries the committed batch-generated sentence top-ups, so its
-// expected count is the hand-curated base plus the C1 file's entries for the
-// topic. Pass the language code where the language matters.
+// have. Every language carries the frozen base (SENTENCES_PER_LESSON) plus its
+// committed batch-generated C1 top-ups: Gujarati's live in the pilot file,
+// every other language's in the rollout file. Pass the language code where the
+// language matters — omitting it yields the bare base count.
 export function sentenceCount(
   categorySlug: string,
   languageCode?: string,
@@ -166,6 +170,12 @@ export function sentenceCount(
     return (
       SENTENCES_PER_LESSON +
       (curatedSentencesC1()[categorySlug]?.length ?? 0)
+    );
+  }
+  if (languageCode) {
+    return (
+      SENTENCES_PER_LESSON +
+      (curatedSentencesC1Rollout()[languageCode]?.[categorySlug]?.length ?? 0)
     );
   }
   return SENTENCES_PER_LESSON;
@@ -177,6 +187,19 @@ export function sentenceCount(
 // origin="generated_c1" so provenance survives into phrases.source.
 export function curatedSentencesC1(): Record<string, SeedPhrase[]> {
   return curatedSentencesC1Json as Record<string, SeedPhrase[]>;
+}
+
+// C1 rollout sentence top-ups for the non-Gujarati languages, frozen to a
+// committed JSON keyed language code → category slug (statically imported for
+// the same bundling reason as the pilot file).
+export function curatedSentencesC1Rollout(): Record<
+  string,
+  Record<string, SeedPhrase[]>
+> {
+  return curatedSentencesC1RolloutJson as Record<
+    string,
+    Record<string, SeedPhrase[]>
+  >;
 }
 
 // GUJARATI_LESSONS with the C1 sentence top-ups appended after the
@@ -192,6 +215,36 @@ export function gujaratiLessonsWithC1(): Record<string, SeedLesson> {
       extra.length === 0
         ? lesson
         : { ...lesson, sentences: [...(lesson.sentences ?? []), ...extra] };
+  }
+  return out;
+}
+
+// The frozen curated-lessons file with each language's C1 rollout sentence
+// top-ups appended after its hand-frozen sentence stage (sortOrder therefore
+// keeps the frozen base first, mirroring gujaratiLessonsWithC1). ALL
+// seed/validation consumers of the non-Gujarati curated file must go through
+// this merge or the exact-count sentence validation will fail once a
+// language has rollout entries.
+export function curatedLessonsWithC1(
+  curated: CuratedLessonsFile,
+): CuratedLessonsFile {
+  const rollout = curatedSentencesC1Rollout();
+  const out: CuratedLessonsFile = {};
+  for (const [langCode, byCategory] of Object.entries(curated)) {
+    const langRollout = rollout[langCode];
+    if (!langRollout || !byCategory) {
+      out[langCode] = byCategory;
+      continue;
+    }
+    const merged: Record<string, SeedLesson> = {};
+    for (const [slug, lesson] of Object.entries(byCategory)) {
+      const extra = langRollout[slug] ?? [];
+      merged[slug] =
+        extra.length === 0
+          ? lesson
+          : { ...lesson, sentences: [...(lesson.sentences ?? []), ...extra] };
+    }
+    out[langCode] = merged;
   }
   return out;
 }
@@ -745,10 +798,11 @@ export function validateCuratedLessons(
         continue;
       }
       // The sentence stage is part of the frozen contract too: every present
-      // lesson must carry its full, well-formed set of Plus-only sentences.
+      // lesson must carry its full, well-formed set of Plus-only sentences,
+      // including the language's committed C1 rollout top-ups.
       const invalidSentences = validateSeedSentences(
         lesson,
-        sentenceCount(cat.slug),
+        sentenceCount(cat.slug, lang.code),
       );
       if (invalidSentences) {
         errors.push(`${lang.code}/${cat.slug}: ${invalidSentences}`);

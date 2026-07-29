@@ -15,6 +15,7 @@ import {
   LANGUAGES,
   CATEGORIES,
   gujaratiLessonsWithC1,
+  curatedLessonsWithC1,
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
   validateSeedSentences,
@@ -338,10 +339,13 @@ export async function seedContent() {
   }
   console.log(`Pre-seeded ${gujaratiSeeded} new Gujarati lesson(s).`);
 
-  // 4. Pre-seed the frozen, AI-generated lessons for every other language.
+  // 4. Pre-seed the frozen, AI-generated lessons for every other language,
+  // with each language's committed C1 rollout sentence top-ups merged in
+  // (curatedLessonsWithC1) so an already-seeded environment receives them
+  // through the same top-up path as any library growth.
   // Validate the whole file up front through the shared gate so the seeder
   // refuses loudly on any malformed/empty lesson before inserting a single row.
-  const curated = loadCuratedLessons();
+  const curated = curatedLessonsWithC1(loadCuratedLessons());
   const { errors, missing } = validateCuratedLessons(curated);
   if (errors.length > 0) {
     throw new Error(
