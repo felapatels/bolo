@@ -1169,7 +1169,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ) : (
             <Volume2 className="w-4 h-4" />
           )}
-          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wide leading-none">
+          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
             Phrase
           </span>
         </button>
@@ -1195,7 +1195,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ) : (
             <HeadphoneOff className="w-4 h-4" />
           )}
-          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wide leading-none">
+          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
             Feedback
           </span>
         </button>
