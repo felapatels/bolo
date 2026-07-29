@@ -344,6 +344,39 @@ test("third distinct attempt exhausts the teaser everywhere, lifetime, derived f
   assert.equal(rows.filter((r) => r.userId === TEST_USER_ID).length, 3);
 });
 
+test("concurrent teaser attempts cannot overshoot the limit (advisory-lock boundary)", async () => {
+  // Seed 2 consumed slots, then fire simultaneous signed submissions for the
+  // last remaining teaser phrase AND repeats of a consumed one. The recount +
+  // insert run under a per-(user,language) advisory lock, so the persisted
+  // distinct set can never exceed TEASER_LIMIT and no request 500s.
+  await postAttempt(teaserIds[0], 90);
+  await postAttempt(teaserIds[1], 90);
+
+  const results = await Promise.all([
+    postAttempt(teaserIds[2], 50),
+    postAttempt(teaserIds[2], 60),
+    postAttempt(teaserIds[0], 70),
+    postAttempt(teaserIds[1], 80),
+  ]);
+  for (const r of results) {
+    assert.ok([201, 402].includes(r.status), `unexpected status ${r.status}`);
+  }
+  // The last distinct phrase must have landed at least once.
+  assert.ok(results.slice(0, 2).some((r) => r.status === 201));
+
+  const rows = await db
+    .select()
+    .from(attemptsTable)
+    .where(eq(attemptsTable.userId, TEST_USER_ID));
+  const distinct = new Set(rows.map((r) => r.phraseId));
+  assert.ok(distinct.size <= TEASER_LIMIT);
+
+  // Fully exhausted now: even a repeat of a consumed phrase is denied.
+  const after = await postAttempt(teaserIds[0], 90);
+  assert.equal(after.status, 402);
+  assert.equal(after.json.reason, "teaser_exhausted");
+});
+
 test("covered languages are never teaser-limited; payload absent when allowed", async () => {
   // Hindi for Free: allowed, no teaser field anywhere.
   const listing = await get(`/categories?lang=${FREE_LANGUAGE}`);

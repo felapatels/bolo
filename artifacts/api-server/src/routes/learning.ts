@@ -72,7 +72,7 @@ import {
   sendLockedLanguageDenial,
   sendUpgradeRequired,
 } from "../lib/gating";
-import { countTeaserConsumed, TEASER_LIMIT } from "../lib/teaser";
+import { listTeaserConsumedIds, TEASER_LIMIT } from "../lib/teaser";
 import {
   dailyLessonCapDenial,
   recordLessonGeneration,
@@ -1061,29 +1061,74 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     );
   }
 
-  const [row] = await db
-    .insert(attemptsTable)
-    .values({
-      userId,
-      languageCode: claims.languageCode,
-      phraseId: claims.phraseId,
-      nativeScript: claims.nativeScript,
-      romanized: claims.romanized,
-      english: claims.english,
-      transcript: claims.transcript,
-      score: claims.score,
-      passed: claims.passed,
-      feedback: claims.feedback,
-      band,
-      xpAwarded,
-      fsrsRating,
-      thetaDelta,
-      latencyMs: claims.latencyMs ?? null,
-      // Flag attempts where the client did not report latency so we can measure
-      // what fraction of attempts are unguarded before making the field required.
-      flags: claims.latencyMs == null ? "latency_missing" : null,
-    })
-    .returning();
+  const attemptValues = {
+    userId,
+    languageCode: claims.languageCode,
+    phraseId: claims.phraseId,
+    nativeScript: claims.nativeScript,
+    romanized: claims.romanized,
+    english: claims.english,
+    transcript: claims.transcript,
+    score: claims.score,
+    passed: claims.passed,
+    feedback: claims.feedback,
+    band,
+    xpAwarded,
+    fsrsRating,
+    thetaDelta,
+    latencyMs: claims.latencyMs ?? null,
+    // Flag attempts where the client did not report latency so we can measure
+    // what fraction of attempts are unguarded before making the field required.
+    flags: claims.latencyMs == null ? "latency_missing" : null,
+  };
+
+  let row: typeof attemptsTable.$inferSelect;
+  // Teaser progress reported on the response (teaser-state attempts only),
+  // computed under the same lock that admitted the insert.
+  let teaser: { consumed: number; limit: number } | undefined;
+  if (langAccess.state === "teaser") {
+    // The derived consumption count is raceable on its own: two concurrent
+    // submissions for different teaser phrases could both read consumed < 3
+    // and both insert. Serialize recount + insert per (user, language) with a
+    // transaction-scoped advisory lock so the limit is enforced, not just
+    // reported.
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${`teaser:${userId}:${claims.languageCode}`}))`,
+      );
+      const consumedIds = await listTeaserConsumedIds(
+        tx,
+        userId,
+        claims.languageCode,
+        langAccess.teaserPhraseIds,
+      );
+      const alreadyConsumed = consumedIds.includes(claims.phraseId!);
+      if (!alreadyConsumed && consumedIds.length >= TEASER_LIMIT) {
+        return { exhausted: true as const };
+      }
+      const [inserted] = await tx
+        .insert(attemptsTable)
+        .values(attemptValues)
+        .returning();
+      return {
+        exhausted: false as const,
+        row: inserted,
+        consumed: alreadyConsumed ? consumedIds.length : consumedIds.length + 1,
+      };
+    });
+    if (outcome.exhausted) {
+      sendLockedLanguageDenial(req, res, {
+        state: "exhausted",
+        consumed: TEASER_LIMIT,
+        teaserPhraseIds: langAccess.teaserPhraseIds,
+      });
+      return;
+    }
+    row = outcome.row;
+    teaser = { consumed: Math.min(outcome.consumed, TEASER_LIMIT), limit: TEASER_LIMIT };
+  } else {
+    [row] = await db.insert(attemptsTable).values(attemptValues).returning();
+  }
 
   // ── Side effects: xp_ledger + FSRS memory + Elo ability + exposure count ──
   // These are non-critical to the response (failure is logged but never 500s
@@ -1168,21 +1213,10 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     metrics,
   );
 
-  // M1 teaser: recount AFTER the insert so this attempt is included, letting
-  // the client show teaser progress (and the post-3rd-phrase upgrade prompt)
-  // straight from the attempt result. Absent for plan-covered languages.
-  const teaser =
-    langAccess.state === "teaser"
-      ? {
-          consumed: await countTeaserConsumed(
-            userId,
-            claims.languageCode,
-            langAccess.teaserPhraseIds,
-          ),
-          limit: TEASER_LIMIT,
-        }
-      : undefined;
-
+  // M1 teaser: `teaser` was computed inside the insert transaction (includes
+  // this attempt), letting the client show teaser progress (and the
+  // post-3rd-phrase upgrade prompt) straight from the attempt result. Absent
+  // for plan-covered languages.
   res.status(201).json({
     ...(teaser ? { teaser } : {}),
     id: row.id,

@@ -95,8 +95,21 @@ export async function countTeaserConsumed(
   lang: string,
   teaserPhraseIds: number[],
 ): Promise<number> {
-  if (teaserPhraseIds.length === 0) return 0;
-  const rows = await db
+  return (await listTeaserConsumedIds(db, userId, lang, teaserPhraseIds)).length;
+}
+
+// The distinct teaser phrase ids this user has attempted, via any executor —
+// pass a transaction so the read participates in the caller's serialization
+// (POST /attempts holds an advisory lock across recount + insert so concurrent
+// submissions can't overshoot the limit).
+export async function listTeaserConsumedIds(
+  executor: Pick<typeof db, "selectDistinct">,
+  userId: string,
+  lang: string,
+  teaserPhraseIds: number[],
+): Promise<number[]> {
+  if (teaserPhraseIds.length === 0) return [];
+  const rows = await executor
     .selectDistinct({ phraseId: attemptsTable.phraseId })
     .from(attemptsTable)
     .where(
@@ -106,7 +119,7 @@ export async function countTeaserConsumed(
         inArray(attemptsTable.phraseId, teaserPhraseIds),
       ),
     );
-  return rows.length;
+  return rows.map((r) => r.phraseId).filter((id): id is number => id != null);
 }
 
 // Test-only: reset process caches so suites that create throwaway languages
