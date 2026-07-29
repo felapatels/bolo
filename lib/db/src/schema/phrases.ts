@@ -79,6 +79,10 @@ export const phrasesTable = pgTable("phrases", {
   // the unique (id, language_code, category_id) key on lesson_groups). MATCH
   // SIMPLE semantics: rows with lesson_group_id NULL are unconstrained, so
   // unassigned phrases remain legal.
+  // NOTE (two-publish staging, July 2026): the prod publish diff engine
+  // ordered this FK before the unique constraint it references and failed, so
+  // it was dropped (0026_strange_winter_soldier) and re-added
+  // (0027_*). The re-add migration is applied to dev only AFTER publish 1.
   foreignKey({
     name: "phrases_lesson_group_scope_fk",
     columns: [table.lessonGroupId, table.languageCode, table.categoryId],
