@@ -12,8 +12,6 @@ import { useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListLanguages,
-  useGetEntitlements,
-  getGetEntitlementsQueryKey,
   useGetAccount,
   getGetAccountQueryKey,
   useUpdateAccountPreferences,
@@ -38,20 +36,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useListLanguages();
   const languages = useMemo(() => data ?? [], [data]);
 
-  // The caller's plan decides which languages they may actually open. Free plans
-  // are limited (e.g. to a single language); Plus unlocks all. We use this to
-  // avoid defaulting to — or getting stuck on — a locked language, which would
-  // make every gated screen (topics, progress, review) come back empty.
   const { isSignedIn } = useUser();
-  const { data: entitlements } = useGetEntitlements({
-    // Only signed-in callers have entitlements; skip the request (which 401s)
-    // on public routes like the marketing landing page.
-    query: {
-      enabled: !!isSignedIn,
-      queryKey: getGetEntitlementsQueryKey(),
-    },
-  });
-  const allowedLanguages = entitlements?.allowedLanguages;
 
   // The learner's account carries the authoritative, cross-device copy of the
   // active language (persisted through PATCH /account/preferences via the account
@@ -139,35 +124,21 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.data]);
 
-  // Keep the active language valid for both the supported list and the caller's
-  // plan. If the stored language isn't supported (e.g. removed), fall back to the
-  // first available. If it's supported but locked for this plan, switch to the
-  // first allowed language so gated screens never render empty.
+  // Keep the active language valid for the supported list: if the stored code
+  // isn't supported (e.g. removed), fall back to the first available.
+  //
+  // Plan-locked languages are deliberately PERMITTED as the active language:
+  // the journey page renders them in showroom mode (a browsable teaser with an
+  // upgrade path), and every gated surface degrades to its own upgrade state.
+  // Auto-reverting here used to make the showroom unreachable on web.
   useEffect(() => {
     if (languages.length === 0) return;
 
     if (!languages.some((l) => l.code === activeLang)) {
       setActiveLang(languages[0].code);
-      return;
-    }
-
-    if (
-      allowedLanguages &&
-      allowedLanguages.length > 0 &&
-      !allowedLanguages.includes(activeLang)
-    ) {
-      // Intersect with the supported list so we never set an allowed-but-unknown
-      // code (which would oscillate with the unsupported-guard above). If there's
-      // no overlap, do nothing rather than loop.
-      const firstAllowed = languages.find((l) =>
-        allowedLanguages.includes(l.code),
-      )?.code;
-      if (firstAllowed && firstAllowed !== activeLang) {
-        setActiveLang(firstAllowed);
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [languages, allowedLanguages, activeLang]);
+  }, [languages, activeLang]);
 
   const activeLanguage = languages.find((l) => l.code === activeLang);
 

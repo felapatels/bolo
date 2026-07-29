@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
-import { useEntitlements, upgradeHref } from "@/lib/entitlements";
+import { useEntitlements } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
 
 type LanguagePickerProps = {
@@ -66,9 +66,12 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 key={lang.code}
                 onClick={() => {
                   if (locked) {
-                    // Locked-but-visible: invite the upgrade instead of erroring.
+                    // Locked-but-visible: open this language's journey map in
+                    // showroom mode — a browsable teaser with an upgrade path —
+                    // instead of bouncing straight to the paywall.
+                    setActiveLang(lang.code);
                     setOpen(false);
-                    setLocation(upgradeHref({ plan: "plus" }));
+                    setLocation("/journey");
                     return;
                   }
                   setActiveLang(lang.code);

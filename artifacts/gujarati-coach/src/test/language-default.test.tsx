@@ -133,7 +133,7 @@ describe("language-context default language", () => {
   });
 });
 
-describe("language-context allowedLanguages fallback", () => {
+describe("language-context plan-locked languages", () => {
   test("new user stays on 'hi' when allowedLanguages includes 'hi'", async () => {
     h.isSignedIn = true;
     // Server allowedLanguages includes "hi" — no redirect should happen
@@ -151,17 +151,19 @@ describe("language-context allowedLanguages fallback", () => {
     // Should immediately show "hi" (DEFAULT_LANG)
     expect(screen.getByTestId("lang")).toHaveTextContent("hi");
 
-    // After effects settle, "hi" must remain — the fallback must NOT fire
+    // After effects settle, "hi" must remain
     await waitFor(() => {
       expect(screen.getByTestId("lang")).toHaveTextContent("hi");
     });
   });
 
-  test("fallback switches away from 'hi' when 'hi' is absent from allowedLanguages", async () => {
+  test("a plan-locked active language is PERMITTED (journey showroom)", async () => {
     h.isSignedIn = true;
-    // Server allowedLanguages does NOT include "hi" — fallback should redirect to first allowed
+    // "hi" is NOT in allowedLanguages, but the context must no longer
+    // auto-revert: a locked active language is how the /journey showroom is
+    // reached from the language picker. Gated surfaces degrade to their own
+    // upgrade states instead of the context silently switching languages.
     h.entitlementsData = { allowedLanguages: ["gu"] };
-    // Account has no saved language (new user)
     h.accountData = {
       preferences: {
         learning: { activeLanguage: null, dailyGoal: 10, theme: "system" },
@@ -171,9 +173,23 @@ describe("language-context allowedLanguages fallback", () => {
 
     renderWithProvider();
 
-    // After effects settle, should have switched to "gu" (first allowed language)
+    expect(screen.getByTestId("lang")).toHaveTextContent("hi");
+
+    // After effects settle, the locked language must STILL be active.
     await waitFor(() => {
-      expect(screen.getByTestId("lang")).toHaveTextContent("gu");
+      expect(screen.getByTestId("lang")).toHaveTextContent("hi");
+    });
+  });
+
+  test("an unsupported stored language still falls back to the first supported", async () => {
+    // The supported-list guard is unchanged: a code missing from /languages
+    // (e.g. a removed language) reverts to the first available.
+    localStorage.setItem("bolo.activeLang", "xx");
+
+    renderWithProvider();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("lang")).toHaveTextContent("hi");
     });
   });
 });

@@ -2,7 +2,12 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getUncachableStripeClient } from "../lib/stripeClient";
-import { getPlusPriceId, getFamilyPriceId, type PlusInterval } from "../lib/stripePricing";
+import {
+  getPlusPriceId,
+  getFamilyPriceId,
+  intervalFromStripeRecurring,
+  type PlusInterval,
+} from "../lib/stripePricing";
 import { applyFromStripeSubscription } from "../lib/stripeSync";
 import { applyStripeState } from "../lib/stripeApply";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -137,8 +142,16 @@ router.post(
           return;
         }
         if (current.status === "active" || current.status === "trialing") {
+          // Keep the learner's billing cadence: an annual All-Access sub
+          // upgrades onto the annual Family price, monthly onto monthly. The
+          // client-sent interval is ignored here — it only shapes FRESH
+          // checkouts below.
+          const currentInterval = intervalFromStripeRecurring(
+            current.items.data[0]?.price?.recurring?.interval,
+          );
+          const swapPriceId = getFamilyPriceId(currentInterval) ?? priceId;
           const updated = await stripe.subscriptions.update(current.id, {
-            items: [{ id: current.items.data[0].id, price: priceId }],
+            items: [{ id: current.items.data[0].id, price: swapPriceId }],
             proration_behavior: "always_invoice",
             // An in-trial upgrade starts the paid Family plan immediately.
             trial_end: "now",

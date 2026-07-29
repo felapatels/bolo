@@ -12,6 +12,11 @@
 //   plus    - Plus user: full map, real progress states, station -> practice.
 //   free    - Free user on their allowed language: normal map, sentence
 //             stations route through the Plus entitlement dialog.
+//   picker  - Free user taps a LOCKED language in the language picker: the
+//             real navigation path into the showroom (no shims). Also checks
+//             blast radius: home and chat stay upright with the locked
+//             language active. E2E_PICK_LANG_NAME picks the language
+//             (default "Tamil").
 import { chromium } from "playwright";
 
 const USER_ID = process.env.E2E_USER_ID;
@@ -90,7 +95,20 @@ async function main() {
     await page.waitForURL(/\/app|\/$/, { timeout: 30000 }).catch(() => {});
     log("after sign-in URL:", page.url());
 
-    if (seedLang) {
+    if (SCENARIO === "picker") {
+      // The real path into the showroom: open the picker on home and tap a
+      // locked language. No entitlement shims, no localStorage seeding.
+      const pickName = process.env.E2E_PICK_LANG_NAME || "Tamil";
+      await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle" });
+      log(`STEP open language picker, tap locked "${pickName}"`);
+      await page.getByTitle("Change language").locator("visible=true").first().click();
+      const langBtn = page.getByText(pickName, { exact: true }).first();
+      await langBtn.waitFor({ timeout: 10000 });
+      await langBtn.click();
+      await page.waitForURL(/\/journey/, { timeout: 15000 });
+      check("locked picker tap lands on /journey", true, page.url());
+      await page.waitForLoadState("networkidle");
+    } else if (seedLang) {
       // Locked-language showroom: go straight to the map (the home entry is
       // covered by the other scenarios).
       log("STEP open /journey directly");
@@ -137,6 +155,33 @@ async function main() {
     const postcards = await page.getByText(/Fare zone \d/i).count();
     check("six fare-zone postcards", postcards === 6, `${postcards} postcards`);
     await fullshot("02-map-full");
+
+    if (SCENARIO === "picker") {
+      // Showroom render: one free-taste stop, locked zones grayed, upgrade path.
+      const freeTaste = await page.getByText(/Free taste/i).count();
+      check("free-taste marking present", freeTaste >= 1, `${freeTaste} occurrences`);
+      const grayZones = await page.locator(".grayscale").count();
+      check("grayscale locked-zone postcards", grayZones > 0, `${grayZones} grayed`);
+      const upgradeCta = await page.getByText(/All-Access/i).count();
+      check("showroom shows an All-Access upgrade path", upgradeCta > 0, `${upgradeCta} mentions`);
+      await shot("03-showroom");
+
+      // Blast radius: main surfaces stay upright with a locked active language.
+      log("STEP blast radius: home with locked active language");
+      await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle" });
+      const homeUpright = await page.getByText(/Hello|Chat with Bolo/i).count();
+      check("home renders with locked active language", homeUpright > 0);
+      const crashText = await page.getByText(/something went wrong|unexpected error/i).count();
+      check("home shows no crash screen", crashText === 0);
+      await fullshot("04-home-locked-lang");
+
+      log("STEP blast radius: chat with locked active language");
+      await page.goto(`${ORIGIN}/chat`, { waitUntil: "networkidle" });
+      await page.waitForTimeout(1500);
+      const chatCrash = await page.getByText(/something went wrong|unexpected error/i).count();
+      check("chat shows no crash screen", chatCrash === 0);
+      await fullshot("05-chat-locked-lang");
+    }
 
     if (SCENARIO === "teaser") {
       // Showroom wiring: structure only, one marked free-taste stop, the rest locked.

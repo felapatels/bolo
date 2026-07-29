@@ -245,8 +245,10 @@ function ManageView({
     setFamilyUpgrading(true);
     setError(null);
     try {
-      // In-place upgrades keep the simple monthly Family price; the server
-      // swaps the existing subscription's price with proration either way.
+      // In-place upgrades preserve the learner's billing cadence: the server
+      // derives monthly vs annual from the CURRENT subscription and swaps the
+      // price with proration. The interval argument here only shapes a fresh
+      // checkout (which this path never reaches for an active Stripe sub).
       const result = await beginFamilyCheckout("monthly", queryClient);
       if (result === "upgraded") setLocation("/family");
     } catch (err) {

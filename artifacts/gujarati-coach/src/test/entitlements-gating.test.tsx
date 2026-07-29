@@ -107,7 +107,7 @@ beforeEach(() => {
 });
 
 describe("Language picker gating", () => {
-  test("Free plan locks disallowed languages and routes them to /upgrade", async () => {
+  test("Free plan routes locked languages to the journey showroom", async () => {
     h.entitlements = FREE_ENTITLEMENTS;
     const user = userEvent.setup();
     const { history } = renderWithRouter(<LanguagePicker />);
@@ -121,9 +121,11 @@ describe("Language picker gating", () => {
 
     await user.click(hindiButton);
 
-    // One Language is no longer sold on web — the paywall opens on All-Access.
-    expect(currentPath(history)).toBe("/upgrade?plan=plus");
-    expect(h.setActiveLang).not.toHaveBeenCalled();
+    // A locked tap opens that language's journey map in showroom mode (a
+    // browsable teaser with its own upgrade path), so the language becomes
+    // active and the learner lands on /journey — not straight on the paywall.
+    expect(h.setActiveLang).toHaveBeenCalledWith("hi");
+    expect(currentPath(history)).toBe("/journey");
   });
 
   test("Plus plan unlocks the language and selects it without leaving", async () => {
