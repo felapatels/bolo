@@ -1049,15 +1049,15 @@ export default function ChatPage() {
         const isCap = upgrade.reason === "weekly_cap_exceeded";
         if (isCap) {
           setSecondsRemaining(0);
-          setLocation(upgradeHref({ plan: "one_language" }));
+          setLocation(upgradeHref({ plan: "plus" }));
           setPhase("idle");
           finishingRef.current = false;
           return;
         }
         setLocation(
           upgradeHref({
-            plan: upgrade.requiredPlan === "one_language" ? "one_language" : "plus",
-            lang: upgrade.reason === "language_locked" ? chatLang : undefined,
+            plan: "plus",
+            reason: upgrade.reason ?? null,
           }),
         );
         setPhase("idle");
@@ -1114,7 +1114,7 @@ export default function ChatPage() {
   const startRecording = useCallback(async () => {
     // Cap check for free users.
     if (!isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null && secondsRemaining <= 0) {
-      setLocation(upgradeHref({ plan: "one_language" }));
+      setLocation(upgradeHref({ plan: "plus" }));
       return;
     }
 
@@ -1332,8 +1332,8 @@ export default function ChatPage() {
       if (upgrade) {
         setLocation(
           upgradeHref({
-            plan: upgrade.requiredPlan === "one_language" ? "one_language" : "plus",
-            lang: upgrade.reason === "language_locked" ? chatLang : undefined,
+            plan: "plus",
+            reason: upgrade.reason ?? null,
           }),
         );
         setPhase("idle");
@@ -1449,7 +1449,7 @@ export default function ChatPage() {
                     onClick={() => {
                       if (locked) {
                         setPickerOpen(false);
-                        setLocation(upgradeHref({ plan: "one_language", lang: lang.code }));
+                        setLocation(upgradeHref({ plan: "plus" }));
                         return;
                       }
                       setChatLang(lang.code);

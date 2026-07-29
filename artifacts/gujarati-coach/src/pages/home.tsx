@@ -111,7 +111,7 @@ export default function Home() {
         <UpgradeCard
           icon={<Target className="h-7 w-7" />}
           title="Review your weakest phrases"
-          description="Plus builds smart review sessions from the phrases you find trickiest, so they actually stick."
+          description="All-Access builds smart review sessions from the phrases you find trickiest, so they actually stick."
           // Review is an All-Access feature.
           href={upgradeHref({ plan: "plus" })}
         />
@@ -474,10 +474,9 @@ export default function Home() {
                   <UpgradeCard
                     icon={<Zap className="h-6 w-6" fill="currentColor" />}
                     title="You've hit today's free lessons"
-                    description={`You've used all ${dailyLimit} of today's new lessons. Come back tomorrow, or go unlimited with Plus.`}
+                    description={`You've used all ${dailyLimit} of today's new lessons. Come back tomorrow, or go unlimited with All-Access.`}
                     cta="Go unlimited"
-                    // Unlimited lessons is cheapest on the One Language tier.
-                    href={upgradeHref({ plan: "one_language" })}
+                    href={upgradeHref({ plan: "plus", reason: "daily_lesson_limit" })}
                   />
                 ) : (
                   <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
@@ -487,7 +486,7 @@ export default function Home() {
                     <p className="text-sm font-semibold text-foreground">
                       {dailyRemaining} of {dailyLimit} free lessons left today
                     </p>
-                    <Link href={upgradeHref({ plan: "one_language" })} className="ml-auto text-sm font-black text-primary shrink-0">
+                    <Link href={upgradeHref({ plan: "plus" })} className="ml-auto text-sm font-black text-primary shrink-0">
                       Go unlimited
                     </Link>
                   </div>

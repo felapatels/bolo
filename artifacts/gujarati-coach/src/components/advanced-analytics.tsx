@@ -22,7 +22,7 @@ export function AdvancedAnalytics({ lang }: { lang: string }) {
         <UpgradeCard
           icon={<BarChart3 className="h-7 w-7" />}
           title="See your full breakdown"
-          description="Track mastery by topic, average scores, and your day-by-day activity with Plus analytics."
+          description="Track mastery by topic, average scores, and your day-by-day activity with All-Access analytics."
           // Advanced analytics is an All-Access feature.
           href={upgradeHref({ plan: "plus" })}
         />

@@ -126,19 +126,16 @@ export function asUpgradeRequired(err: unknown): UpgradeRequired | null {
   return null;
 }
 
-// Builds a deep link into the paywall that preselects the cheapest unlocking
-// plan (and, for a locked language, pre-picks that language). Locked surfaces
-// pass their context here so the paywall opens on the right card instead of
-// always defaulting to All-Access. See upgrade.tsx for how it's read back.
+// Builds a deep link into the paywall that preselects a plan card. Web sells
+// All-Access ("plus") and Family — the One Language tier stays mobile-only, so
+// every locked surface points at All-Access. See upgrade.tsx for how the
+// params are read back.
 export function upgradeHref(opts?: {
-  plan?: "one_language" | "plus";
-  lang?: string | null;
+  plan?: "plus" | "family";
   reason?: string | null;
 }): string {
   const params = new URLSearchParams();
   if (opts?.plan) params.set("plan", opts.plan);
-  // A specific language only makes sense to pre-pick on the One Language tier.
-  if (opts?.plan === "one_language" && opts.lang) params.set("lang", opts.lang);
   // Forward the denial reason so the paywall can surface contextual messaging
   // (e.g. a trial banner when the learner hit the daily lesson cap).
   if (opts?.reason) params.set("reason", opts.reason);
@@ -146,23 +143,15 @@ export function upgradeHref(opts?: {
   return qs ? `/upgrade?${qs}` : "/upgrade";
 }
 
-// Derives the paywall deep link from a server 402 body. The server already
-// reports the cheapest unlocking tier in `requiredPlan`; a locked language also
-// tells us which language to pre-pick (passed in from the active language).
+// Derives the paywall deep link from a server 402 body. The server may report
+// `requiredPlan: "one_language"` (the cheapest unlocking tier ON MOBILE), but
+// web doesn't sell that tier — every denial lands on the All-Access card.
 export function upgradeHrefForDenial(
   upgrade: UpgradeRequired,
-  lang?: string | null,
+  _lang?: string | null,
 ): string {
-  const plan = upgrade.requiredPlan === "one_language" ? "one_language" : "plus";
   return upgradeHref({
-    plan,
-    // Both locked-language reasons (teaser still open or exhausted) know which
-    // language the learner wanted, so pre-pick it on the One Language tier.
-    lang:
-      upgrade.reason === "language_locked" ||
-      upgrade.reason === "teaser_exhausted"
-        ? lang
-        : null,
+    plan: "plus",
     reason: upgrade.reason ?? null,
   });
 }

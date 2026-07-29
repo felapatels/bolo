@@ -181,7 +181,7 @@ describe("Lesson load 402", () => {
     expect(
       screen.getByText("Hindi is a Bolo! Plus language."),
     ).toBeInTheDocument();
-    expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.getByText("See All-Access")).toBeInTheDocument();
     // Not the generic retry screen.
     expect(screen.queryByText("Try again")).not.toBeInTheDocument();
   });
@@ -206,7 +206,7 @@ describe("Lesson load 402", () => {
         "Cancel anytime — no charge if you cancel before the trial ends.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+    expect(screen.queryByText("See All-Access")).not.toBeInTheDocument();
   });
 
   test("a locked language shows the generic CTA, not the trial copy", () => {
@@ -220,7 +220,7 @@ describe("Lesson load 402", () => {
     };
     renderPage(<CategoryDetail />);
 
-    expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.getByText("See All-Access")).toBeInTheDocument();
     expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
     expect(screen.queryByText(/Cancel anytime/)).not.toBeInTheDocument();
   });
@@ -234,7 +234,7 @@ describe("Lesson load 402", () => {
     renderPage(<CategoryDetail />);
 
     expect(screen.getByText("Try again")).toBeInTheDocument();
-    expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+    expect(screen.queryByText("See All-Access")).not.toBeInTheDocument();
     expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
   });
 });
@@ -270,13 +270,12 @@ describe("Add-phrases 402", () => {
     };
     renderPage(<CategoryDetail />, "/learn/1");
 
-    const link = screen.getByText(/go unlimited with Plus/i);
-    // The daily cap is cheapest to lift with One Language, so the paywall opens
-    // preselected on that tier. The reason is forwarded so the paywall can show
-    // a contextual trial banner.
+    const link = screen.getByText(/go unlimited with All-Access/i);
+    // Every denial lands on the All-Access card (One Language is mobile-only).
+    // The reason is forwarded so the paywall can show a contextual trial banner.
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "/upgrade?plan=one_language&reason=daily_lesson_limit",
+      "/upgrade?plan=plus&reason=daily_lesson_limit",
     );
   });
 });
@@ -315,9 +314,9 @@ describe("Plus-locked phrases upsell", () => {
     ];
     renderPage(<CategoryDetail />, "/learn/1");
 
-    expect(screen.getByText("7 more phrases with Plus")).toBeInTheDocument();
+    expect(screen.getByText("7 more phrases with All-Access")).toBeInTheDocument();
     // Extended library is an All-Access feature, so the paywall opens on Plus.
-    const link = screen.getByText("Unlock with Plus").closest("a");
+    const link = screen.getByText("Unlock with All-Access").closest("a");
     expect(link).toHaveAttribute("href", "/upgrade?plan=plus");
   });
 
@@ -336,7 +335,7 @@ describe("Plus-locked phrases upsell", () => {
     ];
     renderPage(<CategoryDetail />, "/learn/1");
 
-    expect(screen.getByText("1 more phrase with Plus")).toBeInTheDocument();
+    expect(screen.getByText("1 more phrase with All-Access")).toBeInTheDocument();
   });
 
   test("a Plus learner (zero locked) sees no upsell", () => {
@@ -354,8 +353,8 @@ describe("Plus-locked phrases upsell", () => {
     ];
     renderPage(<CategoryDetail />, "/learn/1");
 
-    expect(screen.queryByText(/more phrases? with Plus/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("Unlock with Plus")).not.toBeInTheDocument();
+    expect(screen.queryByText(/more phrases? with All-Access/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Unlock with All-Access")).not.toBeInTheDocument();
     // The existing add-phrases control still renders.
     expect(screen.getByText("Add more phrases")).toBeInTheDocument();
   });
@@ -373,8 +372,8 @@ describe("Review session 402", () => {
     };
     renderPage(<Practice mode="review" />, "/review");
 
-    expect(screen.getByText("Review is a Plus feature")).toBeInTheDocument();
-    expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.getByText("Review is an All-Access feature")).toBeInTheDocument();
+    expect(screen.getByText("See All-Access")).toBeInTheDocument();
     expect(screen.queryByText("Try again")).not.toBeInTheDocument();
   });
 });
@@ -401,7 +400,7 @@ describe("Practice page 402", () => {
       ),
     ).toBeInTheDocument();
     // Generic CTA must NOT appear when showTrial is true.
-    expect(screen.queryByText("See Bolo! Plus")).not.toBeInTheDocument();
+    expect(screen.queryByText("See All-Access")).not.toBeInTheDocument();
   });
 
   test("a feature_locked denial on the practice page shows the generic CTA, not the trial copy", () => {
@@ -415,7 +414,7 @@ describe("Practice page 402", () => {
     };
     renderPage(<Practice />, "/learn/1");
 
-    expect(screen.getByText("See Bolo! Plus")).toBeInTheDocument();
+    expect(screen.getByText("See All-Access")).toBeInTheDocument();
     expect(screen.queryByText("Start 7-day free trial")).not.toBeInTheDocument();
     expect(screen.queryByText(/Cancel anytime/)).not.toBeInTheDocument();
   });

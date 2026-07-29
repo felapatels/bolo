@@ -135,13 +135,13 @@ export function BadgesGallery({ lang }: { lang: string }) {
             <Link
               href={upgradeHref({ plan: "plus" })}
               className="relative flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center shadow-sm transition-all hover:border-primary active:scale-[0.98]"
-              title="Unlock exclusive Plus badges"
+              title="Unlock exclusive All-Access badges"
             >
               <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-md">
                 <Crown className="h-6 w-6" fill="currentColor" />
               </div>
               <p className="text-xs font-bold leading-tight text-foreground">
-                Plus badges
+                All-Access badges
               </p>
               <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-primary">
                 Unlock

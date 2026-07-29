@@ -73,7 +73,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Play your way to fluency 🎮",
-    body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for Plus members.",
+    body: "The Games tab has six mini games: Word Match, Listen & Pick, Phrase Builder, and Speed Round are free — plus Script Trace and Bolo Quiz for All-Access members.",
     route: "/games",
     navHighlight: "games",
     cardPosition: "bottom",
@@ -81,7 +81,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Watch yourself grow 📈",
-    body: "Your streak, XP and badges live on the Progress tab. With Plus, smart review sessions bring back your trickiest phrases right when you need them.",
+    body: "Your streak, XP and badges live on the Progress tab. With All-Access, smart review sessions bring back your trickiest phrases right when you need them.",
     route: "/progress",
     navHighlight: "progress",
     cardPosition: "bottom",

@@ -245,7 +245,9 @@ function ManageView({
     setFamilyUpgrading(true);
     setError(null);
     try {
-      const result = await beginFamilyCheckout(queryClient);
+      // In-place upgrades keep the simple monthly Family price; the server
+      // swaps the existing subscription's price with proration either way.
+      const result = await beginFamilyCheckout("monthly", queryClient);
       if (result === "upgraded") setLocation("/family");
     } catch (err) {
       setError(errorMessage(err, "Couldn't upgrade to the Family plan."));

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Redirect, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import {
   ArrowLeft,
@@ -14,8 +14,6 @@ import {
   Award,
   Loader2,
   Sparkles,
-  Lock,
-  BookOpen,
   Users,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -24,23 +22,22 @@ import { useEntitlements } from "@/lib/entitlements";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import {
-  beginOneLanguageCheckout,
   beginAllAccessCheckout,
   beginFamilyCheckout,
   refreshAfterBilling,
   type PlusInterval,
-  type PaidTier,
 } from "@/lib/billing";
 
-// The tiers selectable on this page: the two individual paid tiers plus the
-// Family plan (one $19.99/mo subscription covering up to 4 people).
-type SelectableTier = PaidTier | "family";
+// The tiers selectable on this page: All-Access and the Family plan (one
+// subscription covering up to 4 people). One Language is not sold on web.
+type SelectableTier = "plus" | "family";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
-// Per-tier pricing for each billing interval. The interval is presentational
-// until the real provider checkout lands (the dev-override records only tier),
-// but we show accurate monthly + annual prices for each plan.
+// Per-tier pricing for each billing interval. These display strings mirror the
+// store pricing ladder; the REAL charge comes from the Stripe price ids the
+// server holds (STRIPE_*_PRICE_ID env vars) — keep both in sync, and keep
+// scripts/seedStripeProducts.ts in sync too.
 const TIER_PRICING: Record<
   SelectableTier,
   Record<
@@ -48,33 +45,19 @@ const TIER_PRICING: Record<
     { price: string; per: string; note: string; badge?: string }
   >
 > = {
-  one_language: {
-    monthly: {
-      price: "$6.99",
-      per: "/mo",
-      note: "Billed monthly. Cancel anytime.",
-    },
-    annual: {
-      price: "$49.99",
-      per: "/yr",
-      note: "Just $4.17/mo — billed yearly.",
-      badge: "Save 40%",
-    },
-  },
   plus: {
     monthly: {
-      price: "$9.99",
+      price: "$12.99",
       per: "/mo",
       note: "Billed monthly. Cancel anytime.",
     },
     annual: {
-      price: "$71.99",
+      price: "$89.99",
       per: "/yr",
-      note: "Just $6.00/mo — billed yearly.",
-      badge: "Save 40%",
+      note: "Just $7.50/mo — billed yearly.",
+      badge: "Save 42%",
     },
   },
-  // Family is billed monthly regardless of the toggle — both entries match.
   family: {
     monthly: {
       price: "$19.99",
@@ -82,25 +65,20 @@ const TIER_PRICING: Record<
       note: "One bill covers up to 4 people. Billed monthly. Cancel anytime.",
     },
     annual: {
-      price: "$19.99",
-      per: "/mo",
-      note: "One bill covers up to 4 people. Billed monthly. Cancel anytime.",
+      price: "$139.99",
+      per: "/yr",
+      note: "Just $11.67/mo for up to 4 people — billed yearly.",
+      badge: "Save 42%",
     },
   },
 };
-
-const ONE_LANGUAGE_BENEFITS = [
-  { icon: BookOpen, text: "Full Hindi set — every word & sentence" },
-  { icon: Globe, text: "Full set for one language you choose" },
-  { icon: InfinityIcon, text: "Unlimited daily lessons" },
-];
 
 const ALL_ACCESS_BENEFITS = [
   { icon: Globe, text: "All 22 official Indian languages" },
   { icon: InfinityIcon, text: "Unlimited daily lessons" },
   { icon: Target, text: "Review your weakest phrases" },
   { icon: BarChart3, text: "Advanced progress analytics" },
-  { icon: Award, text: "Exclusive Plus badges" },
+  { icon: Award, text: "Exclusive All-Access badges" },
 ];
 
 const FAMILY_BENEFITS = [
@@ -153,7 +131,6 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   const search = useSearch();
   const queryClient = useQueryClient();
   const { languages } = useLanguage();
-  const { allowedLanguages } = useEntitlements();
 
   // The paywall surface was reached (Free or lapsed learner).
   useEffect(() => {
@@ -161,55 +138,33 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The locked surface that routed here can preselect a plan (and, for a locked
-  // language, pre-pick it) via ?plan=one_language&lang=xx or ?plan=plus. We read
-  // it once for the initial state; the learner can still change everything.
-  // ?reason=daily_lesson_limit is forwarded by upgradeHrefForDenial so we can
-  // surface a contextual trial banner when the learner arrived from the cap.
+  // The locked surface that routed here can preselect a plan via ?plan=plus or
+  // ?plan=family. We read it once for the initial state; the learner can still
+  // change everything. ?reason=daily_lesson_limit is forwarded by
+  // upgradeHrefForDenial so we can surface a contextual trial banner when the
+  // learner arrived from the cap. Legacy ?plan=one_language links (the tier is
+  // no longer sold on web) land on the All-Access card.
   const intent = useMemo(() => {
     const params = new URLSearchParams(search);
     const plan = params.get("plan");
-    const lang = params.get("lang");
     const reason = params.get("reason");
     return {
       tier:
-        plan === "one_language" || plan === "plus" || plan === "family"
+        plan === "plus" || plan === "family"
           ? plan
-          : null,
-      lang,
+          : plan === "one_language"
+            ? "plus"
+            : null,
       reason,
-    } as { tier: SelectableTier | null; lang: string | null; reason: string | null };
+    } as { tier: SelectableTier | null; reason: string | null };
   }, [search]);
 
   const [interval, setInterval] = useState<PlusInterval>("monthly");
   const [selectedTier, setSelectedTier] = useState<SelectableTier>(
     intent.tier ?? "plus",
   );
-  const [chosenLanguage, setChosenLanguage] = useState<string | null>(() => {
-    // Only honor a pre-picked language on the One Language tier, and only if it's
-    // a real language the learner doesn't already have unlocked.
-    if (
-      intent.tier === "one_language" &&
-      intent.lang &&
-      languages.some((l) => l.code === intent.lang) &&
-      !allowedLanguages.includes(intent.lang)
-    ) {
-      return intent.lang;
-    }
-    return null;
-  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Languages the learner could unlock with One Language — everything except the
-  // ones already free on their current plan (Hindi for Free callers).
-  const selectableLanguages = useMemo(
-    () => languages.filter((l) => !allowedLanguages.includes(l.code)),
-    [languages, allowedLanguages],
-  );
-
-  const chosen = languages.find((l) => l.code === chosenLanguage);
-  const needsLanguage = selectedTier === "one_language" && !chosenLanguage;
 
   // If the learner just returned from a cancelled Stripe Checkout, surface a
   // gentle notice and refresh entitlements (in case anything changed), then
@@ -238,20 +193,10 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      if (selectedTier === "one_language") {
-        if (!chosenLanguage) {
-          setError("Pick a language to continue.");
-          setBusy(false);
-          return;
-        }
-        // One Language isn't sold via Stripe on web — dev-override (unlocks in
-        // place), then route into the app.
-        await beginOneLanguageCheckout(chosenLanguage, interval, queryClient);
-        setLocation("/app");
-      } else if (selectedTier === "family") {
+      if (selectedTier === "family") {
         // Family → Stripe Checkout (redirects away). An existing Plus
         // subscriber is upgraded in place instead (no redirect).
-        const result = await beginFamilyCheckout(queryClient);
+        const result = await beginFamilyCheckout(interval, queryClient);
         if (result === "upgraded") setLocation("/family");
       } else {
         // All-Access → real Stripe Checkout with the 7-day free trial. Redirects
@@ -293,8 +238,8 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             {lapsed ? "Pick up where you left off" : "Choose your plan"}
           </h1>
           <p className="mt-3 text-lg font-medium text-muted-foreground">
-            Go deeper on one language, or unlock everything — pick the plan that
-            fits how you want to learn.
+            Unlock all 22 languages and every premium tool — for yourself, or
+            for the whole family.
           </p>
 
           {/* Floating language tags — a little bobbing reminder of what's inside. */}
@@ -352,7 +297,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                       PLUS_GRADIENT,
                     )}
                   >
-                    Save 40%
+                    Save 42%
                   </span>
                 )}
               </button>
@@ -361,7 +306,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
         </div>
 
         {/* Plan options */}
-        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:items-stretch xl:grid-cols-4">
+        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
           {/* Free — the current plan, shown for context and never selectable.
               Kept far left so the plans read current → upgrade → best. */}
           <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
@@ -380,21 +325,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           </div>
 
           <PlanCard
-            tier="one_language"
-            selected={selectedTier === "one_language"}
-            onSelect={() => setSelectedTier("one_language")}
-            title="One Language"
-            tagline="Hindi + a language you choose"
-            price={priceForTier("one_language")}
-            benefits={ONE_LANGUAGE_BENEFITS}
-          />
-
-          <PlanCard
             tier="plus"
             selected={selectedTier === "plus"}
             onSelect={() => setSelectedTier("plus")}
             title="All-Access"
-            tagline="Every language + all Plus tools"
+            tagline="Every language + every premium tool"
             price={priceForTier("plus")}
             benefits={ALL_ACCESS_BENEFITS}
             highlight="7-day free trial"
@@ -412,79 +347,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           />
         </div>
 
-        {/* Language selection for the middle tier */}
-        <AnimatePresence initial={false}>
-          {selectedTier === "one_language" && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="mt-6 rounded-3xl border border-card-border bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-black text-foreground">
-                    Choose your language
-                  </h3>
-                </div>
-                <p className="mt-1 text-sm font-medium text-muted-foreground">
-                  {chosen
-                    ? `You're unlocking ${chosen.name}. This is locked in for your subscription — upgrade to All-Access anytime to switch or add more.`
-                    : "Pick the language you're subscribing to. It's locked in for your subscription (upgrade to All-Access to switch)."}
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto pr-1 -mr-1">
-                  {selectableLanguages.map((lang) => {
-                    const native = nativeTextProps(lang);
-                    const selected = lang.code === chosenLanguage;
-                    return (
-                      <button
-                        key={lang.code}
-                        onClick={() => setChosenLanguage(lang.code)}
-                        className={cn(
-                          "relative flex items-center justify-between gap-2 rounded-2xl border-2 p-3 text-left transition-all active:scale-[0.98]",
-                          selected
-                            ? "border-primary bg-primary/5"
-                            : "border-card-border bg-white hover:border-primary/40",
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <span
-                            className={cn(
-                              "block text-lg font-bold text-foreground",
-                              // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
-                              // vertically — leading-tight clips them.
-                              native.isNastaliq
-                                ? "overflow-visible"
-                                : "leading-tight truncate",
-                            )}
-                            style={native.style}
-                            dir={native.dir}
-                          >
-                            {lang.nativeName}
-                          </span>
-                          <span className="mt-0.5 block truncate text-xs font-medium text-muted-foreground">
-                            {lang.name}
-                          </span>
-                        </div>
-                        {selected && (
-                          <Check className="h-5 w-5 shrink-0 text-primary" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* CTA */}
         <div className="mt-6">
           <button
             onClick={handleStart}
-            disabled={busy || needsLanguage}
+            disabled={busy}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-5 text-lg font-black text-white shadow-[0_8px_0_hsl(var(--secondary-shadow))] transition-all active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--secondary-shadow))] disabled:opacity-70 disabled:active:translate-y-0 disabled:active:shadow-[0_8px_0_hsl(var(--secondary-shadow))]",
               PLUS_GRADIENT,
@@ -495,25 +362,15 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                 <Loader2 className="h-6 w-6 animate-spin" />
                 Starting…
               </>
-            ) : needsLanguage ? (
-              <>
-                <Lock className="h-6 w-6" />
-                Pick a language first
-              </>
             ) : selectedTier === "plus" ? (
               <>
                 <Sparkles className="h-6 w-6" />
                 Start 7-day free trial
               </>
-            ) : selectedTier === "family" ? (
+            ) : (
               <>
                 <Users className="h-6 w-6" />
                 Get the Family plan
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-6 w-6" />
-                Get One Language
               </>
             )}
           </button>
@@ -545,16 +402,11 @@ function FinePrint({
           {p.per} for up to 4 people — you plus 3 invites. {p.note} Invite your
           family after checkout. No free trial on this plan.
         </p>
-      ) : tier === "plus" ? (
+      ) : (
         <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
           7 days free, then {p.price}
           {p.per}. {p.note} Cancel anytime before the trial ends and you won't be
           charged.
-        </p>
-      ) : (
-        <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-          {p.price}
-          {p.per}. {p.note} No free trial on this plan.
         </p>
       )}
       <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
@@ -616,7 +468,7 @@ function PlanCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="text-xl font-black text-foreground">{title}</h3>
+            <h3 className="whitespace-nowrap text-xl font-black text-foreground">{title}</h3>
             {highlight && (
               <span className="whitespace-nowrap rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-success">
                 {highlight}

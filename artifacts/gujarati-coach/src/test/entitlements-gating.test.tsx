@@ -115,14 +115,14 @@ describe("Language picker gating", () => {
     await user.click(screen.getByTitle("Change language"));
 
     const hindiButton = screen.getByText("Hindi").closest("button")!;
-    // A locked language reads as aspirational, not broken: it wears the Plus pill.
-    expect(within(hindiButton).getByText("Plus")).toBeInTheDocument();
+    // A locked language reads as aspirational, not broken: it wears the
+    // All-Access pill.
+    expect(within(hindiButton).getByText("All-Access")).toBeInTheDocument();
 
     await user.click(hindiButton);
 
-    // A single locked language is cheapest with One Language, and the paywall
-    // opens with that tier preselected and the tapped language pre-picked.
-    expect(currentPath(history)).toBe("/upgrade?plan=one_language&lang=hi");
+    // One Language is no longer sold on web — the paywall opens on All-Access.
+    expect(currentPath(history)).toBe("/upgrade?plan=plus");
     expect(h.setActiveLang).not.toHaveBeenCalled();
   });
 
@@ -198,7 +198,7 @@ describe("Badges gallery gating", () => {
     h.badges = badges;
     renderWithRouter(<BadgesGallery lang="gu" />);
 
-    const teaser = screen.getByText("Plus badges");
+    const teaser = screen.getByText("All-Access badges");
     // Exclusive badges are an All-Access perk.
     expect(teaser.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
   });
@@ -208,7 +208,7 @@ describe("Badges gallery gating", () => {
     h.badges = badges;
     renderWithRouter(<BadgesGallery lang="gu" />);
 
-    expect(screen.queryByText("Plus badges")).not.toBeInTheDocument();
+    expect(screen.queryByText("All-Access badges")).not.toBeInTheDocument();
   });
 });
 
@@ -217,16 +217,15 @@ describe("Home review card gating", () => {
     h.entitlements = FREE_ENTITLEMENTS;
     renderWithRouter(<Home />);
 
-    const reviewCta = screen.getByText(/Plus builds smart review sessions/i);
+    const reviewCta = screen.getByText(/All-Access builds smart review sessions/i);
     // Review is an All-Access feature.
     expect(reviewCta.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
 
-    // The daily free-lesson meter offers a way out, never a dead end — and the
-    // cap lifts cheapest on the One Language tier.
+    // The daily free-lesson meter offers a way out, never a dead end.
     const goUnlimited = screen.getByText(/Go unlimited/i);
     expect(goUnlimited.closest("a")).toHaveAttribute(
       "href",
-      "/upgrade?plan=one_language",
+      "/upgrade?plan=plus",
     );
   });
 
@@ -235,7 +234,7 @@ describe("Home review card gating", () => {
     renderWithRouter(<Home />);
 
     expect(
-      screen.queryByText(/Plus builds smart review sessions/i),
+      screen.queryByText(/All-Access builds smart review sessions/i),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Go unlimited/i)).not.toBeInTheDocument();
   });
@@ -245,7 +244,7 @@ describe("Home review card gating", () => {
     renderWithRouter(<Home />);
 
     expect(
-      screen.queryByText(/Plus builds smart review sessions/i),
+      screen.queryByText(/All-Access builds smart review sessions/i),
     ).not.toBeInTheDocument();
   });
 });

@@ -12,7 +12,11 @@ export function getPlusPriceId(interval: PlusInterval): string | null {
   return process.env[key]?.trim() || null;
 }
 
-// The Family plan ($19.99/mo, up to 4 people) is monthly-only.
-export function getFamilyPriceId(): string | null {
-  return process.env.STRIPE_FAMILY_MONTHLY_PRICE_ID?.trim() || null;
+// The Family plan (up to 4 people) — monthly or annual, like Plus.
+export function getFamilyPriceId(interval: PlusInterval): string | null {
+  const key =
+    interval === "monthly"
+      ? "STRIPE_FAMILY_MONTHLY_PRICE_ID"
+      : "STRIPE_FAMILY_ANNUAL_PRICE_ID";
+  return process.env[key]?.trim() || null;
 }

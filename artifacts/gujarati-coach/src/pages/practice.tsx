@@ -877,8 +877,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               ? "You've tried this language!"
               : upgrade.reason === "feature_locked"
                 ? isSentences
-                  ? "Full sentences are a Plus feature"
-                  : "Review is a Plus feature"
+                  ? "Full sentences are an All-Access feature"
+                  : "Review is an All-Access feature"
                 : "Unlock this language"
         }
         message={upgrade.message}
@@ -1562,9 +1562,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   <UpgradeCard
                     icon={<Sparkles className="h-7 w-7" />}
                     title={`That's your free taste of ${languageName}!`}
-                    description={`Unlock ${languageName} with One Language, or every language with Plus.`}
+                    description={`Unlock ${languageName} — and every other language — with All-Access.`}
                     cta="Keep learning"
-                    href={upgradeHref({ plan: "one_language", lang: activeLang, reason: "teaser_exhausted" })}
+                    href={upgradeHref({ plan: "plus", reason: "teaser_exhausted" })}
                     className="mt-3"
                   />
                 )}

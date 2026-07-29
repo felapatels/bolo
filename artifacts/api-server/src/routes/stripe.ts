@@ -78,13 +78,14 @@ router.post(
     const interval: PlusInterval = req.body?.interval === "monthly"
       ? "monthly"
       : "annual";
-    // "family" buys the $19.99/mo Family plan (4 seats); anything else is
-    // regular all-access Plus.
+    // "family" buys the Family plan (4 seats, monthly or annual); anything
+    // else is regular all-access Plus.
     const plan: "plus" | "family" =
       req.body?.plan === "family" ? "family" : "plus";
     const withTrial = plan === "plus" && Boolean(req.body?.withTrial);
 
-    const priceId = plan === "family" ? getFamilyPriceId() : getPlusPriceId(interval);
+    const priceId =
+      plan === "family" ? getFamilyPriceId(interval) : getPlusPriceId(interval);
     if (!priceId) {
       res.status(503).json({
         error:

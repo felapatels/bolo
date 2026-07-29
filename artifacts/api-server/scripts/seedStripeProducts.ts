@@ -9,15 +9,17 @@
 import { getUncachableStripeClient } from "../src/lib/stripeClient";
 
 const PRODUCT_NAME = "Bolo! Plus";
-// All-Access (Plus) pricing. Keep in sync with the `plus` prices shown in
+// All-Access (Plus) pricing — matches the store (mobile) pricing ladder. Keep
+// in sync with the `plus` prices shown in
 // artifacts/gujarati-coach/src/pages/upgrade.tsx (TIER_PRICING). The middle
 // One-Language tier is RevenueCat/mobile-only and not sold through Stripe.
-const MONTHLY_CENTS = 999; // $9.99/mo
-const ANNUAL_CENTS = 7199; // $71.99/yr
+const MONTHLY_CENTS = 1299; // $12.99/mo
+const ANNUAL_CENTS = 8999; // $89.99/yr
 
 // Family plan: one subscription covering up to 4 people (owner + 3 seats).
 const FAMILY_PRODUCT_NAME = "Bolo! Family";
 const FAMILY_MONTHLY_CENTS = 1999; // $19.99/mo
+const FAMILY_ANNUAL_CENTS = 13999; // $139.99/yr
 
 async function findOrCreatePrice(
   stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>,
@@ -92,14 +94,24 @@ async function main(): Promise<void> {
     FAMILY_MONTHLY_CENTS,
     "month",
   );
+  const familyAnnualPriceId = await findOrCreatePrice(
+    stripe,
+    familyProduct.id,
+    FAMILY_ANNUAL_CENTS,
+    "year",
+  );
   console.log(
     `Family monthly price: ${(FAMILY_MONTHLY_CENTS / 100).toFixed(2)}/mo (${familyMonthlyPriceId})`,
+  );
+  console.log(
+    `Family annual price: ${(FAMILY_ANNUAL_CENTS / 100).toFixed(2)}/yr (${familyAnnualPriceId})`,
   );
 
   console.log("\nSet these env vars for checkout to use them:");
   console.log(`  STRIPE_PLUS_MONTHLY_PRICE_ID=${monthlyPriceId}`);
   console.log(`  STRIPE_PLUS_ANNUAL_PRICE_ID=${annualPriceId}`);
   console.log(`  STRIPE_FAMILY_MONTHLY_PRICE_ID=${familyMonthlyPriceId}`);
+  console.log(`  STRIPE_FAMILY_ANNUAL_PRICE_ID=${familyAnnualPriceId}`);
 }
 
 main().catch((err) => {

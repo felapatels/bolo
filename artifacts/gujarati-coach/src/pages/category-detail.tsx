@@ -257,9 +257,9 @@ export default function CategoryDetail() {
               icon={<Lock className="h-6 w-6" />}
               title={`${category.lockedPhraseCount} more ${
                 category.lockedPhraseCount === 1 ? "phrase" : "phrases"
-              } with Plus`}
+              } with All-Access`}
               description="Unlock the full phrase library for this topic and keep going."
-              cta="Unlock with Plus"
+              cta="Unlock with All-Access"
               href={upgradeHref({ plan: "plus" })}
             />
           )}
@@ -300,8 +300,8 @@ export default function CategoryDetail() {
               >
                 <Sparkles className="h-5 w-5" />
                 {asUpgradeRequired(addPhrases.error)?.reason === "daily_lesson_limit"
-                  ? "Daily limit reached — go unlimited with Plus"
-                  : "Unlock with Plus"}
+                  ? "Daily limit reached — go unlimited with All-Access"
+                  : "Unlock with All-Access"}
               </Link>
             ) : (
               <p className="text-sm text-destructive text-center font-medium">
@@ -324,11 +324,11 @@ export default function CategoryDetail() {
                     category.sentenceCount > 0
                       ? `${category.sentenceCount} full ${
                           category.sentenceCount === 1 ? "sentence" : "sentences"
-                        } with Plus`
-                      : "Full sentences with Plus"
+                        } with All-Access`
+                      : "Full sentences with All-Access"
                   }
                   description="Graduate from phrases to real, natural sentences — the final step for every topic."
-                  cta="Unlock with Plus"
+                  cta="Unlock with All-Access"
                   href={upgradeHref({ plan: "plus" })}
                 />
               ) : sentencesQuery.isLoading ? (

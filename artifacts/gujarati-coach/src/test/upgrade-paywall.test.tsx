@@ -2,12 +2,12 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import type { ReactElement } from "react";
 import { FREE_ENTITLEMENTS } from "./fixtures";
 
 // The paywall reads the locked surface's intent from the query string
-// (?plan=one_language&lang=xx or ?plan=plus) and preselects the matching plan so
-// the learner lands on the cheapest card that unlocks what they tapped.
+// (?plan=plus or ?plan=family) and preselects the matching plan card. The
+// One Language tier is no longer sold on web — legacy ?plan=one_language
+// links must land on the All-Access card instead of erroring.
 
 const h = vi.hoisted(() => ({
   entitlements: undefined as unknown,
@@ -42,8 +42,8 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("@/lib/billing", () => ({
-  beginOneLanguageCheckout: vi.fn(),
   beginAllAccessCheckout: vi.fn(),
+  beginFamilyCheckout: vi.fn(),
 }));
 
 // Imported after the mocks are declared.
@@ -71,42 +71,48 @@ describe("Paywall plan preselection", () => {
     renderAt("/upgrade");
 
     expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
-    expect(card("One Language")).toHaveAttribute("aria-pressed", "false");
+    expect(card("Family")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
   });
 
   test("?plan=plus preselects All-Access", () => {
     renderAt("/upgrade?plan=plus");
 
     expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
-    expect(card("One Language")).toHaveAttribute("aria-pressed", "false");
+    expect(card("Family")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
   });
 
-  test("?plan=one_language preselects One Language without a language yet", () => {
-    renderAt("/upgrade?plan=one_language");
+  test("?plan=family preselects Family", () => {
+    renderAt("/upgrade?plan=family");
 
-    expect(card("One Language")).toHaveAttribute("aria-pressed", "true");
+    expect(card("Family")).toHaveAttribute("aria-pressed", "true");
     expect(card("All-Access")).toHaveAttribute("aria-pressed", "false");
-    // No language pre-picked, so the CTA nudges the learner to choose one.
-    expect(screen.getByText(/Pick a language first/i)).toBeInTheDocument();
+    expect(screen.getByText(/Get the Family plan/i)).toBeInTheDocument();
   });
 
-  test("?plan=one_language&lang=hi preselects One Language and pre-picks Hindi", () => {
-    renderAt("/upgrade?plan=one_language&lang=hi");
+  test("the One Language tier is no longer sold on web", () => {
+    renderAt("/upgrade");
 
-    expect(card("One Language")).toHaveAttribute("aria-pressed", "true");
-    // A language is already chosen, so the CTA is ready to go.
-    expect(screen.getByText(/Get One Language/i)).toBeInTheDocument();
+    expect(screen.queryByText("One Language")).not.toBeInTheDocument();
     expect(screen.queryByText(/Pick a language first/i)).not.toBeInTheDocument();
   });
 
-  test("ignores an already-unlocked language in the deep link", () => {
-    // Gujarati is already free on this snapshot, so it can't be the One Language
-    // pick — the paywall falls back to prompting for a choice.
-    renderAt("/upgrade?plan=one_language&lang=gu");
+  test("legacy ?plan=one_language links land on the All-Access card", () => {
+    renderAt("/upgrade?plan=one_language&lang=hi");
 
-    expect(card("One Language")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText(/Pick a language first/i)).toBeInTheDocument();
+    expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("One Language")).not.toBeInTheDocument();
+    // The CTA is the real trial checkout, never a language prompt.
+    expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
+  });
+
+  test("shows the store-ladder monthly prices", () => {
+    renderAt("/upgrade");
+
+    // Monthly is the default interval: Plus $12.99/mo, Family $19.99/mo.
+    expect(screen.getByText("$12.99")).toBeInTheDocument();
+    expect(screen.getByText("$19.99")).toBeInTheDocument();
   });
 });
 

@@ -239,10 +239,10 @@ function StationRow({
           {station.stage === "sentence" && (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
-              title="First-class sentence stop — Plus"
+              title="First-class sentence stop — All-Access"
             >
               <Sparkles className="w-2.5 h-2.5" />
-              Plus
+              All-Access
             </span>
           )}
           {station.status === "tested_out" && (
@@ -408,8 +408,7 @@ export default function Journey() {
 
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
-    plan: "one_language",
-    lang: activeLang,
+    plan: "plus",
     reason: access === "exhausted" ? "teaser_exhausted" : "language_locked",
   });
 
@@ -610,7 +609,7 @@ export default function Journey() {
                 </DialogTitle>
                 <DialogDescription>
                   {lock.stopLabel} is a sentence stop — graduate from phrases to
-                  real, natural sentences. First-class seats are a Plus perk.
+                  real, natural sentences. First-class seats are an All-Access perk.
                 </DialogDescription>
               </DialogHeader>
               <Link
@@ -619,7 +618,7 @@ export default function Journey() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
               >
                 <Sparkles className="w-4 h-4" />
-                Unlock with Plus
+                Unlock with All-Access
               </Link>
             </>
           )}

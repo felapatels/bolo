@@ -67,12 +67,8 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 onClick={() => {
                   if (locked) {
                     // Locked-but-visible: invite the upgrade instead of erroring.
-                    // A single locked language is cheapest to unlock with the
-                    // One Language tier, so preselect it and pre-pick this one.
                     setOpen(false);
-                    setLocation(
-                      upgradeHref({ plan: "one_language", lang: lang.code }),
-                    );
+                    setLocation(upgradeHref({ plan: "plus" }));
                     return;
                   }
                   setActiveLang(lang.code);

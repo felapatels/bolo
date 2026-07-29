@@ -2,15 +2,15 @@ import { Link } from "wouter";
 import { Crown, Lock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Shared "Plus" visual language for the locked-but-visible upgrade experience.
-// Plus is expressed as a warm orange -> pink gradient (the same palette as the
-// home stats banner) with a crown, so locked surfaces read as aspirational
-// rather than broken.
+// Shared "All-Access" visual language for the locked-but-visible upgrade
+// experience. All-Access is expressed as a warm orange -> pink gradient (the
+// same palette as the home stats banner) with a crown, so locked surfaces read
+// as aspirational rather than broken.
 
 const PLUS_GRADIENT =
   "bg-gradient-to-r from-primary to-secondary";
 
-// A compact "Plus" chip to mark locked features and languages.
+// A compact "All-Access" chip to mark locked features and languages.
 export function PlusPill({ className }: { className?: string }) {
   return (
     <span
@@ -21,7 +21,7 @@ export function PlusPill({ className }: { className?: string }) {
       )}
     >
       <Crown className="h-3 w-3" fill="currentColor" />
-      Plus
+      All-Access
     </span>
   );
 }
@@ -32,7 +32,7 @@ export function UpgradeCard({
   icon,
   title,
   description,
-  cta = "Unlock with Plus",
+  cta = "Unlock with All-Access",
   className,
   href = "/upgrade",
 }: {
@@ -128,7 +128,7 @@ export function UpgradeScreen({
               PLUS_GRADIENT,
             )}
           >
-            {showTrial ? "Start 7-day free trial" : "See Bolo! Plus"}
+            {showTrial ? "Start 7-day free trial" : "See All-Access"}
             <ArrowRight className="h-5 w-5" />
           </Link>
           {showTrial && (
