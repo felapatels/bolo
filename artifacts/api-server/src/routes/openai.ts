@@ -1205,7 +1205,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
 
   // Language access follows the existing plan-based allowlist (Free/One
   // Language may be locked out of this language entirely).
-  if (denyLockedLanguage(req, res, languageCode)) return;
+  if (await denyLockedLanguage(req, res, languageCode)) return;
 
   // Free's weekly chat-time cap. One Language and Plus are never capped.
   const timeDenial = await chatTimeCapDenial(resolvedPlan, userId);

@@ -100,7 +100,11 @@ export const GetLessonGroupTestoutResponse = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })).optional(),
   "sampleSize": zod.number().optional(),
   "requiredCorrect": zod.number().optional()
@@ -154,7 +158,11 @@ export const ListLessonGroupPhrasesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 export const ListLessonGroupPhrasesResponse = zod.array(ListLessonGroupPhrasesResponseItem)
 
@@ -180,7 +188,11 @@ export const ListCategorySentencesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 export const ListCategorySentencesResponse = zod.array(ListCategorySentencesResponseItem)
 
@@ -205,7 +217,11 @@ export const ListCategoryPhrasesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 export const ListCategoryPhrasesResponse = zod.array(ListCategoryPhrasesResponseItem)
 
@@ -240,7 +256,11 @@ export const AddCategoryPhrasesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 export const AddCategoryPhrasesResponse = zod.array(AddCategoryPhrasesResponseItem)
 
@@ -265,7 +285,11 @@ export const ListReviewPhrasesResponseItem = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 export const ListReviewPhrasesResponse = zod.array(ListReviewPhrasesResponseItem)
 
@@ -289,7 +313,11 @@ export const GetPhraseResponse = zod.object({
   "sortOrder": zod.number(),
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
-  "attemptCount": zod.number()
+  "attemptCount": zod.number(),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 
 
@@ -321,7 +349,11 @@ export const CreateAttemptResponse = zod.object({
   "description": zod.string(),
   "iconName": zod.string(),
   "earnedAt": zod.coerce.date()
-}))
+})),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 
 

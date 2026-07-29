@@ -2209,6 +2209,8 @@ components:
           type: boolean
         attemptCount:
           type: integer
+        teaser:
+          $ref: "#/components/schemas/TeaserProgress"
       required:
         - id
         - categoryId
@@ -2514,6 +2516,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EarnedBadge"
+        teaser:
+          $ref: "#/components/schemas/TeaserProgress"
       required:
         - id
         - phraseId
@@ -2876,7 +2880,10 @@ components:
           description: Always true.
         reason:
           type: string
-          description: language_locked | daily_lesson_limit | feature_locked
+          description: >-
+            language_locked | daily_lesson_limit | feature_locked |
+            chat_time_limit | teaser_exhausted (the caller used up their free
+            teaser phrases in this locked language).
         message:
           type: string
         feature:
@@ -2888,6 +2895,8 @@ components:
           description: >-
             The cheapest plan that unlocks the action ("one_language" or
             "plus").
+        teaser:
+          $ref: "#/components/schemas/TeaserProgress"
       required:
         - error
         - upgradeRequired
@@ -2895,6 +2904,25 @@ components:
         - message
         - feature
         - requiredPlan
+
+    TeaserProgress:
+      type: object
+      description: >-
+        M1 language teaser progress for a locked language: how many of the
+        free teaser phrases (the first phrases of Greetings group 1) this
+        user has attempted, lifetime. Present on locked-language 402 bodies,
+        on teaser-state phrase rows, and on attempt results recorded through
+        the teaser.
+      properties:
+        consumed:
+          type: integer
+          description: Distinct teaser phrases attempted so far.
+        limit:
+          type: integer
+          description: Total teaser phrases available (currently 3).
+      required:
+        - consumed
+        - limit
 
     PlanFeatures:
       type: object

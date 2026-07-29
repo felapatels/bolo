@@ -109,7 +109,9 @@ export default function CategoryDetail() {
         title={
           upgrade.reason === "daily_lesson_limit"
             ? "You've hit today's free lessons"
-            : "Unlock this language"
+            : upgrade.reason === "teaser_exhausted"
+              ? "You've tried this language!"
+              : "Unlock this language"
         }
         message={upgrade.message}
         upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}

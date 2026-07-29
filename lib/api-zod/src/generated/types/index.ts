@@ -106,6 +106,7 @@ export * from './setChosenLanguageInput';
 export * from './speechInput';
 export * from './speechResult';
 export * from './subscriptionDetails';
+export * from './teaserProgress';
 export * from './updatePreferencesInput';
 export * from './updatePreferencesInputTheme';
 export * from './updateProfileInput';

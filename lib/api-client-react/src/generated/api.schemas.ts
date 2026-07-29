@@ -265,6 +265,16 @@ export interface Category {
   sentencesLocked: boolean;
 }
 
+/**
+ * M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.
+ */
+export interface TeaserProgress {
+  /** Distinct teaser phrases attempted so far. */
+  consumed: number;
+  /** Total teaser phrases available (currently 3). */
+  limit: number;
+}
+
 export interface Phrase {
   id: number;
   categoryId: number;
@@ -280,6 +290,7 @@ export interface Phrase {
   bestScore: number | null;
   mastered: boolean;
   attemptCount: number;
+  teaser?: TeaserProgress;
 }
 
 /**
@@ -480,6 +491,7 @@ export interface AttemptResult {
   feedback: string;
   createdAt: string;
   newlyEarnedBadges: EarnedBadge[];
+  teaser?: TeaserProgress;
 }
 
 export interface ProgressSummary {
@@ -672,13 +684,14 @@ export interface UpgradeRequired {
   error: string;
   /** Always true. */
   upgradeRequired: boolean;
-  /** language_locked | daily_lesson_limit | feature_locked */
+  /** language_locked | daily_lesson_limit | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language). */
   reason: string;
   message: string;
   /** The related feature flag, when applicable (e.g. "allLanguages"). */
   feature: string | null;
   /** The cheapest plan that unlocks the action ("one_language" or "plus"). */
   requiredPlan: string;
+  teaser?: TeaserProgress;
 }
 
 export interface PlanFeatures {

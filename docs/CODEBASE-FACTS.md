@@ -147,6 +147,10 @@ A day with no activity yet falls back to yesterday, so a streak does not appear 
 
 `index.ts` runs `runBackfillScoringV2()` after content seed, before `app.listen`.
 
+### Language access gating, three-state model (M1 teaser, July 29, 2026)
+
+`lib/gating.ts` resolves locked-language access via `getLanguageAccess(req, lang)` into four states: `allowed` (plan covers the language), `teaser` (locked, but fewer than 3 distinct teaser phrases attempted), `exhausted` (locked, 3 distinct teaser phrases attempted, lifetime), and `locked` (locked language with no teaser set, for example test fixtures; behaves exactly like pre-M1). The teaser set is the first 3 phrase-stage phrases of the first Greetings lesson group per language, resolved and cached in `lib/teaser.ts` (`TEASER_LIMIT`, `getTeaserPhraseIds`, `countTeaserConsumed`; consumption is DERIVED from the attempts table, no new table). `denyLockedLanguage` is now async and takes `opts.teaserPhraseId` for id-aware exceptions on `GET /phrases/:id` and `POST /attempts`. Denials go through `sendLockedLanguageDenial`: `exhausted` sends reason `teaser_exhausted`; `teaser` and `exhausted` denials carry a `teaser: {consumed, limit}` object; `locked` payloads are byte-identical to pre-M1. Successful teaser responses carry the same `teaser` object on each phrase row and on the attempt result (all optional fields in openapi.yaml for mobile back-compat). Attempts consume a slot per DISTINCT phrase regardless of score. The web app shows a post-result UpgradeCard in practice when `consumed >= limit` and reason-keyed UpgradeScreen copy.
+
 ### Pronunciation pipeline (do not modify)
 
 Whisper `speechToText` → retry at high quality if transcript empty or similarity <= 0.40 → fast path if phonetic similarity >= 0.93 using `simToScore` (0.90-1.00 maps to 80-100) → otherwise LLM rubric via `PRONUNCIATION_RUBRIC_PROMPT` → `applyScoreGuards`.
@@ -329,6 +333,7 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 | `latencyMs` unenforced | Neither client sends it. Spec 0 rule 47 is a no-op. #777 has nothing to measure |
 | `todayXp` in-memory filter | `learning.ts` pulls the full ledger and filters in application code. Needs a SQL date-range filter |
 | #782 pre-existing API test failures | 14: progress/summary x1, progress/analytics x2, entitlementsGating (suite-level) x1, review ordering x3, parrot system-prompt x2, TTS cache/fallback x3, warmGreetings x2 (all reproduce on a clean tree). The `attempts` test formerly counted in this row now passes. The GET /account defaults failure briefly counted here on July 28 2026 was a stale test expectation (dailyGoal 10 vs the migration-0025 column default 50), fixed in the test, not baseline. Provenance: this doc said 15, an out-of-band tracker said 11, and July 2026 full-suite runs measured 14. Rule: this enumerated row is the single source of truth for the baseline — never track a bare count elsewhere |
+| Pronunciation/TTS routes skip the language gate | `POST /openai/pronunciation` and the TTS route in `openai.ts` never call `denyLockedLanguage`; only the chat route gates by language. A locked-language client that already holds phrase content can synthesize audio and get evaluations for it. Pre-existing, observed during the M1 teaser work (July 29, 2026), deliberately NOT changed then. If closed later, the gate must honor the teaser exception for teaser phrase ids |
 | Truncated test-workflow logs | The `test` workflow's captured log keeps only the tail (~90 lines), which can cut most of the node:test failure summary and make a full-suite run look like it had only a handful of failures. Count failures only from a complete captured log (`pnpm run test > file 2>&1`), never from the truncated workflow preview |
 | `phrases.register` unpopulated | Spec D2 added the nullable column + `(language_code, register)` index; no authoring or filtering yet — all rows are NULL |
 | ~~Stale drizzle meta snapshots~~ | **Resolved with 0021.** Task 1's ad-hoc DDL left `meta/` lagging the committed migrations, so `generate` re-emitted applied DDL. The 0021 repair rewrote the terminal snapshot to the full current schema; `generate` now emits "No schema changes", and `check-drift` runs a trial generate on every pass so regression cannot land silently |
@@ -384,6 +389,7 @@ D1b direction decided: **Gujarat Express (Mockup C) merged** — rail-line layou
 | Spec D2 v2 (speaking system) | Built (register column, speaking streak, live waveforms + mascot amplitude on web and mobile) |
 | Spec D1 (map and journey) | Not written. Blocked on whether a lesson map screen exists |
 | Spec D1b (journey map mockups) | Built — 3 static mockups in `artifacts/mockup-sandbox/src/components/mockups/` (`JourneyWindingPath`, `JourneyRegionChapters`, `JourneyGujaratExpress`), shared mock data in `src/lib/journeyData.ts`, mascot PNGs copied (256px) to `artifacts/mockup-sandbox/public/mascot/`. Exploration only; no production screens touched |
+| Spec M1 (language teaser, 3 free phrases) | Built (api-server gating + web upgrade surface; bolo-mobile out of scope, journey-map rendering out of scope). See section 4, "Language access gating, three-state model" |
 | Spec D3 (Rishta Tree, real-world quests) | Not written |
 | Spec B (onboarding) | Not written |
 | Spec E (copy and voice) | Not written |

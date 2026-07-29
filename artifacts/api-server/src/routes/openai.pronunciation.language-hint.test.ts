@@ -180,6 +180,7 @@ mock.module("@workspace/db", {
     contactSubmissionsTable: {},
     categoriesTable: {},
     lessonsTable: {},
+    lessonGroupsTable: {},
     pool: { end: async () => {} },
     // Re-export drizzle helpers so transitive imports don't fail.
     eq: () => ({}),

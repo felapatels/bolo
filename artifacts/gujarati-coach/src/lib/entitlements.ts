@@ -156,7 +156,13 @@ export function upgradeHrefForDenial(
   const plan = upgrade.requiredPlan === "one_language" ? "one_language" : "plus";
   return upgradeHref({
     plan,
-    lang: upgrade.reason === "language_locked" ? lang : null,
+    // Both locked-language reasons (teaser still open or exhausted) know which
+    // language the learner wanted, so pre-pick it on the One Language tier.
+    lang:
+      upgrade.reason === "language_locked" ||
+      upgrade.reason === "teaser_exhausted"
+        ? lang
+        : null,
     reason: upgrade.reason ?? null,
   });
 }

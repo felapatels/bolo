@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EarnedBadge } from './earnedBadge';
+import type { TeaserProgress } from './teaserProgress';
 
 export interface AttemptResult {
   id: number;
@@ -21,4 +22,5 @@ export interface AttemptResult {
   feedback: string;
   createdAt: Date;
   newlyEarnedBadges: EarnedBadge[];
+  teaser?: TeaserProgress;
 }

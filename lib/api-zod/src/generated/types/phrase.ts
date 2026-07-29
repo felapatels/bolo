@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TeaserProgress } from './teaserProgress';
 
 export interface Phrase {
   id: number;
@@ -21,4 +22,5 @@ export interface Phrase {
   bestScore: number | null;
   mastered: boolean;
   attemptCount: number;
+  teaser?: TeaserProgress;
 }

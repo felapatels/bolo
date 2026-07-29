@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TeaserProgress } from './teaserProgress';
 
 /**
  * Returned with HTTP 402 when a Free action needs Bolo! Plus (a locked language, the daily new-lesson cap, or a Plus-only feature). A single shape across every gate so clients render the paywall uniformly.
@@ -14,11 +15,12 @@ export interface UpgradeRequired {
   error: string;
   /** Always true. */
   upgradeRequired: boolean;
-  /** language_locked | daily_lesson_limit | feature_locked */
+  /** language_locked | daily_lesson_limit | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language). */
   reason: string;
   message: string;
   /** The related feature flag, when applicable (e.g. "allLanguages"). */
   feature: string | null;
   /** The cheapest plan that unlocks the action ("one_language" or "plus"). */
   requiredPlan: string;
+  teaser?: TeaserProgress;
 }

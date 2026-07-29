@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones, HeadphoneOff } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
@@ -29,8 +29,8 @@ import { cn } from "@/lib/utils";
 import { prewarmMicIfGranted } from "@/lib/micPermission";
 import { useLanguage, useNativeText, useSpeechCapability } from "@/lib/language-context";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
-import { UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired, upgradeHrefForDenial } from "@/lib/entitlements";
+import { UpgradeCard, UpgradeScreen } from "@/components/plus";
+import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -250,6 +250,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
+  // M1 teaser: latest teaser progress reported by the attempts endpoint for a
+  // locked language (absent entirely when the plan covers the language).
+  const [teaserProgress, setTeaserProgress] = useState<{ consumed: number; limit: number } | null>(null);
   const [xpExpanded, setXpExpanded] = useState(false);
 
   // ── Degraded-language notice (spec 1) ────────────────────────────────────
@@ -692,6 +695,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         if (attemptRes.newlyEarnedBadges.length > 0) {
           setNewBadges(attemptRes.newlyEarnedBadges);
         }
+        // M1 teaser: the server reports teaser progress on attempts recorded
+        // in a locked language. Keep the latest snapshot so the result panel
+        // can pitch the upgrade the moment the last free phrase is used.
+        if (attemptRes.teaser) setTeaserProgress(attemptRes.teaser);
       } catch (saveError) {
         console.error("Saving the attempt failed", saveError);
         setSaveFailed(true);
@@ -838,11 +845,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         title={
           upgrade.reason === "daily_lesson_limit"
             ? "You've hit today's free lessons"
-            : upgrade.reason === "feature_locked"
-              ? isSentences
-                ? "Full sentences are a Plus feature"
-                : "Review is a Plus feature"
-              : "Unlock this language"
+            : upgrade.reason === "teaser_exhausted"
+              ? "You've tried this language!"
+              : upgrade.reason === "feature_locked"
+                ? isSentences
+                  ? "Full sentences are a Plus feature"
+                  : "Review is a Plus feature"
+                : "Unlock this language"
         }
         message={upgrade.message}
         upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
@@ -1516,6 +1525,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}
                 </div>
               )}
+
+              {/* M1 teaser: after the last free phrase in a locked language,
+                  pitch the unlock right in the result flow. */}
+              {state === "result" &&
+                teaserProgress &&
+                teaserProgress.consumed >= teaserProgress.limit && (
+                  <UpgradeCard
+                    icon={<Sparkles className="h-7 w-7" />}
+                    title={`That's your free taste of ${languageName}!`}
+                    description={`Unlock ${languageName} with One Language, or every language with Plus.`}
+                    cta="Keep learning"
+                    href={upgradeHref({ plan: "one_language", lang: activeLang, reason: "teaser_exhausted" })}
+                    className="mt-3"
+                  />
+                )}
               </motion.div>
 
               {/* Action buttons */}

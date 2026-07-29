@@ -300,7 +300,11 @@ export type UpgradeReason =
   | "language_locked"
   | "daily_lesson_limit"
   | "feature_locked"
-  | "chat_time_limit";
+  | "chat_time_limit"
+  // M1 teaser: the caller used up their 3 free teaser phrases in this locked
+  // language. Distinguishable from a plain lock so clients can render "you
+  // tried it — here is what you unlock" instead of a generic paywall.
+  | "teaser_exhausted";
 
 export interface UpgradeRequiredPayload {
   error: "upgrade_required";
@@ -310,6 +314,10 @@ export interface UpgradeRequiredPayload {
   // The PlanFeatures key involved, when applicable (e.g. "allLanguages").
   feature: string | null;
   requiredPlan: Plan;
+  // M1 teaser progress for locked-language denials (both teaser-available and
+  // exhausted states), so clients can show remaining teaser phrases. Optional
+  // and additive: absent on non-language gates and for older payload readers.
+  teaser?: { consumed: number; limit: number };
 }
 
 export function upgradeRequired(

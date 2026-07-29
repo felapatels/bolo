@@ -68,8 +68,11 @@ import {
 import {
   denyLockedFeature,
   denyLockedLanguage,
+  getLanguageAccess,
+  sendLockedLanguageDenial,
   sendUpgradeRequired,
 } from "../lib/gating";
+import { countTeaserConsumed, TEASER_LIMIT } from "../lib/teaser";
 import {
   dailyLessonCapDenial,
   recordLessonGeneration,
@@ -303,8 +306,14 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   }
   const userId = getUserId(req);
 
-  // Free is limited to Hindi; other languages require Bolo! Plus.
-  if (denyLockedLanguage(req, res, lang)) return;
+  // M1 teaser: a teaser-state caller may browse the topic list — it's how they
+  // reach Greetings. Exhausted callers get the distinguishable 402; tapping
+  // any content beyond the teaser phrases still 402s at the phrases fetch.
+  const listingAccess = await getLanguageAccess(req, lang);
+  if (listingAccess.state === "exhausted" || listingAccess.state === "locked") {
+    sendLockedLanguageDenial(req, res, listingAccess);
+    return;
+  }
 
   const [categories, langPhrases, lessons, attempts] = await Promise.all([
     db.select().from(categoriesTable).orderBy(asc(categoriesTable.sortOrder)),
@@ -420,8 +429,41 @@ router.get(
       return;
     }
 
-    // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, lang)) return;
+    // M1 teaser: a locked language serves exactly the teaser phrase set (the
+    // first TEASER_LIMIT phrases of Greetings group 1) while the teaser lasts,
+    // with progress attached to each row; everything else 402s.
+    const access = await getLanguageAccess(req, lang);
+    if (access.state !== "allowed") {
+      if (access.state !== "teaser") {
+        sendLockedLanguageDenial(req, res, access);
+        return;
+      }
+      const teaserRows = await db
+        .select()
+        .from(phrasesTable)
+        .where(
+          and(
+            inArray(phrasesTable.id, access.teaserPhraseIds),
+            eq(phrasesTable.categoryId, id),
+          ),
+        )
+        .orderBy(
+          asc(phrasesTable.lessonGroupPosition),
+          asc(phrasesTable.id),
+        );
+      if (teaserRows.length === 0) {
+        // Not the teaser topic (or no teaser set exists): plain denial.
+        sendLockedLanguageDenial(req, res, access);
+        return;
+      }
+      const teaserAttempts = await fetchUserAttempts(userId, lang);
+      const teaserStats = buildPhraseStats(teaserAttempts);
+      const teaser = { consumed: access.consumed, limit: TEASER_LIMIT };
+      res.json(
+        teaserRows.map((p) => ({ ...serializePhrase(p, teaserStats), teaser })),
+      );
+      return;
+    }
 
     const { resolvedPlan } = req as EntitledRequest;
 
@@ -531,7 +573,7 @@ router.get(
     }
 
     // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, lang)) return;
+    if (await denyLockedLanguage(req, res, lang)) return;
     // The sentence stage itself is Plus-only, whatever the language.
     if (
       denyLockedFeature(
@@ -681,7 +723,7 @@ router.post(
 
     // Free is limited to Hindi, and appending fresh AI phrases is a real
     // generation, so it counts against the Free daily new-lesson cap.
-    if (denyLockedLanguage(req, res, lang)) return;
+    if (await denyLockedLanguage(req, res, lang)) return;
     const { resolvedPlan } = req as EntitledRequest;
     const capDenial = await dailyLessonCapDenial(resolvedPlan, userId);
     if (capDenial) {
@@ -890,8 +932,15 @@ router.get(
       return;
     }
 
-    // Free may only read Hindi phrases; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, phrase.languageCode)) return;
+    // Locked languages: id-aware teaser exception — this exact phrase must be
+    // in the caller's teaser set; any other locked phrase keeps the 402.
+    if (
+      await denyLockedLanguage(req, res, phrase.languageCode, {
+        teaserPhraseId: phrase.id,
+      })
+    ) {
+      return;
+    }
 
     // A premium (Plus-only) phrase is never served to a caller without the
     // extended library — even by direct id — so its text can't leak.
@@ -938,8 +987,20 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     return;
   }
 
-  // Free records progress for Hindi only; other languages require Bolo! Plus.
-  if (denyLockedLanguage(req, res, claims.languageCode)) return;
+  // Locked languages: id-aware teaser exception. An attempt on a teaser phrase
+  // runs the full pipeline (FSRS, Elo, XP, badges) and is what consumes the
+  // teaser — regardless of score. Any other locked attempt keeps the 402.
+  const langAccess = await getLanguageAccess(req, claims.languageCode);
+  if (langAccess.state !== "allowed") {
+    const inTeaser =
+      langAccess.state === "teaser" &&
+      claims.phraseId != null &&
+      langAccess.teaserPhraseIds.includes(claims.phraseId);
+    if (!inTeaser) {
+      sendLockedLanguageDenial(req, res, langAccess);
+      return;
+    }
+  }
 
   // ── Scoring Core v2: prepare FSRS + Elo inputs before the insert ──────────
   // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
@@ -1107,7 +1168,23 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     metrics,
   );
 
+  // M1 teaser: recount AFTER the insert so this attempt is included, letting
+  // the client show teaser progress (and the post-3rd-phrase upgrade prompt)
+  // straight from the attempt result. Absent for plan-covered languages.
+  const teaser =
+    langAccess.state === "teaser"
+      ? {
+          consumed: await countTeaserConsumed(
+            userId,
+            claims.languageCode,
+            langAccess.teaserPhraseIds,
+          ),
+          limit: TEASER_LIMIT,
+        }
+      : undefined;
+
   res.status(201).json({
+    ...(teaser ? { teaser } : {}),
     id: row.id,
     phraseId: row.phraseId,
     languageCode: row.languageCode,
@@ -1135,7 +1212,7 @@ router.get("/badges", async (req: Request, res: Response): Promise<void> => {
 
   // Streaks, badges, and basic progress stay available for Hindi on Free; other
   // languages require Bolo! Plus.
-  if (denyLockedLanguage(req, res, lang)) return;
+  if (await denyLockedLanguage(req, res, lang)) return;
 
   const [earned, metrics] = await Promise.all([
     db
@@ -1190,7 +1267,7 @@ router.get(
     const userId = getUserId(req);
 
     // Free may only read Hindi activity; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, lang)) return;
+    if (await denyLockedLanguage(req, res, lang)) return;
 
     const rows = await db
       .select({
@@ -1255,7 +1332,7 @@ router.get(
 
     // Basic progress stays available for Hindi on Free; other languages require
     // Bolo! Plus. (Advanced analytics live at /progress/analytics.)
-    if (denyLockedLanguage(req, res, lang)) return;
+    if (await denyLockedLanguage(req, res, lang)) return;
 
     const timezone = getUserTimezone(req);
 
@@ -1560,7 +1637,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   const userId = getUserId(req);
 
   // Free is limited to Hindi; other languages require Bolo! Plus.
-  if (denyLockedLanguage(req, res, languageCode)) return;
+  if (await denyLockedLanguage(req, res, languageCode)) return;
 
   // Phrase Builder and Speed Round are Plus-only games; free users get 402.
   if (game === "phrase-builder") {
@@ -1733,7 +1810,7 @@ router.get(
     }
 
     // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, lang)) return;
+    if (await denyLockedLanguage(req, res, lang)) return;
 
     const [groups, members, attempts, [unassigned], progressRows] =
       await Promise.all([
@@ -1887,7 +1964,7 @@ router.get(
     }
 
     // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (denyLockedLanguage(req, res, group.languageCode)) return;
+    if (await denyLockedLanguage(req, res, group.languageCode)) return;
 
     const { resolvedPlan } = req as EntitledRequest;
     const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
@@ -1937,7 +2014,7 @@ async function loadTestoutGroup(
     return null;
   }
   // Entitlements evaluate first — before any unlock/test-out logic.
-  if (denyLockedLanguage(req, res, group.languageCode)) return null;
+  if (await denyLockedLanguage(req, res, group.languageCode)) return null;
 
   const { resolvedPlan } = req as EntitledRequest;
   const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
