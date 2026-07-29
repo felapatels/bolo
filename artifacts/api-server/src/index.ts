@@ -23,27 +23,30 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Seed missing content (idempotent, advisory-locked) before serving traffic;
-// a content-empty database renders every learner-facing endpoint useless, so
-// failing loudly here is better than serving an empty app.
-await runStartupSeed();
-
-// Backfill Scoring Core v2: populate xp_ledger, user_item_memory, and
-// user_ability from existing attempt/game/quiz history. Idempotent — safe to
-// run on every deploy; subsequent runs are fast (all ON CONFLICT DO NOTHING).
-// Throws (killing startup) if the FSRS mastered-count drop exceeds 30 %.
-await runBackfillScoringV2();
-
-// Trigger fallback (July 29, 2026): install the lesson-group scope triggers
-// BEFORE any lesson-group assignment writes (the backfill below), so the
-// first prod boot after publish has enforcement in place before assignments
-// happen. Idempotent; logs "created" vs "already present" distinctly.
-await ensureLessonGroupScopeTriggers();
-
-// D1a Slice 1: partition existing phrases into lesson groups (journey-map
-// stations). Idempotent and advisory-locked; pairs already grouped are
-// skipped, so subsequent startups are fast.
-await runBackfillLessonGroups();
+// Startup pipeline, run AFTER the port opens (see listen below). The order
+// inside the pipeline is load-bearing and must not change:
+//   1. runStartupSeed — seed missing content (idempotent, advisory-locked).
+//   2. runBackfillScoringV2 — populate xp_ledger / user_item_memory /
+//      user_ability from history. Idempotent (ON CONFLICT DO NOTHING).
+//      Throws if the FSRS mastered-count drop exceeds 30 %.
+//   3. ensureLessonGroupScopeTriggers — trigger fallback (July 29, 2026):
+//      scope triggers must be installed BEFORE any lesson-group assignment
+//      writes so enforcement exists before assignments happen.
+//   4. runBackfillLessonGroups — partition phrases into lesson groups.
+//      Idempotent and advisory-locked; already-grouped pairs are skipped.
+//
+// Why listen-first: publishing waits ~60 s for the port to open, and a
+// content-heavy seed (e.g. the C1 sentence rollout) blew that window when
+// the pipeline ran before listen, failing the promote step. Seeding is
+// advisory-locked and append-only, so briefly serving while it completes is
+// safe; a pipeline failure still exits the process loudly (a content-empty
+// or half-migrated database must not keep silently serving).
+async function runStartupPipeline(): Promise<void> {
+  await runStartupSeed();
+  await runBackfillScoringV2();
+  await ensureLessonGroupScopeTriggers();
+  await runBackfillLessonGroups();
+}
 
 app.listen(port, (err) => {
   if (err) {
@@ -53,12 +56,21 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
-  // Pre-warm the TTS cache in the background after the server is up.
-  // This is fire-and-forget: a failure here never affects request handling.
-  scheduleTtsPrewarm();
+  runStartupPipeline()
+    .then(() => {
+      logger.info("Startup pipeline complete");
 
-  // Periodically reconcile stored subscription tiers against Stripe so a
-  // missed webhook (endpoint drift, secret rotation, outage) self-heals
-  // instead of silently desyncing learners' Plus status.
-  scheduleStripeReconcileSweep();
+      // Pre-warm the TTS cache in the background once content is in place.
+      // Fire-and-forget: a failure here never affects request handling.
+      scheduleTtsPrewarm();
+
+      // Periodically reconcile stored subscription tiers against Stripe so a
+      // missed webhook (endpoint drift, secret rotation, outage) self-heals
+      // instead of silently desyncing learners' Plus status.
+      scheduleStripeReconcileSweep();
+    })
+    .catch((err: unknown) => {
+      logger.fatal({ err }, "Startup pipeline failed; exiting");
+      process.exit(1);
+    });
 });
