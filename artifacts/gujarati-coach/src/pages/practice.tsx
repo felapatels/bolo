@@ -234,6 +234,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Zero-input state: visible once >1.5s passes with near-zero amplitude
   // while recording (mic muted / wrong device), per Spec D2 rule 7.
   const [noInput, setNoInput] = useState(false);
+  // One-time first-practice coach hint (P1 v2 item 6): "Hold Bolo to speak"
+  // floating callout the first time a learner reaches the practice screen with
+  // phrases loaded. Fires once per browser via localStorage. MUST live up here
+  // with the unconditional hooks — the loading/error early returns below would
+  // otherwise change the hook count between renders.
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    if (!phrases || phrases.length === 0) return;
+    const key = "bolo.practice.hint.v1";
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    setShowHint(true);
+    const t = setTimeout(() => setShowHint(false), 3500);
+    return () => clearTimeout(t);
+  }, [phrases]);
   // Reduced motion: static level indicator segments (0..5), not a waveform.
   const [levelSegments, setLevelSegments] = useState(0);
   useEffect(() => {
@@ -1268,7 +1283,32 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         >
           {/* Parrot image */}
           <div className="relative w-full h-full flex items-center justify-center">
-            {/* Glow ring while recording */}
+            {/* Idle pulsing ring — gentle invitation; stops when recording starts.
+                Reduced-motion: omitted entirely so it respects the global rule. */}
+            {!reduceMotion && (
+              <motion.div
+                className="absolute inset-[8%] rounded-full pointer-events-none"
+                animate={
+                  state === "idle"
+                    ? {
+                        boxShadow: [
+                          "0 0 0px 0px hsl(var(--primary) / 0)",
+                          "0 0 0px 18px hsl(var(--primary) / 0.18)",
+                          "0 0 0px 0px hsl(var(--primary) / 0)",
+                        ],
+                        opacity: [0.4, 1, 0.4],
+                      }
+                    : { boxShadow: "0 0 0px 0px hsl(var(--primary) / 0)", opacity: 0 }
+                }
+                transition={
+                  state === "idle"
+                    ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+                    : { duration: 0.25 }
+                }
+                aria-hidden="true"
+              />
+            )}
+            {/* Recording glow ring — brighter, faster */}
             <motion.div
               className="absolute inset-[10%] rounded-full pointer-events-none"
               animate={
@@ -1276,7 +1316,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   ? {
                       boxShadow: [
                         "0 0 0px 0px hsl(var(--accent) / 0)",
-                        "0 0 0px 24px hsl(var(--accent) / 0.3)",
+                        "0 0 0px 24px hsl(var(--accent) / 0.35)",
                         "0 0 0px 0px hsl(var(--accent) / 0)",
                       ],
                       opacity: [0.6, 1, 0.6],
@@ -1308,11 +1348,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                     loop leaves amplitudeMv at 0 under reduced motion or when
                     not recording, so this settles to scale 1 in those cases. */}
                 <motion.div className="w-full h-full" style={{ scale: mascotScale }}>
-                  <Mascot
-                    pose={mascotPose}
-                    fill
-                    idle={state === "result" && result?.passed ? "cheer" : "float"}
-                  />
+                  {/* Pressed scale rides a plain CSS transform on an inner div so
+                      it composes with (never fights) the amplitude MotionValue. */}
+                  <div
+                    className={cn(
+                      "w-full h-full transition-transform duration-100",
+                      state === "recording" && "scale-[0.97]",
+                    )}
+                  >
+                    <Mascot
+                      pose={mascotPose}
+                      fill
+                      idle={state === "result" && result?.passed ? "cheer" : "float"}
+                    />
+                  </div>
                 </motion.div>
               </motion.div>
             </AnimatePresence>
@@ -1323,6 +1372,28 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <Loader2 className="w-10 h-10 animate-spin text-primary drop-shadow-lg" />
               </div>
             )}
+
+            {/* One-time first-practice hint — floats above the mascot belly,
+                auto-fades after 3.5s, then never shown again. Motion-safe:
+                the outer div is static; only the framer child animates. */}
+            <AnimatePresence>
+              {showHint && state === "idle" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.94 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.94 }}
+                  transition={springs.snappy}
+                  className="pointer-events-none absolute top-[12%] left-1/2 -translate-x-1/2 rounded-2xl bg-primary px-4 py-2 shadow-lg"
+                  aria-hidden="true"
+                >
+                  <p className="whitespace-nowrap text-xs font-black text-primary-foreground">
+                    Hold Bolo to speak 🦜
+                  </p>
+                  {/* speech-bubble tail */}
+                  <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 bg-primary" />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Belly hit zone — lower-center of the parrot image area */}
             {bellyActive && (
@@ -1373,7 +1444,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   transition={springs.snappy}
                   className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs"
                 >
-                  {isUnsupported ? "Hold to record" : "Hold to speak"}
+                  {isUnsupported ? "Hold to record" : "Hold Bolo to speak"}
                 </motion.p>
               )}
               {state === "recording" && (

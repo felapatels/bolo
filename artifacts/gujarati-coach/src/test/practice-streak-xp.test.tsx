@@ -141,7 +141,7 @@ async function reachIdle(phraseList = phrases.slice(0, 3)) {
     refetch: vi.fn(),
   };
   renderPage(<Practice />);
-  await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument(), WT);
+  await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
 }
 
 type Band = "nailed" | "close" | "retry" | "nocatch";
@@ -180,7 +180,7 @@ async function scoreOnce(band: Band = "nailed", xpAwarded = 10) {
 async function scoreAndNext(band: Band = "nailed", xpAwarded = 10) {
   await scoreOnce(band, xpAwarded);
   fireEvent.click(screen.getByText("Next"));
-  await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument(), WT);
+  await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
 }
 
 beforeEach(() => {

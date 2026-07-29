@@ -164,7 +164,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     });
 
     renderPage(<Practice />);
-    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument(), WT);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
     await triggerRecording();
 
     // The result card should appear with the nailed-band tagline.
@@ -189,7 +189,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     });
 
     renderPage(<Practice />);
-    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument(), WT);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
     await triggerRecording();
 
     await waitFor(
@@ -211,7 +211,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     });
 
     renderPage(<Practice />);
-    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument(), WT);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
     await triggerRecording();
 
     await waitFor(

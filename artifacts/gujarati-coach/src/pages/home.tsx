@@ -4,13 +4,16 @@ import { Link } from "wouter";
 import { useGetProgressSummary, useGetAccount, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { LanguagePicker } from "@/components/language-picker";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
+import { useJourneyProgress } from "@/lib/useJourneyProgress";
+import { TrainEngine } from "@/components/train-svg";
+import { track } from "@/lib/analytics";
+import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { motion, useReducedMotion } from "framer-motion";
@@ -40,6 +43,7 @@ export default function Home() {
   const reduceMotion = useReducedMotion();
   const native = useNativeText();
   const journeyLine = getJourneyLine(activeLang);
+  const journey = useJourneyProgress(activeLang, journeyLine.zones);
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { startTour } = useTour();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
@@ -343,8 +347,13 @@ export default function Home() {
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left / main column — the learning surface */}
           <div className="space-y-8 lg:col-span-2">
-            {/* Spec D1b: featured journey-map entry — the map fronts the
-                topic list (decision 5); the grid below stays untouched. */}
+            {/* P1 v2 item 2: the journey IS the home hero — a full-width
+                boarding pass in the line's accent, visually continuous with
+                the /journey ticket-stub header. Carries live state (next stop,
+                Stop N of M, progress at the stop) when the zone queries have
+                it, and degrades to the generic line blurb when loading,
+                locked, or errored. The topic grid below is demoted to
+                "Browse by topic" and is otherwise untouched. */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -352,34 +361,77 @@ export default function Home() {
             >
               <Link
                 href="/journey"
-                className="group flex w-full items-center justify-between overflow-hidden rounded-3xl border-2 bg-white p-5 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
-                style={{ borderColor: journeyLine.accent, ["--tile" as string]: journeyLine.accent } as CSSProperties}
+                onClick={() =>
+                  track(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, { language: activeLang })
+                }
+                className="group relative block w-full overflow-hidden rounded-3xl text-white shadow-[0_8px_0_rgba(0,0,0,0.18)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]"
+                style={{ backgroundColor: journeyLine.accent }}
               >
-                <div className="flex min-w-0 items-center gap-4">
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl text-white shadow-sm"
-                    style={{ backgroundColor: journeyLine.accent }}
-                    aria-hidden
-                  >
-                    🚂
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: journeyLine.accent }}>
-                      Your journey · બોલો રેલ
-                    </div>
-                    <h2 className="truncate text-lg font-black text-foreground">
-                      Ride the {journeyLine.lineName}
-                    </h2>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {journeyLine.zones[0]} to {journeyLine.zones[5]}, station by station
-                    </p>
-                  </div>
-                </div>
                 <div
-                  className="ml-3 shrink-0 rounded-full p-2 text-white"
-                  style={{ backgroundColor: journeyLine.accent }}
-                >
-                  <ArrowRight className="h-5 w-5" />
+                  className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
+                  aria-hidden
+                />
+                <div className="p-5 lg:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                        Boarding pass · બોલો રેલ
+                      </div>
+                      <h2 className="mt-0.5 truncate text-xl font-black lg:text-2xl">
+                        Ride the {journeyLine.lineName}
+                      </h2>
+                      <p className="mt-1 truncate text-sm font-semibold text-white/90">
+                        {journey.current
+                          ? `Next stop: ${journey.current.geoName} · Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
+                          : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
+                      </p>
+                    </div>
+                    <TrainEngine className="mt-1 h-12 w-auto shrink-0 text-white drop-shadow-sm lg:h-14" />
+                  </div>
+                  {journey.current && journey.current.phraseCount > 0 && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
+                        <div
+                          className="h-full rounded-full bg-white transition-all duration-700"
+                          style={{
+                            width: `${Math.round(
+                              (journey.current.masteredCount / journey.current.phraseCount) * 100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-[11px] font-bold text-white/90">
+                        {journey.current.masteredCount}/{journey.current.phraseCount} at this stop
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {/* ticket perforation */}
+                <div className="relative" aria-hidden>
+                  <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
+                  <div className="absolute -right-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
+                  <div className="mx-5 border-t-2 border-dashed border-white/40" />
+                </div>
+                {/* ticket stub: action verb + daily-goal/streak co-located */}
+                <div className="flex items-center justify-between gap-3 p-5 pt-3.5 lg:px-6">
+                  <span className="flex items-center gap-2 text-base font-black">
+                    {journey.current?.started || journey.doneCount > 0
+                      ? "Continue your journey"
+                      : "Begin your journey"}
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                  {summary && (
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-black">
+                        <Flame className="h-3.5 w-3.5" fill="currentColor" />
+                        {summary.currentStreakDays}-day streak
+                      </span>
+                      <span className="hidden items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-black sm:flex">
+                        <Target className="h-3.5 w-3.5" />
+                        {Math.min(summary.attemptsToday, dailyGoal)}/{dailyGoal} today
+                      </span>
+                    </span>
+                  )}
                 </div>
               </Link>
             </motion.div>
@@ -388,7 +440,7 @@ export default function Home() {
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-5 h-5 text-accent" />
-                <h2 className="text-xl font-black text-foreground tracking-tight">Pick a topic</h2>
+                <h2 className="text-xl font-black text-foreground tracking-tight">Browse by topic</h2>
               </div>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                 {categories?.map((cat, i) => {
@@ -509,8 +561,6 @@ export default function Home() {
           </aside>
         </div>
       </main>
-
-      <BottomNav />
       {/* Daily goal celebration — mirrors the MilestoneToast on mobile home */}
       <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />
     </div>

@@ -16,6 +16,7 @@ import {
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
 import { ArrowLeft, Lock, Sparkles, X } from "lucide-react";
+import { TrainEngine } from "@/components/train-svg";
 import {
   Dialog,
   DialogContent,
@@ -81,12 +82,11 @@ function StationMarker({
   if (isCurrent) {
     return (
       <div
-        className="w-7 h-7 rounded-full bg-white flex items-center justify-center"
-        style={{ boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33` }}
+        className="w-10 h-7 rounded-full bg-white flex items-center justify-center px-1"
+        style={{ boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33`, color }}
+        title="Your current stop"
       >
-        <span className="text-[13px]" aria-hidden>
-          🚂
-        </span>
+        <TrainEngine className="w-8 h-full" />
       </div>
     );
   }
@@ -145,14 +145,13 @@ function ZonePostcard({
         }}
       />
       <div style={{ width: LINE_X + 22 }} className="shrink-0" />
-      {/* postcard frame */}
-      <div className="flex-1 rounded-lg border-2 bg-white p-1 shadow-sm" style={{ borderColor: color }}>
-        <div
-          className="rounded-md border border-dashed px-3 py-2"
-          style={{ borderColor: `${color}66` }}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+      {/* postcard frame — outer 2px border */}
+      <div className="flex-1 rounded-lg border-2 bg-white shadow-sm overflow-hidden" style={{ borderColor: color }}>
+        {/* dashed inner frame */}
+        <div className="m-1 rounded-md border border-dashed" style={{ borderColor: `${color}66` }}>
+          <div className="flex items-stretch gap-0">
+            {/* left column: main address side */}
+            <div className="flex-1 min-w-0 px-3 py-2">
               <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color }}>
                 Fare zone {zoneIndex + 1} · {zoneTitle}
               </div>
@@ -162,14 +161,45 @@ function ZonePostcard({
               <div className="text-[10px] text-muted-foreground">
                 {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
               </div>
+              {/* handwritten-adjacent zone caption */}
+              <div
+                className="mt-1.5 text-[10px] font-semibold italic"
+                style={{ color, transform: "rotate(-1.5deg)", transformOrigin: "left center" }}
+                aria-hidden
+              >
+                {geoName}
+              </div>
             </div>
-            {/* postage-stamp corner: frame only, landmark art ships separately */}
-            <div
-              className="shrink-0 h-9 w-9 rounded-sm border border-dashed flex items-center justify-center text-[8px] font-bold uppercase text-center leading-tight"
-              style={{ borderColor: `${color}88`, color }}
-              aria-hidden
-            >
-              {geoName.split(" ")[0]?.slice(0, 6)}
+            {/* divided-back vertical rule */}
+            <div className="w-px self-stretch my-1.5" style={{ background: `${color}44` }} aria-hidden />
+            {/* right column: stamp + postmark */}
+            <div className="shrink-0 flex flex-col items-center justify-between gap-1 px-2 py-1.5">
+              {/* postage stamp: bold zone number in accent */}
+              <div
+                className="h-9 w-9 rounded-sm border-2 flex flex-col items-center justify-center"
+                style={{ borderColor: color }}
+                aria-hidden
+              >
+                <span className="text-[8px] font-black uppercase tracking-wide leading-none" style={{ color }}>
+                  Zone
+                </span>
+                <span className="text-base font-black leading-none" style={{ color }}>
+                  {zoneIndex + 1}
+                </span>
+              </div>
+              {/* circular postmark */}
+              <div
+                className="w-8 h-8 rounded-full border border-dashed flex items-center justify-center"
+                style={{ borderColor: `${color}88` }}
+                aria-hidden
+              >
+                <div
+                  className="w-5 h-5 rounded-full border flex items-center justify-center"
+                  style={{ borderColor: color }}
+                >
+                  <div className="w-1 h-1 rounded-full" style={{ background: color }} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -452,7 +482,8 @@ export default function Journey() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 pb-14">
+      {/* pb-28 below lg clears the fixed BottomNav now mounted by AppShell */}
+      <main className="mx-auto w-full max-w-2xl flex-1 pb-28 lg:pb-14">
         {access === "exhausted" && (
           <div className="mx-3 mt-4 rounded-2xl border-2 p-4" style={{ borderColor: line.accent }}>
             <p className="text-sm font-bold text-foreground">

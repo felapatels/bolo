@@ -1507,22 +1507,72 @@ export default function ChatPage() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={springs.gentle}
-          className="mx-4 mb-3 rounded-xl border border-card-border bg-white p-3"
+          className={cn(
+            "mx-4 mb-3 rounded-xl border bg-white p-3",
+            capExhausted
+              ? "border-destructive/40 bg-destructive/5"
+              : timePercent < 0.25
+                ? "border-amber-300 bg-amber-50"
+                : "border-card-border",
+          )}
         >
-          <div className="mb-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${Math.round(timePercent * 100)}%`,
-                backgroundColor: capExhausted ? "hsl(var(--destructive))" : "hsl(var(--primary))",
-              }}
-            />
-          </div>
-          <p className="text-center text-xs font-medium text-muted-foreground">
-            {capExhausted
-              ? "Weekly chat time used — upgrade for unlimited"
-              : `⏱ ${formatSeconds(secondsRemaining!)} of 2:00 left this week`}
-          </p>
+          {capExhausted ? (
+            /* ── zero state: inline All-Access prompt ──────────────────── */
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-destructive">Chat time used up for this week</p>
+                <p className="text-[11px] text-muted-foreground">
+                  2 free minutes reset each week
+                </p>
+              </div>
+              <Link
+                href={upgradeHref({ plan: "plus", reason: "chat_cap" })}
+                className="shrink-0 rounded-xl bg-primary px-3 py-1.5 text-xs font-black text-white active:scale-95 transition-transform"
+              >
+                Go All-Access
+              </Link>
+            </div>
+          ) : (
+            /* ── active state: labeled allowance bar ───────────────────── */
+            <>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-black text-foreground">
+                  2 free chat minutes each week
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[11px] font-semibold tabular-nums",
+                    timePercent < 0.25 ? "text-amber-600" : "text-muted-foreground",
+                  )}
+                >
+                  {formatSeconds(secondsRemaining!)} left
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${Math.round(timePercent * 100)}%`,
+                    backgroundColor:
+                      timePercent < 0.25
+                        ? "hsl(38 92% 50%)"
+                        : "hsl(var(--primary))",
+                  }}
+                />
+              </div>
+              {timePercent < 0.25 && (
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-amber-700">Running low — resets next week</p>
+                  <Link
+                    href={upgradeHref({ plan: "plus", reason: "chat_cap_low" })}
+                    className="shrink-0 text-[11px] font-black text-primary active:underline"
+                  >
+                    Go unlimited ↗
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
         </motion.div>
       )}
 
@@ -1537,11 +1587,46 @@ export default function ChatPage() {
         aria-label={phase === "recording" ? "Release to send" : phase === "playing" ? "Tap to interrupt" : "Hold to speak"}
         className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none select-none touch-none"
       >
-        <Mascot
-          pose={mascotPose}
-          size={148}
-          idle={phase === "playing" ? "cheer" : "float"}
-        />
+        {/* Idle pulsing ring + pressed-state scale wrapper */}
+        <div className="relative flex items-center justify-center">
+          {/* Idle invitation ring — reduced-motion aware */}
+          {!prefersReducedMotion && !capExhausted && (
+            <motion.div
+              className="absolute inset-0 rounded-full pointer-events-none"
+              animate={
+                phase === "idle"
+                  ? {
+                      boxShadow: [
+                        "0 0 0px 0px hsl(var(--primary) / 0)",
+                        "0 0 0px 20px hsl(var(--primary) / 0.18)",
+                        "0 0 0px 0px hsl(var(--primary) / 0)",
+                      ],
+                      opacity: [0.4, 1, 0.4],
+                    }
+                  : { boxShadow: "0 0 0px 0px hsl(var(--primary) / 0)", opacity: 0 }
+              }
+              transition={
+                phase === "idle"
+                  ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.25 }
+              }
+              aria-hidden="true"
+            />
+          )}
+          {/* Pressed-state scale — plain CSS transform, no stacked motion.div */}
+          <div
+            className={cn(
+              "transition-transform duration-100",
+              phase === "recording" && "scale-[0.96]",
+            )}
+          >
+            <Mascot
+              pose={mascotPose}
+              size={148}
+              idle={phase === "playing" ? "cheer" : "float"}
+            />
+          </div>
+        </div>
         <AnimatePresence mode="wait">
           <motion.p
             key={phase === "processing" ? `processing-${processingStep}` : phase}

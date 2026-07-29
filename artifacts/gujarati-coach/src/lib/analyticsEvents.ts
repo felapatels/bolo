@@ -13,6 +13,9 @@ export const ANALYTICS_EVENTS = {
   SESSION_COMPLETED: "session_completed",
   PAYWALL_VIEWED: "paywall_viewed",
   PURCHASE_COMPLETED: "purchase_completed",
+  // Demo-day polish (P1 v2 item 2): distinguishes journey entries that come
+  // through the home boarding-pass hero from direct /journey navigation.
+  JOURNEY_ENTERED_VIA_HERO: "journey_entered_via_hero",
 } as const;
 
 export type AnalyticsEvent =

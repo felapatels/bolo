@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useLocation } from "wouter";
+import { BottomNav } from "@/components/layout/bottom-nav";
 import { DesktopNav } from "@/components/layout/desktop-nav";
 import { PageTransition } from "@/lib/motion";
 
@@ -26,6 +27,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="lg:pl-64">
         <PageTransition key={location}>{children}</PageTransition>
       </div>
+      {/* Mobile bottom nav — mounted ONCE here, deliberately OUTSIDE the
+          transform-animated PageTransition subtree. Any animated ancestor
+          (framer transform mid-transition, or a CSS animation that fills
+          forwards) becomes a containing block and turns the nav's
+          `position: fixed` into container-relative, which made it scroll with
+          page content. Pages under this shell must NOT mount their own
+          BottomNav, and need enough bottom padding (~pb-28) so the last
+          element clears it. */}
+      <BottomNav />
     </div>
   );
 }

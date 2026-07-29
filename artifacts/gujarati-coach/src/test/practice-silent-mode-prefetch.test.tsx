@@ -182,7 +182,7 @@ async function renderSilent() {
   renderPage(<Practice />);
   // In silent mode the page skips playing_coach and goes straight to idle.
   await waitFor(() =>
-    expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+    expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(),
   );
 }
 
@@ -241,7 +241,7 @@ describe("silent mode — initial load", () => {
     // The coach synthesizer must NOT have been called for the first phrase yet:
     // we never entered playing_coach.
     await waitFor(() =>
-      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(),
     );
     // synth may later be called for prefetch of phrase N+1, but NOT for phrase0
     // in the playing_coach path (the audio element is never created for it).
@@ -260,7 +260,7 @@ describe("silent mode — initial load", () => {
       expect.objectContaining({ data: expect.objectContaining({ text: phrase0.nativeScript }) }),
     );
     // State only reaches idle once the audio finishes — belly zone not shown yet.
-    expect(screen.queryByText("Hold to speak")).not.toBeInTheDocument();
+    expect(screen.queryByText("Hold Bolo to speak")).not.toBeInTheDocument();
   });
 });
 
@@ -274,7 +274,7 @@ describe("silent mode — next phrase", () => {
 
     // Should land on idle for phrase1 directly.
     await waitFor(() =>
-      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(),
     );
     // No Audio element created for phrase1's coach playback.
     const phrase1CoachCalls = h.synth.mock.calls.filter(
@@ -312,7 +312,7 @@ describe("silent mode — retry", () => {
 
     // Should land back at idle without playing coach audio.
     await waitFor(() =>
-      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(),
     );
     // synth must NOT have been called for the coach-playback path on retry.
     // (It may still run for prefetch of phrase1, so filter for phrase0.)
@@ -415,7 +415,7 @@ describe("audio prefetch", () => {
     localStorage.setItem("bolo.silentMode", "on");
     renderPage(<Practice />);
     await waitFor(() =>
-      expect(screen.getByText("Hold to speak")).toBeInTheDocument(),
+      expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(),
     );
 
     // Allow any microtask-queued effects to settle.
@@ -443,7 +443,7 @@ describe("audio prefetch", () => {
     await act(async () => {
       audioInstances[0].onended?.(); // finish coach for phrase0 → idle
     });
-    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument());
 
     fireEvent.pointerDown(bellyButton());
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());

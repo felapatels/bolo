@@ -1,5 +1,4 @@
 import { useGetProgressSummary, useListRecentAttempts } from "@workspace/api-client-react";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { Star, Target, CalendarDays, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
@@ -134,7 +133,6 @@ export default function Progress() {
         </div>
       </main>
 
-      <BottomNav />
     </div>
   );
 }

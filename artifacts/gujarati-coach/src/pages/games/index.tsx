@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 
@@ -126,7 +125,6 @@ export default function GamesPage() {
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 }

@@ -194,7 +194,19 @@
      resolution never snaps. Pure CSS animation: the reduced-motion rule below
      collapses it to its final frame (static) automatically. */
   .animate-content-enter {
-    animation: content-enter 0.25s ease-out both;
+    /* fill-mode `backwards` only: a `forwards`/`both` fill would keep the
+       final keyframe's identity transform applied forever, turning the
+       wrapper into a containing block that silently breaks `position: fixed`
+       descendants (the bottom nav rode along with page content because of
+       exactly this). The end state equals the element's natural style, so
+       dropping the forwards fill is visually identical. */
+    animation: content-enter 0.25s ease-out backwards;
+  }
+
+  /* Safe-area padding for UI pinned to the viewport bottom (home-indicator
+     devices). Requires viewport-fit=cover on the viewport meta tag. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 

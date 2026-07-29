@@ -83,3 +83,4 @@
 - [Lesson-group scope trigger fallback](lesson-group-trigger-fallback.md) — scope FK replaced by 23503-raising triggers + boot-ordered startup guard (dual-home DDL, distinct created/no-op logs); restore-FK procedure documented.
 - [Task completion hygiene](task-completion-hygiene.md) — markTaskComplete commits the WHOLE tree (leftover files fail review); suites fail at documented baselines, so use an audited skip_validation_reason after diagnosing.
 - [Journey map web (D1b)](journey-map-web.md) — picker feeds locked langs into the showroom (auto-revert removed; budget blast-radius checks, not global guards); sentence gating per-route server-side; QA harness traps.
+- [fixed-position vs animation-fill-mode](fixed-position-fill-mode.md) — fill-mode both/forwards leaves an identity transform that turns page wrappers into containing blocks, breaking fixed navs; use backwards + mount chrome outside animated subtrees.

@@ -41,7 +41,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,7 +154,6 @@ export default function Friends() {
         )}
       </main>
 
-      <BottomNav />
     </div>
   );
 }

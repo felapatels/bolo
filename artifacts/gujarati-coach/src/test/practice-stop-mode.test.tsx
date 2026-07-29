@@ -159,7 +159,7 @@ beforeEach(() => {
 async function reachIdle() {
   localStorage.setItem("bolo.silentMode", "on");
   renderPage(<Practice />);
-  await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument());
 }
 
 /** The belly-zone button (aria-label changes based on recording state). */
@@ -248,7 +248,7 @@ describe("evaluation error surfacing", () => {
 
     // Retry recovers cleanly back to the belly zone.
     fireEvent.click(screen.getByText("Record again"));
-    await waitFor(() => expect(screen.getByText("Hold to speak")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument());
   });
 
   test("a network failure explains the connection problem", async () => {

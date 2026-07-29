@@ -61,6 +61,10 @@ vi.mock("@workspace/api-client-react", () => ({
   useListBadges: () => ({ data: h.badges, isLoading: false }),
   useGetProgressAnalytics: () => ({ data: h.analytics, isLoading: false }),
   useListIncomingFriendRequests: () => ({ data: [], isLoading: false }),
+  // Journey hero (P1 v2 item 2): home now warms the six zone queries via
+  // useJourneyProgress. Errored state here → hero falls back to generic copy;
+  // gating assertions are unaffected (presentation only).
+  useListCategoryLessonGroups: () => ({ data: undefined, isLoading: false, isError: true }),
 }));
 
 // Imported after the mocks are declared.
