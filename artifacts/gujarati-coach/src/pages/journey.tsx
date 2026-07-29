@@ -7,8 +7,17 @@
 // except the marked teaser station. Approved treatments: tested_out = express
 // stamp, sentence stage = first-class diamond + Plus chip, locked showroom
 // zones = grayscale postcards.
+//
+// Task 3 visual upgrade (approved picks): the rail renders as a PRONOUNCED
+// serpentine railway track — stations alternate left/right, twin rails with
+// sleeper ties curve between them, completed segments solid, locked segments
+// faded and dashed — and the map-header boarding pass gets the full-ticket
+// treatment (tear-off stub, stripes, fare-zone stamp, punched hole). Stop
+// cards, badges, lock states, dialogs and the parked-train marker are
+// functionally unchanged; only path geometry, connector art and the header
+// pass chrome changed.
 import { Link } from "wouter";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useListCategories,
   useListCategoryLessonGroups,
@@ -36,9 +45,19 @@ import {
   useEntitlements,
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
+import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
 
-const LINE_X = 52; // px from the left edge of the rail column (mockup C)
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
+
+// Serpentine layout rhythm (approved "pronounced" treatment). The map column
+// is mobile-width (max 390px) and centers inside the page's max-w-2xl on
+// desktop — no separate desktop composition.
+const MAP_MAX_W = 390;
+const STATION_H = 100; // vertical rhythm per station row
+const PC_H = 122; // vertical rhythm per fare-zone postcard
+const TERM_H = 92; // terminus row
+const TOP_PAD = 10;
+const LEFT_X = 92; // marker x for even-index stations
 
 type Station = LessonGroupSummary & {
   zoneId: number;
@@ -64,6 +83,26 @@ function isStatusAccessible(status: LessonGroupSummary["status"]): boolean {
     status === "completed" ||
     status === "tested_out"
   );
+}
+
+/** Measured width of the map column, so the serpentine geometry stays inside
+ *  the viewport on phones narrower than 390px. */
+function useMapWidth() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [w, setW] = useState(MAP_MAX_W);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const cw = el.clientWidth;
+      if (cw > 0) setW(Math.round(cw));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, w };
 }
 
 /** Marker sitting on the rail: circle for phrase stops, diamond for the
@@ -115,7 +154,8 @@ function StationMarker({
 
 /** Fare-zone postcard: shared frame, per-line accent, zone name in the
  *  landmark slot (no artwork is generated — acceptance 8). Locked showroom
- *  zones render grayscale. */
+ *  zones render grayscale. Full-width card; the interchange diamond is drawn
+ *  by the map on the track where it meets the card. */
 function ZonePostcard({
   zoneIndex,
   zoneTitle,
@@ -133,20 +173,9 @@ function ZonePostcard({
 }) {
   const color = grayed ? GRAY : accent;
   return (
-    <div className={cn("relative flex items-center py-4", grayed && "grayscale opacity-80")}>
-      {/* interchange diamond on the rail */}
-      <div
-        className="absolute w-4 h-4 border-4 border-white"
-        style={{
-          left: LINE_X,
-          transform: "translateX(-50%) rotate(45deg)",
-          background: color,
-          boxShadow: `0 0 0 2px ${color}`,
-        }}
-      />
-      <div style={{ width: LINE_X + 22 }} className="shrink-0" />
+    <div className={cn(grayed && "grayscale opacity-80")}>
       {/* postcard frame — outer 2px border */}
-      <div className="flex-1 rounded-lg border-2 bg-white shadow-sm overflow-hidden" style={{ borderColor: color }}>
+      <div className="rounded-lg border-2 bg-white shadow-sm overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
         <div className="m-1 rounded-md border border-dashed" style={{ borderColor: `${color}66` }}>
           <div className="flex items-stretch gap-0">
@@ -208,7 +237,9 @@ function ZonePostcard({
   );
 }
 
-function StationRow({
+/** Stop card (Link when boardable, lock-dialog button otherwise). The rail
+ *  marker is positioned separately by the map on the track itself. */
+function StationCard({
   station,
   color,
   isCurrent,
@@ -216,6 +247,7 @@ function StationRow({
   showTeaserChip,
   href,
   onLocked,
+  side,
 }: {
   station: Station;
   color: string;
@@ -224,6 +256,7 @@ function StationRow({
   showTeaserChip: boolean;
   href: string;
   onLocked: () => void;
+  side: "left" | "right";
 }) {
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
   const statusCopy =
@@ -236,101 +269,122 @@ function StationRow({
           : accessible
             ? "Now boarding"
             : "Locked";
+  const card = (
+    <div
+      className={cn(
+        "min-w-0 rounded-lg px-3 py-2 transition-colors group-hover:bg-accent",
+        isCurrent && "bg-card border shadow-sm",
+      )}
+      style={isCurrent ? { borderColor: color } : undefined}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            accessible ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {stopLabel}
+        </span>
+        {station.stage === "sentence" && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
+            title="First-class sentence stop — All-Access"
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            All-Access
+          </span>
+        )}
+        {station.status === "tested_out" && (
+          <span
+            className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
+            style={{ borderColor: color, color }}
+          >
+            Express
+          </span>
+        )}
+        {showTeaserChip && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
+            style={{ background: color }}
+          >
+            Free taste
+          </span>
+        )}
+        {!accessible && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        {statusCopy}
+        {station.attemptedCount ? ` · ${station.masteredCount}/${station.phraseCount} mastered` : ` · ${station.phraseCount} phrases`}
+        {isCurrent && " · Bolo is waiting here"}
+      </div>
+    </div>
+  );
   const body = (
     <>
-      <div
-        className="absolute flex items-center justify-center"
-        style={{ left: LINE_X, transform: "translateX(-50%)" }}
-      >
-        <StationMarker
-          station={station}
-          color={color}
-          isCurrent={isCurrent}
-          accessible={accessible}
-        />
-      </div>
-      <div style={{ width: LINE_X + 22 }} className="shrink-0" />
-      <div
-        className={cn(
-          "flex-1 min-w-0 rounded-lg px-3 py-2 transition-colors group-hover:bg-accent",
-          isCurrent && "bg-card border shadow-sm",
-        )}
-        style={isCurrent ? { borderColor: color } : undefined}
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={cn(
-              "text-sm font-semibold",
-              accessible ? "text-foreground" : "text-muted-foreground",
-            )}
-          >
-            {stopLabel}
-          </span>
-          {station.stage === "sentence" && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
-              title="First-class sentence stop — All-Access"
-            >
-              <Sparkles className="w-2.5 h-2.5" />
-              All-Access
-            </span>
-          )}
-          {station.status === "tested_out" && (
-            <span
-              className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
-              style={{ borderColor: color, color }}
-            >
-              Express
-            </span>
-          )}
-          {showTeaserChip && (
-            <span
-              className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
-              style={{ background: color }}
-            >
-              Free taste
-            </span>
-          )}
-          {!accessible && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
-        </div>
-        <div className="text-[11px] text-muted-foreground">
-          {statusCopy}
-          {station.attemptedCount ? ` · ${station.masteredCount}/${station.phraseCount} mastered` : ` · ${station.phraseCount} phrases`}
-          {isCurrent && " · Bolo is waiting here"}
-        </div>
-      </div>
-      {isCurrent && <Mascot pose="cheer" size={44} className="shrink-0 -ml-1" />}
+      {side === "left" && isCurrent && (
+        <Mascot pose="cheer" size={44} className="shrink-0" />
+      )}
+      {card}
+      {side === "right" && isCurrent && (
+        <Mascot pose="cheer" size={44} className="shrink-0" />
+      )}
     </>
   );
   const aria = `${stopLabel} — ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
+  const rowClass = cn(
+    "flex w-full items-center gap-1 text-left group",
+    side === "left" ? "justify-end" : "justify-start",
+  );
   if (accessible) {
     return (
-      <Link
-        href={href}
-        aria-label={aria}
-        className="relative w-full flex items-center gap-3 py-2.5 pr-3 text-left group"
-      >
+      <Link href={href} aria-label={aria} className={rowClass}>
         {body}
       </Link>
     );
   }
   return (
-    <button
-      type="button"
-      aria-label={aria}
-      onClick={onLocked}
-      className="relative w-full flex items-center gap-3 py-2.5 pr-3 text-left group"
-    >
+    <button type="button" aria-label={aria} onClick={onLocked} className={rowClass}>
       {body}
     </button>
   );
 }
+
+/** One railway segment: sleeper ties under twin rails (a wide stroke split in
+ *  two by a background-colored center stroke). Locked segments are faded and
+ *  dashed; completed/boarding segments are solid accent. */
+function RailSegment({ d, lit, accent }: { d: string; lit: boolean; accent: string }) {
+  const color = lit ? accent : GRAY;
+  return (
+    <g opacity={lit ? 1 : 0.5}>
+      <path d={d} stroke={color} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
+      <path d={d} stroke={color} strokeWidth={8.5} fill="none" strokeDasharray={lit ? undefined : "9 7"} />
+      <path
+        d={d}
+        style={{ stroke: "hsl(var(--background))" }}
+        strokeWidth={4}
+        fill="none"
+        strokeDasharray={lit ? undefined : "9 7"}
+      />
+    </g>
+  );
+}
+
+type Pt = {
+  x: number;
+  y: number;
+  kind: "station" | "postcard" | "terminus";
+  lit: boolean;
+  station?: Station;
+  zoneIndex?: number;
+};
 
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
   const { isAllAccess } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
+  const { ref: mapRef, w: mapW } = useMapWidth();
 
   // One language's map never fetches another language's data (behavior 9):
   // exactly six fixed zone queries for the active language.
@@ -435,6 +489,8 @@ export default function Journey() {
       (s.status === "unlocked" || s.status === "in_progress") &&
       !(s.stage === "sentence" && !isAllAccess),
   )?.id;
+  const currentStation = allStations.find((s) => s.id === currentId) ?? null;
+  const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
 
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
@@ -442,9 +498,63 @@ export default function Journey() {
     reason: access === "exhausted" ? "teaser_exhausted" : "language_locked",
   });
 
+  // --- Serpentine geometry (pronounced): stations alternate left/right down
+  // the measured map column; the track curves between them.
+  const rightX = mapW - 94; // mirror of LEFT_X within the measured column
+  const stationX = (k: number) => (k % 2 === 0 ? LEFT_X : rightX);
+  const pts: Pt[] = [];
+  const postcardYs: { y: number; zoneIndex: number }[] = [];
+  let layoutY = TOP_PAD;
+  let k = 0; // global station index (drives the serpentine phase)
+  for (let zi = 0; zi < zones.length; zi++) {
+    const zone = zones[zi]!;
+    const zoneLit = zone.stations.some(
+      (s) => isStatusAccessible(s.status) || s.teaserStation,
+    );
+    postcardYs.push({ y: layoutY, zoneIndex: zi });
+    // Path point mid-postcard, x interpolated between neighbor stations.
+    const xPrev = k === 0 ? stationX(0) : stationX(k - 1);
+    const xNext = stationX(k);
+    pts.push({
+      x: (xPrev + xNext) / 2,
+      y: layoutY + PC_H / 2,
+      kind: "postcard",
+      lit: !showroom || zoneLit,
+      zoneIndex: zi,
+    });
+    layoutY += PC_H;
+    for (const s of zone.stations) {
+      const sentenceGated = s.stage === "sentence" && !isAllAccess;
+      const lit =
+        s.status === "completed" ||
+        s.status === "tested_out" ||
+        s.status === "in_progress" ||
+        (s.status === "unlocked" && !sentenceGated);
+      pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: "station", lit, station: s });
+      layoutY += STATION_H;
+      k++;
+    }
+  }
+  const allDone = doneCount === totalCount && totalCount > 0;
+  const termX = k > 0 ? stationX(k - 1) : LEFT_X;
+  const termY = layoutY + TERM_H / 2;
+  pts.push({ x: termX, y: termY, kind: "terminus", lit: allDone });
+  const totalH = layoutY + TERM_H + 8;
+
+  const segs = pts.slice(1).map((p, i) => {
+    const a = pts[i]!;
+    const dy = (p.y - a.y) / 2;
+    return {
+      d: `M ${a.x} ${a.y} C ${a.x} ${a.y + dy}, ${p.x} ${p.y - dy}, ${p.x} ${p.y}`,
+      lit: p.lit,
+    };
+  });
+
+  let stationIdx = 0;
+
   return (
     <div className="app-surface min-h-[100dvh] bg-background flex flex-col">
-      {/* Boarding-pass header (mockup C ticket stub) */}
+      {/* Boarding-pass header — full-ticket treatment */}
       <header className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border">
         <div className="mx-auto w-full max-w-2xl px-3 py-3 flex items-center gap-2">
           <Link
@@ -454,9 +564,10 @@ export default function Journey() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div className="flex-1 rounded-lg border-2 border-dashed border-border bg-card px-4 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
+          <div className="relative flex-1 overflow-hidden rounded-lg border-2 border-dashed border-border bg-card">
+            <TicketStripes ink={`${line.accent}08`} />
+            <div className="relative flex items-stretch">
+              <div className="min-w-0 flex-1 px-4 py-2.5">
                 <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
                   Boarding pass · બોલો રેલ
                 </div>
@@ -466,15 +577,29 @@ export default function Journey() {
                 <div className="text-[11px] text-muted-foreground truncate">
                   {line.zones[0]} → {line.zones[5]} · {doneCount}/{totalCount} stations
                 </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-2xl" aria-hidden>
-                  🎫
-                </div>
                 {access === "teaser" && teaserProgress && (
                   <div className="text-[10px] font-bold" style={{ color: line.accent }}>
                     Free taste {teaserProgress.consumed}/{teaserProgress.limit}
                   </div>
+                )}
+              </div>
+              {/* tear-off stub */}
+              <TicketPerforationV light={false} />
+              <div className="relative flex w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1.5">
+                <div
+                  className="absolute top-1.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-background"
+                  aria-hidden
+                />
+                <div className="mt-2 text-lg leading-none" aria-hidden>
+                  🎫
+                </div>
+                {currentZone && currentStation && (
+                  <ZoneStamp
+                    ink={line.accent}
+                    zone={currentStation.zoneIndex + 1}
+                    name={currentZone.geoName}
+                    size={44}
+                  />
                 )}
               </div>
             </div>
@@ -504,97 +629,171 @@ export default function Journey() {
           </div>
         )}
 
-        {/* Rail + zones + stations */}
-        <div className="relative mt-2">
-          {/* continuous rail: one segment per zone */}
-          <div
-            className="absolute top-0 bottom-0 flex flex-col"
-            style={{ left: LINE_X, transform: "translateX(-50%)", width: 8 }}
-          >
-            {zones.map((z) => {
-              const zoneAccessible = z.stations.some(
+        {/* Serpentine railway: track + zone postcards + stations. The map is
+            mobile-width and centers in the column on desktop. */}
+        <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px]">
+          <div className="relative" style={{ height: totalH }}>
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              width={mapW}
+              height={totalH}
+              viewBox={`0 0 ${mapW} ${totalH}`}
+              aria-hidden
+            >
+              {segs.map((s, i) => (
+                <RailSegment key={i} d={s.d} lit={s.lit} accent={line.accent} />
+              ))}
+            </svg>
+
+            {/* Zone postcards (full width; interchange diamond rides the track) */}
+            {postcardYs.map(({ y: py, zoneIndex }) => {
+              const zone = zones[zoneIndex]!;
+              const pt = pts.find((p) => p.kind === "postcard" && p.zoneIndex === zoneIndex)!;
+              const zoneAccessible = zone.stations.some(
                 (s) => isStatusAccessible(s.status) || s.teaserStation,
               );
+              const grayed = showroom && !zoneAccessible;
+              const diamondColor = grayed ? GRAY : line.accent;
               return (
-                <div
-                  key={z.id}
-                  style={{
-                    background: showroom && !zoneAccessible ? GRAY : line.accent,
-                    flexGrow: z.stations.length + 1,
-                  }}
-                />
+                <div key={zone.id}>
+                  <div className="absolute" style={{ left: 16, right: 16, top: py + 10 }}>
+                    <ZonePostcard
+                      zoneIndex={zoneIndex}
+                      zoneTitle={zone.title}
+                      geoName={zone.geoName}
+                      accent={line.accent}
+                      stationCount={zone.stations.length}
+                      grayed={grayed}
+                    />
+                  </div>
+                  {/* interchange diamond pinned where the track meets the zone
+                      card (top border) so it never collides with the card text */}
+                  <div
+                    className="absolute w-4 h-4 border-4 border-white"
+                    style={{
+                      left: pt.x,
+                      top: py + 10,
+                      transform: "translate(-50%, -50%) rotate(45deg)",
+                      background: diamondColor,
+                      boxShadow: `0 0 0 2px ${diamondColor}`,
+                      zIndex: 5,
+                    }}
+                    aria-hidden
+                  />
+                </div>
               );
             })}
-          </div>
 
-          {zones.map((z, zi) => {
-            const zoneAccessible = z.stations.some(
-              (s) => isStatusAccessible(s.status) || s.teaserStation,
-            );
-            const grayed = showroom && !zoneAccessible;
-            const zoneColor = grayed ? GRAY : line.accent;
-            return (
-              <div key={z.id}>
-                <ZonePostcard
-                  zoneIndex={zi}
-                  zoneTitle={z.title}
-                  geoName={z.geoName}
-                  accent={line.accent}
-                  stationCount={z.stations.length}
-                  grayed={grayed}
-                />
-                {z.stations.map((s) => {
-                  const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
-                  // Behavior 4 + 6: a Free learner's sentence stop always routes
-                  // through the entitlement presentation, even when progression
-                  // says unlocked — its phrases are Plus content server-side.
-                  const sentenceGated = s.stage === "sentence" && !isAllAccess;
-                  const accessible =
-                    isStatusAccessible(s.status) && !sentenceGated;
-                  return (
-                    <StationRow
-                      key={s.id}
-                      station={s}
-                      color={zoneColor}
-                      isCurrent={s.id === currentId}
-                      accessible={accessible}
-                      showTeaserChip={s.teaserStation === true}
-                      href={`/practice/${z.id}?group=${s.id}`}
-                      onLocked={() =>
-                        setLock({
-                          kind: showroom
-                            ? "language"
-                            : sentenceGated
-                              ? "sentence"
-                              : "progression",
-                          stopLabel: `${stopLabel} · ${z.geoName}`,
-                          zoneTitle: z.title,
-                        })
-                      }
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
+            {/* Stations */}
+            {pts
+              .filter((p) => p.kind === "station")
+              .map((p) => {
+                const s = p.station!;
+                const zone = zones[s.zoneIndex]!;
+                const zoneAccessible = zone.stations.some(
+                  (st) => isStatusAccessible(st.status) || st.teaserStation,
+                );
+                const grayed = showroom && !zoneAccessible;
+                const zoneColor = grayed ? GRAY : line.accent;
+                const k2 = stationIdx++;
+                const side: "left" | "right" = k2 % 2 === 0 ? "right" : "left";
+                const boxLeft = side === "right" ? p.x + 28 : 16;
+                const boxWidth =
+                  side === "right" ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
+                const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
+                // Behavior 4 + 6: a Free learner's sentence stop always routes
+                // through the entitlement presentation, even when progression
+                // says unlocked — its phrases are Plus content server-side.
+                const sentenceGated = s.stage === "sentence" && !isAllAccess;
+                const accessible = isStatusAccessible(s.status) && !sentenceGated;
+                return (
+                  <div key={s.id}>
+                    <div
+                      className="absolute flex items-center justify-center pointer-events-none"
+                      style={{
+                        left: p.x,
+                        top: p.y,
+                        transform: "translate(-50%, -50%)",
+                        zIndex: 6,
+                      }}
+                      aria-hidden
+                    >
+                      <StationMarker
+                        station={s}
+                        color={zoneColor}
+                        isCurrent={s.id === currentId}
+                        accessible={accessible}
+                      />
+                    </div>
+                    <div
+                      className="absolute"
+                      style={{
+                        left: boxLeft,
+                        width: boxWidth,
+                        top: p.y,
+                        transform: "translateY(-50%)",
+                        zIndex: 4,
+                      }}
+                    >
+                      <StationCard
+                        station={s}
+                        color={zoneColor}
+                        isCurrent={s.id === currentId}
+                        accessible={accessible}
+                        showTeaserChip={s.teaserStation === true}
+                        href={`/practice/${zone.id}?group=${s.id}`}
+                        onLocked={() =>
+                          setLock({
+                            kind: showroom
+                              ? "language"
+                              : sentenceGated
+                                ? "sentence"
+                                : "progression",
+                            stopLabel: `${stopLabel} · ${zone.geoName}`,
+                            zoneTitle: zone.title,
+                          })
+                        }
+                        side={side}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
 
-          {/* terminus */}
-          <div className="relative flex items-center py-4">
+            {/* terminus */}
             <div
               className="absolute w-6 h-6 rounded-full border-4 border-white"
               style={{
-                left: LINE_X,
-                transform: "translateX(-50%)",
-                background: doneCount === totalCount && totalCount > 0 ? line.accent : GRAY,
-                boxShadow: `0 0 0 2px ${doneCount === totalCount && totalCount > 0 ? line.accent : GRAY}`,
+                left: termX,
+                top: termY,
+                transform: "translate(-50%, -50%)",
+                background: allDone ? line.accent : GRAY,
+                boxShadow: `0 0 0 2px ${allDone ? line.accent : GRAY}`,
+                zIndex: 5,
               }}
+              aria-hidden
             />
-            <div style={{ width: LINE_X + 22 }} className="shrink-0" />
-            <div className="text-xs font-bold text-muted-foreground">
+            <div
+              className="absolute text-xs font-bold text-muted-foreground"
+              style={
+                termX > mapW / 2
+                  ? {
+                      left: 12,
+                      width: termX - 36,
+                      top: termY,
+                      transform: "translateY(-50%)",
+                      textAlign: "right",
+                    }
+                  : {
+                      left: termX + 24,
+                      right: 12,
+                      top: termY,
+                      transform: "translateY(-50%)",
+                    }
+              }
+            >
               Terminus: {line.zones[5]} —{" "}
-              {doneCount === totalCount && totalCount > 0
-                ? "journey complete!"
-                : "the festival finale awaits"}
+              {allDone ? "journey complete!" : "the festival finale awaits"}
             </div>
           </div>
         </div>

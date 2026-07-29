@@ -12,6 +12,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
+import { PunchHole, TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
@@ -367,71 +368,100 @@ export default function Home() {
                 className="group relative block w-full overflow-hidden rounded-3xl text-white shadow-[0_8px_0_rgba(0,0,0,0.18)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]"
                 style={{ backgroundColor: journeyLine.accent }}
               >
+                {/* full-ticket treatment: diagonal brand-stripe ticket stock */}
+                <TicketStripes ink="rgba(255,255,255,0.05)" />
                 <div
                   className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
                   aria-hidden
                 />
-                <div className="p-5 lg:p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/80">
-                        Boarding pass · બોલો રેલ
+                <div className="relative flex items-stretch">
+                  {/* main body */}
+                  <div className="min-w-0 flex-1">
+                    <div className="p-5 pr-3 lg:p-6 lg:pr-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                            Boarding pass · બોલો રેલ
+                          </div>
+                          <h2 className="mt-0.5 text-lg font-black leading-tight lg:text-2xl">
+                            Ride the {journeyLine.lineName}
+                          </h2>
+                          <p className="mt-1 truncate text-sm font-semibold text-white/90">
+                            {journey.current
+                              ? `Next stop: ${journey.current.geoName} · Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
+                              : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
+                          </p>
+                        </div>
+                        <TrainEngine className="mt-1 h-10 w-auto shrink-0 text-white drop-shadow-sm lg:h-14" />
                       </div>
-                      <h2 className="mt-0.5 truncate text-xl font-black lg:text-2xl">
-                        Ride the {journeyLine.lineName}
-                      </h2>
-                      <p className="mt-1 truncate text-sm font-semibold text-white/90">
-                        {journey.current
-                          ? `Next stop: ${journey.current.geoName} · Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
-                          : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
-                      </p>
+                      {journey.current && journey.current.phraseCount > 0 && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
+                            <div
+                              className="h-full rounded-full bg-white transition-all duration-700"
+                              style={{
+                                width: `${Math.round(
+                                  (journey.current.masteredCount / journey.current.phraseCount) * 100,
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="shrink-0 text-[11px] font-bold text-white/90">
+                            {journey.current.masteredCount}/{journey.current.phraseCount} at this stop
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <TrainEngine className="mt-1 h-12 w-auto shrink-0 text-white drop-shadow-sm lg:h-14" />
+                    {/* ticket perforation (dashed line + edge notch, retained) */}
+                    <div className="relative" aria-hidden>
+                      <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
+                      <div className="mx-5 border-t-2 border-dashed border-white/40" />
+                    </div>
+                    {/* action verb + daily-goal/streak co-located */}
+                    <div className="flex items-center justify-between gap-2 p-5 pt-3.5 pr-3 lg:px-6 lg:pr-4">
+                      <span className="flex items-center gap-1.5 text-sm font-black lg:text-base lg:gap-2">
+                        {journey.current?.started || journey.doneCount > 0
+                          ? "Continue your journey"
+                          : "Begin your journey"}
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 lg:h-5 lg:w-5" />
+                      </span>
+                      {summary && (
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-black lg:px-2.5 lg:text-xs">
+                            <Flame className="h-3.5 w-3.5" fill="currentColor" />
+                            {summary.currentStreakDays}-day
+                            <span className="hidden lg:inline"> streak</span>
+                          </span>
+                          <span className="hidden items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-black sm:flex lg:px-2.5 lg:text-xs">
+                            <Target className="h-3.5 w-3.5" />
+                            {Math.min(summary.attemptsToday, dailyGoal)}/{dailyGoal} today
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {journey.current && journey.current.phraseCount > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
-                        <div
-                          className="h-full rounded-full bg-white transition-all duration-700"
-                          style={{
-                            width: `${Math.round(
-                              (journey.current.masteredCount / journey.current.phraseCount) * 100,
-                            )}%`,
-                          }}
+                  {/* tear-off stub: perforation with notches, punched hole,
+                      fare-zone stamp, vertical line name */}
+                  <TicketPerforationV light />
+                  <div className="relative flex w-16 shrink-0 flex-col items-center justify-between py-4">
+                    <PunchHole />
+                    {journey.current && (
+                      <div className="-mx-4">
+                        <ZoneStamp
+                          ink="rgba(255,255,255,0.8)"
+                          zone={journey.current.zoneIndex + 1}
+                          name={journey.current.geoName}
                         />
                       </div>
-                      <span className="shrink-0 text-[11px] font-bold text-white/90">
-                        {journey.current.masteredCount}/{journey.current.phraseCount} at this stop
-                      </span>
+                    )}
+                    <div
+                      className="select-none text-[9px] font-black uppercase tracking-[0.2em] text-white/70"
+                      style={{ writingMode: "vertical-rl" }}
+                      aria-hidden
+                    >
+                      {journeyLine.lineName}
                     </div>
-                  )}
-                </div>
-                {/* ticket perforation */}
-                <div className="relative" aria-hidden>
-                  <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
-                  <div className="absolute -right-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
-                  <div className="mx-5 border-t-2 border-dashed border-white/40" />
-                </div>
-                {/* ticket stub: action verb + daily-goal/streak co-located */}
-                <div className="flex items-center justify-between gap-3 p-5 pt-3.5 lg:px-6">
-                  <span className="flex items-center gap-2 text-base font-black">
-                    {journey.current?.started || journey.doneCount > 0
-                      ? "Continue your journey"
-                      : "Begin your journey"}
-                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                  {summary && (
-                    <span className="flex shrink-0 items-center gap-2">
-                      <span className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-black">
-                        <Flame className="h-3.5 w-3.5" fill="currentColor" />
-                        {summary.currentStreakDays}-day streak
-                      </span>
-                      <span className="hidden items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-black sm:flex">
-                        <Target className="h-3.5 w-3.5" />
-                        {Math.min(summary.attemptsToday, dailyGoal)}/{dailyGoal} today
-                      </span>
-                    </span>
-                  )}
+                  </div>
                 </div>
               </Link>
             </motion.div>
