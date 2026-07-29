@@ -267,10 +267,16 @@ test("teaser state: non-teaser content in the locked language stays denied with 
   assert.equal(denied.status, 402);
   assert.equal(denied.json.reason, "language_locked");
 
-  // Entitlement-order regression: lesson-group and progress surfaces 402
-  // before any unlock computation runs.
+  // D1b decision 3: the lesson-groups listing is the ONE deliberate exception
+  // to 402-on-all-locked for teaser/exhausted callers — it returns the
+  // structural "showroom" (statuses only, zero phrase content) so the journey
+  // map can render. The detailed contract is pinned in
+  // learning.lesson-groups-showroom.test.ts; here we just assert the boundary:
+  // this route opens up, every other locked surface (progress) still 402s.
   const groups = await get(`/categories/${greetingsId}/lesson-groups/${LANG}`);
-  assert.equal(groups.status, 402);
+  assert.equal(groups.status, 200);
+  assert.equal(groups.json.access, "teaser");
+  assert.deepEqual(groups.json.teaser, { consumed: 0, limit: TEASER_LIMIT });
   const progress = await get(`/progress/summary?lang=${LANG}`);
   assert.equal(progress.status, 402);
 
