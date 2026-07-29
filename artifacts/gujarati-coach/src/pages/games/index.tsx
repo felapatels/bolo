@@ -3,6 +3,7 @@ import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "luc
 import { useEntitlements } from "@/lib/entitlements";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
+import { GamePreview } from "./game-previews";
 
 type GameDef = {
   id: string;
@@ -102,10 +103,17 @@ export default function GamesPage() {
       {/* Game grid */}
       <div className="mx-auto max-w-2xl px-4 pt-6 lg:px-6">
         <div className="grid gap-3 sm:grid-cols-2">
-          {GAMES.map((game) => {
+          {GAMES.map((game, index) => {
             const locked = game.plusOnly && !isPlus;
             const Card = (
-              <GameCard key={game.id} game={game} locked={locked} />
+              <GameCard
+                key={game.id}
+                game={game}
+                locked={locked}
+                // Negative delays start each loop mid-phase so the five
+                // previews never pulse in unison.
+                previewDelay={`${-(index * 1.1)}s`}
+              />
             );
 
             if (locked) {
@@ -129,7 +137,15 @@ export default function GamesPage() {
   );
 }
 
-function GameCard({ game, locked }: { game: GameDef; locked: boolean }) {
+function GameCard({
+  game,
+  locked,
+  previewDelay,
+}: {
+  game: GameDef;
+  locked: boolean;
+  previewDelay?: string;
+}) {
   const { Icon } = game;
 
   return (
@@ -139,17 +155,24 @@ function GameCard({ game, locked }: { game: GameDef; locked: boolean }) {
         locked && "opacity-80"
       )}
     >
-      {/* Icon + badges row */}
+      {/* Preview vignette + badges row. Locked cards keep the dimmed tile
+          treatment but still play their preview: it sells the game. */}
       <div className="flex items-start justify-between gap-2">
         <div
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-xl",
+            "flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl",
             locked ? "bg-muted" : "bg-primary/10"
           )}
         >
-          <Icon
-            className={cn("h-6 w-6", locked ? "text-muted-foreground" : "text-primary")}
-            strokeWidth={1.75}
+          <GamePreview
+            gameId={game.id}
+            delay={previewDelay}
+            fallback={
+              <Icon
+                className={cn("h-6 w-6", locked ? "text-muted-foreground" : "text-primary")}
+                strokeWidth={1.75}
+              />
+            }
           />
         </div>
 

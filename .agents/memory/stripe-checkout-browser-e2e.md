@@ -31,3 +31,6 @@ non-obvious, cross-session lessons are here:
   changes, subscription webhooks never reach the server and the DB→Plus flip
   silently fails in dev only. Repoint it to the current domain to test, then
   restore. Prod uses its own endpoint and is unaffected.
+
+## Chromium binary after workspace restarts
+- `which chromium` can come back empty after a restart (system dep not on PATH). The playwright-browsers Nix store chromium works as `CHROME_BIN`, e.g. `/nix/store/*playwright-browsers-chromium/chromium-<rev>/chrome-linux/chrome`. Playwright itself still needs reinstalling at /tmp/pw (`npm i playwright`).

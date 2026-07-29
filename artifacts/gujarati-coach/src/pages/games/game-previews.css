@@ -1,0 +1,409 @@
+/* ---------------------------------------------------------------------------
+   Game card preview vignettes for the /games hub.
+
+   Every animation in this file is pure CSS, so the global
+   prefers-reduced-motion rule in index.css collapses them automatically
+   (duration ~0, a single iteration, no fill) and each vignette renders its
+   BASE styles. The base styles below are therefore deliberately authored as
+   the "settled" frame of each vignette: matched tiles lit, the picked chip
+   highlighted, word tiles in order, a mostly-full timer ring, and the right
+   quiz answer lit with its sparkle.
+
+   No animation-fill-mode is set anywhere here: a forwards/both fill leaves a
+   persistent identity transform that turns wrappers into containing blocks
+   and silently breaks position:fixed descendants (see the
+   .animate-content-enter comment in index.css).
+
+   Loop pacing: each cycle holds a quiet settled pose for a good chunk of its
+   duration so the hub feels ambient, not frantic, with all five playing. The
+   grid staggers cycle phases via the --gv-delay custom property (negative
+   values start each card mid-phase so the cards never pulse in unison).
+   --------------------------------------------------------------------------- */
+
+.gv {
+  --gv-delay: 0s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ----- Word Match: two tiles drift apart, slide back together, light up --- */
+
+.gv-match {
+  display: flex;
+  gap: 3px;
+}
+
+.gv-match-tile {
+  width: 13px;
+  height: 17px;
+  border-radius: 4px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  animation-duration: 4.8s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: var(--gv-delay);
+}
+
+.gv-match-tile--l {
+  animation-name: gv-match-l;
+}
+
+.gv-match-tile--r {
+  animation-name: gv-match-r;
+}
+
+@keyframes gv-match-l {
+  0%, 14% {
+    transform: none;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  }
+  28%, 52% {
+    transform: translateX(-6px) rotate(-8deg);
+    background: hsl(var(--muted-foreground) / 0.4);
+    box-shadow: none;
+  }
+  68% {
+    transform: none;
+    background: hsl(var(--muted-foreground) / 0.4);
+    box-shadow: none;
+  }
+  76% {
+    transform: scale(1.12);
+    background: hsl(var(--primary));
+    box-shadow: 0 0 9px hsl(var(--primary) / 0.7);
+  }
+  86%, 100% {
+    transform: none;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  }
+}
+
+@keyframes gv-match-r {
+  0%, 14% {
+    transform: none;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  }
+  28%, 52% {
+    transform: translateX(6px) rotate(8deg);
+    background: hsl(var(--muted-foreground) / 0.4);
+    box-shadow: none;
+  }
+  68% {
+    transform: none;
+    background: hsl(var(--muted-foreground) / 0.4);
+    box-shadow: none;
+  }
+  76% {
+    transform: scale(1.12);
+    background: hsl(var(--primary));
+    box-shadow: 0 0 9px hsl(var(--primary) / 0.7);
+  }
+  86%, 100% {
+    transform: none;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  }
+}
+
+/* ----- Listen & Pick: sound wave pulses, then the right chip lights up ---- */
+
+.gv-listen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.gv-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 13px;
+}
+
+.gv-wave-bar {
+  width: 2.5px;
+  border-radius: 1px;
+  background: hsl(var(--secondary));
+  transform: scaleY(0.55);
+  animation: gv-wave 4.8s ease-in-out infinite;
+  animation-delay: var(--gv-delay);
+}
+
+.gv-wave-bar:nth-child(1) { height: 7px; }
+.gv-wave-bar:nth-child(2) { height: 12px; animation-delay: calc(var(--gv-delay) + 0.09s); }
+.gv-wave-bar:nth-child(3) { height: 9px; animation-delay: calc(var(--gv-delay) + 0.18s); }
+.gv-wave-bar:nth-child(4) { height: 6px; animation-delay: calc(var(--gv-delay) + 0.27s); }
+
+@keyframes gv-wave {
+  0% { transform: scaleY(0.55); }
+  7% { transform: scaleY(1); }
+  14% { transform: scaleY(0.35); }
+  21% { transform: scaleY(0.9); }
+  28% { transform: scaleY(0.45); }
+  36% { transform: scaleY(0.8); }
+  44%, 100% { transform: scaleY(0.55); }
+}
+
+.gv-chips {
+  display: flex;
+  gap: 3px;
+}
+
+.gv-chip {
+  width: 9px;
+  height: 5px;
+  border-radius: 2.5px;
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+.gv-chip--pick {
+  background: hsl(var(--primary));
+  animation: gv-pick 4.8s ease-in-out infinite;
+  animation-delay: var(--gv-delay);
+}
+
+@keyframes gv-pick {
+  0%, 8% {
+    background: hsl(var(--primary));
+    transform: none;
+  }
+  16%, 50% {
+    background: hsl(var(--muted-foreground) / 0.3);
+    transform: none;
+  }
+  60% {
+    background: hsl(var(--primary));
+    transform: scale(1.3);
+  }
+  70%, 100% {
+    background: hsl(var(--primary));
+    transform: none;
+  }
+}
+
+/* ----- Phrase Builder: word tiles shuffle back into the correct order ----- */
+
+.gv-build {
+  display: flex;
+  gap: 2.5px;
+}
+
+.gv-build-tile {
+  height: 9px;
+  border-radius: 2.5px;
+  background: hsl(var(--primary) / 0.85);
+  animation-duration: 5.2s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: var(--gv-delay);
+}
+
+.gv-build-tile--a { width: 8px; animation-name: gv-build-a; }
+.gv-build-tile--b { width: 12px; animation-name: gv-build-b; }
+.gv-build-tile--c { width: 9px; animation-name: gv-build-c; }
+
+@keyframes gv-build-a {
+  0%, 16% {
+    transform: none;
+    background: hsl(var(--primary) / 0.85);
+  }
+  32%, 56% {
+    transform: translate(12px, -5px);
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+  74%, 100% {
+    transform: none;
+    background: hsl(var(--primary) / 0.85);
+  }
+}
+
+@keyframes gv-build-b {
+  0%, 16% {
+    transform: none;
+    background: hsl(var(--primary) / 0.85);
+  }
+  32%, 56% {
+    transform: translate(-9px, 4px);
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+  74%, 100% {
+    transform: none;
+    background: hsl(var(--primary) / 0.85);
+  }
+}
+
+@keyframes gv-build-c {
+  0%, 74% { transform: none; }
+  80% { transform: translateY(-2.5px); }
+  88%, 100% { transform: none; }
+}
+
+/* ----- Speed Round: a ticking timer ring with rapid-fire answer flashes --- */
+
+.gv-speed {
+  position: relative;
+  width: 34px;
+  height: 34px;
+}
+
+.gv-speed-svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.gv-speed-track {
+  fill: none;
+  stroke: hsl(var(--muted-foreground) / 0.25);
+  stroke-width: 3;
+}
+
+.gv-speed-ring {
+  fill: none;
+  stroke: hsl(var(--primary));
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 88; /* 2 * pi * r=14, rounded */
+  stroke-dashoffset: 26; /* settled/static frame: most of the time left */
+  animation: gv-timer 3.8s linear infinite;
+  animation-delay: var(--gv-delay);
+}
+
+@keyframes gv-timer {
+  0% { stroke-dashoffset: 6; opacity: 1; }
+  76% { stroke-dashoffset: 84; opacity: 1; }
+  82% { stroke-dashoffset: 88; opacity: 0; }
+  88% { stroke-dashoffset: 6; opacity: 0; }
+  94%, 100% { stroke-dashoffset: 6; opacity: 1; }
+}
+
+.gv-speed-flashes {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5px;
+}
+
+.gv-speed-flash {
+  width: 10px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  animation-duration: 1.9s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: var(--gv-delay);
+}
+
+.gv-speed-flash--a {
+  background: hsl(var(--accent));
+  animation-name: gv-flash-a;
+}
+
+.gv-speed-flash--b {
+  animation-name: gv-flash-b;
+}
+
+@keyframes gv-flash-a {
+  0%, 40% { background: hsl(var(--accent)); }
+  50%, 90% { background: hsl(var(--muted-foreground) / 0.3); }
+  100% { background: hsl(var(--accent)); }
+}
+
+@keyframes gv-flash-b {
+  0%, 40% { background: hsl(var(--muted-foreground) / 0.3); }
+  50%, 90% { background: hsl(var(--accent)); }
+  100% { background: hsl(var(--muted-foreground) / 0.3); }
+}
+
+/* ----- Bolo Quiz: choices cycle, the right one lands with a sparkle ------- */
+
+.gv-quiz {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 24px;
+}
+
+.gv-quiz-row {
+  height: 4px;
+  border-radius: 2px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  animation-duration: 5.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: var(--gv-delay);
+}
+
+.gv-quiz-row--1 { width: 100%; animation-name: gv-quiz-1; }
+.gv-quiz-row--2 { width: 78%; animation-name: gv-quiz-2; }
+
+.gv-quiz-row--correct {
+  width: 90%;
+  background: hsl(var(--primary));
+  animation-name: gv-quiz-correct;
+}
+
+@keyframes gv-quiz-1 {
+  0%, 12% { background: hsl(var(--muted-foreground) / 0.3); }
+  17%, 27% { background: hsl(var(--primary) / 0.55); }
+  32%, 100% { background: hsl(var(--muted-foreground) / 0.3); }
+}
+
+@keyframes gv-quiz-2 {
+  0%, 30% { background: hsl(var(--muted-foreground) / 0.3); }
+  35%, 45% { background: hsl(var(--primary) / 0.55); }
+  50%, 100% { background: hsl(var(--muted-foreground) / 0.3); }
+}
+
+@keyframes gv-quiz-correct {
+  0%, 8% {
+    background: hsl(var(--primary));
+    transform: none;
+  }
+  14%, 48% {
+    background: hsl(var(--muted-foreground) / 0.3);
+    transform: none;
+  }
+  56% {
+    background: hsl(var(--primary));
+    transform: scale(1.08);
+  }
+  64%, 100% {
+    background: hsl(var(--primary));
+    transform: none;
+  }
+}
+
+.gv-quiz-sparkle {
+  position: absolute;
+  right: -7px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  background: hsl(var(--accent));
+  clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+  opacity: 0.9;
+  animation: gv-sparkle 5.4s ease-in-out infinite;
+  animation-delay: var(--gv-delay);
+}
+
+@keyframes gv-sparkle {
+  0%, 8% { opacity: 0.9; transform: none; }
+  14%, 50% { opacity: 0; transform: scale(0.4); }
+  58% { opacity: 1; transform: scale(1.3) rotate(20deg); }
+  68%, 100% { opacity: 0.9; transform: none; }
+}
