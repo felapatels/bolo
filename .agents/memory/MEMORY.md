@@ -79,3 +79,4 @@
 - [M1 teaser gating](teaser-gating.md) — locked-language 4-state model (allowed/teaser/exhausted/locked); consumption derived from attempts under an advisory lock; db-mock test trap.
 - [C1 generated sentence content](c1-sentence-pilot.md) — origin→phrases.source provenance (NULL≠runtime!), merged-lessons accessor mandatory, chunked seeds, append-only sentence group top-ups.
 - [Publish schema diff source](publish-schema-diff.md) — publish delta includes committed-but-unapplied migrations; never stage a migration by leaving it unapplied; FK-before-unique ordering bug ticketed.
+- [Lesson-group scope trigger fallback](lesson-group-trigger-fallback.md) — scope FK replaced by 23503-raising triggers + boot-ordered startup guard (dual-home DDL, distinct created/no-op logs); restore-FK procedure documented.

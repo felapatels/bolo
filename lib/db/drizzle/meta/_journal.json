@@ -204,6 +204,20 @@
       "when": 1785330602981,
       "tag": "0028_messy_arachne",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785334285132,
+      "tag": "0029_cloudy_violations",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1785334290488,
+      "tag": "0030_trigger_lesson_group_scope",
+      "breakpoints": true
     }
   ]
 }

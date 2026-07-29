@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -80,24 +80,15 @@ export const phrasesTable = pgTable("phrases", {
     table.lessonGroupId,
     table.lessonGroupPosition,
   ),
-  // D1a Slice 2 hardening: a phrase's lesson group must agree with the
-  // phrase's (language, category). True composite FK (Postgres supports it via
-  // the unique (id, language_code, category_id) key on lesson_groups). MATCH
-  // SIMPLE semantics: rows with lesson_group_id NULL are unconstrained, so
-  // unassigned phrases remain legal.
-  // NOTE (two-publish staging, July 2026): the prod publish diff engine
-  // ordered this FK before the unique constraint it references and failed, so
-  // it was dropped (0026_strange_winter_soldier) and re-added
-  // (0027_*). The re-add migration is applied to dev only AFTER publish 1.
-  foreignKey({
-    name: "phrases_lesson_group_scope_fk",
-    columns: [table.lessonGroupId, table.languageCode, table.categoryId],
-    foreignColumns: [
-      lessonGroupsTable.id,
-      lessonGroupsTable.languageCode,
-      lessonGroupsTable.categoryId,
-    ],
-  }),
+  // D1a Slice 2 hardening — TRIGGER FALLBACK (July 29, 2026): the composite
+  // scope FK `phrases_lesson_group_scope_fk` was removed from the declarative
+  // schema (migration 0029) because the publish diff engine emits it before
+  // the unique constraint it references and fails (support ticket open). The
+  // SAME invariant — a phrase's lesson group must agree with the phrase's
+  // (language, category); NULL lesson_group_id unconstrained — is now enforced
+  // by triggers (migration 0030 + an idempotent api-server startup guard).
+  // See docs/trigger-fallback-lesson-group-scope.md, including the procedure
+  // for restoring the declarative FK if the engine bug is fixed.
 ]);
 
 export const insertPhraseSchema = createInsertSchema(phrasesTable).omit({

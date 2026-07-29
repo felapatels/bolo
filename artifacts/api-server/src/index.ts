@@ -5,6 +5,7 @@ import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
 import { runBackfillScoringV2 } from "./scripts/backfillScoringV2";
 import { runBackfillLessonGroups } from "./scripts/backfillLessonGroups";
+import { ensureLessonGroupScopeTriggers } from "./scripts/ensureLessonGroupScopeTriggers";
 import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
 import { scheduleStripeReconcileSweep } from "./lib/stripeReconcile";
 
@@ -32,6 +33,12 @@ await runStartupSeed();
 // run on every deploy; subsequent runs are fast (all ON CONFLICT DO NOTHING).
 // Throws (killing startup) if the FSRS mastered-count drop exceeds 30 %.
 await runBackfillScoringV2();
+
+// Trigger fallback (July 29, 2026): install the lesson-group scope triggers
+// BEFORE any lesson-group assignment writes (the backfill below), so the
+// first prod boot after publish has enforcement in place before assignments
+// happen. Idempotent; logs "created" vs "already present" distinctly.
+await ensureLessonGroupScopeTriggers();
 
 // D1a Slice 1: partition existing phrases into lesson groups (journey-map
 // stations). Idempotent and advisory-locked; pairs already grouped are

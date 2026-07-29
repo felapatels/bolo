@@ -686,3 +686,42 @@ test("race: concurrent Free+Plus replenishment never duplicates positions or cra
     .map((p) => `${p.lessonGroupId}:${p.lessonGroupPosition}`);
   assert.equal(new Set(slots).size, slots.length);
 });
+
+// Trigger fallback (July 29, 2026): the composite scope FK was replaced by
+// triggers (migration 0030 + startup guard) because the publish diff engine
+// cannot order the FK after its unique constraint. These regressions prove
+// the triggers enforce the same invariant with the same SQLSTATE (23503).
+test("trigger fallback: scope-mismatched phrase insert fails with 23503", async () => {
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO phrases (language_code, category_id, native_script, romanized, english, difficulty, stage, lesson_group_id, lesson_group_position)
+       VALUES ($1, $2, '__trg_test__', 'trg', 'trigger test', 1, 'phrase', $3, 999)`,
+      // Wrong language for g1Id's group scope: the group belongs to LANG.
+      ["gu", categoryId, g1Id],
+    ),
+    (err: unknown) => {
+      assert.equal((err as { code?: string }).code, "23503");
+      return true;
+    },
+  );
+});
+
+test("trigger fallback: deleting a referenced lesson group fails with 23503", async () => {
+  await assert.rejects(
+    pool.query(`DELETE FROM lesson_groups WHERE id = $1`, [g1Id]),
+    (err: unknown) => {
+      assert.equal((err as { code?: string }).code, "23503");
+      return true;
+    },
+  );
+  // And rekeying its scope columns is equally rejected.
+  await assert.rejects(
+    pool.query(`UPDATE lesson_groups SET language_code = 'gu' WHERE id = $1`, [
+      g1Id,
+    ]),
+    (err: unknown) => {
+      assert.equal((err as { code?: string }).code, "23503");
+      return true;
+    },
+  );
+});
