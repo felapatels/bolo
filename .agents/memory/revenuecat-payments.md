@@ -41,8 +41,14 @@ This repl's RevenueCat connector renders `@replit/connectors-sdk`
 is attempted even when RevenueCat isn't authorized — it would fail per-request
 and slow/hang tests. Gate on the project-id env instead of try/catch alone.
 
-## Live provisioning status (July 2026)
-RevenueCat is now fully provisioned: connector authorized, project `projad047e4e` ("Bolo!"), seed script run (all 4 products × 3 stores, `plus`/`one_language` entitlements, default offering). Public SDK keys + REVENUECAT_PROJECT_ID + entitlement ids set as shared env vars; REVENUECAT_WEBHOOK_AUTH saved as a secret. Remaining manual steps (dashboard webhook, store products, device sandbox test) are in `artifacts/bolo-mobile/DEVICE_PURCHASE_TEST.md`.
+## Live provisioning status (July 29, 2026 — NEW project)
+The live project is now `proja487649a` (owner-created; the seeded `projad047e4e` is retired). Entitlements: `plus` + `family` — NO `one_language` (tier retired). Current `default` offering: `$rc_monthly`/`$rc_annual` → `bolo_plus_monthly`/`bolo_plus_annual` (both attached to `plus`) plus family_monthly/family_annual packages. Apps: app_store + test_store only (no play_store). Public keys `appl_xAFgoGVFBkoDdXXYrfZLpizttoZ` / `test_jIVwJWDezdlevzMAKorSHOKoRer` are set in EAS production; the workspace shared env still carries the OLD project's appl_yoQ…/test_NMS…/goog_Co… keys (dev mismatch until swapped).
+
+## Probing gotchas
+- Connector proxy paths need the `/v2` prefix (`/v2/projects/...`) — the base URL is the API root, not `/v2`; without it you get 404 code 7117.
+- The CodeExecution sandbox withholds this connector's credentials (`listConnections('revenuecat')` → `[]` despite status added); run probes as a tsx script inside `artifacts/api-server` (resolves `@replit/connectors-sdk`; /tmp scripts don't).
+- The owner's V1 secret key 403s on ALL v2 endpoints (that's expected, not an invalid key).
+- V1 promotional grant POST 404s when the customer doesn't yet exist in the project (the "auto-creates" claim did not hold); GET `/v1/subscribers/{id}` first to auto-create, then POST.
 
 ## Connector token scopes (learned July 2026, promotional grants)
 The connector token is **v2-read-mostly**: every `/v1/...` call returns 401
