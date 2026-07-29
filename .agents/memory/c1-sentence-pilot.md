@@ -7,5 +7,5 @@ description: How batch-generated sentence content is frozen, provenance-marked, 
 - **Why:** back-translation QA must target generated rows precisely; a blanket seeder stamp defeats it.
 - Seed inserts are chunked (50/batch) so a grown library can't blow the publish promote health-check window on first boot.
 - Lesson-group backfill skips already-grouped pairs, so new seeded sentences need the append-only sentence top-up pass (new groups after max position; existing groups untouched — completed is latched). Batches ≤ merge threshold wait rather than form tiny groups.
-- Offline generation: ~5 calls of ≤12 per category reach 51; dedup rejects ran ~3.4% (dup native/english); token cost ~52k total for 258 sentences — negligible.
+- Offline generation cost is negligible at this scale; batches of ≤12 with an accumulated avoid-list keep dedup rejects to a few percent.
 - The ghost-apply migrate trap fired again on the source-column migration: migrate logged success, column absent; verify via information_schema and apply DDL via psql.
