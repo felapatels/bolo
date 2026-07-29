@@ -14,6 +14,7 @@
     "qa-sentences-c1": "node --import tsx ./scripts/qaSentencesC1.ts",
     "generate-sentences-rollout": "node --import tsx ./scripts/generateSentenceTopupsRollout.ts",
     "qa-sentences-rollout": "node --import tsx ./scripts/qaSentencesRollout.ts",
+    "prune-rollout-majors": "node --import tsx ./scripts/pruneRolloutMajors.ts",
     "seed-stripe-products": "node --import tsx ./scripts/seedStripeProducts.ts",
     "purge-stale-tts-cache": "node --import tsx ./scripts/purgeStaleAudioCache.ts",
     "prewarm-full-tts-cache": "node --import tsx ./scripts/prewarmFullTtsCache.ts"

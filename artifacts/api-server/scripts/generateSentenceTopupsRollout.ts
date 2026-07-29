@@ -35,7 +35,9 @@ import { generateSentences } from "../src/lib/lessonGenerator";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(here, "../../../lib/db/src/data");
 const LESSONS_FILE = path.join(DATA_DIR, "curatedLessons.json");
-const OUT_FILE = path.join(DATA_DIR, "curatedSentencesC1Rollout.json");
+// Mutable so --out can redirect a run (e.g. the full-size-model experiment for
+// the failed-QA languages) to a scratch file instead of the shipped rollout.
+let OUT_FILE = path.join(DATA_DIR, "curatedSentencesC1Rollout.json");
 
 // Total sentence-stage target per category = frozen base + generated top-ups.
 const TARGET_TOTAL = 51;
@@ -48,15 +50,23 @@ type LessonsFile = Record<string, Record<string, SeedLesson>>;
 function parseArgs() {
   const args = process.argv.slice(2);
   let langs: string[] | null = null;
+  let categories: string[] | null = null;
+  let model: string | undefined;
   let concurrency = 3;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--langs" && args[i + 1]) {
       langs = args[++i]!.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (args[i] === "--categories" && args[i + 1]) {
+      categories = args[++i]!.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (args[i] === "--model" && args[i + 1]) {
+      model = args[++i]!;
+    } else if (args[i] === "--out" && args[i + 1]) {
+      OUT_FILE = path.resolve(process.cwd(), args[++i]!);
     } else if (args[i] === "--concurrency" && args[i + 1]) {
       concurrency = Math.max(1, Number(args[++i]));
     }
   }
-  return { langs, concurrency };
+  return { langs, categories, model, concurrency };
 }
 
 function loadExisting(): RolloutFile {
@@ -111,6 +121,7 @@ async function topUpCategory(
   description: string,
   lesson: SeedLesson,
   data: RolloutFile,
+  model?: string,
 ): Promise<void> {
   const base = lesson.sentences ?? [];
   const byLang = (data[langCode] ??= {});
@@ -150,6 +161,7 @@ async function topUpCategory(
           english: s.english,
         })),
         count: want,
+        model,
         onUsage: (u) => {
           promptTokens += u.promptTokens;
           completionTokens += u.completionTokens;
@@ -227,9 +239,12 @@ async function topUpCategory(
 }
 
 async function main() {
-  const { langs, concurrency } = parseArgs();
+  const { langs, categories, model, concurrency } = parseArgs();
   const lessons = JSON.parse(readFileSync(LESSONS_FILE, "utf8")) as LessonsFile;
   const data = loadExisting();
+  const cats = CATEGORIES.filter(
+    (c) => categories === null || categories.includes(c.slug),
+  );
 
   const targets = LANGUAGES.filter(
     (l) =>
@@ -248,10 +263,10 @@ async function main() {
       const lang = targets[cursor++]!;
       console.log(`Language ${lang.code} (${lang.name}):`);
       try {
-        for (const cat of CATEGORIES) {
+        for (const cat of cats) {
           const lesson = lessons[lang.code]?.[cat.slug];
           if (!lesson) throw new Error(`no frozen lesson for ${lang.code}/${cat.slug}`);
-          await topUpCategory(lang.code, cat.slug, cat.title, cat.description, lesson, data);
+          await topUpCategory(lang.code, cat.slug, cat.title, cat.description, lesson, data, model);
         }
         console.log(
           `  DONE ${lang.code}: ${JSON.stringify(perLanguageStats[lang.code])}`,

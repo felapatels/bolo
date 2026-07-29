@@ -111,6 +111,9 @@ export type SentencesRequest = LessonRequest & {
   // Optional token-usage reporter (offline C1 batch runs track actual cost);
   // called once per completed API call. Runtime callers omit it.
   onUsage?: (usage: { promptTokens: number; completionTokens: number }) => void;
+  // Optional model override (offline C1 rollout experiment: full-size model
+  // for low-resource languages). Runtime callers omit it — default stays mini.
+  model?: string;
 };
 
 // Generates the topic's Plus-only "sentence stage": full, natural sentences
@@ -148,7 +151,7 @@ export async function generateSentences(
       : "");
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-5.4-mini",
+    model: req.model ?? "gpt-5.4-mini",
     max_completion_tokens: 3000,
     response_format: { type: "json_object" },
     messages: [

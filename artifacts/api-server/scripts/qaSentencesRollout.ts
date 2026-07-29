@@ -29,13 +29,15 @@ import { openai } from "@workspace/integrations-openai-ai-server/audio";
 import { LANGUAGES, type SeedPhrase } from "@workspace/db/seed-data";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const IN_FILE = path.resolve(
+// Mutable so --in/--out/--model can point a run at the full-size-model
+// experiment scratch files without touching the main rollout report.
+let IN_FILE = path.resolve(
   here,
   "../../../lib/db/src/data/curatedSentencesC1Rollout.json",
 );
-const OUT_FILE = path.resolve(here, "./qa-c1-rollout-report.json");
+let OUT_FILE = path.resolve(here, "./qa-c1-rollout-report.json");
 
-const MODEL = "gpt-5.4-mini";
+let MODEL = "gpt-5.4-mini";
 const CONCURRENCY = 10;
 
 type Verdict = {
@@ -64,6 +66,12 @@ function parseArgs() {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--langs" && args[i + 1]) {
       langs = args[++i]!.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (args[i] === "--model" && args[i + 1]) {
+      MODEL = args[++i]!;
+    } else if (args[i] === "--in" && args[i + 1]) {
+      IN_FILE = path.resolve(process.cwd(), args[++i]!);
+    } else if (args[i] === "--out" && args[i + 1]) {
+      OUT_FILE = path.resolve(process.cwd(), args[++i]!);
     }
   }
   return { langs };

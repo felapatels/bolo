@@ -1,0 +1,1527 @@
+{
+  "brx": {
+    "food": [
+      {
+        "nativeScript": "आं जोल खाबाय.",
+        "romanized": "ang jol khabay",
+        "english": "I drink water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं कपआव लै होबाय.",
+        "romanized": "ang kap-aw lai hobay",
+        "english": "I pour tea into the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं गिलासआव जोल होबाय.",
+        "romanized": "ang gilaas-aw jol hobay",
+        "english": "I pour water into the glass.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिर्चा खालामनो दं.",
+        "romanized": "ang pircha khalamno dong",
+        "english": "I am making bread.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं चामुचजों सुरा खाबाय.",
+        "romanized": "ang chamuch-jong sura khabay",
+        "english": "I eat soup with a spoon.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं कांथाजों आलु खाबाय.",
+        "romanized": "ang kantha-jong alu khabay",
+        "english": "I eat potato with a fork.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिलाआव थुकु दं.",
+        "romanized": "ang pila-aw thuku dong",
+        "english": "I have rice porridge in the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जन्दैआव आं मासोर आरो तरकारी खाबाय.",
+        "romanized": "jondai-aw ang masor aro tarkari khabay",
+        "english": "At dinner, I eat meat and cooked vegetables.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं थालिआव दाल आरो सागु दं.",
+        "romanized": "ang thali-aw dal aro sagu dong",
+        "english": "I have lentils and a side dish on my plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव मिठाइ खायनाय मोनसेबो गोसो दं.",
+        "romanized": "angnaw mithaai khaynay monsebo goso dong",
+        "english": "I like eating sweets.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव चिया-पाननि थाखाय आम आरो केरा लुबैयो.",
+        "romanized": "angnaw chia-pan-ni thakhay aam aro kera lubaiyo",
+        "english": "I want mango and banana for a snack.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव तरकारिआव मलि, लसुन आरो मसला लुबैयो.",
+        "romanized": "angnaw tarkari-aw mali, lasun aro masla lubaiyo",
+        "english": "I want onion, garlic, and spice in the vegetables.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिर्चा आरो दाल लायो.",
+        "romanized": "ang pircha aro dal layo.",
+        "english": "I bring bread and lentils.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं कपआव लै दानाय.",
+        "romanized": "ang kapao lai danay.",
+        "english": "I keep tea in the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं गिलासखौ जोलजों फिनाय.",
+        "romanized": "ang gilaaskhou joljong phinay.",
+        "english": "I fill the glass with water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं थालिआव भात आरो आलु दायो.",
+        "romanized": "ang thaliao bhat aro alu dayo.",
+        "english": "I put rice and potato on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जन्दैनि थाखाय आं थालि सानाय.",
+        "romanized": "jondaini thakhay ang thali sanay.",
+        "english": "I prepare the plate for dinner.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं चाकुजों पिर्चा खोनाय.",
+        "romanized": "ang chakujong pircha khonay.",
+        "english": "I cut bread with a knife.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं तरकारिआव नुन होबाय.",
+        "romanized": "ang tarkariao nun hobay.",
+        "english": "I add salt to the vegetables.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव जन्दैआव सुरा खाबानो लुबैयो.",
+        "romanized": "angnaw jondaiao sura khabano lubaiyo.",
+        "english": "I want to eat soup at dinner.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव चिया-पाननि थाखाय मिठाइ लुबैयो.",
+        "romanized": "angnaw chia-panni thakhay mithaai lubaiyo.",
+        "english": "I want sweets for a snack.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव खाबाजों चटनी खायनाय गोजोन.",
+        "romanized": "angnaw khabajong chatni khaynay gojon.",
+        "english": "I like eating chutney with food.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव बेसोन आरो तिलजों सागु खाबानो मोन जायो.",
+        "romanized": "angnaw beson aro tiljong sagu khabano mon jayo.",
+        "english": "I feel like eating a side dish with gram flour and sesame.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव कुथु, टमाटर आरो मलिजों तरकारी खाबानो लुबैयो.",
+        "romanized": "angnaw kuthu, tamaatar aro malijong tarkari khabano lubaiyo.",
+        "english": "I want to eat vegetables cooked with egg, tomato, and onion.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं भात आरो दाल लायो।",
+        "romanized": "ang bhat aro dal layo.",
+        "english": "I bring rice and lentils.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं कपखौ मेजाव दायो।",
+        "romanized": "ang kapkhou mejao dayo.",
+        "english": "I put the cup on the table.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिलाखौ जोलजों फिनाय।",
+        "romanized": "ang pilakhou joljong phinay.",
+        "english": "I fill the bowl with water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं थालिआव पिर्चा दायो।",
+        "romanized": "ang thaliao pircha dayo.",
+        "english": "I put bread on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं चाकुजों आम खोनाय।",
+        "romanized": "ang chakujong aam khonay.",
+        "english": "I cut the mango with a knife.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं गिलासआव लै होबाय।",
+        "romanized": "ang gilaasao lai hobay.",
+        "english": "I pour tea into the glass.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिलाआव सुरा होबाय।",
+        "romanized": "ang pilao sura hobay.",
+        "english": "I pour soup into the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं थालिआव मासोर आरो सागु दायो।",
+        "romanized": "ang thaliao masor aro sagu dayo.",
+        "english": "I put meat and a side dish on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव जन्दैनि थाखाय भात सानानो लुबैयो।",
+        "romanized": "angnaw jondaini thakhay bhat sanano lubaiyo.",
+        "english": "I want to prepare rice for dinner.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव खाबाजों नुन गोदानो लुबैयो।",
+        "romanized": "angnaw khabajong nun godano lubaiyo.",
+        "english": "I want to add salt to the food.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव चिया-पानआव केरा आरो मिठाइ लुबैयो।",
+        "romanized": "angnaw chia-panao kera aro mithaai lubaiyo.",
+        "english": "I want banana and sweets at snack time.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव घिउजों थुकु खायनो गोसो जायो।",
+        "romanized": "angnaw ghiujong thuku khayno goso jayo.",
+        "english": "I like eating rice porridge with ghee.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं पिर्चाजों चटनी खाबाय।",
+        "romanized": "ang pirchajong chatni khabay.",
+        "english": "I eat bread with chutney.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं गिलासआव जोल दानाय।",
+        "romanized": "ang gilaasaw jol danay.",
+        "english": "I keep water in the glass.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं थालिआव भात आरो दाल होबाय।",
+        "romanized": "ang thaliaw bhat aro dal hobay.",
+        "english": "I serve rice and lentils on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आं चामुचजों थुकु खाबाय।",
+        "romanized": "ang chamuchjong thuku khabay.",
+        "english": "I eat rice porridge with a spoon.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जन्दैआव आं पिलाआव सुरा दायो।",
+        "romanized": "jondai-aw ang pilaaw sura dayo.",
+        "english": "At dinner, I put soup in the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव खाबाजों घिउ खायनाय गोसो दं।",
+        "romanized": "angnaw khabajong ghiu khaynay goso dong.",
+        "english": "I like eating food with ghee.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंनाव जन्दैनि थाखाय मासोर आरो तरकारी लायनो लुबैयो।",
+        "romanized": "angnaw jondaini thakhay masor aro tarkari layno lubaiyo.",
+        "english": "I want to bring meat and cooked vegetables for dinner.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      }
+    ]
+  },
+  "kok": {
+    "food": [
+      {
+        "nativeScript": "ताटल्यान चटणी आसा.",
+        "romanized": "taatlyan chatni asa.",
+        "english": "There is chutney on the small plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "वाड्यांत दूध गरम आसा.",
+        "romanized": "vaadyant doodh garam asa.",
+        "english": "The milk in the cup is hot.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "पानांत भाकरी आनी भाजी आसा.",
+        "romanized": "paanaant bhaakri ani bhaaji asa.",
+        "english": "There is flatbread and vegetable curry on the leaf plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका पोळी साखर वांगडा आवडटा.",
+        "romanized": "mhaka poli sakkar vangda avadta.",
+        "english": "I like roti with sugar.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ताका दही थंड आवडटा.",
+        "romanized": "taka dahi thand avadta.",
+        "english": "He likes curd cold.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंबोळी बरी चव दिता.",
+        "romanized": "aamboli bari chav dita.",
+        "english": "Aamboli gives a nice taste.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "तूं भातार तूप घालता.",
+        "romanized": "tuu bhaatar toop ghaalta.",
+        "english": "You put ghee on the rice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आमी सूप वाड्यांत पिता.",
+        "romanized": "aami soop vaadyant pita.",
+        "english": "We drink soup from the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "भात वाफाळलें आसा, सावकाश खाय.",
+        "romanized": "bhaat vaafaalem asa, saavkaash khaay.",
+        "english": "The rice is steaming hot, eat slowly.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका जेवणाक फोर्क ना, चमचो जाय.",
+        "romanized": "mhaka jevanaak fork naa, chamcho jaay.",
+        "english": "I do not need a fork for the meal, I need a spoon.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ती काटल्यान केळें कापटा.",
+        "romanized": "tii kaatlyan kelem kaapta.",
+        "english": "She cuts the banana with the knife.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जेवण उपरांत हांव भांडी धुता.",
+        "romanized": "jevan uparant haav bhaandi dhuta.",
+        "english": "After the meal, I wash the dishes.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हज्या ताटांत पोळी आसा.",
+        "romanized": "mhajya taatant poli asa",
+        "english": "There is roti on my plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "वाटीन दही आसा.",
+        "romanized": "vaatin dahi asa",
+        "english": "There is curd in the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "पेलो टेबलार आसा.",
+        "romanized": "pelo tebalar asa",
+        "english": "The glass is on the table.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "हांव चमच्यान सूप पिता.",
+        "romanized": "haav chamchyan soop pita",
+        "english": "I drink soup with a spoon.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आंबोळी गरम आसा.",
+        "romanized": "aamboli garam asa",
+        "english": "The aamboli is hot.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका भातार मीठ जाय.",
+        "romanized": "mhaka bhaatar meeth zai",
+        "english": "I need salt for the rice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ताका मिठाई खूब आवडटा.",
+        "romanized": "taka mithaai khoob avadta",
+        "english": "He likes sweets a lot.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आमी ताटल्यार लोणचें घेता.",
+        "romanized": "aami taatalyar lonchem gheta",
+        "english": "We take pickle on the small plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ती पानार भाकरी वाढटा.",
+        "romanized": "ti paanar bhaakri vaadhta",
+        "english": "She serves bhakri on the leaf plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका चटणीची चव आवडटा.",
+        "romanized": "mhaka chatnichi chav avadta",
+        "english": "I like the taste of chutney.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आमच्या जेवणांत सांबार आनी भात आसता.",
+        "romanized": "aamchya jevanant sambaar aani bhaat aasata",
+        "english": "Our meal has sambar and rice.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "मामा काटल्यान चिकणाचे तुकडे करता.",
+        "romanized": "maama kaatalyan chikanache tukde karta",
+        "english": "Uncle cuts the chicken into pieces with a knife.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "हांव पेल्यान पाणी पिता.",
+        "romanized": "haav pelyan paani pita",
+        "english": "I drink water from the glass.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "तूं ताटांत भात घे.",
+        "romanized": "tum taatant bhaat ghe",
+        "english": "Take rice on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ती वाटीन दही वाढटा.",
+        "romanized": "ti vaatin dahi vaaddta",
+        "english": "She serves curd into the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "हांव पोळी आनी भाजी खाता.",
+        "romanized": "haav poli aani bhaaji khata",
+        "english": "I eat roti and vegetable curry.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "तूं रवाळ्यान हात पुंस.",
+        "romanized": "tum ravaalyan haat puns",
+        "english": "Wipe your hands with the napkin.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आमी पानार जेवण वाढटा.",
+        "romanized": "aami paanar jevan vaaddta",
+        "english": "We serve the meal on the leaf plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका आमटीन भात खावपाक आवडटा.",
+        "romanized": "mhaka aamtin bhaat khaavpaak aavaddta",
+        "english": "I like to eat rice with curry.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका वाड्यांत गरम दूध जाय.",
+        "romanized": "mhaka vaaddyant garam doodh zai",
+        "english": "I need hot milk in the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ती भातार थोडें तूप घालटा.",
+        "romanized": "ti bhaatar thodem toop ghaaltta",
+        "english": "She puts a little ghee on the rice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ताका सांबाराची चव खूब आवडटा.",
+        "romanized": "taka sambaaraachi chav khoob aavaddta",
+        "english": "He likes the taste of sambar very much.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "हांव ताटल्यार मिठाई आनी केळें दवरता.",
+        "romanized": "haav taatalyar mithaai aani kelem dovorta",
+        "english": "I keep sweets and a banana on the small plate.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जेवण उपरांत ती भांडी आनी थाळी धुता.",
+        "romanized": "jevan uparant ti bhaandi aani thaali dhuta",
+        "english": "After the meal, she washes the dishes and the serving plate.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "हांव ताटांत भाजी घेता.",
+        "romanized": "haav taataant bhaaji gheta",
+        "english": "I take vegetable curry on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "तूं पेलो पाणीन भर.",
+        "romanized": "tuu pelo paanine bhar",
+        "english": "Fill the glass with water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका वाटीन दही आनी साखर जाय.",
+        "romanized": "mhaakaa vaattiin dahi aani sakkar jaay",
+        "english": "I want curd and sugar in the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "आमी भाकरी वांगडा चटणी खाता.",
+        "romanized": "aami bhaakri vaangdaa chatni khaata",
+        "english": "We eat bhakri with chutney.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ती थाळीन पोळी आनी भाजी हाडटा.",
+        "romanized": "tii thaaliin poli aani bhaaji haaddtaa",
+        "english": "She brings roti and vegetable curry on the serving plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "म्हाका गरम सांबार आनी भात आवडटा.",
+        "romanized": "mhaakaa garam saambaar aani bhaat aavaddtaa",
+        "english": "I like hot sambar and rice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "जेवण उपरांत तूं रवाळा आनी चमचो ताटल्यार दवर.",
+        "romanized": "jevan upraant tuu ravaalaa aani chamcho taatalyar dovar",
+        "english": "After the meal, put the napkin and spoon on the small plate.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      }
+    ]
+  },
+  "ks": {
+    "food": [
+      {
+        "nativeScript": "تَشَس منٛز چھُ پانی۔",
+        "romanized": "tashas manz chhu paani",
+        "english": "There is water in the jug.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "کاسہِس منٛز چھِ دال۔",
+        "romanized": "kaasih manz chhi daal",
+        "english": "There are lentils in the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "پِیالہِس منٛز چھُ دوٗد۔",
+        "romanized": "piyalah manz chhu dood",
+        "english": "There is milk in the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "پلیٹَس پٮ۪ٹھ چھِ روٹی تہٕ ہاکھ۔",
+        "romanized": "plates pyeth chhi roti tah haakh",
+        "english": "There is bread and greens on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "شُرَہ چھُ گرم تہٕ مےٚ کھٲوان۔",
+        "romanized": "shurah chhu garm tah me khavaan",
+        "english": "The soup is hot, and I am eating.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بَچہ چھُ مَچھ ڈشَس منٛز ہٲنٛگان۔",
+        "romanized": "bachha chhu machh dishas manz haangan",
+        "english": "The child is serving fish into the dish.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بیٚیہِ چھَس چاقو سۭتۍ نٲن ژَٹان۔",
+        "romanized": "beyi chhas chaaku seth naan zhataan",
+        "english": "I am cutting naan with a knife.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس چاول روٗغن سۭتۍ کھٲوان۔",
+        "romanized": "bah chhus chaaval roghan seth khavaan",
+        "english": "I am eating rice with oil.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ زاماٹ پِیالہِس منٛز تھاوُن۔",
+        "romanized": "me chhu zaamat piyalah manz thaavun",
+        "english": "I am putting yogurt into the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "تم چھِ کھٲنٕس پٲٹھَس پٮ۪ٹھ کُرسیو پٮ۪ٹھ بٮ۪ٹھان۔",
+        "romanized": "tim chhi khaanas paathas pyeth kursiyo pyeth byethaan",
+        "english": "They are sitting on chairs at the dinner table.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ ماز کُرْسَن تہٕ رَوَت سۭتۍ پَکَوُن۔",
+        "romanized": "me chhu maaz kursan tah ravat seth pakavun",
+        "english": "I am cooking meat with spices and gravy.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ فُرَش پٮ۪ٹھ پلیٹ تہٕ کاسہ سَتھان۔",
+        "romanized": "suh chhu furash pyeth plate tah kaasa sathaan",
+        "english": "He is arranging the plate and bowl on the tablecloth.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس دوٗد پیوان۔",
+        "romanized": "bah chus dood piwaan",
+        "english": "I am drinking milk.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس دال کھٲوان۔",
+        "romanized": "bah chus daal khaavaan",
+        "english": "I am eating lentils.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ ہاکھ پَکاوان۔",
+        "romanized": "suh chu haakh pakaavaan",
+        "english": "He is cooking greens.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس چاقو تھٲوان اَٹھَس منٛز۔",
+        "romanized": "bah chus chaaku thavaan athas manz",
+        "english": "I am holding the knife in my hand.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس مکھَن نٲنَس پٮ۪ٹھ لَگاون۔",
+        "romanized": "bah chus makhan naanas peth lagaavun",
+        "english": "I am putting butter on the naan.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بَچہ چھُ مِٹھائی پلیٹَس منٛز تھاوان۔",
+        "romanized": "bachah chu mithaai plates manz thaavaan",
+        "english": "The child is putting sweets on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس کۅکُر ڈشَس منٛز ہٲنٛگان۔",
+        "romanized": "bah chus kokur dishas manz haangan",
+        "english": "I am serving chicken into the dish.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ نمک شُرَس منٛز تھاوان۔",
+        "romanized": "suh chu namak shuras manz thaavaan",
+        "english": "He is putting salt into the soup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "یم چھِ کھٲنٕ کاسہِس منٛز ہٲنٛگان۔",
+        "romanized": "yim chi khyoon kaasas manz haangan",
+        "english": "They are serving food into the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس تِرٕش سۭتۍ رَوَت ہٲنٛگان۔",
+        "romanized": "bah chus tirash seti ravat haangan",
+        "english": "I am serving gravy with the serving spoon.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ پَھٲل کھٲنِوُن مِٹھائی برٛونٛہہ۔",
+        "romanized": "me chu phaal khaanivun mithaai bronh",
+        "english": "I want to eat fruit before sweets.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ کُرْسَن سۭتۍ مَچھ پَکٲوُن۔",
+        "romanized": "me chu kursan seti machh pakaavun",
+        "english": "I want to cook fish with spices.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس پانی پیوان۔",
+        "romanized": "bah chus paani piyavaan",
+        "english": "I am drinking water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ چاول کھٲوان۔",
+        "romanized": "suh chu chaaval khavaan",
+        "english": "He is eating rice.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بیٚیہِ چھَس روٹی کھٲوان۔",
+        "romanized": "biyih chas roti khavaan",
+        "english": "I am eating bread.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سۄ چھِ ہاکھ کاسہِس منٛز تھاوان۔",
+        "romanized": "so chhi haakh kaasa-his manz thaavaan",
+        "english": "She is putting vegetables in the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بَچہ چھُ چمچ پلیٹَس پٮ۪ٹھ تھاوان۔",
+        "romanized": "bachah chu chamach plates pyeth thaavaan",
+        "english": "The child is putting the spoon on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ہم چھِ کھٲنٕس پٲٹھَہ چاول ہٲنٛگان۔",
+        "romanized": "ham chhi khanas paath chaaval haangan",
+        "english": "We are serving rice at the dinner table.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ نمک دالَس منٛز تھاوُن۔",
+        "romanized": "me chu namak daalas manz thaavun",
+        "english": "I want to put salt in the lentils.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ کۅکُر رَوَت سۭتۍ کھٲوان۔",
+        "romanized": "suh chu kokur ravat seti khavaan",
+        "english": "He is eating chicken with gravy.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ پِیالہ کاسہَس اَندُر تھاوُن۔",
+        "romanized": "me chu piyala kaasa-has andar thaavun",
+        "english": "I want to put the cup inside the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سۄ چھِ مَصَل اَٹھَس منٛز تھاوان۔",
+        "romanized": "so chhi masal athas manz thaavaan",
+        "english": "She is holding the napkin in her hand.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس ماز تہٕ ہاکھ ڈشَس منٛز ہٲنٛگان۔",
+        "romanized": "bah chus maaz te haakh dishas manz haangan",
+        "english": "I am serving meat and vegetables into the dish.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ مِٹھائی صَفَرَس بعد کھٲنِوُن۔",
+        "romanized": "me chu mithaai safaras baad khaanivun",
+        "english": "I want to eat sweets after the plateful.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بَچہ چھُ مِٹھائی کھٲوان۔",
+        "romanized": "bachh chhu mithaai khaawaan.",
+        "english": "The child is eating sweets.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سۄ چھِ پانی پِیالہِس منٛز تھاوان۔",
+        "romanized": "so chhi paani piyaalis manz thaawaan.",
+        "english": "She is putting water into the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "بہٕ چھُس روٹی تہٕ دال کھٲوان۔",
+        "romanized": "bah chhus roti te daal khaawaan.",
+        "english": "I am eating bread and lentils.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "سُہ چھُ چاول کاسہِس منٛز ہٲنٛگان۔",
+        "romanized": "suh chhu chaaval kaasais manz haangaan.",
+        "english": "He is serving rice into the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ہم چھِ کھٲنٕس پٲٹھَہ کُرسیو پٮ۪ٹھ بٮ۪ٹھان۔",
+        "romanized": "ham chhi khanas paath kursiyov pyeth byethaan.",
+        "english": "We are sitting on chairs at the dinner table.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ ہاکھ روٗغن سۭتۍ پَکٲوُن۔",
+        "romanized": "me chhu haakh roghan seti pakaavun.",
+        "english": "I want to cook vegetables with oil.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "مےٚ چھُ چاقو تہٕ کٲشِگَند ڈشَس پٮ۪ٹھ تھاوُن۔",
+        "romanized": "me chhu chaaku te kaashigand dishas pyeth thaavun.",
+        "english": "I want to put the knife and fork on the dish.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      }
+    ]
+  },
+  "mni": {
+    "food": [
+      {
+        "nativeScript": "ꯑꯩ ꯆꯥ ꯆꯥꯕꯤ.",
+        "romanized": "ei cha chabi",
+        "english": "I am eating food.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏ ꯂꯩ ꯆꯥꯕꯤ.",
+        "romanized": "eikhoi lei chabi",
+        "english": "We are eating rice.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯏꯁꯤꯡ ꯑꯃꯨꯕꯤ ꯂꯧ.",
+        "romanized": "ising amubi lou",
+        "english": "Please pass me the water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯀꯔꯥ ꯑꯃ ꯄꯤꯖꯦ.",
+        "romanized": "kara ama pije",
+        "english": "Please give me a spoon.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯄꯥꯟꯗ ꯏꯁꯤꯡ ꯂꯧꯔꯤ.",
+        "romanized": "panda ising louri",
+        "english": "Water is being poured into the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯁꯟꯗ ꯊꯣꯅꯥ ꯂꯧꯔꯤ.",
+        "romanized": "sanda thona louri",
+        "english": "The plate is on the table.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯌꯧ ꯑꯁꯤ ꯈ꯭ꯔꯥꯃ ꯑꯣꯏ.",
+        "romanized": "yau asi khrama oi",
+        "english": "This soup is hot.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯂꯩꯈꯨꯔꯗ ꯂꯩ ꯂꯧꯔꯤ.",
+        "romanized": "leikhurda lei louri",
+        "english": "Rice is served in the rice bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯁꯦꯜ ꯑꯁꯤ ꯑꯔꯦꯕ ꯑꯣꯏ.",
+        "romanized": "sel asi areba oi",
+        "english": "This vegetable is tasty.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯆꯥ ꯃꯤ ꯑꯁꯤ ꯃꯥꯂꯦ ꯑꯣꯏ.",
+        "romanized": "cha mi asi male oi",
+        "english": "This food tastes delicious.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏ ꯉꯥꯡꯆꯔꯗ ꯆꯠ ꯂꯦꯟꯕꯤ.",
+        "romanized": "eikhoi ngangcharda chat lenbi",
+        "english": "We share the meat from the serving plate.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯊꯧꯔꯨꯝ ꯑꯃ ꯄꯤꯖꯦ, ꯑꯩ ꯍꯪꯂꯤ.",
+        "romanized": "thourum ama pije, ei hangli",
+        "english": "Please give me a second serving, I am still hungry.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯄꯥꯟꯗ ꯏꯁꯤꯡ ꯊꯥꯁꯤ.",
+        "romanized": "ei panda ising thasi",
+        "english": "I drink water from the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯂꯩꯈꯨꯔꯗ ꯂꯩ ꯆꯥꯕꯤ.",
+        "romanized": "ei leikhurda lei chabi",
+        "english": "I eat rice from the rice bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯁꯦꯖꯗ ꯐꯝꯕꯤ ꯆꯥ ꯆꯥꯕꯤ.",
+        "romanized": "ei sejda phambi cha chabi",
+        "english": "I sit on the chair and eat food.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏ ꯁꯟꯗ ꯆꯥ ꯆꯥꯕꯤ.",
+        "romanized": "eikhoi sanda cha chabi",
+        "english": "We eat food at the table.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯉꯥꯣ ꯑꯁꯤ ꯑꯔꯦꯕ ꯑꯣꯏ.",
+        "romanized": "ngao asi areba oi",
+        "english": "This fish is tasty.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯥꯟ ꯑꯁꯤ ꯈ꯭ꯔꯥꯃ ꯑꯣꯏ.",
+        "romanized": "an asi khrama oi",
+        "english": "This curry is hot.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯆꯨꯣ ꯏꯁꯤꯡ ꯄꯥꯟꯗ ꯂꯧꯔꯤ.",
+        "romanized": "chuo ising panda louree",
+        "english": "Cold water is served in the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯊꯣꯅꯥꯗ ꯑꯏꯅ ꯑꯃ ꯂꯧꯔꯤ.",
+        "romanized": "thonada aina ama louree",
+        "english": "An egg is served on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯅ ꯆꯥꯤꯕꯨꯅ ꯑꯊꯨ ꯃꯨꯠꯁꯤ.",
+        "romanized": "eina chaibuna athu mutsi",
+        "english": "I wipe my hands with a napkin.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯗꯤꯠꯇ ꯀꯣꯟ ꯑꯃ ꯂꯩ.",
+        "romanized": "ditta kon ama lei",
+        "english": "There is a bowl in the cupboard.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏꯅ ꯁꯦꯜ ꯑꯃꯁꯨ ꯆꯠ ꯑꯃꯁꯨ ꯂꯦꯟꯕꯤ.",
+        "romanized": "eikhoina sel amasu chat amasu lenbi",
+        "english": "We share the vegetables and the meat.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯌꯥꯝ ꯄꯤꯖꯦ, ꯑꯥꯟ ꯑꯁꯤ ꯑꯔꯣꯏꯕꯤ.",
+        "romanized": "eida yam pije, an asi aroibi",
+        "english": "Please give me salt, this curry is bland.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯏꯁꯤꯡ ꯄꯤꯖꯦ.",
+        "romanized": "eid ising pije",
+        "english": "Please give me water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯉꯥꯣ ꯆꯥꯕꯤ.",
+        "romanized": "ei ngao chabi",
+        "english": "I am eating fish.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯀꯣꯟꯗ ꯌꯧ ꯆꯥꯕꯤ.",
+        "romanized": "ei konda yau chabi",
+        "english": "I am eating soup from the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯄꯥꯟꯗ ꯌꯧ ꯂꯧꯔꯤ.",
+        "romanized": "ei panda yau louree",
+        "english": "I am pouring soup into the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯁꯟꯗ ꯃꯅꯤ ꯂꯩ.",
+        "romanized": "sanda mani lei",
+        "english": "The water bottle is on the table.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯆꯥꯔꯤ ꯑꯃ ꯄꯤꯖꯦ.",
+        "romanized": "eid chari ama pije",
+        "english": "Please give me a glass.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯉꯥꯡꯆꯔꯗ ꯁꯦꯜ ꯂꯧꯔꯤ.",
+        "romanized": "ngangcharda sel louree",
+        "english": "Vegetables are served on the serving plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯁꯦꯟꯅ ꯑꯏꯅ ꯀꯥꯠꯂꯤ.",
+        "romanized": "ei senna aina katli",
+        "english": "I am cutting the egg with a knife.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏ ꯀꯣꯟꯗ ꯑꯥꯟ ꯂꯦꯟꯕꯤ.",
+        "romanized": "eikhoi konda an lenbi",
+        "english": "We share the curry from the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯆꯠ ꯑꯁꯤ ꯈꯨꯟ ꯌꯥꯎꯔꯤ.",
+        "romanized": "chat asi khun yaoree",
+        "english": "This meat has spice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯊꯧꯔꯨꯝ ꯑꯃ ꯂꯧꯕ ꯄꯥꯝꯃꯤ.",
+        "romanized": "eid thourum ama louba pammii",
+        "english": "I want one more serving.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯆꯥꯡ ꯃꯇꯨꯡꯗ ꯑꯩꯈꯣꯏ ꯆꯥꯤꯕꯨꯅ ꯑꯊꯨ ꯃꯨꯠꯁꯤ.",
+        "romanized": "chang matungda eikhoi chaibuna athu mutsi",
+        "english": "After eating, we wipe our hands with a napkin.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯄꯥꯟ ꯑꯃ ꯄꯤꯖꯦ.",
+        "romanized": "eid pan ama pijee",
+        "english": "Please give me a cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩ ꯂꯩ ꯑꯃꯁꯨ ꯑꯏꯅ ꯑꯃꯁꯨ ꯆꯥꯕꯤ.",
+        "romanized": "ei lei amasu aina amasu chabi",
+        "english": "I am eating rice and an egg.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯀꯣꯟꯗ ꯌꯧ ꯂꯧꯔꯤ.",
+        "romanized": "konda yau louri",
+        "english": "Soup is being served in the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯈꯣꯏ ꯉꯥꯡꯆꯔꯗ ꯉꯥꯣ ꯂꯦꯟꯕꯤ.",
+        "romanized": "eikhoi ngangcharda ngao lenbi",
+        "english": "We share the fish from the serving plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯁꯟꯗ ꯊꯣꯅꯥ ꯑꯃꯁꯨ ꯀꯔꯥ ꯑꯃꯁꯨ ꯂꯩ.",
+        "romanized": "sanda thona amasu kara amasu lei",
+        "english": "A plate and a spoon are on the table.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯑꯩꯗ ꯂꯩꯈꯨꯔꯗ ꯂꯩ ꯂꯧꯕ ꯄꯥꯝꯃꯤ.",
+        "romanized": "eid leikhurda lei louba pambi",
+        "english": "I want rice served in the rice bowl.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ꯆꯥꯡ ꯃꯇꯨꯡꯗ ꯑꯩꯈꯣꯏ ꯁꯧꯖꯠ ꯍꯧꯖꯤ ꯍꯧꯁꯤ.",
+        "romanized": "chang matungda eikhoi saujat houji housi",
+        "english": "After eating, we say thank you for the meal.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      }
+    ]
+  },
+  "sat": {
+    "food": [
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱜ ᱮᱢ ᱢᱮ᱾",
+        "romanized": "am dag em me.",
+        "english": "Drink water.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱩᱜᱬᱟ ᱮᱢ ᱢᱮ᱾",
+        "romanized": "am dudhni em me.",
+        "english": "Drink milk.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱠᱟ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am daka jom me.",
+        "english": "Eat cooked rice.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱨᱩᱴᱤ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am ruti jom me.",
+        "english": "Eat bread.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱴᱤ ᱨᱮ ᱫᱩᱜᱬᱟ ᱮᱢ ᱟ᱾",
+        "romanized": "nang chati re dudhni em a.",
+        "english": "I drink milk from the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱵᱟᱰᱟ ᱨᱮ ᱥᱩᱯ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am bada re sup jom me.",
+        "english": "Eat soup from the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱢᱟᱲ ᱨᱮ ᱫᱟᱠᱟ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang chamar re daka jom a.",
+        "english": "I eat cooked rice on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱡᱷᱩᱱᱟ ᱜᱟᱛᱮ ᱜᱟᱢᱟ ᱨᱮ ᱣᱟᱱ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale jhuna gate gama re wan jom a.",
+        "english": "We eat together at the dinner table.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱠᱟ ᱟᱨ ᱫᱟᱹᱞ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am daka ar dal jom me.",
+        "english": "Eat cooked rice and lentils.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱨᱟᱥᱟ ᱟᱨ ᱥᱟᱜ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang rasa ar sag jom a.",
+        "english": "I eat curry and vegetables.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱢᱩᱨᱜᱤ ᱟᱨ ᱫᱟᱠᱟ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am murgi ar daka jom me.",
+        "english": "Eat egg and cooked rice.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱣᱞᱮ ᱠᱩᱜᱤ ᱢᱮᱱᱟᱜ ᱟ᱾",
+        "romanized": "nang chaole kugi menag a.",
+        "english": "I think the meal is tasty.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱜ ᱪᱟᱴᱤ ᱨᱮ ᱮᱢ ᱢᱮ᱾",
+        "romanized": "am dag chati re em me.",
+        "english": "Drink water from the cup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱹᱞ ᱟᱨ ᱨᱩᱴᱤ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am dal ar ruti jom me.",
+        "english": "Eat lentils and bread.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱵᱟᱰᱟ ᱨᱮ ᱥᱩᱯ ᱮᱢ ᱟ᱾",
+        "romanized": "nang bada re sup em a.",
+        "english": "I drink soup from the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱪᱟᱢᱟᱲ ᱨᱮ ᱫᱟᱠᱟ ᱥᱟᱵᱩᱫ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am chamar re daka sabud jom me.",
+        "english": "Eat cooked rice and breadfruit on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱨᱩᱴᱤ ᱟᱨ ᱪᱩᱛᱱᱤ ᱣᱟᱱ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale ruti ar chutni wan jom a.",
+        "english": "We eat bread and chutney together.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱴᱤ ᱨᱮ ᱫᱟᱜ ᱟᱨ ᱫᱩᱜᱬᱟ ᱮᱢ ᱟ᱾",
+        "romanized": "nang chati re dag ar dudhni em a.",
+        "english": "I drink water and milk from the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱢᱩᱨᱜᱤ ᱟᱨ ᱥᱟᱜ ᱡᱚᱢ ᱢᱮ᱾",
+        "romanized": "am murgi ar sag jom me.",
+        "english": "Eat egg and vegetables.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱦᱟᱠᱩ ᱨᱟᱥᱟ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang haku rasa jom a.",
+        "english": "I eat fish curry.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱫᱟᱠᱟ ᱨᱮ ᱱᱟᱜᱟ ᱮᱢᱟ ᱢᱮ᱾",
+        "romanized": "am daka re naga ema me.",
+        "english": "Add salt to the cooked rice.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱡᱷᱩᱱᱟ ᱜᱟᱛᱮ ᱜᱟᱢᱟ ᱨᱮ ᱪᱟᱣᱞᱮ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale jhuna gate gama re chaole jom a.",
+        "english": "We eat the meal at the dinner table.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱵᱟᱨᱦᱟ ᱟᱨ ᱠᱟᱛᱷᱟ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang barha ar katha jom a.",
+        "english": "I eat meat and gravy.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱥᱩᱯ ᱠᱩᱜᱤ ᱢᱮᱱᱟᱜ ᱟ᱾",
+        "romanized": "nang sup kugi menag a.",
+        "english": "I think the soup is tasty.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱥᱩᱯ ᱮᱢ ᱢᱮ᱾",
+        "romanized": "am sup em me.",
+        "english": "Drink soup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱪᱟᱢᱟᱲ ᱨᱮ ᱨᱩᱴᱤ ᱫᱚᱦᱚ ᱢᱮ᱾",
+        "romanized": "am chamar re ruti doho me.",
+        "english": "Put the bread on the plate.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱵᱟᱰᱟ ᱨᱮ ᱫᱟᱹᱞ ᱫᱚᱦᱚ ᱢᱮ᱾",
+        "romanized": "am bada re dal doho me.",
+        "english": "Put the lentils in the bowl.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱫᱟᱠᱟ ᱟᱨ ᱥᱟᱜ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang daka ar sag jom a.",
+        "english": "I eat cooked rice and vegetables.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱴᱤ ᱨᱮ ᱫᱟᱜ ᱮᱢ ᱟ᱾",
+        "romanized": "nang chati re dag em a.",
+        "english": "I drink water from the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱫᱟᱠᱟ ᱟᱨ ᱦᱟᱠᱩ ᱣᱟᱱ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale daka ar haku wan jom a.",
+        "english": "We eat cooked rice and fish together.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱫᱩᱜᱬᱟ ᱠᱩᱜᱤ ᱢᱮᱱᱟᱜ ᱟ᱾",
+        "romanized": "nang dudhni kugi menag a.",
+        "english": "I think the milk is tasty.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱨᱟᱥᱟ ᱨᱮ ᱵᱮᱱᱚᱢ ᱮᱢᱟ ᱢᱮ᱾",
+        "romanized": "am rasa re benom ema me.",
+        "english": "Add pepper to the curry.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱣᱞᱮ ᱨᱮ ᱪᱩᱛᱱᱤ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang chaole re chutni jom a.",
+        "english": "I eat chutney with the meal.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱡᱷᱩᱱᱟ ᱜᱟᱛᱮ ᱜᱟᱢᱟ ᱨᱮ ᱫᱟᱜ ᱮᱢ ᱟ᱾",
+        "romanized": "ale jhuna gate gama re dag em a.",
+        "english": "We drink water at the dinner table.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱤᱴᱟᱞᱤ ᱜᱟᱛᱮ ᱥᱩᱯ ᱮᱢ ᱢᱮ᱾",
+        "romanized": "am itali gate sup em me.",
+        "english": "Drink the soup with a spoon.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱪᱟᱛ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang cat jom a.",
+        "english": "I eat bread.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱫᱟᱹᱞ ᱮᱢ ᱟ᱾",
+        "romanized": "nang dal em a.",
+        "english": "I drink lentil soup.",
+        "difficulty": 1,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱪᱟᱴᱤ ᱨᱮ ᱫᱩᱜᱬᱟ ᱫᱚᱦᱚ ᱢᱮ᱾",
+        "romanized": "am chati re dudhni doho me.",
+        "english": "Put the milk in the cup.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱪᱟᱢᱟᱲ ᱨᱮ ᱢᱩᱨᱜᱤ ᱫᱚᱦᱚ ᱢᱮ᱾",
+        "romanized": "am chamar re murgi doho me.",
+        "english": "Put the egg on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱱᱟᱝ ᱫᱟᱠᱟ ᱟᱨ ᱵᱟᱨᱦᱟ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "nang daka ar barha jom a.",
+        "english": "I eat cooked rice and meat.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱪᱟᱢᱟᱲ ᱨᱮ ᱨᱩᱴᱤ ᱟᱨ ᱢᱩᱨᱜᱤ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale chamar re ruti ar murgi jom a.",
+        "english": "We eat bread and egg on the plate.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱢ ᱵᱟᱰᱟ ᱨᱮ ᱨᱟᱥᱟ ᱫᱚᱦᱚ ᱢᱮ᱾",
+        "romanized": "am bada re rasa doho me.",
+        "english": "Put the curry in the bowl.",
+        "difficulty": 2,
+        "origin": "generated_c1"
+      },
+      {
+        "nativeScript": "ᱟᱞᱮ ᱡᱷᱩᱱᱟ ᱜᱟᱛᱮ ᱜᱟᱢᱟ ᱨᱮ ᱫᱟᱠᱟ ᱟᱨ ᱫᱩᱜᱬᱟ ᱡᱚᱢ ᱟ᱾",
+        "romanized": "ale jhuna gate gama re daka ar dudhni jom a.",
+        "english": "We have cooked rice and milk at the dinner table.",
+        "difficulty": 3,
+        "origin": "generated_c1"
+      }
+    ]
+  }
+}
