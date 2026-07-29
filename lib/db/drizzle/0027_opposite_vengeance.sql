@@ -1,1 +1,0 @@
-ALTER TABLE "phrases" ADD CONSTRAINT "phrases_lesson_group_scope_fk" FOREIGN KEY ("lesson_group_id","language_code","category_id") REFERENCES "public"."lesson_groups"("id","language_code","category_id") ON DELETE no action ON UPDATE no action;
