@@ -56,6 +56,17 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  // Group mode is idle in these suites (no ?group= param).
+  useListLessonGroupPhrases: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+  getListLessonGroupPhrasesQueryKey: () => ["lesson-group-phrases"],
+  getListCategoryLessonGroupsQueryKey: () => ["category-lesson-groups"],
   ApiError: class extends Error {
     status: number;
     constructor(status: number) { super(`HTTP ${status}`); this.status = status; }

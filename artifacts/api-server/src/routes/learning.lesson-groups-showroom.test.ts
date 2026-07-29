@@ -463,3 +463,77 @@ test("allowed (Plus) caller keeps the original contract with stage, and latching
   assert.equal(latched[0]!.lessonGroupId, g1Id);
   assert.equal(latched[0]!.status, "completed");
 });
+
+// ── Sentence-stage groups are server-denied for non-Plus callers ─────────────
+// The journey UI dialog-gates sentence stations, but a deep link
+// (?group=<sentence group id>) hits GET /lesson-groups/:id/phrases directly.
+// The sentence stage must deny exactly like /categories/:id/sentences/:lang —
+// 402 feature_locked, zero sentence text — never lean on client gating. The
+// fixture lives on the REAL free-allowed language so the language gate passes
+// and only the sentence gate can deny.
+
+test("sentence-stage group phrases: 402 feature_locked for non-Plus, content for Plus", async () => {
+  const [hiLesson] = await db
+    .insert(lessonsTable)
+    .values({ languageCode: "hi", categoryId: otherCategoryId, titleNative: "HG" })
+    .returning();
+  const [hiGroup] = await db
+    .insert(lessonGroupsTable)
+    .values({ languageCode: "hi", categoryId: otherCategoryId, position: 99 })
+    .returning();
+  const hiRows = await db
+    .insert(phrasesTable)
+    .values(
+      (["__test_hi_sentence_1", "__test_hi_sentence_2"] as const).map(
+        (english, i) => ({
+          lessonId: hiLesson!.id,
+          languageCode: "hi",
+          categoryId: otherCategoryId,
+          nativeScript: english,
+          romanized: english,
+          english,
+          sortOrder: i + 1,
+          stage: "sentence" as const,
+          lessonGroupId: hiGroup!.id,
+          lessonGroupPosition: i + 1,
+        }),
+      ),
+    )
+    .returning();
+
+  try {
+    // Plus caller (tier flipped by the previous test) gets the sentences.
+    let r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
+    assert.equal(r.status, 200);
+    assert.equal(r.json.length, 2);
+
+    // Non-Plus caller: authoritative 402 mirroring the category sentences
+    // gate, and no sentence text in the body.
+    await db
+      .update(usersTable)
+      .set({ tier: "free", subscriptionStatus: null })
+      .where(eq(usersTable.id, TEST_USER_ID));
+    r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
+    assert.equal(r.status, 402);
+    assert.equal(r.json.error, "upgrade_required");
+    assert.equal(r.json.reason, "feature_locked");
+    assert.equal(r.json.feature, "sentences");
+    assert.ok(
+      !r.text.includes("__test_hi_sentence"),
+      "no sentence text may leak to a denied caller",
+    );
+  } finally {
+    await db
+      .delete(phrasesTable)
+      .where(
+        inArray(
+          phrasesTable.id,
+          hiRows.map((row) => row.id),
+        ),
+      );
+    await db
+      .delete(lessonGroupsTable)
+      .where(eq(lessonGroupsTable.id, hiGroup!.id));
+    await db.delete(lessonsTable).where(eq(lessonsTable.id, hiLesson!.id));
+  }
+});

@@ -2077,6 +2077,21 @@ router.get(
       fetchUserAttempts(userId, group.languageCode),
     ]);
 
+    // The sentence stage is Plus-only, whatever the language. A sentence-stage
+    // group must be denied here exactly like /categories/:id/sentences/:lang —
+    // the journey UI's dialog gating is convenience, not authority, and a deep
+    // link (?group=<sentence group>) hits this route directly.
+    if (
+      phrases.some((p) => p.stage === "sentence") &&
+      denyLockedFeature(
+        req,
+        res,
+        "sentences",
+        "Full sentences are a Bolo! Plus feature. Upgrade to graduate from phrases to real sentences.",
+      )
+    )
+      return;
+
     const stats = buildPhraseStats(attempts);
     const accessible = canAccessPremium
       ? phrases

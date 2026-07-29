@@ -82,3 +82,4 @@
 - [Publish schema diff source](publish-schema-diff.md) — publish delta includes committed-but-unapplied migrations; never stage a migration by leaving it unapplied; FK-before-unique ordering bug ticketed.
 - [Lesson-group scope trigger fallback](lesson-group-trigger-fallback.md) — scope FK replaced by 23503-raising triggers + boot-ordered startup guard (dual-home DDL, distinct created/no-op logs); restore-FK procedure documented.
 - [Task completion hygiene](task-completion-hygiene.md) — markTaskComplete commits the WHOLE tree (leftover files fail review); suites fail at documented baselines, so use an audited skip_validation_reason after diagnosing.
+- [Journey map web (D1b)](journey-map-web.md) — showroom is server-ready but unreachable via web nav (client guards revert locked langs); sentence gating must be per-route server-side; browser QA harness traps.
