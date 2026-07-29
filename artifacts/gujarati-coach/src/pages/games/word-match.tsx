@@ -511,7 +511,7 @@ export default function WordMatchPage() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background pb-24 lg:pb-8">
+    <div className="flex min-h-[100dvh] flex-col bg-background pb-28 lg:pb-8">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-4">
         {phase === "game" || phase === "end" ? (

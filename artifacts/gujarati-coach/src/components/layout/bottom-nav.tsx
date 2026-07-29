@@ -60,31 +60,36 @@ export function BottomNav() {
           <span className="text-[10px] font-bold tracking-wide">Games</span>
         </Link>
 
-        {/* Centre elevated Bolo parrot button */}
+        {/* Centre elevated Bolo parrot button — the hero action. Sized and
+            offset so the circle's BOTTOM edge stays where it always was
+            (row top + 36px) while all the extra size protrudes upward, past
+            the XP strip and above the nav's top border. bg-card stays on in
+            the active state (tint is a gradient overlay) so the XP bar the
+            circle overlaps never shows through. */}
         <div className="relative flex flex-col items-center justify-center w-full h-full">
           <Link
             href="/chat"
-            className="absolute -top-5 flex flex-col items-center gap-1 button-spring"
+            className="absolute -top-11 flex flex-col items-center gap-1 button-spring"
             aria-label="Chat with Bolo"
           >
             <div
               className={cn(
-                "flex h-14 w-14 items-center justify-center rounded-full border-4 shadow-lg transition-all",
+                "flex h-20 w-20 items-center justify-center rounded-full border-4 bg-card shadow-lg transition-all",
                 chatActive
-                  ? "border-primary bg-primary/10 shadow-primary/30"
-                  : "border-border bg-card shadow-black/10 hover:border-primary/50 hover:shadow-primary/20",
+                  ? "border-primary bg-gradient-to-b from-primary/15 to-primary/5 shadow-primary/30"
+                  : "border-border shadow-black/10 hover:border-primary/50 hover:shadow-primary/20",
                 isTourHighlighted("chat") && "animate-pulse ring-2 ring-primary/60",
               )}
             >
               <img
                 src={`${import.meta.env.BASE_URL}mascot/mascot-wave.png`}
                 alt="Bolo parrot"
-                className="h-9 w-9 object-contain"
+                className="h-14 w-14 object-contain"
               />
             </div>
             <span
               className={cn(
-                "text-[10px] font-bold tracking-wide mt-1",
+                "text-[10px] font-bold tracking-wide leading-none mt-1",
                 chatActive ? "text-primary" : "text-muted-foreground"
               )}
             >
