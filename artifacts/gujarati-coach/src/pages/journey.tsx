@@ -46,6 +46,7 @@ import {
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
+import { Bunting, TracksideDoodad, ZoneVista } from "@/components/journey-scenery";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
@@ -54,7 +55,7 @@ const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 // desktop — no separate desktop composition.
 const MAP_MAX_W = 390;
 const STATION_H = 100; // vertical rhythm per station row
-const PC_H = 122; // vertical rhythm per fare-zone postcard
+const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
@@ -152,10 +153,11 @@ function StationMarker({
   );
 }
 
-/** Fare-zone postcard: shared frame, per-line accent, zone name in the
- *  landmark slot (no artwork is generated — acceptance 8). Locked showroom
- *  zones render grayscale. Full-width card; the interchange diamond is drawn
- *  by the map on the track where it meets the card. */
+/** Fare-zone postcard: picture side on top (per-zone landmark vista, inline
+ *  SVG in brand colors — no artwork is generated, acceptance 8), address side
+ *  below with stamp + postmark. Locked showroom zones render grayscale.
+ *  Full-width card; the interchange diamond is drawn by the map on the track
+ *  where it meets the card. */
 function ZonePostcard({
   zoneIndex,
   zoneTitle,
@@ -177,10 +179,13 @@ function ZonePostcard({
       {/* postcard frame — outer 2px border */}
       <div className="rounded-lg border-2 bg-white shadow-sm overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
-        <div className="m-1 rounded-md border border-dashed" style={{ borderColor: `${color}66` }}>
+        <div className="m-1 rounded-md border border-dashed overflow-hidden" style={{ borderColor: `${color}66` }}>
+          {/* picture side: the zone's landmark vista */}
+          <ZoneVista zoneIndex={zoneIndex} accent={accent} />
+          {/* address side */}
           <div className="flex items-stretch gap-0">
             {/* left column: main address side */}
-            <div className="flex-1 min-w-0 px-3 py-2">
+            <div className="flex-1 min-w-0 px-3 py-1.5">
               <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color }}>
                 Fare zone {zoneIndex + 1} · {zoneTitle}
               </div>
@@ -190,23 +195,28 @@ function ZonePostcard({
               <div className="text-[10px] text-muted-foreground">
                 {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
               </div>
-              {/* handwritten-adjacent zone caption */}
-              <div
-                className="mt-1.5 text-[10px] font-semibold italic"
-                style={{ color, transform: "rotate(-1.5deg)", transformOrigin: "left center" }}
-                aria-hidden
-              >
-                {geoName}
-              </div>
             </div>
             {/* divided-back vertical rule */}
             <div className="w-px self-stretch my-1.5" style={{ background: `${color}44` }} aria-hidden />
-            {/* right column: stamp + postmark */}
-            <div className="shrink-0 flex flex-col items-center justify-between gap-1 px-2 py-1.5">
+            {/* right column: stamp + postmark, side by side */}
+            <div className="shrink-0 flex items-center gap-1.5 px-2 py-1.5">
+              {/* circular postmark */}
+              <div
+                className="w-7 h-7 rounded-full border border-dashed flex items-center justify-center"
+                style={{ borderColor: `${color}88` }}
+                aria-hidden
+              >
+                <div
+                  className="w-4 h-4 rounded-full border flex items-center justify-center"
+                  style={{ borderColor: color }}
+                >
+                  <div className="w-1 h-1 rounded-full" style={{ background: color }} />
+                </div>
+              </div>
               {/* postage stamp: bold zone number in accent */}
               <div
                 className="h-9 w-9 rounded-sm border-2 flex flex-col items-center justify-center"
-                style={{ borderColor: color }}
+                style={{ borderColor: color, background: `${color}14` }}
                 aria-hidden
               >
                 <span className="text-[8px] font-black uppercase tracking-wide leading-none" style={{ color }}>
@@ -215,19 +225,6 @@ function ZonePostcard({
                 <span className="text-base font-black leading-none" style={{ color }}>
                   {zoneIndex + 1}
                 </span>
-              </div>
-              {/* circular postmark */}
-              <div
-                className="w-8 h-8 rounded-full border border-dashed flex items-center justify-center"
-                style={{ borderColor: `${color}88` }}
-                aria-hidden
-              >
-                <div
-                  className="w-5 h-5 rounded-full border flex items-center justify-center"
-                  style={{ borderColor: color }}
-                >
-                  <div className="w-1 h-1 rounded-full" style={{ background: color }} />
-                </div>
               </div>
             </div>
           </div>
@@ -313,7 +310,10 @@ function StationCard({
         )}
         {!accessible && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
       </div>
-      <div className="text-[11px] text-muted-foreground">
+      <div
+        className={cn("text-[11px]", isCurrent ? "font-semibold" : "text-muted-foreground")}
+        style={isCurrent ? { color } : undefined}
+      >
         {statusCopy}
         {station.attemptedCount ? ` · ${station.masteredCount}/${station.phraseCount} mastered` : ` · ${station.phraseCount} phrases`}
         {isCurrent && " · Bolo is waiting here"}
@@ -643,6 +643,29 @@ export default function Journey() {
               {segs.map((s, i) => (
                 <RailSegment key={i} d={s.d} lit={s.lit} accent={line.accent} />
               ))}
+              {/* Trackside scenery: one small scene in the free strip beside
+                  each station (opposite its card), cycling by station index. */}
+              {pts
+                .filter((p) => p.kind === "station")
+                .map((p, i) => {
+                  const s = p.station!;
+                  const zone = zones[s.zoneIndex]!;
+                  const zoneAccessible = zone.stations.some(
+                    (st) => isStatusAccessible(st.status) || st.teaserStation,
+                  );
+                  return (
+                    <TracksideDoodad
+                      key={s.id}
+                      variant={i}
+                      x={i % 2 === 0 ? 42 : mapW - 42}
+                      y={p.y + 22}
+                      accent={line.accent}
+                      gray={showroom && !zoneAccessible}
+                    />
+                  );
+                })}
+              {/* Festival bunting over the terminus */}
+              <Bunting x1={20} x2={mapW - 20} y={termY - 34} accent={line.accent} />
             </svg>
 
             {/* Zone postcards (full width; interchange diamond rides the track) */}
