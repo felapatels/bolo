@@ -314,7 +314,9 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
               <div>
                 <h3 className="text-lg font-black text-foreground">Free</h3>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Hindi only, {" "}
+                  Hindi + a free taste of all 22 languages
+                </p>
+                <p className="text-xs font-medium text-muted-foreground/70">
                   {/* mirrors the server's Free daily cap */}3 lessons a day
                 </p>
               </div>
