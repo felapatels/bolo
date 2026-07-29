@@ -338,6 +338,7 @@ Hook sites: web `App.tsx` (sign-up via `user.createdAt` < 2 min, also identity s
 | `phrases.register` unpopulated | Spec D2 added the nullable column + `(language_code, register)` index; no authoring or filtering yet — all rows are NULL |
 | ~~Stale drizzle meta snapshots~~ | **Resolved with 0021.** Task 1's ad-hoc DDL left `meta/` lagging the committed migrations, so `generate` re-emitted applied DDL. The 0021 repair rewrote the terminal snapshot to the full current schema; `generate` now emits "No schema changes", and `check-drift` runs a trial generate on every pass so regression cannot land silently |
 | Web pre-existing test failures | `account.test.tsx` x6, `chat-error-banner.test.tsx` x2 |
+| TRAP: publish diff reads the committed migration chain (July 29, 2026) | The publish schema sync appears to compute its delta from the committed migration chain, not only the live dev database, so a committed-but-unapplied migration enters the publish delta. Never stage a migration by leaving it unapplied. Observed during the 0026 composite-FK ordering failure: with the re-add migration (0027) committed but unapplied, publish kept emitting `phrases_lesson_group_scope_fk` before its target unique constraint and failed; with 0027 removed from the tree the publish reported success. Support ticket filed for the FK-before-unique ordering bug; PUBLISHING IS BLOCKED pending the support response. 0027 is restored in the tree and still unapplied to prod; dev carries it |
 | ~~`daily_goal` default of 10~~ | **Resolved (July 28, 2026).** Migration `0025_daily_goal_default_50` set the column default to 50 for NEW users only; the 4 existing rows at 10 were deliberately left unchanged. Server-side missing-row fallback in learning.ts updated to 50; client display fallbacks (`?? 10` in home.tsx/XpCounter) are loading placeholders and were left as-is. No prior cleanup pass had changed this |
 | FSRS is mobile-only on the client | Review queue and `/review/phrases` have no web surface |
 | #776 | Conjunct-nasal normalization for scripts other than Devanagari. Gated on native speaker review |
@@ -372,6 +373,7 @@ Paste this block into every spec.
 9. Zero output from typecheck means zero errors. Do not re-run to confirm.
 10. Mobile count-up chips use the ReText pattern (animated `TextInput`, `editable={false}`). Tests must assert via `accessibilityLabel` or `getByLabelText`, never `getByText`.
 11. If a named file, component, or line does not match this document, STOP and ask. Then report the discrepancy so this document can be corrected.
+12. Before submitting any schema-bearing publish, read the generated-migrations panel and confirm the pending delta is exactly what you expect. Migration-stage publish failures produce NO deployment logs, so the panel is the only pre-flight visibility.
 
 ---
 

@@ -190,6 +190,13 @@
       "when": 1785285710346,
       "tag": "0026_strange_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785285773396,
+      "tag": "0027_opposite_vengeance",
+      "breakpoints": true
     }
   ]
 }
