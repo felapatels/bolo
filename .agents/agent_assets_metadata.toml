@@ -114,3 +114,27 @@ id = "pnGsXd5tVJ6-awwbVjzjx"
 uri = "file://artifacts/bolo-mobile/assets/images/icon_review.png"
 type = "image"
 title = "Icon mask review"
+
+[[outputs]]
+id = "bwIz9UVzlSQmtH95m40cC"
+uri = "file://artifacts/bolo-mobile/assets/images/icon.png"
+type = "image"
+title = "New iOS/app icon (1024×1024 RGB, mascot-wave on #fffdf0)"
+
+[[outputs]]
+id = "5k-BwtKrnsUaaaM7pROSg"
+uri = "file://artifacts/bolo-mobile/assets/images/adaptive-icon.png"
+type = "image"
+title = "New Android adaptive-icon foreground (1024×1024 RGBA, transparent)"
+
+[[outputs]]
+id = "gcjsqWruTaTxBehPn7SHM"
+uri = "file://attached_assets/favicon_candidates/favicon-180.png"
+type = "image"
+title = "Task 2 candidate: apple-touch-icon 180×180"
+
+[[outputs]]
+id = "bNNSamgyQawi9SKTwDVkQ"
+uri = "file://attached_assets/favicon_candidates/favicon-32.png"
+type = "image"
+title = "Task 2 candidate: favicon 32×32"

@@ -1,0 +1,26 @@
+Here's the combined prompt. It sequences committed work (icons) before design work (map), keeps the sandbox-first discipline for the visual iteration, and has three stop points so nothing gets improvised. One decision I made for you since it was open: map is specced mobile-width first, desktop just centers it in a max-width column — matches how the app is actually used.
+
+Three tasks, in order. Read docs/CODEBASE-FACTS.md first. Rules for all three: use existing sprite/asset pixels only — no generated, redrawn, restyled, or AI-created artwork anywhere. If anything blocks a clean result, stop and report instead of improvising.
+
+TASK 1 — iOS/Android app icon (approved, execute)
+Source: artifacts/bolo-mobile/assets/images/mascot/mascot-wave.png, the canonical mascot.
+
+Convert the palette PNG to full RGBA, then composite it, pixels unmodified, centered on an opaque 
+#fffdf0 background at 1024x1024, bird filling roughly 75-80% of frame height. Flatten to RGB, no alpha channel. Overwrite assets/images/icon.png.
+Regenerate assets/images/adaptive-icon.png from the same pose: keep transparency, bird within the central ~66% adaptive safe zone. Confirm app.json adaptiveIcon backgroundColor is 
+#fffdf0.
+Confirm splash.image and web.favicon still point at ./assets/images/icon.png — they inherit the new art, intended.
+Add a facts doc note: assets/branding/icon.svg and the pre-July-29 icon.png depict a non-canonical green parrot and must never be reused as icon sources; the canonical mascot is the teal/blue bird in assets/images/mascot/.
+STOP 1: show me the new icon.png for approval before committing. Report dimensions and color mode.
+
+TASK 2 — production web favicon (report, then fix)
+The Chrome tab icon at bolo-india.app is also the wrong bird. First report: what favicon/app-icon files does artifacts/gujarati-coach actually serve — index.html link tags, public/ contents (favicon.ico, favicon.png, apple-touch-icon, manifest icons), and what each depicts. Then regenerate each from the same mascot-wave composite at its declared sizes (favicon 32/48, apple-touch-icon 180, manifest sizes as declared). Include the regenerated files in the Stop 1 approval report if you reach them before I respond; otherwise show them at STOP 2 before committing.
+
+TASK 3 — journey map visual upgrade (mockups only, no app code)
+The current map renders stops on a straight vertical line and the boarding pass is a plain rounded card. Build mockups in artifacts/mockup-sandbox only — do not touch the live journey page or bolo-mobile in this task.
+Step 0 first: report which app currently owns the journey map page (file path), the component structure of the stop list and boarding pass card, and confirm the mockup-sandbox can render them in isolation. Then build:
+
+Serpentine track: stops weave in a gentle left-right S-curve down a 390px-wide viewport instead of a straight line. The connector renders as railway track — either twin rails with sleeper ties or a single line with tie marks. Completed segments solid, locked segments faded or dashed. Existing stop cards, badges (FREE TASTE / ALL-ACCESS), lock states, and the parked-train current-stop marker all stay functionally as-is; only path geometry and connector art change. Produce two curve treatments: (a) subtle, cards stay near-full-width with slight alternating offset; (b) pronounced, cards alternate clearly left/right with the track curving between them.
+Boarding pass ticket treatment: upgrade both the home-screen boarding pass and the map header pass. Notched semicircle cutouts on the card edges at the perforation line, the existing dashed perforation retained, a subtle ticket-stub texture or watermark using existing brand colors only, and a fare-zone stamp element. Two variants: minimal and full-ticket.
+Desktop: the mobile layout centers in a max-width column; no separate desktop composition.
+STOP 3: render all mockup variants side by side in the sandbox preview and give me the URL. No journey-page code changes until I pick variants.
