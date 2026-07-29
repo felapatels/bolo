@@ -1,11 +1,29 @@
 {
   "version": 1,
   "skills": {
+    "ai-image-generation": {
+      "source": "skill-zero/s",
+      "sourceType": "github",
+      "skillPath": "tools/image/ai-image-generation/SKILL.md",
+      "computedHash": "0dc5f514bad23f54c7ae8e610d59f6578354f40c8375208fa2e0c6d716bf554b"
+    },
+    "ai-social-media-content": {
+      "source": "skill-zero/s",
+      "sourceType": "github",
+      "skillPath": "guides/social/ai-social-media-content/SKILL.md",
+      "computedHash": "787bcf30e11d05f1d6258463c6d9dac736d27a3b71b848d8a9034e79d41a5ce9"
+    },
     "ai-video-generation": {
       "source": "skill-zero/s",
       "sourceType": "github",
       "skillPath": "tools/video/ai-video-generation/SKILL.md",
       "computedHash": "89778323d1e01c08cb00a94164b343265d378d3f86dc01457db87095c912b489"
+    },
+    "meme-factory": {
+      "source": "softaworks/agent-toolkit",
+      "sourceType": "github",
+      "skillPath": "skills/meme-factory/SKILL.md",
+      "computedHash": "2ad2c38e35d721515aea849b751e5222bb3996933055abd0085beb4fa486e2fa"
     },
     "tailwind-design-system": {
       "source": "wshobson/agents",
