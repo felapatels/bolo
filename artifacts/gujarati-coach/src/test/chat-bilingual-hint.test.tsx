@@ -196,11 +196,20 @@ beforeEach(() => {
   // throw on the subsequent network call.
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
 
-  // Stub Audio so playback code doesn't crash in jsdom.
-  vi.stubGlobal(
-    "Audio",
-    vi.fn(() => ({ play: vi.fn(() => Promise.resolve()), pause: vi.fn(), load: vi.fn(), onended: null, onerror: null })),
-  );
+  // Stub Audio so playback code doesn't crash in jsdom. Must be a real class:
+  // the chat page constructs pooled elements (`new Audio()`) synchronously in
+  // its pointer-down gesture handler (iOS audio unlock).
+  class FakeChatAudio {
+    play = vi.fn(() => Promise.resolve());
+    pause = vi.fn();
+    load = vi.fn();
+    onended: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onplay: (() => void) | null = null;
+    src = "";
+    currentTime = 0;
+  }
+  vi.stubGlobal("Audio", FakeChatAudio);
 });
 
 // ---------------------------------------------------------------------------

@@ -149,6 +149,58 @@ export default function ChatPage() {
   };
   const greetingRef = useRef<GreetingData | null>(null);
 
+  // ── iOS/WebKit audio unlock ─────────────────────────────────────────────
+  // Every iPhone browser (Safari, Chrome, Firefox — all share WebKit) only
+  // allows .play() on an <audio> element that has previously started playing
+  // inside a real user gesture. Bolo's reply audio starts seconds AFTER the
+  // tap (once STT→LLM→TTS finishes), so a fresh `new Audio()` created at that
+  // point is silently blocked (NotAllowedError) — captions appear, no voice.
+  // Fix: keep two persistent elements (voice + squawk SFX), "bless" them by
+  // playing a 50 ms silent clip during the gesture that starts a turn, and
+  // route every later playback through the blessed elements.
+  const SILENT_WAV =
+    "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+  const voicePoolRef = useRef<HTMLAudioElement | null>(null);
+  const sfxPoolRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
+
+  /** Reuse a pooled (gesture-blessed) element for a new clip. */
+  const acquireAudio = useCallback(
+    (pool: { current: HTMLAudioElement | null }, src: string): HTMLAudioElement => {
+      let el = pool.current;
+      if (!el) {
+        el = new Audio();
+        pool.current = el;
+      }
+      try {
+        el.pause();
+      } catch {
+        // Detached or disposed element — ignore.
+      }
+      el.onended = null;
+      el.onerror = null;
+      el.onplay = null;
+      el.src = src;
+      return el;
+    },
+    [],
+  );
+
+  /** Must run synchronously inside a user gesture (tap / click / keydown). */
+  const unlockAudioPlayback = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
+    for (const pool of [voicePoolRef, sfxPoolRef]) {
+      if (!pool.current) pool.current = new Audio();
+      const el = pool.current;
+      el.src = SILENT_WAV;
+      el.play().catch(() => {
+        // Best-effort: desktop browsers don't need the unlock at all.
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Warm up the mic on mount — but only when permission is already granted,
   // so first-time users never see a permission prompt on page load. Their
   // prompt fires on the first record press instead.
@@ -403,7 +455,7 @@ export default function ChatPage() {
       };
       if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
         const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][s.squawkVariant];
-        const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+        const sfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${sfxFile}.mp3`);
         // One-shot guard: whichever of onended / onerror / play().catch fires
         // first wins; subsequent callbacks are silently dropped.
         let sfxFired = false;
@@ -508,19 +560,22 @@ export default function ChatPage() {
         };
 
         // Play greeting audio (squawk SFX intro, then the voice clip).
-        const greetingAudio = new Audio(`data:audio/${greeting!.format};base64,${greeting!.audioBase64}`);
+        const greetingAudio = acquireAudio(voicePoolRef, `data:audio/${greeting!.format};base64,${greeting!.audioBase64}`);
         playbackRef.current = greetingAudio;
         greetingAudio.onended = onGreetingEnded;
         greetingAudio.onerror = () => onGreetingEnded();
 
         const startGreetingAudio = () => {
           if (activeTurnRef.current !== myTurn) return;
-          greetingAudio.play().catch(() => onGreetingEnded());
+          greetingAudio.play().catch((e) => {
+            console.log('[audio] play blocked path=greeting', (e as Error)?.name);
+            onGreetingEnded();
+          });
         };
 
         const gSfxIdx = greeting!.squawkVariant ?? 0;
         const gSfxFile = ["squawk_a", "squawk_b", "squawk_c"][gSfxIdx];
-        const gSfx = new Audio(`/gujarati-coach/sounds/${gSfxFile}.mp3`);
+        const gSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${gSfxFile}.mp3`);
         gSfx.onended = startGreetingAudio;
         gSfx.onerror = startGreetingAudio;
         gSfx.play().catch(startGreetingAudio);
@@ -630,20 +685,21 @@ export default function ChatPage() {
                   if (activeTurnRef.current !== myTurn) return;
                   console.log('[audio] play path=reply');
                   stopCurrentPlayback();
-                  const ra = new Audio(`data:audio/${rFmt};base64,${rAudio}`);
+                  const ra = acquireAudio(voicePoolRef, `data:audio/${rFmt};base64,${rAudio}`);
                   playbackRef.current = ra;
                   ra.onended = () => {
                     if (playbackRef.current === ra) playbackRef.current = null;
                     if (activeTurnRef.current === myTurn) setPhase("idle");
                   };
-                  ra.play().catch(() => {
+                  ra.play().catch((e) => {
+                    console.log('[audio] play blocked path=reply', (e as Error)?.name);
                     if (playbackRef.current === ra) playbackRef.current = null;
                     if (activeTurnRef.current === myTurn) setPhase("idle");
                   });
                 };
                 if (rSquawk !== null && rSquawk !== undefined) {
                   const rSfxFile = ["squawk_a", "squawk_b", "squawk_c"][rSquawk];
-                  const rSfx = new Audio(`/gujarati-coach/sounds/${rSfxFile}.mp3`);
+                  const rSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${rSfxFile}.mp3`);
                   let rSfxFired = false;
                   const onceRealAudio = () => {
                     if (rSfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
@@ -973,15 +1029,19 @@ export default function ChatPage() {
             const playReply = () => {
               console.log('[audio] play path=reply');
               stopCurrentPlayback();
-              const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
+              const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
-              audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
+              audio.play().catch((e) => {
+                console.log('[audio] play blocked path=reply', (e as Error)?.name);
+                playbackRef.current = null;
+                setPhase("idle");
+              });
             };
 
             if (squawkVariant !== null && squawkVariant !== undefined) {
               const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
-              const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+              const sfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${sfxFile}.mp3`);
               let sfxFired = false;
               const onceReply = () => {
                 if (sfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
@@ -1083,7 +1143,7 @@ export default function ChatPage() {
         finishingRef.current = false;
       }
     }
-  }, [recorder, chatLang, messages, setLocation, clearWordReveal, prefersReducedMotion, stopCurrentPlayback]);
+  }, [recorder, chatLang, messages, setLocation, clearWordReveal, prefersReducedMotion, stopCurrentPlayback, acquireAudio]);
 
   const showTimeIndicator =
     !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
@@ -1101,6 +1161,7 @@ export default function ChatPage() {
   // re-recording. The failed bubble is restored to pending in-place so the
   // conversation order is preserved.
   const handleRetry = useCallback((messageIndex: number) => {
+    unlockAudioPlayback(); // retry click is a gesture — bless audio elements
     const blob = currentBlobRef.current;
     if (!blob) return; // no blob available — user must re-record
     retryBlobRef.current = blob;
@@ -1109,7 +1170,7 @@ export default function ChatPage() {
     ));
     finishingRef.current = false;
     void finishRecording();
-  }, [finishRecording]);
+  }, [finishRecording, unlockAudioPlayback]);
 
   const startRecording = useCallback(async () => {
     // Cap check for free users.
@@ -1149,6 +1210,9 @@ export default function ChatPage() {
 
   // Send a typed message as a chat turn, bypassing audio recording entirely.
   const sendTextTurn = useCallback(async () => {
+    // Called synchronously from the Send click / Enter keydown — bless the
+    // pooled audio elements while gesture context is still live (iOS/WebKit).
+    unlockAudioPlayback();
     const text = textInputValue.trim();
     if (!text) return;
     if (phase === "processing" || phase === "recording") return;
@@ -1291,14 +1355,18 @@ export default function ChatPage() {
               if (activeTurnRef.current !== myTurn) return;
               console.log('[audio] play path=reply');
               stopCurrentPlayback();
-              const audio = new Audio(`data:audio/${format};base64,${replyAudioBase64}`);
+              const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
-              audio.play().catch(() => { playbackRef.current = null; setPhase("idle"); });
+              audio.play().catch((e) => {
+                console.log('[audio] play blocked path=reply', (e as Error)?.name);
+                playbackRef.current = null;
+                setPhase("idle");
+              });
             };
             if (squawkVariant !== null && squawkVariant !== undefined) {
               const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][squawkVariant];
-              const sfx = new Audio(`/gujarati-coach/sounds/${sfxFile}.mp3`);
+              const sfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${sfxFile}.mp3`);
               let sfxFired = false;
               const onceReply = () => {
                 if (sfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
@@ -1347,9 +1415,12 @@ export default function ChatPage() {
     } finally {
       textSendingRef.current = false;
     }
-  }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation, stopCurrentPlayback]);
+  }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation, stopCurrentPlayback, acquireAudio, unlockAudioPlayback]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
+    // Bless the pooled audio elements while we're inside a real gesture —
+    // required on iOS/WebKit for the reply audio that plays seconds later.
+    unlockAudioPlayback();
     if (capExhausted) return;
     e.preventDefault(); // suppress context menu on long-press
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -1373,7 +1444,7 @@ export default function ChatPage() {
       clearWordReveal();
       void startRecording();
     }
-  }, [phase, capExhausted, startRecording, stopPlayback, clearWordReveal]);
+  }, [phase, capExhausted, startRecording, stopPlayback, clearWordReveal, unlockAudioPlayback]);
 
   const handleMicPointerUp = useCallback(() => {
     if (phase === "recording") {
