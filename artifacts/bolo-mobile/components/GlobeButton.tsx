@@ -4,34 +4,34 @@
  * which language they are practising.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, type ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppFonts } from '@/constants/fonts';
-import { hapticLight } from '@/lib/haptics';
 
 export function GlobeButton({ style }: { style?: ViewStyle }) {
   const router = useRouter();
   const colors = useColors();
   const { activeLang } = useLanguage();
   return (
-    <Pressable
-      onPress={() => {
-        hapticLight();
-        router.push('/(app)/language');
-      }}
+    // PressableScale supplies the press-scale response and the light haptic
+    // tap, matching every other tappable in the app.
+    <PressableScale
+      onPress={() => router.push('/(app)/language')}
       accessibilityLabel="Change language"
       accessibilityRole="button"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      style={[styles.root, style]}
+      scaleTo={0.9}
+      style={style ? [styles.root, style] : styles.root}
     >
       <Feather name="globe" size={20} color={colors.mutedForeground} />
       <Text style={[styles.label, { color: colors.mutedForeground }]}>
         {activeLang}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

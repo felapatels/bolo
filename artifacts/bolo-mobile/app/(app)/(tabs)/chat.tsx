@@ -48,6 +48,7 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
+import { PressableScale } from '@/components/PressableScale';
 import { TipCard } from '@/components/TipCard';
 import { useChatRecording } from '@/components/ChatRecordingContext';
 
@@ -1611,7 +1612,7 @@ export default function ChatScreen() {
         {/* Skip button — only shown while Bolo is speaking */}
         {phase === 'playing' && (
           <Animated.View entering={appear(FadeInDown.duration(200))} style={{ marginTop: 8 }}>
-            <Pressable
+            <PressableScale
               onPress={(e) => {
                 e.stopPropagation?.();
                 playbackRef.current?.stop();
@@ -1623,7 +1624,7 @@ export default function ChatScreen() {
               accessibilityLabel="Skip Bolo's reply"
             >
               <Feather name="skip-forward" size={18} color={colors.mutedForeground} />
-            </Pressable>
+            </PressableScale>
           </Animated.View>
         )}
       </Pressable>

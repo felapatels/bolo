@@ -1,6 +1,7 @@
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
 import { Redirect } from 'expo-router';
+import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 
 export default function Index() {
@@ -8,6 +9,8 @@ export default function Index() {
   const colors = useColors();
 
   if (!isLoaded) {
+    // Branded loading treatment instead of a raw spinner: the mascot's idle
+    // float (reduced-motion aware inside Mascot) carries the wait.
     return (
       <View
         style={{
@@ -17,7 +20,7 @@ export default function Index() {
           backgroundColor: colors.background,
         }}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Mascot pose="wave" size={120} motion="float" />
       </View>
     );
   }

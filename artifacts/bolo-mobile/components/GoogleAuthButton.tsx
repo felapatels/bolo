@@ -16,6 +16,7 @@ import {
   reportAuthError,
   reportAuthIncompleteState,
 } from '@/lib/authErrors';
+import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -39,6 +40,7 @@ export function GoogleAuthButton() {
   }, []);
 
   const onPress = useCallback(async () => {
+    hapticLight();
     setLoading(true);
     setError(null);
     try {

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AppFonts } from '@/constants/fonts';
-import { hapticLight } from '@/lib/haptics';
 
 /** Small "PLUS" pill used to mark locked, Plus-only affordances. */
 export function PlusPill({ style }: { style?: ViewStyle }) {
@@ -34,11 +34,9 @@ export function LockedFeatureCard({
 }) {
   const colors = useColors();
   return (
-    <Pressable
-      onPress={() => {
-        hapticLight();
-        onPress();
-      }}
+    // PressableScale provides the press-scale response and light haptic tap.
+    <PressableScale
+      onPress={onPress}
       accessibilityRole="button"
       accessibilityHint="Opens the Bolo! Plus upgrade screen"
       style={[
@@ -61,7 +59,7 @@ export function LockedFeatureCard({
         </Text>
       </View>
       <Feather name="lock" size={18} color={colors.mutedForeground} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -81,11 +79,8 @@ export function LockedPhrasesCard({
   const colors = useColors();
   const label = `${count} more ${count === 1 ? 'phrase' : 'phrases'} with Plus`;
   return (
-    <Pressable
-      onPress={() => {
-        hapticLight();
-        onPress();
-      }}
+    <PressableScale
+      onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint="Opens the Bolo! Plus upgrade screen"
@@ -109,7 +104,7 @@ export function LockedPhrasesCard({
         </Text>
       </View>
       <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -122,11 +117,8 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
   const colors = useColors();
   const { isOneLanguage } = useEntitlements();
   return (
-    <Pressable
-      onPress={() => {
-        hapticLight();
-        onPress();
-      }}
+    <PressableScale
+      onPress={onPress}
       accessibilityRole="button"
       style={[styles.banner, { backgroundColor: colors.foreground }]}
     >
@@ -144,7 +136,7 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
         </Text>
       </View>
       <Feather name="chevron-right" size={22} color={colors.background} />
-    </Pressable>
+    </PressableScale>
   );
 }
 

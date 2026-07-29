@@ -1041,7 +1041,11 @@ export default function ReviewScreen() {
       <Screen>
         <ReviewHeader onClose={() => router.back()} label="Review" />
         <View style={styles.emptyWrap}>
-          <EmptyState title="Nothing due right now" body="Everything's still fresh." />
+          <EmptyState
+            title="Nothing due right now"
+            body="Everything's still fresh."
+            mascotPose="thumbsup"
+          />
           <ChunkyButton
             title="Back to home"
             icon="home"

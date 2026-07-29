@@ -1,23 +1,52 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import { useAppearSkip } from '@/lib/entrance';
+import { Mascot, type MascotPose } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 interface EmptyStateProps {
   title: string;
   body?: string;
+  /** Optional mascot shown above the text with a gentle spring pop. */
+  mascotPose?: MascotPose;
 }
 
 /**
  * Minimal empty-state display. Use when a list or queue has no items to show.
+ *
+ * Enters with a gentle mascot pop + staggered text fade. The `entering`
+ * animations run on mount only, so they never replay on re-renders, and the
+ * shared appear guard drops them entirely in Expo Go and under the system
+ * reduced-motion setting (content renders directly in its resting state).
  */
-export function EmptyState({ title, body }: EmptyStateProps) {
+export function EmptyState({ title, body, mascotPose }: EmptyStateProps) {
   const colors = useColors();
+  const skipEnter = useAppearSkip();
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
+      {mascotPose ? (
+        <Animated.View
+          entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+          style={styles.mascot}
+        >
+          <Mascot pose={mascotPose} size={92} motion="float" />
+        </Animated.View>
+      ) : null}
+      <Animated.Text
+        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        style={[styles.title, { color: colors.foreground }]}
+      >
+        {title}
+      </Animated.Text>
       {body ? (
-        <Text style={[styles.body, { color: colors.mutedForeground }]}>{body}</Text>
+        <Animated.Text
+          entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+          style={[styles.body, { color: colors.mutedForeground }]}
+        >
+          {body}
+        </Animated.Text>
       ) : null}
     </View>
   );
@@ -30,6 +59,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingVertical: 48,
+  },
+  mascot: {
+    marginBottom: 14,
   },
   title: {
     fontFamily: AppFonts.extrabold,

@@ -10,6 +10,7 @@ import {
   reportAuthError,
   reportAuthIncompleteState,
 } from '@/lib/authErrors';
+import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -52,6 +53,7 @@ export function AppleAuthButton() {
   const onPress = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
+    hapticLight();
     setLoading(true);
     setError(null);
     try {

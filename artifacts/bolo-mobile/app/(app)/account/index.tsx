@@ -45,6 +45,7 @@ import {
   saveSilentMode,
 } from '@/lib/settings';
 import { loadSoundPref, saveSoundPref } from '@/lib/soundPref';
+import { hapticLight } from '@/lib/haptics';
 import { useTour } from '@/contexts/TourContext';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
@@ -86,6 +87,7 @@ export default function AccountScreen() {
     };
   }, []);
   const changeSpokenFeedback = (enabled: boolean) => {
+    hapticLight();
     setSpokenFeedback(enabled);
     void saveSpokenFeedback(enabled);
   };
@@ -106,6 +108,7 @@ export default function AccountScreen() {
     };
   }, []);
   const changeSilentMode = (enabled: boolean) => {
+    hapticLight();
     setSilentMode(enabled);
     void saveSilentMode(enabled);
   };
@@ -123,6 +126,7 @@ export default function AccountScreen() {
     };
   }, []);
   const changeSoundOn = (enabled: boolean) => {
+    hapticLight();
     setSoundOn(enabled);
     void saveSoundPref(enabled);
   };
@@ -863,7 +867,11 @@ function Segmented({
             key={opt.value}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            onPress={() => onChange(opt.value)}
+            onPress={() => {
+              // Light tap only when the selection actually changes.
+              if (!active) hapticLight();
+              onChange(opt.value);
+            }}
             style={[
               styles.segment,
               active && { backgroundColor: colors.card },

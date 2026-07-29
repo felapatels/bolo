@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
@@ -8,6 +8,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { TourProvider } from '@/contexts/TourContext';
 import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { GuidedTour } from '@/components/GuidedTour';
+import { Mascot } from '@/components/Mascot';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { useColors } from '@/hooks/useColors';
@@ -47,7 +48,9 @@ export default function AppLayout() {
           backgroundColor: colors.background,
         }}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        {/* Branded loading treatment instead of a raw spinner (Mascot is
+            reduced-motion aware internally). */}
+        <Mascot pose="wave" size={120} motion="float" />
       </View>
     );
   }

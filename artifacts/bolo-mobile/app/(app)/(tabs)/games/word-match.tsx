@@ -7,7 +7,6 @@ import React, {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -29,7 +28,9 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
@@ -197,9 +198,13 @@ function TopicPicker({
   const { data: categories, isLoading } = useListCategories({ lang: activeLang });
 
   if (isLoading) {
+    // Shimmer skeletons shaped like the incoming topic rows keep the layout
+    // stable instead of a raw spinner.
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={styles.pickerList}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <SkeletonCard key={i} height={64} borderRadius={16} />
+        ))}
       </View>
     );
   }
@@ -614,7 +619,7 @@ export default function WordMatchScreen() {
 
       {phase === 'game' && (
         phraseQuery.isLoading ? (
-          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+          <View style={styles.center}><FunFactLoader color={colors.primary} /></View>
         ) : phrases.length < (difficulty === 'easy' ? WORD_MATCH_MIN_EASY : WORD_MATCH_MIN_NORMAL) ? (
           <View style={styles.center}>
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>

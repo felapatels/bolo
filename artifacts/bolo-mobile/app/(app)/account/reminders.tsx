@@ -23,6 +23,7 @@ import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 import {
   ALL_DAYS,
   isWithinQuietHours,
@@ -111,6 +112,7 @@ export default function RemindersScreen() {
   // manual refresh button case is covered by askPermission/openSettings).
   const toggleEnabled = async (on: boolean) => {
     if (!prefs) return;
+    hapticLight();
     if (on && remindersSupported) {
       const current = await getNotificationPermission();
       setPermission(current);
@@ -326,13 +328,14 @@ export default function RemindersScreen() {
                 </View>
                 <Switch
                   value={quietOn}
-                  onValueChange={(on) =>
-                    apply(
+                  onValueChange={(on) => {
+                    hapticLight();
+                    void apply(
                       on
                         ? { ...prefs, quietStart: '22:00', quietEnd: '08:00' }
                         : { ...prefs, quietStart: null, quietEnd: null },
-                    )
-                  }
+                    );
+                  }}
                   trackColor={{ false: colors.muted, true: colors.primary }}
                   thumbColor={colors.card}
                 />

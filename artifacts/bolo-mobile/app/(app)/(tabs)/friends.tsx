@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useAppearSkip } from '@/lib/entrance';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -764,16 +764,29 @@ function FriendsTab() {
 
 function EmptyFriends() {
   const colors = useColors();
+  // Gentle entrance (mount-only, so it never replays on re-renders); the
+  // shared appear guard drops it in Expo Go / reduced motion.
+  const skipEnter = useAppearSkip();
   return (
     <View style={styles.emptyState}>
-      <Mascot pose="thinking" size={92} motion="float" />
-      <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+      <Animated.View
+        entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+      >
+        <Mascot pose="thinking" size={92} motion="float" />
+      </Animated.View>
+      <Animated.Text
+        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        style={[styles.emptyTitle, { color: colors.foreground }]}
+      >
         No friends yet
-      </Text>
-      <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+      </Animated.Text>
+      <Animated.Text
+        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+        style={[styles.emptyText, { color: colors.mutedForeground }]}
+      >
         Add a friend by their email above to practice together and see who tops
         the leaderboard.
-      </Text>
+      </Animated.Text>
     </View>
   );
 }
@@ -923,16 +936,28 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
 
 function EmptyLeaderboard() {
   const colors = useColors();
+  // Same mount-only entrance + appear-guard pattern as EmptyFriends.
+  const skipEnter = useAppearSkip();
   return (
     <View style={styles.emptyState}>
-      <Mascot pose="cheer" size={92} motion="float" />
-      <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+      <Animated.View
+        entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+      >
+        <Mascot pose="cheer" size={92} motion="float" />
+      </Animated.View>
+      <Animated.Text
+        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        style={[styles.emptyTitle, { color: colors.foreground }]}
+      >
         Nothing to rank yet
-      </Text>
-      <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+      </Animated.Text>
+      <Animated.Text
+        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+        style={[styles.emptyText, { color: colors.mutedForeground }]}
+      >
         Add friends and keep practicing — your XP across every language decides
         the standings.
-      </Text>
+      </Animated.Text>
     </View>
   );
 }
