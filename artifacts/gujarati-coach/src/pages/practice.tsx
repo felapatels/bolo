@@ -1143,14 +1143,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         <div className="font-bold text-sm text-muted-foreground shrink-0">{currentIndex + 1}/{phrases.length}</div>
         {/* Daily XP counter — compact session variant */}
         <XpCounter variant="session" />
-        {/* Silent mode toggle lives in the header so it stays accessible */}
+        {/* Audio toggles — BOTH follow the same convention: teal filled pill =
+            that audio plays, gray = it's off. (They used to have opposite
+            active states: the mute button lit up when sound was OFF while
+            Read Aloud lit up when sound was ON — confusing.) Labels name what
+            each controls: PHRASE = the coach reads the phrase before you
+            speak; FEEDBACK = your score result is read aloud. */}
         <button
           onClick={() => changeSilentMode(!silentMode)}
-          aria-pressed={silentMode}
-          title={silentMode ? "Silent mode on — tap to hear the coach first" : "Tap to skip the coach voice"}
-          className={cn(
-            "shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all",
+          aria-pressed={!silentMode}
+          title={
             silentMode
+              ? "Phrase audio off — tap to hear the coach read each phrase first"
+              : "Phrase audio on — the coach reads each phrase before you speak. Tap to turn off"
+          }
+          className={cn(
+            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
+            !silentMode
               ? "bg-secondary text-white shadow-sm"
               : "bg-muted text-muted-foreground",
           )}
@@ -1160,13 +1169,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ) : (
             <Volume2 className="w-4 h-4" />
           )}
+          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wide leading-none">
+            Phrase
+          </span>
         </button>
         {/* Spoken Feedback toggle — quick-access in the practice header,
             mirrors the mobile result-card mute button for web parity. */}
         <button
           onClick={() => changeSpokenFeedback(!spokenFeedback)}
           aria-pressed={spokenFeedback}
-          title={spokenFeedback ? "Spoken feedback on — tap to silence it" : "Tap to hear score feedback aloud"}
+          title={
+            spokenFeedback
+              ? "Feedback aloud on — your score is read out. Tap to turn off"
+              : "Feedback aloud off — tap to hear your score read out"
+          }
           className={cn(
             "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
             spokenFeedback
@@ -1174,16 +1190,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               : "bg-muted text-muted-foreground",
           )}
         >
-          {/* Icon communicates state on its own (not just the tint):
-              headphones = feedback is read aloud, slashed = muted. The text
-              label makes the toggle's purpose self-evident to new users. */}
           {spokenFeedback ? (
             <Headphones className="w-4 h-4" />
           ) : (
             <HeadphoneOff className="w-4 h-4" />
           )}
-          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
-            Read aloud
+          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wide leading-none">
+            Feedback
           </span>
         </button>
       </header>
