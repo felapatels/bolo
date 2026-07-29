@@ -7,6 +7,10 @@
 // drift out of sync.
 // ---------------------------------------------------------------------------
 
+// C1 batch-generated Gujarati sentence top-ups (see curatedSentencesC1()).
+// Statically imported so the content survives esbuild bundling in production.
+import curatedSentencesC1Json from "./data/curatedSentencesC1.json";
+
 // fontFamily = the Google "Noto" family that covers this language's script.
 export type SeedLanguage = {
   code: string;
@@ -150,10 +154,46 @@ export function extendedPhraseCount(categorySlug: string): number {
 export const SENTENCES_PER_LESSON = 8;
 
 // How many sentence-stage entries a curated lesson for `categorySlug` must
-// have. Uniform today, but routed through a function (like the phrase counts)
-// so a topic could diverge later without touching every call site.
-export function sentenceCount(_categorySlug: string): number {
+// have. Uniform for the frozen non-Gujarati file; Gujarati (the C1 pilot)
+// additionally carries the committed batch-generated sentence top-ups, so its
+// expected count is the hand-curated base plus the C1 file's entries for the
+// topic. Pass the language code where the language matters.
+export function sentenceCount(
+  categorySlug: string,
+  languageCode?: string,
+): number {
+  if (languageCode === CURATED_LANGUAGE_CODE) {
+    return (
+      SENTENCES_PER_LESSON +
+      (curatedSentencesC1()[categorySlug]?.length ?? 0)
+    );
+  }
   return SENTENCES_PER_LESSON;
+}
+
+// C1 batch-generated sentence top-ups for the curated language, frozen to a
+// committed JSON file (statically imported: the api-server ships as an esbuild
+// bundle where runtime file reads silently miss). Each entry carries
+// origin="generated_c1" so provenance survives into phrases.source.
+export function curatedSentencesC1(): Record<string, SeedPhrase[]> {
+  return curatedSentencesC1Json as Record<string, SeedPhrase[]>;
+}
+
+// GUJARATI_LESSONS with the C1 sentence top-ups appended after the
+// hand-curated sentence stage (sortOrder therefore keeps curated first).
+// All seed/backfill consumers must use this instead of GUJARATI_LESSONS
+// directly or the exact-count sentence validation will fail.
+export function gujaratiLessonsWithC1(): Record<string, SeedLesson> {
+  const c1 = curatedSentencesC1();
+  const out: Record<string, SeedLesson> = {};
+  for (const [slug, lesson] of Object.entries(GUJARATI_LESSONS)) {
+    const extra = c1[slug] ?? [];
+    out[slug] =
+      extra.length === 0
+        ? lesson
+        : { ...lesson, sentences: [...(lesson.sentences ?? []), ...extra] };
+  }
+  return out;
 }
 
 // How many premium (Plus-only) phrases a fully-populated `categorySlug` lesson
@@ -175,6 +215,10 @@ export type SeedPhrase = {
   romanized: string;
   english: string;
   difficulty: number;
+  // Content provenance (C1). Absent means hand-reviewed curated content;
+  // batch-generated entries carry an explicit marker so the seeder can copy
+  // provenance into phrases.source and QA passes can target generated rows.
+  origin?: "curated" | "generated_c1";
 };
 
 // `phrases` is the ranked starter+premium phrase list; `sentences` is the

@@ -108,6 +108,9 @@ export type SentencesRequest = LessonRequest & {
   // Sentences already in the stage, so the model avoids repeating them (used
   // by the offline pre-generation runner when topping up a partial set).
   existingSentences?: { nativeScript: string; english: string }[];
+  // Optional token-usage reporter (offline C1 batch runs track actual cost);
+  // called once per completed API call. Runtime callers omit it.
+  onUsage?: (usage: { promptTokens: number; completionTokens: number }) => void;
 };
 
 // Generates the topic's Plus-only "sentence stage": full, natural sentences
@@ -174,6 +177,10 @@ Rules:
     ],
   });
 
+  req.onUsage?.({
+    promptTokens: completion.usage?.prompt_tokens ?? 0,
+    completionTokens: completion.usage?.completion_tokens ?? 0,
+  });
   const content = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(content) as {
     phrases?: Array<{

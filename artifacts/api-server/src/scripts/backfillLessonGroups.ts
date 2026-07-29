@@ -130,6 +130,86 @@ export async function runBackfillLessonGroups(): Promise<void> {
       });
     }
 
+    // ── C1 top-up pass: group sentence-stage rows added AFTER a pair was
+    // first partitioned (the seeder's sentence library growth; runtime never
+    // inserts sentences, so every unassigned sentence row is seeder content).
+    // Append-only: existing groups and their membership are never touched
+    // (completed status is latched, and renumbering would corrupt the map),
+    // new groups take positions after the pair's current maximum. Small
+    // batches below the merge threshold wait for more content rather than
+    // disturbing an existing group.
+    let toppedUp = 0;
+    const unassignedSentencePairs = await db
+      .selectDistinct({
+        languageCode: phrasesTable.languageCode,
+        categoryId: phrasesTable.categoryId,
+      })
+      .from(phrasesTable)
+      .where(
+        and(
+          eq(phrasesTable.stage, "sentence"),
+          isNull(phrasesTable.lessonGroupId),
+        ),
+      );
+    for (const pair of unassignedSentencePairs) {
+      const hasGroups = await db
+        .select({ id: lessonGroupsTable.id })
+        .from(lessonGroupsTable)
+        .where(
+          and(
+            eq(lessonGroupsTable.languageCode, pair.languageCode),
+            eq(lessonGroupsTable.categoryId, pair.categoryId),
+          ),
+        )
+        .limit(1);
+      if (hasGroups.length === 0) continue; // fresh pair: main pass covers it
+      const rows = await db
+        .select({ id: phrasesTable.id })
+        .from(phrasesTable)
+        .where(
+          and(
+            eq(phrasesTable.languageCode, pair.languageCode),
+            eq(phrasesTable.categoryId, pair.categoryId),
+            eq(phrasesTable.stage, "sentence"),
+            isNull(phrasesTable.lessonGroupId),
+          ),
+        )
+        .orderBy(asc(phrasesTable.sortOrder), asc(phrasesTable.id));
+      if (rows.length === 0) continue;
+      await db.transaction(async (tx) => {
+        const [maxPos] = await tx
+          .select({ p: sql<number>`coalesce(max(position), 0)::int` })
+          .from(lessonGroupsTable)
+          .where(
+            and(
+              eq(lessonGroupsTable.languageCode, pair.languageCode),
+              eq(lessonGroupsTable.categoryId, pair.categoryId),
+            ),
+          );
+        let position = maxPos?.p ?? 0;
+        for (const chunk of partitionIds(rows.map((r) => r.id))) {
+          position++;
+          const [group] = await tx
+            .insert(lessonGroupsTable)
+            .values({
+              languageCode: pair.languageCode,
+              categoryId: pair.categoryId,
+              position,
+            })
+            .returning();
+          for (let i = 0; i < chunk.length; i++) {
+            await tx
+              .update(phrasesTable)
+              .set({ lessonGroupId: group!.id, lessonGroupPosition: i + 1 })
+              .where(eq(phrasesTable.id, chunk[i]!));
+          }
+          sizes.push(chunk.length);
+          created++;
+          toppedUp++;
+        }
+      });
+    }
+
     const [nulls] = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(phrasesTable)

@@ -56,6 +56,12 @@ export const phrasesTable = pgTable("phrases", {
   // exists so code-switch drills can later be built on real data without a
   // migration at that time. Nothing filters or sorts by it in this release.
   register: text("register"),
+  // Content provenance (C1): copied verbatim from the seed entry's `origin`
+  // value by the seeder ("curated" for hand-reviewed entries, "generated_c1"
+  // for offline batch-generated sentence content) so QA passes such as
+  // back-translation can target generated rows precisely. Runtime-inserted
+  // rows (lesson generation, replenisher) leave it NULL.
+  source: text("source"),
   // ── D1a Slice 1: journey-map lesson grouping (additive; see lessonGroups.ts) ──
   // Which lesson group ("station") this phrase belongs to. Nullable: rows
   // inserted after the grouping migration (e.g. by the phrase replenisher)

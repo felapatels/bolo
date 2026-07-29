@@ -14,7 +14,7 @@ import curatedLessonsJson from "./data/curatedLessons.json";
 import {
   LANGUAGES,
   CATEGORIES,
-  GUJARATI_LESSONS,
+  gujaratiLessonsWithC1,
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
   validateSeedSentences,
@@ -92,6 +92,7 @@ async function topUpLesson(
       sortOrder: index,
       premium: index >= starterCount,
       stage: "phrase",
+      source: p.origin ?? "curated",
     }))
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
@@ -112,6 +113,7 @@ async function topUpLesson(
       sortOrder: index,
       premium: true,
       stage: "sentence",
+      source: s.origin ?? "curated",
     }))
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
@@ -122,8 +124,22 @@ async function topUpLesson(
 
   const allInserts = [...phraseInserts, ...sentenceInserts];
   if (allInserts.length === 0) return 0;
-  await db.insert(phrasesTable).values(allInserts);
+  await insertChunked(allInserts);
   return allInserts.length;
+}
+
+// Bounded insert batches so first-boot-after-publish seeding of a grown
+// library cannot hold one giant statement/transaction while the deployer's
+// health-check window is running (C1 mandate; see the lesson-group backfill
+// promote-window incident). Each chunk commits independently; the seeder is
+// idempotent, so an interruption resumes cleanly on the next boot.
+const SEED_INSERT_CHUNK = 50;
+async function insertChunked(
+  rows: (typeof phrasesTable.$inferInsert)[],
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += SEED_INSERT_CHUNK) {
+    await db.insert(phrasesTable).values(rows.slice(i, i + SEED_INSERT_CHUNK));
+  }
 }
 
 // Inserts one lesson + its phrases idempotently. If a lesson row already
@@ -182,6 +198,7 @@ async function seedLesson(
       // sees; everything past them is the Plus-only premium library.
       premium: index >= starterCount,
       stage: "phrase",
+      source: p.origin ?? "curated",
     })),
   );
 
@@ -189,7 +206,7 @@ async function seedLesson(
   // graduates to after the phrase list. Always premium, kept apart from the
   // ranked phrase list via stage="sentence" (sortOrder restarts per stage).
   if (lesson.sentences && lesson.sentences.length > 0) {
-    await db.insert(phrasesTable).values(
+    await insertChunked(
       lesson.sentences.map((s, index) => ({
         lessonId: insertedLesson.id,
         languageCode,
@@ -201,6 +218,7 @@ async function seedLesson(
         sortOrder: index,
         premium: true,
         stage: "sentence",
+        source: s.origin ?? "curated",
       })),
     );
   }
@@ -267,16 +285,22 @@ export async function seedContent() {
   }
   console.log(`Seeded ${CATEGORIES.length} topics.`);
 
-  // 3. Pre-seed curated Gujarati lessons (skip any that already exist).
+  // 3. Pre-seed curated Gujarati lessons (skip any that already exist). The
+  // C1 batch-generated sentence top-ups are merged in after the hand-curated
+  // sentence stage (gujaratiLessonsWithC1), so an already-seeded environment
+  // receives them through the same top-up path as any library growth.
   let gujaratiSeeded = 0;
-  for (const [slug, lesson] of Object.entries(GUJARATI_LESSONS)) {
+  for (const [slug, lesson] of Object.entries(gujaratiLessonsWithC1())) {
     const categoryId = catIdBySlug.get(slug);
     if (categoryId == null) continue;
     const invalid = validateSeedLesson(lesson, extendedPhraseCount(slug));
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
     }
-    const invalidSentences = validateSeedSentences(lesson, sentenceCount(slug));
+    const invalidSentences = validateSeedSentences(
+      lesson,
+      sentenceCount(slug, CURATED_LANGUAGE_CODE),
+    );
     if (invalidSentences) {
       throw new Error(
         `Gujarati "${slug}" sentence stage is invalid: ${invalidSentences}`,

@@ -11,7 +11,7 @@ import path from "node:path";
 import {
   LANGUAGES,
   CATEGORIES,
-  GUJARATI_LESSONS,
+  gujaratiLessonsWithC1,
   CURATED_LANGUAGE_CODE,
   validateSeedLesson,
   validateSeedSentences,
@@ -126,6 +126,7 @@ async function backfillLesson(
       sortOrder: index,
       premium: index >= starterCount,
       stage: "phrase",
+      source: p.origin ?? "curated",
     }))
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
@@ -149,6 +150,7 @@ async function backfillLesson(
       sortOrder: index,
       premium: true,
       stage: "sentence",
+      source: s.origin ?? "curated",
     }))
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
@@ -176,14 +178,17 @@ async function backfill() {
 
   // 1. Gujarati (hand-curated). Validate each lesson against its full
   //    starter+premium count before trusting it, matching the seeder's gate.
-  for (const [slug, lesson] of Object.entries(GUJARATI_LESSONS)) {
+  for (const [slug, lesson] of Object.entries(gujaratiLessonsWithC1())) {
     const categoryId = catIdBySlug.get(slug);
     if (categoryId == null) continue;
     const invalid = validateSeedLesson(lesson, extendedPhraseCount(slug));
     if (invalid) {
       throw new Error(`Gujarati "${slug}" lesson is invalid: ${invalid}`);
     }
-    const invalidSentences = validateSeedSentences(lesson, sentenceCount(slug));
+    const invalidSentences = validateSeedSentences(
+      lesson,
+      sentenceCount(slug, CURATED_LANGUAGE_CODE),
+    );
     if (invalidSentences) {
       throw new Error(
         `Gujarati "${slug}" sentence stage is invalid: ${invalidSentences}`,
