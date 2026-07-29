@@ -29,6 +29,7 @@ import Home from '@/pages/home';
 import Chat from '@/pages/chat';
 import CategoryDetail from '@/pages/category-detail';
 import Practice from '@/pages/practice';
+import Journey from '@/pages/journey';
 import Progress from '@/pages/progress';
 import Friends from '@/pages/friends';
 import Games from '@/pages/games/index';
@@ -203,6 +204,13 @@ function AppRouter() {
         <Guard>
           <AppShell>
             <Home />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/journey">
+        <Guard>
+          <AppShell>
+            <Journey />
           </AppShell>
         </Guard>
       </Route>

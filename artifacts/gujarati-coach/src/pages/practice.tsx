@@ -4,12 +4,15 @@ import {
   useListCategoryPhrases, 
   useListCategorySentences,
   useListReviewPhrases,
+  useListLessonGroupPhrases,
   useSynthesizeSpeech, 
   useEvaluatePronunciation, 
   useCreateAttempt,
   getListCategoryPhrasesQueryKey,
   getListCategorySentencesQueryKey,
   getListReviewPhrasesQueryKey,
+  getListLessonGroupPhrasesQueryKey,
+  getListCategoryLessonGroupsQueryKey,
   getGetProgressSummaryQueryKey,
   getListRecentAttemptsQueryKey,
   getListBadgesQueryKey,
@@ -119,6 +122,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // The Plus-only sentence stage practices through this same session flow —
   // `?stage=sentences` swaps the phrase list for the topic's sentence list.
   const isSentences = !isReview && searchParams.get("stage") === "sentences";
+  // Spec D1b: the journey map enters practice per lesson group — `?group=<id>`
+  // swaps the phrase list for that group's ordered members (phrase- and
+  // sentence-stage groups alike) via the lesson-group phrases endpoint.
+  const groupParam = searchParams.get("group");
+  const groupId = groupParam ? parseInt(groupParam, 10) : NaN;
+  const isGroup = !isReview && Number.isFinite(groupId) && groupId > 0;
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
@@ -133,11 +142,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Where "back" goes: the review session lives off the Home dashboard, while a
   // normal lesson belongs to its category.
-  const backHref = isReview ? "/app" : `/learn/${id}`;
+  const backHref = isReview ? "/app" : isGroup ? "/journey" : `/learn/${id}`;
 
   const categoryQuery = useListCategoryPhrases(id, activeLang, {
     query: {
-      enabled: !isReview && !isSentences,
+      enabled: !isReview && !isSentences && !isGroup,
       queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
     },
   });
@@ -156,6 +165,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       },
     },
   );
+  const groupQuery = useListLessonGroupPhrases(isGroup ? groupId : 0, {
+    query: {
+      enabled: isGroup,
+      queryKey: getListLessonGroupPhrasesQueryKey(isGroup ? groupId : 0),
+    },
+  });
   const {
     data: phrases,
     isLoading: loadingPhrases,
@@ -163,7 +178,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     error,
     isFetching,
     refetch,
-  } = isReview ? reviewQuery : isSentences ? sentencesQuery : categoryQuery;
+  } = isReview
+    ? reviewQuery
+    : isGroup
+      ? groupQuery
+      : isSentences
+        ? sentencesQuery
+        : categoryQuery;
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -691,6 +712,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         queryClient.invalidateQueries({ queryKey: getListCategorySentencesQueryKey(id, activeLang) });
         queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
+        // Spec D1b: journey-map station states derive from attempts — refresh
+        // this topic's lesson-group listing (and the group's own phrase list
+        // when practicing via the map) so the map is current on return.
+        queryClient.invalidateQueries({ queryKey: getListCategoryLessonGroupsQueryKey(id, activeLang) });
+        if (isGroup) {
+          queryClient.invalidateQueries({ queryKey: getListLessonGroupPhrasesQueryKey(groupId) });
+        }
 
         if (attemptRes.newlyEarnedBadges.length > 0) {
           setNewBadges(attemptRes.newlyEarnedBadges);

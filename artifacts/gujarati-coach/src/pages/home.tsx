@@ -10,6 +10,7 @@ import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { getJourneyLine } from "@/lib/journeyLines";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { motion, useReducedMotion } from "framer-motion";
@@ -38,6 +39,7 @@ export default function Home() {
   const { activeLang, activeLanguage } = useLanguage();
   const reduceMotion = useReducedMotion();
   const native = useNativeText();
+  const journeyLine = getJourneyLine(activeLang);
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { startTour } = useTour();
   const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
@@ -341,6 +343,47 @@ export default function Home() {
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left / main column — the learning surface */}
           <div className="space-y-8 lg:col-span-2">
+            {/* Spec D1b: featured journey-map entry — the map fronts the
+                topic list (decision 5); the grid below stays untouched. */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.gentle, delay: 0.05 }}
+            >
+              <Link
+                href="/journey"
+                className="group flex w-full items-center justify-between overflow-hidden rounded-3xl border-2 bg-white p-5 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
+                style={{ borderColor: journeyLine.accent, ["--tile" as string]: journeyLine.accent } as CSSProperties}
+              >
+                <div className="flex min-w-0 items-center gap-4">
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl text-white shadow-sm"
+                    style={{ backgroundColor: journeyLine.accent }}
+                    aria-hidden
+                  >
+                    🚂
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: journeyLine.accent }}>
+                      Your journey · બોલો રેલ
+                    </div>
+                    <h2 className="truncate text-lg font-black text-foreground">
+                      Ride the {journeyLine.lineName}
+                    </h2>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {journeyLine.zones[0]} to {journeyLine.zones[5]}, station by station
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className="ml-3 shrink-0 rounded-full p-2 text-white"
+                  style={{ backgroundColor: journeyLine.accent }}
+                >
+                  <ArrowRight className="h-5 w-5" />
+                </div>
+              </Link>
+            </motion.div>
+
             {/* Categories Grid */}
             <section>
               <div className="flex items-center gap-2 mb-4">
