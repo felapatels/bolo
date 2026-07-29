@@ -182,6 +182,31 @@
   .button-spring {
     @apply transition-transform active:scale-95 duration-200;
   }
+
+  /* Tactile card feedback: a subtle hover lift + press compress for tappable
+     cards and list rows, matching the button-spring feel. CSS-only, so the
+     global reduced-motion rule below collapses the transition automatically. */
+  .card-lift {
+    @apply transition-[transform,box-shadow,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.98] active:shadow-sm;
+  }
+
+  /* Fade real content in when it replaces a skeleton/loader so loading
+     resolution never snaps. Pure CSS animation: the reduced-motion rule below
+     collapses it to its final frame (static) automatically. */
+  .animate-content-enter {
+    animation: content-enter 0.25s ease-out both;
+  }
+}
+
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Respect the OS "reduce motion" setting: neutralize looping/entrance motion and

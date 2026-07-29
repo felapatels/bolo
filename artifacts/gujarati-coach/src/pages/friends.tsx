@@ -192,7 +192,7 @@ function LeaderboardTab() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-content-enter">
       {entries.map((entry, i) => (
         <LeaderboardRow key={entry.userId} entry={entry} index={i} />
       ))}
@@ -227,7 +227,7 @@ function LeaderboardRow({
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springs.snappy, delay: index * 0.05 }}
       className={cn(
-        "flex items-center gap-3 rounded-2xl p-3 border shadow-sm",
+        "flex items-center gap-3 rounded-2xl p-3 border shadow-sm card-lift",
         entry.isSelf
           ? "bg-primary text-primary-foreground border-primary"
           : "bg-white border-card-border",
@@ -501,7 +501,7 @@ function IncomingRequests() {
   if (requests.length === 0) return null;
 
   return (
-    <section>
+    <section className="animate-content-enter">
       <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
         Friend requests
         <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 text-xs font-black text-primary-foreground">
@@ -638,7 +638,7 @@ function FriendsList() {
   const friends = data ?? [];
 
   return (
-    <section>
+    <section className="animate-content-enter">
       <h2 className="text-xl font-bold text-foreground mb-4">
         Your friends
         {friends.length > 0 && (
@@ -659,7 +659,7 @@ function FriendsList() {
           {friends.map((friend) => (
             <div
               key={friend.friendshipId}
-              className="flex items-center gap-3 rounded-2xl bg-white p-3 border border-card-border shadow-sm"
+              className="flex items-center gap-3 rounded-2xl bg-white p-3 border border-card-border shadow-sm card-lift"
             >
               <Avatar user={friend} className="h-11 w-11" />
               <div className="min-w-0 flex-1">

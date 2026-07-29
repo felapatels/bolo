@@ -141,6 +141,40 @@ export function funnyIdleVariants(reduceMotion: boolean | null): FunnyIdleVarian
 }
 
 // ---------------------------------------------------------------------------
+// PageTransition — shared enter transition for routed page content.
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps a page's content in a short fade + slight upward slide so navigation
+ * inside the persistent app shell feels fluid instead of snapping. Key it by
+ * the current location so it re-runs on every route change. Collapses to a
+ * plain quick fade under reduced motion.
+ */
+export function PageTransition({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      transition={
+        reduceMotion
+          ? { duration: 0.15, ease: "linear" }
+          : { duration: 0.2, ease: "easeOut" }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // FloatingTag — a softly bobbing pill, used for language tags in the shell.
 // ---------------------------------------------------------------------------
 

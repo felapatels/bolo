@@ -81,3 +81,4 @@
 - [C1 21-language rollout](c1-rollout.md) — 16 shipped, 5 withdrawn (kok/ks/sat/brx/mni): LLMs can't validate low-resource content, full-size model doesn't help; curatedLessonsWithC1 mandatory.
 - [Publish schema diff source](publish-schema-diff.md) — publish delta includes committed-but-unapplied migrations; never stage a migration by leaving it unapplied; FK-before-unique ordering bug ticketed.
 - [Lesson-group scope trigger fallback](lesson-group-trigger-fallback.md) — scope FK replaced by 23503-raising triggers + boot-ordered startup guard (dual-home DDL, distinct created/no-op logs); restore-FK procedure documented.
+- [Task completion hygiene](task-completion-hygiene.md) — markTaskComplete commits the WHOLE tree (leftover files fail review); suites fail at documented baselines, so use an audited skip_validation_reason after diagnosing.

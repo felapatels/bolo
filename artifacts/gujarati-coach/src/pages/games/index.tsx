@@ -137,7 +137,7 @@ function GameCard({ game, locked }: { game: GameDef; locked: boolean }) {
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/30 hover:bg-muted/40 hover:shadow-md active:scale-[0.98]",
+        "group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-border bg-card p-4 card-lift hover:border-primary/30 hover:bg-muted/40",
         locked && "opacity-80"
       )}
     >

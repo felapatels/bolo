@@ -234,7 +234,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-[100dvh] pb-28 lg:pb-12">
+    <div className="min-h-[100dvh] pb-28 lg:pb-12 animate-content-enter">
       {/* Header / Greeting */}
       <header className="mx-auto w-full max-w-6xl px-6 pt-6 pb-2 lg:px-10 lg:pt-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.smooth} className="flex items-start justify-between gap-3">

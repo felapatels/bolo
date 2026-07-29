@@ -174,7 +174,7 @@ export default function CategoryDetail() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 p-6">
+      <main className="mx-auto w-full max-w-5xl flex-1 p-6 animate-content-enter">
         <div className="grid gap-6 lg:grid-cols-[20rem_1fr] lg:items-start lg:gap-8">
           {/* Progress Header */}
           <motion.div
@@ -219,7 +219,7 @@ export default function CategoryDetail() {
             >
               <Link
                 href={`/practice/${id}?phrase=${phrase.id}`}
-                className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer transition-all hover:border-primary/50 active:scale-[0.98] button-spring"
+                className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-primary/50"
               >
                 <div className="mt-1 shrink-0">
                   {phrase.mastered ? (
@@ -347,7 +347,7 @@ export default function CategoryDetail() {
                     >
                       <Link
                         href={`/practice/${id}?stage=sentences&phrase=${sentence.id}`}
-                        className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer transition-all hover:border-secondary/60 active:scale-[0.98] button-spring"
+                        className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-secondary/60"
                       >
                         <div className="mt-1 shrink-0">
                           {sentence.mastered ? (
