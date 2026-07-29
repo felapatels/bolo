@@ -43,3 +43,19 @@ and slow/hang tests. Gate on the project-id env instead of try/catch alone.
 
 ## Live provisioning status (July 2026)
 RevenueCat is now fully provisioned: connector authorized, project `projad047e4e` ("Bolo!"), seed script run (all 4 products × 3 stores, `plus`/`one_language` entitlements, default offering). Public SDK keys + REVENUECAT_PROJECT_ID + entitlement ids set as shared env vars; REVENUECAT_WEBHOOK_AUTH saved as a secret. Remaining manual steps (dashboard webhook, store products, device sandbox test) are in `artifacts/bolo-mobile/DEVICE_PURCHASE_TEST.md`.
+
+## Connector token scopes (learned July 2026, promotional grants)
+The connector token is **v2-read-mostly**: every `/v1/...` call returns 401
+"Invalid API Key" (code 7225) and v2 customer WRITES 403 (missing
+`customer_information:customers:read_write`). Consequences:
+- **Prod reconcile-on-read silently no-ops** — `fetchSubscriber` (v1 GET via
+  connector) gets 401 → null → stored state untouched. Webhooks are the only
+  working sync path in production (they do work — verified live).
+- Promotional grants (v1-only API) need an owner-created **V1 secret key**
+  (stored as `REVENUECAT_SECRET_API_KEY`; owner may revoke). The dashboard
+  cannot create customers manually, and connector can't either.
+- v1 `POST .../entitlements/{id}/promotional` no longer auto-creates the
+  subscriber (404 code 7259); `GET /v1/subscribers/{id}` DOES (201). Prime
+  with a GET first. Tooling: `scripts/src/grantPromotionalPlus.ts`.
+- Current project id is `proja487649a` (the older `projad047e4e` note below is
+  stale — always read `REVENUECAT_PROJECT_ID` from env).

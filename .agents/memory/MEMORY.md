@@ -17,7 +17,7 @@
 - [Pre-curated lessons](curated-lessons.md) — non-default languages' phrases are generated offline + frozen to committed JSON the seeder reads; ALL languages (incl. Gujarati) now ship the exact extended count per topic.
 - [Premium phrase library](premium-phrase-library.md) — Free starter vs Plus extended split via `phrases.premium` derived BY INDEX at seed time; locked count lives on /categories listing, phrases endpoint stays a filtered array.
 - [Entitlement gating (Free/Plus)](entitlement-gating.md) — server-authoritative tier gates return 402 upgrade_required; any router that gates must run behind the entitlements loader, and tier-agnostic route tests need a Plus test user.
-- [RevenueCat payments](revenuecat-payments.md) — connector is the @replit/connectors-sdk PROXY (not typed SDK); webhook derives state from payload, reconcile-on-read gated on REVENUECAT_PROJECT_ID.
+- [RevenueCat payments](revenuecat-payments.md) — connector proxy is v2-read-only (v1 401s → prod reconcile-on-read silently no-ops; webhook is the only sync); promotional grants need an owner V1 secret key.
 - [drizzle-kit generate from stale snapshots](drizzle-stale-snapshot-generate.md) — generate can re-emit already-applied DDL; hand-repair migration+snapshot+journal, validate via db-drift + db-migrations.
 - [Dev DB migration drift](dev-db-migration-drift.md) — shared dev Postgres lags committed migrations; drizzle-kit migrate can't heal (test makes lesson_generations out-of-band); apply ADD COLUMN IF NOT EXISTS by hand.
 - [Web paywall checkout bridge](web-paywall-checkout.md) — gujarati-coach /upgrade uses real Stripe checkout (redirect-away); client sends BASE_URL so return URLs keep the artifact base path; webhook is the only tier-write path.
