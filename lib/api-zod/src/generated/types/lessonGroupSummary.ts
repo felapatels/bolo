@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LessonGroupSummaryStage } from './lessonGroupSummaryStage';
 import type { LessonGroupSummaryStatus } from './lessonGroupSummaryStatus';
 
 export interface LessonGroupSummary {
@@ -17,4 +18,8 @@ export interface LessonGroupSummary {
   masteredCount?: number;
   /** Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed/tested_out; tested_out when the learner passed the test-out assessment. Optional/additive - older clients may ignore it. */
   status?: LessonGroupSummaryStatus;
+  /** Which learning stage this group's members belong to: the starter "phrase" list every topic opens with, or the Plus-only "sentence" stage. Derived from the group's member phrases (groups are homogeneous by construction); an empty group reads as "phrase". Optional/additive - part of the journey-map contract mobile reuses. */
+  stage?: LessonGroupSummaryStage;
+  /** True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map's visibly marked "free taste" stop). Absent on every other group and in every other access state. */
+  teaserStation?: boolean;
 }

@@ -74,9 +74,16 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "phraseCount": zod.number().optional(),
   "attemptedCount": zod.number().optional(),
   "masteredCount": zod.number().optional(),
-  "status": zod.enum(['locked', 'unlocked', 'in_progress', 'completed', 'tested_out']).optional().describe('Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed\/tested_out; tested_out when the learner passed the test-out assessment. Optional\/additive - older clients may ignore it.')
+  "status": zod.enum(['locked', 'unlocked', 'in_progress', 'completed', 'tested_out']).optional().describe('Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed\/tested_out; tested_out when the learner passed the test-out assessment. Optional\/additive - older clients may ignore it.'),
+  "stage": zod.enum(['phrase', 'sentence']).optional().describe('Which learning stage this group\'s members belong to: the starter \"phrase\" list every topic opens with, or the Plus-only \"sentence\" stage. Derived from the group\'s member phrases (groups are homogeneous by construction); an empty group reads as \"phrase\". Optional\/additive - part of the journey-map contract mobile reuses.'),
+  "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.')
 })).optional(),
-  "unassignedCount": zod.number().optional()
+  "unassignedCount": zod.number().optional(),
+  "access": zod.enum(['teaser', 'exhausted']).optional().describe('Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone\/station structure instead of a 402 so the journey map can render as the paywall\'s showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). \"teaser\" while free taster phrases remain, \"exhausted\" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language.'),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
 })
 
 

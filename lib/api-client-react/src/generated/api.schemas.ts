@@ -307,6 +307,17 @@ export const LessonGroupSummaryStatus = {
   tested_out: 'tested_out',
 } as const;
 
+/**
+ * Which learning stage this group's members belong to: the starter "phrase" list every topic opens with, or the Plus-only "sentence" stage. Derived from the group's member phrases (groups are homogeneous by construction); an empty group reads as "phrase". Optional/additive - part of the journey-map contract mobile reuses.
+ */
+export type LessonGroupSummaryStage = typeof LessonGroupSummaryStage[keyof typeof LessonGroupSummaryStage];
+
+
+export const LessonGroupSummaryStage = {
+  phrase: 'phrase',
+  sentence: 'sentence',
+} as const;
+
 export interface LessonGroupSummary {
   id?: number;
   position?: number;
@@ -317,6 +328,10 @@ export interface LessonGroupSummary {
   masteredCount?: number;
   /** Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed/tested_out; tested_out when the learner passed the test-out assessment. Optional/additive - older clients may ignore it. */
   status?: LessonGroupSummaryStatus;
+  /** Which learning stage this group's members belong to: the starter "phrase" list every topic opens with, or the Plus-only "sentence" stage. Derived from the group's member phrases (groups are homogeneous by construction); an empty group reads as "phrase". Optional/additive - part of the journey-map contract mobile reuses. */
+  stage?: LessonGroupSummaryStage;
+  /** True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map's visibly marked "free taste" stop). Absent on every other group and in every other access state. */
+  teaserStation?: boolean;
 }
 
 export interface LessonGroupTestoutSample {
@@ -354,9 +369,23 @@ export interface LessonGroupTestoutResult {
   status?: LessonGroupTestoutResultStatus;
 }
 
+/**
+ * Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone/station structure instead of a 402 so the journey map can render as the paywall's showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). "teaser" while free taster phrases remain, "exhausted" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language.
+ */
+export type LessonGroupListAccess = typeof LessonGroupListAccess[keyof typeof LessonGroupListAccess];
+
+
+export const LessonGroupListAccess = {
+  teaser: 'teaser',
+  exhausted: 'exhausted',
+} as const;
+
 export interface LessonGroupList {
   lessonGroups?: LessonGroupSummary[];
   unassignedCount?: number;
+  /** Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone/station structure instead of a 402 so the journey map can render as the paywall's showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). "teaser" while free taster phrases remain, "exhausted" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language. */
+  access?: LessonGroupListAccess;
+  teaser?: TeaserProgress;
 }
 
 /**

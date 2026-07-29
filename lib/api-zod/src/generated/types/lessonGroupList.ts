@@ -5,9 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LessonGroupListAccess } from './lessonGroupListAccess';
 import type { LessonGroupSummary } from './lessonGroupSummary';
+import type { TeaserProgress } from './teaserProgress';
 
 export interface LessonGroupList {
   lessonGroups?: LessonGroupSummary[];
   unassignedCount?: number;
+  /** Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone/station structure instead of a 402 so the journey map can render as the paywall's showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). "teaser" while free taster phrases remain, "exhausted" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language. */
+  access?: LessonGroupListAccess;
+  teaser?: TeaserProgress;
 }

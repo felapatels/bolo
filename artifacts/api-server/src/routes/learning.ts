@@ -1843,8 +1843,21 @@ router.get(
       return;
     }
 
-    // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (await denyLockedLanguage(req, res, lang)) return;
+    // Free is limited to Hindi; other languages require Bolo! Plus — with one
+    // deliberate product exception (D1b decision 3): this read-only listing is
+    // the journey map's paywall showroom. A teaser or exhausted caller gets
+    // the full zone/station structure (group counts and statuses only, ZERO
+    // phrase content, everything forced locked except the marked teaser
+    // station) instead of a 402. This supersedes M1's 402-on-all-locked
+    // behavior for this ONE route and ONLY for the teaser/exhausted states: a
+    // plan-locked language with no teaser set keeps the pre-M1 402
+    // byte-identical. Documented in docs/CODEBASE-FACTS.md.
+    const access = await getLanguageAccess(req, lang);
+    if (access.state === "locked") {
+      sendLockedLanguageDenial(req, res, access);
+      return;
+    }
+    const showroom = access.state === "allowed" ? null : access;
 
     const [groups, members, attempts, [unassigned], progressRows] =
       await Promise.all([
@@ -1862,6 +1875,7 @@ router.get(
         .select({
           id: phrasesTable.id,
           lessonGroupId: phrasesTable.lessonGroupId,
+          stage: phrasesTable.stage,
         })
         .from(phrasesTable)
         .where(
@@ -1892,62 +1906,94 @@ router.get(
 
     const stats = buildPhraseStats(attempts);
     const byGroup = new Map<number, number[]>();
+    const stageByGroup = new Map<number, "phrase" | "sentence">();
     for (const m of members) {
       if (m.lessonGroupId == null) continue;
       const list = byGroup.get(m.lessonGroupId) ?? [];
       list.push(m.id);
       byGroup.set(m.lessonGroupId, list);
+      // Groups are stage-homogeneous by construction (sentence groups are
+      // seeded whole by C1); the first member seen decides.
+      if (!stageByGroup.has(m.lessonGroupId)) {
+        stageByGroup.set(
+          m.lessonGroupId,
+          m.stage === "sentence" ? "sentence" : "phrase",
+        );
+      }
     }
 
-    // D1a Slice 2: sequential unlock, derived at read time. Entitlements were
-    // evaluated FIRST (denyLockedLanguage above); unlock state composes after.
-    const testedOut = new Set(
-      progressRows
-        .filter((r) => r.status === "tested_out")
-        .map((r) => r.lessonGroupId),
-    );
-    const persistedCompleted = new Set(
-      progressRows
-        .filter((r) => r.status === "completed")
-        .map((r) => r.lessonGroupId),
-    );
-    const statuses = deriveGroupStatuses(
-      groups.map((g) => ({
-        id: g.id,
-        position: g.position,
-        phraseIds: byGroup.get(g.id) ?? [],
-      })),
-      stats,
-      testedOut,
-      persistedCompleted,
-    );
-
-    // Latch newly observed completions so later replenishment (which grows a
-    // group's denominator with fresh phrases) can never dilute the ratio and
-    // re-lock this group's successor. Idempotent write-through; 'completed'
-    // outranks a prior 'tested_out' row.
-    const newlyCompleted = groups
-      .map((g) => g.id)
-      .filter(
-        (gid) => statuses.get(gid) === "completed" && !persistedCompleted.has(gid),
+    // D1a Slice 2: sequential unlock, derived at read time. Entitlement
+    // precedence still holds — a showroom caller never reaches the unlock
+    // derivation: every station is forced locked (except, in teaser state,
+    // the single free-taste station) and NO completion-latch rows are written
+    // for a language the caller's plan doesn't own.
+    let teaserGroupId: number | null = null;
+    let derived: ReturnType<typeof deriveGroupStatuses> | null = null;
+    if (showroom) {
+      if (showroom.state === "teaser") {
+        // The teaser set lives in exactly one group (the first Greetings
+        // group, see lib/teaser.ts); when this category holds it, that
+        // station renders unlocked and visibly marked.
+        const firstTeaserId = showroom.teaserPhraseIds[0];
+        if (firstTeaserId != null) {
+          for (const [gid, ids] of byGroup) {
+            if (ids.includes(firstTeaserId)) {
+              teaserGroupId = gid;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      const testedOut = new Set(
+        progressRows
+          .filter((r) => r.status === "tested_out")
+          .map((r) => r.lessonGroupId),
       );
-    if (newlyCompleted.length > 0) {
-      await db
-        .insert(lessonGroupProgressTable)
-        .values(
-          newlyCompleted.map((gid) => ({
-            userId,
-            lessonGroupId: gid,
-            status: "completed",
-          })),
-        )
-        .onConflictDoUpdate({
-          target: [
-            lessonGroupProgressTable.userId,
-            lessonGroupProgressTable.lessonGroupId,
-          ],
-          set: { status: "completed", updatedAt: new Date() },
-        });
+      const persistedCompleted = new Set(
+        progressRows
+          .filter((r) => r.status === "completed")
+          .map((r) => r.lessonGroupId),
+      );
+      const statuses = deriveGroupStatuses(
+        groups.map((g) => ({
+          id: g.id,
+          position: g.position,
+          phraseIds: byGroup.get(g.id) ?? [],
+        })),
+        stats,
+        testedOut,
+        persistedCompleted,
+      );
+      derived = statuses;
+
+      // Latch newly observed completions so later replenishment (which grows a
+      // group's denominator with fresh phrases) can never dilute the ratio and
+      // re-lock this group's successor. Idempotent write-through; 'completed'
+      // outranks a prior 'tested_out' row.
+      const newlyCompleted = groups
+        .map((g) => g.id)
+        .filter(
+          (gid) => statuses.get(gid) === "completed" && !persistedCompleted.has(gid),
+        );
+      if (newlyCompleted.length > 0) {
+        await db
+          .insert(lessonGroupProgressTable)
+          .values(
+            newlyCompleted.map((gid) => ({
+              userId,
+              lessonGroupId: gid,
+              status: "completed",
+            })),
+          )
+          .onConflictDoUpdate({
+            target: [
+              lessonGroupProgressTable.userId,
+              lessonGroupProgressTable.lessonGroupId,
+            ],
+            set: { status: "completed", updatedAt: new Date() },
+          });
+      }
     }
 
     res.json({
@@ -1967,10 +2013,29 @@ router.get(
           phraseCount: phraseIds.length,
           attemptedCount: attempted,
           masteredCount: mastered,
-          status: statuses.get(g.id) ?? "locked",
+          status: derived
+            ? derived.get(g.id) ?? "locked"
+            : g.id === teaserGroupId
+              ? "unlocked"
+              : "locked",
+          stage: stageByGroup.get(g.id) ?? "phrase",
+          ...(teaserGroupId != null && g.id === teaserGroupId
+            ? { teaserStation: true }
+            : {}),
         };
       }),
       unassignedCount: unassigned?.n ?? 0,
+      // D1b showroom envelope: which access state produced the forced-locked
+      // structure, plus teaser progress for the map's "free taste" meter.
+      ...(showroom
+        ? {
+            access: showroom.state,
+            teaser: {
+              consumed: Math.min(showroom.consumed, TEASER_LIMIT),
+              limit: TEASER_LIMIT,
+            },
+          }
+        : {}),
     });
   },
 );
