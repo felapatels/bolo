@@ -6,5 +6,9 @@ export const modules: ModuleMap = {
   "./components/mockups/JourneyGujaratExpress.tsx": () => import("../components/mockups/JourneyGujaratExpress.tsx"),
   "./components/mockups/JourneyRegionChapters.tsx": () => import("../components/mockups/JourneyRegionChapters.tsx"),
   "./components/mockups/JourneyWindingPath.tsx": () => import("../components/mockups/JourneyWindingPath.tsx"),
-  "./components/mockups/NavBarMockup.tsx": () => import("../components/mockups/NavBarMockup.tsx")
+  "./components/mockups/NavBarMockup.tsx": () => import("../components/mockups/NavBarMockup.tsx"),
+  "./components/mockups/journey-upgrade/SerpentinePronounced.tsx": () => import("../components/mockups/journey-upgrade/SerpentinePronounced.tsx"),
+  "./components/mockups/journey-upgrade/SerpentineSubtle.tsx": () => import("../components/mockups/journey-upgrade/SerpentineSubtle.tsx"),
+  "./components/mockups/journey-upgrade/TicketFull.tsx": () => import("../components/mockups/journey-upgrade/TicketFull.tsx"),
+  "./components/mockups/journey-upgrade/TicketMinimal.tsx": () => import("../components/mockups/journey-upgrade/TicketMinimal.tsx")
 };

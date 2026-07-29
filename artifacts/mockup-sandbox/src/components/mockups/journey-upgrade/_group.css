@@ -1,0 +1,24 @@
+/* Gujarati-coach light theme tokens so the mockups render on the app's real
+   palette (values copied from artifacts/gujarati-coach/src/index.css). */
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --primary: 243 75% 59%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 174 84% 32%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 173 80% 40%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 243 75% 59%;
+  --radius: 0.625rem;
+}
+
+.journey-mockup {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
