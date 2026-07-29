@@ -9,3 +9,6 @@ description: How batch-generated sentence content is frozen, provenance-marked, 
 - Lesson-group backfill skips already-grouped pairs, so new seeded sentences need the append-only sentence top-up pass (new groups after max position; existing groups untouched — completed is latched). Batches ≤ merge threshold wait rather than form tiny groups.
 - Offline generation cost is negligible at this scale; batches of ≤12 with an accumulated avoid-list keep dedup rejects to a few percent.
 - The ghost-apply migrate trap fired again on the source-column migration: migrate logged success, column absent; verify via information_schema and apply DDL via psql.
+- QA judge bias: naming a suspect construction in a grammaticality prompt makes the judge over-flag correct sentences using the nominative alternative; treat grammar flags as candidates for adjudication, never auto-regenerate on the raw list without accepting churn.
+- Deleting flagged rows by native_script alone can cross categories (same sentence in two topics); harmless only because the seeder top-up re-inserts anything still in the JSON — otherwise scope deletes by (category, native_script).
+- Regenerating flagged rows: delete from JSON + DB, re-run the top-up generator (refills to target), restart api-server (seed top-up re-inserts, group pass appends); surviving rows keep their group assignments.

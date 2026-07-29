@@ -29,13 +29,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "ના, મને જોઈએ નથી.",
-      "romanized": "na, mane joie nathi.",
-      "english": "No, I do not need it.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મારે અત્યારે પાણી પીવું છે.",
       "romanized": "maare atyaare paani peevu chhe.",
       "english": "I want to drink water right now.",
@@ -74,13 +67,6 @@
       "nativeScript": "કૃપા કરીને ધીમે ધીમે બોલો.",
       "romanized": "krupa karee-ne dhime dhime bolo.",
       "english": "Please speak slowly.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "ક્યારે ચાલવું છે, અને ક્યાં?",
-      "romanized": "kyaare chalvu chhe, ane kyaan?",
-      "english": "When do we need to go, and where?",
       "difficulty": 3,
       "origin": "generated_c1"
     },
@@ -155,13 +141,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "કાલે હું ધીમે ધીમે ચાલું છું.",
-      "romanized": "kaale hu dhime dhime chalu chhu.",
-      "english": "Tomorrow I will walk slowly.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "માફ કરશો, પછી મને કહો.",
       "romanized": "maaf karsho, pachi mane kaho.",
       "english": "Sorry, tell me later.",
@@ -211,38 +190,10 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મારે છે એક મોટું પુસ્તક.",
-      "romanized": "maare chhe ek motu pustak.",
-      "english": "I have a big book.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "આ શાળા આજે ખુલ્લી છે.",
       "romanized": "aa shaala aaje khulli chhe.",
       "english": "This school is open today.",
       "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "કેમ છો? હું સરસ છું.",
-      "romanized": "kem cho? hu saras chhu.",
-      "english": "How are you? I am fine.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "માફ કરશો, હું અહીં રોકું છું.",
-      "romanized": "maaf karsho, hu ahin rokun chhu.",
-      "english": "Sorry, I am stopping here.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "ક્યારે ચાલવું છે, આજે કે કાલે?",
-      "romanized": "kyaare chaalvu chhe, aaje ke kaale?",
-      "english": "When do we need to go, today or tomorrow?",
-      "difficulty": 3,
       "origin": "generated_c1"
     },
     {
@@ -267,24 +218,10 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મને આજે પુસ્તક જોઈએ.",
-      "romanized": "mane aaje pustak joie.",
-      "english": "I need a book today.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મારું ઘર ત્યાં છે.",
       "romanized": "maaru ghar tyaan chhe.",
       "english": "My home is there.",
       "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "શાળામાં હમણાં શું છે?",
-      "romanized": "shaalaamaa hamnaa shu chhe?",
-      "english": "What is in the school now?",
-      "difficulty": 2,
       "origin": "generated_c1"
     },
     {
@@ -299,6 +236,69 @@
       "romanized": "kaale hu ahin aavish, aabhar.",
       "english": "Tomorrow I will come here, thank you.",
       "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "શુભ સવાર!",
+      "romanized": "shubh savaar!",
+      "english": "Good morning!",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "જુઓ, પુસ્તક અહીં છે.",
+      "romanized": "juo, pustak ahin chhe.",
+      "english": "Look, the book is here.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "સાંભળો, આજે શાળા બંધ છે.",
+      "romanized": "saambhlo, aaje shaala bandh chhe.",
+      "english": "Listen, the school is closed today.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મારે આ પુસ્તક જોઈએ.",
+      "romanized": "maare aa pustak joie.",
+      "english": "I need this book.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "ચાલો, હવે ઘરે જઈએ.",
+      "romanized": "chaalo, have ghare jaie.",
+      "english": "Let's go home now.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "માફ કરશો, પછી ફરી કહો.",
+      "romanized": "maaf karsho, pachi fari kaho.",
+      "english": "Sorry, say it again later.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મારે આજે પુસ્તક જોઈએ.",
+      "romanized": "maare aaje pustak joie.",
+      "english": "I need a book today.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "ચાલો, આપણે શાળાએ જઈએ.",
+      "romanized": "chaalo, aapne shalaae jaie.",
+      "english": "Let's go to school.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "કૃપા કરીને જુઓ.",
+      "romanized": "krupa karee-ne juo.",
+      "english": "Please look.",
+      "difficulty": 1,
       "origin": "generated_c1"
     }
   ],
@@ -416,13 +416,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મારા નાના અને નાની ઘરે છે.",
-      "romanized": "Mara nana ane nani ghare chhe.",
-      "english": "My maternal grandpa and grandma are home.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મારા કાકા અને કાકી પણ આવ્યા છે.",
       "romanized": "Mara kaka ane kaki pan aavya chhe.",
       "english": "My uncle and aunt have also come.",
@@ -472,13 +465,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મમ્મી હસે છે.",
-      "romanized": "mummy hase chhe.",
-      "english": "Mom is smiling.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "પપ્પા મને બોલાવે છે.",
       "romanized": "pappa mane bolave chhe.",
       "english": "Dad calls me.",
@@ -514,31 +500,10 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "કાકા મારી સાથે રમે છે.",
-      "romanized": "kaka maari sathe rame chhe.",
-      "english": "Uncle plays with me.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "કાકી અમારા માટે ચા બનાવે છે.",
       "romanized": "kaki amara mate cha banave chhe.",
       "english": "Aunt makes tea for us.",
       "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "મામા અને મામી અમને મળીને ખુશ થાય છે.",
-      "romanized": "mama ane mami amane maleene khush thaye chhe.",
-      "english": "Uncle and aunt are happy to meet us.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "મારા નાના ઘરે આરામ કરે છે.",
-      "romanized": "mara nana ghare aaram kare chhe.",
-      "english": "My maternal grandpa rests at home.",
-      "difficulty": 3,
       "origin": "generated_c1"
     },
     {
@@ -559,13 +524,6 @@
       "nativeScript": "મારો પરિવાર મોટો છે.",
       "romanized": "maaro parivar moto chhe.",
       "english": "My family is big.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "મારી મમ્મી હસે છે.",
-      "romanized": "maari mammi hase chhe.",
-      "english": "My mom is smiling.",
       "difficulty": 1,
       "origin": "generated_c1"
     },
@@ -603,16 +561,51 @@
       "english": "My paternal aunt and maternal aunt came to visit today.",
       "difficulty": 2,
       "origin": "generated_c1"
-    }
-  ],
-  "feelings": [
+    },
     {
-      "nativeScript": "હું આજે ખુશ છું.",
-      "romanized": "hu aaje khush chhu.",
-      "english": "I am happy today.",
+      "nativeScript": "મારે મમ્મી ગમે છે.",
+      "romanized": "maare mammi game chhe.",
+      "english": "I like Mom.",
       "difficulty": 1,
       "origin": "generated_c1"
     },
+    {
+      "nativeScript": "મને પપ્પા સાથે રમવું ગમે છે.",
+      "romanized": "mane pappa saathe ramvu game chhe.",
+      "english": "I like playing with Dad.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મારા ઘરમાં દાદી રહે છે.",
+      "romanized": "maara gharma dadi rahe chhe.",
+      "english": "My grandma lives in my home.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મારી બહેન અને હું સાથે રમીએ છીએ.",
+      "romanized": "maari bahen ane hu saathe ramiee chhie.",
+      "english": "My sister and I play together.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "અમારા પરિવારને વીકએન્ડમાં મળવું ગમે છે.",
+      "romanized": "amara parivarne weekendma malvu game chhe.",
+      "english": "Our family likes to meet on weekends.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને મારા કાકા અને કાકી યાદ આવે છે.",
+      "romanized": "mane maara kaka ane kaki yaad ave chhe.",
+      "english": "I miss my uncle and aunt.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    }
+  ],
+  "feelings": [
     {
       "nativeScript": "મને આજે આનંદ થાય છે.",
       "romanized": "mane aaje aanand thaay chhe.",
@@ -624,13 +617,6 @@
       "nativeScript": "મને આ ખોરાક ગમે છે.",
       "romanized": "mane aa khorak game chhe.",
       "english": "I like this food.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હું હવે શાંત છું.",
-      "romanized": "hu have shaant chhu.",
-      "english": "I am calm now.",
       "difficulty": 1,
       "origin": "generated_c1"
     },
@@ -663,13 +649,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "આજે મને થોડું શરમ આવે છે.",
-      "romanized": "aaje mane thodu sharam aave chhe.",
-      "english": "I feel a little shy today.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "હવે મને રાહત થઈ છે.",
       "romanized": "have mane raahat thai chhe.",
       "english": "I feel relieved now.",
@@ -680,13 +659,6 @@
       "nativeScript": "મને તમારામાં વિશ્વાસ છે.",
       "romanized": "mane tamaaraamaa vishwaas chhe.",
       "english": "I have faith in you.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હું આવતી કાલ માટે આશા રાખું છું.",
-      "romanized": "hu aavati kaal maate aasha raakhu chhu.",
-      "english": "I am hopeful for tomorrow.",
       "difficulty": 3,
       "origin": "generated_c1"
     },
@@ -754,13 +726,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મને નવા રમતમાં મજા આવી.",
-      "romanized": "mane navaa ramatma majaa aavi.",
-      "english": "I had fun in the new game.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મને તમારો અવાજ સાંભળીને શાંતિ થાય છે.",
       "romanized": "mane tamaro awaaj saambhaline shaanti thaay chhe.",
       "english": "I feel peaceful when I hear your voice.",
@@ -810,30 +775,9 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મને આ રમતમાં બહુ ઉત્સાહિત છું.",
-      "romanized": "mane aa ramatma bahu utsahit chhu.",
-      "english": "I am very excited for this game.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હું ઘર પર એકલું લાગે છે.",
-      "romanized": "hu ghar par eklu laage chhe.",
-      "english": "I feel lonely at home.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મને આ નવી કિતાબ વાંચવી ગમે છે.",
       "romanized": "mane aa navi kitaab vaanchvi game chhe.",
       "english": "I like reading this new book.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "મારી બહેન પર મને પ્રેમ છે.",
-      "romanized": "maari behen par mane prem chhe.",
-      "english": "I love my sister.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
@@ -906,6 +850,62 @@
       "english": "I felt relieved after finishing the work.",
       "difficulty": 3,
       "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને આજે શરમ આવે છે.",
+      "romanized": "mane aaje sharam aave chhe.",
+      "english": "I feel shy today.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને હવે ભૂખ લાગી છે.",
+      "romanized": "mane have bhukh laagi chhe.",
+      "english": "I am hungry now.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને આ રૂમ આરામદાયક લાગે છે.",
+      "romanized": "mane aa room aaramdhaayak laage chhe.",
+      "english": "This room feels comfortable to me.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને આજે ચિંતા થતી નથી.",
+      "romanized": "mane aaje chinta thati nathi.",
+      "english": "I do not feel worried today.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને આ કામથી ગભરાટ થાય છે.",
+      "romanized": "mane aa kaamthi gabharaat thaay chhe.",
+      "english": "This work makes me nervous.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને મારા નવા મિત્રો ગમે છે.",
+      "romanized": "mane maara nava mitro game chhe.",
+      "english": "I like my new friends.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને મારી મદદ કરી ને ગર્વ છે.",
+      "romanized": "mane maari madad kari ne garv chhe.",
+      "english": "I am proud of helping.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને આ સમાચાર સાંભળીને આશ્ચર્ય થયું.",
+      "romanized": "mane aa samachar sambhaali ne aashcharya thayu.",
+      "english": "I was surprised to hear this news.",
+      "difficulty": 3,
+      "origin": "generated_c1"
     }
   ],
   "food": [
@@ -952,13 +952,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "હું રોટલી સાથે શાક ખાઉં છું.",
-      "romanized": "hu rotli saathe shaak khaau chhu",
-      "english": "I eat roti with vegetables.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મને દહીં અને ચટણી ગમે છે.",
       "romanized": "mane dahi ane chatni game chhe",
       "english": "I like yogurt and chutney.",
@@ -987,13 +980,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "આ ફળમાં કેરી અને કેળું છે.",
-      "romanized": "aa fal maa keri ane kelu chhe",
-      "english": "This fruit plate has mango and banana.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મને ખાવાનું આપો.",
       "romanized": "mane khaavaanu aapo.",
       "english": "Please give me food.",
@@ -1011,13 +997,6 @@
       "nativeScript": "ગ્લાસમાં પાણી છે.",
       "romanized": "glaasmaan paani chhe.",
       "english": "There is water in the glass.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હું ભાત ખાઉં છું.",
-      "romanized": "hun bhaat khaauં chhun.",
-      "english": "I am eating rice.",
       "difficulty": 1,
       "origin": "generated_c1"
     },
@@ -1078,20 +1057,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મને ભોજન જોઈએ છે.",
-      "romanized": "Mane bhojan joie chhe.",
-      "english": "I need a meal.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "કૃપા કરીને ચમચી આપો.",
-      "romanized": "Krupa kari ne chamchi aapo.",
-      "english": "Please give me a spoon.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મારી થાળી સાફ છે.",
       "romanized": "Maari thaali saaf chhe.",
       "english": "My dinner plate is clean.",
@@ -1116,13 +1081,6 @@
       "nativeScript": "હું દૂધનો ગ્લાસ પીઉં છું.",
       "romanized": "Hu doodh no glaas peeu chhu.",
       "english": "I drink a glass of milk.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "પપ્પા થાળીમાં ભાત લે છે.",
-      "romanized": "Pappa thaali maa bhaat le chhe.",
-      "english": "Dad takes rice on the dinner plate.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
@@ -1207,6 +1165,48 @@
       "nativeScript": "આ મીઠાઈમાં ખાંડ વધારે છે.",
       "romanized": "aa mithai maa khaand vadhaare chhe.",
       "english": "This dessert has too much sugar.",
+      "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને થોડી ભૂખ લાગી છે.",
+      "romanized": "mane thodi bhookh laagi chhe.",
+      "english": "I am a little hungry.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "કૃપા કરીને મારી વાટકી આપો.",
+      "romanized": "krupa karine maari vaatki aapo.",
+      "english": "Please give me my bowl.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "આ ભાત ગરમ છે.",
+      "romanized": "aa bhaat garam chhe.",
+      "english": "This rice is hot.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મને દાળ સાથે રોટલી ગમે છે.",
+      "romanized": "mane daal saathe rotli game chhe.",
+      "english": "I like roti with dal.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "પપ્પા થાળી પર ચટણી મૂકે છે.",
+      "romanized": "pappa thaali par chatni mooke chhe.",
+      "english": "Dad puts chutney on the dinner plate.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "અમે ભોજન પછી ફળ ખાઈએ છીએ.",
+      "romanized": "ame bhojan pachi fal khaiye chhiye.",
+      "english": "We eat fruit after the meal.",
       "difficulty": 3,
       "origin": "generated_c1"
     }
@@ -1297,13 +1297,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "નમસ્તે, હું આવ્યો છું.",
-      "romanized": "namaste, hu aavyo chhu.",
-      "english": "Hello, I have come.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "સુપ્રભાત, દિવસ સરસ છે.",
       "romanized": "suprabhaat, divas saras chhe.",
       "english": "Good morning, the day is nice.",
@@ -1332,23 +1325,9 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "માફ કરજો, હું ભૂલી ગયો.",
-      "romanized": "maaf karjo, hu bhooli gayo.",
-      "english": "Sorry, I forgot.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "કૃપા કરીને મને મદદ કરો.",
       "romanized": "krupa kari-ne mane madad karo.",
       "english": "Please help me.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હા, હું આવું છું.",
-      "romanized": "ha, hu aavu chhu.",
-      "english": "Yes, I am coming.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
@@ -1388,13 +1367,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "જય શ્રી કૃષ્ણ, શુભ દિન.",
-      "romanized": "jay shri krushna, shubh din.",
-      "english": "Hello, good day.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "શું ચાલે છે? બધું બરાબર છે.",
       "romanized": "shu chaale chhe? badhu barabar chhe.",
       "english": "What's going on? Everything is fine.",
@@ -1402,37 +1374,9 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "આભાર, તમે ખૂબ મદદ કરી.",
-      "romanized": "aabhaar, tame khub madad kari.",
-      "english": "Thank you, you helped a lot.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "કૃપા કરીને મને બેસવા દો.",
       "romanized": "krupa kari-ne mane besva do.",
       "english": "Please let me sit.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "માફ કરજો, હું થોડો મોડો છું.",
-      "romanized": "maaf karjo, hu thodo modo chhu.",
-      "english": "Sorry, I am a little late.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "શુભ સવાર, તમે કેવી રીતે છો?",
-      "romanized": "shubh savaar, tame kevi rite cho?",
-      "english": "Good morning, how are you?",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "શુભ સાંજ, તમે ઘરે આવો.",
-      "romanized": "shubh saanj, tame ghare aavo.",
-      "english": "Good evening, come over to our home.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
@@ -1448,13 +1392,6 @@
       "romanized": "shubh raatri, saachvine jajo.",
       "english": "Good night, take care on your way.",
       "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "ઘણા વખતે મળ્યા, તમે કેમ છો?",
-      "romanized": "ghana vakhte malya, tame kem cho?",
-      "english": "Long time no see, how are you?",
-      "difficulty": 3,
       "origin": "generated_c1"
     },
     {
@@ -1479,13 +1416,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "માફ કરજો, હું થોડી વાર આવ્યો.",
-      "romanized": "maaf karjo, hu thodi vaar aavyo.",
-      "english": "Sorry, I arrived a little late.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "કાલે મળીશું, સાચવીને જજો.",
       "romanized": "kaale malishu, saachvine jajo.",
       "english": "We will meet tomorrow, take care on your way.",
@@ -1500,17 +1430,87 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "આભાર, તમારી મહેરબાની છે.",
-      "romanized": "aabhaar, tamari maherbaani chhe.",
-      "english": "Thank you, that is very kind of you.",
+      "nativeScript": "નમસ્તે.",
+      "romanized": "namaste.",
+      "english": "Hello.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "સુપ્રભાત, દાદી.",
+      "romanized": "suprabhaat, daadi.",
+      "english": "Good morning, Grandma.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "શુભ સાંજ, સર.",
+      "romanized": "shubh saanj, sar.",
+      "english": "Good evening, sir.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "આભાર, મા.",
+      "romanized": "aabhaar, maa.",
+      "english": "Thank you, Mom.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "માફ કરજો, હું મોડો આવ્યો.",
+      "romanized": "maaf karjo, huun modo aavyo.",
+      "english": "Sorry, I came late.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "શુભ સાંજ, તમે બધા આવજો.",
-      "romanized": "shubh saanj, tame badha aavjo.",
-      "english": "Good evening, everyone, goodbye.",
+      "nativeScript": "કેમ છો, અંકલ?",
+      "romanized": "kem chho, ankal?",
+      "english": "How are you, uncle?",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "શુભ દિન, મિત્રો.",
+      "romanized": "shubh din, mitro.",
+      "english": "Good day, friends.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "ઘણા વખતે મળ્યા, તમે કેમ છો?",
+      "romanized": "ghanaa vakhte malya, tame kem chho?",
+      "english": "Long time no see, how are you?",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "સાચવીને જજો, ફરી મળીએ.",
+      "romanized": "saachvine jajo, fari malie.",
+      "english": "Take care, see you again.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "મળતા રહેજો અને શુભેચ્છા.",
+      "romanized": "malta rahejo ane shubhechchha.",
+      "english": "Keep in touch and best wishes.",
       "difficulty": 3,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "શુભ સવાર, બાળકો.",
+      "romanized": "shubh savaar, baalakone",
+      "english": "Good morning, children.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "કૃપા કરીને બેસો, મહેમાન.",
+      "romanized": "krupa kari-ne beso, mehmaan",
+      "english": "Please sit down, guest.",
+      "difficulty": 2,
       "origin": "generated_c1"
     }
   ],
@@ -1572,24 +1572,10 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "મને નવ પ્રશ્નો સમજાયા.",
-      "romanized": "mane nav prashno samjaayaa.",
-      "english": "I understood nine questions.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "ગુરુજીએ દસ વાર કહ્યું.",
       "romanized": "gurujee e das vaar kahyu.",
       "english": "The teacher said it ten times.",
       "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "અમે અગિયાર નાટક જોયા.",
-      "romanized": "ame agiyaar naatak joyaa.",
-      "english": "We watched eleven plays.",
-      "difficulty": 3,
       "origin": "generated_c1"
     },
     {
@@ -1631,13 +1617,6 @@
       "nativeScript": "પાંચ મિત્રો બહાર જાય છે.",
       "romanized": "paanch mitro bahar jaay chhe.",
       "english": "Five friends go outside.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "છ માછલીઓ પાણીમાં તરેછે.",
-      "romanized": "chha machhliyo paani ma tare chhe.",
-      "english": "Six fish are swimming in the water.",
       "difficulty": 2,
       "origin": "generated_c1"
     },
@@ -1719,13 +1698,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "હું એકથી દસ સુધી ગણું છું.",
-      "romanized": "hun ekthi das sudhi ganu chhu.",
-      "english": "I count from one to ten.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મને બે રમકડાં આપો.",
       "romanized": "mane be ramkada aapo.",
       "english": "Give me two toys.",
@@ -1740,13 +1712,6 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "બાળકો ચાર ગોળીઓ લે છે.",
-      "romanized": "balako chaar golio le chhe.",
-      "english": "The children take four marbles.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "મારી પાસે પાંચ સફરજન છે.",
       "romanized": "mari pase paanch safarjan chhe.",
       "english": "I have five apples.",
@@ -1754,30 +1719,9 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "તેની પાસે છ કૉપી છે.",
-      "romanized": "teni pase chha kopi chhe.",
-      "english": "She has six notebooks.",
-      "difficulty": 2,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "કૃપા કરીને દસ સુધી ધીમે બોલો.",
-      "romanized": "krupa karine das sudhi dheeme bolo.",
-      "english": "Please say it slowly up to ten.",
-      "difficulty": 3,
-      "origin": "generated_c1"
-    },
-    {
       "nativeScript": "એક, બે, ત્રણ કહો.",
       "romanized": "ek, be, tran kaho.",
       "english": "Say one, two, three.",
-      "difficulty": 1,
-      "origin": "generated_c1"
-    },
-    {
-      "nativeScript": "હું ચાર સુધી ગણું છું.",
-      "romanized": "hun chaar sudhi ganun chhu.",
-      "english": "I count up to four.",
       "difficulty": 1,
       "origin": "generated_c1"
     },
@@ -1810,9 +1754,65 @@
       "origin": "generated_c1"
     },
     {
-      "nativeScript": "ક્લાસમાં નવ ગોળીઓ છે, અને દસ પુસ્તકો પણ છે.",
-      "romanized": "klasma nav golio chhe, ane das pustako pan chhe.",
-      "english": "There are nine marbles in class, and there are also ten books.",
+      "nativeScript": "એક ગોળક જમીન પર પડ્યું છે.",
+      "romanized": "ek golak jameen par padyu chhe.",
+      "english": "One ball is lying on the ground.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "બે દીવા બારી પાસે છે.",
+      "romanized": "be diva baari paase chhe.",
+      "english": "Two lamps are near the window.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "ત્રણ મિત્રો અહીં બેઠા છે.",
+      "romanized": "tran mitro ahi betha chhe.",
+      "english": "Three friends are sitting here.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "ચાર કપ મેજ પર છે.",
+      "romanized": "chaar kap mej par chhe.",
+      "english": "Four cups are on the table.",
+      "difficulty": 1,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "પાંચ બાળકો મેદાનમાં દોડી રહ્યા છે.",
+      "romanized": "paanch baalakoon medanma dodi rahya chhe.",
+      "english": "Five children are running in the field.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "છ માછલીઓ પાણીમાં તરતી છે.",
+      "romanized": "chha machhlio paani ma tarati chhe.",
+      "english": "Six fish are swimming in the water.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "સાત ફૂલો બાગમાં ખીલ્યાં છે.",
+      "romanized": "saat phoolo baag ma khilya chhe.",
+      "english": "Seven flowers have bloomed in the garden.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "આઠ ગ્લાસ શેલ્ફ પર રાખ્યા છે.",
+      "romanized": "aath glaas shelf par rakhya chhe.",
+      "english": "Eight glasses are kept on the shelf.",
+      "difficulty": 2,
+      "origin": "generated_c1"
+    },
+    {
+      "nativeScript": "નવ તારાઓ આકાશમાં ચમકી રહ્યા છે.",
+      "romanized": "nav tarao aakashma chamki rahya chhe.",
+      "english": "Nine stars are shining in the sky.",
       "difficulty": 3,
       "origin": "generated_c1"
     }

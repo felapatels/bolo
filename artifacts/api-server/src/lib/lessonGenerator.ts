@@ -133,6 +133,20 @@ export async function generateSentences(
           .join("\n")
       : "(none yet)";
 
+  // Grammar constraint (C1 QA follow-up): the pilot surfaced systematic
+  // experiencer/dative-subject errors in generated Gujarati sentences. The
+  // generic rule applies to every language; the concrete CORRECT/WRONG
+  // few-shot examples inject only for Gujarati (parameterized so other
+  // languages are not polluted with Gujarati script).
+  const grammarRules =
+    `- GRAMMAR: Use the natural experiencer (dative) subject construction where the language requires it — verbs of wanting, needing, liking, and feeling take the oblique/dative subject, never a nominative subject. Ensure participle gender/number agreement, and never mix dative and nominative marking in one clause.` +
+    (req.languageName === "Gujarati"
+      ? `
+- CORRECT: મારે પાણી પીવું છે. — WRONG: હું પાણી પીવું છે.
+- CORRECT: મને આ પુસ્તક ગમે છે. — WRONG: હું આ પુસ્તક ગમે છે.
+- CORRECT: મને ઠંડી લાગે છે. — WRONG: હું ઠંડી લાગે છે.`
+      : "");
+
   const completion = await openai.chat.completions.create({
     model: "gpt-5.4-mini",
     max_completion_tokens: 3000,
@@ -171,6 +185,7 @@ Reply as JSON with this exact shape:
 Rules:
 - Every entry MUST be a complete, natural sentence with a verb — never a single word or fragment.
 - "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
+${grammarRules}
 - Order entries from easiest to hardest.
 - Return exactly ${count} sentences.`,
       },
