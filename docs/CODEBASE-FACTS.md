@@ -194,7 +194,8 @@ Devanagari only. Other scripts are #776, gated on native speaker review.
 | `src/pages/account.tsx` | Timezone input in Learning section. Lines 868/881 are a pre-existing voice-preview player |
 | `src/pages/subscription.tsx` | `DetailRow` at line 655, local, not exported |
 | `src/pages/friends.tsx` | Local `ErrorState`/`SectionLoader` helpers near the bottom; uses the SHARED `EmptyState` for the empty leaderboard and no-friends states (an earlier note calling that an "inline EmptyState" was wrong) |
-| `src/components/mascot.tsx` | Five static PNGs, `<motion.img>`, framer-motion, `useIdleTimer` funny variants after 10s |
+| `src/components/mascot.tsx` | Rigged SVG Bolo since Task 836 (July 29, 2026): renders `BoloRig` (`src/components/bolo-rig.tsx`), same public API (`pose/size/idle/fill/className`) plus optional `activity` ("talking"/"listening") and `talkAudioRef`; no more keyed remount per pose — the rig spring-morphs body parts. `useIdleTimer` funny variants after 10s still apply (some now drive real wing effects via `FunnyIdleVariant.rig`) |
+| `src/components/bolo-rig.tsx` | Layered SVG rig: per-part pose targets in `POSES`, transforms written to the SVG `transform` **attribute** via a `TG` helper subscribing to MotionValue templates (framer-motion intercepts the `transform` prop on `motion.g`, so exact-pivot `rotate(deg cx cy)` must be set as an attribute). Wing convention: positive rotate = raise outward, negative = sweep inward across the chest (thinking's wing-to-chin). Ambient blink/breath/head-tilt loops, clamped pupil cursor-tracking (`(pointer: fine)` only), amplitude-driven beak sync (WebAudio `captureStream` analyser on the chat playback element, analysis-only; synthetic sine fallback), flinch beat entering tryagain, poke reaction on pointerdown (650ms cooldown). Reduced motion collapses everything to still pose frames (`mv.jump`) |
 | `src/components/ui/confetti.tsx` | Hand-rolled framer-motion. 70 shape pieces, 40 in glyph mode |
 | `src/components/ui/badge.tsx` | `Badge`, cva |
 | `src/components/ui/band-pill.tsx` | `BandPill` (Task 2) |
@@ -277,7 +278,7 @@ Expo, expo-router. `app/(app)/_layout.tsx` sets `headerShown: false` for Stack s
 ## 7. Assets, libraries, and audio
 
 - **Animation:** framer-motion on web, react-native-reanimated on mobile. No Rive, no Lottie, no canvas-confetti.
-- **Mascot:** five static PNGs. No Rive state machine exists.
+- **Mascot:** web renders a layered rigged SVG (`bolo-rig.tsx`, Task 836) inside `Mascot`; the five pose PNGs remain in `public/mascot/` as the brand reference and are still used by the mobile app, video artifacts, nav-bar chat icon, legal-page header, and hosted email images. No Rive state machine exists.
 - **Confetti:** hand-rolled on both platforms, not a library.
 - **Sound cues:** a `playCue` layer exists on both platforms (Spec 1 v3) but **no cue audio files exist**. Mobile `CUE_SOURCES` is empty; web 404s silently. Cues are silent no-ops until assets ship.
 - **Coach TTS playback already existed** and is separate from the cue layer.

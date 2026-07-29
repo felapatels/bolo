@@ -108,33 +108,9 @@ export function GuidedTourOverlay() {
           >
             {/* Bolo the parrot — floats centered above the card's top edge */}
             <div className="absolute inset-x-0 -top-14 flex justify-center" aria-hidden="true">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentStep}
-                  initial={
-                    reduceMotion
-                      ? { opacity: 0 }
-                      : { opacity: 0, scale: 0.55, y: 12 }
-                  }
-                  animate={
-                    reduceMotion
-                      ? { opacity: 1 }
-                      : { opacity: 1, scale: 1, y: 0 }
-                  }
-                  exit={
-                    reduceMotion
-                      ? { opacity: 0 }
-                      : { opacity: 0, scale: 0.8, y: -8 }
-                  }
-                  transition={
-                    reduceMotion
-                      ? { duration: 0.15 }
-                      : { type: "spring", stiffness: 260, damping: 18 }
-                  }
-                >
-                  <Mascot pose={mascotPose} size={104} idle={mascotIdle} />
-                </motion.div>
-              </AnimatePresence>
+              {/* No keyed remount per step anymore — the rigged mascot
+                  spring-morphs its body parts between the step poses. */}
+              <Mascot pose={mascotPose} size={104} idle={mascotIdle} />
             </div>
 
             {/* Card content — padded on top to clear the mascot overlap */}

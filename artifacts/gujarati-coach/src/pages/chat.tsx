@@ -1695,6 +1695,12 @@ export default function ChatPage() {
               pose={mascotPose}
               size={148}
               idle={phase === "playing" ? "cheer" : "float"}
+              // Micro-personality: beak-sync to Bolo's voice while it plays,
+              // lean in attentively while the learner is recording.
+              activity={
+                phase === "playing" ? "talking" : phase === "recording" ? "listening" : null
+              }
+              talkAudioRef={playbackRef}
             />
           </div>
         </div>

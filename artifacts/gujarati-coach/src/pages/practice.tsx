@@ -1344,19 +1344,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               aria-hidden="true"
             />
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={mascotPose}
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{
-                  opacity: state === "evaluating" ? 0.55 : 1,
-                  scale: 1,
-                }}
-                exit={{ opacity: 0, scale: 0.92 }}
-                transition={springs.snappy}
-                className="w-full h-full"
-              >
-                {/* Spec D2: mascot "hears" the learner — scale rides the live
+            {/* Pose changes morph the rigged mascot's body parts in place —
+                no keyed remount/hard swap anymore (the rig springs between
+                per-part pose targets). Only the evaluating dim remains here. */}
+            <motion.div
+              animate={{ opacity: state === "evaluating" ? 0.55 : 1 }}
+              transition={springs.snappy}
+              className="w-full h-full"
+            >
+              {/* Spec D2: mascot "hears" the learner — scale rides the live
                     amplitude MotionValue (1.0–1.08) while recording. The rAF
                     loop leaves amplitudeMv at 0 under reduced motion or when
                     not recording, so this settles to scale 1 in those cases. */}
@@ -1376,8 +1372,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                     />
                   </div>
                 </motion.div>
-              </motion.div>
-            </AnimatePresence>
+            </motion.div>
 
             {/* Evaluating spinner — centred over the belly zone */}
             {state === "evaluating" && (

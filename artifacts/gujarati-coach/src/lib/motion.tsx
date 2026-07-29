@@ -102,40 +102,51 @@ export function floatIdle(
 export interface FunnyIdleVariant {
   animate: MotionProps["animate"];
   transition: Transition;
+  /**
+   * Optional body-part effect the mascot rig plays alongside the whole-body
+   * move — real wing flaps on the jump, spread wings on the spin, a quick
+   * flutter on the shimmy. Ignored by non-rig consumers.
+   */
+  rig?: "flap" | "spread" | "flutter";
 }
 
 export function funnyIdleVariants(reduceMotion: boolean | null): FunnyIdleVariant[] {
   if (reduceMotion) return [];
   return [
-    // 1. Spin — full 360° rotation
+    // 1. Spin — full 360° rotation, wings spread like a pirouette
     {
       animate: { rotate: [0, 360] },
       transition: { duration: 0.6, ease: [0.34, 1.56, 0.64, 1] },
+      rig: "spread",
     },
     // 2. Peek left-right — like a curious bird peering around
     {
       animate: { rotate: [0, -20, 20, -20, 20, 0] },
       transition: { duration: 1.2, ease: "easeInOut" },
     },
-    // 3. Sneeze-scale — quick puff then settle
+    // 3. Sneeze-scale — quick puff then settle, feathers ruffling
     {
       animate: { scale: [1, 1.3, 0.85, 1.1, 1] },
       transition: { duration: 0.5, ease: "easeOut" },
+      rig: "flutter",
     },
-    // 4. Jump — bouncy hop with a little afterbounce
+    // 4. Jump — bouncy hop with real wing flaps powering it
     {
       animate: { y: [0, -24, 0, -12, 0] },
       transition: { duration: 0.7, ease: [0.34, 1.56, 0.64, 1] },
+      rig: "flap",
     },
-    // 5. Dizzy spiral — wobble with a subtle float
+    // 5. Dizzy spiral — wobble with a subtle float, wings out for balance
     {
       animate: { rotate: [0, -15, 15, -15, 0], y: [0, -8, 0] },
       transition: { duration: 1, ease: "easeInOut" },
+      rig: "spread",
     },
     // 6. Excited shimmy — rapid tiny shakes side to side
     {
       animate: { x: [0, -6, 6, -6, 6, -4, 4, 0] },
       transition: { duration: 0.6, ease: "easeInOut" },
+      rig: "flutter",
     },
   ];
 }
