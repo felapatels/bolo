@@ -1,5 +1,5 @@
 import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 import { identifyUser, trackOnce, ANALYTICS_EVENTS } from './lib/analytics';
 import { setSentryUser } from './lib/sentry';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -32,28 +32,111 @@ import Home from '@/pages/home';
 // this, opening the logged-in home pulled in every page (chat, practice,
 // all six games…), ~190 dev-server requests, which made the dev preview
 // crawl on phones and bloats the production entry chunk.
-const Chat = lazy(() => import('@/pages/chat'));
-const CategoryDetail = lazy(() => import('@/pages/category-detail'));
-const Practice = lazy(() => import('@/pages/practice'));
-const Journey = lazy(() => import('@/pages/journey'));
-const Progress = lazy(() => import('@/pages/progress'));
-const Friends = lazy(() => import('@/pages/friends'));
-const Games = lazy(() => import('@/pages/games/index'));
-const GamesWordMatch = lazy(() => import('@/pages/games/word-match'));
-const GamesSpeedRound = lazy(() => import('@/pages/games/speed-round'));
-const GamesListenAndPick = lazy(() => import('@/pages/games/listen-and-pick'));
-const GamesPhraseBuilder = lazy(() => import('@/pages/games/phrase-builder'));
-const GamesScriptTrace = lazy(() => import('@/pages/games/script-trace'));
-const GamesBoloQuiz = lazy(() => import('@/pages/games/bolo-quiz'));
-const Account = lazy(() => import('@/pages/account'));
-const Contact = lazy(() => import('@/pages/contact'));
-const Subscription = lazy(() => import('@/pages/subscription'));
-const Upgrade = lazy(() => import('@/pages/upgrade'));
-const Family = lazy(() => import('@/pages/family'));
-const FamilyJoin = lazy(() => import('@/pages/family-join'));
-const Privacy = lazy(() => import('@/pages/privacy'));
-const Terms = lazy(() => import('@/pages/terms'));
-const NotFound = lazy(() => import('@/pages/not-found'));
+//
+// lazyRoute = React.lazy plus two things lazy alone can't do:
+// 1. `.preload()` — lets IdleRoutePrefetch warm the chunk in the background.
+// 2. Once the module is loaded, the wrapper renders the real component
+//    DIRECTLY, bypassing Suspense. This matters because wouter's location
+//    updates are sync external-store updates that React cannot transition,
+//    so even an already-fulfilled lazy() promise commits the RouteLoading
+//    fallback for a frame — a visible spinner blink on every navigation.
+type RouteModule<P> = { default: ComponentType<P> };
+function lazyRoute<P extends object>(loader: () => Promise<RouteModule<P>>) {
+  let resolved: ComponentType<P> | null = null;
+  let promise: Promise<RouteModule<P>> | undefined;
+  const preload = () =>
+    (promise ??= loader().then((m) => {
+      resolved = m.default;
+      return m;
+    }));
+  const Lazy = lazy(preload);
+  function RouteComponent(props: P) {
+    const Resolved = resolved;
+    return Resolved ? <Resolved {...props} /> : <Lazy {...(props as any)} />;
+  }
+  RouteComponent.preload = preload;
+  return RouteComponent;
+}
+
+const Chat = lazyRoute(() => import('@/pages/chat'));
+const CategoryDetail = lazyRoute(() => import('@/pages/category-detail'));
+const Practice = lazyRoute(() => import('@/pages/practice'));
+const Journey = lazyRoute(() => import('@/pages/journey'));
+const Progress = lazyRoute(() => import('@/pages/progress'));
+const Friends = lazyRoute(() => import('@/pages/friends'));
+const Games = lazyRoute(() => import('@/pages/games/index'));
+const GamesWordMatch = lazyRoute(() => import('@/pages/games/word-match'));
+const GamesSpeedRound = lazyRoute(() => import('@/pages/games/speed-round'));
+const GamesListenAndPick = lazyRoute(() => import('@/pages/games/listen-and-pick'));
+const GamesPhraseBuilder = lazyRoute(() => import('@/pages/games/phrase-builder'));
+const GamesScriptTrace = lazyRoute(() => import('@/pages/games/script-trace'));
+const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
+const Account = lazyRoute(() => import('@/pages/account'));
+const Contact = lazyRoute(() => import('@/pages/contact'));
+const Subscription = lazyRoute(() => import('@/pages/subscription'));
+const Upgrade = lazyRoute(() => import('@/pages/upgrade'));
+const Family = lazyRoute(() => import('@/pages/family'));
+const FamilyJoin = lazyRoute(() => import('@/pages/family-join'));
+const Privacy = lazyRoute(() => import('@/pages/privacy'));
+const Terms = lazyRoute(() => import('@/pages/terms'));
+const NotFound = lazyRoute(() => import('@/pages/not-found'));
+
+// Most-likely-next pages first; long tail after. Order matters because the
+// prefetcher loads them one at a time.
+const PREFETCH_ORDER = [
+  Journey,
+  Practice,
+  Chat,
+  Games,
+  Progress,
+  CategoryDetail,
+  Account,
+  Friends,
+  Upgrade,
+  GamesWordMatch,
+  GamesListenAndPick,
+  GamesPhraseBuilder,
+  GamesSpeedRound,
+  GamesScriptTrace,
+  GamesBoloQuiz,
+  Subscription,
+  Family,
+  FamilyJoin,
+  Contact,
+  Privacy,
+  Terms,
+  NotFound,
+];
+
+// Warms every lazy route chunk in the background so the first tap on
+// Practice/Chat/Journey/etc. never shows the RouteLoading spinner.
+//
+// Rules that keep this from undoing the code-splitting win:
+// - starts ~3s after mount (well past first paint and the home data fetches)
+// - loads chunks SEQUENTIALLY, so it never floods a slow phone connection
+// - skips entirely when the user asked to save data
+// Failures are ignored — the route will simply load on demand as before.
+function IdleRoutePrefetch() {
+  useEffect(() => {
+    const connection = (navigator as { connection?: { saveData?: boolean } }).connection;
+    if (connection?.saveData) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      for (const route of PREFETCH_ORDER) {
+        if (cancelled) return;
+        await route.preload().catch(() => {});
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  return null;
+}
 
 /** Minimal centered spinner shown while a lazy route chunk loads. */
 function RouteLoading() {
@@ -393,6 +476,7 @@ function ClerkProviderWithRoutes() {
             <TourProvider>
               <TooltipProvider>
                 <AppRouter />
+                <IdleRoutePrefetch />
                 <Toaster />
                 <GuidedTourOverlay />
                 <TourAutoLauncher />
