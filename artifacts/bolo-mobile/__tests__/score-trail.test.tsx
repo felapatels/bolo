@@ -221,9 +221,10 @@ async function tapRecordAndRelease() {
 /** Simulate a full attempt: record → wait for result card to appear. */
 async function doAttempt() {
   await tapRecordAndRelease();
-  // The retry button is the clearest indicator that the result card is showing.
+  // "Hear yourself" renders on every result card regardless of band (the
+  // retry-band card no longer has the icon-only retry-button, build 30).
   await waitFor(() =>
-    expect(screen.getByTestId('retry-button')).toBeOnTheScreen(),
+    expect(screen.getByText('Hear yourself')).toBeOnTheScreen(),
   );
 }
 
@@ -473,9 +474,10 @@ describe('ScoreTrail dot colors', () => {
     // First attempt: red dot
     expect(getDotColor(0)).toBe(COLORS.destructive);
 
-    // Tap retry
+    // Tap retry. The first attempt was retry-band, so the flipped layout's
+    // primary "Try again" chunky button is the retry control (build 30).
     await act(async () => {
-      fireEvent.press(screen.getByTestId('retry-button'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     await waitForRecordReady();
     await doAttempt();

@@ -100,6 +100,12 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
+// The journey header pads itself with the device inset (build 30 item 4);
+// there is no SafeAreaProvider in the jest tree, so mock a fixed inset.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock('@/components/Mascot', () => ({ Mascot: () => null }));
 
 jest.mock('@/components/LessonError', () => {

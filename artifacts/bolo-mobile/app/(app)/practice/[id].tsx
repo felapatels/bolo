@@ -1146,18 +1146,23 @@ export default function PracticeScreen() {
       setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
       setPhaseSync('result');
 
-      // Full-bleed color flash: green for nailed, amber for close, red for retry/nocatch.
-      const fColor =
-        res.band === 'nailed'
-          ? colors.success
-          : res.band === 'close'
-            ? '#F59E0B'
-            : colors.destructive;
-      setFlashColor(fColor);
-      flashOpacity.value = withSequence(
-        withTiming(0.18, { duration: 150 }),
-        withTiming(0, { duration: 250 }),
-      );
+      // Full-bleed color flash: green for nailed, amber for close, red for
+      // retry. Nocatch is a system miss, not a learner error (Spec 1 rule 16):
+      // nothing negative may fire, so the flash is skipped entirely, exactly
+      // like haptics, the wrong-cue sound, and the card shake already skip it.
+      if (res.band !== 'nocatch') {
+        const fColor =
+          res.band === 'nailed'
+            ? colors.success
+            : res.band === 'close'
+              ? '#F59E0B'
+              : colors.destructive;
+        setFlashColor(fColor);
+        flashOpacity.value = withSequence(
+          withTiming(0.18, { duration: 150 }),
+          withTiming(0, { duration: 250 }),
+        );
+      }
 
       // ── Hot-streak tracking ──────────────────────────────────────────────
       if (res.band === 'nailed' || res.band === 'close') {
@@ -1947,7 +1952,32 @@ export default function PracticeScreen() {
 
       {/* Controls */}
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
-        {phase === 'result' || phase === 'compare' ? (
+        {phase === 'result' && result?.band === 'retry' ? (
+          // Retry band: another take is the productive default, so "Try
+          // again" gets the primary chunky button and "Next phrase" drops to
+          // a quieter bordered secondary. Hard evaluation failures (phase
+          // 'error' below) keep their own "Record again" primary.
+          <View style={styles.resultButtons}>
+            <Pressable
+              onPress={next}
+              accessibilityRole="button"
+              accessibilityLabel={index + 1 < list.length ? 'Next phrase' : 'Finish'}
+              testID="next-secondary-button"
+              style={[styles.nextSecondaryBtn, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.nextSecondaryText, { color: colors.foreground }]}>
+                {index + 1 < list.length ? 'Next phrase' : 'Finish'}
+              </Text>
+            </Pressable>
+            <ChunkyButton
+              title="Try again"
+              icon="rotate-ccw"
+              onPress={tryAgain}
+              style={{ flex: 1 }}
+              testID="try-again-button"
+            />
+          </View>
+        ) : phase === 'result' || phase === 'compare' ? (
           <View style={styles.resultButtons}>
             <Pressable
               onPress={tryAgain}
@@ -1990,9 +2020,10 @@ export default function PracticeScreen() {
           />
         )}
       </View>
-      {/* Score flash overlay — full-bleed color pulse after each scored attempt */}
+      {/* Score flash overlay: full-bleed color pulse after each scored attempt */}
       <Animated.View
         pointerEvents="none"
+        testID="score-flash-overlay"
         style={[
           StyleSheet.absoluteFill,
           { backgroundColor: flashColor, zIndex: 50 },
@@ -2389,6 +2420,20 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Retry-band secondary "Next phrase": quiet bordered pill sized to sit
+  // beside the primary "Try again" chunky button without competing with it.
+  nextSecondaryBtn: {
+    height: 56,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextSecondaryText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 15,
   },
   recordWrap: { alignItems: 'center', gap: 14 },
   recordCenter: { alignItems: 'center', justifyContent: 'center' },

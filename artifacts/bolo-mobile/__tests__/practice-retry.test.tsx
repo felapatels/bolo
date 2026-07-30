@@ -215,30 +215,74 @@ describe('score card retry', () => {
     expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
 
-  test('the bottom retry button also replays the coach', async () => {
+  test('retry band flips the CTAs: "Try again" is primary, "Next phrase" secondary', async () => {
     await recordToResult();
 
-    // The bordered retry pressable next to "Next phrase" triggers tryAgain.
+    // Build 30 item 3: on a retry-band card the productive default is another
+    // take, so the chunky primary reads "Try again" and "Next phrase" drops
+    // to the bordered secondary pressable. The icon-only retry pressable only
+    // exists on non-retry cards. (The band pill also reads "Try again", so
+    // the button is addressed by testID.)
+    expect(screen.getByTestId('try-again-button')).toBeOnTheScreen();
+    expect(screen.queryByTestId('retry-button')).toBeNull();
+    expect(screen.getByTestId('next-secondary-button')).toBeOnTheScreen();
+    expect(screen.getByText('Next phrase')).toBeOnTheScreen();
+
+    // Pressing the primary retries and replays the coach from the per-phrase
+    // audio cache, not a fresh synthesis. (Prefetch for phrase 2 also ran
+    // during initial render, so total synth is 2.)
     await act(async () => {
-      fireEvent.press(screen.getByTestId('retry-button'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
-    // Replay comes from the per-phrase audio cache, not a fresh synthesis.
-    // (Prefetch for phrase 2 also ran during initial render, so total is 2.)
     expect(mockState.synth).toHaveBeenCalledTimes(2);
     const { playBase64Audio } = jest.requireMock('@/lib/audio');
     expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
 
-  test('Next phrase advances without retry side effects', async () => {
+  test('the secondary "Next phrase" advances without retry side effects', async () => {
     await recordToResult();
 
     await act(async () => {
-      fireEvent.press(screen.getByText('Next phrase'));
+      fireEvent.press(screen.getByTestId('next-secondary-button'));
     });
 
     // New phrase shown; its auto-play effect fires for the phrase change.
     expect(screen.getByText('આભાર')).toBeOnTheScreen();
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+  });
+
+  test('a non-retry band keeps "Next phrase" as the primary button', async () => {
+    // A close-band card (learner nearly had it) keeps the original layout:
+    // icon-only retry pressable plus the chunky "Next phrase" primary.
+    mockState.evaluate = jest.fn(async () => ({
+      score: 60,
+      passed: false,
+      band: 'close',
+      xpAwarded: 4,
+      transcript: 'namste',
+      feedback: 'Almost!',
+      tip: 'Slow down.',
+      evaluationToken: 'signed-token',
+    }));
+    render(<PracticeScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
+
+    expect(screen.getByTestId('retry-button')).toBeOnTheScreen();
+    expect(screen.getByText('Next phrase')).toBeOnTheScreen();
+    expect(screen.queryByTestId('try-again-button')).toBeNull();
+    expect(screen.queryByTestId('next-secondary-button')).toBeNull();
   });
 });

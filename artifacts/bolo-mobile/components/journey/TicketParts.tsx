@@ -60,6 +60,33 @@ export function TicketStripes({ ink }: { ink: string }) {
   );
 }
 
+// The stamp is rotated -12 degrees, so its axis-aligned bounding box is
+// larger than the stamp square by (cos 12 + sin 12) ~= 1.186x. Any slot that
+// hosts a stamp must reserve this extent, or the rotated corners bleed over
+// the slot edge (build-30 defect: a 48px stamp has ~57px bounds but sat in a
+// 56px home slot, and a 44px stamp (~53px bounds) sat in a 52px header slot).
+const STAMP_ROTATION_DEG = 12;
+export function zoneStampExtent(size: number): number {
+  const rad = (STAMP_ROTATION_DEG * Math.PI) / 180;
+  return Math.ceil(size * (Math.cos(rad) + Math.sin(rad)));
+}
+
+// Deterministic fit for the stamp's geoName line. Real zone names run up to
+// "Thiruvananthapuram Central"; the old fixed 7px font with maxWidth +
+// numberOfLines={1} guaranteed an ellipsis for most of them. Instead, size
+// the font so the longest WORD fits the chord budget and let the text wrap
+// on spaces (no numberOfLines, so truncation is impossible). 0.7em per
+// uppercase extrabold character is a conservative advance estimate; the
+// floor keeps degenerate names from vanishing entirely.
+export function stampNameFontSize(name: string, size: number): number {
+  const budget = size * 0.84;
+  const longestWord = Math.max(
+    1,
+    ...name.trim().split(/\s+/).map((w) => w.length),
+  );
+  return Math.max(3, Math.min(7, budget / (longestWord * 0.7)));
+}
+
 /** Rubber-stamp fare-zone ring in brand ink. */
 export function ZoneStamp({
   ink,
@@ -72,8 +99,10 @@ export function ZoneStamp({
   name: string;
   size?: number;
 }) {
+  const nameFontSize = stampNameFontSize(name, size);
   return (
     <View
+      testID="zone-stamp"
       style={[
         styles.stamp,
         {
@@ -86,7 +115,20 @@ export function ZoneStamp({
     >
       <Text style={[styles.stampLabel, { color: ink }]}>FARE ZONE</Text>
       <Text style={[styles.stampZone, { color: ink }]}>{zone}</Text>
-      <Text numberOfLines={1} style={[styles.stampName, { color: ink, maxWidth: size * 0.8 }]}>
+      <Text
+        testID="zone-stamp-name"
+        style={[
+          styles.stampName,
+          {
+            color: ink,
+            maxWidth: size * 0.84,
+            fontSize: nameFontSize,
+            lineHeight: nameFontSize + 1,
+            // Tracking only at full size; squeezed names need every pixel.
+            letterSpacing: nameFontSize >= 7 ? 0.5 : 0,
+          },
+        ]}
+      >
         {name.toUpperCase()}
       </Text>
     </View>
@@ -162,11 +204,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 19,
   },
+  // Size, line height, and tracking are computed per name in ZoneStamp.
   stampName: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 7,
-    letterSpacing: 0.5,
-    lineHeight: 8,
+    textAlign: 'center',
   },
   perf: {
     position: 'relative',

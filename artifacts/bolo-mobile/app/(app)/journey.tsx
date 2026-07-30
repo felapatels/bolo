@@ -17,6 +17,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Svg, { Path, G } from 'react-native-svg';
@@ -42,7 +44,12 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { TrainEngine } from '@/components/journey/TrainEngine';
-import { TicketPerforationV, TicketStripes, ZoneStamp } from '@/components/journey/TicketParts';
+import {
+  TicketPerforationV,
+  TicketStripes,
+  ZoneStamp,
+  zoneStampExtent,
+} from '@/components/journey/TicketParts';
 import { Bunting, TracksideDoodad, ZoneVista, SCENERY_GRAY } from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -154,6 +161,14 @@ export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
   const { width: windowW } = useWindowDimensions();
+  // The main render opts out of Screen's top padding (padTop={false}) so the
+  // header hugs the top edge, which shoved it under the status bar/notch on
+  // native. Pad the header itself with the same inset Screen would apply
+  // (web preview uses Screen's fixed 67px chrome offset). The loading/error
+  // branches below use a plain <Screen> and keep its default padding, so
+  // only this header needs the explicit inset.
+  const insets = useSafeAreaInsets();
+  const headerTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const { activeLang, activeLanguage } = useLanguage();
   const railBrand = getRailBrand(activeLang);
   const { isPlus } = useEntitlements();
@@ -373,7 +388,17 @@ export default function JourneyScreen() {
   return (
     <Screen padTop={false}>
       {/* Boarding-pass header — full-ticket treatment */}
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View
+        testID="journey-header"
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.card,
+            borderBottomColor: colors.border,
+            paddingTop: 10 + headerTopInset,
+          },
+        ]}
+      >
         <Pressable
           accessibilityLabel="Back to home"
           onPress={() => {
@@ -435,7 +460,7 @@ export default function JourneyScreen() {
               {/* Fixed slot keeps the rotated stamp's visual extent inside
                   the stub (clear of the perforation). */}
               {currentZone && currentStation && (
-                <View style={styles.stubStampSlot}>
+                <View testID="header-stamp-slot" style={styles.stubStampSlot}>
                   <ZoneStamp
                     ink={line.accent}
                     zone={currentStation.zoneIndex + 1}
@@ -889,7 +914,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    // paddingTop is applied inline: 10 plus the safe-area/web chrome inset.
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
   backBtn: {
@@ -933,11 +959,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     position: 'relative',
   },
-  // 52×52 centers the 44px stamp with room for its -12° rotation (visual
-  // bounding ≈ 52px).
+  // Centers the 44px stamp inside its full rotated visual extent (the -12
+  // degree tilt makes the bounding box ~53px; 52 clipped the corners).
   stubStampSlot: {
-    width: 52,
-    height: 52,
+    width: zoneStampExtent(44),
+    height: zoneStampExtent(44),
     alignItems: 'center',
     justifyContent: 'center',
   },

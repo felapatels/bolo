@@ -100,6 +100,13 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
+// The main render opts out of Screen's top padding and pads the header
+// itself with the device inset (build 30 item 4); a fixed mock inset lets
+// the test assert the exact paddingTop.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock('@/components/Mascot', () => ({ Mascot: () => null }));
 
 jest.mock('@/components/LessonError', () => {
@@ -334,5 +341,39 @@ describe('journey header ticket sizing (build-28 regression)', () => {
     // Map content must render alongside the bounded header.
     expect(screen.getByText(/FARE ZONE 1/)).toBeOnTheScreen();
     expect(screen.getByLabelText(/^Stop 1 of 2/)).toBeOnTheScreen();
+  });
+});
+
+// Build 30 items 4 + 5: the header must clear the status bar (padTop={false}
+// removed Screen's inset, shoving the back button and ticket under the
+// notch), and the right-stub stamp slot must reserve the stamp's FULL
+// rotated bounding box (a 44px stamp tilted -12 degrees spans ~53px; the old
+// 52px slot clipped its corners).
+describe('journey header inset and stamp slot (build 30)', () => {
+  it('pads the header by the top inset and sizes the slot from the rotated extent', () => {
+    const { StyleSheet } = require('react-native');
+    const { zoneStampExtent } = require('@/components/journey/TicketParts');
+    setZones([
+      [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 })],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    // 10px of the header's own padding on top of the mocked 59px inset.
+    const header = StyleSheet.flatten(
+      screen.getByTestId('journey-header').props.style,
+    );
+    expect(header.paddingTop).toBe(59 + 10);
+
+    const slot = StyleSheet.flatten(
+      screen.getByTestId('header-stamp-slot').props.style,
+    );
+    expect(zoneStampExtent(44)).toBeGreaterThanOrEqual(Math.ceil(44 * 1.186));
+    expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(44));
+    expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(44));
   });
 });

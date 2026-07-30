@@ -106,13 +106,22 @@ jest.mock('@/lib/useJourneyProgress', () => ({
 }));
 
 // Imported after the mocks are declared.
-import { TicketPerforationV, TicketStripes } from '@/components/journey/TicketParts';
+import {
+  TicketPerforationV,
+  TicketStripes,
+  ZoneStamp,
+  stampNameFontSize,
+  zoneStampExtent,
+} from '@/components/journey/TicketParts';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const fireLayout = (el: any, width: number, height: number) =>
   fireEvent(el, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width, height } } });
+
+// Build 30 item 5 additions live at the bottom of this file: the rotated
+// stamp's slot sizing and the un-truncated geoName fit.
 
 /** No node anywhere in the tree may carry a percentage dimension. */
 const treeHasPercent = (json: unknown) => JSON.stringify(json).includes('%');
@@ -167,5 +176,51 @@ describe('JourneyPassCard height belt', () => {
     expect(style.maxHeight).toBeDefined();
     expect(style.maxHeight).toBeLessThanOrEqual(260);
     expect(style.overflow).toBe('hidden');
+  });
+});
+
+// Build 30 item 5: the -12 degree stamp rotation inflates its bounding box
+// by (cos 12 + sin 12) ~= 1.186x, so a 48px stamp spans ~57px. The old
+// hard-coded 56px home slot (and 52px journey header slot) clipped the
+// rotated corners; both slots now size themselves from zoneStampExtent.
+describe('zone stamp geometry (build 30)', () => {
+  it('zoneStampExtent covers the full rotated bounding box', () => {
+    const rad = (12 * Math.PI) / 180;
+    const factor = Math.cos(rad) + Math.sin(rad);
+    for (const size of [44, 48]) {
+      expect(zoneStampExtent(size)).toBeGreaterThanOrEqual(size * factor);
+    }
+  });
+
+  it('the home pass stamp slot reserves the rotated extent', () => {
+    const r = render(<JourneyPassCard onPress={() => {}} />);
+    const slot = StyleSheet.flatten(r.getByTestId('home-stamp-slot').props.style);
+    expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(48));
+    expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(48));
+  });
+
+  it('renders the longest real geoName un-truncated (wraps, never ellipsizes)', () => {
+    // Longest zone name across every journey line in lib/journeyLines.ts.
+    const name = 'Thiruvananthapuram Central';
+    const r = render(<ZoneStamp ink="#000" zone={3} name={name} size={44} />);
+    const text = r.getByTestId('zone-stamp-name');
+    // No numberOfLines means react-native wraps on spaces instead of ever
+    // showing an ellipsis, and the full uppercased name is in the tree.
+    expect(text.props.numberOfLines).toBeUndefined();
+    expect(r.getByText(name.toUpperCase())).toBeTruthy();
+    // The font shrinks toward the fit computed from the longest word (the
+    // 3px floor may sit a hair over the exact budget; wrapping, not an
+    // ellipsis, absorbs any remainder because numberOfLines is gone).
+    const style = StyleSheet.flatten(text.props.style);
+    expect(style.fontSize).toBe(stampNameFontSize(name, 44));
+    expect(style.fontSize).toBeGreaterThanOrEqual(3);
+    expect(style.fontSize).toBeLessThan(7);
+  });
+
+  it('short names keep the full-size stamp type', () => {
+    const r = render(<ZoneStamp ink="#000" zone={1} name="Dwarka" size={48} />);
+    const style = StyleSheet.flatten(r.getByTestId('zone-stamp-name').props.style);
+    expect(style.fontSize).toBe(7);
+    expect(stampNameFontSize('Dwarka', 48)).toBe(7);
   });
 });

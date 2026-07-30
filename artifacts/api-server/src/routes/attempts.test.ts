@@ -391,6 +391,53 @@ test("records an attempt and persists progress + newly-earned badges", async () 
   ]);
 });
 
+test("badge awarding skips nocatch attempts, then fires on the first real attempt", async () => {
+  // Build 30 item 1: a nocatch first attempt must not celebrate. Badge
+  // criteria key on totalAttempts (no band filter), so before the gate this
+  // fired the "First Words" celebration for audio the system never captured.
+  const nocatchToken = signEvaluation({
+    userId: TEST_USER_ID,
+    phraseId: 4242,
+    languageCode: LANG,
+    nativeScript: "namaste",
+    romanized: "namaste",
+    english: "hello",
+    transcript: "",
+    score: 0,
+    passed: false,
+    feedback: "Our listener glitched on that one.",
+    band: "nocatch",
+    xpAwarded: 0,
+  });
+  const first = await postAttempt({ evaluationToken: nocatchToken });
+  assert.equal(first.status, 201);
+  assert.deepEqual(first.json.newlyEarnedBadges, []);
+  assert.deepEqual(await storedBadgeKeys(), []);
+  // The attempt insert itself is kept (analytics still records the miss).
+  assert.equal((await storedAttempts()).length, 1);
+
+  // The first attempt the system actually heard awards First Words, even
+  // though the earlier nocatch row also counts toward totalAttempts.
+  const retryToken = signEvaluation({
+    userId: TEST_USER_ID,
+    phraseId: 4242,
+    languageCode: LANG,
+    nativeScript: "namaste",
+    romanized: "namaste",
+    english: "hello",
+    transcript: "namste",
+    score: 42,
+    passed: false,
+    feedback: "Keep going!",
+  });
+  const second = await postAttempt({ evaluationToken: retryToken });
+  assert.equal(second.status, 201);
+  const returnedKeys = second.json.newlyEarnedBadges.map((b: any) => b.key);
+  assert.deepEqual(returnedKeys, ["first_phrase"]);
+  assert.equal(second.json.newlyEarnedBadges[0].title, "First Words");
+  assert.deepEqual(await storedBadgeKeys(), ["first_phrase"]);
+});
+
 test("a nocatch attempt persists for analytics but applies NO learning penalties", async () => {
   // Band 'nocatch' = the system failed to capture usable audio (silence,
   // recognizer script mismatch, or an unsupported-recognition language). The

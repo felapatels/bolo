@@ -29,6 +29,7 @@ export function ChunkyButton({
   disabled = false,
   loading = false,
   style,
+  testID,
 }: {
   title: string;
   onPress: () => void;
@@ -37,6 +38,7 @@ export function ChunkyButton({
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  testID?: string;
 }) {
   const colors = useColors();
   const pressed = useSharedValue(0);
@@ -71,6 +73,7 @@ export function ChunkyButton({
       />
       <AnimatedPressable
         accessibilityRole="button"
+        testID={testID}
         disabled={isDisabled}
         onPressIn={() => {
           pressed.value = 1;

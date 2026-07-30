@@ -21,6 +21,7 @@ import {
   TicketPerforationV,
   TicketStripes,
   ZoneStamp,
+  zoneStampExtent,
 } from '@/components/journey/TicketParts';
 
 export function JourneyPassCard({ onPress }: { onPress: () => void }) {
@@ -122,7 +123,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
         <View style={styles.stub}>
           {/* Fixed slot so the rotated stamp's visual extent is part of the
               layout — it can't drift over the perforation or the line name. */}
-          <View style={styles.stampSlot}>
+          <View testID="home-stamp-slot" style={styles.stampSlot}>
             {journey.current && (
               <ZoneStamp
                 ink="rgba(255,255,255,0.8)"
@@ -282,12 +283,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 4,
   },
-  // 56×56 centers the 48px stamp with room for its -12° rotation (visual
-  // bounding ≈ 57px), keeping it inside the 64px stub instead of straddling
-  // the perforation.
+  // Centers the 48px stamp inside its full rotated visual extent (the -12
+  // degree tilt makes the bounding box ~57px; the old 56px slot clipped the
+  // corners). Still inside the 64px stub, clear of the perforation.
   stampSlot: {
-    width: 56,
-    height: 56,
+    width: zoneStampExtent(48),
+    height: zoneStampExtent(48),
     alignItems: 'center',
     justifyContent: 'center',
   },

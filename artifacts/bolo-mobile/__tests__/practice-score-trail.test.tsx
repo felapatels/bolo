@@ -160,9 +160,10 @@ async function recordAndScore() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  // Wait for result card to appear
+  // Wait for the result card: "Hear yourself" renders on every band's card
+  // (the retry-band card no longer has the icon-only retry-button, build 30).
   await waitFor(() =>
-    expect(screen.queryByTestId('retry-button')).toBeOnTheScreen(),
+    expect(screen.getByText('Hear yourself')).toBeOnTheScreen(),
   );
 }
 
@@ -214,8 +215,10 @@ describe('score trail — phrase-index alignment', () => {
       evaluationToken: 'tok-high',
     }));
 
+    // The 40-scoring first attempt is retry-band, so the flipped layout's
+    // primary "Try again" chunky button is the retry control (build 30).
     await act(async () => {
-      fireEvent.press(screen.getByTestId('retry-button'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     await waitForRecordReady();
     await recordAndScore();

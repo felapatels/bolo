@@ -56,7 +56,11 @@ import {
   BADGE_CATALOG,
   badgeProgress,
 } from "../lib/badges";
-import { awardNewlyEarnedBadges, loadExtendedMetrics } from "../lib/badgeAward";
+import {
+  awardNewlyEarnedBadges,
+  loadExtendedMetrics,
+  type NewlyEarnedBadge,
+} from "../lib/badgeAward";
 import {
   buildPhraseStats,
   buildReviewSchedule,
@@ -1242,16 +1246,26 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // award any newly-satisfied badges. Extended metrics include game-session
   // counters so that practice sessions can also trigger game achievement badges
   // (e.g. if the learner played games before their first pronunciation attempt).
-  const metrics = await loadExtendedMetrics(
-    userId,
-    claims.languageCode,
-    getUserTimezone(req),
-  );
-  const newlyEarnedBadges = await awardNewlyEarnedBadges(
-    userId,
-    claims.languageCode,
-    metrics,
-  );
+  //
+  // Nocatch never celebrates: badge criteria key on metrics like totalAttempts
+  // with no band filter, so without this gate a nocatch FIRST attempt fired the
+  // "First Words" celebration for a recording the system never heard. The
+  // nocatch attempt row above still persists for analytics; only badge
+  // evaluation is skipped. The next real (non-nocatch) attempt re-runs the
+  // catalog and awards anything the metrics now satisfy.
+  let newlyEarnedBadges: NewlyEarnedBadge[] = [];
+  if (!isNocatch) {
+    const metrics = await loadExtendedMetrics(
+      userId,
+      claims.languageCode,
+      getUserTimezone(req),
+    );
+    newlyEarnedBadges = await awardNewlyEarnedBadges(
+      userId,
+      claims.languageCode,
+      metrics,
+    );
+  }
 
   // M1 teaser: `teaser` was computed inside the insert transaction (includes
   // this attempt), letting the client show teaser progress (and the

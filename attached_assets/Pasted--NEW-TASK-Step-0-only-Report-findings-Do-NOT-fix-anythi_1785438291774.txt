@@ -1,0 +1,16 @@
+→ NEW TASK
+
+Step 0 only. Report findings. Do NOT fix anything yet. Consult docs/CODEBASE-FACTS.md and agent memory first. Answer each numbered item with file paths and specific findings.
+
+Context: iOS build 29 device testing surfaced a bug family. Before we spec fixes, we need a trace of the audio and attempt pipeline on native.
+
+Chat record affordance (native): On the mobile chat screen, what is the intended record trigger? Is the center nav Bolo bird wired to hold-to-speak on the chat surface, or does chat have its own record control? Trace the press handler chain from the nav bird on the chat route. Report whether the handler exists, is reachable, and what gates it (permissions, playback state, auth).
+Audio session lifecycle (native): Trace the iOS audio session configuration across the chat flow: initial canned greeting playback, first mic activation, subsequent TTS reply playback. Report the session category/mode/options at each stage, who sets them, and whether the session is reconfigured after recording starts. Specifically: is playback after first mic use running in a play-and-record or ducked configuration that would explain quieter, degraded output vs the first reply?
+Reply audio sources: Is the first canned chat reply a bundled asset while later replies are runtime TTS? Report format, sample rate, and volume/gain handling for each path.
+Playback interruption: During bird reply playback on chat, what happens today if the user attempts hold-to-speak? Is the record path blocked while playback is active, and where is that gate? Report what a barge-in (stop playback, start recording on hold) would need to touch.
+Practice attempt state machine: Trace one practice attempt from record stop to outcome on native. Report the full path: recognizer call, error handling, scoring, celebration trigger, phrase-complete increment. Specifically: when the recognizer returns an error (the "listener glitched" state), what outcome is written? Identify how an errored attempt can both show the error card and trigger the first-phrase celebration.
+Recognizer input on native: Report what audio the recognizer receives on iOS: capture config (sample rate, channels, encoding), any resampling, and the language/script hint passed to transcription. Report whether the recognized transcript (raw and romanized) is available in the response we already receive, and where the feedback card gets its data today.
+Fail-state CTA: On the practice feedback card fail state, report which component renders the CTAs and current button hierarchy.
+Journey header insets: On the native journey screen, report how the boarding-pass header is positioned relative to the safe area. Which component owns top spacing, and is SafeAreaView / useSafeAreaInsets applied on that surface?
+
+Report format: numbered answers matching the above, file paths for every claim, enumerate what you verified vs inferred. No code changes.
