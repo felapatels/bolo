@@ -8,7 +8,7 @@ import { PLUS_ENTITLEMENTS } from "./fixtures";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 
 // Boarding pass and journey CTA animation task. Pins three things:
-// (1) the progress-aware CTA copy: zero progress keeps "Begin your journey",
+// (1) the progress-aware CTA copy: zero progress shows "Start your journey",
 //     mid progress becomes "Resume at Stop N" with the phrases-remaining
 //     count, and progress WITHOUT current-stop data falls back to the
 //     pre-existing "Continue your journey";
@@ -151,13 +151,17 @@ beforeEach(() => {
 });
 
 describe("home boarding pass CTA copy", () => {
-  test("zero progress keeps Begin your journey, and the idle motion classes are applied", () => {
+  test("zero progress shows Start your journey, and the idle motion classes are applied", () => {
     const { container } = renderHome();
-    expect(screen.getByText("Begin your journey")).toBeInTheDocument();
+    expect(screen.getByText("Start your journey")).toBeInTheDocument();
     expect(screen.queryByText(/resume at stop/i)).toBeNull();
-    // Idle motion present when motion is not reduced.
+    // Idle motion present when motion is not reduced: breathe, face shimmer,
+    // glow pulse, CTA arrow slide, and the train drive.
     expect(container.querySelector(".animate-ticket-breathe")).not.toBeNull();
+    expect(container.querySelector(".animate-ticket-shimmer")).not.toBeNull();
+    expect(container.querySelector(".animate-pass-glow")).not.toBeNull();
     expect(container.querySelector(".animate-cta-arrow-nudge")).not.toBeNull();
+    expect(container.querySelector(".animate-train-drive")).not.toBeNull();
   });
 
   test("mid progress resumes at the current stop with the phrases-remaining count", () => {
@@ -187,7 +191,10 @@ describe("home boarding pass motion", () => {
     const { container } = renderHome();
     // No idle animation classes anywhere on the page.
     expect(container.querySelector(".animate-ticket-breathe")).toBeNull();
+    expect(container.querySelector(".animate-ticket-shimmer")).toBeNull();
+    expect(container.querySelector(".animate-pass-glow")).toBeNull();
     expect(container.querySelector(".animate-cta-arrow-nudge")).toBeNull();
+    expect(container.querySelector(".animate-train-drive")).toBeNull();
     // The static frame still carries the full progress-aware copy.
     expect(screen.getByText("Resume at Stop 1 · 3 phrases to go")).toBeInTheDocument();
   });

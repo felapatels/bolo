@@ -283,7 +283,7 @@ function StationCard({
       {isCurrent && !reduceMotion && (
         <div
           className="pointer-events-none absolute -inset-px rounded-lg animate-stop-glow-pulse"
-          style={{ boxShadow: `0 0 0 3px ${color}55` }}
+          style={{ boxShadow: `0 0 0 3px ${color}, 0 0 16px 4px ${color}88` }}
           aria-hidden
         />
       )}
@@ -335,12 +335,15 @@ function StationCard({
   );
   const body = (
     <>
+      {/* Periodic celebratory hop at the active stop: the Mascot component's
+          "cheer" idle is whole-image motion on the canonical PNG and already
+          collapses to static under reduced motion. */}
       {side === "left" && isCurrent && (
-        <Mascot pose="cheer" size={44} className="shrink-0" />
+        <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
       )}
       {card}
       {side === "right" && isCurrent && (
-        <Mascot pose="cheer" size={44} className="shrink-0" />
+        <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
       )}
     </>
   );

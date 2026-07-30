@@ -235,57 +235,129 @@
 }
 
 /* Boarding pass and journey CTA idle motion. Whole-element transforms and
-   opacity only, with long rests between cycles so the motion reads as an
-   invitation, not a distraction. Every keyframe starts and ends at identity,
-   so the reduced-motion block above (and the useReducedMotion gating in the
-   components) leaves a correct static frame. */
+   opacity only. High energy by design: the pass is the app's single continue
+   mechanism and should read like a game's PLAY button, essentially always
+   doing something, with only short rests. Every keyframe starts and ends at
+   identity, so the reduced-motion block above (and the useReducedMotion
+   gating in the components) leaves a correct static frame.
+
+   TUNING CONSTANTS: every amplitude and cycle time lives here, so intensity
+   can be adjusted in one place after seeing it live. (The press-feedback
+   spring is the one exception; it is a framer-motion spring tuned by the
+   PASS_PRESS_* constants at the top of pages/home.tsx.) */
+:root {
+  --pass-cycle: 3.2s;            /* breathe + face shimmer + glow share one heartbeat */
+  --pass-breathe-scale: 1.025;   /* clearly visible lift, not frantic */
+  --pass-glow-min: 0.4;          /* shadow-pulse opacity floor */
+  --pass-glow-max: 0.95;         /* shadow-pulse opacity peak */
+  --arrow-cycle: 2.4s;           /* CTA arrow double-pump */
+  --arrow-slide: 7px;            /* CTA arrow travel */
+  --train-drive-cycle: 4s;       /* home ticket train drive-and-settle */
+  --train-drive-distance: 7px;   /* forward travel before the settle */
+  --stop-glow-cycle: 2.6s;       /* journey Now boarding border/glow */
+  --stop-glow-min: 0.45;
+  --stop-glow-max: 1;
+  --station-bounce-cycle: 2.2s;  /* journey station train bounce */
+  --station-bounce-height: -4px;
+}
 @keyframes ticket-breathe {
-  0%, 76%, 100% {
+  0%, 100% {
     transform: scale(1);
   }
-  88% {
-    transform: scale(1.015);
+  50% {
+    transform: scale(var(--pass-breathe-scale));
   }
 }
 .animate-ticket-breathe {
-  animation: ticket-breathe 7s ease-in-out infinite;
+  animation: ticket-breathe var(--pass-cycle) ease-in-out infinite;
 }
+/* Shimmer sweep across the ticket face: a skewed light band translating
+   through the pass once per heartbeat, resting offscreen the remainder. */
+@keyframes ticket-shimmer {
+  0% {
+    transform: translateX(-150%) skewX(-14deg);
+  }
+  45%, 100% {
+    transform: translateX(450%) skewX(-14deg);
+  }
+}
+.animate-ticket-shimmer {
+  animation: ticket-shimmer var(--pass-cycle) ease-in-out infinite;
+}
+/* Elevated shadow pulse that lifts the pass off the page relative to every
+   other card. Opacity-only on a dedicated overlay. */
+@keyframes pass-glow {
+  0%, 100% {
+    opacity: var(--pass-glow-min);
+  }
+  50% {
+    opacity: var(--pass-glow-max);
+  }
+}
+.animate-pass-glow {
+  animation: pass-glow var(--pass-cycle) ease-in-out infinite;
+}
+/* Strong repeating double-pump slide on the CTA arrow. */
 @keyframes cta-arrow-nudge {
-  0%, 80%, 96%, 100% {
+  0%, 55%, 100% {
     transform: translateX(0);
   }
-  84%, 92% {
-    transform: translateX(4px);
+  65%, 85% {
+    transform: translateX(var(--arrow-slide));
   }
-  88% {
-    transform: translateX(1px);
+  75% {
+    transform: translateX(2px);
   }
 }
 .animate-cta-arrow-nudge {
-  animation: cta-arrow-nudge 7s ease-in-out infinite;
+  animation: cta-arrow-nudge var(--arrow-cycle) ease-in-out infinite;
 }
-@keyframes stop-glow-pulse {
-  0%, 68%, 100% {
-    opacity: 0.25;
+/* Home ticket train: periodically drives forward, then settles back with a
+   slight overshoot past its parked spot. */
+@keyframes train-drive {
+  0%, 50%, 100% {
+    transform: translateX(0);
+  }
+  68% {
+    transform: translateX(var(--train-drive-distance));
   }
   84% {
-    opacity: 0.85;
+    transform: translateX(-1.5px);
+  }
+}
+.animate-train-drive {
+  animation: train-drive var(--train-drive-cycle) ease-in-out infinite;
+}
+/* Journey "Now boarding" card: strong border/glow pulse, opacity-only. */
+@keyframes stop-glow-pulse {
+  0%, 100% {
+    opacity: var(--stop-glow-min);
+  }
+  50% {
+    opacity: var(--stop-glow-max);
   }
 }
 .animate-stop-glow-pulse {
-  animation: stop-glow-pulse 4.5s ease-in-out infinite;
+  animation: stop-glow-pulse var(--stop-glow-cycle) ease-in-out infinite;
 }
+/* Journey station train: lively double station bounce. */
 @keyframes train-bob {
-  0%, 78%, 100% {
+  0%, 45%, 100% {
     transform: translateY(0);
   }
-  86% {
-    transform: translateY(-2px);
+  55% {
+    transform: translateY(var(--station-bounce-height));
   }
-  93% {
-    transform: translateY(1px);
+  65% {
+    transform: translateY(1.5px);
+  }
+  75% {
+    transform: translateY(calc(var(--station-bounce-height) * 0.45));
+  }
+  85% {
+    transform: translateY(0.5px);
   }
 }
 .animate-train-bob {
-  animation: train-bob 5s ease-in-out infinite;
+  animation: train-bob var(--station-bounce-cycle) ease-in-out infinite;
 }

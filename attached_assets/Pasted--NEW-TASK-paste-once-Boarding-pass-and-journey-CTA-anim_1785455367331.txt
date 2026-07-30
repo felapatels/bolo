@@ -1,0 +1,16 @@
+→ NEW TASK — paste once
+
+Boarding pass and journey CTA animation, web only, high energy. Consult docs/CODEBASE-FACTS.md and agent memory (motion engine Spec 1 v3 rules) before writing any code. Mobile is out of scope; this ships in the next web publish.
+
+Step 0 first, report before building: (1) inventory the web home boarding pass component and the journey “Now boarding” stop card: file paths, current animation if any, and what animation primitives already exist in the web codebase (CSS keyframes, framer-motion/AnimatePresence usage); (2) where prefers-reduced-motion is currently respected on web, so these follow the same pattern; (3) what progress data the home pass already receives (stop number, phrases remaining) for the copy change. Then build.
+
+Design intent: the boarding pass is the single continue mechanism for the whole app and it must be unmissable — the most alive element on the page, impossible to scan past. Confident and fun, not frantic: think a game’s “PLAY” button, not a banner ad.
+
+Scope, four items:
+
+	1.	Home boarding pass, hero treatment. A noticeable idle animation cycle: the ticket breathes at a clearly visible scale, a shimmer sweeps the ticket face each cycle, and the train icon periodically drives forward with a settle. The “Begin your journey” arrow does a strong repeating slide. Add a soft glow or elevated shadow pulse so the pass visually lifts off the page relative to every other card. Cycles repeat every few seconds with only short rests: the pass should essentially always be doing something.
+	2.	Press feedback, tactile and springy: pronounced scale-down on press with an overshoot spring back on release, so tapping it feels physical.
+	3.	Journey “Now boarding” stop card, matching energy: strong red border/glow pulse, train icon doing a lively station bounce, and Bolo next to the active stop gets periodic motion (hop or wing flutter) if the mascot asset supports whole-image transforms per motion rules.
+	4.	CTA copy becomes progress-aware and action-forward. Zero progress: “Start your journey”. Mid progress: “Resume at Stop N” plus phrases-remaining where the data already supports it (per Step 0 item 3). No new API calls.
+
+Constraints, unchanged and non-negotiable: whole-element transforms and opacity only per motion engine rules (canonical mascot pixels only, no new artwork), everything fully static and correct under prefers-reduced-motion, no animation may delay interactivity or data render, 60fps transform/opacity properties only (no animating layout properties), no new dependencies without reporting first, no em dashes in code or copy. Amplitude and timing should be exposed as a small set of named constants so intensity can be tuned in one place after we see it live. Pin with tests: reduced-motion static render, CTA copy zero-progress and mid-progress, press handler fires. Enumerate test counts before and after. Report per item with file paths and web-verified status.

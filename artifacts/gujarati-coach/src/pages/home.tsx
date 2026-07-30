@@ -40,6 +40,13 @@ const iconMap: Record<string, React.ElementType> = {
   Flame,
 };
 
+// Boarding-pass press feedback tuning. The CSS idle-motion constants (breathe,
+// shimmer, glow, arrow, train) live in index.css under "Boarding pass and
+// journey CTA idle motion"; these two cover the framer press spring only.
+// Low damping is what produces the overshoot spring-back on release.
+const PASS_PRESS_SCALE = 0.94;
+const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
+
 export default function Home() {
   const { user } = useUser();
   const firstName = user?.firstName;
@@ -58,7 +65,7 @@ export default function Home() {
     ? Math.max(journey.current.phraseCount - journey.current.masteredCount, 0)
     : 0;
   const journeyCta = !hasJourneyProgress
-    ? "Begin your journey"
+    ? "Start your journey"
     : journey.current
       ? `Resume at Stop ${journey.current.stopNumber}${
           phrasesLeftAtStop > 0
@@ -475,13 +482,19 @@ export default function Home() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springs.gentle, delay: 0.05 }}
-              whileTap={reduceMotion ? undefined : { scale: 0.985 }}
             >
               {/* The idle breathe lives on a dedicated wrapper: framer drives
-                  this motion.div's inline transform (entrance spring + press
-                  scale), and a CSS transform animation on the same element
-                  would override it while running. */}
-              <div className={reduceMotion ? undefined : "animate-ticket-breathe"}>
+                  the entrance motion.div and press motion.div inline
+                  transforms, and a CSS transform animation on either of those
+                  elements would override them while running. */}
+              <div className={cn("relative", !reduceMotion && "animate-ticket-breathe")}>
+              {/* Tactile press: pronounced scale-down, overshoot spring back
+                  on release (PASS_PRESS_* constants above). */}
+              <motion.div
+                className="relative"
+                whileTap={reduceMotion ? undefined : { scale: PASS_PRESS_SCALE }}
+                transition={PASS_PRESS_SPRING}
+              >
               <Link
                 href="/journey"
                 onClick={() =>
@@ -492,6 +505,14 @@ export default function Home() {
               >
                 {/* full-ticket treatment: diagonal brand-stripe ticket stock */}
                 <TicketStripes ink="rgba(255,255,255,0.05)" />
+                {/* shimmer sweep across the ticket face, once per heartbeat
+                    (transform-only band; the Link's overflow-hidden clips it) */}
+                {!reduceMotion && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-ticket-shimmer bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    aria-hidden
+                  />
+                )}
                 <div
                   className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
                   aria-hidden
@@ -514,7 +535,12 @@ export default function Home() {
                               : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
                           </p>
                         </div>
-                        <TrainEngine className="mt-1 h-10 w-auto shrink-0 text-white drop-shadow-sm lg:h-14" />
+                        <TrainEngine
+                          className={cn(
+                            "mt-1 h-10 w-auto shrink-0 text-white drop-shadow-sm lg:h-14",
+                            !reduceMotion && "animate-train-drive",
+                          )}
+                        />
                       </div>
                       {journey.current && journey.current.phraseCount > 0 && (
                         <div className="mt-3 flex items-center gap-2">
@@ -596,6 +622,17 @@ export default function Home() {
                   </div>
                 </div>
               </Link>
+              {/* soft glow / elevated shadow pulse lifting the pass off the
+                  page (opacity-only overlay; outside the Link so its outward
+                  shadow is not clipped by overflow-hidden) */}
+              {!reduceMotion && (
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-3xl animate-pass-glow"
+                  style={{ boxShadow: `0 6px 28px 2px ${journeyLine.accent}` }}
+                  aria-hidden
+                />
+              )}
+              </motion.div>
               </div>
             </motion.div>
 

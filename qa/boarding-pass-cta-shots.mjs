@@ -60,7 +60,7 @@ await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle", timeout: 60000 });
 await page
   .waitForFunction(
     () =>
-      /Begin your journey|Resume at Stop|Continue your journey/.test(
+      /Start your journey|Resume at Stop|Continue your journey/.test(
         document.body.innerText,
       ),
     { timeout: 30000 },
@@ -68,10 +68,13 @@ await page
   .catch(() => {});
 const home = await page.evaluate(() => ({
   breathe: !!document.querySelector(".animate-ticket-breathe"),
+  shimmer: !!document.querySelector(".animate-ticket-shimmer"),
+  glow: !!document.querySelector(".animate-pass-glow"),
   nudge: !!document.querySelector(".animate-cta-arrow-nudge"),
+  drive: !!document.querySelector(".animate-train-drive"),
   cta:
     (document.body.innerText.match(
-      /Begin your journey|Resume at Stop \d+ · \d+ phrases? to go|Continue your journey/,
+      /Start your journey|Resume at Stop \d+ · \d+ phrases? to go|Continue your journey/,
     ) || [null])[0],
 }));
 console.log("home:", JSON.stringify(home));
@@ -98,6 +101,14 @@ await page.screenshot({ path: `${OUT}/journey-current-stop.png` });
 
 await browser.close();
 
-const ok = home.breathe && home.nudge && !!home.cta && journey.glow && journey.trainBob;
+const ok =
+  home.breathe &&
+  home.shimmer &&
+  home.glow &&
+  home.nudge &&
+  home.drive &&
+  !!home.cta &&
+  journey.glow &&
+  journey.trainBob;
 console.log(ok ? "PROBE PASS" : "PROBE FAIL");
 process.exit(ok ? 0 : 1);
