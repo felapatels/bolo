@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
 import { Link } from "wouter";
-import { useGetProgressSummary, useGetAccount, useListCategories, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
+import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { LanguagePicker } from "@/components/language-picker";
@@ -49,12 +50,32 @@ export default function Home() {
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { startTour } = useTour();
-  const { data: summary, isLoading: loadingSummary } = useGetProgressSummary({ lang: activeLang });
+  // placeholderData: keepPreviousData — when LanguageProvider reconciles the
+  // active language from /account and the key flips, the prior language's
+  // data stays visible (transitional only) instead of restarting from a
+  // spinner; the refetch then settles on the server's language.
+  const { data: summary, isPlaceholderData: summaryIsPlaceholder } = useGetProgressSummary(
+    { lang: activeLang },
+    {
+      query: {
+        placeholderData: keepPreviousData,
+        queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
+      },
+    },
+  );
   const { data: account } = useGetAccount();
   const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;
   // Toast key — bump to re-fire the milestone toast when the goal is hit.
   const [goalToastKey, setGoalToastKey] = useState<number | null>(null);
-  const { data: categories, isLoading: loadingCats } = useListCategories({ lang: activeLang });
+  const { data: categories, isLoading: loadingCats } = useListCategories(
+    { lang: activeLang },
+    {
+      query: {
+        placeholderData: keepPreviousData,
+        queryKey: getListCategoriesQueryKey({ lang: activeLang }),
+      },
+    },
+  );
   const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
   // Review is a Plus feature; only fetch the review queue when it's unlocked
   // (Free callers 402 on this route).
@@ -89,6 +110,9 @@ export default function Home() {
   // their goal, mirroring the AsyncStorage guard on mobile home screen.
   useEffect(() => {
     if (!summary) return;
+    // During the language flip `summary` is the PRIOR language's data held as
+    // a placeholder — never fire the goal toast off transitional data.
+    if (summaryIsPlaceholder) return;
     if (summary.attemptsToday < dailyGoal) return;
     const today = new Date().toISOString().slice(0, 10);
     try {
@@ -99,9 +123,11 @@ export default function Home() {
     }
     setGoalToastKey(k => (k ?? 0) + 1);
     webHaptic('success');
-  }, [summary, dailyGoal]);
+  }, [summary, summaryIsPlaceholder, dailyGoal]);
 
-  if (loadingSummary || loadingCats) {
+  // First paint blocks on categories only — the page's structural content.
+  // The stats summary fills into a height-reserved banner when it arrives.
+  if (loadingCats) {
     return (
       <div className="flex min-h-screen items-center justify-center text-primary">
         <Loader2 className="h-12 w-12 animate-spin" />
@@ -303,48 +329,54 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Stats Banner — vibrant, front-and-center progress */}
-        {summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springs.smooth, delay: 0.1 }}
-            className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-[hsl(220,70%,52%)] to-secondary p-5 text-white shadow-[0_14px_34px_-12px_hsl(243_62%_45%_/_0.6)] lg:p-7"
-          >
-            {/* soft decorative blobs */}
-            <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
-            <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+        {/* Stats Banner — vibrant, front-and-center progress. The banner is
+            ALWAYS rendered: summary no longer blocks first paint, so its late
+            arrival must not shift the layout below. The cell row is invisible
+            (same DOM, exact height reserved) until data lands, then remounts
+            so the entrance springs still play. */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...springs.smooth, delay: 0.1 }}
+          className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-[hsl(220,70%,52%)] to-secondary p-5 text-white shadow-[0_14px_34px_-12px_hsl(243_62%_45%_/_0.6)] lg:p-7"
+        >
+          {/* soft decorative blobs */}
+          <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
-            <div className="relative flex items-stretch">
-              <StatCell
-                icon={
-                  <motion.div
-                    animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <Flame className="w-6 h-6" fill="currentColor" />
-                  </motion.div>
-                }
-                value={summary.currentStreakDays}
-                label="Day Streak"
-                delay={0.16}
-              />
-              <div className="w-px self-stretch bg-white/25" />
-              {/* Spec D2: speaking streak — days with a nailed/close attempt.
-                  Mic icon so it reads as distinct from the general streak. */}
-              <StatCell
-                icon={<Mic className="w-6 h-6" />}
-                value={summary.speakingStreakDays ?? 0}
-                label="Speaking Streak"
-                delay={0.2}
-              />
-              <div className="w-px self-stretch bg-white/25" />
-              <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary.xp} label="Total XP" delay={0.24} />
-              <div className="w-px self-stretch bg-white/25" />
-              <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary.phrasesMastered} label="Mastered" delay={0.32} />
-            </div>
-          </motion.div>
-        )}
+          <div
+            key={summary ? "stats-ready" : "stats-pending"}
+            className={`relative flex items-stretch ${summary ? "" : "invisible"}`}
+            aria-hidden={!summary}
+          >
+            <StatCell
+              icon={
+                <motion.div
+                  animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <Flame className="w-6 h-6" fill="currentColor" />
+                </motion.div>
+              }
+              value={summary?.currentStreakDays ?? 0}
+              label="Day Streak"
+              delay={0.16}
+            />
+            <div className="w-px self-stretch bg-white/25" />
+            {/* Spec D2: speaking streak — days with a nailed/close attempt.
+                Mic icon so it reads as distinct from the general streak. */}
+            <StatCell
+              icon={<Mic className="w-6 h-6" />}
+              value={summary?.speakingStreakDays ?? 0}
+              label="Speaking Streak"
+              delay={0.2}
+            />
+            <div className="w-px self-stretch bg-white/25" />
+            <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
+            <div className="w-px self-stretch bg-white/25" />
+            <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
+          </div>
+        </motion.div>
       </header>
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
