@@ -31,6 +31,13 @@ Change `TTS_PROVIDER` on line 27 of `ttsConfig.ts` and restart the server. No ot
 
 `PHRASE_KEY_SCHEME = \`phrase:v2:${BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST}\`` in `ttsCache.ts`. Automatically rotates when instructions change. `ttsCache.ts` imports `BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST` from `ttsConfig.ts` — no circular dep (ttsConfig does not import ttsCache).
 
+## Voice loudness disparity (gpt-4o-mini-tts)
+
+Voices master at wildly different levels: "sage" synthesizes ~15-17 dB quieter than "nova" on identical text (measured via ffmpeg volumedetect; instructions have no effect on level). Chat replies use sage (BOLO_MINI_TTS_VOICE in parrotChat.ts) while greetings/phrases use nova (PHRASE_AUDIO_DEFAULT_VOICE in ttsConfig.ts), which made live replies sound "quiet" next to the cached greeting on device.
+
+**Why:** a device loudness report was nearly misattributed to iOS session routing; the real cause was source mastering.
+**How to apply:** before blaming session/routing for volume asymmetry, decode both clips and compare mean_volume with volumedetect. Keep chat and greeting voices identical unless levels are verified to match.
+
 ## Prewarm budget
 
 `TTS_PREWARM_CHAR_BUDGET` env var controls how many chars are prewarmed at startup. Default 4000 was calibrated for ElevenLabs free tier. With `gpt-4o-mini-tts` there is no credit constraint — raising to 40000–80000 is safe and covers more of the 22-language catalog. Currently the env var appears to be 0 in the running environment (prewarm skips entirely).
