@@ -15,6 +15,7 @@ import {
   NUMBER_WORDS,
   validateSeedLesson,
   validateCuratedLessons,
+  curatedLessonsWithC1,
   checkLessonQuality,
   LESSON_QUALITY_ALLOWLISTS,
   type CuratedLessonsFile,
@@ -69,7 +70,11 @@ test("frozen data covers every non-Gujarati language × every category", () => {
   }
 
   // The shared seeder gate agrees: nothing malformed and nothing missing.
-  const { errors, missing } = validateCuratedLessons(curated);
+  // Validate the MERGED view (base file + C1 rollout top-ups), matching the
+  // startup seeder — the language-aware sentence counts expect the merge.
+  const { errors, missing } = validateCuratedLessons(
+    curatedLessonsWithC1(curated),
+  );
   assert.deepEqual(
     errors,
     [],
@@ -215,7 +220,7 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
       [victimCat]: { ...good, phrases: [] },
     },
   };
-  const { errors } = validateCuratedLessons(tampered);
+  const { errors } = validateCuratedLessons(curatedLessonsWithC1(tampered));
   assert.ok(
     errors.some((e) => e.startsWith(`${victimCode}/${victimCat}`)),
     `expected a fatal error for the tampered ${victimCode}/${victimCat} lesson`,
@@ -332,7 +337,7 @@ test("validateCuratedLessons flags a lesson with a duplicated phrase", () => {
   // so only the content-quality gate can catch it.
   lesson.phrases[lesson.phrases.length - 1] = { ...lesson.phrases[0] };
 
-  const { errors } = validateCuratedLessons(doctored);
+  const { errors } = validateCuratedLessons(curatedLessonsWithC1(doctored));
   assert.ok(
     errors.some((e) => e.includes("share the english gloss")),
     `expected a duplicate-english error, got:\n${errors.join("\n")}`,

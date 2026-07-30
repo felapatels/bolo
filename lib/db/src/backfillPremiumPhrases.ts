@@ -16,6 +16,7 @@ import {
   validateSeedLesson,
   validateSeedSentences,
   validateCuratedLessons,
+  curatedLessonsWithC1,
   starterPhraseCount,
   extendedPhraseCount,
   sentenceCount,
@@ -210,7 +211,10 @@ async function backfill() {
   //    file up front through the shared gate so we refuse to run on any
   //    malformed/empty lesson rather than backfilling broken content.
   const curated = loadCuratedLessons();
-  const { errors } = validateCuratedLessons(curated);
+  // Validate the MERGED view (base file + C1 rollout top-ups) — the
+  // language-aware sentence counts expect the merge, and the phrase backfill
+  // below is unaffected (the merge only appends sentences).
+  const { errors } = validateCuratedLessons(curatedLessonsWithC1(curated));
   if (errors.length > 0) {
     throw new Error(
       `Refusing to backfill: ${errors.length} curated lesson(s) failed validation:\n` +
