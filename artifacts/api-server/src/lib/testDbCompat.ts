@@ -28,6 +28,7 @@ const USERS_COLUMNS = [
   `timezone text`,
   `tts_voice text`,
   `has_completed_tour boolean NOT NULL DEFAULT false`,
+  `has_chosen_language boolean NOT NULL DEFAULT false`,
 ];
 
 export async function ensureUsersColumns(): Promise<void> {

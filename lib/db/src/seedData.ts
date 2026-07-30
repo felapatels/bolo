@@ -189,6 +189,15 @@ export function curatedSentencesC1(): Record<string, SeedPhrase[]> {
   return curatedSentencesC1Json as Record<string, SeedPhrase[]>;
 }
 
+// Language codes shipped in the C1 rollout — languages whose sentence content
+// is primarily batch-generated (community review ongoing). The /languages
+// endpoint derives its optional `communityReviewed` flag from this set so
+// clients never hardcode a list. Gujarati (the curated flagship) is excluded
+// on purpose: its pilot top-ups live in the curated pipeline.
+export function c1RolloutLanguageCodes(): string[] {
+  return Object.keys(curatedSentencesC1Rollout());
+}
+
 // C1 rollout sentence top-ups for the non-Gujarati languages, frozen to a
 // committed JSON keyed language code → category slug (statically imported for
 // the same bundling reason as the pilot file).

@@ -71,6 +71,13 @@ export const usersTable = pgTable("users", {
   // tour. Defaults to false so first-time users see the tour; the web and
   // mobile scaffold tasks flip this to true on completion/skip.
   hasCompletedTour: boolean("has_completed_tour").notNull().default(false),
+  // Whether the learner has EXPLICITLY chosen a learning language (the
+  // post-sign-up selection step, the home picker, or account settings).
+  // Distinct from `activeLanguage` being non-null: the web client seeds
+  // activeLanguage with its local default on first reconcile, so a value there
+  // does not imply a choice. The seed write never sets this flag; only
+  // explicit picks do. Drives the one-time language-selection onboarding step.
+  hasChosenLanguage: boolean("has_chosen_language").notNull().default(false),
   // Global TTS voice preference (Plus only). When non-null this is an
   // ElevenLabs premade voice ID chosen from the VOICE_CATALOG. Null means
   // "auto" — use the per-language default from LANGUAGE_VOICE_MAP.

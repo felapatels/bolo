@@ -14,6 +14,7 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from './lib/queryClient';
+import { LanguageChoiceGate } from '@/components/language-choice-gate';
 import { LanguageProvider } from './lib/language-context';
 import { ThemeProvider } from './lib/theme-context';
 import { TourProvider } from './lib/tour-context';
@@ -59,6 +60,7 @@ function lazyRoute<P extends object>(loader: () => Promise<RouteModule<P>>) {
 }
 
 const Chat = lazyRoute(() => import('@/pages/chat'));
+const ChooseLanguage = lazyRoute(() => import('@/pages/choose-language'));
 const CategoryDetail = lazyRoute(() => import('@/pages/category-detail'));
 const Practice = lazyRoute(() => import('@/pages/practice'));
 const Journey = lazyRoute(() => import('@/pages/journey'));
@@ -299,11 +301,18 @@ function AppRouter() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/choose-language">
+        <Guard>
+          <ChooseLanguage />
+        </Guard>
+      </Route>
       <Route path="/app">
         <Guard>
-          <AppShell>
-            <Home />
-          </AppShell>
+          <LanguageChoiceGate>
+            <AppShell>
+              <Home />
+            </AppShell>
+          </LanguageChoiceGate>
         </Guard>
       </Route>
       <Route path="/journey">

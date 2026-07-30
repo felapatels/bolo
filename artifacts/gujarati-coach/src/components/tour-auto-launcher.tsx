@@ -10,8 +10,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 
 // Routes where we must never auto-launch the tour — the learner is mid-session
-// and navigating away would interrupt their practice.
-const BLOCKED_PREFIXES = ["/practice", "/learn", "/review"];
+// and navigating away would interrupt their practice. The language-selection
+// step is blocked too: the sequence is selection → home → tour, never a tour
+// over the selection screen.
+const BLOCKED_PREFIXES = ["/practice", "/learn", "/review", "/choose-language"];
 
 /**
  * Mounts silently in the authenticated app shell.

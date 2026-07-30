@@ -53,6 +53,9 @@ const manyPhrases = Array.from({ length: 4 }, (_, i) => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  // The language picker persists explicit picks (B1) — stubbed, never asserted.
+  useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
+  getGetAccountQueryKey: () => ["account"],
   // Categories — one entry so the first is auto-selected on the setup screen.
   useListCategories: () => ({
     data: [{ id: 1, title: "Greetings", description: "", locked: false, phrasesCount: 1, masteredCount: 0 }],

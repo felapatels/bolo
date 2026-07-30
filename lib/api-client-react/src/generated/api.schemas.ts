@@ -91,6 +91,8 @@ export interface AccountLearningPreferences {
   timezone: string | null;
   /** Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users. */
   hasCompletedTour: boolean;
+  /** Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false. */
+  hasChosenLanguage?: boolean;
   /** The learner's global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice. */
   ttsVoice: string | null;
 }
@@ -208,6 +210,8 @@ export interface UpdatePreferencesInput {
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
   hasCompletedTour?: boolean;
+  /** Marks the learner as having explicitly chosen a language. Only `true` is accepted — a choice can't be unmade. Sent by explicit picks (selection step, home picker, account settings); the client's first-reconcile seed write must never include it. */
+  hasChosenLanguage?: boolean;
   /** Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto. */
   ttsVoice?: string | null;
 }
@@ -243,6 +247,8 @@ export interface Language {
   sortOrder: number;
   /** How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`. */
   speechCapability?: LanguageSpeechCapability;
+  /** True when this language's lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing — clients may show a one-line "you can flag anything that looks wrong" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false. */
+  communityReviewed?: boolean;
 }
 
 export interface Category {

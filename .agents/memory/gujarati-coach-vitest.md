@@ -57,3 +57,7 @@ contract so a regression can't silently lock out payers or leak Plus to Free.
   only structural swaps risk the duplicate-DOM trap.
 
 - Web tests mock `@workspace/api-client-react` per-file with explicit export lists. Any component change that starts importing another generated export (e.g. a `get<Op>QueryKey` getter for `placeholderData`/`enabled` options) breaks every mocking test that renders it with "No X export is defined on the mock" — add the new export to those mocks in the same change.
+
+## Two mock traps
+- Never full-module-mock @tanstack/react-query: components import `keepPreviousData` etc. Partial-mock via `importOriginal`, overriding only `useQueryClient` (suites rendering the language picker need it — the picker persists picks through a preferences mutation).
+- The provider auto-reports a timezone when the account fixture lacks one; "no server write" assertions need `timezone` set in the fixture or they see one spurious PATCH.

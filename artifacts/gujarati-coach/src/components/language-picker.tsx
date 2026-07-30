@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
+import { useExplicitLanguageChoice } from "@/lib/language-step";
 import { PlusPill } from "@/components/plus";
 
 type LanguagePickerProps = {
@@ -24,6 +25,10 @@ type LanguagePickerProps = {
 export function LanguagePicker({ open: openProp, onOpenChange, trigger }: LanguagePickerProps = {}) {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
   const { isLanguageAllowed } = useEntitlements();
+  // An explicit pick here is a real choice: persist it (and the B1
+  // hasChosenLanguage flag) server-side, fire-and-forget, so the choice
+  // follows the learner across devices and the selection step never re-shows.
+  const { choose } = useExplicitLanguageChoice();
   const [, setLocation] = useLocation();
   const [internalOpen, setInternalOpen] = useState(false);
 
@@ -70,11 +75,13 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                     // showroom mode — a browsable teaser with an upgrade path —
                     // instead of bouncing straight to the paywall.
                     setActiveLang(lang.code);
+                    choose(lang.code);
                     setOpen(false);
                     setLocation("/journey");
                     return;
                   }
                   setActiveLang(lang.code);
+                  choose(lang.code);
                   setOpen(false);
                 }}
                 className={cn(

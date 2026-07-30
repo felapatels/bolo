@@ -44,9 +44,22 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
+// The language picker persists explicit picks (B1): it pulls the preferences
+// mutation + query client, which this suite never asserts on — stub them.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+    setQueryData: vi.fn(),
+    getQueryData: vi.fn(),
+  }),
+}));
+
 vi.mock("@workspace/api-client-react", () => ({
   useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
+  useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
+  getGetAccountQueryKey: () => ["account"],
   useGetProgressSummary: () => ({
     data: h.summary,
     isLoading: !h.summary && !h.summaryIsError,

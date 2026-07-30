@@ -18,6 +18,8 @@ export interface UpdatePreferencesInput {
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
   hasCompletedTour?: boolean;
+  /** Marks the learner as having explicitly chosen a language. Only `true` is accepted — a choice can't be unmade. Sent by explicit picks (selection step, home picker, account settings); the client's first-reconcile seed write must never include it. */
+  hasChosenLanguage?: boolean;
   /** Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto. */
   ttsVoice?: string | null;
 }

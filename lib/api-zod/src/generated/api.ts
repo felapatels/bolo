@@ -28,7 +28,8 @@ export const ListLanguagesResponseItem = zod.object({
   "fontFamily": zod.string(),
   "rtl": zod.boolean(),
   "sortOrder": zod.number(),
-  "speechCapability": zod.enum(['supported', 'degraded', 'unsupported']).optional().describe('How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time \"feedback is approximate\" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`.\n')
+  "speechCapability": zod.enum(['supported', 'degraded', 'unsupported']).optional().describe('How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time \"feedback is approximate\" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`.\n'),
+  "communityReviewed": zod.boolean().optional().describe('True when this language\'s lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing — clients may show a one-line \"you can flag anything that looks wrong\" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false.')
 })
 export const ListLanguagesResponse = zod.array(ListLanguagesResponseItem)
 
@@ -586,6 +587,7 @@ export const GetAccountResponse = zod.object({
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
   "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
+  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
   "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 }),
@@ -642,6 +644,7 @@ export const UpdateAccountPreferencesBody = zod.object({
   "theme": zod.enum(['system', 'light', 'dark']).optional(),
   "timezone": zod.string().nullish(),
   "hasCompletedTour": zod.boolean().optional(),
+  "hasChosenLanguage": zod.boolean().optional().describe('Marks the learner as having explicitly chosen a language. Only `true` is accepted — a choice can\'t be unmade. Sent by explicit picks (selection step, home picker, account settings); the client\'s first-reconcile seed write must never include it.'),
   "ttsVoice": zod.string().nullish().describe('Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto.')
 }).describe('Any subset of the notification and learning preferences.')
 
@@ -657,6 +660,7 @@ export const UpdateAccountPreferencesResponse = zod.object({
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
   "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
+  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
   "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 })

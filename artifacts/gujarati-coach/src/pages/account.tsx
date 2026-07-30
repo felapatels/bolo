@@ -273,7 +273,8 @@ export default function Account() {
     // syncs across devices.
     setActiveLang(code);
     track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
-    void savePreferences({ activeLanguage: code });
+    // An explicit pick anywhere is a choice — retire the selection step (B1).
+    void savePreferences({ activeLanguage: code, hasChosenLanguage: true });
   }
 
   function handleChangeTheme(next: Theme) {

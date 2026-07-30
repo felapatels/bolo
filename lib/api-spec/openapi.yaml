@@ -1867,6 +1867,14 @@ components:
           description: >-
             Whether the learner has completed (or explicitly skipped) the
             onboarding tour. Defaults to false for new and existing users.
+        hasChosenLanguage:
+          type: boolean
+          description: >-
+            Whether the learner has EXPLICITLY chosen a learning language (the
+            post-sign-up selection step, the home picker, or account settings).
+            Distinct from activeLanguage being non-null — the web client seeds
+            that with a local default on first reconcile. Optional for mobile
+            back-compat; treat absence as false.
         ttsVoice:
           type: string
           nullable: true
@@ -2109,6 +2117,13 @@ components:
           nullable: true
         hasCompletedTour:
           type: boolean
+        hasChosenLanguage:
+          type: boolean
+          description: >-
+            Marks the learner as having explicitly chosen a language. Only
+            `true` is accepted — a choice can't be unmade. Sent by explicit
+            picks (selection step, home picker, account settings); the
+            client's first-reconcile seed write must never include it.
         ttsVoice:
           type: string
           nullable: true
@@ -2161,6 +2176,15 @@ components:
             `unsupported` = recognition verifiably fails on correct speech;
             clients switch to listen-record-compare practice with no scored
             band. Optional for mobile back-compat; treat absence as `supported`.
+        communityReviewed:
+          type: boolean
+          description: >-
+            True when this language's lesson content is primarily
+            batch-generated (the C1 rollout set) with community review ongoing
+            — clients may show a one-line "you can flag anything that looks
+            wrong" note. Derived server-side from the committed rollout data;
+            never hardcode the set client-side. Optional for mobile
+            back-compat; treat absence as false.
       required:
         - code
         - name

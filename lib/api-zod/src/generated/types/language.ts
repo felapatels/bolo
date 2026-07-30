@@ -17,4 +17,6 @@ export interface Language {
   sortOrder: number;
   /** How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`. */
   speechCapability?: LanguageSpeechCapability;
+  /** True when this language's lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing — clients may show a one-line "you can flag anything that looks wrong" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false. */
+  communityReviewed?: boolean;
 }

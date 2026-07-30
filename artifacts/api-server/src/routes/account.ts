@@ -93,6 +93,7 @@ function preferencesOf(user: User) {
       theme: user.theme,
       timezone: user.timezone,
       hasCompletedTour: user.hasCompletedTour,
+      hasChosenLanguage: user.hasChosenLanguage,
       ttsVoice: user.ttsVoice ?? null,
     },
   };
@@ -343,6 +344,18 @@ export function createAccountRouter(
           return;
         }
         set.hasCompletedTour = body.hasCompletedTour;
+      }
+
+      // Explicit language choice — sent by the selection step, the home
+      // picker, or account settings alongside an activeLanguage write. Only
+      // `true` is accepted: a choice can't be unmade via the API, and the
+      // client's first-reconcile seed write never includes this field.
+      if ("hasChosenLanguage" in body) {
+        if (body.hasChosenLanguage !== true) {
+          res.status(400).json({ error: "hasChosenLanguage can only be set to true" });
+          return;
+        }
+        set.hasChosenLanguage = true;
       }
 
       if ("ttsVoice" in body) {
