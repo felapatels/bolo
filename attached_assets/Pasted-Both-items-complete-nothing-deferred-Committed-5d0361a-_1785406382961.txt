@@ -1,0 +1,16 @@
+Both items complete; nothing deferred. Committed 5d0361a.
+
+1. Code review of 2d76d2b — PASS, no defects found. Findings:
+
+No locked-group leak: guard scopes groups/members/attempts to the requested language+category and only serves unlocked ∨ NULL-group ∨ own-attempted phrases (lessonGroupAccess.ts:68–124, 171–216, 246–255).
+Latch relocation safe: (user_id, lesson_group_id) PK + onConflictDoUpdate means parallel derives can't duplicate; a concurrent latch causes at worst a conservative one-request delay, never an incorrect unlock.
+402-before-403 verified at all three call sites (learning.ts:441–472/510, 600–611/630, 2004–2032/2042) — Free callers can't receive lesson_group_locked. Showroom listing loads context but never derives/latches (1900–1935).
+One structural note: the caller contract (entitlements-first, no showroom latch) is comment-enforced, not type-enforced; all current callers comply. Reviewer suggested two tests — concurrent latch race and an explicit teaser no-latch assertion — filed as task #854 rather than fixed inline (review found no defect; per your cost rules I didn't burn a second review round).
+2. Banner "regression" — could not reproduce the broken state; the answers to your (a)–(c), with evidence:
+
+(a) /progress/summary resolves 200 with populated data — network-captured in a browser probe (both langs during the reconcile flip) and confirmed in api-server logs.
+(b) Render condition is intact: banner cells were visible with correct values in five permutations — desktop and mobile-390, zero-data and seeded real data, dark mode, and prefers-reduced-motion. Your own preview session's console log from right after the suspect commits shows zero errors.
+(c) No: the query is keyed correctly, settles on the server language, and both keys resolved 200 in the probes.
+Root cause of what you most plausibly saw: a transient summary-unavailable window — I restarted the api-server at 02:41 wrapping up the unlock task; a page with cached categories paints normally while summary fails, and 8f47564's reserved-height change renders that state as a silent empty gradient shell (invisible cells, no feedback) instead of the old collapsed banner. That presentation gap was real, so I fixed it: when the summary query errors with no stale data, the shell now shows "Your stats couldn't load" + a working Try again button. Regression checks added: home-stats-banner.test.tsx (3 tests — banner renders when summary resolves with data, pending shell stays reserved, error shows visible retry; all pass) plus a permanent live probe qa/home-stats-banner-probe.mjs. Typecheck clean; live page re-verified rendering after the edit; seeded QA attempts cleaned up.
+
+If you're still seeing it missing right now, tell me where — published app vs preview, and which account — because the published app doesn't have any of the recent home commits, and that would point at prod's /progress/summary instead.
