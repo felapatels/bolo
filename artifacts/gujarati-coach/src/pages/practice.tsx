@@ -1659,6 +1659,26 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 >
                   <RefreshCcw className="w-5 h-5" /> Record again
                 </button>
+              ) : state === "result" && result?.band === "retry" ? (
+                /* Retry band (batch 1 addendum, mobile parity): another take is
+                   the productive default, so "Try again" gets the primary
+                   treatment and "Next phrase" drops to a quieter bordered
+                   secondary. Hard evaluation failures (state "error" above)
+                   keep their own "Record again" primary. */
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleNext}
+                    className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    Next phrase <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleRetry}
+                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+                  >
+                    <RefreshCcw className="w-5 h-5" /> Try again
+                  </button>
+                </div>
               ) : (
                 <div className="flex gap-3">
                   <button 

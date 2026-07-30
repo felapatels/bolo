@@ -278,7 +278,8 @@ describe("degraded language: one-time approximate-feedback notice", () => {
     await holdAndRelease();
 
     await waitFor(() => expect(h.evaluate).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Retry")).toBeInTheDocument();
+    // Mock band is "retry", so the flipped CTA layout renders "Try again".
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });
 
@@ -293,6 +294,7 @@ describe("supported language: unchanged scored practice", () => {
 
     await holdAndRelease();
     await waitFor(() => expect(h.evaluate).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Retry")).toBeInTheDocument();
+    // Mock band is "retry", so the flipped CTA layout renders "Try again".
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });

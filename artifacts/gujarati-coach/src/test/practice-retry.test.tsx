@@ -6,7 +6,7 @@ import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
 // Drives the real Practice page through a full hold-to-talk record -> result
-// cycle to guard the retry flow: hitting Retry on the result card must return
+// cycle to guard the retry flow: hitting Try again on the result card must return
 // through the coach-playback state so the phrase is spoken again before
 // re-recording.
 //
@@ -204,16 +204,16 @@ async function driveToResult() {
   // Hold and release the belly to record and submit.
   await holdAndRelease();
 
-  await waitFor(() => expect(screen.getByText("Retry")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument());
 }
 
 describe("web practice retry", () => {
-  test("Retry replays the coach pronunciation before re-recording", async () => {
+  test("Try again replays the coach pronunciation before re-recording", async () => {
     await driveToResult();
     expect(coachCalls()).toBe(1);
 
     const audioCountBefore = audioInstances.length;
-    fireEvent.click(screen.getByText("Retry"));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     // The retry returns through playing_coach: the phrase is spoken again
     // (replayed from the per-phrase audio cache, not re-synthesized — so the
@@ -230,10 +230,23 @@ describe("web practice retry", () => {
   test("Next advances to the following phrase as before", async () => {
     await driveToResult();
 
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: "Next phrase" }));
 
     await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
     await waitFor(() => expect(screen.queryByText(/Score:/)).not.toBeInTheDocument());
+  });
+
+  test("retry band flips the CTA emphasis: Try again primary, Next phrase secondary", async () => {
+    // Batch 1 addendum (web CTA parity with mobile): on band "retry" another
+    // take is the productive default, so "Try again" carries the filled
+    // primary treatment and "Next phrase" drops to the bordered secondary.
+    await driveToResult();
+
+    const tryAgainBtn = screen.getByRole("button", { name: "Try again" });
+    const nextPhraseBtn = screen.getByRole("button", { name: "Next phrase" });
+    expect(tryAgainBtn.className).toContain("bg-primary");
+    expect(nextPhraseBtn.className).toContain("border-border");
+    expect(nextPhraseBtn.className).not.toContain("bg-primary");
   });
 });
 
@@ -251,7 +264,7 @@ describe("web practice silent mode", () => {
     expect(audioInstances.length).toBe(0);
   });
 
-  test("Silent mode ON: Retry and Next also skip coach playback", async () => {
+  test("Silent mode ON: Try again and Next phrase also skip coach playback", async () => {
     h.silentMode = true;
     renderPage(<Practice />);
 
@@ -262,11 +275,11 @@ describe("web practice silent mode", () => {
 
     // Drive through a recording attempt to reach the result card.
     await holdAndRelease();
-    await waitFor(() => expect(screen.getByText("Retry")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument());
 
     // Retry in silent mode → straight to idle, no new audio.
     const audioCountBeforeRetry = audioInstances.length;
-    fireEvent.click(screen.getByText("Retry"));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
     );
@@ -274,10 +287,10 @@ describe("web practice silent mode", () => {
 
     // Drive another attempt to reach the result card again, then test Next.
     await holdAndRelease();
-    await waitFor(() => expect(screen.getByText("Next")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next phrase" })).toBeInTheDocument());
 
     const audioCountBeforeNext = audioInstances.length;
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: "Next phrase" }));
     await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
     expect(audioInstances.length).toBe(audioCountBeforeNext);
     expect(coachCalls()).toBe(0);

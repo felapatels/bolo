@@ -180,7 +180,7 @@ async function scoreOnce(band: Band = "nailed", xpAwarded = 10) {
 /** Score a phrase and advance to the next one. */
 async function scoreAndNext(band: Band = "nailed", xpAwarded = 10) {
   await scoreOnce(band, xpAwarded);
-  fireEvent.click(screen.getByText("Next"));
+  fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
   await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
 }
 
@@ -281,7 +281,7 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("nailed"); // index 0 → 1
     await scoreOnce("nailed");    // index 1 — next click will go to index 2
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
     await waitFor(
       () => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(),
       WT,
@@ -294,7 +294,7 @@ describe("mid-session toasts", () => {
     await scoreAndNext("nailed"); // → index 1
     await scoreAndNext("nailed"); // → index 2
     await scoreOnce("nailed");    // index 2 — next click will go to index 3 (last)
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
     await waitFor(
       () => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(),
       WT,
@@ -306,11 +306,11 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("nailed"); // → 1
     await scoreOnce("nailed");
-    fireEvent.click(screen.getByText("Next")); // → 2, halfway toast
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, halfway toast
     await waitFor(() => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(), WT);
 
     await scoreOnce("nailed");
-    fireEvent.click(screen.getByText("Next")); // → 3, last toast
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 3, last toast
     await waitFor(() => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(), WT);
 
     expect(screen.queryAllByText("Halfway there! 💪").length).toBeLessThanOrEqual(1);
@@ -322,7 +322,7 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("nailed"); // → 1
     await scoreOnce("nailed");
-    fireEvent.click(screen.getByText("Next")); // → 2, no halfway toast
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, no halfway toast
 
     await new Promise((r) => setTimeout(r, 150));
     expect(screen.queryByText("Halfway there! 💪")).toBeNull();
@@ -368,7 +368,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("nailed", 8);
     await scoreOnce("nailed", 8);
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
       () => expect(screen.getByText(/\+16 XP earned/i)).toBeInTheDocument(),
@@ -382,7 +382,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("nailed", 10);
     await scoreOnce("close", 5);
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
       () => expect(screen.getByText(/\+15 XP earned/i)).toBeInTheDocument(),
@@ -395,7 +395,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("nailed");
     await scoreOnce("nailed");
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
       () => expect(screen.getByText("PERFECT SESSION! 🏆")).toBeInTheDocument(),
@@ -409,7 +409,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("nailed");
     await scoreOnce("close", 5);
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
       () => expect(screen.getByText("Session Complete!")).toBeInTheDocument(),
