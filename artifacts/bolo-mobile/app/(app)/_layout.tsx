@@ -80,6 +80,7 @@ export default function AppLayout() {
               <Stack.Screen name="practice/[id]" />
               <Stack.Screen name="practice/daily" />
               <Stack.Screen name="badges" />
+              <Stack.Screen name="journey" />
               <Stack.Screen name="analytics" />
               <Stack.Screen name="account/index" />
               <Stack.Screen name="account/reminders" />

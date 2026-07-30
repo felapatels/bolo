@@ -37,14 +37,16 @@ export default function LanguageModal() {
     router.back();
   };
 
-  // Route a tapped locked language to the paywall, pre-selecting it so the
-  // learner lands on the right upgrade instead of a generic screen.
-  const openPaywall = (code?: string) =>
-    router.push(
-      code
-        ? { pathname: '/(app)/paywall', params: { lang: code } }
-        : '/(app)/paywall',
-    );
+  // Spec D1b-M (mirrors the web picker): a tapped locked language opens its
+  // journey map in showroom mode — a browsable teaser with an upgrade path —
+  // instead of bouncing straight to the paywall. The pick is a real language
+  // selection (server-side activeLanguage PATCHes just like an allowed pick).
+  const openShowroom = (code: string) => {
+    adoptLanguageLocally(code);
+    chooseRemote(code);
+    track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
+    router.replace('/(app)/journey');
+  };
 
   return (
     <Screen padTop={false}>
@@ -80,7 +82,7 @@ export default function LanguageModal() {
                 active={item.code === activeLang}
                 locked={locked}
                 onPress={() =>
-                  locked ? openPaywall(item.code) : choose(item.code)
+                  locked ? openShowroom(item.code) : choose(item.code)
                 }
               />
             );

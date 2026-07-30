@@ -48,6 +48,10 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
+  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // Defined inside the factory so it's the exact class friends.tsx narrows on
   // with `err instanceof ApiError`; tests build errors from the same reference
   // via the value import above.

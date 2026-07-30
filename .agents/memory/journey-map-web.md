@@ -20,3 +20,9 @@ A route that serves phrase rows by group id silently became a sentence-content l
 - The `picker` scenario (added July 29, 2026) is the shim-free real-navigation path: locked picker tap → showroom → home/chat blast radius. Home renders TWO picker triggers (one hidden); click via `getByTitle(...).locator("visible=true").first()`.
 - The active language reconciles server-to-local asynchronously after hydration: assertions must wait for the expected line/language marker text, not just page load, or they assert against the default language's screen.
 - `installSystemDependencies` takes `{ packages: [...] }` and rewrites replit.nix; revert the QA-only chromium entry before committing (keep ffmpeg, it is a prod dep).
+
+## Mobile port (D1b-M)
+
+- The mobile `LanguageContext` had the SAME auto-revert bug the web shipped D1b without: a plan-guard effect flipped any supported-but-locked activeLanguage back to the first allowed language, silently killing showroom adoptions from the picker (map kept rendering the old line). Removed the plan branch; kept the unsupported-code fallback.
+- **Why:** showroom = intentionally parking a free account on a locked language. Any global "correct the locked language" guard is incompatible with it, on every platform. Per-route 402/403 handling is the guard instead.
+- **How to apply:** if a showroom/preview flow "silently shows the old language", grep for effects keyed on `allowedLanguages`/`isPlus` before debugging navigation. Mobile home still lacks a dedicated locked-language state (summary/attempts 402 → degraded stats) — follow-up proposed.

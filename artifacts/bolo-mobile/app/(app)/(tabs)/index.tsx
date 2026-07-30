@@ -55,6 +55,7 @@ import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { ContinueCard } from '@/components/ContinueCard';
+import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 
 /** AsyncStorage key recording that the daily-goal celebration already fired. */
 function goalCelebratedStorageKey(lang: string, date: string): string {
@@ -399,6 +400,16 @@ export default function HomeScreen() {
             />
           </LinearGradient>
         </View>
+
+        {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
+            path into practice, so its pass rides above the other cards.
+            (ContinueCard below stays: it jumps straight into a session,
+            while the pass opens the map.) */}
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
+          <JourneyPassCard
+            onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
+          />
+        </Animated.View>
 
         {/* Daily quiz card */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(220)}>

@@ -37,11 +37,22 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('react-native-svg', () => {
   const React = require('react');
   const { View } = require('react-native');
+  // Full passthrough set: the home hero (JourneyPassCard → TicketParts /
+  // TrainEngine) renders patterns, lines, and paths besides the ring's Circle.
+  const passthrough = ({ children, ...props }: any) =>
+    React.createElement(View, props, children);
   return {
     __esModule: true,
-    default: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement(View, {}, children),
-    Circle: (props: object) => React.createElement(View, props),
+    default: passthrough,
+    Svg: passthrough,
+    G: passthrough,
+    Path: passthrough,
+    Circle: passthrough,
+    Rect: passthrough,
+    Ellipse: passthrough,
+    Line: passthrough,
+    Pattern: passthrough,
+    Defs: passthrough,
   };
 });
 
@@ -51,6 +62,10 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
+  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetProgressSummary: () => mockState.summary,
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress', 'summary']),
   setQueryData: jest.fn(),

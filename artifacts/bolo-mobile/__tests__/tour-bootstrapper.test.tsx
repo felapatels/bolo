@@ -28,6 +28,10 @@ const mockState = {
 // ─── external module mocks ───────────────────────────────────────────────────
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
+  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   setAuthTokenGetter: jest.fn(),
   useGetAccount: () => ({
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),

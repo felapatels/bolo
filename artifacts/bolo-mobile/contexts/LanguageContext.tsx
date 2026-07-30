@@ -147,33 +147,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, account.data]);
 
-  // Keep the active language valid for both the supported list and the caller's
-  // plan. If the stored code isn't supported, fall back to the first available.
-  // If it's supported but locked for this plan (e.g. after a downgrade), switch
-  // to the first allowed language so gated screens never render empty. Both
-  // corrections go through setActiveLang so the fix syncs to the backend too.
+  // Keep the active language valid for the supported list: if the stored code
+  // isn't supported at all, fall back to the first available (synced to the
+  // backend via setActiveLang).
+  //
+  // Deliberately NOT corrected here: a supported-but-locked language (free
+  // caller). The journey-map showroom (Spec D1b-M, mirroring the web ruling
+  // that removed the same auto-revert) requires a locked adoption from the
+  // picker to survive — routes that need entitlement handle their own 402/403
+  // states (UpgradeRequiredScreen, showroom rendering) instead of a global
+  // guard silently flipping the language back.
   useEffect(() => {
     if (languages.length === 0) return;
 
     if (!languages.some((l) => l.code === activeLang)) {
       setActiveLang(languages[0].code);
-      return;
-    }
-
-    if (
-      !isPlus &&
-      allowedLanguages.length > 0 &&
-      !allowedLanguages.includes(activeLang)
-    ) {
-      const firstAllowed = languages.find((l) =>
-        allowedLanguages.includes(l.code),
-      )?.code;
-      if (firstAllowed && firstAllowed !== activeLang) {
-        setActiveLang(firstAllowed);
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [languages, allowedLanguages, isPlus, activeLang]);
+  }, [languages, activeLang]);
 
   const activeLanguage = languages.find((l) => l.code === activeLang);
   // Absence means the server hasn't classified this language (or is an older

@@ -46,6 +46,8 @@ import {
   getListRecentAttemptsQueryKey,
   getListCategoryPhrasesQueryKey,
   getListBadgesQueryKey,
+  useListLessonGroupPhrases,
+  getListLessonGroupPhrasesQueryKey,
   type PronunciationResult,
   type EarnedBadge,
 } from '@workspace/api-client-react';
@@ -355,13 +357,18 @@ export default function PracticeScreen() {
   const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId, stage, skipMastered } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage, skipMastered, group } = useLocalSearchParams<{
     id: string;
     phrase?: string;
     stage?: string;
     skipMastered?: string;
+    group?: string;
   }>();
   const categoryId = Number(id);
+  // Spec D1b-M: `?group=` scopes the session to one journey stop (lesson
+  // group) — the flow is identical, only the phrase source changes.
+  const groupId = Number(group);
+  const isGroup = Number.isFinite(groupId) && groupId > 0;
   const { activeLang, activeLanguage, speechCapability } = useLanguage();
   // Speech-recognition gating (server-classified, defaults to full scoring):
   //  • 'unsupported' → listen-record-compare only, never send an evaluation.
@@ -376,17 +383,25 @@ export default function PracticeScreen() {
   const isSentences = stage === 'sentences';
   const phraseQuery = useListCategoryPhrases(categoryId, activeLang, {
     query: {
-      enabled: !isSentences,
+      enabled: !isSentences && !isGroup,
       queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
     },
   });
   const sentenceQuery = useListCategorySentences(categoryId, activeLang, {
     query: {
-      enabled: isSentences,
+      enabled: isSentences && !isGroup,
       queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
     },
   });
-  const phrases = isSentences ? sentenceQuery : phraseQuery;
+  // Journey-stop sessions: the group endpoint returns the stop's own phrases
+  // (its stage lives server-side, so `?group=` wins over `?stage=`).
+  const groupQuery = useListLessonGroupPhrases(groupId, {
+    query: {
+      enabled: isGroup,
+      queryKey: getListLessonGroupPhrasesQueryKey(groupId),
+    },
+  });
+  const phrases = isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
   const list = phrases.data ?? [];
 
   // Read the learner's TTS voice preference so the client-side audio cache
@@ -1226,6 +1241,14 @@ export default function PracticeScreen() {
         queryClient.invalidateQueries({
           queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
         });
+        // Journey-stop sessions must also refresh the group's own phrase list
+        // (mirrors web practice: it invalidates exactly this key) so the
+        // journey map's mastered counts and unlock states move.
+        if (isGroup) {
+          queryClient.invalidateQueries({
+            queryKey: getListLessonGroupPhrasesQueryKey(groupId),
+          });
+        }
         queryClient.invalidateQueries({
           queryKey: getListBadgesQueryKey({ lang: activeLang }),
         });
@@ -1331,6 +1354,34 @@ export default function PracticeScreen() {
         onBack={() => router.back()}
         showTrial={upgrade.reason === 'daily_lesson_limit'}
       />
+    );
+  }
+  // Spec D1b-M: a stale journey map (or a shared deep link) can point at a
+  // stop the server considers locked. The group endpoint's 403
+  // lesson_group_locked is an expected state, not a failure — show the
+  // locked-stop card and send the learner back, never the error screen.
+  const groupLocked =
+    isGroup &&
+    phrases.error instanceof ApiError &&
+    phrases.error.status === 403 &&
+    (phrases.error.data as { error?: string } | null)?.error === 'lesson_group_locked';
+  if (groupLocked) {
+    return (
+      <Screen>
+        <View style={styles.lockedStopWrap}>
+          <View style={[styles.lockedStopCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="lock" size={28} color={colors.mutedForeground} />
+            <Text style={[styles.lockedStopTitle, { color: colors.foreground }]}>
+              This stop is still locked
+            </Text>
+            <Text style={[styles.lockedStopBody, { color: colors.mutedForeground }]}>
+              Finish the stop before it to board here — the line runs station
+              by station.
+            </Text>
+            <ChunkyButton title="Back to the map" onPress={() => router.back()} />
+          </View>
+        </View>
+      </Screen>
     );
   }
   if (phrases.isError) {
@@ -2154,6 +2205,33 @@ function RecordButton({
 }
 
 const styles = StyleSheet.create({
+  lockedStopWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  lockedStopCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    gap: 10,
+  },
+  lockedStopTitle: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  lockedStopBody: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

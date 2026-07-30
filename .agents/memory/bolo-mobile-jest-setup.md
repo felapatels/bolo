@@ -52,3 +52,9 @@ filter which sees stale dist.
 ## Haptics
 - Shared tap-feedback helper lives in `lib/haptics.ts`; jest's expo-haptics stub returns undefined from impactAsync/notificationAsync, so fire-and-forget calls must go through Promise.resolve(...) (plain `.catch()` on the return value crashes tests).
 - PressableScale fires a light haptic on press by default (`haptic` prop: light|medium|none) — do not add per-screen haptics on top of it or taps double-fire.
+
+## Mock-factory blast radius for new generated hooks
+
+- Adding a new `@workspace/api-client-react` hook import to a shared component (e.g. something on home) breaks EVERY existing test whose `jest.mock` factory enumerates the module's exports — ~38 files at once.
+- Fix pattern: script-patch the stubs into the TOP of each `() => ({ ... })` factory; later duplicate keys win in object literals, so file-specific mock overrides are unaffected. Watch for the odd factory written as `() => { return {...} }` (block body) — the insert regex must skip or handle it.
+- Playwright-against-Expo-web notes: qa/node_modules has playwright-core (ESM ignores NODE_PATH); RN Modal overlays don't hide the page underneath from `getByText`, so target modal rows by their unique subtitle (e.g. "Gujarati · Gujarati"), not the native-script name that also appears on the home pill.
