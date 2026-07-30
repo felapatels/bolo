@@ -55,3 +55,5 @@ contract so a regression can't silently lock out payers or leak Plus to Free.
   prefer `useIsDesktop` for this branch so tests get the mobile layout.
 - Purely additive CSS reflow (same single tree, `lg:` grid/col tweaks) is fine and needs no hook —
   only structural swaps risk the duplicate-DOM trap.
+
+- Web tests mock `@workspace/api-client-react` per-file with explicit export lists. Any component change that starts importing another generated export (e.g. a `get<Op>QueryKey` getter for `placeholderData`/`enabled` options) breaks every mocking test that renders it with "No X export is defined on the mock" — add the new export to those mocks in the same change.
