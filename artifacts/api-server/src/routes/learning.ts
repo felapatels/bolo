@@ -99,6 +99,12 @@ import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { applyFsrsRating, scoreAndBandToRating } from "../lib/fsrsScheduler";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
+import {
+  getUnlockedGroupIds,
+  isPhraseServable,
+  loadGroupUnlockContext,
+  deriveAndLatchUnlock,
+} from "../lib/lessonGroupAccess";
 
 const router: IRouter = Router();
 
@@ -494,6 +500,17 @@ router.get(
     const attempts = await fetchUserAttempts(userId, lang);
     const stats = buildPhraseStats(attempts);
 
+    // Sequential-unlock filtering (runs AFTER every entitlement gate above):
+    // only phrases in unlocked lesson groups are served, plus ungrouped rows
+    // (lessonGroupId NULL) and any phrase this learner already attempted —
+    // the retake exemption: a Retake deep-link resolves against this list,
+    // so a previously practiced phrase must stay servable even if its group
+    // is locked. Prior attempts come from the in-hand stats map — the
+    // exemption costs zero extra queries.
+    const { unlockedGroupIds } = await getUnlockedGroupIds(userId, id, lang, {
+      stats,
+    });
+
     // Only Plus serves the premium library; everyone else gets the starter set
     // (plus any phrases they generated for themselves, which are never premium).
     // Premium phrase text is never sent to a caller who can't access it.
@@ -501,8 +518,11 @@ router.get(
     const accessible = canAccessPremium
       ? phrases
       : phrases.filter((p) => !p.premium);
+    const served = accessible.filter((p) =>
+      isPhraseServable(p, unlockedGroupIds, stats),
+    );
 
-    res.json(accessible.map((p) => serializePhrase(p, stats)));
+    res.json(served.map((p) => serializePhrase(p, stats)));
 
     // Background replenishment — fire-and-forget AFTER the response so it
     // never delays or interrupts the current session. Two independent paths:
@@ -513,6 +533,11 @@ router.get(
     //  Free/One Language: triggers at 80 % engagement, 24-hour cooldown,
     //        hard ceiling of FREE_PHRASE_CEILING phrases per topic, uses a
     //        distinct advisory-lock prefix so the two paths never collide.
+    //
+    // Engagement is measured against the FULL accessible list, not the
+    // unlock-filtered one: locked-group phrases can't be attempted, so
+    // top-ups only fire once the learner has worked through everything the
+    // journey has unlocked — never while locked content is still waiting.
     const phraseIds = accessible.map((p) => p.id);
     if (shouldReplenish(resolvedPlan.plan, phraseIds, stats)) {
       replenishPhrases({
@@ -598,7 +623,20 @@ router.get(
       if (cached.length > 0) {
         const attempts = await fetchUserAttempts(userId, lang);
         const stats = buildPhraseStats(attempts);
-        res.json(cached.map((p) => serializePhrase(p, stats)));
+        // Sentence groups are lesson groups: the same sequential-unlock
+        // filter as the phrase list applies. NULL-group rows (dynamically
+        // generated sentence stages predating C1 grouping) and previously
+        // attempted sentences stay servable.
+        const { unlockedGroupIds } = await getUnlockedGroupIds(
+          userId,
+          id,
+          lang,
+          { stats },
+        );
+        const served = cached.filter((p) =>
+          isPhraseServable(p, unlockedGroupIds, stats),
+        );
+        res.json(served.map((p) => serializePhrase(p, stats)));
         return;
       }
     }
@@ -671,6 +709,8 @@ router.get(
 
       const attempts = await fetchUserAttempts(userId, lang);
       const stats = buildPhraseStats(attempts);
+      // Freshly generated sentence rows carry no lessonGroupId (NULL =
+      // servable by the unlock filter rule), so no guard call is needed here.
       res.json(rows.map((p) => serializePhrase(p, stats)));
     } catch (err) {
       if (err instanceof UpgradeRequiredError) {
@@ -1859,68 +1899,12 @@ router.get(
     }
     const showroom = access.state === "allowed" ? null : access;
 
-    const [groups, members, attempts, [unassigned], progressRows] =
-      await Promise.all([
-      db
-        .select()
-        .from(lessonGroupsTable)
-        .where(
-          and(
-            eq(lessonGroupsTable.languageCode, lang),
-            eq(lessonGroupsTable.categoryId, id),
-          ),
-        )
-        .orderBy(asc(lessonGroupsTable.position)),
-      db
-        .select({
-          id: phrasesTable.id,
-          lessonGroupId: phrasesTable.lessonGroupId,
-          stage: phrasesTable.stage,
-        })
-        .from(phrasesTable)
-        .where(
-          and(
-            eq(phrasesTable.languageCode, lang),
-            eq(phrasesTable.categoryId, id),
-          ),
-        ),
-      fetchUserAttempts(userId, lang),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(phrasesTable)
-        .where(
-          and(
-            eq(phrasesTable.languageCode, lang),
-            eq(phrasesTable.categoryId, id),
-            isNull(phrasesTable.lessonGroupId),
-          ),
-        ),
-      db
-        .select({
-          lessonGroupId: lessonGroupProgressTable.lessonGroupId,
-          status: lessonGroupProgressTable.status,
-        })
-        .from(lessonGroupProgressTable)
-        .where(eq(lessonGroupProgressTable.userId, userId)),
-    ]);
-
-    const stats = buildPhraseStats(attempts);
-    const byGroup = new Map<number, number[]>();
-    const stageByGroup = new Map<number, "phrase" | "sentence">();
-    for (const m of members) {
-      if (m.lessonGroupId == null) continue;
-      const list = byGroup.get(m.lessonGroupId) ?? [];
-      list.push(m.id);
-      byGroup.set(m.lessonGroupId, list);
-      // Groups are stage-homogeneous by construction (sentence groups are
-      // seeded whole by C1); the first member seen decides.
-      if (!stageByGroup.has(m.lessonGroupId)) {
-        stageByGroup.set(
-          m.lessonGroupId,
-          m.stage === "sentence" ? "sentence" : "phrase",
-        );
-      }
-    }
+    // All group/member/progress reads live in the shared unlock guard module
+    // (lib/lessonGroupAccess.ts) — the same code path every phrase-serving
+    // route uses, so the journey map can never disagree with what practice
+    // actually serves.
+    const ctx = await loadGroupUnlockContext(userId, id, lang);
+    const { groups, byGroup, stageByGroup, stats } = ctx;
 
     // D1a Slice 2: sequential unlock, derived at read time. Entitlement
     // precedence still holds — a showroom caller never reaches the unlock
@@ -1945,55 +1929,10 @@ router.get(
         }
       }
     } else {
-      const testedOut = new Set(
-        progressRows
-          .filter((r) => r.status === "tested_out")
-          .map((r) => r.lessonGroupId),
-      );
-      const persistedCompleted = new Set(
-        progressRows
-          .filter((r) => r.status === "completed")
-          .map((r) => r.lessonGroupId),
-      );
-      const statuses = deriveGroupStatuses(
-        groups.map((g) => ({
-          id: g.id,
-          position: g.position,
-          phraseIds: byGroup.get(g.id) ?? [],
-        })),
-        stats,
-        testedOut,
-        persistedCompleted,
-      );
+      // Derivation + completion latch live in the shared guard — identical
+      // to what the phrase-serving routes enforce.
+      const { statuses } = await deriveAndLatchUnlock(userId, ctx);
       derived = statuses;
-
-      // Latch newly observed completions so later replenishment (which grows a
-      // group's denominator with fresh phrases) can never dilute the ratio and
-      // re-lock this group's successor. Idempotent write-through; 'completed'
-      // outranks a prior 'tested_out' row.
-      const newlyCompleted = groups
-        .map((g) => g.id)
-        .filter(
-          (gid) => statuses.get(gid) === "completed" && !persistedCompleted.has(gid),
-        );
-      if (newlyCompleted.length > 0) {
-        await db
-          .insert(lessonGroupProgressTable)
-          .values(
-            newlyCompleted.map((gid) => ({
-              userId,
-              lessonGroupId: gid,
-              status: "completed",
-            })),
-          )
-          .onConflictDoUpdate({
-            target: [
-              lessonGroupProgressTable.userId,
-              lessonGroupProgressTable.lessonGroupId,
-            ],
-            set: { status: "completed", updatedAt: new Date() },
-          });
-      }
     }
 
     res.json({
@@ -2024,7 +1963,7 @@ router.get(
             : {}),
         };
       }),
-      unassignedCount: unassigned?.n ?? 0,
+      unassignedCount: ctx.unassignedCount,
       // D1b showroom envelope: which access state produced the forced-locked
       // structure, plus teaser progress for the map's "free taste" meter.
       ...(showroom
@@ -2093,6 +2032,28 @@ router.get(
       return;
 
     const stats = buildPhraseStats(attempts);
+
+    // Sequential-unlock guard — runs AFTER the entitlement 402s above, so
+    // unlock state never masks a paywall denial. A locked group is denied
+    // outright with 403 lesson_group_locked: NOT 402, because upgrading does
+    // not unlock a journey group and clients render every 402 as a Plus
+    // upsell. The journey map only links unlocked stations, so this surfaces
+    // only on hand-crafted deep links.
+    const { unlockedGroupIds } = await getUnlockedGroupIds(
+      userId,
+      group.categoryId,
+      group.languageCode,
+      { stats },
+    );
+    if (!unlockedGroupIds.has(id)) {
+      res.status(403).json({
+        error: "lesson_group_locked",
+        groupId: id,
+        status: "locked",
+      });
+      return;
+    }
+
     const accessible = canAccessPremium
       ? phrases
       : phrases.filter((p) => !p.premium);
@@ -2108,6 +2069,11 @@ router.get(
 // evaluation tokens for those attempts. Pass = band 'nailed' (score >= 80) on
 // at least ceil(0.8 * sampleSize). Entitlement gates run FIRST, so unlock
 // state never grants access that entitlements deny.
+
+// NOTE: the test-out routes are deliberately EXEMPT from the sequential-unlock
+// guard — their entire purpose is to serve a sample from a LOCKED group so a
+// learner can skip ahead (the journey map's locked-station dialog). Only the
+// entitlement gates apply here; do not add getUnlockedGroupIds to this path.
 
 // Loads a test-out target group and the caller's accessible phrase-stage rows,
 // enforcing the shared gates. Returns null after responding on any denial.
