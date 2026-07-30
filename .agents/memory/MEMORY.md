@@ -88,3 +88,4 @@
 - [framer SVG rigs: transform attributes](framer-svg-transform-attr.md) — motion.g swallows the `transform` prop and originX fractions mis-pivot; write `rotate(deg cx cy)` attribute strings via a MotionValue subscriber (Bolo web rig).
 - [Horizontal overflow bisect](css-overflow-bisect.md) — truncate can't stop page overflow when the grid/flex item lacks min-w-0 (min-content wins); measure with qa/home-overflow-probe.mjs, not by reasoning.
 - [Canonical mascot rule](canonical-mascot-rule.md) — ONLY the five canonical Bolo PNGs may render, whole-image motion only; bolo-rig.tsx is retired and must stay unreferenced; no new Bolo art by any means.
+- [Onboarding nav races](onboarding-nav-races.md) — auto-launchers that navigate (tour) race same-commit gate Redirects on fresh accounts; gate on preconditions, not route prefixes; only real-browser probes catch it.
