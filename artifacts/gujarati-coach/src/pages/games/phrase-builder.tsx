@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, Redirect } from "wouter";
 import { ArrowLeft, Layers, RotateCcw, Home, Check, X, ChevronRight } from "lucide-react";
 import { webHaptic } from "@/lib/haptics";
@@ -7,11 +7,13 @@ import {
   useListCategories,
   useListCategoryPhrases,
   useRecordGameSession,
+  useSynthesizeSpeech,
   getGetProgressSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
@@ -167,13 +169,20 @@ function initPhraseState(words: string[]): PhraseBuilderState {
 
 function PlayingScreen({
   categoryId,
+  soundOn,
+  onToggleSound,
+  onExit,
   onDone,
 }: {
   categoryId: number;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  onExit: () => void;
   onDone: (results: PhraseResult[], correctCount: number) => void;
 }) {
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const nativeText = useNativeText();
+  const synthesize = useSynthesizeSpeech();
   const { data: allPhrases = [], isLoading } = useListCategoryPhrases(categoryId, activeLang);
 
   const [round, setRound] = useState<Phrase[]>([]);
@@ -181,6 +190,54 @@ function PlayingScreen({
   const [pState, setPState] = useState<PhraseBuilderState>({ placed: [], tiles: [], status: "idle", wrongMask: [] });
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [correctCount, setCorrectCount] = useState(0);
+  // Index into pState.placed of the tile selected for reordering, if any.
+  const [selectedPlacedIdx, setSelectedPlacedIdx] = useState<number | null>(null);
+
+  // Ref mirror so async speech playback observes the latest mute state.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Cache synthesized audio per word so repeated placements cost nothing.
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+
+  // Speak a word tile in the target language when it is tapped into the
+  // sentence. Muted skips synthesis entirely.
+  const speakWord = useCallback(
+    async (word: string) => {
+      if (!soundOnRef.current) return;
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        const cached = audioCache.current.get(word);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: word, languageName: activeLanguage?.name, languageCode: activeLang },
+          }));
+        audioCache.current.set(word, { audioBase64: res.audioBase64, format: res.format });
+        if (!soundOnRef.current) return;
+        const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+        audioRef.current = audio;
+        await audio.play();
+      } catch {
+        // Audio is a nice-to-have; tile placement continues silently.
+      }
+    },
+    [synthesize, activeLanguage?.name, activeLang],
+  );
+
+  // Stop any in-flight audio when the screen unmounts.
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (allPhrases.length === 0) return;
@@ -195,28 +252,51 @@ function PlayingScreen({
   const targetWords = phrase ? tokenize(phrase.nativeScript) : [];
   const allPlaced = phrase ? pState.placed.length === targetWords.length : false;
 
-  // Tap a tile -> place it
+  // Tap a tile -> place it (and speak it in the target language)
   const placeTile = (tile: WordSlot) => {
     if (pState.status !== "idle") return;
+    setSelectedPlacedIdx(null);
     setPState((prev) => ({
       ...prev,
       tiles: prev.tiles.filter((t) => t.tileId !== tile.tileId),
       placed: [...prev.placed, tile],
     }));
+    void speakWord(tile.word);
   };
 
-  // Tap a placed word -> return it to tiles
-  const returnTile = (tile: WordSlot) => {
+  // Tap a placed word: first tap selects it for reordering; tapping another
+  // placed word swaps the two; tapping the selected word again returns it to
+  // the tray.
+  const handlePlacedTap = (idx: number) => {
     if (pState.status !== "idle") return;
-    setPState((prev) => ({
-      ...prev,
-      placed: prev.placed.filter((t) => t.tileId !== tile.tileId),
-      tiles: [...prev.tiles, tile],
-    }));
+    if (selectedPlacedIdx === null) {
+      setSelectedPlacedIdx(idx);
+      return;
+    }
+    if (selectedPlacedIdx === idx) {
+      // Second tap on the same tile -> return it to the tray.
+      const tile = pState.placed[idx];
+      setSelectedPlacedIdx(null);
+      setPState((prev) => ({
+        ...prev,
+        placed: prev.placed.filter((t) => t.tileId !== tile.tileId),
+        tiles: [...prev.tiles, tile],
+      }));
+      return;
+    }
+    // Swap the selected tile with the tapped one.
+    const from = selectedPlacedIdx;
+    setSelectedPlacedIdx(null);
+    setPState((prev) => {
+      const placed = [...prev.placed];
+      [placed[from], placed[idx]] = [placed[idx], placed[from]];
+      return { ...prev, placed };
+    });
   };
 
   const handleCheck = () => {
     if (!phrase || !allPlaced) return;
+    setSelectedPlacedIdx(null);
     const placedWords = pState.placed.map((t) => t.word);
     const submittedText = placedWords.join(" ");
     const correct = submittedText === phrase.nativeScript;
@@ -233,6 +313,7 @@ function PlayingScreen({
   };
 
   const handleNext = () => {
+    setSelectedPlacedIdx(null);
     const next = phraseIdx + 1;
     if (next >= round.length) {
       // correctCount was already incremented in handleCheck for this phrase.
@@ -266,13 +347,22 @@ function PlayingScreen({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          onClick={onExit}
+          data-testid="phrase-builder-exit"
+          aria-label="Exit game"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <span className="text-sm font-semibold text-muted-foreground">
           Phrase {phraseIdx + 1} of {round.length}
         </span>
-        <span className="text-sm font-bold text-indigo-500">
+        <span className="ml-auto text-sm font-bold text-indigo-500">
           {correctCount} correct
         </span>
+        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
       </div>
 
       <div className="flex flex-1 flex-col gap-6 px-4 pt-2">
@@ -303,14 +393,17 @@ function PlayingScreen({
               {pState.placed.map((tile, i) => (
                 <button
                   key={tile.tileId}
-                  onClick={() => returnTile(tile)}
+                  onClick={() => handlePlacedTap(i)}
                   disabled={pState.status !== "idle"}
+                  aria-pressed={selectedPlacedIdx === i}
                   className={cn(
                     "rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors",
                     pState.status === "correct"
                       ? "border-emerald-400 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40"
                       : pState.status === "wrong" && pState.wrongMask[i]
                       ? "border-red-400 bg-red-100 text-red-700 dark:bg-red-900/40"
+                      : selectedPlacedIdx === i
+                      ? "border-primary bg-primary/30 text-primary ring-2 ring-primary/40"
                       : "border-primary/40 bg-primary/10 text-primary",
                   )}
                   style={nativeText.style}
@@ -323,6 +416,11 @@ function PlayingScreen({
               )}
             </div>
           </div>
+          {pState.placed.length > 1 && pState.status === "idle" && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tap a placed word to select it, then tap another to swap. Tap it again to remove it.
+            </p>
+          )}
         </div>
 
         {/* Feedback message */}
@@ -497,6 +595,7 @@ function DoneScreen({
 
 export default function PhraseBuilderPage() {
   const { isPlus, isLoading } = useEntitlements();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
   const [phase, setPhase] = useState<GamePhase>("setup");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
@@ -524,7 +623,19 @@ export default function PhraseBuilderPage() {
     );
   }
   if (phase === "playing" && categoryId !== null) {
-    return <PlayingScreen key={gameKey} categoryId={categoryId} onDone={handleDone} />;
+    return (
+      <PlayingScreen
+        key={gameKey}
+        categoryId={categoryId}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        onExit={() => {
+          setPhase("setup");
+          setCategoryId(null);
+        }}
+        onDone={handleDone}
+      />
+    );
   }
   if (phase === "done" && categoryId !== null) {
     return (

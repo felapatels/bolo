@@ -6,6 +6,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { LanguagePicker } from "@/components/language-picker";
+import { NamePromptCard } from "@/components/name-prompt-card";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { useIsDesktop } from "@/hooks/use-mobile";
@@ -326,6 +327,8 @@ export default function Home() {
             </Link>
           </div>
         </motion.div>
+
+        <NamePromptCard />
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <LanguagePicker />

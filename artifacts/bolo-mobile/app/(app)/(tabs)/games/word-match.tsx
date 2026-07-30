@@ -24,6 +24,8 @@ import {
   getListCategoryPhrasesQueryKey,
   useRecordGameSession,
   getGetProgressSummaryQueryKey,
+  useSynthesizeSpeech,
+  useGetAccount,
   type Phrase,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -36,6 +38,9 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GAME_CONFIG } from '@/lib/game-config';
+import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { confirmDiscardRun } from '@/lib/gameExit';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +132,7 @@ function FlipCard({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={{ width, height }}
+      testID={`word-match-card-${card.id}`}
     >
       <RNAnimated.View
         style={[
@@ -314,17 +320,30 @@ function GameBoard({
   phrases,
   difficulty,
   activeLanguage,
+  soundOn,
   onEnd,
   colors,
 }: {
   phrases: Phrase[];
   difficulty: Difficulty;
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
+  soundOn: boolean;
   onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const nativeProps = nativeTextStyle(activeLanguage);
   const pairCount = difficulty === 'easy' ? 6 : 8;
+
+  const synthesize = useSynthesizeSpeech();
+  // ttsVoice keys the audio cache so a mid-session voice change fetches fresh
+  // clips instead of replaying stale ones (same pattern as listen-and-pick).
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+  const playbackRef = useRef<PlaybackHandle | null>(null);
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+  // Mute must skip synthesis calls, not just playback.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
 
   const [cards, setCards] = useState<GameCard[]>(() => buildCards(phrases, pairCount));
   const [flipped, setFlipped] = useState<string[]>([]);
@@ -343,6 +362,39 @@ function GameBoard({
   const matchedCount = cards.filter(c => c.state === 'matched').length;
   const allMatched = matchedCount === cards.length;
 
+  // Card labels never change after the board is built, so a ref lookup is
+  // safe inside the flip callback.
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
+
+  // Speak the Indian-language card's nativeScript when it flips face-up.
+  // English match cards stay silent. Muted skips synthesis entirely.
+  const speakNativeCard = useCallback(
+    async (card: GameCard) => {
+      if (!soundOnRef.current || card.type !== 'native') return;
+      try {
+        const cacheKey = `${card.pairId}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: card.label, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
+          }));
+        audioCache.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format });
+        playbackRef.current?.stop();
+        playbackRef.current = await playBase64Audio(res.audioBase64, res.format);
+      } catch {
+        // Audio is a bonus; the flip itself never blocks on it.
+      }
+    },
+    [synthesize, activeLanguage, ttsVoice],
+  );
+
+  // Stop any in-flight clip when the board unmounts.
+  useEffect(() => {
+    return () => { playbackRef.current?.stop(); };
+  }, []);
+
   useEffect(() => {
     if (allMatched) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -354,6 +406,9 @@ function GameBoard({
 
   const handleFlip = useCallback((id: string) => {
     if (locked) return;
+
+    const tapped = cardsRef.current.find(c => c.id === id);
+    if (tapped) void speakNativeCard(tapped);
 
     setCards(prev => prev.map(c => c.id === id ? { ...c, state: 'flipped' as const } : c));
 
@@ -393,7 +448,7 @@ function GameBoard({
 
       return [];
     });
-  }, [locked]);
+  }, [locked, speakNativeCard]);
 
   const COLS = 4;
   const ROWS = difficulty === 'easy' ? 3 : 4;
@@ -419,6 +474,7 @@ function GameBoard({
       {/* Card grid — flex:1 so it takes all remaining height; onLayout measures actual size */}
       <View
         style={[styles.grid, { gap: GAP, flex: 1 }]}
+        testID="word-match-grid"
         onLayout={e => {
           const { width, height } = e.nativeEvent.layout;
           setGridSize(prev =>
@@ -539,6 +595,7 @@ export default function WordMatchScreen() {
   const colors = useColors();
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   const [phase, setPhase] = useState<Phase>('picker');
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string; count: number } | null>(null);
@@ -584,6 +641,9 @@ export default function WordMatchScreen() {
           onPress={() => {
             if (phase === 'picker') router.back();
             else if (phase === 'difficulty') setPhase('picker');
+            // Word Match is timed (count-up clock), so confirm before
+            // discarding a mid-play run.
+            else if (phase === 'game') confirmDiscardRun(() => setPhase('picker'));
             else setPhase('picker');
           }}
           style={styles.backBtn}
@@ -599,7 +659,7 @@ export default function WordMatchScreen() {
             <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
           )}
         </View>
-        <View style={{ width: 44 }} />
+        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
       </View>
 
       {/* Content */}
@@ -632,6 +692,7 @@ export default function WordMatchScreen() {
             phrases={phrases}
             difficulty={difficulty}
             activeLanguage={activeLanguage}
+            soundOn={soundOn}
             onEnd={handleEnd}
             colors={colors}
           />

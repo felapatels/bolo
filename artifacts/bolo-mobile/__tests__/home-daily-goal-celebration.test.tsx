@@ -193,13 +193,9 @@ jest.mock('@/components/Confetti', () => {
 
 // MilestoneToast is intentionally NOT mocked — we test its rendered output.
 
-jest.mock('@/components/ContinueCard', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    ContinueCard: () => React.createElement(View, { testID: 'continue-card' }),
-  };
-});
+jest.mock('@/components/NamePromptCard', () => ({
+  NamePromptCard: () => null,
+}));
 
 // Imported after all mocks.
 import HomeScreen from '../app/(app)/(tabs)/index';

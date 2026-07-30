@@ -4,6 +4,7 @@ import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import {
@@ -124,11 +125,13 @@ function ListenQuestion({
   onAnswer,
   answered,
   activeLang,
+  soundOn,
 }: {
   q: ListenIdentifyQuestion;
   onAnswer: (selected: string) => void;
   answered: boolean;
   activeLang: string;
+  soundOn: boolean;
 }) {
   const choices = useRef(
     [...q.distractors, q.correctNativeScript].sort(() => Math.random() - 0.5),
@@ -148,15 +151,21 @@ function ListenQuestion({
   const [selected, setSelected] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Cache the synthesized clip so replays of this question cost nothing.
+  const audioCacheRef = useRef<{ audioBase64: string; format: string } | null>(null);
   const synthesize = useSynthesizeSpeech();
 
   const playAudio = async () => {
-    if (isPlaying) return;
+    // Muted games skip synthesis entirely, not just playback.
+    if (!soundOn || isPlaying) return;
     setIsPlaying(true);
     try {
-      const result = await synthesize.mutateAsync({
-        data: { text: q.correctNativeScript, languageName: activeLang },
-      });
+      const result =
+        audioCacheRef.current ??
+        (await synthesize.mutateAsync({
+          data: { text: q.correctNativeScript, languageName: activeLang },
+        }));
+      audioCacheRef.current = { audioBase64: result.audioBase64, format: result.format };
       const bytes = Uint8Array.from(atob(result.audioBase64), (c) => c.charCodeAt(0));
       const blob = new Blob([bytes], { type: `audio/${result.format}` });
       const url = URL.createObjectURL(blob);
@@ -339,6 +348,7 @@ function QuestionCard({
   onAnswer,
   answered,
   activeLang,
+  soundOn,
 }: {
   question: QuizQuestion;
   index: number;
@@ -346,6 +356,7 @@ function QuestionCard({
   onAnswer: (selected: string) => void;
   answered: boolean;
   activeLang: string;
+  soundOn: boolean;
 }) {
   const typeLabel: Record<string, string> = {
     mcq_translation: "Translation",
@@ -380,7 +391,7 @@ function QuestionCard({
         <McqQuestion q={question} onAnswer={onAnswer} answered={answered} />
       )}
       {question.type === "listen_identify" && (
-        <ListenQuestion q={question} onAnswer={onAnswer} answered={answered} activeLang={activeLang} />
+        <ListenQuestion q={question} onAnswer={onAnswer} answered={answered} activeLang={activeLang} soundOn={soundOn} />
       )}
       {question.type === "order_words" && (
         <OrderQuestion q={question} onAnswer={onAnswer} answered={answered} />
@@ -611,6 +622,7 @@ function AlreadyDoneScreen({
 export default function BoloQuizPage() {
   const { isPlus, isLoading: entLoading } = useEntitlements();
   const { activeLang, activeLanguage } = useLanguage();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   const quizParams = { lang: activeLang };
   const { data, isLoading: quizLoading } = useGetDailyQuiz(quizParams, {
@@ -705,6 +717,7 @@ export default function BoloQuizPage() {
             <p className="text-xs text-muted-foreground">{activeLanguage.name}</p>
           )}
         </div>
+        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
         <Award className="h-6 w-6 text-primary" />
       </div>
 
@@ -737,6 +750,7 @@ export default function BoloQuizPage() {
               onAnswer={handleAnswer}
               answered={currentAnswered}
               activeLang={activeLanguage?.name ?? activeLang}
+              soundOn={soundOn}
             />
 
             {currentAnswered && (

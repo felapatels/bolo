@@ -3,10 +3,11 @@ import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
 import { webHaptic } from "@/lib/haptics";
-import { useListCategories, useListCategoryPhrases, useRecordGameSession, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
+import { useListCategories, useListCategoryPhrases, useRecordGameSession, useSynthesizeSpeech, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
@@ -172,15 +173,68 @@ function SetupScreen({
 function PlayingScreen({
   categoryId,
   hardMode,
+  soundOn,
+  onToggleSound,
+  onExit,
   onDone,
 }: {
   categoryId: number;
   hardMode: boolean;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  onExit: () => void;
   onDone: (results: PhraseResult[], stats: QuestionStats) => void;
 }) {
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const nativeText = useNativeText();
+  const synthesize = useSynthesizeSpeech();
   const { data: phrases = [], isLoading } = useListCategoryPhrases(categoryId, activeLang);
+
+  // Ref mirror so async speech playback observes the latest mute state.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Cache synthesized audio per phrase id so repeats cost nothing extra.
+  const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
+
+  // Speak the prompt word in the target language. Muted skips synthesis
+  // entirely, not just playback.
+  const speakPrompt = useCallback(
+    async (phrase: Phrase) => {
+      if (!soundOnRef.current) return;
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        const cached = audioCache.current.get(phrase.id);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang },
+          }));
+        audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
+        if (!soundOnRef.current) return;
+        const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+        audioRef.current = audio;
+        await audio.play();
+      } catch {
+        // Audio is a nice-to-have; the race continues silently.
+      }
+    },
+    [synthesize, activeLanguage?.name, activeLang],
+  );
+
+  // Stop any in-flight audio when the screen unmounts.
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const reduceMotion = useReducedMotion();
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
@@ -232,13 +286,17 @@ function PlayingScreen({
     setStarted(true);
   }, [phrases]);
 
-  // Update options when question changes
+  // Update options when question changes, and speak the new prompt word.
+  // speakPrompt is deliberately omitted from the deps: adding soundOn-derived
+  // callbacks would re-run this effect mid-question and clear live feedback.
   useEffect(() => {
     if (queue.length === 0) return;
     const phrase = queue[currentIndex % queue.length];
     setOptions(buildOptions(phrase, queue as Phrase[], hardMode));
     setSelected(null);
     setFeedback(null);
+    void speakPrompt(phrase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, currentIndex, hardMode]);
 
   // Countdown timer
@@ -331,12 +389,20 @@ function PlayingScreen({
       </div>
 
       {/* Header row */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          onClick={onExit}
+          data-testid="speed-round-exit"
+          aria-label="Exit game"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className={cn("flex items-center gap-1.5 text-sm font-bold tabular-nums", isLowTime ? "text-red-500" : "text-foreground")}>
           <Timer className="h-4 w-4" />
           {timeLeft}s
         </div>
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-3">
           <div className="flex items-center gap-1 text-sm font-bold text-amber-500">
             <Flame className="h-4 w-4" />
             {stats.streak}
@@ -345,6 +411,7 @@ function PlayingScreen({
             <Trophy className="h-4 w-4" />
             {stats.points}
           </div>
+          <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
         </div>
       </div>
 
@@ -549,6 +616,7 @@ function StatCard({
 
 export default function SpeedRoundPage() {
   const { isPlus, isLoading } = useEntitlements();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
   const [phase, setPhase] = useState<GamePhase>("setup");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [hardMode, setHardMode] = useState(false);
@@ -582,6 +650,12 @@ export default function SpeedRoundPage() {
     setCategoryId(null);
   };
 
+  // The countdown makes mid-play exits destructive - confirm first.
+  const handleExit = () => {
+    if (!window.confirm("Leave the game? Your current run will be lost.")) return;
+    handleChangeTopic();
+  };
+
   if (phase === "setup") return <SetupScreen onStart={handleStart} />;
   if (phase === "playing" && categoryId !== null) {
     return (
@@ -589,6 +663,9 @@ export default function SpeedRoundPage() {
         key={gameKey}
         categoryId={categoryId}
         hardMode={hardMode}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        onExit={handleExit}
         onDone={handleDone}
       />
     );

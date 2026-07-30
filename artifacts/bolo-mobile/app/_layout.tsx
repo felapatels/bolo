@@ -8,7 +8,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
-import { setBaseUrl } from '@workspace/api-client-react';
+import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
@@ -55,7 +55,28 @@ function AnalyticsIdentitySync() {
   return null;
 }
 
-const queryClient = new QueryClient();
+/**
+ * Never retry ANY 4xx - a client error is deterministic: the same request
+ * cannot succeed without something else changing first (credentials, plan,
+ * input), so retrying only delays settling. Mirrors the web queryClient
+ * policy; background retries of 4xx also kept refetch flags flapping, which
+ * fed the home pull-to-refresh spinner misbehavior. Network failures and
+ * 5xx keep the TanStack Query default of up to 3 retries.
+ */
+function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+    return false;
+  }
+  return failureCount < 3;
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: shouldRetry,
+    },
+  },
+});
 
 // Wrapped with Sentry at the export so navigation/errors are instrumented
 // when a DSN is configured; wrap is a pass-through otherwise.

@@ -89,10 +89,13 @@ export default function GamesScreen() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const router = useRouter();
-  const { isPlus } = useEntitlements();
+  const { isPlus, isLoading: entitlementsLoading } = useEntitlements();
+  // Fail closed: while entitlements are loading (or undefined), Plus-only
+  // tiles render locked rather than briefly unlocked.
+  const plusReady = isPlus === true && !entitlementsLoading;
 
   const handleGamePress = (game: GameDef) => {
-    if (game.plusOnly && !isPlus) {
+    if (game.plusOnly && !plusReady) {
       router.push('/(app)/paywall');
       return;
     }
@@ -123,7 +126,7 @@ export default function GamesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {GAMES.map((game, i) => {
-          const locked = game.plusOnly && !isPlus;
+          const locked = game.plusOnly && !plusReady;
           return (
             <Animated.View
               key={game.id}

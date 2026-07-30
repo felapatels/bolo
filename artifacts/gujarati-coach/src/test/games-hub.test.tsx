@@ -10,10 +10,10 @@ import { memoryLocation } from "wouter/memory-location";
 // ones to the game), and each card must carry its preview vignette.
 // ---------------------------------------------------------------------------
 
-const h = vi.hoisted(() => ({ isPlus: false }));
+const h = vi.hoisted(() => ({ isPlus: false as boolean | undefined, isLoading: false }));
 
 vi.mock("@/lib/entitlements", () => ({
-  useEntitlements: () => ({ isPlus: h.isPlus, isLoading: false }),
+  useEntitlements: () => ({ isPlus: h.isPlus, isLoading: h.isLoading }),
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
@@ -46,6 +46,7 @@ function cardLink(title: string) {
 
 beforeEach(() => {
   h.isPlus = false;
+  h.isLoading = false;
 });
 
 describe("Games hub cards", () => {
@@ -78,6 +79,28 @@ describe("Games hub cards", () => {
 
     for (const game of ALL_GAMES) {
       expect(cardLink(game.title).getAttribute("href")).toBe(game.href);
+    }
+  });
+
+  test("fails closed: Plus tiles stay locked while entitlements are loading, even if isPlus is already true", () => {
+    h.isPlus = true;
+    h.isLoading = true;
+    renderPage();
+
+    for (const game of ALL_GAMES) {
+      const expectedHref = game.plusOnly ? "/upgrade" : game.href;
+      expect(cardLink(game.title).getAttribute("href")).toBe(expectedHref);
+    }
+  });
+
+  test("fails closed: Plus tiles stay locked when isPlus is undefined", () => {
+    h.isPlus = undefined;
+    h.isLoading = false;
+    renderPage();
+
+    for (const game of ALL_GAMES) {
+      const expectedHref = game.plusOnly ? "/upgrade" : game.href;
+      expect(cardLink(game.title).getAttribute("href")).toBe(expectedHref);
     }
   });
 });

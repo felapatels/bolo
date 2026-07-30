@@ -8,10 +8,12 @@ import {
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
   useRecordGameSession,
+  useSynthesizeSpeech,
   getGetProgressSummaryQueryKey,
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -337,13 +339,20 @@ function EndScreen({
 function GameBoard({
   phrases,
   difficulty,
+  activeLang,
+  activeLanguageName,
+  soundOn,
   onEnd,
 }: {
   phrases: Phrase[];
   difficulty: Difficulty;
+  activeLang: string;
+  activeLanguageName: string | undefined;
+  soundOn: boolean;
   onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
 }) {
   const native = useNativeText();
+  const synthesize = useSynthesizeSpeech();
   const pairCount = difficulty === "easy" ? 6 : 8;
   const cols = difficulty === "easy" ? 4 : 4; // always 4 cols; rows differ
 
@@ -353,6 +362,54 @@ function GameBoard({
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Ref mirrors so the stable handleFlip callback sees the latest values.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Cache synthesized audio per pair id so re-flips cost nothing extra.
+  const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
+
+  // Speak the Indian-language card's nativeScript on flip. English match
+  // cards are never spoken. Muted skips synthesis entirely.
+  const speakNativeCard = useCallback(
+    async (card: GameCard) => {
+      if (!soundOnRef.current || card.type !== "native") return;
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        const cached = audioCache.current.get(card.pairId);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: card.label, languageName: activeLanguageName, languageCode: activeLang },
+          }));
+        audioCache.current.set(card.pairId, { audioBase64: res.audioBase64, format: res.format });
+        if (!soundOnRef.current) return;
+        const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+        audioRef.current = audio;
+        await audio.play();
+      } catch {
+        // Audio is a nice-to-have; the match itself continues silently.
+      }
+    },
+    [synthesize, activeLanguageName, activeLang],
+  );
+
+  // Stop any in-flight audio when the board unmounts.
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -379,6 +436,10 @@ function GameBoard({
 
   const handleFlip = useCallback((id: string) => {
     if (locked) return;
+
+    // Speak the tapped card when it is the native-script half of the pair.
+    const tapped = cardsRef.current.find(c => c.id === id);
+    if (tapped) void speakNativeCard(tapped);
 
     setCards(prev =>
       prev.map(c => c.id === id ? { ...c, state: "flipped" } : c)
@@ -421,7 +482,7 @@ function GameBoard({
 
       return [];
     });
-  }, [locked]);
+  }, [locked, speakNativeCard]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 pb-4">
@@ -452,7 +513,8 @@ function GameBoard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WordMatchPage() {
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
   const [phase, setPhase] = useState<Phase>("picker");
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -499,6 +561,14 @@ export default function WordMatchPage() {
     setPhase("picker");
   };
 
+  // The board timer makes mid-play exits destructive - confirm first.
+  const handleHeaderBack = () => {
+    if (phase === "game" && !window.confirm("Leave the game? Your current run will be lost.")) {
+      return;
+    }
+    handleChooseTopic();
+  };
+
   const xpEarned = difficulty === "easy"
     ? GAME_CONFIG.wordMatch.xpEasy
     : GAME_CONFIG.wordMatch.xpNormal;
@@ -516,7 +586,7 @@ export default function WordMatchPage() {
       <div className="flex items-center gap-3 border-b border-border px-4 py-4">
         {phase === "game" || phase === "end" ? (
           <button
-            onClick={handleChooseTopic}
+            onClick={handleHeaderBack}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
             aria-label="Back to topics"
           >
@@ -540,6 +610,9 @@ export default function WordMatchPage() {
           </Link>
         )}
         <h1 className="text-lg font-extrabold text-foreground">{phaseTitle[phase]}</h1>
+        <div className="ml-auto">
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+        </div>
       </div>
 
       {/* Phase content */}
@@ -570,6 +643,9 @@ export default function WordMatchPage() {
             key={gameKey}
             phrases={phrases}
             difficulty={difficulty}
+            activeLang={activeLang}
+            activeLanguageName={activeLanguage?.name}
+            soundOn={soundOn}
             onEnd={handleEnd}
           />
         )

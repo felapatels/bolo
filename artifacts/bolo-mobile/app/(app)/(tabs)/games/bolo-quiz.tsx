@@ -30,6 +30,8 @@ import {
   type OrderWordsQuestion,
 } from '@workspace/api-client-react';
 import { playBase64Audio } from '@/lib/audio';
+import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { confirmDiscardRun } from '@/lib/gameExit';
 
 /** Mirror of server-side isCorrectAnswer for instant local score display. */
 function localIsCorrect(q: QuizQuestion, ans: string | null): boolean {
@@ -140,6 +142,7 @@ function ListenQuestion({
   colors,
   languageName,
   ttsVoice,
+  soundOn,
 }: {
   q: ListenIdentifyQuestion;
   onAnswer: (selected: string) => void;
@@ -147,6 +150,7 @@ function ListenQuestion({
   colors: ReturnType<typeof useColors>;
   languageName: string;
   ttsVoice: string;
+  soundOn: boolean;
 }) {
   const choices = useRef(
     [...q.distractors, q.correctNativeScript].sort(() => Math.random() - 0.5),
@@ -172,7 +176,8 @@ function ListenQuestion({
   const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
 
   const playAudio = async () => {
-    if (isPlaying) return;
+    // Muted games skip synthesis entirely, not just playback.
+    if (!soundOn || isPlaying) return;
     setIsPlaying(true);
     try {
       const cacheKey = `${q.correctNativeScript}:${ttsVoice}`;
@@ -534,6 +539,7 @@ export default function BoloQuizScreen() {
   const { activeLang, activeLanguage } = useLanguage();
   const accountQuery = useGetAccount();
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   // Gate: redirect non-Plus users
   useEffect(() => {
@@ -646,7 +652,17 @@ export default function BoloQuizScreen() {
     <Screen>
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={[s.backBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Pressable
+          onPress={() => {
+            // Leaving mid-quiz forfeits today's attempt in progress; ask first.
+            if (quizState === 'playing') confirmDiscardRun(() => router.back());
+            else router.back();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          testID="game-exit-btn"
+          style={[s.backBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+        >
           <Feather name="arrow-left" size={18} color={colors.foreground} />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -655,7 +671,10 @@ export default function BoloQuizScreen() {
             <Text style={[s.headerSubtitle, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
           )}
         </View>
-        <Feather name="award" size={22} color={colors.primary} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+          <Feather name="award" size={22} color={colors.primary} />
+        </View>
       </View>
 
       {/* Body */}
@@ -725,6 +744,7 @@ export default function BoloQuizScreen() {
               colors={colors}
               languageName={activeLanguage?.name ?? activeLang}
               ttsVoice={ttsVoice}
+              soundOn={soundOn}
             />
           )}
           {currentQ.type === 'order_words' && (

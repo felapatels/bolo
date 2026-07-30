@@ -80,7 +80,10 @@ const DIFFICULTY_CLASSES: Record<GameDef["difficulty"], string> = {
 };
 
 export default function GamesPage() {
-  const { isPlus } = useEntitlements();
+  const { isPlus, isLoading } = useEntitlements();
+  // Fail closed: while entitlements are loading (or undefined), Plus-only
+  // tiles render locked rather than briefly unlocked.
+  const plusReady = isPlus === true && !isLoading;
 
   return (
     <div className="min-h-[100dvh] bg-background pb-28 lg:pb-8">
@@ -104,7 +107,7 @@ export default function GamesPage() {
       <div className="mx-auto max-w-2xl px-4 pt-6 lg:px-6">
         <div className="grid gap-3 sm:grid-cols-2">
           {GAMES.map((game, index) => {
-            const locked = game.plusOnly && !isPlus;
+            const locked = game.plusOnly && !plusReady;
             const Card = (
               <GameCard
                 key={game.id}

@@ -34,8 +34,15 @@ jest.mock('@workspace/api-client-react', () => {
     useRecordGameSession: () => ({ mutate: jest.fn() }),
     useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
+    // Prompt audio (Build 30 batch 3) - stubbed, playback is not asserted here.
+    useSynthesizeSpeech: () => ({ mutateAsync: jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' })) }),
+    useGetAccount: () => ({ data: { preferences: { learning: { ttsVoice: 'voice-A' } } } }),
   };
 });
+
+jest.mock('@/lib/audio', () => ({
+  playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
+}));
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

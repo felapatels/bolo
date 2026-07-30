@@ -1,5 +1,7 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /** Per-request override for the fetch deadline. */
+  timeoutMs?: number;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -10,6 +12,21 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+
+// Every request gets a hard deadline so a stalled network call can never hang
+// a caller indefinitely (e.g. pull-to-refresh spinners that never settle).
+// Long-lived streaming (SSE) bypasses customFetch entirely, so this does not
+// apply to it. Callers may override per request via `timeoutMs`.
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+export class RequestTimeoutError extends Error {
+  readonly name = "RequestTimeoutError";
+
+  constructor(method: string, url: string, timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms: ${method} ${url}`);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Module-level configuration
@@ -346,7 +363,12 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    headers: headersInit,
+    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    ...init
+  } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -379,7 +401,34 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Merge the caller's signal (e.g. react-query cancellation) with a timeout
+  // signal so either one aborts the request. Built by hand because
+  // AbortSignal.any/timeout are missing from some React Native runtimes.
+  const controller = new AbortController();
+  const callerSignal = init.signal ?? null;
+  let timedOut = false;
+  const onCallerAbort = () => controller.abort();
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", onCallerAbort);
+  }
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers, signal: controller.signal });
+  } catch (err) {
+    if (timedOut) {
+      throw new RequestTimeoutError(method, requestInfo.url, timeoutMs);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", onCallerAbort);
+  }
 
   if (!response.ok) {
     if (response.status === 401) {

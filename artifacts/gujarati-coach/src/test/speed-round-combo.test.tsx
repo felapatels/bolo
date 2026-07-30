@@ -74,6 +74,11 @@ vi.mock("@workspace/api-client-react", () => ({
   }),
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  // Prompt audio (Build 30 batch 3) - stubbed, playback is not asserted here.
+  useSynthesizeSpeech: () => ({
+    mutateAsync: vi.fn(async () => ({ audioBase64: "AAA", format: "mp3" })),
+    isPending: false,
+  }),
 }));
 
 import SpeedRoundPage from "@/pages/games/speed-round";

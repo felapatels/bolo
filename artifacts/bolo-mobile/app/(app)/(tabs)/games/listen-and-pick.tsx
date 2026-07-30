@@ -37,6 +37,8 @@ import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GAME_CONFIG } from '@/lib/game-config';
+import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { confirmDiscardRun } from '@/lib/gameExit';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -222,11 +224,13 @@ type PhraseResult = { phraseId: number; selectedPhraseId: number };
 function GameRound({
   phrases,
   activeLanguage,
+  soundOn,
   onEnd,
   colors,
 }: {
   phrases: Phrase[];
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
+  soundOn: boolean;
   onEnd: (score: number, results: PhraseResult[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
@@ -261,9 +265,15 @@ function GameRound({
   // can detect if we've already moved on (unmounted/advanced).
   const qIdxRef = useRef(0);
   qIdxRef.current = qIdx;
+  // Mute must skip synthesis calls, not just playback; a ref keeps the async
+  // playback path reading the live value.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
 
   const playPhrase = useCallback(
     async (phrase: Phrase) => {
+      // Muted games skip synthesis entirely.
+      if (!soundOnRef.current) return;
       // Stop any currently playing audio first
       if (playbackRef.current) {
         playbackRef.current.stop();
@@ -309,6 +319,7 @@ function GameRound({
   // ttsVoice is included in the cache key so a voice change re-fetches the
   // upcoming phrase in the new voice rather than serving a stale clip.
   useEffect(() => {
+    if (!soundOn) return;
     const next = questions[qIdx + 1];
     const nextKey = next ? `${next.phrase.id}:${ttsVoice}` : null;
     if (!next || !nextKey || audioCache.current.has(nextKey)) return;
@@ -317,7 +328,7 @@ function GameRound({
       .then(res => audioCache.current.set(nextKey, { audioBase64: res.audioBase64, format: res.format }))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qIdx, ttsVoice]);
+  }, [qIdx, ttsVoice, soundOn]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -326,6 +337,19 @@ function GameRound({
 
   const q = questions[qIdx];
   const total = questions.length;
+
+  const advance = useCallback(
+    (finalScore: number) => {
+      setAnswerState('idle');
+      setPickedIdx(null);
+      if (qIdxRef.current + 1 >= total) {
+        onEnd(finalScore, phraseResultsRef.current);
+      } else {
+        setQIdx(i => i + 1);
+      }
+    },
+    [total, onEnd],
+  );
 
   const handlePick = (choiceIdx: number) => {
     if (answerState !== 'idle' || !q) return;
@@ -343,19 +367,14 @@ function GameRound({
       selectedPhraseId: q.choices[choiceIdx].id,
     });
 
-    if (!isCorrect) {
+    if (isCorrect) {
+      // Correct answers keep the short auto-advance beat.
+      setTimeout(() => advance(newScore), GAME_CONFIG.listenAndPick.feedbackDelay);
+    } else {
+      // Wrong answers hold the reveal (red pick, green correct, replayed
+      // audio) until the learner taps Continue below.
       setTimeout(() => playPhrase(q.phrase), 200);
     }
-
-    setTimeout(() => {
-      setAnswerState('idle');
-      setPickedIdx(null);
-      if (qIdx + 1 >= total) {
-        onEnd(newScore, phraseResultsRef.current);
-      } else {
-        setQIdx(i => i + 1);
-      }
-    }, GAME_CONFIG.listenAndPick.feedbackDelay);
   };
 
   if (!q) return null;
@@ -488,6 +507,18 @@ function GameRound({
           );
         })}
       </View>
+
+      {/* Wrong-answer reveal hold: the learner studies the highlight and
+          continues when ready. Correct answers auto-advance. */}
+      {answerState === 'wrong' && (
+        <PressableScale
+          testID="listen-and-pick-continue"
+          onPress={() => advance(score)}
+          style={[styles.continueBtn, { backgroundColor: colors.primary }]}
+        >
+          <Text style={styles.continueLabel}>Tap to continue</Text>
+        </PressableScale>
+      )}
     </View>
   );
 }
@@ -500,6 +531,8 @@ export default function ListenAndPickScreen() {
   const { activeLang, activeLanguage } = useLanguage();
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
+
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   const [phase, setPhase] = useState<Phase>('picker');
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
@@ -555,11 +588,16 @@ export default function ListenAndPickScreen() {
         <Pressable
           onPress={() => {
             if (phase === 'picker') router.back();
+            else if (phase === 'game') {
+              // Leaving mid-round discards the run in progress; ask first.
+              confirmDiscardRun(() => { setSelectedCategory(null); setPhase('picker'); });
+            }
             else { setSelectedCategory(null); setPhase('picker'); }
           }}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+          testID="game-exit-btn"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
@@ -570,7 +608,7 @@ export default function ListenAndPickScreen() {
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
           )}
         </View>
-        <View style={{ width: 44 }} />
+        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
       </View>
 
       {phase === 'picker' && (
@@ -591,6 +629,7 @@ export default function ListenAndPickScreen() {
             key={gameKey}
             phrases={phrases}
             activeLanguage={activeLanguage}
+            soundOn={soundOn}
             onEnd={handleEnd}
             colors={colors}
           />
@@ -709,4 +748,12 @@ const styles = StyleSheet.create({
   },
   feedbackIcon: { position: 'absolute', top: 8, right: 8 },
   emptyText: { fontFamily: AppFonts.regular, fontSize: 15, textAlign: 'center', paddingHorizontal: 32 },
+  continueBtn: {
+    marginTop: 4,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueLabel: { fontFamily: AppFonts.bold, fontSize: 15, color: '#FFFFFF' },
 });

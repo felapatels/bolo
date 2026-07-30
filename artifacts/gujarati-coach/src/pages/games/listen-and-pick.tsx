@@ -24,6 +24,7 @@ import {
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -201,15 +202,21 @@ function GameRound({
   phrases,
   activeLang,
   activeLanguageName,
+  soundOn,
   onEnd,
 }: {
   phrases: Phrase[];
   activeLang: string;
   activeLanguageName: string | undefined;
+  soundOn: boolean;
   onEnd: (score: number, results: PhraseResult[]) => void;
 }) {
   const native = useNativeText();
   const synthesize = useSynthesizeSpeech();
+
+  // Ref mirror so stable callbacks and timers observe the latest mute state.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
 
   const [questions] = useState<Question[]>(() =>
     buildQuestions(phrases, GAME_CONFIG.listenAndPick.roundSize)
@@ -231,6 +238,8 @@ function GameRound({
 
   const playPhrase = useCallback(
     async (phrase: Phrase) => {
+      // Muted games skip synthesis entirely, not just playback.
+      if (!soundOnRef.current) return;
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
@@ -262,8 +271,9 @@ function GameRound({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIdx]);
 
-  // Prefetch next question's audio
+  // Prefetch next question's audio (skipped while muted - no synthesis calls)
   useEffect(() => {
+    if (!soundOn) return;
     const next = questions[qIdx + 1];
     if (!next || audioCache.current.has(next.phrase.id)) return;
     synthesize
@@ -272,6 +282,20 @@ function GameRound({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIdx]);
+
+  // Advance to the next question (or end the round) after feedback.
+  const advance = useCallback(
+    (finalScore: number) => {
+      setAnswerState("idle");
+      setPickedIdx(null);
+      if (qIdx + 1 >= total) {
+        onEnd(finalScore, phraseResultsRef.current);
+      } else {
+        setQIdx(i => i + 1);
+      }
+    },
+    [qIdx, total, onEnd],
+  );
 
   const handlePick = (choiceIdx: number) => {
     if (answerState !== "idle") return;
@@ -288,21 +312,15 @@ function GameRound({
       selectedPhraseId: q.choices[choiceIdx].id,
     });
 
-    // If wrong, play the correct phrase so learner hears it
-    if (!isCorrect) {
+    if (isCorrect) {
+      // Correct answers keep the brisk auto-advance.
+      const finalScore = score + 1;
+      setTimeout(() => advance(finalScore), GAME_CONFIG.listenAndPick.feedbackDelay);
+    } else {
+      // Wrong answers hold the reveal (red pick, green correct, replayed
+      // audio) until the learner taps to continue.
       setTimeout(() => playPhrase(q.phrase), 200);
     }
-
-    setTimeout(() => {
-      setAnswerState("idle");
-      setPickedIdx(null);
-      if (qIdx + 1 >= total) {
-        const finalScore = isCorrect ? score + 1 : score;
-        onEnd(finalScore, phraseResultsRef.current);
-      } else {
-        setQIdx(i => i + 1);
-      }
-    }, GAME_CONFIG.listenAndPick.feedbackDelay);
   };
 
   if (!q) return null;
@@ -387,6 +405,17 @@ function GameRound({
           );
         })}
       </div>
+
+      {/* Wrong answers hold the reveal until the learner is ready to move on */}
+      {answerState === "wrong" && (
+        <button
+          onClick={() => advance(score)}
+          data-testid="listen-and-pick-continue"
+          className="flex items-center justify-center rounded-2xl bg-primary px-6 py-3.5 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+        >
+          Tap to continue
+        </button>
+      )}
     </div>
   );
 }
@@ -395,6 +424,7 @@ function GameRound({
 
 export default function ListenAndPickPage() {
   const { activeLang, activeLanguage } = useLanguage();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [phase, setPhase] = useState<Phase>("picker");
@@ -479,6 +509,9 @@ export default function ListenAndPickPage() {
           </Link>
         )}
         <h1 className="text-lg font-extrabold text-foreground">Listen &amp; Pick</h1>
+        <div className="ml-auto">
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+        </div>
       </div>
 
       {phase === "picker" && (
@@ -500,6 +533,7 @@ export default function ListenAndPickPage() {
             phrases={phrases}
             activeLang={activeLang}
             activeLanguageName={activeLanguage?.name}
+            soundOn={soundOn}
             onEnd={handleEnd}
           />
         )

@@ -32,6 +32,12 @@ vi.mock("@/components/XpCounter", () => ({
   XpCounter: () => null,
 }));
 
+// The one-time name prompt (Build 30 batch 3) needs a react-query provider
+// and profile hooks; it is out of scope for entitlement gating.
+vi.mock("@/components/name-prompt-card", () => ({
+  NamePromptCard: () => null,
+}));
+
 vi.mock("@clerk/react", () => ({
   useUser: () => ({ isSignedIn: true, user: { firstName: "Test" } }),
   useClerk: () => ({ signOut: h.signOut }),

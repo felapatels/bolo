@@ -16,6 +16,8 @@ import {
   useListCategoryPhrases,
   useRecordGameSession,
   getGetProgressSummaryQueryKey,
+  useSynthesizeSpeech,
+  useGetAccount,
   type Category,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -28,6 +30,9 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { hapticMedium, hapticNotify } from '@/lib/haptics';
 import * as Haptics from 'expo-haptics';
+import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { confirmDiscardRun } from '@/lib/gameExit';
 
 const GAME_DURATION = 60;
 const STREAK_BONUS_THRESHOLD = 3;
@@ -199,15 +204,59 @@ function SetupScreen({
 function PlayingScreen({
   categoryId,
   hardMode,
+  soundOn,
+  onToggleSound,
+  onExit,
   onDone,
 }: {
   categoryId: number;
   hardMode: boolean;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  onExit: () => void;
   onDone: (results: PhraseResult[], stats: GameStats) => void;
 }) {
   const colors = useColors();
   const { activeLang, activeLanguage } = useLanguage();
   const { data: allPhrases = [], isLoading } = useListCategoryPhrases(categoryId, activeLang);
+
+  const synthesize = useSynthesizeSpeech();
+  // ttsVoice keys the audio cache so a mid-session voice change fetches fresh
+  // clips instead of replaying stale ones (same pattern as listen-and-pick).
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+  const playbackRef = useRef<PlaybackHandle | null>(null);
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+  // Mute must skip synthesis calls, not just playback.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+
+  // Speak the prompt word in the target language when a new question shows.
+  const speakPrompt = useCallback(
+    async (phrase: Phrase) => {
+      if (!soundOnRef.current) return;
+      try {
+        const cacheKey = `${phrase.id}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
+          }));
+        audioCache.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format });
+        playbackRef.current?.stop();
+        playbackRef.current = await playBase64Audio(res.audioBase64, res.format);
+      } catch {
+        // Audio is a bonus; the round never blocks on it.
+      }
+    },
+    [synthesize, activeLanguage, ttsVoice],
+  );
+
+  // Stop any in-flight clip when the round unmounts.
+  useEffect(() => {
+    return () => { playbackRef.current?.stop(); };
+  }, []);
 
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [queue, setQueue] = useState<Phrase[]>([]);
@@ -240,6 +289,10 @@ function PlayingScreen({
     setOptions(buildOptions(phrase, queue as Phrase[], hardMode));
     setSelected(null);
     setFeedback(null);
+    void speakPrompt(phrase);
+    // speakPrompt reads mute state via a ref; re-running on its identity (or
+    // on mute changes) would wrongly clear selected/feedback mid-question.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, currentIndex, hardMode]);
 
   useEffect(() => {
@@ -341,6 +394,16 @@ function PlayingScreen({
 
       {/* Header row */}
       <View style={styles.playHeader}>
+        <Pressable
+          onPress={onExit}
+          style={styles.exitBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Exit game"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          testID="speed-round-exit"
+        >
+          <Feather name="x" size={20} color={colors.mutedForeground} />
+        </Pressable>
         <View style={styles.playStatRow}>
           <Feather name="clock" size={14} color={isLowTime ? '#EF4444' : colors.foreground} />
           <Text style={[styles.timerText, { color: isLowTime ? '#EF4444' : colors.foreground }]}>
@@ -355,6 +418,7 @@ function PlayingScreen({
           <Feather name="award" size={14} color={colors.primary} />
           <Text style={[styles.pointsText, { color: colors.primary }]}>{stats.points}</Text>
         </View>
+        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
       </View>
 
       {/* Combo burst overlay — springs in when streak hits 3 / 5 / 10 */}
@@ -560,6 +624,7 @@ function ResultCard({
 export default function SpeedRoundScreen() {
   const { isPlus, isLoading } = useEntitlements();
   const router = useRouter();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   useEffect(() => {
     if (!isLoading && !isPlus) {
@@ -580,9 +645,24 @@ export default function SpeedRoundScreen() {
     setPhase('done');
   }, []);
 
+  // Speed Round is timed, so exiting mid-play confirms before discarding.
+  const handleExit = useCallback(() => {
+    confirmDiscardRun(() => setPhase('setup'));
+  }, []);
+
   if (phase === 'setup') return <SetupScreen onStart={(id, hard) => { setCategoryId(id); setHardMode(hard); setPhase('playing'); }} />;
   if (phase === 'playing' && categoryId !== null) {
-    return <PlayingScreen key={gameKey} categoryId={categoryId} hardMode={hardMode} onDone={handleDone} />;
+    return (
+      <PlayingScreen
+        key={gameKey}
+        categoryId={categoryId}
+        hardMode={hardMode}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        onExit={handleExit}
+        onDone={handleDone}
+      />
+    );
   }
   if (phase === 'done' && categoryId !== null) {
     return (
@@ -645,6 +725,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 10,
   },
   playStatRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  exitBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   timerText: { fontFamily: AppFonts.bold, fontSize: 14 },
   streakText: { fontFamily: AppFonts.bold, fontSize: 14 },
   pointsText: { fontFamily: AppFonts.bold, fontSize: 14 },

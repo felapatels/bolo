@@ -33,6 +33,12 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
 }));
 
+// The games speak target-language audio now (Build 30 batch 3); expo-audio
+// cannot load in jest, so the audio helper is stubbed.
+jest.mock('@/lib/audio', () => ({
+  playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
+}));
+
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
     activeLang: 'gu',

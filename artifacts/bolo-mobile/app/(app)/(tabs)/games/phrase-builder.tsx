@@ -15,6 +15,8 @@ import {
   useListCategoryPhrases,
   useRecordGameSession,
   getGetProgressSummaryQueryKey,
+  useSynthesizeSpeech,
+  useGetAccount,
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -25,6 +27,8 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import * as Haptics from 'expo-haptics';
+import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 
 const PHRASES_PER_ROUND = 6;
 
@@ -175,9 +179,15 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
 
 function PlayingScreen({
   categoryId,
+  soundOn,
+  onToggleSound,
+  onExit,
   onDone,
 }: {
   categoryId: number;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  onExit: () => void;
   onDone: (results: PhraseResult[], correctCount: number) => void;
 }) {
   const colors = useColors();
@@ -190,6 +200,47 @@ function PlayingScreen({
   const [pState, setPState] = useState<PhraseBuilderState>({ placed: [], tiles: [], status: 'idle', wrongMask: [] });
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [correctCount, setCorrectCount] = useState(0);
+  // Reorder support: tap a placed tile to select it, tap another placed tile
+  // to swap positions, tap the selected tile again to return it to the tray.
+  const [selectedPlacedIdx, setSelectedPlacedIdx] = useState<number | null>(null);
+
+  const synthesize = useSynthesizeSpeech();
+  // ttsVoice keys the audio cache so a mid-session voice change fetches fresh
+  // clips instead of replaying stale ones (same pattern as listen-and-pick).
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+  const playbackRef = useRef<PlaybackHandle | null>(null);
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+  // Mute must skip synthesis calls, not just playback.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+
+  // Speak a word tile in the target language when it is placed into the answer.
+  const speakWord = useCallback(
+    async (word: string) => {
+      if (!soundOnRef.current) return;
+      try {
+        const cacheKey = `${word}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: { text: word, languageName: activeLanguage?.name, languageCode: activeLanguage?.code },
+          }));
+        audioCache.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format });
+        playbackRef.current?.stop();
+        playbackRef.current = await playBase64Audio(res.audioBase64, res.format);
+      } catch {
+        // Audio is a bonus; placing the tile never blocks on it.
+      }
+    },
+    [synthesize, activeLanguage, ttsVoice],
+  );
+
+  // Stop any in-flight clip when the round unmounts.
+  useEffect(() => {
+    return () => { playbackRef.current?.stop(); };
+  }, []);
 
   useEffect(() => {
     if (allPhrases.length === 0) return;
@@ -206,6 +257,8 @@ function PlayingScreen({
 
   const placeTile = (tile: WordTile) => {
     if (pState.status !== 'idle') return;
+    setSelectedPlacedIdx(null);
+    void speakWord(tile.word);
     setPState((prev) => ({
       ...prev,
       tiles: prev.tiles.filter((t) => t.tileId !== tile.tileId),
@@ -213,13 +266,32 @@ function PlayingScreen({
     }));
   };
 
-  const returnTile = (tile: WordTile) => {
+  // Tap-based reorder: first tap selects a placed tile, tapping another
+  // placed tile swaps the two, tapping the selected tile returns it to the
+  // tray (the pre-reorder behavior, now behind an explicit second tap).
+  const handlePlacedTap = (idx: number) => {
     if (pState.status !== 'idle') return;
-    setPState((prev) => ({
-      ...prev,
-      placed: prev.placed.filter((t) => t.tileId !== tile.tileId),
-      tiles: [...prev.tiles, tile],
-    }));
+    if (selectedPlacedIdx === null) {
+      setSelectedPlacedIdx(idx);
+      return;
+    }
+    if (selectedPlacedIdx === idx) {
+      const tile = pState.placed[idx];
+      setSelectedPlacedIdx(null);
+      setPState((prev) => ({
+        ...prev,
+        placed: prev.placed.filter((_, i) => i !== idx),
+        tiles: [...prev.tiles, tile],
+      }));
+      return;
+    }
+    const from = selectedPlacedIdx;
+    setSelectedPlacedIdx(null);
+    setPState((prev) => {
+      const placed = [...prev.placed];
+      [placed[from], placed[idx]] = [placed[idx], placed[from]];
+      return { ...prev, placed };
+    });
   };
 
   const handleCheck = () => {
@@ -228,6 +300,7 @@ function PlayingScreen({
     const submittedText = placedWords.join(' ');
     const correct = submittedText === phrase.nativeScript;
     const mask = pState.placed.map((t, i) => t.word !== targetWords[i]);
+    setSelectedPlacedIdx(null);
     setPState((prev) => ({ ...prev, status: correct ? 'correct' : 'wrong', wrongMask: mask }));
     if (correct) {
       setCorrectCount((c) => c + 1);
@@ -248,6 +321,7 @@ function PlayingScreen({
     }
     setPhraseIdx(next);
     const words = tokenize(round[next].nativeScript);
+    setSelectedPlacedIdx(null);
     setPState(initPhraseState(words));
   };
 
@@ -272,10 +346,21 @@ function PlayingScreen({
 
       {/* Header */}
       <View style={styles.playHeader}>
+        <Pressable
+          onPress={onExit}
+          style={styles.exitBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Exit game"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          testID="phrase-builder-exit"
+        >
+          <Feather name="x" size={20} color={colors.mutedForeground} />
+        </Pressable>
         <Text style={[styles.phraseCounter, { color: colors.mutedForeground }]}>
           Phrase {phraseIdx + 1} of {round.length}
         </Text>
         <Text style={[styles.correctCounter, { color: '#6366F1' }]}>{correctCount} correct</Text>
+        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
       </View>
 
       <ScrollView contentContainerStyle={styles.playContent} showsVerticalScrollIndicator={false}>
@@ -314,11 +399,13 @@ function PlayingScreen({
           <View style={styles.tilesWrap}>
             {pState.placed.map((tile, i) => {
               const isWrong = pState.status === 'wrong' && pState.wrongMask[i];
+              const isSelected = selectedPlacedIdx === i && pState.status === 'idle';
               return (
                 <Pressable
                   key={tile.tileId}
-                  onPress={() => returnTile(tile)}
+                  onPress={() => handlePlacedTap(i)}
                   disabled={pState.status !== 'idle'}
+                  accessibilityState={{ selected: isSelected }}
                   style={[
                     styles.tile,
                     {
@@ -327,13 +414,18 @@ function PlayingScreen({
                           ? '#D1FAE5'
                           : isWrong
                           ? '#FEE2E2'
+                          : isSelected
+                          ? `${colors.primary}30`
                           : `${colors.primary}18`,
                       borderColor:
                         pState.status === 'correct'
                           ? '#10B981'
                           : isWrong
                           ? '#EF4444'
+                          : isSelected
+                          ? colors.primary
                           : `${colors.primary}40`,
+                      borderWidth: isSelected ? 2 : 1,
                     },
                   ]}
                 >
@@ -361,6 +453,13 @@ function PlayingScreen({
             )}
           </View>
         </View>
+
+        {/* Reorder hint */}
+        {pState.placed.length > 1 && pState.status === 'idle' && (
+          <Text style={[styles.reorderHint, { color: colors.mutedForeground }]}>
+            Tap a placed word to select it, then tap another to swap. Tap it again to remove it.
+          </Text>
+        )}
 
         {/* Feedback */}
         {pState.status === 'correct' && (
@@ -509,6 +608,7 @@ function DoneScreen({
 export default function PhraseBuilderScreen() {
   const { isPlus, isLoading } = useEntitlements();
   const router = useRouter();
+  const { soundOn, toggle: toggleSound } = useGameAudio();
 
   useEffect(() => {
     if (!isLoading && !isPlus) {
@@ -530,7 +630,16 @@ export default function PhraseBuilderScreen() {
 
   if (phase === 'setup') return <SetupScreen onStart={(id) => { setCategoryId(id); setPhase('playing'); }} />;
   if (phase === 'playing' && categoryId !== null) {
-    return <PlayingScreen key={gameKey} categoryId={categoryId} onDone={handleDone} />;
+    return (
+      <PlayingScreen
+        key={gameKey}
+        categoryId={categoryId}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        onExit={() => setPhase('setup')}
+        onDone={handleDone}
+      />
+    );
   }
   if (phase === 'done' && categoryId !== null) {
     return (
@@ -577,6 +686,8 @@ const styles = StyleSheet.create({
   },
   phraseCounter: { fontFamily: AppFonts.semibold, fontSize: 13 },
   correctCounter: { fontFamily: AppFonts.bold, fontSize: 13 },
+  exitBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  reorderHint: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 6 },
   playContent: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE, gap: 8 },
   hintArea: { alignItems: 'center', paddingVertical: 12 },
   hintLabel: { fontFamily: AppFonts.regular, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 },

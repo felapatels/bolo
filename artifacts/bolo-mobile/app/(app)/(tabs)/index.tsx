@@ -56,7 +56,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
-import { ContinueCard } from '@/components/ContinueCard';
+import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 
 /** AsyncStorage key recording that the daily-goal celebration already fired. */
@@ -88,7 +88,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { activeLang, activeLanguage } = useLanguage();
-  const { isPlus, dailyNewLessons } = useEntitlements();
+  const { isPlus, isLoading: entitlementsLoading, dailyNewLessons } = useEntitlements();
 
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
@@ -141,13 +141,22 @@ export default function HomeScreen() {
     }, [queryClient, isPlus, activeLang]),
   );
 
-  const refreshing =
-    summary.isRefetching || categories.isRefetching || recent.isRefetching;
+  // Pull-to-refresh spinner is driven by an explicit gesture flag, not by
+  // isRefetching: background invalidations (from games, review, etc.) also
+  // flip isRefetching, which used to make the spinner appear without a pull.
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
-  const onRefresh = () => {
-    summary.refetch();
-    categories.refetch();
-    recent.refetch();
+  const onRefresh = async () => {
+    setPullRefreshing(true);
+    try {
+      await Promise.allSettled([
+        summary.refetch(),
+        categories.refetch(),
+        recent.refetch(),
+      ]);
+    } finally {
+      setPullRefreshing(false);
+    }
   };
 
   const { isIdle, onActivity } = useIdleTimer(10);
@@ -295,7 +304,7 @@ export default function HomeScreen() {
         onTouchStart={onActivity}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={pullRefreshing}
             onRefresh={onRefresh}
             tintColor={colors.primary}
           />
@@ -348,6 +357,9 @@ export default function HomeScreen() {
             ) : null}
           </Pressable>
         </Animated.View>
+
+        {/* One-time name capture when the Clerk profile has no first name */}
+        <NamePromptCard />
 
         {/* Language selector + Chat with Bolo shortcut */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(60)}>
@@ -470,9 +482,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
-            path into practice, so its pass rides above the other cards.
-            (ContinueCard below stays: it jumps straight into a session,
-            while the pass opens the map.) */}
+            path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
           <JourneyPassCard
             onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
@@ -483,24 +493,13 @@ export default function HomeScreen() {
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(220)}>
           <DailyQuizCard
             isPlus={isPlus}
+            entitlementsLoading={entitlementsLoading}
             quizDone={quizData?.completed === true}
             quizLoading={quizLoading}
             quizStreak={quizData?.quizStreak ?? 0}
             onPress={() => router.push('/(app)/(tabs)/games/bolo-quiz')}
             onUpgrade={() => router.push('/(app)/paywall')}
           />
-        </Animated.View>
-
-        {/* Continue / Start hero card */}
-        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}>
-          {categories.isLoading ? (
-            <SkeletonCard height={88} borderRadius={18} style={{ marginBottom: 12 }} />
-          ) : (
-            <ContinueCard
-              categories={categories.data ?? []}
-              onNavigate={(id) => router.push(`/(app)/practice/${id}?skipMastered=true`)}
-            />
-          )}
         </Animated.View>
 
         {/* Review due badge (Plus only) */}
@@ -709,6 +708,7 @@ function ReviewBadge({
 
 function DailyQuizCard({
   isPlus,
+  entitlementsLoading,
   quizDone,
   quizLoading,
   quizStreak,
@@ -716,6 +716,7 @@ function DailyQuizCard({
   onUpgrade,
 }: {
   isPlus: boolean;
+  entitlementsLoading: boolean;
   quizDone: boolean;
   quizLoading: boolean;
   quizStreak: number;
@@ -724,15 +725,20 @@ function DailyQuizCard({
 }) {
   const colors = useColors();
 
+  // Fail closed: while the subscription status is loading or undefined the
+  // card renders the locked state, never the unlocked one.
+  const plusReady = isPlus === true && !entitlementsLoading;
+
   // While the quiz status is loading for Plus users, show nothing to avoid
   // a jarring pop-in once the data arrives.
-  if (isPlus && quizLoading) return null;
+  if (plusReady && quizLoading) return null;
 
   // Quiz already done today — hide the card so it doesn't clutter the screen.
-  if (isPlus && quizDone) return null;
+  if (plusReady && quizDone) return null;
 
-  // Non-Plus: show a locked teaser that routes to the paywall.
-  if (!isPlus) {
+  // Locked (non-Plus, or entitlements still resolving): teaser that routes
+  // to the paywall.
+  if (!plusReady) {
     return (
       <PressableScale
         onPress={() => { hapticLight(); onUpgrade(); }}
@@ -743,7 +749,7 @@ function DailyQuizCard({
           <Feather name="lock" size={22} color={colors.gold} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
+          <Text style={[styles.quizTitle, { color: colors.foreground }]}>Bolo Quiz</Text>
           <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Upgrade to All-Access to unlock</Text>
         </View>
         <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
@@ -762,7 +768,7 @@ function DailyQuizCard({
         <Feather name="zap" size={22} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
+        <Text style={[styles.quizTitle, { color: colors.foreground }]}>Bolo Quiz</Text>
         <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Fresh questions, every day</Text>
       </View>
       {quizStreak >= 2 ? (
@@ -1304,39 +1310,6 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   privacyText: { fontFamily: AppFonts.semibold, fontSize: 13 },
-
-  // ContinueCard
-  continueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 8,
-  },
-  continueIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueSub: { fontFamily: AppFonts.semibold, fontSize: 12 },
-  continueTitle: { fontFamily: AppFonts.extrabold, fontSize: 18, marginTop: 2 },
-  continuePrgTrack: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  continuePrgBg: { flex: 1, height: 6, borderRadius: 999, overflow: 'hidden' },
-  continuePct: { fontFamily: AppFonts.bold, fontSize: 11 },
-  continueBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   // ReviewBadge
   reviewBadge: {

@@ -58,3 +58,10 @@ filter which sees stale dist.
 - Adding a new `@workspace/api-client-react` hook import to a shared component (e.g. something on home) breaks EVERY existing test whose `jest.mock` factory enumerates the module's exports — ~38 files at once.
 - Fix pattern: script-patch the stubs into the TOP of each `() => ({ ... })` factory; later duplicate keys win in object literals, so file-specific mock overrides are unaffected. Watch for the odd factory written as `() => { return {...} }` (block body) — the insert regex must skip or handle it.
 - Playwright-against-Expo-web notes: qa/node_modules has playwright-core (ESM ignores NODE_PATH); RN Modal overlays don't hide the page underneath from `getByText`, so target modal rows by their unique subtitle (e.g. "Gujarati · Gujarati"), not the native-script name that also appears on the home pill.
+
+## onLayout-gated UI renders empty in jest
+Components that render children only after an `onLayout` measurement (e.g. the
+Word Match card grid sizes cards from the measured grid box) show an EMPTY
+container in jest because RNTL never fires layout events. Dispatch it manually
+before asserting on the children:
+`fireEvent(screen.getByTestId('word-match-grid'), 'layout', { nativeEvent: { layout: { width: 400, height: 600 } } })`.
