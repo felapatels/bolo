@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runParrotTurn as _runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, type ParrotChatDeps, type ChatHistoryTurn, type ParrotTurnResult } from "./parrotChat";
+import { runParrotTurn as _runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, BOLO_MINI_TTS_VOICE, type ParrotChatDeps, type ChatHistoryTurn, type ParrotTurnResult } from "./parrotChat";
+import { PHRASE_AUDIO_DEFAULT_VOICE } from "./ttsConfig";
 
 // Narrowing wrapper: all existing tests supply valid transcripts and never
 // trigger the no-speech path. Asserting the result shape here keeps all call
@@ -55,6 +56,20 @@ function makeDeps(overrides: Partial<ParrotChatDeps> = {}): ParrotChatDeps {
     ...overrides,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Chat reply TTS voice must match the phrase/greeting default voice
+// ---------------------------------------------------------------------------
+
+test("chat reply mini-TTS voice equals the phrase/greeting default voice", () => {
+  // Chat replies (gpt-4o-mini-tts, both boloTTSMini and boloTTSMiniStream)
+  // must synthesize with the same voice as greetings and phrase audio.
+  // "sage" measured 15-17 dB quieter at source than "nova", which produced
+  // loud greetings followed by quiet replies on device. If this fails, the
+  // two constants have diverged again.
+  assert.equal(BOLO_MINI_TTS_VOICE, PHRASE_AUDIO_DEFAULT_VOICE,
+    "chat reply TTS voice must equal PHRASE_AUDIO_DEFAULT_VOICE so all Bolo audio uses one voice at one loudness");
+});
 
 // ---------------------------------------------------------------------------
 // wavDurationSeconds (used by runParrotTurn internally)

@@ -436,7 +436,11 @@ async function boloTTS(text: string, languageName: string, _languageCode: string
 // Voice constant for gpt-4o-mini-tts. This model has a different voice set
 // from gpt-audio (e.g. it adds ash, ballad, coral, sage, verse, marin, cedar).
 // Must not be merged with BOLO_GPT_AUDIO_VOICE even if the string value is the same.
-const BOLO_MINI_TTS_VOICE = "sage";
+// "nova" matches PHRASE_AUDIO_DEFAULT_VOICE (ttsConfig.ts) so chat replies use
+// the same voice at the same loudness as greetings and phrase audio ("sage"
+// measured 15-17 dB quieter at source). A test pins the two constants equal.
+// Exported for that divergence-guard test.
+export const BOLO_MINI_TTS_VOICE = "nova";
 
 // TTS for Bolo using the dedicated speech endpoint (gpt-4o-mini-tts). Cheaper
 // than gpt-audio for audio output because it uses the dedicated speech billing

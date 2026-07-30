@@ -98,7 +98,9 @@ export const BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST = createHash("sha256")
 
 // Default OpenAI voice used for phrase audio on non-ElevenLabs providers.
 // "nova" is the same default that /openai/tts resolves when no voice is sent.
-const PHRASE_AUDIO_DEFAULT_VOICE = "nova";
+// Exported so the parrotChat divergence-guard test can assert the chat reply
+// voice (BOLO_MINI_TTS_VOICE) stays equal to this phrase/greeting default.
+export const PHRASE_AUDIO_DEFAULT_VOICE = "nova";
 
 // ElevenLabs model required for correct Indic and other non-Latin script
 // synthesis. eleven_flash_v2_5 does not handle Gujarati, Tamil, etc.
