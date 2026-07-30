@@ -1,0 +1,52 @@
+# BOLO Spec B1: Language Selection Onboarding (rewrite, supersedes v2 of July 28)
+
+**Read docs/CODEBASE-FACTS.md before doing anything.** It is authoritative. Apply section 9 in full. If anything in this spec contradicts it, stop and ask.
+
+Purpose: a new user's first act after sign-up is choosing their language from all 22 — making the app's core premise visible at first touch. Today a fresh account lands on home defaulted to Hindi with a picker they may never notice; the 22-language promise is invisible at exactly the moment it matters most.
+
+Context that postdates the original spec and governs this rewrite: the journey map is the progression surface, locked languages route through the showroom with a 3-phrase teaser, the tier model is All-Access/Family, and unlock filtering is enforced server-side. This spec must compose with all of that, not duplicate any of it.
+
+## SESSION RULES
+
+1. No discovery or planning beyond Step 0.
+2. No refactoring or improving anything not named here.
+3. This inserts one step after first sign-up. It does not rebuild onboarding, the landing page, the guided tour, or the home language picker.
+4. Web first. Mobile parity is a follow-up task, not part of this spec.
+
+## STEP 0: BOUNDED INVENTORY
+
+Answer as a plain list with file paths, then STOP and wait.
+
+1. Where does a freshly signed-up user land today (exact route sequence from Clerk sign-up completion to first rendered page), and what sets their initial activeLanguage?
+2. What does /languages return per language today: native-script name, English name, speech-recognition capability flag, rollout/content status? List the exact fields.
+3. Is there a server-side "has completed onboarding / has chosen a language" signal, or does the account row only carry activeLanguage with a default? What is the cheapest additive way to distinguish "defaulted" from "chosen"?
+4. How does the client currently know which languages are speech-supported vs listening-only, and which have C1 sentence content vs the 5 withdrawn low-resource languages (kok, ks, sat, brx, mni)?
+5. Where does the existing home language picker live, and does it share a selectable-language-list component this step could reuse?
+
+## BEHAVIOR
+
+1. After first sign-up (and only when the account has never explicitly chosen a language, per the Step 0 item 3 mechanism), the user is routed to a full-screen language selection step before home.
+2. The step shows all 22 languages: native script name prominent, English name secondary. Layout is a scannable grid or list; a short search/filter is optional if a shared component already supports it, not otherwise.
+3. No language is marked free vs locked on this screen. The choice is aspirational; gating happens downstream via the existing showroom/teaser flow. Choosing a locked language is allowed and lands the user in the existing showroom experience.
+4. Speech-capability honesty: languages without speech recognition support carry a small "listening and reading practice" badge; supported ones carry nothing (support is the default expectation). Copy must be factual, not apologetic.
+5. Content-confidence flag: languages whose content is primarily generated (per the C1 provenance marker) carry a one-line note in the detail state or footer: community review is ongoing and learners can flag anything that looks wrong (this pairs with Spec B2's report button). The five withdrawn languages, if selectable at all per current showroom rules, follow whatever the showroom already does; this spec adds no new state for them.
+6. Confirming a choice writes activeLanguage server-side via the existing account mechanism, marks the chosen-signal from Step 0 item 3, and routes to home (or the showroom if locked). The step never appears again for that account.
+7. Skipping: a subtle "skip for now" keeps the current default (Hindi), does NOT set the chosen-signal, and the step reappears on next fresh session start. Skip must not dead-end or loop within a single session.
+8. Existing users (any account with attempts or an explicitly set language) never see this step. The reconcile logic in LanguageProvider must not fight it: the step's write is the server value, so no second-wave refetch may be triggered beyond the existing single settle.
+
+## ACCEPTANCE
+
+1. The system shall route a first-time account to the language selection step exactly once per the chosen-signal, before home.
+2. The system shall display all 22 languages with native-script and English names.
+3. The system shall persist an explicit choice server-side and never re-show the step for that account.
+4. The system shall route locked-language choices into the existing showroom flow unchanged.
+5. The system shall show the listening-only badge for languages without speech support, driven by server data, not a hardcoded list.
+6. The system shall not alter the home language picker, the guided tour, or existing users' entry flow.
+
+## OUT OF SCOPE
+
+Mobile implementation (follow-up task), "why are you here" goal question and any further onboarding steps (future Spec B slices), changes to showroom/teaser/gating logic, marketing copy beyond the two badges/notes named here, the five withdrawn languages' status.
+
+## REPORT
+
+Step 0 first, STOP. After approval: files changed, the chosen-signal mechanism, tests (first-account routing, skip behavior, existing-account bypass, locked-language routing), facts doc updated. Suite at baseline.
