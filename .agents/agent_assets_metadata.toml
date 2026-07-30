@@ -210,3 +210,27 @@ id = "2u9q_ViK9qE34gNmVyehy"
 uri = "file://qa/shots/pre28/locked-home.png"
 type = "image"
 title = "Locked-language home banner"
+
+[[outputs]]
+id = "-pi-5Hph5hFJnNWOUXB0a"
+uri = "file://qa/shots/pre28/dark-home.png"
+type = "image"
+title = "Web home in dark mode — fixed pills"
+
+[[outputs]]
+id = "H7tVki41kLMszmKdFTKma"
+uri = "file://qa/shots/pre28/pass-home-hi.png"
+type = "image"
+title = "Home pass — Hindi: Devanagari brand, stamp centered"
+
+[[outputs]]
+id = "kZBzvNT8eA-cOOAZk_jxc"
+uri = "file://qa/shots/pre28/pass-home-gu.png"
+type = "image"
+title = "Home pass — Gujarati: ગુજરાતી brand, long line name clear"
+
+[[outputs]]
+id = "s_IEvKerd84yMAbKgPkP1"
+uri = "file://qa/shots/pre28/pass-journey-hi.png"
+type = "image"
+title = "Journey header — native brand + stamp in stub"

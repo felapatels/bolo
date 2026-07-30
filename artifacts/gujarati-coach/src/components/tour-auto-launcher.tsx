@@ -8,12 +8,12 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
-import { hasSkippedLanguageStep } from "@/lib/language-step";
 
 // Routes where we must never auto-launch the tour — the learner is mid-session
-// and navigating away would interrupt their practice. The language-selection
-// step is blocked too: the sequence is selection → home → tour, never a tour
-// over the selection screen.
+// and navigating away would interrupt their practice. /choose-language stays
+// blocked: it remains a navigable route (the B1 redirect gate was removed by
+// product decision, July 30 2026 — fresh accounts land straight on home), and
+// the tour must never open over the selection screen.
 const BLOCKED_PREFIXES = ["/practice", "/learn", "/review", "/choose-language"];
 
 /**
@@ -49,20 +49,6 @@ export function TourAutoLauncher() {
     if (account.preferences.learning.hasCompletedTour) return;
     // Don't interrupt an active practice / lesson / review session.
     if (BLOCKED_PREFIXES.some((prefix) => location.startsWith(prefix))) return;
-    // B1 sequence is selection → home → tour: a truly fresh account (language
-    // step unresolved) must not get the tour yet. Without this, the launcher
-    // races the LanguageChoiceGate redirect on first sign-in — startTour
-    // navigates to step 1's route (/app) in the same commit as the gate's
-    // Redirect to /choose-language, the navigations cancel out, and the
-    // learner sees the tour over a blank page. The effect re-runs on location
-    // change (post-skip) or account-cache update (post-choice), so the tour
-    // launches once the learner actually lands on home.
-    if (
-      !account.preferences.learning.hasChosenLanguage &&
-      !hasSkippedLanguageStep()
-    ) {
-      return;
-    }
 
     launched.current = true;
 

@@ -14,7 +14,6 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from './lib/queryClient';
-import { LanguageChoiceGate } from '@/components/language-choice-gate';
 import { LanguageProvider } from './lib/language-context';
 import { ThemeProvider } from './lib/theme-context';
 import { TourProvider } from './lib/tour-context';
@@ -308,11 +307,9 @@ function AppRouter() {
       </Route>
       <Route path="/app">
         <Guard>
-          <LanguageChoiceGate>
-            <AppShell>
-              <Home />
-            </AppShell>
-          </LanguageChoiceGate>
+          <AppShell>
+            <Home />
+          </AppShell>
         </Guard>
       </Route>
       <Route path="/journey">

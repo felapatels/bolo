@@ -11,11 +11,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { PressableScale } from '@/components/PressableScale';
-import { getJourneyLine } from '@/lib/journeyLines';
+import { getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts } from '@/constants/fonts';
+import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
   PunchHole,
@@ -26,9 +26,13 @@ import {
 
 export function JourneyPassCard({ onPress }: { onPress: () => void }) {
   const colors = useColors();
-  const { activeLang } = useLanguage();
+  const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
   const journey = useJourneyProgress(activeLang, line.zones);
+  const brand = getRailBrand(activeLang);
+  // The rotated line name reserves real layout space: measure the slot the
+  // column gives it and size the text to that extent (see stubLineSlot).
+  const [nameExtent, setNameExtent] = React.useState(78);
 
   return (
     <PressableScale
@@ -43,7 +47,28 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
         <View style={styles.body}>
           <View style={styles.top}>
             <View style={styles.topText}>
-              <Text style={styles.eyebrow}>BOARDING PASS · બોલો રેલ</Text>
+              {/* The brand is native-script ("Bolo Rail" in the learner's own
+                  script) — it MUST render with the language font or the Latin
+                  UI font shows tofu. Same per-script handling as the picker. */}
+              <Text
+                style={[
+                  styles.eyebrow,
+                  brand.native && isTallCascadingScript(activeLanguage)
+                    ? styles.eyebrowTall
+                    : null,
+                ]}
+              >
+                BOARDING PASS ·{' '}
+                <Text
+                  style={
+                    brand.native
+                      ? [styles.eyebrowNative, nativeTextStyle(activeLanguage, { bold: true })]
+                      : null
+                  }
+                >
+                  {brand.text}
+                </Text>
+              </Text>
               <Text style={styles.title}>Ride the {line.lineName}</Text>
               <Text numberOfLines={1} style={styles.subtitle}>
                 {journey.current
@@ -94,22 +119,60 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
         />
         <View style={styles.stub}>
           <PunchHole color={colors.background} />
-          {journey.current && (
-            <ZoneStamp
-              ink="rgba(255,255,255,0.8)"
-              zone={journey.current.zoneIndex + 1}
-              name={journey.current.geoName}
-              size={48}
-            />
-          )}
-          <Text numberOfLines={1} style={styles.stubLine}>
-            {line.lineName.toUpperCase()}
-          </Text>
+          {/* Fixed slot so the rotated stamp's visual extent is part of the
+              layout — it can't drift over the perforation or the line name. */}
+          <View style={styles.stampSlot}>
+            {journey.current && (
+              <ZoneStamp
+                ink="rgba(255,255,255,0.8)"
+                zone={journey.current.zoneIndex + 1}
+                name={journey.current.geoName}
+                size={48}
+              />
+            )}
+          </View>
+          {/* Vertical line name, web's writing-mode:vertical-rl composition:
+              the slot reserves the rotated text's true vertical extent (a bare
+              rotated Text only reserves its unrotated ~10px box, which is what
+              let it collide with the stamp). The text is ABSOLUTE inside the
+              slot: as a flex child react-native-web clamps its width to the
+              14px slot (measured empirically), truncating the name to one
+              glyph. Sized `nameExtent` wide × 14 tall and offset so its center
+              matches the slot's, the 90° rotation makes it fill the slot's
+              vertical strip exactly — on native and web alike. */}
+          <View
+            style={styles.stubLineSlot}
+            onLayout={(e) => {
+              const h = Math.round(e.nativeEvent.layout.height);
+              if (h > 20 && h !== nameExtent) setNameExtent(h);
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.stubLine,
+                {
+                  // maxWidth too: react-native-web clamps text to the parent's
+                  // width (measured: width:60 computed as 14px without it).
+                  width: nameExtent,
+                  maxWidth: nameExtent,
+                  left: (STUB_LINE_SLOT_W - nameExtent) / 2,
+                  top: (nameExtent - STUB_LINE_SLOT_W) / 2,
+                },
+              ]}
+            >
+              {line.lineName.toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
     </PressableScale>
   );
 }
+
+// Width of the vertical line-name slot; also the rotated text's line height,
+// so the offset math in the render centers it exactly.
+const STUB_LINE_SLOT_W = 14;
 
 const styles = StyleSheet.create({
   pass: {
@@ -134,6 +197,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     color: 'rgba(255,255,255,0.8)',
   },
+  // Nastaliq glyphs cascade above/below the baseline; give the one-line
+  // eyebrow enough line height that the brand isn't clipped.
+  eyebrowTall: { lineHeight: 24 },
+  eyebrowNative: { fontSize: 11, letterSpacing: 0 },
   title: {
     fontFamily: AppFonts.extrabold,
     fontSize: 18,
@@ -206,15 +273,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
+    gap: 4,
+  },
+  // 56×56 centers the 48px stamp with room for its -12° rotation (visual
+  // bounding ≈ 57px), keeping it inside the 64px stub instead of straddling
+  // the perforation.
+  stampSlot: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Reserves the vertical strip the rotated name occupies; grows to soak up
+  // whatever height the body gives the stub so long names get maximum run.
+  stubLineSlot: {
+    flexGrow: 1,
+    minHeight: 60,
+    width: STUB_LINE_SLOT_W,
+    position: 'relative',
   },
   stubLine: {
+    position: 'absolute',
     fontFamily: AppFonts.extrabold,
     fontSize: 8,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    lineHeight: STUB_LINE_SLOT_W,
     color: 'rgba(255,255,255,0.7)',
     transform: [{ rotate: '90deg' }],
-    width: 70,
     textAlign: 'center',
-    marginBottom: 20,
   },
 });

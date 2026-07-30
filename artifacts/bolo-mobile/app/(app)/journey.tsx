@@ -40,12 +40,12 @@ import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { asUpgradeRequired } from '@/lib/entitlements';
-import { JOURNEY_ZONES, getJourneyLine } from '@/lib/journeyLines';
+import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import { TicketPerforationV, TicketStripes, ZoneStamp } from '@/components/journey/TicketParts';
 import { Bunting, TracksideDoodad, ZoneVista, SCENERY_GRAY } from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
-import { AppFonts } from '@/constants/fonts';
+import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
 const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
@@ -155,6 +155,7 @@ export default function JourneyScreen() {
   const router = useRouter();
   const { width: windowW } = useWindowDimensions();
   const { activeLang, activeLanguage } = useLanguage();
+  const railBrand = getRailBrand(activeLang);
   const { isPlus } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
@@ -387,8 +388,27 @@ export default function JourneyScreen() {
           <TicketStripes ink={`${line.accent}08`} />
           <View style={styles.headerTicketRow}>
             <View style={styles.headerTicketBody}>
-              <Text style={[styles.ticketEyebrow, { color: colors.mutedForeground }]}>
-                BOARDING PASS · બોલો રેલ
+              {/* Native-script brand must use the language font (Latin UI
+                  font = tofu); same per-script handling as the picker. */}
+              <Text
+                style={[
+                  styles.ticketEyebrow,
+                  { color: colors.mutedForeground },
+                  railBrand.native && isTallCascadingScript(activeLanguage)
+                    ? styles.ticketEyebrowTall
+                    : null,
+                ]}
+              >
+                BOARDING PASS ·{' '}
+                <Text
+                  style={
+                    railBrand.native
+                      ? [styles.ticketEyebrowNative, nativeTextStyle(activeLanguage, { bold: true })]
+                      : null
+                  }
+                >
+                  {railBrand.text}
+                </Text>
               </Text>
               <Text numberOfLines={1} style={[styles.ticketLine, { color: colors.foreground }]}>
                 {line.lineName}
@@ -407,13 +427,17 @@ export default function JourneyScreen() {
             <View style={styles.headerStub}>
               <View style={[styles.stubNotch, { backgroundColor: colors.background }]} />
               <Text style={styles.stubEmoji}>🎫</Text>
+              {/* Fixed slot keeps the rotated stamp's visual extent inside
+                  the stub (clear of the perforation). */}
               {currentZone && currentStation && (
-                <ZoneStamp
-                  ink={line.accent}
-                  zone={currentStation.zoneIndex + 1}
-                  name={currentZone.geoName}
-                  size={44}
-                />
+                <View style={styles.stubStampSlot}>
+                  <ZoneStamp
+                    ink={line.accent}
+                    zone={currentStation.zoneIndex + 1}
+                    name={currentZone.geoName}
+                    size={44}
+                  />
+                </View>
               )}
             </View>
           </View>
@@ -882,6 +906,10 @@ const styles = StyleSheet.create({
   headerTicketRow: { flexDirection: 'row', alignItems: 'stretch' },
   headerTicketBody: { flex: 1, minWidth: 0, paddingHorizontal: 14, paddingVertical: 9 },
   ticketEyebrow: { fontFamily: AppFonts.bold, fontSize: 9, letterSpacing: 1.5 },
+  // Nastaliq cascades above/below the baseline — keep the one-line brand
+  // from clipping.
+  ticketEyebrowTall: { lineHeight: 22 },
+  ticketEyebrowNative: { fontSize: 10, letterSpacing: 0 },
   ticketLine: { fontFamily: AppFonts.extrabold, fontSize: 16, lineHeight: 20 },
   ticketRoute: { fontFamily: AppFonts.semibold, fontSize: 11 },
   ticketTeaser: { fontFamily: AppFonts.bold, fontSize: 10 },
@@ -904,6 +932,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   stubEmoji: { fontSize: 16, marginTop: 8 },
+  // 52×52 centers the 44px stamp with room for its -12° rotation (visual
+  // bounding ≈ 52px).
+  stubStampSlot: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: { paddingBottom: 48 },
   exhaustedCard: {
     marginHorizontal: 12,

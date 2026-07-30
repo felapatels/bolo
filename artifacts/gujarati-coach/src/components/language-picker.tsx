@@ -40,7 +40,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
 
   const defaultTrigger = (
     <button
-      className="flex items-center gap-2 rounded-2xl bg-white border border-card-border px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
+      className="flex items-center gap-2 rounded-2xl bg-card border border-card-border px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
       title="Change language"
     >
       <Globe className="w-5 h-5 text-primary" />

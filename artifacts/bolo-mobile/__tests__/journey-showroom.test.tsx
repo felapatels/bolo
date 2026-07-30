@@ -74,6 +74,7 @@ jest.mock('@/constants/fonts', () => ({
     extrabold: 'Inter_800ExtraBold',
   },
   nativeTextStyle: () => ({}),
+  isTallCascadingScript: () => false,
 }));
 
 jest.mock('@/hooks/useColors', () => ({

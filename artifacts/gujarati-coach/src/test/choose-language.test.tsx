@@ -2,13 +2,14 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 // ---------------------------------------------------------------------------
-// Spec B1: the language-selection onboarding step.
-//   - the /app gate routes first-time (and seeded-but-not-chosen) accounts to
-//     the step, while chosen accounts and same-session skippers go straight
-//     home;
-//   - the step itself confirms with ONE write (activeLanguage +
-//     hasChosenLanguage), routes locked picks to the journey showroom, and
-//     shows the listening badge only for speech-unsupported languages;
+// The language-selection step (/choose-language), post-B1-gate removal.
+// The B1 redirect gate was removed by product decision (July 30 2026): fresh
+// accounts land directly on home with the seeded default (Hindi) — there is
+// no LanguageChoiceGate and no redirect. The step remains a normal navigable
+// route with its original behavior:
+//   - it confirms with ONE write (activeLanguage + hasChosenLanguage), routes
+//     locked picks to the journey showroom, and shows the listening badge only
+//     for speech-unsupported languages;
 //   - skipping is session-local: a marker, never a server write;
 //   - an explicit home-picker change also persists the choice flag.
 // ---------------------------------------------------------------------------
@@ -99,7 +100,6 @@ vi.mock("@/hooks/use-toast", () => ({
 
 import { LanguageProvider } from "@/lib/language-context";
 import ChooseLanguage from "@/pages/choose-language";
-import { LanguageChoiceGate } from "@/components/language-choice-gate";
 import { LanguagePicker } from "@/components/language-picker";
 
 function accountWith(overrides: Partial<Record<string, unknown>> = {}) {
@@ -231,71 +231,18 @@ describe("choose-language step", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The /app gate
+// Gate removal pin: no module in the app routes fresh accounts to the step.
 // ---------------------------------------------------------------------------
 
-function renderGate() {
-  return render(
-    <LanguageChoiceGate>
-      <div data-testid="home" />
-    </LanguageChoiceGate>,
-  );
-}
-
-describe("LanguageChoiceGate", () => {
-  test("a first-time account is routed to the step before home", () => {
-    h.accountData = accountWith({ activeLanguage: null });
-    renderGate();
-
-    expect(screen.getByTestId("redirect")).toHaveAttribute(
-      "data-to",
-      "/choose-language",
-    );
-    expect(screen.queryByTestId("home")).toBeNull();
-  });
-
-  test("seeded-but-not-chosen still sees the step (activeLanguage is NOT the signal)", () => {
-    h.accountData = accountWith(); // activeLanguage "hi", flag false
-    renderGate();
-
-    expect(screen.getByTestId("redirect")).toHaveAttribute(
-      "data-to",
-      "/choose-language",
-    );
-  });
-
-  test("an account that has chosen goes straight home", () => {
-    h.accountData = accountWith({ hasChosenLanguage: true });
-    renderGate();
-
-    expect(screen.getByTestId("home")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  test("a same-session skip suppresses the step (it returns next session)", () => {
-    sessionStorage.setItem("bolo.langStepSkipped", "1");
-    renderGate();
-
-    expect(screen.getByTestId("home")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  test("waits for the account before deciding — no home flash for new users", () => {
-    h.accountData = undefined;
-    h.accountLoading = true;
-    renderGate();
-
-    expect(screen.getByTestId("language-gate-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("home")).toBeNull();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  test("fails open: if the account can't load, home still renders", () => {
-    h.accountData = undefined;
-    h.accountLoading = false; // query settled with an error
-    renderGate();
-
-    expect(screen.getByTestId("home")).toBeInTheDocument();
+describe("B1 gate removal", () => {
+  test("the LanguageChoiceGate component no longer exists", () => {
+    // A fresh account (hasChosenLanguage=false) lands directly on home with
+    // the seeded default language; /app renders without any gate wrapper.
+    // import.meta.glob resolves at transform time — resurrecting the file
+    // breaks this pin. (The companion behavioral pin lives in
+    // tour-auto-launcher.test.tsx: fresh account → tour fires on home.)
+    const matches = import.meta.glob("../components/language-choice-gate.tsx");
+    expect(Object.keys(matches)).toHaveLength(0);
   });
 });
 

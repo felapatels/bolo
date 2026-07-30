@@ -2,15 +2,11 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render } from "@testing-library/react";
 
 // ---------------------------------------------------------------------------
-// TourAutoLauncher × B1 language step: the sequence is selection → home → tour.
-// Regression for the fresh-account race found by qa/b1-skip-probe.mjs on
-// July 30 2026: on a truly fresh account (tour not completed AND language not
-// chosen) the launcher used to fire while location was still /app, and
-// startTour's step-1 navigation (/app) landed in the same commit as the
-// LanguageChoiceGate's Redirect to /choose-language — the two navigations
-// cancelled out and the learner got the tour over a blank page instead of the
-// language step. The launcher must hold until the step is resolved (explicit
-// choice server-side, or the session skip marker).
+// TourAutoLauncher, post-B1-gate removal (product decision, July 30 2026):
+// fresh accounts land directly on home with the seeded default language and
+// the tour fires on first home load — hasChosenLanguage no longer holds it.
+// /choose-language stays a blocked route so a learner who navigates there
+// manually never gets the tour over the selection screen.
 // ---------------------------------------------------------------------------
 const h = vi.hoisted(() => ({
   isSignedIn: true as boolean,
@@ -74,28 +70,20 @@ beforeEach(() => {
   window.sessionStorage.clear();
 });
 
-describe("TourAutoLauncher language-step precondition", () => {
-  test("truly fresh account (no tour, language step unresolved) does NOT auto-launch", () => {
+describe("TourAutoLauncher first-home-load behavior", () => {
+  test("a fresh account (hasChosenLanguage=false) launches the tour on home — no gate, no hold", () => {
     h.accountData = accountWith();
     render(<TourAutoLauncher />);
-    expect(h.startTour).not.toHaveBeenCalled();
+    expect(h.startTour).toHaveBeenCalledTimes(1);
   });
 
-  test("launches once the language is explicitly chosen", () => {
+  test("launches for accounts that already chose a language", () => {
     h.accountData = accountWith({ hasChosenLanguage: true });
     render(<TourAutoLauncher />);
     expect(h.startTour).toHaveBeenCalledTimes(1);
   });
 
-  test("launches when the step was skipped this session (marker set)", () => {
-    window.sessionStorage.setItem("bolo.langStepSkipped", "1");
-    h.accountData = accountWith();
-    render(<TourAutoLauncher />);
-    expect(h.startTour).toHaveBeenCalledTimes(1);
-  });
-
-  test("never launches on /choose-language even with the marker set", () => {
-    window.sessionStorage.setItem("bolo.langStepSkipped", "1");
+  test("never launches on /choose-language (still a blocked route)", () => {
     h.location = "/choose-language";
     h.accountData = accountWith();
     render(<TourAutoLauncher />);

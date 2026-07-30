@@ -264,12 +264,12 @@ export default function Home() {
             <Link
               key={attempt.id}
               href={`/practice/${attempt.categoryId}?phrase=${attempt.phraseId}`}
-              className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:translate-y-0"
+              className="flex items-center gap-4 rounded-2xl border border-card-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:translate-y-0"
             >
               {cardContent}
             </Link>
           ) : (
-            <div key={attempt.id} className="flex items-center gap-4 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
+            <div key={attempt.id} className="flex items-center gap-4 rounded-2xl border border-card-border bg-card p-4 shadow-sm">
               {cardContent}
             </div>
           );
@@ -312,7 +312,7 @@ export default function Home() {
               onClick={() => startTour({ steps: TOUR_STEPS })}
               title="Take the product tour"
               aria-label="Take the product tour"
-              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-card border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
             >
               <HelpCircle className="w-5 h-5" />
             </button>
@@ -320,7 +320,7 @@ export default function Home() {
               href="/account"
               title="Account & settings"
               aria-label="Account & settings"
-              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all lg:hidden"
+              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-card border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all lg:hidden"
             >
               <Settings className="w-5 h-5" />
             </Link>
@@ -331,7 +331,7 @@ export default function Home() {
           <LanguagePicker />
           <Link
             href="/chat"
-            className="flex items-center gap-2 rounded-2xl border border-card-border bg-white px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] text-sm font-bold text-foreground transition-all hover:border-primary/40 active:translate-y-1 active:shadow-none"
+            className="flex items-center gap-2 rounded-2xl border border-card-border bg-card px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] text-sm font-bold text-foreground transition-all hover:border-primary/40 active:translate-y-1 active:shadow-none"
             title="Chat with Bolo the parrot"
           >
             <MessageCircle className="w-4 h-4 text-primary" />
@@ -584,7 +584,7 @@ export default function Home() {
                     >
                       <Link href={`/learn/${cat.id}`} className="block h-full">
                         <div
-                          className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-white p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
+                          className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-card p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
                           style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}
                         >
                           <div
@@ -639,7 +639,7 @@ export default function Home() {
                     href={upgradeHref({ plan: "plus", reason: "daily_lesson_limit" })}
                   />
                 ) : (
-                  <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-white p-4 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4 shadow-sm">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <Zap className="h-5 w-5" fill="currentColor" />
                     </div>

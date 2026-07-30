@@ -1,24 +1,21 @@
 /**
- * B1 parity — the first-time language-choice gate in the signed-in layout:
+ * B1 gate removal (product decision, July 30 2026) — fresh accounts land
+ * directly on home with the seeded default language (Hindi):
  *
- *  1. A fresh account (hasChosenLanguage=false, no session skip) is routed to
- *     the full-screen /choose-language step, and the guided tour is HELD.
- *  2. "Skip for now" is session-scoped: with the in-memory flag set, no
- *     routing happens and the tour fires; after a simulated restart (flag
- *     reset) a fresh render routes again.
- *  3. Existing (grandfathered) accounts never see the step; the tour fires.
- *  4. If the account fetch fails, the gate fails open to home.
+ *  1. A fresh account (hasChosenLanguage=false) is NOT routed to
+ *     /choose-language, and the guided tour fires on first home load.
+ *  2. Accounts that already chose a language behave identically.
+ *  3. A failed account fetch still renders home without routing anywhere.
  *
- * Exercises the real AppLayout bootstrappers + real TourContext + real
- * lib/language-step module.
+ * The /choose-language screen itself remains a normal navigable route (see
+ * language-choice-step.test.tsx), and the hasChosenLanguage flag + one-PATCH
+ * helper are retained — only the redirect gate and its tour hold are gone.
+ *
+ * Exercises the real AppLayout bootstrappers + real TourContext.
  */
 
 import React from 'react';
 import { render, screen, act } from '@testing-library/react-native';
-import {
-  markLanguageStepSkipped,
-  resetLanguageStepSkipForTests,
-} from '@/lib/language-step';
 
 // ─── mutable state controlled per-test ──────────────────────────────────────
 
@@ -125,7 +122,6 @@ import AppLayout from '../app/(app)/_layout';
 // ─── test lifecycle ──────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  resetLanguageStepSkipForTests();
   mockState.hasChosenLanguage = false;
   mockState.hasCompletedTour = false;
   mockState.push = jest.fn();
@@ -139,41 +135,17 @@ const wasRoutedToStep = () =>
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('LanguageChoiceBootstrapper', () => {
-  test('routes a fresh account to the language step and holds the tour', async () => {
-    render(<AppLayout />);
-    await act(async () => {});
-
-    expect(wasRoutedToStep()).toBe(true);
-    // Tour is held while the step is pending, even though hasCompletedTour=false.
-    expect(screen.queryByTestId('tour-overlay')).toBeNull();
-  });
-
-  test('a session skip suppresses the step and releases the tour', async () => {
-    markLanguageStepSkipped();
+describe('B1 gate removal — fresh accounts land on home', () => {
+  test('a fresh account is NOT routed to the language step and the tour fires', async () => {
     render(<AppLayout />);
     await act(async () => {});
 
     expect(wasRoutedToStep()).toBe(false);
-    // Step resolved (skipped) → tour fires normally.
+    // No gate hold: the tour opens on first home load (hasCompletedTour=false).
     expect(screen.getByTestId('tour-overlay')).toBeTruthy();
   });
 
-  test('skip is session-scoped: after a simulated restart the step returns', async () => {
-    markLanguageStepSkipped();
-    const first = render(<AppLayout />);
-    await act(async () => {});
-    expect(wasRoutedToStep()).toBe(false);
-    first.unmount();
-
-    // Simulated app restart: the in-memory flag clears.
-    resetLanguageStepSkipForTests();
-    render(<AppLayout />);
-    await act(async () => {});
-    expect(wasRoutedToStep()).toBe(true);
-  });
-
-  test('grandfathered accounts (hasChosenLanguage=true) bypass the step', async () => {
+  test('accounts that already chose a language behave identically', async () => {
     mockState.hasChosenLanguage = true;
     render(<AppLayout />);
     await act(async () => {});
@@ -182,11 +154,22 @@ describe('LanguageChoiceBootstrapper', () => {
     expect(screen.getByTestId('tour-overlay')).toBeTruthy();
   });
 
-  test('fails open to home when the account fetch fails', async () => {
+  test('a completed tour never re-launches', async () => {
+    mockState.hasCompletedTour = true;
+    render(<AppLayout />);
+    await act(async () => {});
+
+    expect(wasRoutedToStep()).toBe(false);
+    expect(screen.queryByTestId('tour-overlay')).toBeNull();
+  });
+
+  test('a failed account fetch renders home without routing anywhere', async () => {
     mockState.hasChosenLanguage = null; // no data, isError=true
     render(<AppLayout />);
     await act(async () => {});
 
     expect(wasRoutedToStep()).toBe(false);
+    expect(mockState.push).not.toHaveBeenCalled();
+    expect(mockState.replace).not.toHaveBeenCalled();
   });
 });

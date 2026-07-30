@@ -6,8 +6,9 @@
 // not a remap). Zone geographic names are category-independent: Z1-Z6 columns
 // of the approved naming table apply in category order, the zone's name
 // appears on its sign/postcard, and inner stations are numbered ("Stop N of
-// M"). Labels are English-only for v1; the single Gujarati accent string
-// "બોલો રેલ" lives on the boarding-pass header, nowhere else.
+// M"). Labels are English-only for v1; the one native-script accent string is
+// the "Bolo Rail" brand on the boarding-pass header (per-language via
+// getRailBrand below), nowhere else.
 
 /** The authoritative zone <-> category mapping (DB ids and titles, in order). */
 export const JOURNEY_ZONES = [
@@ -141,6 +142,47 @@ export const JOURNEY_LINES: Record<string, JourneyLine> = {
     zones: ['Gandhidham', 'Adipur', 'Anjar', 'Bhachau', 'Bhuj', 'Lakhpat'],
   },
 };
+
+/**
+ * "Bolo Rail" transliterated into each language's own script, for the
+ * boarding-pass eyebrow ("BOARDING PASS · बोलो रेल"). Must be rendered with
+ * the language's native font (nativeTextStyle) — the Latin UI font has no
+ * glyphs for these scripts and renders tofu. Languages whose scripts we can't
+ * confidently transliterate (Santali/Ol Chiki, Manipuri/Meetei Mayek) are
+ * deliberately absent: a readable Latin fallback beats a wrong glyph sequence.
+ */
+const RAIL_BRAND: Record<string, string> = {
+  hi: 'बोलो रेल',
+  mr: 'बोलो रेल',
+  ne: 'बोलो रेल',
+  kok: 'बोलो रेल',
+  mai: 'बोलो रेल',
+  doi: 'बोलो रेल',
+  sa: 'बोलो रेल',
+  brx: 'बोलो रेल',
+  gu: 'બોલો રેલ',
+  bn: 'বলো রেল',
+  as: 'বলো ৰেল',
+  pa: 'ਬੋਲੋ ਰੇਲ',
+  ta: 'போலோ ரயில்',
+  te: 'బోలో రైలు',
+  kn: 'ಬೋಲೋ ರೈಲು',
+  ml: 'ബോലോ റെയിൽ',
+  or: 'ବୋଲୋ ରେଲ',
+  ur: 'بولو ریل',
+  ks: 'بولو ریل',
+  sd: 'بولو ريل',
+};
+
+/**
+ * The boarding-pass brand for a language: its native-script "Bolo Rail" when
+ * we have one (`native: true` — render with nativeTextStyle), otherwise the
+ * Latin brand in the eyebrow's own font.
+ */
+export function getRailBrand(code: string): { text: string; native: boolean } {
+  const text = RAIL_BRAND[code];
+  return text ? { text, native: true } : { text: 'BOLO RAIL', native: false };
+}
 
 /**
  * The line for a language code. Every shipped language has an entry; a code
