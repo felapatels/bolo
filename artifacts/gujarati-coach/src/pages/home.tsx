@@ -49,6 +49,23 @@ export default function Home() {
   const native = useNativeText();
   const journeyLine = getJourneyLine(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
+  // Progress-aware boarding-pass CTA. Uses only the data the pass already
+  // receives from useJourneyProgress (no new API calls); when the current
+  // stop is unknown (loading, locked, errored) the copy falls back to the
+  // pre-existing generic verbs.
+  const hasJourneyProgress = Boolean(journey.current?.started) || journey.doneCount > 0;
+  const phrasesLeftAtStop = journey.current
+    ? Math.max(journey.current.phraseCount - journey.current.masteredCount, 0)
+    : 0;
+  const journeyCta = !hasJourneyProgress
+    ? "Begin your journey"
+    : journey.current
+      ? `Resume at Stop ${journey.current.stopNumber}${
+          phrasesLeftAtStop > 0
+            ? ` · ${phrasesLeftAtStop} ${phrasesLeftAtStop === 1 ? "phrase" : "phrases"} to go`
+            : ""
+        }`
+      : "Continue your journey";
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   const { startTour } = useTour();
   // placeholderData: keepPreviousData — when LanguageProvider reconciles the
@@ -458,7 +475,13 @@ export default function Home() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springs.gentle, delay: 0.05 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.985 }}
             >
+              {/* The idle breathe lives on a dedicated wrapper: framer drives
+                  this motion.div's inline transform (entrance spring + press
+                  scale), and a CSS transform animation on the same element
+                  would override it while running. */}
+              <div className={reduceMotion ? undefined : "animate-ticket-breathe"}>
               <Link
                 href="/journey"
                 onClick={() =>
@@ -525,10 +548,13 @@ export default function Home() {
                     {/* action verb + daily-goal/streak co-located */}
                     <div className="flex items-center justify-between gap-2 p-5 pt-3.5 pr-3 lg:px-6 lg:pr-4">
                       <span className="flex items-center gap-1.5 text-sm font-black lg:text-base lg:gap-2">
-                        {journey.current?.started || journey.doneCount > 0
-                          ? "Continue your journey"
-                          : "Begin your journey"}
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 lg:h-5 lg:w-5" />
+                        {journeyCta}
+                        <span
+                          className={cn("inline-flex", !reduceMotion && "animate-cta-arrow-nudge")}
+                          aria-hidden
+                        >
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 lg:h-5 lg:w-5" />
+                        </span>
                       </span>
                       {summary && (
                         <span className="flex shrink-0 items-center gap-1.5">
@@ -570,6 +596,7 @@ export default function Home() {
                   </div>
                 </div>
               </Link>
+              </div>
             </motion.div>
 
             {/* Categories Grid */}

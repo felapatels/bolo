@@ -1,0 +1,14 @@
+→ NEW TASK — paste once
+
+Boarding pass and journey CTA animation, web only. Consult docs/CODEBASE-FACTS.md and agent memory (motion engine Spec 1 v3 rules) before writing any code. Mobile is explicitly out of scope; this ships in the next web publish, native port is a later task.
+
+Step 0 first, report before building: (1) inventory the web home boarding pass component and the journey "Now boarding" stop card: file paths, how they animate today if at all, and what animation primitives are already in the web codebase (CSS transitions, framer-motion or AnimatePresence usage, existing keyframes); (2) confirm where prefers-reduced-motion is currently respected on web so these follow the same pattern; (3) report what progress data the home pass already receives (stop number, phrases remaining) for the copy change. Then build.
+
+Scope, four items:
+
+Home boarding pass idle motion. Give the ticket a subtle living quality: a slow scale breathe in the 1.02 range or a periodic shimmer sweep, plus the "Begin your journey" arrow doing a small repeating horizontal nudge. Long rest periods between cycles; this should read as an invitation, not a distraction. Transforms and opacity only, no layout-affecting animation.
+Press feedback on the pass: slight scale-down on press, spring back on release.
+Journey "Now boarding" stop card: animate the accent. A gentle pulse on the red border or glow, and a soft idle bounce on the train icon at the active stop. Same rules: transforms/opacity only, long rests, calm.
+CTA copy becomes progress-aware. With no progress: keep "Begin your journey". With progress: "Resume at Stop N" with the phrases-remaining count where the data already supports it (per Step 0 item 3). Do not add new API calls for this; use what the component already receives.
+
+Constraints: whole-element transforms only per motion engine rules, all animation disabled cleanly under prefers-reduced-motion (static styles remain correct), no animation may delay interactivity or data render, no new dependencies without reporting first, no em dashes in code or copy. Pin with tests: reduced-motion renders static, CTA copy for zero-progress and mid-progress cases, press handler still fires. Enumerate test counts before and after. Report per item with file paths and web-verified status.

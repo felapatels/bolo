@@ -26,6 +26,7 @@ import {
 } from "@workspace/api-client-react";
 import { ArrowLeft, Lock, Sparkles, X } from "lucide-react";
 import { TrainEngine } from "@/components/train-svg";
+import { useReducedMotion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -119,6 +120,7 @@ function StationMarker({
   isCurrent: boolean;
   accessible: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
   if (isCurrent) {
     return (
       <div
@@ -126,7 +128,8 @@ function StationMarker({
         style={{ boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33`, color }}
         title="Your current stop"
       >
-        <TrainEngine className="w-8 h-full" />
+        {/* Soft idle bob on the parked train, whole-element transform only. */}
+        <TrainEngine className={cn("w-8 h-full", !reduceMotion && "animate-train-bob")} />
       </div>
     );
   }
@@ -255,6 +258,7 @@ function StationCard({
   onLocked: () => void;
   side: "left" | "right";
 }) {
+  const reduceMotion = useReducedMotion();
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
   const statusCopy =
     station.status === "completed"
@@ -269,11 +273,20 @@ function StationCard({
   const card = (
     <div
       className={cn(
-        "min-w-0 rounded-lg px-3 py-2 transition-colors group-hover:bg-accent",
+        "relative min-w-0 rounded-lg px-3 py-2 transition-colors group-hover:bg-accent",
         isCurrent && "bg-card border shadow-sm",
       )}
       style={isCurrent ? { borderColor: color } : undefined}
     >
+      {/* "Now boarding" accent pulse: an opacity-only glow overlay so the
+          animated property stays within the transforms/opacity budget. */}
+      {isCurrent && !reduceMotion && (
+        <div
+          className="pointer-events-none absolute -inset-px rounded-lg animate-stop-glow-pulse"
+          style={{ boxShadow: `0 0 0 3px ${color}55` }}
+          aria-hidden
+        />
+      )}
       <div className="flex items-center gap-2 flex-wrap">
         <span
           className={cn(
