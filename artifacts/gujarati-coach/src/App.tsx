@@ -1,5 +1,5 @@
 import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { identifyUser, trackOnce, ANALYTICS_EVENTS } from './lib/analytics';
 import { setSentryUser } from './lib/sentry';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -26,28 +26,43 @@ import { ClerkAuthSync } from '@/components/clerk-auth-sync';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
-import Chat from '@/pages/chat';
-import CategoryDetail from '@/pages/category-detail';
-import Practice from '@/pages/practice';
-import Journey from '@/pages/journey';
-import Progress from '@/pages/progress';
-import Friends from '@/pages/friends';
-import Games from '@/pages/games/index';
-import GamesWordMatch from '@/pages/games/word-match';
-import GamesSpeedRound from '@/pages/games/speed-round';
-import GamesListenAndPick from '@/pages/games/listen-and-pick';
-import GamesPhraseBuilder from '@/pages/games/phrase-builder';
-import GamesScriptTrace from '@/pages/games/script-trace';
-import GamesBoloQuiz from '@/pages/games/bolo-quiz';
-import Account from '@/pages/account';
-import Contact from '@/pages/contact';
-import Subscription from '@/pages/subscription';
-import Upgrade from '@/pages/upgrade';
-import Family from '@/pages/family';
-import FamilyJoin from '@/pages/family-join';
-import Privacy from '@/pages/privacy';
-import Terms from '@/pages/terms';
-import NotFound from '@/pages/not-found';
+
+// Route-level code splitting: only Landing and Home load eagerly (they are
+// the two entry pages). Everything else is fetched on navigation — without
+// this, opening the logged-in home pulled in every page (chat, practice,
+// all six games…), ~190 dev-server requests, which made the dev preview
+// crawl on phones and bloats the production entry chunk.
+const Chat = lazy(() => import('@/pages/chat'));
+const CategoryDetail = lazy(() => import('@/pages/category-detail'));
+const Practice = lazy(() => import('@/pages/practice'));
+const Journey = lazy(() => import('@/pages/journey'));
+const Progress = lazy(() => import('@/pages/progress'));
+const Friends = lazy(() => import('@/pages/friends'));
+const Games = lazy(() => import('@/pages/games/index'));
+const GamesWordMatch = lazy(() => import('@/pages/games/word-match'));
+const GamesSpeedRound = lazy(() => import('@/pages/games/speed-round'));
+const GamesListenAndPick = lazy(() => import('@/pages/games/listen-and-pick'));
+const GamesPhraseBuilder = lazy(() => import('@/pages/games/phrase-builder'));
+const GamesScriptTrace = lazy(() => import('@/pages/games/script-trace'));
+const GamesBoloQuiz = lazy(() => import('@/pages/games/bolo-quiz'));
+const Account = lazy(() => import('@/pages/account'));
+const Contact = lazy(() => import('@/pages/contact'));
+const Subscription = lazy(() => import('@/pages/subscription'));
+const Upgrade = lazy(() => import('@/pages/upgrade'));
+const Family = lazy(() => import('@/pages/family'));
+const FamilyJoin = lazy(() => import('@/pages/family-join'));
+const Privacy = lazy(() => import('@/pages/privacy'));
+const Terms = lazy(() => import('@/pages/terms'));
+const NotFound = lazy(() => import('@/pages/not-found'));
+
+/** Minimal centered spinner shown while a lazy route chunk loads. */
+function RouteLoading() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center" role="status" aria-label="Loading page">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 // Clerk publishable key resolution.
 //
@@ -194,7 +209,8 @@ function Guard({ children }: { children: React.ReactNode }) {
 
 function AppRouter() {
   return (
-    <Switch>
+    <Suspense fallback={<RouteLoading />}>
+      <Switch>
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
@@ -316,7 +332,8 @@ function AppRouter() {
         </Guard>
       </Route>
       <Route component={NotFound} />
-    </Switch>
+      </Switch>
+    </Suspense>
   );
 }
 
