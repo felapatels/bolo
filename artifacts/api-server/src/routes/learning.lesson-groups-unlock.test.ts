@@ -40,6 +40,9 @@ import {
 const PLUS_USER = "test_lg_unlock_plus";
 const FRESH_USER = "test_lg_unlock_fresh";
 const FREE_USER = "test_lg_unlock_free";
+// Dedicated to the throttle tests: their submission log rows must not be
+// polluted by (or pollute) the other users' test-out submissions.
+const THROTTLE_USER = "test_lg_unlock_throttle";
 const LANG = "__test_lang_lg_unlock";
 const CATEGORY_SLUG = "__test_cat_lg_unlock";
 
@@ -167,6 +170,7 @@ before(async () => {
     [PLUS_USER, "plus"],
     [FRESH_USER, "plus"],
     [FREE_USER, "free"],
+    [THROTTLE_USER, "plus"],
   ] as const) {
     await db
       .insert(usersTable)
@@ -277,7 +281,7 @@ after(async () => {
       server.close((err) => (err ? reject(err) : resolve())),
     );
   }
-  const userIds = [PLUS_USER, FRESH_USER, FREE_USER];
+  const userIds = [PLUS_USER, FRESH_USER, FREE_USER, THROTTLE_USER];
   await db
     .delete(attemptsTable)
     .where(inArray(attemptsTable.userId, userIds));
@@ -724,4 +728,73 @@ test("trigger fallback: deleting a referenced lesson group fails with 23503", as
       return true;
     },
   );
+});
+
+// ── Test-out submission throttle ───────────────────────────────────────────
+// Max 3 submissions per user per group per rolling hour, counted from the
+// lesson_group_testouts log. THROTTLE_USER is dedicated to these two tests.
+
+test("test-out throttle: the 4th submission within the hour gets 429", async () => {
+  // Two prior submissions logged 10 minutes ago…
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+  await db.insert(lessonGroupTestoutsTable).values([
+    { userId: THROTTLE_USER, lessonGroupId: g2Id, passed: false, createdAt: tenMinAgo },
+    { userId: THROTTLE_USER, lessonGroupId: g2Id, passed: false, createdAt: tenMinAgo },
+  ]);
+
+  // Earlier replenisher tests may have grown g2, so derive the attempt set
+  // from a live sample instead of the stale seeded phrase list.
+  const sample = await api(`/lesson-groups/${g2Id}/test-out`, THROTTLE_USER);
+  assert.equal(sample.status, 200);
+  const attempts = (sample.json.phrases as { id: number }[]).map((p) => ({
+    phraseId: p.id,
+    evaluationToken: closeToken(THROTTLE_USER, p.id),
+  }));
+
+  const submit = () =>
+    api(`/lesson-groups/${g2Id}/test-out`, THROTTLE_USER, {
+      method: "POST",
+      body: JSON.stringify({ attempts }),
+    });
+
+  // …the 3rd attempt in the window still goes through (and gets logged)…
+  const third = await submit();
+  assert.equal(third.status, 200, `3rd submission: ${JSON.stringify(third.json)}`);
+  assert.equal(third.json.passed, false);
+
+  // …and the 4th within the same hour is throttled.
+  const fourth = await submit();
+  assert.equal(fourth.status, 429);
+
+  // The throttled submission was NOT logged — only the 3 in-window rows exist.
+  const logged = await db
+    .select()
+    .from(lessonGroupTestoutsTable)
+    .where(eq(lessonGroupTestoutsTable.userId, THROTTLE_USER));
+  assert.equal(logged.length, 3);
+});
+
+test("test-out throttle 429 shape: Retry-After header + retryAfterSeconds body", async () => {
+  // Still saturated from the previous test (3 in-window submissions). The
+  // throttle fires before token verification, so a minimal body suffices —
+  // and proves a rate-limited caller learns nothing about sample validity.
+  const res = await fetch(`${baseUrl}/lesson-groups/${g2Id}/test-out`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-test-user": THROTTLE_USER },
+    body: JSON.stringify({
+      attempts: [{ phraseId: 1, evaluationToken: "throttled-before-verification" }],
+    }),
+  });
+  assert.equal(res.status, 429);
+
+  // Retry-After header: integer seconds until the oldest in-window submission
+  // (10 min ago) ages out of the rolling hour — so ~50 min, never more than 60.
+  const retryAfter = Number(res.headers.get("retry-after"));
+  assert.ok(Number.isInteger(retryAfter), "Retry-After must be integer seconds");
+  assert.ok(retryAfter >= 1 && retryAfter <= 3600, `Retry-After in (0, 1h]: ${retryAfter}`);
+  assert.ok(retryAfter <= 50 * 60 + 60, `tracks the oldest in-window row: ${retryAfter}`);
+
+  const json = (await res.json()) as { error?: unknown; retryAfterSeconds?: unknown };
+  assert.equal(typeof json.error, "string");
+  assert.equal(json.retryAfterSeconds, retryAfter);
 });

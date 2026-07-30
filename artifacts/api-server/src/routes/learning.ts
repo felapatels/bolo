@@ -2194,16 +2194,59 @@ const TestoutBody = z.object({
     .max(TESTOUT_SAMPLE_SIZE),
 });
 
+// Test-out submission throttle: max attempts per user per group per rolling
+// hour, counted from the append-only lesson_group_testouts log (every valid
+// submission is persisted, pass or fail — this is the rate limiting that log
+// was designed for). DB-backed like the friends invite cooldown, so it holds
+// across server restarts and replicas, unlike the in-memory rateLimit
+// middleware.
+const TESTOUT_MAX_PER_WINDOW = 3;
+const TESTOUT_WINDOW_MS = 60 * 60 * 1000;
+
 // POST /lesson-groups/:id/test-out — grade a submitted assessment. Every
 // attempt must carry the server-signed evaluation token (scores are never
-// client-asserted). Each submission is persisted (pass or fail) so rate
-// limiting can be layered on later.
+// client-asserted). Each submission is persisted (pass or fail), and the
+// throttle above reads that log: the 4th submission for the same group within
+// a rolling hour gets 429 with Retry-After.
 router.post(
   "/lesson-groups/:id/test-out",
   async (req: Request, res: Response): Promise<void> => {
     const loaded = await loadTestoutGroup(req, res);
     if (!loaded) return;
     const userId = getUserId(req);
+
+    // Throttle before any token verification: a rate-limited caller learns
+    // nothing about sample validity. Retry-After = seconds until the oldest
+    // in-window submission ages out of the rolling hour.
+    const windowStart = new Date(Date.now() - TESTOUT_WINDOW_MS);
+    const recent = await db
+      .select({ createdAt: lessonGroupTestoutsTable.createdAt })
+      .from(lessonGroupTestoutsTable)
+      .where(
+        and(
+          eq(lessonGroupTestoutsTable.userId, userId),
+          eq(lessonGroupTestoutsTable.lessonGroupId, loaded.groupId),
+          gte(lessonGroupTestoutsTable.createdAt, windowStart),
+        ),
+      )
+      .orderBy(asc(lessonGroupTestoutsTable.createdAt));
+    if (recent.length >= TESTOUT_MAX_PER_WINDOW) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(
+          (recent[0].createdAt.getTime() + TESTOUT_WINDOW_MS - Date.now()) / 1000,
+        ),
+      );
+      res
+        .status(429)
+        .set("Retry-After", String(retryAfterSeconds))
+        .json({
+          error:
+            "Too many test-out attempts for this group. Practice a bit and try again later.",
+          retryAfterSeconds,
+        });
+      return;
+    }
 
     const parsed = TestoutBody.safeParse(req.body);
     if (!parsed.success) {
