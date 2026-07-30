@@ -180,6 +180,12 @@ jest.mock('@/lib/haptics', () => ({
   hapticLight: jest.fn(),
 }));
 
+// The modal persists explicit picks via the shared language-step helper (which
+// wraps a react-query mutation); stub it so no QueryClientProvider is needed.
+jest.mock('@/lib/language-step', () => ({
+  useExplicitLanguageChoice: () => ({ choose: jest.fn(), isPending: false }),
+}));
+
 // Imported after mocks are declared.
 import LanguageModal from '@/app/(app)/language';
 

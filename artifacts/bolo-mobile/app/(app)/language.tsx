@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { PlusPill } from '@/components/PlusUpsell';
+import { useExplicitLanguageChoice } from '@/lib/language-step';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
@@ -22,11 +23,16 @@ import type { Language } from '@workspace/api-client-react';
 export default function LanguageModal() {
   const colors = useColors();
   const router = useRouter();
-  const { languages, activeLang, setActiveLang, isLoading } = useLanguage();
+  const { languages, activeLang, adoptLanguageLocally, isLoading } = useLanguage();
   const { isLanguageAllowed } = useEntitlements();
+  // Explicit pick: the shared helper PATCHes activeLanguage AND
+  // hasChosenLanguage together, so a pick here also retires the first-time
+  // language step for good.
+  const { choose: chooseRemote } = useExplicitLanguageChoice();
 
   const choose = (code: string) => {
-    setActiveLang(code);
+    adoptLanguageLocally(code);
+    chooseRemote(code);
     track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
     router.back();
   };

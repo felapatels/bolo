@@ -34,6 +34,13 @@ type LanguageContextValue = {
    */
   speechCapability: LanguageSpeechCapability;
   setActiveLang: (code: string) => void;
+  /**
+   * Update only the local mirror (in-memory + AsyncStorage), without a server
+   * write. For call sites that persist the choice themselves via the explicit
+   * language-choice helper (which PATCHes activeLanguage + hasChosenLanguage
+   * in one write) — going through setActiveLang too would double-PATCH.
+   */
+  adoptLanguageLocally: (code: string) => void;
   isLoading: boolean;
 };
 
@@ -179,6 +186,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     activeLanguage,
     speechCapability,
     setActiveLang,
+    adoptLanguageLocally: applyLocal,
     isLoading,
   };
 

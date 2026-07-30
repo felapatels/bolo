@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
+import { useLanguageStepSkipped } from '@/lib/language-step';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
 import { useGetAccount, useUpdateAccountPreferences } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -62,6 +63,8 @@ export default function AppLayout() {
       <PurchasesProvider>
         <LanguageProvider>
           <TourProvider onDone={handleTourDone}>
+            {/* Routes brand-new accounts to the one-time language step (B1) */}
+            <LanguageChoiceBootstrapper />
             {/* Watches account preferences and auto-opens the tour for first-time users */}
             <TourBootstrapper />
             <GuidedTour />
@@ -83,6 +86,7 @@ export default function AppLayout() {
               <Stack.Screen name="account/subscription" />
               <Stack.Screen name="account/email" />
               <Stack.Screen name="account/password" />
+              <Stack.Screen name="choose-language" />
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
@@ -101,18 +105,57 @@ export default function AppLayout() {
 function TourBootstrapper() {
   const account = useGetAccount();
   const { openTour } = useTour();
+  const skippedLanguageStep = useLanguageStepSkipped();
+  const launched = useRef(false);
+
+  // Hold the tour while the first-time language step is still pending —
+  // resolved means either an explicit choice landed (hasChosenLanguage flips
+  // true in the merged account cache) or the learner skipped for this session.
+  const languageStepPending =
+    !!account.data &&
+    !account.data.preferences.learning.hasChosenLanguage &&
+    !skippedLanguageStep;
+
+  useEffect(() => {
+    if (
+      !launched.current &&
+      account.data &&
+      !account.data.preferences.learning.hasCompletedTour &&
+      !languageStepPending
+    ) {
+      launched.current = true;
+      openTour();
+    }
+  }, [account.data, openTour, languageStepPending]);
+
+  return null;
+}
+
+/**
+ * Sibling bootstrapper to TourBootstrapper (B1 parity with web): a signed-in
+ * learner whose account has never recorded an explicit language choice
+ * (hasChosenLanguage=false) is routed once to the full-screen selection step
+ * before home. Keyed on the loaded account — NOT on route prefixes — and on
+ * the in-memory session skip flag. Fails open: if the account fetch errors,
+ * home renders normally.
+ */
+function LanguageChoiceBootstrapper() {
+  const account = useGetAccount();
+  const skipped = useLanguageStepSkipped();
+  const router = useRouter();
   const launched = useRef(false);
 
   useEffect(() => {
     if (
       !launched.current &&
       account.data &&
-      !account.data.preferences.learning.hasCompletedTour
+      !account.data.preferences.learning.hasChosenLanguage &&
+      !skipped
     ) {
       launched.current = true;
-      openTour();
+      router.push('/(app)/choose-language');
     }
-  }, [account.data, openTour]);
+  }, [account.data, skipped, router]);
 
   return null;
 }

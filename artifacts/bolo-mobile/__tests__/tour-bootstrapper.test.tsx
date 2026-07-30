@@ -37,7 +37,12 @@ jest.mock('@workspace/api-client-react', () => ({
         ? undefined
         : {
             preferences: {
-              learning: { hasCompletedTour: mockState.hasCompletedTour },
+              learning: {
+                hasCompletedTour: mockState.hasCompletedTour,
+                // Grandfathered: the language step is resolved, so the tour
+                // hold never applies in these tests.
+                hasChosenLanguage: true,
+              },
             },
           },
   }),
