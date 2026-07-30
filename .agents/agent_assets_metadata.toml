@@ -138,3 +138,21 @@ id = "bNNSamgyQawi9SKTwDVkQ"
 uri = "file://attached_assets/favicon_candidates/favicon-32.png"
 type = "image"
 title = "Task 2 candidate: favicon 32×32"
+
+[[outputs]]
+id = "rHzcxKhuiuSy-8xUbZY9d"
+uri = "file://qa/shots/canonical-mascot/home-hero.png"
+type = "image"
+title = "Home hero — canonical Bolo"
+
+[[outputs]]
+id = "LnN4nzJr2iauLF8JpasyS"
+uri = "file://qa/shots/canonical-mascot/nav-button.png"
+type = "image"
+title = "Nav center button — canonical Bolo"
+
+[[outputs]]
+id = "Vt7tQNt4GXBSaQw_kli21"
+uri = "file://qa/shots/canonical-mascot/landing-header.png"
+type = "image"
+title = "Landing header — canonical Bolo"
