@@ -221,16 +221,16 @@ title = "Web home in dark mode — fixed pills"
 id = "H7tVki41kLMszmKdFTKma"
 uri = "file://qa/shots/pre28/pass-home-hi.png"
 type = "image"
-title = "Home pass — Hindi: Devanagari brand, stamp centered"
+title = "Home pass — edge bites only, punch dot removed, GANGA LINE full"
 
 [[outputs]]
 id = "kZBzvNT8eA-cOOAZk_jxc"
 uri = "file://qa/shots/pre28/pass-home-gu.png"
 type = "image"
-title = "Home pass — Gujarati: ગુજરાતી brand, long line name clear"
+title = "Home pass Gujarati — long line name ellipsizes cleanly"
 
 [[outputs]]
 id = "s_IEvKerd84yMAbKgPkP1"
 uri = "file://qa/shots/pre28/pass-journey-hi.png"
 type = "image"
-title = "Journey header — native brand + stamp in stub"
+title = "Journey header — glyph removed, clean stub"

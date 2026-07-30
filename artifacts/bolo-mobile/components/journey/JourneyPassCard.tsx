@@ -18,7 +18,6 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
-  PunchHole,
   TicketPerforationV,
   TicketStripes,
   ZoneStamp,
@@ -111,14 +110,15 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
             <Feather name="arrow-right" size={16} color="#ffffff" />
           </View>
         </View>
-        {/* tear-off stub: perforation with notches, punched hole, fare-zone
-            stamp, vertical line name */}
+        {/* tear-off stub: perforation with notches (edge bites), fare-zone
+            stamp, vertical line name. No floating punch dot — cutout circles
+            only ever straddle card edges (approved ruling; the web punch hole
+            was dropped from the port for the same reason). */}
         <TicketPerforationV
           dashColor="rgba(255,255,255,0.4)"
           holeColor={colors.background}
         />
         <View style={styles.stub}>
-          <PunchHole color={colors.background} />
           {/* Fixed slot so the rotated stamp's visual extent is part of the
               layout — it can't drift over the perforation or the line name. */}
           <View style={styles.stampSlot}>

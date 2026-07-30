@@ -422,11 +422,13 @@ export default function JourneyScreen() {
                 </Text>
               )}
             </View>
-            {/* tear-off stub */}
+            {/* tear-off stub: perforation-end notches (edge bites) come from
+                TicketPerforationV. Web's floating notch dot and 🎫 emoji were
+                dropped from the port: cutout circles only ever straddle card
+                edges (approved ruling), and the emoji renders as tofu without
+                an emoji font. */}
             <TicketPerforationV dashColor={colors.border} holeColor={colors.background} />
             <View style={styles.headerStub}>
-              <View style={[styles.stubNotch, { backgroundColor: colors.background }]} />
-              <Text style={styles.stubEmoji}>🎫</Text>
               {/* Fixed slot keeps the rotated stamp's visual extent inside
                   the stub (clear of the perforation). */}
               {currentZone && currentStation && (
@@ -923,15 +925,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     position: 'relative',
   },
-  stubNotch: {
-    position: 'absolute',
-    top: 6,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    alignSelf: 'center',
-  },
-  stubEmoji: { fontSize: 16, marginTop: 8 },
   // 52×52 centers the 44px stamp with room for its -12° rotation (visual
   // bounding ≈ 52px).
   stubStampSlot: {

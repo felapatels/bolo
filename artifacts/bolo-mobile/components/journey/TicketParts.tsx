@@ -100,11 +100,6 @@ export function TicketPerforationV({
   );
 }
 
-/** Punched inspection hole. */
-export function PunchHole({ color }: { color: string }) {
-  return <View style={[styles.punchHole, { backgroundColor: color }]} />;
-}
-
 const styles = StyleSheet.create({
   stamp: {
     alignItems: 'center',
@@ -146,9 +141,4 @@ const styles = StyleSheet.create({
   },
   notchTop: { top: -12 },
   notchBottom: { bottom: -12 },
-  punchHole: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
 });
