@@ -147,8 +147,15 @@ export function Mascot({
           animate={activityAnim?.animate}
           transition={activityAnim?.transition}
         >
-          {/* Pose changes crossfade between whole canonical images. */}
-          <AnimatePresence initial={false}>
+          {/* Pose changes crossfade between whole canonical images.
+              The CURRENT pose img must stay IN-FLOW (not absolute): the
+              practice screen's `fill` chain has no definite ancestor height,
+              so `height: 100%` resolves to 0 and an absolutely-positioned img
+              collapses the whole parrot zone (July 30, 2026 regression). An
+              in-flow replaced element falls back to its intrinsic size, which
+              keeps the zone open. `popLayout` pops only the EXITING img out of
+              flow so the crossfade still overlaps in place. */}
+          <AnimatePresence initial={false} mode="popLayout">
             <motion.img
               key={pose}
               src={MASCOT_BASE + POSE_SRC[pose]}
@@ -159,7 +166,7 @@ export function Mascot({
               exit={{ opacity: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}
               className={cn(
-                "absolute inset-0 h-full w-full object-contain",
+                "h-full w-full object-contain",
                 // The floaty drop shadow reads wrong inside small chrome circles.
                 !calm && "drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]",
               )}

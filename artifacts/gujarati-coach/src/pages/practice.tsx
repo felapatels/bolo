@@ -1407,17 +1407,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               )}
             </AnimatePresence>
 
-            {/* Belly hit zone — lower-center of the parrot image area */}
+            {/* Hold-to-speak hit zone — covers the FULL rendered bird (head to
+                feet), not just the belly. The container's box tracks the
+                in-flow mascot img exactly (both are width-100% with the height
+                driven by the img), so inset-0 == the bird's visual bounds.
+                Task 882 addition: a belly-only inner box left the head dead to
+                touches. Keep this a plain rect — border-radius also clips
+                pointer hit-testing. */}
             {bellyActive && (
-              <div
-                className="absolute"
-                style={{
-                  bottom: "10%",
-                  left: "20%",
-                  right: "20%",
-                  height: "38%",
-                }}
-              >
+              <div className="absolute inset-0">
                 <button
                   onPointerDown={handleBellyPointerDown}
                   onPointerUp={handleBellyPointerUp}
@@ -1426,7 +1424,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   disabled={!bellyActive}
                   aria-label={state === "recording" ? "Release to submit" : "Hold to speak"}
                   style={{ touchAction: "none" }}
-                  className="w-full h-full rounded-[40%] bg-transparent cursor-pointer select-none focus:outline-none"
+                  className="w-full h-full bg-transparent cursor-pointer select-none focus:outline-none"
                 />
               </div>
             )}
