@@ -17,7 +17,7 @@ import { TrainEngine } from "@/components/train-svg";
 import { PunchHole, TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
-import { useEntitlements, upgradeHref } from "@/lib/entitlements";
+import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired } from "@/lib/entitlements";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { motion, useReducedMotion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
@@ -58,6 +58,7 @@ export default function Home() {
     data: summary,
     isPlaceholderData: summaryIsPlaceholder,
     isError: summaryFailed,
+    error: summaryError,
     refetch: refetchSummary,
   } = useGetProgressSummary(
     { lang: activeLang },
@@ -68,6 +69,10 @@ export default function Home() {
       },
     },
   );
+  // A locked-language denial on the summary (402 upgrade_required with reason
+  // language_locked / teaser_exhausted) is a plan boundary, not an error —
+  // home renders the showroom/upgrade state for it, never the retry shell.
+  const summaryUpgrade = asUpgradeRequired(summaryError);
   const { data: account } = useGetAccount();
   const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;
   // Toast key — bump to re-fire the milestone toast when the goal is hit.
@@ -382,12 +387,41 @@ export default function Home() {
             <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
           </div>
 
+          {/* Locked-language 402 (86ae84f restoration): an upgrade_required
+              denial (language_locked / teaser_exhausted) is NOT a failure —
+              it means the active language isn't on the plan. Render the
+              showroom/upgrade state instead of the error-retry shell: retrying
+              can never succeed, but the journey showroom and the paywall can. */}
+          {!summary && summaryUpgrade && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 p-4 text-center">
+              <p className="text-sm font-bold text-white/90">
+                {summaryUpgrade.reason === "teaser_exhausted"
+                  ? `You've had your free taste of ${activeLanguage?.name ?? "this language"} — unlock it to keep going.`
+                  : `${activeLanguage?.name ?? "This language"} is waiting to be unlocked.`}
+              </p>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/journey"
+                  className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-black text-white transition-colors hover:bg-white/30"
+                >
+                  Preview the journey
+                </Link>
+                <Link
+                  href={upgradeHrefForDenial(summaryUpgrade, activeLang)}
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-black text-primary transition-colors hover:bg-white/90"
+                >
+                  Unlock
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Failure feedback — without this, a failed summary fetch leaves a
               permanently EMPTY gradient shell (the reserved-height cells above
               stay invisible), which reads as "the stats banner disappeared".
               Overlays the reserved space; stale data (keepPreviousData) still
               wins over the error state. */}
-          {!summary && summaryFailed && (
+          {!summary && summaryFailed && !summaryUpgrade && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 p-4 text-center">
               <p className="text-sm font-bold text-white/90">Your stats couldn&apos;t load.</p>
               <button

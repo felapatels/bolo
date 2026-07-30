@@ -111,9 +111,11 @@ function accountWith(overrides: Partial<Record<string, unknown>> = {}) {
         activeLanguage: "hi",
         dailyGoal: 10,
         theme: "system",
-        // Non-null so the provider's timezone auto-report doesn't fire a
-        // preferences write these tests would misattribute to the step.
-        timezone: "UTC",
+        // Matches the DEVICE timezone (resolved exactly the way the provider
+        // does) so the provider's timezone auto-report never fires a
+        // preferences write these tests would misattribute to the step —
+        // robust in any test-runner TZ, unlike hardcoding "UTC".
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         hasChosenLanguage: false,
         ...overrides,
       },

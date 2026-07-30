@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
-import { PLUS_ENTITLEMENTS } from "./fixtures";
+import { PLUS_ENTITLEMENTS, upgradeRequiredError } from "./fixtures";
 
 // Regression harness for the home stats banner (spinner-fix follow-up).
 // The banner is ALWAYS mounted with its height reserved; the cell row is
@@ -14,6 +14,7 @@ import { PLUS_ENTITLEMENTS } from "./fixtures";
 const h = vi.hoisted(() => ({
   summary: undefined as unknown,
   summaryIsError: false,
+  summaryError: null as unknown,
   refetchSummary: vi.fn(),
   categories: undefined as unknown,
 }));
@@ -64,6 +65,7 @@ vi.mock("@workspace/api-client-react", () => ({
     data: h.summary,
     isLoading: !h.summary && !h.summaryIsError,
     isError: h.summaryIsError,
+    error: h.summaryError,
     isPlaceholderData: false,
     refetch: h.refetchSummary,
   }),
@@ -98,6 +100,7 @@ function bannerRow() {
 beforeEach(() => {
   h.summary = undefined;
   h.summaryIsError = false;
+  h.summaryError = null;
   h.refetchSummary.mockClear();
   h.categories = [
     {
@@ -148,5 +151,25 @@ describe("home stats banner", () => {
     expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: /try again/i }));
     expect(h.refetchSummary).toHaveBeenCalledTimes(1);
+  });
+
+  // 86ae84f restoration: a locked-language 402 is a plan boundary, not an
+  // outage — home must render the showroom/upgrade state, never the
+  // error-retry shell (retrying a 402 can never succeed).
+  test("locked-language 402 renders the showroom/upgrade state, not the retry shell", () => {
+    h.summaryIsError = true;
+    h.summaryError = upgradeRequiredError("language_locked", "Unlock this language");
+    renderHome();
+    // Reserved cells stay hidden, like every no-data state.
+    expect(bannerRow().getAttribute("aria-hidden")).toBe("true");
+    // No error framing, no retry.
+    expect(screen.queryByText(/couldn't load/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+    // Showroom + upgrade affordances instead.
+    expect(screen.getByRole("link", { name: /preview the journey/i })).toHaveAttribute(
+      "href",
+      "/journey",
+    );
+    expect(screen.getByRole("link", { name: /^unlock$/i })).toBeInTheDocument();
   });
 });
