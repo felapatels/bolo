@@ -130,12 +130,37 @@ export default function ChatPage() {
   // When set by handleRetry, finishRecording uses this blob instead of
   // calling recorder.stopRecording() again.
   const retryBlobRef = useRef<Blob | null>(null);
-  // True when pointer-up fired while startRecording was still awaiting the
-  // mic (permission prompt / device acquisition). The hold is over by the
-  // time the mic resolves, so startRecording discards instead of starting a
-  // recording nobody is holding (released-before-start guard, as on the
-  // practice surface).
-  const isPendingStopRef = useRef(false);
+  // Positive hold-confirmation (mic-grant guard). The pointer id of the
+  // press currently holding the mic button, or null when no hold is live.
+  // startRecording continues into recording after the mic resolves ONLY if
+  // this exact pointer is verifiably still down; a permission grant with no
+  // live hold discards through the abort path and the page stays idle.
+  // Window-level pointerup/pointercancel/blur fallbacks end the hold even
+  // when the button never sees the release (the browser's permission prompt
+  // can steal focus/pointer, swallowing the button's pointerup).
+  const activeHoldPointerRef = useRef<number | null>(null);
+  const endHoldCleanupRef = useRef<(() => void) | null>(null);
+
+  const beginHold = useCallback((pointerId: number) => {
+    // Replace any stale hold + listeners from a previous press.
+    endHoldCleanupRef.current?.();
+    activeHoldPointerRef.current = pointerId;
+    const endHold = (e?: PointerEvent) => {
+      if (e && e.pointerId !== pointerId) return;
+      activeHoldPointerRef.current = null;
+      window.removeEventListener("pointerup", endHold);
+      window.removeEventListener("pointercancel", endHold);
+      window.removeEventListener("blur", onBlur);
+      endHoldCleanupRef.current = null;
+    };
+    const onBlur = () => endHold();
+    window.addEventListener("pointerup", endHold);
+    window.addEventListener("pointercancel", endHold);
+    window.addEventListener("blur", onBlur);
+    endHoldCleanupRef.current = () => endHold();
+  }, []);
+
+  useEffect(() => () => { endHoldCleanupRef.current?.(); }, []);
 
   // Pre-fetched first-turn greeting for the active chat language. Populated on
   // mount and whenever chatLang changes. Stored in a ref so reads never trigger
@@ -1181,7 +1206,9 @@ export default function ChatPage() {
 
     setErrorMsg(null);
     finishingRef.current = false;
-    isPendingStopRef.current = false;
+    // Capture which pointer initiated this press. On grant-resolve we
+    // continue only if that exact pointer is verifiably still held.
+    const holdPointerId = activeHoldPointerRef.current;
     if (playbackRef.current) {
       playbackRef.current.pause();
       playbackRef.current = null;
@@ -1192,11 +1219,12 @@ export default function ChatPage() {
         onSilence: () => { void finishRecording(); },
         silenceDurationMs: 1800,
       });
-      // Released-before-start guard: the pointer went up while we were still
-      // waiting on the permission prompt / device. Permission grant alone
-      // must never start a recording — discard, release the mic, stay idle.
-      if (isPendingStopRef.current) {
-        isPendingStopRef.current = false;
+      // Positive hold-confirmation: a permission grant by itself must never
+      // start a recording. Continue only if the exact pointer that started
+      // this press is verifiably still held — otherwise (released while the
+      // prompt was open, release swallowed by the prompt stealing focus, or
+      // no live press at all) discard, release the mic, stay idle.
+      if (holdPointerId === null || activeHoldPointerRef.current !== holdPointerId) {
         recorder.abortRecording();
         setPhase("idle");
         return;
@@ -1436,23 +1464,24 @@ export default function ChatPage() {
       clearWordReveal();
       activeTurnRef.current++;
       finishingRef.current = false;
+      beginHold(e.pointerId);
       void startRecording();
       return;
     }
 
     if (phase === "idle" || phase === "error") {
       clearWordReveal();
+      beginHold(e.pointerId);
       void startRecording();
     }
-  }, [phase, capExhausted, startRecording, stopPlayback, clearWordReveal, unlockAudioPlayback]);
+  }, [phase, capExhausted, startRecording, stopPlayback, clearWordReveal, unlockAudioPlayback, beginHold]);
 
   const handleMicPointerUp = useCallback(() => {
+    // Ending the hold itself is handled by the window-level listeners
+    // beginHold installed (they see this same pointerup as it bubbles), so a
+    // release the button never receives is also covered (blur fallback).
     if (phase === "recording") {
       void finishRecording();
-    } else {
-      // Recording hasn't started yet — flag the release so startRecording
-      // discards once the mic resolves (quick tap / permission-prompt lag).
-      isPendingStopRef.current = true;
     }
   }, [phase, finishRecording]);
 

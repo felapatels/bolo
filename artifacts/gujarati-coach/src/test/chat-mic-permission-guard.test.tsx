@@ -234,6 +234,74 @@ describe("chat mic permission & released-before-start guard", () => {
     expect(textInput().disabled).toBe(false);
   });
 
+  test("lost release: pointerup the button never sees still ends the hold; grant must not start recording", async () => {
+    stubMicPermission("prompt");
+    let resolveGrant!: () => void;
+    h.startRecording.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveGrant = resolve;
+      }),
+    );
+
+    renderChat();
+    await act(async () => {
+      fireEvent.pointerDown(micButton());
+    });
+
+    // The permission prompt steals the pointer: the release is delivered to
+    // the window, never to the button element.
+    await act(async () => {
+      fireEvent.pointerUp(window);
+    });
+
+    // The grant lands later ("Allow" clicked) — no recording may start.
+    await act(async () => {
+      resolveGrant();
+    });
+
+    await waitFor(() => expect(h.abortRecording).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('[aria-label="Release to send"]')).toBeNull();
+    expect(h.stopRecording).not.toHaveBeenCalled();
+    // Typing still works after the discarded grant.
+    const input = textInput();
+    expect(input.disabled).toBe(false);
+    fireEvent.change(input, { target: { value: "hello bolo" } });
+    expect(input.value).toBe("hello bolo");
+  });
+
+  test("grant with no live hold (focus stolen, release unobservable) never starts recording", async () => {
+    stubMicPermission("prompt");
+    let resolveGrant!: () => void;
+    h.startRecording.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveGrant = resolve;
+      }),
+    );
+
+    renderChat();
+    await act(async () => {
+      fireEvent.pointerDown(micButton());
+    });
+
+    // The permission prompt steals focus entirely: no pointerup is ever
+    // dispatched anywhere, only a window blur. The hold must end.
+    await act(async () => {
+      fireEvent.blur(window);
+    });
+
+    await act(async () => {
+      resolveGrant();
+    });
+
+    await waitFor(() => expect(h.abortRecording).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('[aria-label="Release to send"]')).toBeNull();
+    expect(h.stopRecording).not.toHaveBeenCalled();
+    const input = textInput();
+    expect(input.disabled).toBe(false);
+    fireEvent.change(input, { target: { value: "typing works" } });
+    expect(input.value).toBe("typing works");
+  });
+
   test("a held press still records normally after the grant resolves", async () => {
     stubMicPermission("prompt");
     let resolveGrant!: () => void;
