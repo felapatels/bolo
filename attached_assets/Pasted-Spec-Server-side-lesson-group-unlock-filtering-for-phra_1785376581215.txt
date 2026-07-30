@@ -1,0 +1,30 @@
+Spec: Server-side lesson-group unlock filtering for phrase endpoints
+
+Read docs/CODEBASE-FACTS.md first. This resolves the high-priority debt row: unlock filtering exists only in the journey listing route; the phrase endpoints return category content regardless of group unlock status.
+
+Goal: every path that serves phrases (topic tiles, retakes, direct navigation, add-phrases) respects the same unlock model the journey map displays. The map and the server must agree.
+
+**STEP 0 — trace and report before writing any code. Answer all seven, then STOP:**
+
+1. Route inventory: list every endpoint that returns phrase content (at minimum /categories/:id/phrases/:lang GET and POST, /lesson-groups/:id/phrases, /review/phrases, and any others found). For each: does it currently read lesson-group state at all?
+2. Derivation reuse: can deriveGroupStatuses (lessonGroupUnlock.ts) plus the completion latch in lesson_group_progress be called from the phrase routes as-is, or does it need extraction into a shared helper? What does it cost per request (queries), and is the result cacheable within a request?
+3. Review/SRS flow: confirm /review/phrases serves only previously-attempted phrases. The review flow must NOT be filtered by unlock state — due phrases are by definition already seen. State whether any code path could put a never-attempted locked-group phrase into review.
+4. Retake path: when a user retakes a specific phrase (?phrase=:phraseId), the phrase was already attempted. Proposed rule: allow retakes of any previously-attempted phrase regardless of current group state. Confirm the server can distinguish "has a prior attempt" cheaply, and flag any complications.
+5. Teaser path: confirm the free-taste/teaser flow for locked languages is upstream of this filtering and unaffected.
+6. Mobile build 26 compatibility: filtering is subtractive — the endpoints return fewer phrases, same shape. Trace build 26's practice and category screens: do they degrade gracefully when a category returns only unlocked-group phrases? Any assumption of a fixed count, pagination edge, or empty-state gap?
+7. Direct request to a locked group: what should /lesson-groups/:id/phrases return when the group is not unlocked for this user — the existing 402 upgrade shape, a 403, or an empty list with a status field? Recommend one, consistent with how the clients already handle denials.
+
+**Implementation requirements (only after Step 0 approval):**
+
+1. A single shared guard: given user + category + language, return the set of unlocked lesson_group_ids (reading the latch + live derivation, same logic as the journey route). Both the journey route and the phrase routes call this one helper — no duplicated derivation logic.
+2. /categories/:id/phrases/:lang GET filters returned phrases to unlocked groups. Phrases with NULL lesson_group_id (the documented replenisher fallback residual) are treated as unlocked — they are unassigned, not locked.
+3. /lesson-groups/:id/phrases verifies the requested group is unlocked; denial uses the shape chosen in Step 0 item 7.
+4. Retake exemption: a phrase with a prior attempt by this user is always servable to this user.
+5. Review/SRS flow untouched.
+6. Teaser flow untouched.
+7. Entitlement checks (premium tier, language access) remain and run before unlock filtering — this adds a layer, it does not replace one.
+8. Additive API only: no removed or renamed response fields. Mobile build 26 must work against the filtered responses.
+9. Tests: (a) Free user with only group 1 complete requests category phrases — receives only groups 1-2 content (completed + next unlocked), none from later groups; (b) direct request to a later group returns the chosen denial shape; (c) retake of a previously-attempted phrase from a now-later group succeeds; (d) review flow returns due phrases regardless of group; (e) NULL-group phrases still served; (f) teaser flow unchanged.
+10. Update the debt row to resolved and add a facts doc section note: unlock filtering is enforced in the shared guard, listing which routes call it.
+
+Suite stays at its documented baseline. Commit and report with the Step 0 answers referenced against the final implementation.
