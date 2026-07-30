@@ -218,6 +218,13 @@
       "when": 1785334290488,
       "tag": "0030_trigger_lesson_group_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785415010994,
+      "tag": "0031_groovy_sebastian_shaw",
+      "breakpoints": true
     }
   ]
 }

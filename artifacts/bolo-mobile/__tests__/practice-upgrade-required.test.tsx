@@ -27,6 +27,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useReportPhrase: () => ({ mutate: jest.fn() }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;

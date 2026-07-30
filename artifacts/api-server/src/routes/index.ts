@@ -10,6 +10,7 @@ import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
 import familyRouter from "./family";
 import contactRouter from "./contact";
+import phraseReportsRouter from "./phraseReports";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -44,6 +45,8 @@ router.use(accountRouter);
 router.use(friendsRouter);
 // Contact Us form submissions.
 router.use(contactRouter);
+// Spec B2: phrase incorrectness reports (fire-and-forget, silently throttled).
+router.use(phraseReportsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every

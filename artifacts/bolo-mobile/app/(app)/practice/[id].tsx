@@ -60,6 +60,7 @@ import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Mascot, type MascotPose } from '@/components/Mascot';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { PhraseReportButton } from '@/components/PhraseReportButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
@@ -1586,23 +1587,33 @@ export default function PracticeScreen() {
             {phrase.english}
           </Text>
 
-          <Pressable
-            onPress={() => {
-              playCoach();
-            }}
-            disabled={coachPlaying}
-            accessibilityLabel={coachPlaying ? 'Listening to coach' : 'Listen to coach'}
-            style={[styles.listenBtn, { borderColor: colors.border }]}
-          >
-            <Feather
-              name={coachPlaying ? 'volume-2' : 'play'}
-              size={18}
-              color={colors.primary}
+          <View style={styles.listenRow}>
+            <Pressable
+              onPress={() => {
+                playCoach();
+              }}
+              disabled={coachPlaying}
+              accessibilityLabel={coachPlaying ? 'Listening to coach' : 'Listen to coach'}
+              style={[styles.listenBtn, { borderColor: colors.border }]}
+            >
+              <Feather
+                name={coachPlaying ? 'volume-2' : 'play'}
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.listenText, { color: colors.primary }]}>
+                {coachPlaying ? 'Listening...' : 'Hear it'}
+              </Text>
+            </Pressable>
+            {/* Spec B2: quiet flag affordance — must not compete with play */}
+            <PhraseReportButton
+              phraseId={phrase.id}
+              onReported={() => {
+                setToastMessage("Thanks, we'll check it");
+                setToastKey((k) => k + 1);
+              }}
             />
-            <Text style={[styles.listenText, { color: colors.primary }]}>
-              {coachPlaying ? 'Listening...' : 'Hear it'}
-            </Text>
-          </Pressable>
+          </View>
         </Animated.View>
 
         {phrase.hint && phase !== 'result' && phase !== 'compare' ? (
@@ -2199,6 +2210,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  listenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 20,
+  },
   listenBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2207,7 +2224,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    marginTop: 20,
   },
   listenText: { fontFamily: AppFonts.bold, fontSize: 15 },
   hintRow: {

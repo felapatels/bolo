@@ -24,6 +24,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useReportPhrase: () => ({ mutate: jest.fn() }),
   ApiError: class ApiError extends Error {},
   useListCategoryPhrases: () => mockState.phrases,
   useListCategorySentences: () => ({

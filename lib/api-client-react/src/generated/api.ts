@@ -69,6 +69,8 @@ import type {
   Ok,
   PauseSubscriptionInput,
   Phrase,
+  PhraseReportInput,
+  PhraseReportResult,
   PhraseRequest,
   ProgressAnalytics,
   ProgressSummary,
@@ -3562,6 +3564,79 @@ export const useSubmitContactForm = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSubmitContactFormMutationOptions(options));
+    }
+
+export const getReportPhraseUrl = (id: number,) => {
+
+
+
+
+  return `/api/phrases/${id}/report`
+}
+
+/**
+ * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row — never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
+ * @summary Flag a phrase as incorrect (Spec B2)
+ */
+export const reportPhrase = async (id: number,
+    phraseReportInput: PhraseReportInput, options?: RequestInit): Promise<PhraseReportResult> => {
+
+  return customFetch<PhraseReportResult>(getReportPhraseUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(phraseReportInput)
+  }
+);}
+
+
+
+
+
+export const getReportPhraseMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportPhrase>>, TError,{id: number;data: BodyType<PhraseReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportPhrase>>, TError,{id: number;data: BodyType<PhraseReportInput>}, TContext> => {
+
+const mutationKey = ['reportPhrase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportPhrase>>, {id: number;data: BodyType<PhraseReportInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reportPhrase(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportPhraseMutationResult = NonNullable<Awaited<ReturnType<typeof reportPhrase>>>
+    export type ReportPhraseMutationBody = BodyType<PhraseReportInput>
+    export type ReportPhraseMutationError = ErrorType<Error>
+
+    /**
+ * @summary Flag a phrase as incorrect (Spec B2)
+ */
+export const useReportPhrase = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportPhrase>>, TError,{id: number;data: BodyType<PhraseReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportPhrase>>,
+        TError,
+        {id: number;data: BodyType<PhraseReportInput>},
+        TContext
+      > => {
+      return useMutation(getReportPhraseMutationOptions(options));
     }
 
 export const getListTtsVoicesUrl = () => {

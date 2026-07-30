@@ -41,6 +41,7 @@ import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, type Band } from "@/components/ui/band-pill";
+import { PhraseReportButton } from "@/components/phrase-report";
 import { playCue } from "@/lib/sound";
 import { XpArc } from "@/components/XpArc";
 import { CountUp } from "@/components/ui/count-up";
@@ -1273,6 +1274,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <p className="text-primary font-bold text-base leading-tight">{phrase?.romanized}</p>
                 <p className="text-muted-foreground text-sm leading-tight">{phrase?.english}</p>
               </div>
+
+              {/* Spec B2: quiet flag affordance — must not compete with play */}
+              <PhraseReportButton phraseId={phrase?.id} />
             </div>
           </motion.div>
         </AnimatePresence>

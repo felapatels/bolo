@@ -1344,6 +1344,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /phrases/{id}/report:
+    post:
+      operationId: reportPhrase
+      tags: [learning]
+      summary: Flag a phrase as incorrect (Spec B2)
+      description: >-
+        Stores a phrase report (reason + optional note) in phrase_reports.
+        language_code and stage are derived server-side from the phrase row —
+        never client-supplied. Fire-and-forget from the client's perspective:
+        beyond the rolling-hour cap (20 stored reports per user) the server
+        returns { success: true } and stores nothing. Duplicate reports for
+        the same phrase are allowed; dedup is a review-time concern.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhraseReportInput"
+      responses:
+        "200":
+          description: Report stored (or silently dropped over the cap)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhraseReportResult"
+        "400":
+          description: Invalid phrase id, reason, or note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Phrase not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /openai/tts/voices:
     get:
       operationId: listTtsVoices
@@ -3335,6 +3379,27 @@ components:
         - message
 
     ContactFormResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    PhraseReportInput:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum: [translation_wrong, transliteration_wrong, audio_wrong, other]
+        note:
+          type: string
+          maxLength: 280
+          description: Optional free-text note, never required.
+      required:
+        - reason
+
+    PhraseReportResult:
       type: object
       properties:
         success:

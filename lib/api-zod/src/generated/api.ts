@@ -1124,6 +1124,28 @@ export const SubmitContactFormResponse = zod.object({
 
 
 /**
+ * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row — never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
+ * @summary Flag a phrase as incorrect (Spec B2)
+ */
+export const ReportPhraseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const reportPhraseBodyNoteMax = 280;
+
+
+
+export const ReportPhraseBody = zod.object({
+  "reason": zod.enum(['translation_wrong', 'transliteration_wrong', 'audio_wrong', 'other']),
+  "note": zod.string().max(reportPhraseBodyNoteMax).optional().describe('Optional free-text note, never required.')
+})
+
+export const ReportPhraseResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * Returns the curated VOICE_CATALOG of ElevenLabs premade voices plus the authenticated user's current ttsVoice preference (null = Auto).
  * @summary List available TTS voices and the caller's current preference
  */

@@ -938,6 +938,29 @@ export interface ContactFormResult {
   success: boolean;
 }
 
+export type PhraseReportInputReason = typeof PhraseReportInputReason[keyof typeof PhraseReportInputReason];
+
+
+export const PhraseReportInputReason = {
+  translation_wrong: 'translation_wrong',
+  transliteration_wrong: 'transliteration_wrong',
+  audio_wrong: 'audio_wrong',
+  other: 'other',
+} as const;
+
+export interface PhraseReportInput {
+  reason: PhraseReportInputReason;
+  /**
+     * Optional free-text note, never required.
+     * @maxLength 280
+     */
+  note?: string;
+}
+
+export interface PhraseReportResult {
+  success: boolean;
+}
+
 export type McqTranslationQuestionType = typeof McqTranslationQuestionType[keyof typeof McqTranslationQuestionType];
 
 

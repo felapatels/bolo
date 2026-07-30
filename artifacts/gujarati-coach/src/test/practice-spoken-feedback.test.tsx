@@ -57,6 +57,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  useReportPhrase: () => ({ mutate: vi.fn() }),
   // Group mode is idle in these suites (no ?group= param).
   useListLessonGroupPhrases: () => ({
     data: undefined,
