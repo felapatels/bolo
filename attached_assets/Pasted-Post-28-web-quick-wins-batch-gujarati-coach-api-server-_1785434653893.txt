@@ -1,0 +1,20 @@
+Post-28 web quick-wins batch. gujarati-coach + api-server config only, no bolo-mobile. Five items, each small; verify-before-fix discipline on items 1 and 2. Read docs/CODEBASE-FACTS.md first.
+
+**1. Contact form silent failure — VERIFY FIRST, then fix.**
+Claim from an external review: the contact form swallows email_sent=false and silently loses messages when Resend sending fails. Step 0 for this item only: (a) trace what actually happens today when sendContactNotification fails — is the submission still stored in contactSubmissionsTable (data safe, only the notification lost) or is the message dropped entirely? (b) What is the current Resend sender state — verified and working, or still on the pre-verification config? Report both answers before changing anything. Then fix per findings: if data is stored but notification fails, the user-facing flow is fine and the fix is operational (verify sender / log alert on send failure); if the user sees success while the message is lost entirely, add an explicit error state ("Something went wrong — email us directly at [address]") and ensure the DB write happens before and independent of the email attempt.
+
+**2. Journey locked dialog references test-out that does not exist.**
+The web journey's locked-stop dialog offers a test-out path, but test-out UI was deferred (#819) — confirm what the dialog actually renders today. If it references testing out or skipping ahead, reword to what exists: locked-by-progression copy ("Complete the previous stop to unlock") with no dead affordance. Keep the paywall path for ALL-ACCESS-locked stops unchanged. When #819 ships, the test-out offer returns on both platforms together. Add a one-line facts doc note so #819's future implementer knows to restore it.
+
+**3. Squawk copy cleanup.**
+Specs O/P removed squawk generation from prompts and the hardcoded copy from clients, but stragglers may remain. Grep web source (and shared libs' user-facing strings) for squawk/Squawk!; replace any user-visible remnants with the current coach voice. Report every string found with before/after. If zero found, say so and close the item.
+
+**4. Chat audio-failure affordance.**
+When a chat reply's text arrives but its audio fails (synthesis error, stream failure, iOS unlock miss), the user currently gets silence with no indication. Add a small inline affordance on the affected message: "Audio unavailable — tap to retry", wired to the existing replay path. Do not attempt to root-cause the underlying stream issues in this task — this is the visibility fix only; deeper audio reliability stays its own investigation. Test: mock a synthesis failure, assert the affordance renders and retry re-requests audio.
+
+**5. Dark-mode sweep (the approved follow-up).**
+Extend the bg-card fix pattern across practice, chat, and subscription surfaces — find hardcoded bg-white (and any hardcoded light-only text colors) on theme-aware surfaces and swap to tokens. Intentional whites inside gradient/brand components stay. Verify with dark-mode screenshots of practice, chat, and subscription pages.
+
+Out of scope: home skeleton (debt row, real work), fun-facts rotator (separate queued item), 390px desktop journey (deliberate), screen-reader audit, web spaced-repetition changes, anything bolo-mobile.
+
+Suite green, typecheck clean, targeted tests per item. One commit per item or logical group. Report per item, then Republish web.

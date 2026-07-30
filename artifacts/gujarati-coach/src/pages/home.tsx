@@ -14,7 +14,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
-import { PunchHole, TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
+import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired } from "@/lib/entitlements";
@@ -508,7 +508,13 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                    {/* ticket perforation (dashed line + edge notch, retained) */}
+                    {/* ticket perforation (dashed line + LEFT-EDGE bite,
+                        retained per the cutout ruling: -left-2.5 puts the
+                        20px circle at x −10..+10 relative to the card, so the
+                        root's overflow-hidden clips it to a half-moon bite
+                        straddling the outer left edge at the perforation end
+                        — it is NOT a floating interior dot; measured
+                        STRADDLES-EDGE by qa/task879-shots.mjs). */}
                     <div className="relative" aria-hidden>
                       <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
                       <div className="mx-5 border-t-2 border-dashed border-white/40" />
@@ -536,11 +542,12 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  {/* tear-off stub: perforation with notches, punched hole,
-                      fare-zone stamp, vertical line name */}
+                  {/* tear-off stub: perforation with notches (edge bites),
+                      fare-zone stamp, vertical line name. No floating punch
+                      dot — cutout circles only ever straddle card edges
+                      (approved ruling, ported from the mobile build-28 pass). */}
                   <TicketPerforationV light />
                   <div className="relative flex w-16 shrink-0 flex-col items-center justify-between py-4">
-                    <PunchHole />
                     {journey.current && (
                       <div className="-mx-4">
                         <ZoneStamp

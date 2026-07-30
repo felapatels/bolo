@@ -304,3 +304,35 @@ describe('journey map — group-scoped routing', () => {
     expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
   });
 });
+
+// Build-28 device regression: a percentage-height Svg in the header ticket's
+// perforation made the header consume the whole viewport on native, pushing
+// the map (zone postcards, track, stops) off-screen. Yoga's real layout is
+// device-only, but jest can pin the two guarantees the fix added: the header
+// carries an explicit height belt, and the map's first zone + first stop are
+// present in the initially rendered tree (not conditionally dropped).
+describe('journey header ticket sizing (build-28 regression)', () => {
+  it('bounds the header ticket and keeps zone 1 / stop 1 in the initial tree', () => {
+    const { StyleSheet } = require('react-native');
+    setZones([
+      [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 }), grp()],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    const header = StyleSheet.flatten(
+      screen.getByTestId('journey-header-ticket').props.style,
+    );
+    expect(header.maxHeight).toBeDefined();
+    expect(header.maxHeight).toBeLessThanOrEqual(160);
+    expect(header.overflow).toBe('hidden');
+
+    // Map content must render alongside the bounded header.
+    expect(screen.getByText(/FARE ZONE 1/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Stop 1 of 2/)).toBeOnTheScreen();
+  });
+});

@@ -384,7 +384,10 @@ export default function JourneyScreen() {
         >
           <Feather name="arrow-left" size={20} color={colors.foreground} />
         </Pressable>
-        <View style={[styles.headerTicket, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <View
+          testID="journey-header-ticket"
+          style={[styles.headerTicket, { borderColor: colors.border, backgroundColor: colors.card }]}
+        >
           <TicketStripes ink={`${line.accent}08`} />
           <View style={styles.headerTicketRow}>
             <View style={styles.headerTicketBody}>
@@ -904,6 +907,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     position: 'relative',
+    // Belt for the build-28 native regression (see TicketParts sizing
+    // contract): header content tops out around ~95px even with tall
+    // scripts + the teaser line. If any child measures itself unbounded
+    // again, this cap stops the header from swallowing the map.
+    maxHeight: 140,
   },
   headerTicketRow: { flexDirection: 'row', alignItems: 'stretch' },
   headerTicketBody: { flex: 1, minWidth: 0, paddingHorizontal: 14, paddingVertical: 9 },

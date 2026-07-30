@@ -8,6 +8,16 @@ import { AppFonts } from '@/constants/fonts';
 
 let stripeSeq = 0;
 
+// SIZING CONTRACT (build-28 device regression, July 30, 2026): NOTHING in
+// these fittings may render a percentage-sized <Svg> in normal layout flow.
+// Web resolves a percentage of an indefinite parent to auto, but native Yoga
+// asks react-native-svg to measure the node, and a percentage-height Svg
+// inflates its ancestors until the ticket fills the entire screen (this
+// shipped in build 28: home hero + journey header both went full-viewport on
+// a real iPhone while Expo web looked perfect). Every Svg here now renders
+// only AFTER an onLayout measure, with numeric dimensions, inside an
+// absolutely-positioned wrapper — absolute children can never grow the card.
+
 /** Diagonal ticket-stock stripes. The web version is a repeating CSS
  *  gradient; here an SVG pattern of rotated bars does the same job. `ink` is
  *  the stripe color including alpha, e.g. "rgba(255,255,255,0.05)" on accent
@@ -18,22 +28,34 @@ export function TicketStripes({ ink }: { ink: string }) {
   const idRef = React.useRef<string | null>(null);
   if (!idRef.current) idRef.current = `ticket-stripes-${++stripeSeq}`;
   const id = idRef.current;
+  const [dims, setDims] = React.useState<{ w: number; h: number } | null>(null);
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <Pattern
-            id={id}
-            patternUnits="userSpaceOnUse"
-            width={26}
-            height={26}
-            patternTransform="rotate(-45)"
-          >
-            <Rect x={0} y={0} width={10} height={26} fill={ink} />
-          </Pattern>
-        </Defs>
-        <Rect x={0} y={0} width="100%" height="100%" fill={`url(#${id})`} />
-      </Svg>
+    <View
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+      testID="ticket-stripes"
+      onLayout={(e) => {
+        const w = Math.ceil(e.nativeEvent.layout.width);
+        const h = Math.ceil(e.nativeEvent.layout.height);
+        if (w > 0 && h > 0 && (!dims || dims.w !== w || dims.h !== h)) setDims({ w, h });
+      }}
+    >
+      {dims && (
+        <Svg testID="ticket-stripes-svg" width={dims.w} height={dims.h}>
+          <Defs>
+            <Pattern
+              id={id}
+              patternUnits="userSpaceOnUse"
+              width={26}
+              height={26}
+              patternTransform="rotate(-45)"
+            >
+              <Rect x={0} y={0} width={10} height={26} fill={ink} />
+            </Pattern>
+          </Defs>
+          <Rect x={0} y={0} width={dims.w} height={dims.h} fill={`url(#${id})`} />
+        </Svg>
+      )}
     </View>
   );
 }
@@ -81,19 +103,39 @@ export function TicketPerforationV({
   dashColor: string;
   holeColor: string;
 }) {
+  // ROOT CAUSE of the build-28 full-screen ticket: this used to render
+  // <Svg width={2} height="100%"> as a normal-flow child. The strip's own
+  // height is indefinite (alignSelf:'stretch' against a content-sized row),
+  // so native Yoga measured the percentage Svg into an unbounded height and
+  // the ticket grew to fill the screen. Now the strip has ZERO normal-flow
+  // content (its height comes purely from the stretch), and the dash line is
+  // drawn after measuring, numerically sized, absolutely positioned.
+  const [height, setHeight] = React.useState(0);
   return (
-    <View style={styles.perf} pointerEvents="none">
-      <Svg width={2} height="100%">
-        <Line
-          x1={1}
-          y1={6}
-          x2={1}
-          y2="100%"
-          stroke={dashColor}
-          strokeWidth={2}
-          strokeDasharray="5 4"
-        />
-      </Svg>
+    <View
+      style={styles.perf}
+      pointerEvents="none"
+      testID="ticket-perforation"
+      onLayout={(e) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0 && h !== height) setHeight(h);
+      }}
+    >
+      {height > 0 && (
+        <View style={StyleSheet.absoluteFill} testID="ticket-perforation-svg-wrap">
+          <Svg testID="ticket-perforation-svg" width={2} height={height}>
+            <Line
+              x1={1}
+              y1={6}
+              x2={1}
+              y2={height - 6}
+              stroke={dashColor}
+              strokeWidth={2}
+              strokeDasharray="5 4"
+            />
+          </Svg>
+        </View>
+      )}
       <View style={[styles.notch, styles.notchTop, { backgroundColor: holeColor }]} />
       <View style={[styles.notch, styles.notchBottom, { backgroundColor: holeColor }]} />
     </View>

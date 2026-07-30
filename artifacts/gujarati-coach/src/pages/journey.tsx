@@ -585,14 +585,12 @@ export default function Journey() {
               </div>
               {/* tear-off stub */}
               <TicketPerforationV light={false} />
+              {/* Stub: perforation-end notches (edge bites) come from
+                  TicketPerforationV. The floating notch dot and 🎫 emoji were
+                  removed — cutout circles only ever straddle card edges
+                  (approved ruling, ported from the mobile build-28 pass), and
+                  the emoji renders as tofu without an emoji font. */}
               <div className="relative flex w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1.5">
-                <div
-                  className="absolute top-1.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-background"
-                  aria-hidden
-                />
-                <div className="mt-2 text-lg leading-none" aria-hidden>
-                  🎫
-                </div>
                 {currentZone && currentStation && (
                   <ZoneStamp
                     ink={line.accent}

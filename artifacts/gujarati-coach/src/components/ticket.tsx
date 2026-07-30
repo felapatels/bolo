@@ -68,13 +68,3 @@ export function TicketPerforationV({ light }: { light: boolean }) {
     </div>
   );
 }
-
-/** Punched inspection hole. */
-export function PunchHole({ className }: { className?: string }) {
-  return (
-    <div
-      className={`h-3.5 w-3.5 rounded-full bg-background ${className ?? ""}`}
-      aria-hidden
-    />
-  );
-}

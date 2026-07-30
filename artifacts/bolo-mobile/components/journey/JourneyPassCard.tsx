@@ -38,6 +38,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel={`Ride the ${line.lineName} — open the journey map`}
       onPress={onPress}
+      testID="journey-pass-card"
       style={[styles.pass, { backgroundColor: line.accent }]}
     >
       <TicketStripes ink="rgba(255,255,255,0.05)" />
@@ -180,6 +181,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
     position: 'relative',
+    // Belt for the build-28 native regression (see TicketParts sizing
+    // contract): the card's height must stay content-driven (~165-190px).
+    // If any future child measures itself unbounded again, this cap stops a
+    // full-screen ticket from ever shipping. Never remove it; raise it only
+    // for real content growth.
+    maxHeight: 240,
   },
   row: { flexDirection: 'row', alignItems: 'stretch' },
   body: { flex: 1, minWidth: 0 },
