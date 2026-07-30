@@ -41,13 +41,15 @@ describe("BottomNav destinations", () => {
     expect(screen.getByRole("link", { name: /Progress/i })).toBeInTheDocument();
   });
 
-  test("renders the rigged Bolo (not a static image) inside the chat button", () => {
+  test("renders the canonical Bolo PNG (not the retired SVG rig) inside the chat button", () => {
     renderNav(<BottomNav />);
 
     const chatLink = screen.getByRole("link", { name: /Chat with Bolo/i });
-    // The centre button hosts the living SVG rig now — no <img> fallback.
-    expect(chatLink.querySelector("svg")).toBeInTheDocument();
-    expect(chatLink.querySelector("img")).not.toBeInTheDocument();
+    // Canonical-art rule: the centre button shows a whole-image canonical
+    // mascot PNG. The hand-drawn SVG rig must not render anywhere in the app.
+    const img = chatLink.querySelector("img");
+    expect(img).toBeInTheDocument();
+    expect(img?.getAttribute("src")).toContain("mascot-wave.png");
   });
 
   test("does not render a Friends link (Friends moved to Account page)", () => {

@@ -86,3 +86,4 @@
 - [fixed-position vs animation-fill-mode](fixed-position-fill-mode.md) — fill-mode both/forwards leaves an identity transform that turns page wrappers into containing blocks, breaking fixed navs; use backwards + mount chrome outside animated subtrees.
 - [framer SVG rigs: transform attributes](framer-svg-transform-attr.md) — motion.g swallows the `transform` prop and originX fractions mis-pivot; write `rotate(deg cx cy)` attribute strings via a MotionValue subscriber (Bolo web rig).
 - [Horizontal overflow bisect](css-overflow-bisect.md) — truncate can't stop page overflow when the grid/flex item lacks min-w-0 (min-content wins); measure with qa/home-overflow-probe.mjs, not by reasoning.
+- [Canonical mascot rule](canonical-mascot-rule.md) — ONLY the five canonical Bolo PNGs may render, whole-image motion only; bolo-rig.tsx is retired and must stay unreferenced; no new Bolo art by any means.

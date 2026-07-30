@@ -7,6 +7,7 @@ import { webHaptic } from "@/lib/haptics";
 import { LanguagePicker } from "@/components/language-picker";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
+import { useIsDesktop } from "@/hooks/use-mobile";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
@@ -42,6 +43,7 @@ export default function Home() {
   const firstName = user?.firstName;
   const { activeLang, activeLanguage } = useLanguage();
   const reduceMotion = useReducedMotion();
+  const isDesktop = useIsDesktop();
   const native = useNativeText();
   const journeyLine = getJourneyLine(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
@@ -246,8 +248,9 @@ export default function Home() {
       <header className="mx-auto w-full max-w-6xl px-6 pt-6 pb-2 lg:px-10 lg:pt-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.smooth} className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Mascot pose="wave" size={76} className="shrink-0 -ml-1 lg:hidden" />
-            <Mascot pose="wave" size={92} className="hidden shrink-0 -ml-1 lg:block" />
+            {/* One mascot, sized per breakpoint via JS instead of mounting two
+                CSS-hidden copies — a hidden mascot still animates and burns CPU. */}
+            <Mascot pose="wave" size={isDesktop ? 92 : 76} className="shrink-0 -ml-1" />
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <h1 className="text-3xl font-black text-foreground tracking-tight lg:text-4xl">

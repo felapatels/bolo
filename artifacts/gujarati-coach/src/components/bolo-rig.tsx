@@ -18,6 +18,14 @@ import {
 import type { MascotPose } from "@/components/mascot";
 
 /**
+ * ⛔ DO NOT RENDER THIS IN THE APP.
+ *
+ * BoloRig is a NON-CANONICAL hand-drawn approximation of the Bolo mascot,
+ * retired on July 29, 2026 (owner decision) because it doesn't match the
+ * canonical art. It is kept on disk for reference only and must stay
+ * unreferenced. The only permitted mascot pixels are the five canonical PNGs
+ * in public/mascot/, animated as whole images — see components/mascot.tsx.
+ *
  * BoloRig — Bolo the parrot as a layered, rigged SVG character.
  *
  * Replaces the five static pose PNGs with one vector character whose body
