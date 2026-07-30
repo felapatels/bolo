@@ -54,7 +54,12 @@ export default function Home() {
   // active language from /account and the key flips, the prior language's
   // data stays visible (transitional only) instead of restarting from a
   // spinner; the refetch then settles on the server's language.
-  const { data: summary, isPlaceholderData: summaryIsPlaceholder } = useGetProgressSummary(
+  const {
+    data: summary,
+    isPlaceholderData: summaryIsPlaceholder,
+    isError: summaryFailed,
+    refetch: refetchSummary,
+  } = useGetProgressSummary(
     { lang: activeLang },
     {
       query: {
@@ -376,6 +381,23 @@ export default function Home() {
             <div className="w-px self-stretch bg-white/25" />
             <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
           </div>
+
+          {/* Failure feedback — without this, a failed summary fetch leaves a
+              permanently EMPTY gradient shell (the reserved-height cells above
+              stay invisible), which reads as "the stats banner disappeared".
+              Overlays the reserved space; stale data (keepPreviousData) still
+              wins over the error state. */}
+          {!summary && summaryFailed && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 p-4 text-center">
+              <p className="text-sm font-bold text-white/90">Your stats couldn&apos;t load.</p>
+              <button
+                onClick={() => refetchSummary()}
+                className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-black text-white transition-colors hover:bg-white/30"
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </motion.div>
       </header>
 
