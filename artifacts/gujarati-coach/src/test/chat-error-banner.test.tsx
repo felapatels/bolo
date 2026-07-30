@@ -86,6 +86,8 @@ vi.mock("@/lib/entitlements", () => ({
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
     getAmplitude: () => 0,
+    // Long enough that the too-short (<0.25s) guard doesn't skip the turn.
+    getLastDurationSeconds: () => 1.5,
     state: "idle",
     startRecording: h.startRecording,
     stopRecording: h.stopRecording,
@@ -168,8 +170,11 @@ beforeEach(() => {
 
   // stopRecording returns a non-empty blob by default so the turn proceeds to
   // the fetch step.  Individual tests can override this.
+  // Must clear the ≥2048-byte size floor in finishRecording (a real WebM
+  // container smaller than that carries no audio frames and is skipped
+  // silently, never reaching the fetch/error path these tests exercise).
   h.stopRecording.mockResolvedValue(
-    new Blob(["audio"], { type: "audio/webm" }),
+    new Blob([new Uint8Array(4096)], { type: "audio/webm" }),
   );
 
   // Must be a real class: the chat page constructs pooled elements
@@ -203,6 +208,7 @@ describe("chat error banner", () => {
           status: 500,
           body: null,
           json: () => Promise.resolve({}),
+          text: () => Promise.resolve(""),
         }),
       ),
     );
@@ -244,6 +250,7 @@ describe("chat error banner", () => {
           status: 500,
           body: null,
           json: () => Promise.resolve({}),
+          text: () => Promise.resolve(""),
         }),
       ),
     );

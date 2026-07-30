@@ -815,7 +815,12 @@ export default function Account() {
   );
 }
 
-function VoiceCard({
+/**
+ * @internal Exported for tests only — the picker section in
+ * Account is temporarily unmounted while the TTS provider is being evaluated,
+ * but the card's preview/cache behaviour stays covered by direct render tests.
+ */
+export function VoiceCard({
   id,
   name,
   gender,

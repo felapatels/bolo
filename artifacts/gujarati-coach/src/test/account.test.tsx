@@ -88,7 +88,7 @@ vi.mock("@workspace/api-client-react", () => ({
   useDeleteAccount: () => h.deleteAccount,
 }));
 
-import Account, { _clearVoiceSampleCache } from "@/pages/account";
+import Account, { _clearVoiceSampleCache, VoiceCard } from "@/pages/account";
 
 const ACCOUNT: Account = {
   profile: {
@@ -193,22 +193,24 @@ describe("Account settings", () => {
     );
   });
 
-  test("voice picker shows upgrade note and locked cards for non-Plus learners", () => {
+  // The voice picker section is deliberately unmounted in account.tsx
+  // ({false && …}) while the TTS provider is being evaluated. Until it is
+  // re-enabled, the page must render NO trace of it for any tier.
+  test("voice picker stays hidden for non-Plus learners while voice selection is disabled", () => {
     renderAccount(<Account />);
-    expect(screen.getByText(/Voice selection is a/i)).toBeInTheDocument();
-    // The Auto card is always the first voice option; it must be disabled when locked.
+    expect(screen.queryByText(/Voice selection is a/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Auto \(recommended\)/i }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /Auto \(recommended\)/i }),
+    ).not.toBeInTheDocument();
   });
 
-  test("voice picker hides upgrade note for Plus learners and enables cards", () => {
+  test("voice picker stays hidden for Plus learners while voice selection is disabled", () => {
     h.isPlus = true;
     renderAccount(<Account />);
     expect(screen.queryByText(/Voice selection is a/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Auto \(recommended\)/i }),
-    ).not.toBeDisabled();
+      screen.queryByRole("button", { name: /Auto \(recommended\)/i }),
+    ).not.toBeInTheDocument();
   });
 
   test("deleting the account calls the endpoint then signs out", async () => {
@@ -230,11 +232,40 @@ describe("Account settings", () => {
 // voice; each voice ID must produce an independent cache slot and its own
 // TTS request.
 
+// NOTE: the picker section is currently unmounted in the Account page
+// ({false && …} while the TTS provider is evaluated), so these tests render
+// VoiceCard directly — the component still ships and its cache behaviour
+// must hold when the picker is re-enabled.
 describe("Voice preview button", () => {
   // George and Brian are the first two entries in VOICE_CATALOG (same order
   // as they appear in account.tsx) so previewButtons[0] → George, [1] → Brian.
   const GEORGE_ID = "JBFqnCBsd6RMkjVDRZzb";
   const BRIAN_ID  = "nPczCjzI2devNBz1zQrb";
+
+  function renderVoiceCards() {
+    return render(
+      <>
+        <VoiceCard
+          id={GEORGE_ID}
+          name="George"
+          gender="male"
+          description="Warm British male."
+          active={false}
+          locked={false}
+          onSelect={() => {}}
+        />
+        <VoiceCard
+          id={BRIAN_ID}
+          name="Brian"
+          gender="male"
+          description="Deep American male."
+          active={false}
+          locked={false}
+          onSelect={() => {}}
+        />
+      </>,
+    );
+  }
 
   let fetchSpy: ReturnType<typeof vi.spyOn>;
   let playSpy: ReturnType<typeof vi.spyOn>;
@@ -263,7 +294,7 @@ describe("Voice preview button", () => {
 
   test("preview button sends the selected voice ID in the TTS request body", async () => {
     const user = userEvent.setup();
-    renderAccount(<Account />);
+    renderVoiceCards();
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
@@ -288,7 +319,7 @@ describe("Voice preview button", () => {
 
   test("switching voices always fetches fresh audio — the old voice's cache slot is not reused", async () => {
     const user = userEvent.setup();
-    renderAccount(<Account />);
+    renderVoiceCards();
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
@@ -317,7 +348,7 @@ describe("Voice preview button", () => {
     } as Response);
 
     const user = userEvent.setup();
-    renderAccount(<Account />);
+    renderVoiceCards();
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
@@ -337,7 +368,7 @@ describe("Voice preview button", () => {
 
   test("re-playing the same voice is served from the in-memory cache — no duplicate TTS fetch", async () => {
     const user = userEvent.setup();
-    renderAccount(<Account />);
+    renderVoiceCards();
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
