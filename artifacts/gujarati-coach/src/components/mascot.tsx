@@ -16,10 +16,18 @@ export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain"
 // "cheer" adds a springy celebratory hop, "none" stays put.
 type IdleMotion = "float" | "cheer" | "none";
 
+// How much ambient personality plays. "full" (default) is the normal Bolo:
+// springy entrance, idle bob, and the funny 10s idle performances. "calm" is
+// for small always-on chrome (the bottom-nav button): no entrance stunt, no
+// bob, no funny idle variants, no heavy drop shadow — only the rig's built-in
+// subtle life (blinks, breathing, occasional head tilts) remains.
+type AmbientLevel = "full" | "calm";
+
 export function Mascot({
   pose,
   size = 96,
   idle = "float",
+  ambient = "full",
   className,
   fill = false,
   activity = null,
@@ -28,6 +36,7 @@ export function Mascot({
   pose: MascotPose;
   size?: number;
   idle?: IdleMotion;
+  ambient?: AmbientLevel;
   className?: string;
   /**
    * When true, the mascot stretches to fill its parent container (width/height
@@ -45,12 +54,14 @@ export function Mascot({
   talkAudioRef?: RefObject<HTMLAudioElement | null>;
 }) {
   const reduceMotion = useReducedMotion();
+  const calm = ambient === "calm";
 
   const isIdle = useIdleTimer(10);
 
   // Pick a random funny variant each time idle begins. Variants collapse to []
   // under reduced motion so funnyVariant stays null and normal bob resumes.
-  const variants = funnyIdleVariants(reduceMotion);
+  // Calm mode never plays them — big idle stunts don't belong in nav chrome.
+  const variants = calm ? [] : funnyIdleVariants(reduceMotion);
   const [funnyVariant, setFunnyVariant] = useState<FunnyIdleVariant | null>(null);
   // Bumped per performance so the rig can retrigger matching wing effects.
   const [funnyKey, setFunnyKey] = useState(0);
@@ -71,8 +82,9 @@ export function Mascot({
   // launch video uses. Both collapse to a still frame under reduced motion.
   // Note there is deliberately NO key={pose} remount anymore — pose changes
   // morph the rig's parts in place (smooth springy transitions, no hard swap).
-  const entrance = mascotEntrance(reduceMotion);
-  const bob = idle === "none" ? undefined : floatIdle(reduceMotion, idle);
+  // Calm mode swaps the springy pop for a plain instant fade and never bobs.
+  const entrance = mascotEntrance(calm || reduceMotion);
+  const bob = calm || idle === "none" ? undefined : floatIdle(reduceMotion, idle);
 
   // When idle and we have a funny variant, override the normal bob.
   const animateProps = funnyVariant
@@ -96,7 +108,11 @@ export function Mascot({
           activity={activity}
           talkAudioRef={talkAudioRef}
           effect={funnyVariant?.rig ? { kind: funnyVariant.rig, id: funnyKey } : null}
-          className="h-full w-full drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]"
+          className={cn(
+            "h-full w-full",
+            // The floaty drop shadow reads wrong inside small chrome circles.
+            !calm && "drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]",
+          )}
         />
       </motion.div>
     </motion.div>

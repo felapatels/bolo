@@ -5,6 +5,7 @@ import { LanguagePicker } from "@/components/language-picker";
 import { useLanguage } from "@/lib/language-context";
 import { useTour } from "@/lib/tour-context";
 import { XpCounter } from "@/components/XpCounter";
+import { Mascot } from "@/components/mascot";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -81,11 +82,9 @@ export function BottomNav() {
                 isTourHighlighted("chat") && "animate-pulse ring-2 ring-primary/60",
               )}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}mascot/mascot-wave.png`}
-                alt="Bolo parrot"
-                className="h-14 w-14 object-contain"
-              />
+              {/* Rigged Bolo in calm ambient mode: blinks and breathes, but no
+                  big idle stunts — he's an always-on-screen nav element. */}
+              <Mascot pose="wave" size={56} ambient="calm" />
             </div>
             <span
               className={cn(

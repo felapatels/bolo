@@ -41,6 +41,15 @@ describe("BottomNav destinations", () => {
     expect(screen.getByRole("link", { name: /Progress/i })).toBeInTheDocument();
   });
 
+  test("renders the rigged Bolo (not a static image) inside the chat button", () => {
+    renderNav(<BottomNav />);
+
+    const chatLink = screen.getByRole("link", { name: /Chat with Bolo/i });
+    // The centre button hosts the living SVG rig now — no <img> fallback.
+    expect(chatLink.querySelector("svg")).toBeInTheDocument();
+    expect(chatLink.querySelector("img")).not.toBeInTheDocument();
+  });
+
   test("does not render a Friends link (Friends moved to Account page)", () => {
     renderNav(<BottomNav />);
 
