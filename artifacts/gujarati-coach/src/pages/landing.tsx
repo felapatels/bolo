@@ -1,7 +1,24 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Mic, Sparkles, Trophy, ArrowRight, Volume2, Hand, MessageCircle, Check, X } from 'lucide-react';
+import {
+  Mic,
+  Sparkles,
+  ArrowRight,
+  Volume2,
+  Hand,
+  MessageCircle,
+  Check,
+  X,
+  Map,
+  Gamepad2,
+  PenLine,
+  RefreshCcw,
+  Flame,
+  Award,
+  Users,
+  GraduationCap,
+} from 'lucide-react';
 import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
 import { SpeakingDemo } from '@/components/speaking-demo';
@@ -49,6 +66,42 @@ function Reveal({
   );
 }
 
+// A compact feature card used by the showcase sections — same glass-card
+// visual language as the rest of the page.
+function FeatureCard({
+  icon: Icon,
+  color,
+  title,
+  body,
+  delay = 0,
+  badge,
+}: {
+  icon: typeof Mic;
+  color: string;
+  title: string;
+  body: string;
+  delay?: number;
+  badge?: string;
+}) {
+  return (
+    <Reveal delay={delay} className="glass-card rounded-3xl p-6 h-full relative">
+      {badge && (
+        <span className="absolute top-5 right-5 bg-primary/15 text-primary text-[0.65rem] font-black uppercase tracking-wide px-2.5 py-1 rounded-full">
+          {badge}
+        </span>
+      )}
+      <div
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+        style={{ backgroundColor: `${color}20`, color }}
+      >
+        <Icon className="w-7 h-7" />
+      </div>
+      <h3 className="text-xl font-black text-foreground mb-1">{title}</h3>
+      <p className="text-muted-foreground font-medium">{body}</p>
+    </Reveal>
+  );
+}
+
 export default function Landing() {
   const reduceMotion = useReducedMotion();
   const { data: languages } = useListLanguages();
@@ -65,10 +118,10 @@ export default function Landing() {
 
   return (
     <div className="app-surface min-h-[100dvh] bg-background overflow-x-hidden">
-      {/* Nav */}
+      {/* Nav — the living rigged Bolo stands in as the logo mark. */}
       <header className="px-6 pt-8 flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
-          <img src={`${import.meta.env.BASE_URL}mascot/mascot-wave.png`} alt="Bolo!" className="h-9 w-9 object-contain" />
+          <Mascot pose="wave" size={36} idle="none" />
           <span className="text-2xl font-black text-foreground tracking-tight">Bolo!</span>
         </div>
         <Link
@@ -108,10 +161,11 @@ export default function Landing() {
               {...heroItem(0.15)}
               className="text-lg sm:text-xl text-muted-foreground font-medium mt-6 max-w-xl mx-auto lg:mx-0"
             >
-              One app, all 22 languages. No matching tiles, no silent tapping — you
-              say each phrase out loud and Bolo! coaches your pronunciation on the
-              spot. For kids and grown-ups finding their way back to their
-              family's language — real enough to actually stick.
+              Say every phrase out loud and get coached on the spot. Then chat
+              with Bolo the parrot, climb a journey map, play your way through
+              the games arcade, and let spaced review bring each phrase back
+              right before you'd forget it. For kids and grown-ups finding
+              their way back to their family's language.
             </motion.p>
 
             <motion.div
@@ -127,7 +181,7 @@ export default function Landing() {
               </Link>
               <Link
                 href="/sign-in"
-                className="w-full sm:w-auto bg-white text-foreground border-2 border-border font-bold text-lg py-4 px-8 rounded-2xl flex items-center justify-center active:scale-95 transition-all"
+                className="w-full sm:w-auto bg-card text-foreground border-2 border-border font-bold text-lg py-4 px-8 rounded-2xl flex items-center justify-center active:scale-95 transition-all"
               >
                 I have an account
               </Link>
@@ -169,7 +223,7 @@ export default function Landing() {
                   delay={Math.min(i, 12) * 0.18}
                   distance={7}
                   dir={native.dir}
-                  className="gap-2.5 bg-white border border-card-border !rounded-2xl px-4 py-2.5 shadow-sm"
+                  className="gap-2.5 bg-card border border-card-border !rounded-2xl px-4 py-2.5 shadow-sm"
                 >
                   <span
                     className="text-xl font-bold leading-none"
@@ -186,45 +240,110 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* How it works — the feature grid */}
+        {/* How it works — the real learning loop, end to end. */}
         <section className="py-12">
-          <div className="grid gap-5 sm:grid-cols-3">
-            {[
-              {
-                icon: Volume2,
-                color: '#0D9488',
-                title: 'Hear it',
-                body: 'Every phrase spoken clearly in native script, so you catch the vibe before you try.',
-              },
-              {
-                icon: Mic,
-                color: '#4F46E5',
-                title: 'Say it out loud',
-                body: 'Tap the mic and go for it. Bolo! actually listens and shows you exactly what it heard.',
-              },
-              {
-                icon: Trophy,
-                color: '#6366F1',
-                title: 'Level up',
-                body: 'Instant scoring, gentle tips, streaks and mastery to chase. Watch yourself get good.',
-              },
-            ].map((step, i) => (
-              <Reveal
-                key={step.title}
-                delay={i * 0.08}
-                className="glass-card rounded-3xl p-6 h-full"
-              >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: `${step.color}20`, color: step.color }}
-                >
-                  <step.icon className="w-7 h-7" />
-                </div>
-                <h3 className="text-xl font-black text-foreground mb-1">{step.title}</h3>
-                <p className="text-muted-foreground font-medium">{step.body}</p>
-              </Reveal>
-            ))}
+          <Reveal className="text-center max-w-2xl mx-auto mb-9">
+            <h2 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
+              The loop that makes it stick
+            </h2>
+            <p className="text-muted-foreground font-medium text-lg mt-3">
+              Every phrase goes through the same four beats — and the last one is
+              the secret.
+            </p>
+          </Reveal>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <FeatureCard
+              icon={Volume2}
+              color="#0D9488"
+              title="Hear it"
+              body="Every phrase spoken clearly in native script, so you catch the vibe before you try."
+            />
+            <FeatureCard
+              icon={Mic}
+              color="#4F46E5"
+              title="Say it out loud"
+              delay={0.08}
+              body="Tap the mic and go for it. Bolo! actually listens and shows you exactly what it heard."
+            />
+            <FeatureCard
+              icon={GraduationCap}
+              color="#6366F1"
+              title="Get coached"
+              delay={0.16}
+              body="A real score, warm feedback, and the one sound to work on — phrase by phrase."
+            />
+            <FeatureCard
+              icon={RefreshCcw}
+              color="#D97706"
+              title="It comes back"
+              delay={0.24}
+              body="Spaced review resurfaces each phrase right before you'd forget it. That's how it sticks."
+            />
           </div>
+        </section>
+
+        {/* Feature showcase — what the app actually is today. */}
+        <section className="py-12">
+          <Reveal className="text-center max-w-2xl mx-auto mb-9">
+            <h2 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
+              Way more than flashcards
+            </h2>
+            <p className="text-muted-foreground font-medium text-lg mt-3">
+              Practice is just the start. Bolo! is a whole world built around
+              getting you talking.
+            </p>
+          </Reveal>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FeatureCard
+              icon={MessageCircle}
+              color="#4F46E5"
+              title="Chat with Bolo"
+              body="Have real back-and-forth conversations with Bolo the parrot in your target language — he talks, you talk back, out loud."
+            />
+            <FeatureCard
+              icon={Map}
+              color="#0D9488"
+              title="Your journey map"
+              delay={0.08}
+              body="Watch your path unfold topic by topic — greetings, family, food and more — with each stop unlocking the next."
+            />
+            <FeatureCard
+              icon={Gamepad2}
+              color="#D97706"
+              title="The games arcade"
+              delay={0.16}
+              body="Six mini-games from Word Match to Speed Round — including Script Trace, where you learn to handwrite the script itself."
+            />
+            <FeatureCard
+              icon={RefreshCcw}
+              color="#6366F1"
+              title="It keeps you coming back"
+              delay={0.24}
+              body="Spaced review, daily streaks, a badge cabinet to fill, and a friends leaderboard to climb. Momentum, gamified."
+            />
+          </div>
+
+          {/* The retention loop, spelled out as quick chips. */}
+          <Reveal delay={0.1} className="mt-6">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {[
+                { icon: Flame, label: 'Daily streaks' },
+                { icon: RefreshCcw, label: 'Spaced review' },
+                { icon: Award, label: 'Badges to earn' },
+                { icon: Users, label: 'Friends leaderboard' },
+                { icon: PenLine, label: 'Script Trace handwriting' },
+              ].map(({ icon: Icon, label }) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-2 glass-card rounded-full px-4 py-2 text-sm font-bold text-foreground"
+                >
+                  <Icon className="w-4 h-4 text-primary" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </Reveal>
         </section>
 
         {/* Why Bolo! is different */}
@@ -251,7 +370,7 @@ export default function Landing() {
                 {[
                   'Tap the tile that matches. Silent the whole time.',
                   'You can point at words but freeze up out loud.',
-                  'Feels like a quiz, not a conversation.',
+                  'Cram, forget, cram the same words again.',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-muted-foreground font-medium">
                     <X className="w-5 h-5 shrink-0 mt-0.5 text-destructive" />
@@ -273,8 +392,8 @@ export default function Landing() {
                 <ul className="space-y-2.5">
                   {[
                     'You open your mouth and actually speak — every time.',
-                    'Real coaching on your pronunciation, phrase by phrase.',
-                    'You leave able to say things, not just recognize them.',
+                    'Real coaching on your pronunciation, then real conversations with Bolo.',
+                    'Spaced review brings each phrase back at the right moment, so it sticks.',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-foreground font-medium">
                       <Check className="w-5 h-5 shrink-0 mt-0.5 text-success" />
@@ -285,6 +404,25 @@ export default function Landing() {
               </div>
             </Reveal>
           </div>
+        </section>
+
+        {/* Honest note on free vs Plus — no hard sell. */}
+        <section className="py-12">
+          <Reveal>
+            <div className="glass-card rounded-3xl p-7 sm:p-9 max-w-3xl mx-auto text-center">
+              <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight mb-3">
+                Free to start. Really.
+              </h2>
+              <p className="text-muted-foreground font-medium text-lg">
+                The free tier gets you starter phrases in every topic, four of
+                the games, chats with Bolo, streaks and badges — no card
+                required. When you want the full phrase library, sentences,
+                Script Trace, the Bolo Quiz and unlimited chat, Plus is there,
+                and a Family plan covers the whole household. No pressure —
+                start free and see if it clicks.
+              </p>
+            </div>
+          </Reveal>
         </section>
 
         {/* Bottom CTA */}

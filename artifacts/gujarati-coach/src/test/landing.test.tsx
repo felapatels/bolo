@@ -113,7 +113,7 @@ describe("Landing page", () => {
     expect(screen.queryByText("ગુજરાતી")).not.toBeInTheDocument();
   });
 
-  test("renders the section headings, the how-it-works cards, and the comparison", () => {
+  test("renders the section headings, the learning-loop cards, and the comparison", () => {
     renderLanding(<Landing />);
 
     // Language showcase + comparison section headings.
@@ -124,15 +124,21 @@ describe("Landing page", () => {
       screen.getByRole("heading", { name: /Why Bolo! hits different/i }),
     ).toBeInTheDocument();
 
-    // "How it works" cards.
+    // The real end-to-end learning loop: hear → say → coached → comes back.
     expect(
-      screen.getByRole("heading", { name: /Hear it/i }),
+      screen.getByRole("heading", { name: /The loop that makes it stick/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Hear it$/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Say it out loud/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /Level up/i }),
+      screen.getByRole("heading", { name: /Get coached/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^It comes back$/i }),
     ).toBeInTheDocument();
 
     // "Why Bolo!" comparison: the two columns.
@@ -141,6 +147,45 @@ describe("Landing page", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /With Bolo!/i }),
+    ).toBeInTheDocument();
+  });
+
+  test("showcases the real feature set: chat, journey map, games, retention loop", () => {
+    renderLanding(<Landing />);
+
+    expect(
+      screen.getByRole("heading", { name: /Way more than flashcards/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Chat with Bolo/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Your journey map/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /The games arcade/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /It keeps you coming back/i }),
+    ).toBeInTheDocument();
+
+    // Script Trace is called out by name (card copy + retention chip).
+    expect(screen.getAllByText(/Script Trace/i).length).toBeGreaterThanOrEqual(1);
+
+    // Retention-loop chips.
+    // Anchored: the chip labels also appear inside card body copy.
+    for (const chip of [
+      /^Daily streaks$/i,
+      /^Spaced review$/i,
+      /^Badges to earn$/i,
+      /^Friends leaderboard$/i,
+    ]) {
+      expect(screen.getByText(chip)).toBeInTheDocument();
+    }
+
+    // Honest free-vs-Plus note, no hard sell.
+    expect(
+      screen.getByRole("heading", { name: /Free to start\. Really\./i }),
     ).toBeInTheDocument();
   });
 
