@@ -417,7 +417,7 @@ export default function Landing() {
                 The free tier gets you starter phrases in every topic, four of
                 the games, chats with Bolo, streaks and badges — no card
                 required. When you want the full phrase library, sentences,
-                Script Trace, the Bolo Quiz and unlimited chat, Plus is there,
+                Script Trace, the Bolo Quiz and unlimited chat, All-Access is there,
                 and a Family plan covers the whole household. No pressure —
                 start free and see if it clicks.
               </p>

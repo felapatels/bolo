@@ -69,6 +69,7 @@ import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
 import { useTour, TOUR_STEPS } from "@/lib/tour-context";
+import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -207,14 +208,7 @@ export default function Account() {
 
   const notifications = account?.preferences.notifications;
   const learning = account?.preferences.learning;
-  const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [timezoneInput, setTimezoneInput] = useState(learning?.timezone ?? "");
-  useEffect(() => {
-    if (learning?.timezone !== undefined) {
-      setTimezoneInput(learning.timezone ?? detectedTz);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [learning?.timezone]);
+  const detectedTz = detectedTimezone();
 
   const profileDirty =
     !!account &&
@@ -420,7 +414,7 @@ export default function Account() {
                 <div className="min-w-0">
                   <p className="font-black">Upgrade your plan</p>
                   <p className="truncate text-sm font-semibold text-white/85">
-                    Unlock more languages and unlimited lessons
+                    Unlock every language and every feature
                   </p>
                 </div>
               </div>
@@ -620,24 +614,17 @@ export default function Account() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-muted-foreground">Timezone</p>
-                <div className="mt-1 flex gap-2">
-                  <Input
-                    value={timezoneInput}
-                    onChange={e => setTimezoneInput(e.target.value)}
-                    placeholder="e.g. America/New_York"
-                    className="font-mono text-sm h-8"
+                <div className="mt-1">
+                  <TimezoneSelect
+                    value={learning?.timezone ?? detectedTz}
+                    onChange={(zone) =>
+                      savePreferences({ timezone: zone }, "Timezone saved")
+                    }
+                    disabled={updatePrefs.isPending}
                   />
-                  {timezoneInput !== (learning?.timezone ?? detectedTz) && (
-                    <button
-                      onClick={() => savePreferences({ timezone: timezoneInput.trim() || null }, "Timezone saved")}
-                      className="shrink-0 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors"
-                    >
-                      Save
-                    </button>
-                  )}
                 </div>
                 <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                  Used for daily streak. Detected: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                  Used for daily streak. Detected: {detectedTz}
                 </p>
               </div>
             </div>
@@ -676,7 +663,7 @@ export default function Account() {
                 <span className="text-muted-foreground">
                   Voice selection is a{" "}
                   <Link href="/upgrade" className="font-semibold text-primary hover:underline">
-                    Bolo! Plus
+                    All-Access
                   </Link>{" "}
                   feature.
                 </span>

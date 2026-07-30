@@ -271,7 +271,7 @@ describe("Add-phrases 402", () => {
     };
     renderPage(<CategoryDetail />, "/learn/1");
 
-    const link = screen.getByText(/go unlimited with All-Access/i);
+    const link = screen.getByText(/keep going with All-Access/i);
     // Every denial lands on the All-Access card (One Language is mobile-only).
     // The reason is forwarded so the paywall can show a contextual trial banner.
     expect(link.closest("a")).toHaveAttribute(

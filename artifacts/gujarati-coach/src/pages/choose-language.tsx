@@ -160,8 +160,9 @@ function LanguageTile({
       onClick={onSelect}
       disabled={disabled}
       className={cn(
-        "relative flex flex-col rounded-2xl border-2 border-card-border bg-card p-4 text-left transition-all",
-        "hover:border-primary/40 active:scale-[0.98] disabled:opacity-60",
+        // Softer treatment: rounder corners, hairline border, gentler surface.
+        "relative flex flex-col rounded-3xl border border-card-border/70 bg-card p-4 text-left shadow-sm transition-all",
+        "hover:border-primary/30 active:scale-[0.98] disabled:opacity-60",
         pending && "border-primary",
       )}
       data-testid={`choose-lang-${lang.code}`}

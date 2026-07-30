@@ -71,8 +71,8 @@ export default function FamilyJoin() {
           </h1>
           <p className="mt-3 text-sm font-medium text-muted-foreground">
             {joined.active
-              ? "You now have full Plus access — every language, unlimited lessons, review, and analytics. Your progress stays completely your own."
-              : "Your seat is saved. The family subscription isn't active right now, so Plus access will unlock as soon as it resumes."}
+              ? "You now have full All-Access — every language, the complete phrase library, review, and analytics. Your progress stays completely your own."
+              : "Your seat is saved. The family subscription isn't active right now, so All-Access will unlock as soon as it resumes."}
           </p>
           {joined.previousSubscriptionCanceled && (
             <p className="mt-3 rounded-xl bg-primary/5 px-3 py-2.5 text-sm font-semibold text-foreground">
@@ -129,7 +129,7 @@ export default function FamilyJoin() {
                 You've been invited!
               </h2>
               <p className="mt-2 text-sm font-medium text-muted-foreground">
-                Accept your seat to get full Plus access through this family
+                Accept your seat to get full All-Access through this family
                 plan. Your progress and streaks stay completely your own.
               </p>
               <button

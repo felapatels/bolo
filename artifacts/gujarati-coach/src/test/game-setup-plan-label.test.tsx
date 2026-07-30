@@ -6,9 +6,9 @@ import { memoryLocation } from "wouter/memory-location";
 
 // ---------------------------------------------------------------------------
 // Guards the "Plan" stat cell in the Phrase Builder and Speed Round setup
-// screens. The cell reads from useEntitlements and must show "Plus" when the
-// learner is on Plus and "Free" when they are on the free plan. A loading
-// flash that starts on "Free" and flips to "Plus" would mislead users; this
+// screens. The cell reads from useEntitlements and must show "All-Access"
+// when the learner is on All-Access and "Free" when they are on the free
+// plan. A loading flash that starts on "Free" and flips would mislead; this
 // test suite pins both branches so a regression surfaces immediately.
 // ---------------------------------------------------------------------------
 
@@ -82,11 +82,11 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("Phrase Builder setup screen — plan label", () => {
-  test('shows "Plus" when the learner is on Plus', () => {
+  test('shows "All-Access" when the learner is subscribed', () => {
     h.isPlus = true;
     renderPage(<PhraseBuilderPage />);
 
-    expect(getPlanValue()).toBe("Plus");
+    expect(getPlanValue()).toBe("All-Access");
     expect(screen.queryByText("Free")).toBeNull();
   });
 
@@ -98,7 +98,7 @@ describe("Phrase Builder setup screen — plan label", () => {
     renderPage(<PhraseBuilderPage />);
 
     expect(getPlanValue()).toBe("Free");
-    expect(screen.queryByText("Plus")).toBeNull();
+    expect(screen.queryByText("All-Access")).toBeNull();
   });
 });
 
@@ -107,11 +107,11 @@ describe("Phrase Builder setup screen — plan label", () => {
 // ---------------------------------------------------------------------------
 
 describe("Speed Round setup screen — plan label", () => {
-  test('shows "Plus" when the learner is on Plus', () => {
+  test('shows "All-Access" when the learner is subscribed', () => {
     h.isPlus = true;
     renderPage(<SpeedRoundPage />);
 
-    expect(getPlanValue()).toBe("Plus");
+    expect(getPlanValue()).toBe("All-Access");
     expect(screen.queryByText("Free")).toBeNull();
   });
 
@@ -121,6 +121,6 @@ describe("Speed Round setup screen — plan label", () => {
     renderPage(<SpeedRoundPage />);
 
     expect(getPlanValue()).toBe("Free");
-    expect(screen.queryByText("Plus")).toBeNull();
+    expect(screen.queryByText("All-Access")).toBeNull();
   });
 });

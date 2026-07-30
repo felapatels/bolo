@@ -135,7 +135,7 @@ export function DesktopNav() {
             aria-current={upgradeActive ? "page" : undefined}
           >
             <Crown className="h-6 w-6" fill="currentColor" />
-            Go Plus
+            Go All-Access
           </Link>
         )}
       </nav>
@@ -177,7 +177,7 @@ export function DesktopNav() {
               {user?.firstName ?? "Your account"}
             </p>
             <p className="truncate text-xs font-medium text-muted-foreground">
-              {isPlus ? "Bolo! Plus · Settings" : "Free plan · Settings"}
+              {isPlus ? "All-Access · Settings" : "Free plan · Settings"}
             </p>
           </div>
           <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />

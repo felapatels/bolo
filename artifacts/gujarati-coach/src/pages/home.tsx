@@ -633,9 +633,9 @@ export default function Home() {
                 {capReached ? (
                   <UpgradeCard
                     icon={<Zap className="h-6 w-6" fill="currentColor" />}
-                    title="You've hit today's free lessons"
-                    description={`You've used all ${dailyLimit} of today's new lessons. Come back tomorrow, or go unlimited with All-Access.`}
-                    cta="Go unlimited"
+                    title="You've finished today's free lessons"
+                    description="Come back tomorrow for more — or unlock every language and feature with All-Access."
+                    cta="Get All-Access"
                     href={upgradeHref({ plan: "plus", reason: "daily_lesson_limit" })}
                   />
                 ) : (
@@ -647,7 +647,7 @@ export default function Home() {
                       {dailyRemaining} of {dailyLimit} free lessons left today
                     </p>
                     <Link href={upgradeHref({ plan: "plus" })} className="ml-auto text-sm font-black text-primary shrink-0">
-                      Go unlimited
+                      Get All-Access
                     </Link>
                   </div>
                 )}

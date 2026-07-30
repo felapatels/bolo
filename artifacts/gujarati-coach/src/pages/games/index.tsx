@@ -177,11 +177,11 @@ function GameCard({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Free / Plus pill */}
+          {/* Free / All-Access pill */}
           {game.plusOnly ? (
-            <span className="flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+            <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
               <Star className="h-2.5 w-2.5" />
-              Plus
+              All-Access
             </span>
           ) : (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40">

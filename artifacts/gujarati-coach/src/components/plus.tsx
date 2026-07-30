@@ -15,7 +15,9 @@ export function PlusPill({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm",
+        // whitespace-nowrap + shrink-0: the badge must never wrap or squash,
+        // even inside tight flex rows (e.g. the 360px-wide language picker).
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm",
         PLUS_GRADIENT,
         className,
       )}

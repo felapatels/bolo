@@ -104,12 +104,12 @@ export default function Terms() {
 
         <Section title="Subscriptions and billing">
           <p>
-            Bolo! offers a free tier and a paid subscription ("Bolo! Plus") that unlocks
+            Bolo! offers a free tier and a paid subscription ("All-Access") that unlocks
             additional features. The following terms apply to paid subscriptions:
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li>
-              <span className="font-bold text-foreground">Billing.</span> Plus is billed
+              <span className="font-bold text-foreground">Billing.</span> All-Access is billed
               in advance on a recurring basis (for example, monthly or annually) at the
               price shown at the time of purchase, plus any applicable taxes.
             </li>
@@ -120,14 +120,14 @@ export default function Terms() {
             </li>
             <li>
               <span className="font-bold text-foreground">Managing your subscription.</span>{' '}
-              Where you purchased Plus determines how you manage or cancel it. Web
+              Where you purchased All-Access determines how you manage or cancel it. Web
               purchases are managed through the app's billing settings; purchases made
               through the Apple App Store or Google Play are managed through your Apple
               or Google account subscription settings.
             </li>
             <li>
               <span className="font-bold text-foreground">Cancellation.</span> When you
-              cancel, you keep Plus access through the end of the current billing period,
+              cancel, you keep All-Access through the end of the current billing period,
               and it does not renew after that. We do not provide prorated refunds for
               partial periods except where required by law.
             </li>

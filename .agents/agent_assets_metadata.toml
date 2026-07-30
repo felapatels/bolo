@@ -156,3 +156,39 @@ id = "Vt7tQNt4GXBSaQw_kli21"
 uri = "file://qa/shots/canonical-mascot/landing-header.png"
 type = "image"
 title = "Landing header — canonical Bolo"
+
+[[outputs]]
+id = "2B_137lpsjuleJ2yHU72T"
+uri = "file://qa/shots/task870/1-progress.png"
+type = "image"
+title = "Item 1 — Progress: band chips, Best Attempt card, band-based analytics"
+
+[[outputs]]
+id = "Na4_dEyggPI1YQWDCUQAB"
+uri = "file://qa/shots/task870/2-account-tz-open.png"
+type = "image"
+title = "Timezone search fixed: \"Kolk\" → Asia/Kolkata"
+
+[[outputs]]
+id = "L7zlNL4eqO3VB82nbxcZG"
+uri = "file://qa/shots/task870/3-friends.png"
+type = "image"
+title = "Item 3 — Friends: standard back affordance"
+
+[[outputs]]
+id = "cjk3qAOoYMUUG_0mL5Xmy"
+uri = "file://qa/shots/task870/4-picker-360-top.png"
+type = "image"
+title = "Item 4 — Language picker @360px: full English names, crown locks, All-Access note (top)"
+
+[[outputs]]
+id = "jsYm4dbRcUwGl6og9HXPY"
+uri = "file://qa/shots/task870/4-picker-360-bottom.png"
+type = "image"
+title = "Picker @360px, mouse parked — no ring on Marathi"
+
+[[outputs]]
+id = "Q6pPS8hC4jIGtCfOX9eyr"
+uri = "file://qa/shots/task870/5-choose-language.png"
+type = "image"
+title = "Item 5 — Choose-language: softened tiles"

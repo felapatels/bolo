@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Check, ChevronDown, Globe, Lock } from "lucide-react";
+import { Check, ChevronDown, Crown, Globe } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
-import { PlusPill } from "@/components/plus";
 
 type LanguagePickerProps = {
   /** Optional external open state — pass both open + onOpenChange to control from outside. */
@@ -60,6 +59,13 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Choose a language</DialogTitle>
+          {/* One shared note instead of a per-tile badge, so tile rows have
+              room to show every English name in full at narrow widths. */}
+          {languages.some((l) => !isLanguageAllowed(l.code)) && (
+            <p className="text-xs font-medium text-muted-foreground">
+              Locked languages need All-Access
+            </p>
+          )}
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
           {languages.map((lang) => {
@@ -85,41 +91,47 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                   setOpen(false);
                 }}
                 className={cn(
-                  "relative flex items-center justify-between gap-2 rounded-2xl border-2 p-3 text-left transition-all active:scale-[0.98]",
+                  // pr-8 clears the corner glyph; the English name below gets
+                  // the full tile width and never truncates.
+                  "relative flex flex-col rounded-3xl border p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
                   selected
                     ? "border-primary bg-primary/5"
                     : locked
-                      ? "border-card-border bg-muted/40 hover:border-primary/40"
-                      : "border-card-border bg-white hover:border-primary/40",
+                      ? "border-card-border/70 bg-muted/40 hover:border-primary/30"
+                      : "border-card-border/70 bg-card hover:border-primary/30",
                 )}
               >
-                <div className="min-w-0">
-                  <span
-                    className={cn(
-                      "block text-xl font-bold",
-                      // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
-                      // vertically — leading-tight clips them. Give them
-                      // relaxed overflow instead of clipping.
-                      native.isNastaliq
-                        ? "overflow-visible"
-                        : "leading-tight truncate",
-                      locked ? "text-muted-foreground" : "text-foreground",
-                    )}
-                    style={native.style}
-                    dir={native.dir}
-                  >
-                    {lang.nativeName}
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <span className="truncate">{lang.name}</span>
-                    {locked && <PlusPill />}
-                  </span>
-                </div>
+                {/* Lock state is a single compact corner glyph — no
+                    full-width badge, so names always render in full. */}
                 {selected ? (
-                  <Check className="w-5 h-5 text-primary shrink-0" />
+                  <Check className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />
                 ) : locked ? (
-                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Crown
+                    className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-secondary"
+                    fill="currentColor"
+                    aria-label="Needs All-Access"
+                    data-testid={`picker-locked-${lang.code}`}
+                  />
                 ) : null}
+                <span
+                  className={cn(
+                    "block w-full text-xl font-bold",
+                    // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
+                    // vertically — leading-tight clips them. Give them
+                    // relaxed overflow instead of clipping.
+                    native.isNastaliq
+                      ? "overflow-visible"
+                      : "leading-tight truncate",
+                    locked ? "text-muted-foreground" : "text-foreground",
+                  )}
+                  style={native.style}
+                  dir={native.dir}
+                >
+                  {lang.nativeName}
+                </span>
+                <span className="mt-0.5 block w-full text-xs font-medium text-muted-foreground">
+                  {lang.name}
+                </span>
               </button>
             );
           })}

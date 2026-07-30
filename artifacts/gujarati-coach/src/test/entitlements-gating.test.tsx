@@ -134,9 +134,14 @@ describe("Language picker gating", () => {
     await user.click(screen.getByTitle("Change language"));
 
     const hindiButton = screen.getByText("Hindi").closest("button")!;
-    // A locked language reads as aspirational, not broken: it wears the
-    // All-Access pill.
-    expect(within(hindiButton).getByText("All-Access")).toBeInTheDocument();
+    // A locked language reads as aspirational, not broken: it wears a compact
+    // corner crown, and the dialog carries one shared explainer line.
+    expect(
+      within(hindiButton).getByTestId("picker-locked-hi"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Locked languages need All-Access"),
+    ).toBeInTheDocument();
 
     await user.click(hindiButton);
 
@@ -155,7 +160,12 @@ describe("Language picker gating", () => {
     await user.click(screen.getByTitle("Change language"));
 
     const hindiButton = screen.getByText("Hindi").closest("button")!;
-    expect(within(hindiButton).queryByText("Plus")).not.toBeInTheDocument();
+    expect(
+      within(hindiButton).queryByTestId("picker-locked-hi"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Locked languages need All-Access"),
+    ).not.toBeInTheDocument();
 
     await user.click(hindiButton);
 
@@ -243,7 +253,7 @@ describe("Home review card gating", () => {
     expect(reviewCta.closest("a")).toHaveAttribute("href", "/upgrade?plan=plus");
 
     // The daily free-lesson meter offers a way out, never a dead end.
-    const goUnlimited = screen.getByText(/Go unlimited/i);
+    const goUnlimited = screen.getByText(/Get All-Access/i);
     expect(goUnlimited.closest("a")).toHaveAttribute(
       "href",
       "/upgrade?plan=plus",
@@ -257,7 +267,7 @@ describe("Home review card gating", () => {
     expect(
       screen.queryByText(/All-Access builds smart review sessions/i),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Go unlimited/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Get All-Access/i)).not.toBeInTheDocument();
   });
 
   test("Trialing plan unlocks the same surfaces as an active subscription", () => {

@@ -75,7 +75,7 @@ const TIER_PRICING: Record<
 
 const ALL_ACCESS_BENEFITS = [
   { icon: Globe, text: "All 22 official Indian languages" },
-  { icon: InfinityIcon, text: "Unlimited daily lessons" },
+  { icon: InfinityIcon, text: "Full phrase library, sentences & every game" },
   { icon: Target, text: "Review your weakest phrases" },
   { icon: BarChart3, text: "Advanced progress analytics" },
   { icon: Award, text: "Exclusive All-Access badges" },
@@ -84,7 +84,7 @@ const ALL_ACCESS_BENEFITS = [
 const FAMILY_BENEFITS = [
   { icon: Users, text: "Everything in All-Access, for up to 4 people" },
   { icon: Globe, text: "All 22 official Indian languages" },
-  { icon: InfinityIcon, text: "Unlimited daily lessons for everyone" },
+  { icon: InfinityIcon, text: "Every premium feature, for everyone" },
   { icon: Target, text: "Each person's progress stays their own" },
 ];
 
@@ -317,7 +317,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                   Hindi + a free taste of all 22 languages
                 </p>
                 <p className="text-xs font-medium text-muted-foreground/70">
-                  {/* mirrors the server's Free daily cap */}3 lessons a day
+                  Starter phrases in every topic
                 </p>
               </div>
               <span className="rounded-full bg-muted px-3 py-1 text-xs font-black uppercase tracking-wide text-muted-foreground">

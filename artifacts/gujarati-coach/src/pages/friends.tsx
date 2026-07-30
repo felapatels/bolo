@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import {
   useSearchFriendByEmail,
   useSendFriendRequest,
@@ -101,7 +103,15 @@ export default function Friends() {
   const isDesktop = useIsDesktop();
   return (
     <div className="min-h-[100dvh] pb-28 lg:pb-12 bg-background">
-      <header className="mx-auto w-full max-w-5xl pt-6 px-6 pb-4 text-center flex flex-col items-center lg:pt-6">
+      <header className="relative mx-auto w-full max-w-5xl pt-6 px-6 pb-4 text-center flex flex-col items-center lg:pt-6">
+        {/* Standard back affordance — same treatment as Account/Subscription. */}
+        <Link
+          href="/account"
+          className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-2xl border border-card-border bg-card text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Back to account"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
         <Mascot pose="wave" size={96} idle="float" className="mb-2" />
         <h1 className="text-3xl font-extrabold text-foreground mb-1 lg:text-4xl">Friends</h1>
         <p className="text-muted-foreground text-lg font-medium">

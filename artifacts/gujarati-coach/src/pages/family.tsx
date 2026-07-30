@@ -438,8 +438,8 @@ function MemberView({ family }: { family: FamilyStatus }) {
           </div>
         </div>
         <p className="mt-4 text-sm font-medium text-muted-foreground">
-          You have full Plus access through this plan — every language,
-          unlimited lessons, review, and analytics. Your progress and streaks
+          You have full All-Access through this plan — every language, the
+          complete phrase library, review, and analytics. Your progress and streaks
           are completely your own; only the plan is shared. Billing is handled
           by {family.ownerName ?? "the plan owner"}, so there's nothing for you
           to pay or manage.
@@ -519,7 +519,7 @@ function NoneView() {
         You're not on a family plan yet
       </h2>
       <p className="mt-2 text-sm font-medium text-muted-foreground">
-        Get full Plus access for up to 4 people with one $19.99/mo subscription,
+        Get All-Access for up to 4 people with one $19.99/mo subscription,
         or join someone else's plan with their code.
       </p>
       <div className="mt-5 space-y-2">

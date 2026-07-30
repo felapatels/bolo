@@ -300,7 +300,7 @@ export default function CategoryDetail() {
               >
                 <Sparkles className="h-5 w-5" />
                 {asUpgradeRequired(addPhrases.error)?.reason === "daily_lesson_limit"
-                  ? "Daily limit reached — go unlimited with All-Access"
+                  ? "Out of free lessons — keep going with All-Access"
                   : "Unlock with All-Access"}
               </Link>
             ) : (

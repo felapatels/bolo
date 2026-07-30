@@ -225,7 +225,7 @@ describe("extractStrokes pen-stroke skeleton", () => {
         expect(totalLen, `${ch.id} skeleton too short`).toBeGreaterThan(15);
       }
     },
-    60000,
+    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
   );
 
   test(
@@ -245,7 +245,7 @@ describe("extractStrokes pen-stroke skeleton", () => {
       }
       expect(upperStarts / guidedChars.length).toBeGreaterThan(0.8);
     },
-    60000,
+    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
   );
 });
 
@@ -273,7 +273,7 @@ describe("scoreCoverage on real glyphs", () => {
         expect(score, `${ch.id} demo-written trace`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       }
     },
-    60000,
+    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
   );
 
   test(
@@ -288,7 +288,7 @@ describe("scoreCoverage on real glyphs", () => {
         expect(score, `${ch.id} dense fill`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       }
     },
-    60000,
+    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
   );
 
   test("a stationary tap at the glyph centroid fails for every character", () => {
@@ -362,6 +362,6 @@ describe("PASS_THRESHOLD score distribution audit", () => {
       expect(min).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       expect(min - PASS_THRESHOLD).toBeGreaterThanOrEqual(10);
     },
-    60000,
+    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
   );
 });

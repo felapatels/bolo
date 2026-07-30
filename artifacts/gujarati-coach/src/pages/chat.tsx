@@ -1667,7 +1667,7 @@ export default function ChatPage() {
                     href={upgradeHref({ plan: "plus", reason: "chat_cap_low" })}
                     className="shrink-0 text-[11px] font-black text-primary active:underline"
                   >
-                    Go unlimited ↗
+                    Go All-Access ↗
                   </Link>
                 </div>
               )}

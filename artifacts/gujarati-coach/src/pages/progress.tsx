@@ -6,6 +6,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { BandPill, bandFromScore, bandLabel } from "@/components/ui/band-pill";
 import { BadgesGallery } from "@/components/badges-gallery";
 import { NextBadgeSpotlight } from "@/components/next-badge-spotlight";
 import { AdvancedAnalytics } from "@/components/advanced-analytics";
@@ -39,28 +40,43 @@ export default function Progress() {
 
       <main className="mx-auto w-full max-w-6xl px-6 lg:px-10 space-y-8">
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard 
-            icon={<Target className="w-6 h-6 text-primary" />} 
-            value={summary.phrasesMastered} 
-            label="Mastered" 
+          <StatCard
+            icon={<Target className="w-6 h-6 text-primary" />}
+            value={summary.phrasesMastered}
+            label="Mastered"
             delay={0.1}
           />
-          <StatCard 
-            icon={<Sparkles className="w-6 h-6 text-accent" />} 
-            value={summary.totalAttempts} 
-            label="Practices" 
+          <StatCard
+            icon={<Sparkles className="w-6 h-6 text-accent" />}
+            value={summary.totalAttempts}
+            label="Practices"
             delay={0.2}
           />
-          <StatCard 
-            icon={<Star className="w-6 h-6 text-amber-400" />} 
-            value={summary.bestScore} 
-            label="Best Score" 
+          <StatCard
+            icon={<Star className="w-6 h-6 text-amber-400" />}
+            value={
+              summary.totalAttempts > 0 ? (
+                <span
+                  className={cn(
+                    "text-xl leading-9",
+                    bandFromScore(summary.bestScore) === "nailed" && "text-success",
+                    bandFromScore(summary.bestScore) === "close" && "text-primary",
+                    bandFromScore(summary.bestScore) === "retry" && "text-destructive",
+                  )}
+                >
+                  {bandLabel(bandFromScore(summary.bestScore))}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+            label="Best Attempt"
             delay={0.3}
           />
-          <StatCard 
-            icon={<CalendarDays className="w-6 h-6 text-success" />} 
-            value={summary.currentStreakDays} 
-            label="Day Streak" 
+          <StatCard
+            icon={<CalendarDays className="w-6 h-6 text-success" />}
+            value={summary.currentStreakDays}
+            label="Day Streak"
             delay={0.4}
           />
         </section>
@@ -91,14 +107,9 @@ export default function Progress() {
                       <span className="text-xs font-bold text-muted-foreground uppercase">
                         {format(new Date(attempt.createdAt), 'MMM d, h:mm a')}
                       </span>
-                      <div className={cn(
-                        "text-xs font-bold px-2 py-1 rounded-full",
-                        attempt.score >= 80 ? "bg-success/15 text-success" : 
-                        attempt.score >= 60 ? "bg-primary/15 text-primary" : 
-                        "bg-destructive/15 text-destructive"
-                      )}>
-                        Score: {Math.round(attempt.score)}
-                      </div>
+                      {/* Prefer the server-recorded band; older rows predate
+                          banding, so fall back to deriving it from the score. */}
+                      <BandPill band={attempt.band ?? bandFromScore(attempt.score)} />
                     </div>
 
                     <div>
@@ -137,9 +148,9 @@ export default function Progress() {
   );
 }
 
-function StatCard({ icon, value, label, delay }: { icon: React.ReactNode, value: number, label: string, delay: number }) {
+function StatCard({ icon, value, label, delay }: { icon: React.ReactNode, value: React.ReactNode, label: string, delay: number }) {
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay }}
