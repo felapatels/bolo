@@ -550,6 +550,13 @@ export function BoloRig({
           <stop offset="0" stopColor={C.coralLight} />
           <stop offset="1" stopColor={C.coralDark} />
         </linearGradient>
+        {/* Soft top-left sheen that fakes the airbrushed 3D shading of the
+            original PNG art (flat vectors read as stickers without it). */}
+        <radialGradient id="bolo-sheen" cx="0.38" cy="0.28" r="0.75">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.22" />
+          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
       </defs>
 
       {/* Beat layer — poke squash / flinch shake for the whole character */}
@@ -586,27 +593,31 @@ export function BoloRig({
               fill="url(#bolo-teal)"
               stroke={C.tealShade}
               strokeWidth="3"
-              strokeOpacity="0.3"
+              strokeOpacity="0.22"
             />
+            <ellipse cx="100" cy="140" rx="53" ry="55" fill="url(#bolo-sheen)" />
             {/* Chest scallops — soft darker feather arcs */}
-            <g stroke={C.tealDark} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.55">
+            <g stroke={C.tealDark} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.4">
               <path d="M84 128 q 8 8 16 0 q 8 8 16 0" />
               <path d="M78 146 q 8 8 15 0 q 7 8 14 0 q 7 8 15 0" />
               <path d="M86 164 q 7 7 14 0 q 7 7 14 0" />
             </g>
           </TG>
 
-          {/* Feet — chunky coral three-toe feet */}
-          <g stroke={C.coralShade} strokeWidth="2" strokeOpacity="0.4">
+          {/* Feet — chunky coral three-toe feet (fat overlapping toes on a
+              rounded pad, like the plush PNG feet) */}
+          <g stroke={C.coralShade} strokeWidth="1.8" strokeOpacity="0.35">
             <g fill={C.coral}>
-              <ellipse cx="70" cy="191" rx="7" ry="5.5" />
-              <ellipse cx="80" cy="193.5" rx="7" ry="5.5" />
-              <ellipse cx="90" cy="191.5" rx="6.5" ry="5" />
+              <ellipse cx="77" cy="188.5" rx="11.5" ry="6.5" />
+              <ellipse cx="67" cy="192" rx="7.5" ry="6" />
+              <ellipse cx="77" cy="194" rx="7.5" ry="6.2" />
+              <ellipse cx="87" cy="192" rx="7" ry="5.8" />
             </g>
             <g fill={C.coral}>
-              <ellipse cx="110" cy="191.5" rx="6.5" ry="5" />
-              <ellipse cx="120" cy="193.5" rx="7" ry="5.5" />
-              <ellipse cx="130" cy="191" rx="7" ry="5.5" />
+              <ellipse cx="123" cy="188.5" rx="11.5" ry="6.5" />
+              <ellipse cx="113" cy="192" rx="7" ry="5.8" />
+              <ellipse cx="123" cy="194" rx="7.5" ry="6.2" />
+              <ellipse cx="133" cy="192" rx="7.5" ry="6" />
             </g>
           </g>
 
@@ -619,35 +630,38 @@ export function BoloRig({
 
           {/* Head — carries crest, face, eyes, and beak */}
           <TG tpl={headTpl}>
-            {/* Crest — indigo swoosh feathers */}
-            <g fill="url(#bolo-indigo)" stroke={C.indigoShade} strokeWidth="2" strokeOpacity="0.3" strokeLinejoin="round">
-              <path d="M96 40 C 88 24, 96 10, 110 8 C 102 18, 103 28, 106 38 Z" />
-              <path d="M105 36 C 108 18, 122 10, 135 14 C 123 19, 118 28, 117 40 Z" />
-              <path d="M114 42 C 122 28, 136 25, 145 31 C 134 33, 128 40, 126 48 Z" />
+            {/* Crest — lush indigo pompadour: fat overlapping curls swooping
+                up and to the right, matching the PNG tuft */}
+            <g fill="url(#bolo-indigo)" stroke={C.indigoShade} strokeWidth="2" strokeOpacity="0.25" strokeLinejoin="round">
+              <path d="M90 44 C 78 32, 78 12, 96 5 C 88 17, 90 30, 98 42 Z" />
+              <path d="M95 40 C 95 16, 110 2, 128 6 C 113 14, 107 27, 108 44 Z" />
+              <path d="M106 44 C 113 24, 130 16, 145 23 C 131 27, 122 36, 119 50 Z" />
+              <path d="M114 48 C 124 36, 138 34, 148 41 C 137 43, 129 49, 125 58 Z" />
             </g>
 
             {/* Head ball */}
-            <circle cx="100" cy="78" r="47" fill="url(#bolo-teal)" stroke={C.tealShade} strokeWidth="3" strokeOpacity="0.3" />
+            <circle cx="100" cy="78" r="47" fill="url(#bolo-teal)" stroke={C.tealShade} strokeWidth="3" strokeOpacity="0.22" />
+            <circle cx="100" cy="78" r="47" fill="url(#bolo-sheen)" />
 
-            {/* Cheeks */}
-            <ellipse cx="62" cy="98" rx="8.5" ry="6.5" fill={C.blush} opacity="0.85" />
-            <ellipse cx="138" cy="98" rx="8.5" ry="6.5" fill={C.blush} opacity="0.85" />
+            {/* Cheeks — rosy blush tucked under the outer eye corners */}
+            <ellipse cx="66" cy="95" rx="9" ry="7" fill={C.blush} opacity="0.9" />
+            <ellipse cx="134" cy="95" rx="9" ry="7" fill={C.blush} opacity="0.9" />
 
             {/* Brows */}
             <TG tpl={browLTpl}>
               <path
-                d="M68 61 Q 76 56 84 59"
+                d="M70 59.5 Q 77 55 84 57.5"
                 stroke={C.brow}
-                strokeWidth="4.5"
+                strokeWidth="3"
                 strokeLinecap="round"
                 fill="none"
               />
             </TG>
             <TG tpl={browRTpl}>
               <path
-                d="M116 59 Q 124 56 132 61"
+                d="M116 57.5 Q 123 55 130 59.5"
                 stroke={C.brow}
-                strokeWidth="4.5"
+                strokeWidth="3"
                 strokeLinecap="round"
                 fill="none"
               />
@@ -660,10 +674,11 @@ export function BoloRig({
                   <ellipse cx={ex} cy="79" rx="13.5" ry="14.5" fill="#FFFFFF" />
                   {/* Pupils: pose glance + cursor tracking (shared template) */}
                   <TG tpl={pupilTpl}>
-                    <circle cx={ex} cy="79.5" r="8.5" fill={C.eyeNavy} />
-                    <circle cx={ex} cy="80" r="4.5" fill={C.pupil} />
-                    <circle cx={ex - 2.8} cy="75.6" r="2.7" fill="#FFFFFF" />
-                    <circle cx={ex + 2.4} cy="83" r="1.3" fill="#FFFFFF" opacity="0.9" />
+                    {/* Big navy iris nearly filling the eye, like the PNG */}
+                    <circle cx={ex} cy="79.5" r="10" fill={C.eyeNavy} />
+                    <circle cx={ex} cy="80" r="5.4" fill={C.pupil} />
+                    <circle cx={ex - 3.2} cy="75.2" r="3.1" fill="#FFFFFF" />
+                    <circle cx={ex + 2.8} cy="83.4" r="1.5" fill="#FFFFFF" opacity="0.9" />
                   </TG>
                   {/* Eyelid — teal shutter that closes from the top */}
                   <TG tpl={ex === 80 ? lidLTpl : lidRTpl}>
@@ -690,17 +705,20 @@ export function BoloRig({
                   strokeOpacity="0.4"
                 />
               </TG>
-              {/* Upper beak */}
+              {/* Upper beak — plump rounded hook, wide between the eyes and
+                  curling to a soft tip above the mouth (not a long droop) */}
               <TG tpl={upperBeakTpl}>
                 <path
-                  d="M88 78 C 91 69, 109 69, 112 78 C 117 89, 112 101, 101 109 C 93 103, 88 91, 88 78 Z"
+                  d="M86 79 C 87 68, 113 68, 114 79 C 118 89, 113 99, 101 105 C 92 100, 86 90, 86 79 Z"
                   fill="url(#bolo-beak)"
                   stroke={C.coralShade}
                   strokeWidth="2"
-                  strokeOpacity="0.35"
+                  strokeOpacity="0.3"
                   strokeLinejoin="round"
                 />
-                <circle cx="106" cy="83" r="1.4" fill={C.coralShade} opacity="0.7" />
+                {/* soft highlight + nostril */}
+                <ellipse cx="95" cy="79" rx="4.6" ry="6" fill="#FFFFFF" opacity="0.28" />
+                <circle cx="107" cy="81" r="1.5" fill={C.coralShade} opacity="0.7" />
               </TG>
             </g>
           </TG>
@@ -724,23 +742,26 @@ function Wing() {
     <g>
       <path
         d="M57 108
-           C 42 112, 32 128, 33 146
-           C 33 158, 38 170, 46 172
-           C 47 165, 49 160, 52 157
-           C 52 166, 57 173, 63 172
-           C 62 165, 63 159, 66 155
-           C 67 163, 72 168, 77 163
-           C 80 147, 77 123, 66 111
-           C 63 108, 60 107, 57 108 Z"
+           C 40 112, 29 128, 30 148
+           C 29 160, 32 170, 39 175
+           C 40 167, 42 161, 45 157
+           C 45 168, 49 176, 56 178
+           C 56 169, 57 163, 60 158
+           C 61 168, 66 174, 72 174
+           C 71 166, 72 160, 74 155
+           C 77 162, 82 164, 85 158
+           C 86 141, 81 121, 67 110
+           C 63 107, 60 107, 57 108 Z"
         fill="url(#bolo-indigo)"
         stroke={C.indigoShade}
         strokeWidth="2.5"
-        strokeOpacity="0.35"
+        strokeOpacity="0.3"
         strokeLinejoin="round"
       />
-      <g stroke={C.indigoLight} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.45">
-        <path d="M52 122 C 46 132, 44 144, 46 158" />
-        <path d="M62 120 C 58 132, 57 145, 59 158" />
+      <g stroke={C.indigoLight} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5">
+        <path d="M49 122 C 42 132, 40 146, 42 162" />
+        <path d="M59 119 C 54 132, 53 147, 56 164" />
+        <path d="M69 120 C 66 132, 66 146, 69 160" />
       </g>
     </g>
   );
