@@ -270,10 +270,14 @@ export function allowedLanguagesForPlan(
   return [FREE_LANGUAGE];
 }
 
-// The daily new-lesson ceiling for a plan. `null` means unlimited (both paid
-// tiers). Only Free is capped.
-export function dailyNewLessonLimit(plan: Plan): number | null {
-  return plan === "free" ? FREE_DAILY_NEW_LESSON_CAP : null;
+// The daily new-lesson ceiling for a plan. `null` means unlimited. The Free
+// cap was retired (July 2026): every tier is now unlimited, delivered
+// additively via the existing limit-null contract clients already honor.
+// FREE_DAILY_NEW_LESSON_CAP, the denial helper, and the lesson_generations
+// tracking all stay intact so the cap could be reinstated by reverting this
+// one function.
+export function dailyNewLessonLimit(_plan: Plan): number | null {
+  return null;
 }
 
 // The weekly Bolo Parrot chat-time ceiling for a plan, in seconds. `null`

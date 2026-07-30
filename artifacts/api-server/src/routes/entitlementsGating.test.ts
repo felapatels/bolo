@@ -21,6 +21,7 @@ import learningRouter from "./learning";
 import entitlementsRouter from "./entitlements";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { FREE_DAILY_NEW_LESSON_CAP, FREE_LANGUAGE } from "../lib/entitlements";
+import { dailyLessonCapDenial } from "../lib/lessonLimits";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the real entitlement gates end to end through the actual Express
@@ -320,9 +321,10 @@ test("free entitlements snapshot: Hindi only, all Plus features locked", async (
   assert.equal(json.features.allLanguages, false);
   assert.equal(json.features.review, false);
   assert.equal(json.features.advancedAnalytics, false);
-  assert.equal(json.limits.dailyNewLessons.limit, FREE_DAILY_NEW_LESSON_CAP);
+  // Daily-lesson cap retired: Free reports unlimited via the limit-null contract.
+  assert.equal(json.limits.dailyNewLessons.limit, null);
   assert.equal(json.limits.dailyNewLessons.used, 0);
-  assert.equal(json.limits.dailyNewLessons.remaining, FREE_DAILY_NEW_LESSON_CAP);
+  assert.equal(json.limits.dailyNewLessons.remaining, null);
 });
 
 test("free is denied a locked language with a structured upgrade payload", async () => {
@@ -420,28 +422,41 @@ test("free can still read basic progress for Hindi", async () => {
   assert.equal(typeof json.totalAttempts, "number");
 });
 
-test("free hitting the daily new-lesson cap is denied generation", async () => {
-  // Fill the day's allowance, then request a lesson for a category with no
-  // cached Hindi lesson — generation is attempted and the cap gate fires BEFORE
-  // any AI call, so no real generation happens.
-  for (let i = 0; i < FREE_DAILY_NEW_LESSON_CAP; i++) await seedGeneration();
+test("free is never denied generation by a daily cap (cap retired)", async () => {
+  // Exceed the old cap of 3 — with the cap retired the snapshot must still
+  // report unlimited (limit/remaining null) while `used` keeps counting, and
+  // the cap-denial helper must never fire for a Free caller.
+  for (let i = 0; i < FREE_DAILY_NEW_LESSON_CAP + 1; i++) await seedGeneration();
 
   const snapshot = await get("/entitlements");
-  assert.equal(snapshot.json.limits.dailyNewLessons.remaining, 0);
-
-  const { status, json } = await get(
-    `/categories/${categoryId}/phrases/${FREE_LANGUAGE}`,
+  assert.equal(snapshot.json.limits.dailyNewLessons.limit, null);
+  assert.equal(snapshot.json.limits.dailyNewLessons.remaining, null);
+  assert.equal(
+    snapshot.json.limits.dailyNewLessons.used,
+    FREE_DAILY_NEW_LESSON_CAP + 1,
   );
-  assert.equal(status, 402);
-  assert.equal(json.reason, "daily_lesson_limit");
-  assert.equal(json.feature, "unlimitedLessons");
 
-  // Nothing was generated/logged beyond the seeded rows.
+  // The denial helper (still wired into the generate/replenish paths) returns
+  // null for Free — the daily_lesson_limit 402 is documented but never emitted.
+  const denial = await dailyLessonCapDenial(
+    {
+      plan: "free",
+      status: "active",
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      chosenLanguage: null,
+      pauseUntil: null,
+    },
+    TEST_USER_ID,
+  );
+  assert.equal(denial, null);
+
+  // Generations are still recorded as before.
   const rows = await db
     .select()
     .from(lessonGenerationsTable)
     .where(eq(lessonGenerationsTable.userId, TEST_USER_ID));
-  assert.equal(rows.length, FREE_DAILY_NEW_LESSON_CAP);
+  assert.equal(rows.length, FREE_DAILY_NEW_LESSON_CAP + 1);
 });
 
 test("plus unlocks every language, review, and advanced analytics", async () => {

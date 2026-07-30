@@ -117,7 +117,7 @@ test("language access follows the plan", () => {
   assert.equal(isLanguageAllowed("plus", FREE_LANGUAGE), true);
 });
 
-test("free entitlements expose the daily cap and only the free language", () => {
+test("free entitlements report unlimited daily lessons and only the free language", () => {
   const r = resolvePlan(state(), NOW);
   const e = buildEntitlements(r, 1, ["hi", "gu", "es"]);
   assert.equal(e.plan, "free");
@@ -126,15 +126,18 @@ test("free entitlements expose the daily cap and only the free language", () => 
   assert.equal(e.features.review, false);
   assert.equal(e.features.advancedAnalytics, false);
   assert.equal(e.features.extendedLibrary, false);
-  assert.equal(e.limits.dailyNewLessons.limit, FREE_DAILY_NEW_LESSON_CAP);
+  // The Free daily-lesson cap is retired: limit/remaining are null (unlimited)
+  // while `used` keeps tracking generations.
+  assert.equal(e.limits.dailyNewLessons.limit, null);
   assert.equal(e.limits.dailyNewLessons.used, 1);
-  assert.equal(e.limits.dailyNewLessons.remaining, FREE_DAILY_NEW_LESSON_CAP - 1);
+  assert.equal(e.limits.dailyNewLessons.remaining, null);
 });
 
-test("free remaining allowance never goes negative", () => {
+test("free usage above the retired cap still reports unlimited", () => {
   const r = resolvePlan(state(), NOW);
   const e = buildEntitlements(r, FREE_DAILY_NEW_LESSON_CAP + 5, ["hi"]);
-  assert.equal(e.limits.dailyNewLessons.remaining, 0);
+  assert.equal(e.limits.dailyNewLessons.limit, null);
+  assert.equal(e.limits.dailyNewLessons.remaining, null);
 });
 
 test("plus entitlements are unlimited and list every language", () => {
@@ -193,10 +196,10 @@ test("one_language features: unlimited lessons on, everything else off", () => {
   assert.equal(f.extendedLibrary, false);
 });
 
-test("one_language lifts the daily cap", () => {
+test("every tier has an unlimited daily-lesson allowance (Free cap retired)", () => {
   assert.equal(dailyNewLessonLimit("one_language"), null);
   assert.equal(dailyNewLessonLimit("plus"), null);
-  assert.equal(dailyNewLessonLimit("free"), FREE_DAILY_NEW_LESSON_CAP);
+  assert.equal(dailyNewLessonLimit("free"), null);
 });
 
 test("one_language allows Hindi plus the chosen language, nothing else", () => {
