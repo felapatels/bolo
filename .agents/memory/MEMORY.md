@@ -73,6 +73,7 @@
 - [Screenshot tool img quirk](screenshot-tool-img-quirk.md) — Screenshot tool shows broken <img> for mockup-sandbox public PNGs that real browsers load fine; verify with Nix chromium 138 dump-dom.
 - [drizzle migrate hash-without-DDL](drizzle-migrate-hash-without-ddl.md) — dev-DB migrate can record the hash row without running the DDL; verify with to_regclass, apply committed SQL via psql.
 - [Clerk mobile auth factors](clerk-mobile-auth-factors.md) — signIn.password() is one-shot, NOT complete-or-throw; branch on status/supportedFirstFactors; surface status+factors in UI and Sentry.
+- [Clerk Client Trust ops](clerk-client-trust.md) — toggle is dashboard-only (no Backend API); needs_client_trust uses signIn.mfa.*, not emailCode.*; dev test-mode +clerk_test emails verify with 424242.
 - [Resend connector addressing](resend-connector-addressing.md) — proxy by connector name "resend", not the conn_ id (404s); key is send-only; INVITE_FROM_EMAIL has no code fallback.
 - [Lesson group unlock model](lesson-group-unlock.md) — completed status must be LATCHED (persisted), never re-derived from live ratio, or replenisher dilution re-locks successors.
 - [TTS provider switch](tts-provider-switch.md) — USE_ELEVENLABS_TTS flag in lib/ttsConfig.ts; currently false (gpt-audio); flip to true + restart to restore ElevenLabs (must use multilingual_v2, not flash).

@@ -41,6 +41,14 @@ export default function SignInScreen() {
   const [mode, setMode] = React.useState<'credentials' | 'emailCode'>(
     'credentials',
   );
+  // Which verification path the code step is serving. 'firstFactor' is the
+  // passwordless email-code sign-in (signIn.emailCode.*); 'clientTrust' is
+  // the new-device second factor Clerk requires at status
+  // 'needs_client_trust' (signIn.mfa.* — a DIFFERENT API surface). The step
+  // UI is shared; only the send/verify calls differ.
+  const [verifyPath, setVerifyPath] = React.useState<
+    'firstFactor' | 'clientTrust'
+  >('firstFactor');
   // Non-field error line. Clerk's expected field errors (wrong password, bad
   // code) render under their inputs via `errors`; this covers everything
   // else so no failure is ever invisible.
@@ -54,6 +62,10 @@ export default function SignInScreen() {
   /** Strategy names only — factor objects carry PII (safeIdentifier). */
   const factorStrategies = (): string[] =>
     (signIn.supportedFirstFactors ?? []).map((f) => f.strategy);
+
+  /** Second-factor strategy names only — same PII rule as above. */
+  const secondFactorStrategies = (): string[] =>
+    (signIn.supportedSecondFactors ?? []).map((f) => f.strategy);
 
   const finalizeSession = async (context: string): Promise<void> => {
     try {
@@ -103,10 +115,46 @@ export default function SignInScreen() {
       }
       return;
     }
+    if (status === 'needs_client_trust') {
+      // Clerk Client Trust: signing in from a new device requires a second
+      // factor even after the password verified. Route to the email-code
+      // second factor when the account offers it (signIn.mfa.*, NOT the
+      // first-factor emailCode API).
+      const secondStrategies = secondFactorStrategies();
+      if (secondStrategies.includes('email_code')) {
+        await sendClientTrustCodeAndShowStep(context);
+        return;
+      }
+      // No email_code second factor: surface the status + offered
+      // second-factor strategies (strings only — factor objects carry PII).
+      setFormError(incompleteStateMessage(status, secondStrategies));
+      reportAuthIncompleteState(context, status, secondStrategies);
+      return;
+    }
     // Unexpected state: make the status and offered factors observable in
     // both the UI and Sentry (never a generic error).
     setFormError(incompleteStateMessage(status, strategies));
     reportAuthIncompleteState(context, status, strategies);
+  };
+
+  /** Send the client-trust (second factor) email code and open the code step. */
+  const sendClientTrustCodeAndShowStep = async (
+    context: string,
+  ): Promise<void> => {
+    const { error } = await signIn.mfa.sendEmailCode();
+    if (error) {
+      reportAuthError(`${context}.mfa.sendEmailCode`, error, {
+        secondFactorStrategies: secondFactorStrategies(),
+      });
+      setFormError(authErrorMessage(error));
+      return;
+    }
+    setCode('');
+    setCodeNotice(
+      "You're signing in from a new device, so we emailed you a 6-digit verification code. Enter it to finish signing in.",
+    );
+    setVerifyPath('clientTrust');
+    setMode('emailCode');
   };
 
   const sendCodeAndShowStep = async (
@@ -125,6 +173,7 @@ export default function SignInScreen() {
     }
     setCode('');
     setCodeNotice(notice);
+    setVerifyPath('firstFactor');
     setMode('emailCode');
   };
 
@@ -161,19 +210,27 @@ export default function SignInScreen() {
 
   const handleVerifyCode = async () => {
     setFormError(null);
-    const { error } = await signIn.emailCode.verifyCode({ code });
+    const clientTrust = verifyPath === 'clientTrust';
+    const { error } = clientTrust
+      ? await signIn.mfa.verifyEmailCode({ code })
+      : await signIn.emailCode.verifyCode({ code });
+    const context = clientTrust
+      ? 'signIn.mfa.verifyEmailCode'
+      : 'signIn.emailCode.verifyCode';
     if (error) {
       if (!isExpectedUserError(error)) {
-        reportAuthError('signIn.emailCode.verifyCode', error);
+        reportAuthError(context, error);
         setFormError(authErrorMessage(error));
       }
       return;
     }
     if (signIn.status === 'complete') {
-      await finalizeSession('signIn.emailCode');
+      await finalizeSession(
+        clientTrust ? 'signIn.mfa.emailCode' : 'signIn.emailCode',
+      );
       return;
     }
-    await handleNonCompleteState('signIn.emailCode.verifyCode');
+    await handleNonCompleteState(context);
   };
 
   const formErrorLine = formError ?? fieldError(errors.raw?.[0]);
@@ -212,10 +269,12 @@ export default function SignInScreen() {
           style={styles.inlineLink}
           disabled={busy}
           onPress={() =>
-            sendCodeAndShowStep(
-              `We sent a new code to ${emailAddress || 'your email'}.`,
-              'signIn.emailCodeResend',
-            )
+            verifyPath === 'clientTrust'
+              ? sendClientTrustCodeAndShowStep('signIn.mfaEmailCodeResend')
+              : sendCodeAndShowStep(
+                  `We sent a new code to ${emailAddress || 'your email'}.`,
+                  'signIn.emailCodeResend',
+                )
           }
         >
           <Text style={[styles.footerLink, { color: colors.secondary }]}>
@@ -227,6 +286,7 @@ export default function SignInScreen() {
           disabled={busy}
           onPress={() => {
             setFormError(null);
+            setVerifyPath('firstFactor');
             setMode('credentials');
           }}
         >
