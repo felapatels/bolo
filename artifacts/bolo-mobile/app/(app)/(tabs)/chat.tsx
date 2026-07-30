@@ -1461,7 +1461,7 @@ export default function ChatScreen() {
     return (
       <UpgradeRequiredScreen
         title="Unlock this language"
-        message="Upgrade to Plus to chat with Bolo in any language."
+        message="Upgrade to All-Access to chat with Bolo in any language."
         onUpgrade={() =>
           router.push(
             paywallHrefForDenial(

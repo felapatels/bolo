@@ -33,10 +33,12 @@ import {
   useGetDailyQuiz,
   useGetAccount,
   useListReviewPhrases,
+  useListIncomingFriendRequests,
   getGetDailyQuizQueryKey,
   getListReviewPhrasesQueryKey,
   type Category,
 } from '@workspace/api-client-react';
+import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
@@ -91,6 +93,17 @@ export default function HomeScreen() {
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
   const recent = useListRecentAttempts({ lang: activeLang, limit: 5 });
+
+  // Locked-language home (mirrors the web home's banner treatment): a 402
+  // upgrade_required summary means the active language isn't on the learner's
+  // plan. Retrying can never succeed — surface the journey showroom and the
+  // paywall instead of a degraded zero-stats banner.
+  const summaryUpgrade = !summary.data ? asUpgradeRequired(summary.error) : null;
+
+  // Friend-request badge — lives on the top-right Account button now that the
+  // Profile tab slot belongs to the language switcher.
+  const { data: incomingRequests } = useListIncomingFriendRequests();
+  const pendingFriendRequests = incomingRequests?.length ?? 0;
 
   const quizParams = { lang: activeLang };
   const { data: quizData, isLoading: quizLoading } = useGetDailyQuiz(quizParams, {
@@ -309,7 +322,11 @@ export default function HomeScreen() {
           </View>
           <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
           <Pressable
-            accessibilityLabel="Account settings"
+            accessibilityLabel={
+              pendingFriendRequests > 0
+                ? `Account settings, ${pendingFriendRequests} pending friend request${pendingFriendRequests === 1 ? '' : 's'}`
+                : 'Account settings'
+            }
             onPress={() => {
               hapticLight();
               router.push('/(app)/account');
@@ -317,6 +334,18 @@ export default function HomeScreen() {
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
             <Feather name="settings" size={18} color={colors.mutedForeground} />
+            {pendingFriendRequests > 0 ? (
+              <View
+                style={[
+                  styles.iconBtnBadge,
+                  { backgroundColor: colors.primary, borderColor: colors.card },
+                ]}
+              >
+                <Text style={[styles.iconBtnBadgeText, { color: colors.primaryForeground }]}>
+                  {pendingFriendRequests > 9 ? '9+' : pendingFriendRequests}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </Animated.View>
 
@@ -373,31 +402,70 @@ export default function HomeScreen() {
             end={{ x: 1, y: 0.25 }}
             style={styles.statsBanner}
           >
-            <GradientStatCell
-              index={0}
-              icon="zap"
-              value={summary.data?.currentStreakDays ?? 0}
-              label="Day Streak"
-              loading={summary.isLoading}
-              arcAttemptsToday={summary.data?.attemptsToday}
-              arcDailyGoal={dailyGoal}
-            />
-            <View style={styles.statsDivider} />
-            <GradientStatCell
-              index={1}
-              icon="star"
-              value={summary.data?.xp ?? 0}
-              label="Total XP"
-              loading={summary.isLoading}
-            />
-            <View style={styles.statsDivider} />
-            <GradientStatCell
-              index={2}
-              icon="award"
-              value={summary.data?.phrasesMastered ?? 0}
-              label="Mastered"
-              loading={summary.isLoading}
-            />
+            {summaryUpgrade ? (
+              // Showroom banner: the stats can never load for a locked
+              // language, so offer the journey preview and the unlock path
+              // instead of a row of misleading zeros.
+              <View style={styles.lockedStats}>
+                <Text style={styles.lockedStatsText}>
+                  {summaryUpgrade.reason === 'teaser_exhausted'
+                    ? `You've had your free taste of ${activeLanguage?.name ?? 'this language'} — unlock it to keep going.`
+                    : `${activeLanguage?.name ?? 'This language'} is waiting to be unlocked.`}
+                </Text>
+                <View style={styles.lockedStatsRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      hapticLight();
+                      router.push('/(app)/journey' as Parameters<typeof router.push>[0]);
+                    }}
+                    style={styles.lockedGhostBtn}
+                  >
+                    <Text style={styles.lockedGhostText}>Preview the journey</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      hapticLight();
+                      router.push(paywallHrefForDenial(summaryUpgrade, activeLang));
+                    }}
+                    style={styles.lockedSolidBtn}
+                  >
+                    <Text style={[styles.lockedSolidText, { color: colors.primary }]}>
+                      Unlock
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <GradientStatCell
+                  index={0}
+                  icon="zap"
+                  value={summary.data?.currentStreakDays ?? 0}
+                  label="Day Streak"
+                  loading={summary.isLoading}
+                  arcAttemptsToday={summary.data?.attemptsToday}
+                  arcDailyGoal={dailyGoal}
+                />
+                <View style={styles.statsDivider} />
+                <GradientStatCell
+                  index={1}
+                  icon="star"
+                  value={summary.data?.xp ?? 0}
+                  label="Total XP"
+                  loading={summary.isLoading}
+                />
+                <View style={styles.statsDivider} />
+                <GradientStatCell
+                  index={2}
+                  icon="award"
+                  value={summary.data?.phrasesMastered ?? 0}
+                  label="Mastered"
+                  loading={summary.isLoading}
+                />
+              </>
+            )}
           </LinearGradient>
         </View>
 
@@ -676,7 +744,7 @@ function DailyQuizCard({
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.quizTitle, { color: colors.foreground }]}>Daily Quiz</Text>
-          <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Upgrade to Plus to unlock</Text>
+          <Text style={[styles.quizSub, { color: colors.mutedForeground }]}>Upgrade to All-Access to unlock</Text>
         </View>
         <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
       </PressableScale>
@@ -751,8 +819,8 @@ function DailyCapNote({
         </Text>
         <Text style={[styles.capSub, { color: colors.mutedForeground }]}>
           {done
-            ? 'Come back tomorrow, or go Plus for unlimited practice.'
-            : 'New lessons refresh each day — Plus unlocks unlimited.'}
+            ? 'Come back tomorrow — or unlock every language and lesson with All-Access.'
+            : 'New lessons refresh each day — All-Access removes the cap.'}
         </Text>
       </View>
       {done ? (
@@ -1176,6 +1244,52 @@ const styles = StyleSheet.create({
   },
   scoreText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   retakeLabel: { fontFamily: AppFonts.bold, fontSize: 13 },
+  // Locked-language showroom banner (rendered inside the stats gradient).
+  lockedStats: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 96,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  lockedStatsText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 14,
+    color: '#ffffff',
+    textAlign: 'center',
+    opacity: 0.95,
+  },
+  lockedStatsRow: { flexDirection: 'row', gap: 10 },
+  lockedGhostBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  lockedGhostText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#ffffff' },
+  lockedSolidBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  lockedSolidText: { fontFamily: AppFonts.extrabold, fontSize: 13 },
+  // Friend-request badge on the Account button.
+  iconBtnBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnBadgeText: { fontFamily: AppFonts.bold, fontSize: 10 },
   errorNote: {
     fontFamily: AppFonts.regular,
     fontSize: 14,

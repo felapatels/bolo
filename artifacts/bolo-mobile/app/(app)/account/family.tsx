@@ -204,7 +204,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
     if (!family.joinCode) return;
     try {
       await Share.share({
-        message: `Join my Bolo! family plan and get full Plus access — open Bolo!, go to Account → Family plan, and enter this join code: ${family.joinCode}`,
+        message: `Join my Bolo! family plan and get full All-Access — open Bolo!, go to Account → Family plan, and enter this join code: ${family.joinCode}`,
       });
     } catch {
       // The learner dismissed the sheet or sharing is unavailable — no-op.
@@ -565,8 +565,8 @@ function MemberView({ family }: { family: FamilyStatus }) {
           </View>
         </View>
         <Text style={[styles.memberBody, { color: colors.mutedForeground }]}>
-          You have full Plus access through this plan — every language,
-          unlimited lessons, review, and analytics. Your progress and streaks
+          You have full All-Access through this plan — every language, the
+          complete phrase library, review, and analytics. Your progress and streaks
           are completely your own; only the plan is shared. Billing is handled
           by {ownerName}, so there's nothing for you to pay or manage.
         </Text>
@@ -677,8 +677,8 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
         </Text>
         <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
           {joined.active
-            ? 'You now have full Plus access — every language, unlimited lessons, review, and analytics. Your progress stays completely your own.'
-            : "Your seat is saved. The family subscription isn't active right now, so Plus access will unlock as soon as it resumes."}
+            ? 'You now have full All-Access — every language, the complete phrase library, review, and analytics. Your progress stays completely your own.'
+            : "Your seat is saved. The family subscription isn't active right now, so All-Access will unlock as soon as it resumes."}
         </Text>
         {joined.previousSubscriptionCanceled ? (
           <View style={[styles.warnBox, { backgroundColor: `${colors.primary}12` }]}>
@@ -719,7 +719,7 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
             </View>
           </View>
           <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
-            Accept your seat to get full Plus access through this family plan.
+            Accept your seat to get full All-Access through this family plan.
             Your progress and streaks stay completely your own.
           </Text>
           <ChunkyButton
@@ -747,12 +747,12 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
                 Bolo! Family
               </Text>
               <Text style={[styles.heroSub, { color: colors.mutedForeground }]}>
-                Plus for up to 4 people
+                All-Access for up to 4 people
               </Text>
             </View>
           </View>
           <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
-            Get full Plus access for up to 4 people with one $19.99/mo
+            Get full All-Access for up to 4 people with one $19.99/mo
             subscription, or join someone else's plan with their code below.
           </Text>
           <ChunkyButton

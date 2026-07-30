@@ -192,3 +192,21 @@ id = "Q6pPS8hC4jIGtCfOX9eyr"
 uri = "file://qa/shots/task870/5-choose-language.png"
 type = "image"
 title = "Item 5 — Choose-language: softened tiles"
+
+[[outputs]]
+id = "9mgNp7ddWVyfcfzwfg1Je"
+uri = "file://qa/shots/pre28/nav-home.png"
+type = "image"
+title = "New floating pill nav (Home)"
+
+[[outputs]]
+id = "_JyJIMneNugGA0y9R6GLj"
+uri = "file://qa/shots/pre28/picker.png"
+type = "image"
+title = "Redesigned language picker"
+
+[[outputs]]
+id = "2u9q_ViK9qE34gNmVyehy"
+uri = "file://qa/shots/pre28/locked-home.png"
+type = "image"
+title = "Locked-language home banner"

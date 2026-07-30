@@ -81,7 +81,7 @@ function billingPlanLabel(productId: string): string {
     return 'One Language';
   }
   if (id.includes('family')) return 'Bolo! Family';
-  if (id.includes('plus')) return 'Bolo! Plus';
+  if (id.includes('plus')) return 'Bolo! All-Access';
   return 'Subscription';
 }
 
@@ -499,8 +499,8 @@ function PlanState({
         </View>
         <Text style={[styles.freeSub, { color: colors.mutedForeground }]}>
           {details.status === 'expired'
-            ? 'Your subscription has ended. Go Plus to unlock every language, unlimited lessons, review & analytics.'
-            : 'You’re on the free plan. Go Plus to unlock every language, unlimited lessons, review & analytics.'}
+            ? 'Your subscription has ended. Go All-Access to unlock every language, the full phrase library, review & analytics.'
+            : 'You’re on the free plan. Go All-Access to unlock every language, the full phrase library, review & analytics.'}
         </Text>
         <ChunkyButton
           title="See plans"
@@ -606,7 +606,7 @@ function PlanState({
             <Text
               style={[styles.cancelingNote, { color: colors.mutedForeground }]}
             >
-              Your subscription is paused. Resume early to restore Plus access
+              Your subscription is paused. Resume early to restore All-Access
               right away.
             </Text>
           </>
@@ -658,7 +658,7 @@ function FamilySection({ onOpen }: { onOpen: () => void }) {
   if (!data) return null;
 
   let title = 'Bolo! Family';
-  let subtitle = 'Plus for up to 4 people — or join with a code.';
+  let subtitle = 'All-Access for up to 4 people — or join with a code.';
   if (data.role === 'owner') {
     const seats = data.seats ?? [];
     const capacity = data.capacity ?? 4;
@@ -667,7 +667,7 @@ function FamilySection({ onOpen }: { onOpen: () => void }) {
     subtitle = `${inUse} of ${capacity} seats in use · manage invites & members`;
   } else if (data.role === 'member') {
     title = 'Family plan';
-    subtitle = `Shared by ${data.ownerName ?? 'the plan owner'} · you have Plus through it`;
+    subtitle = `Shared by ${data.ownerName ?? 'the plan owner'} · you have All-Access through it`;
   }
 
   return (

@@ -155,9 +155,9 @@ export default function VoiceScreen() {
           >
             <Feather name="star" size={18} color={colors.primary} />
             <Text style={[styles.upgradeText, { color: colors.foreground }]}>
-              Voice selection is a{' '}
+              Voice selection is an{' '}
               <Text style={{ color: colors.primary, fontFamily: AppFonts.extrabold }}>
-                Bolo! Plus
+                All-Access
               </Text>{' '}
               feature. Upgrade to pick your preferred voice.
             </Text>

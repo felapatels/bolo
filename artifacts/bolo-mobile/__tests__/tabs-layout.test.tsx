@@ -1,16 +1,13 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
-import type { FriendRequest } from '@workspace/api-client-react';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Guards two things:
 //
-//  1. Friend-request badge — driven by useListIncomingFriendRequests. The badge
-//     moved from the Friends tab to the Profile tab when Friends was relocated
-//     into the Account/Profile screen. A regression here (badge missing, or
-//     lingering after requests clear) would ship silently, so cover the layout's
-//     badge logic directly.  This complements friends.test.tsx, which exercises
-//     the Friends screen itself.
+//  1. Language switcher tab — the 5th slot is a custom tabBarButton showing the
+//     globe icon plus the active-language code; pressing it opens the language
+//     picker instead of navigating to a tab screen. (The friend-request badge
+//     moved to the Home header's Account button; see home screen tests.)
 //
 //  2. Orientation stability — the BoloTabButton receives its slot width via the
 //     `style` prop forwarded by the tab bar renderer.  When the device rotates,
@@ -21,12 +18,14 @@ import type { FriendRequest } from '@workspace/api-client-react';
 
 // Prefixed with `mock` so jest's hoisted mock factory is allowed to reference it.
 const mockState = {
-  incoming: undefined as unknown,
   // Width (px) of each tab slot as emitted by the tab bar renderer.
   // 72 ≈ portrait on a 375 px wide device (5 equal slots).
   // 140 ≈ landscape on a 812 px wide device (5 equal slots).
   slotWidth: 72,
 };
+
+// Shared router spy so the language-switcher tests can assert navigation.
+const mockPush = jest.fn();
 
 jest.mock('@workspace/api-client-react', () => ({
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
@@ -35,7 +34,16 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
-  useListIncomingFriendRequests: () => mockState.incoming,
+}));
+
+// LanguageTabButton reads the active language code for its label.
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ activeLang: 'hi' }),
+}));
+
+// The floating tab bar reads the bottom safe-area inset directly.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 // Keep the font registry from pulling in every @expo-google-fonts package
@@ -183,28 +191,19 @@ jest.mock('expo-router', () => {
     );
   };
 
-  return { __esModule: true, Tabs };
+  return {
+    __esModule: true,
+    Tabs,
+    useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  };
 });
 
 // Imported after the mocks are declared.
 import TabsLayout from '../app/(app)/(tabs)/_layout';
 
-function requestsOfLength(n: number): FriendRequest[] {
-  return Array.from({ length: n }, (_, i) => ({
-    id: i + 1,
-    status: 'pending',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    user: {
-      id: `u${i + 1}`,
-      displayName: `Learner ${i + 1}`,
-      email: `learner${i + 1}@example.com`,
-    },
-  }));
-}
-
 beforeEach(() => {
-  mockState.incoming = { data: [] as FriendRequest[] };
   mockState.slotWidth = 72;
+  mockPush.mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -319,50 +318,37 @@ describe('Orientation changes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Friend-request badge on the Profile tab
+// Language switcher tab (5th slot)
 //
-// Friends moved into the Profile/Account screen; the pending-request badge now
-// surfaces on the Profile tab so learners still notice incoming requests.
+// The Profile tab slot became the language switcher: a globe icon plus the
+// uppercase active-language code that opens the language picker. Profile stays
+// reachable from the Home header, which now also carries the friend badge.
 // ---------------------------------------------------------------------------
 
-describe('Profile tab friend-request badge', () => {
-  test('shows no badge when there are no incoming requests', () => {
-    mockState.incoming = { data: [] };
+describe('Language switcher tab', () => {
+  test('renders the globe button with the active language code', () => {
     render(<TabsLayout />);
 
-    expect(screen.queryByLabelText('profile-badge')).toBeNull();
+    expect(screen.getByLabelText('Change language')).toBeTruthy();
+    // The code renders lowercase in the tree; textTransform uppercases it visually.
+    expect(screen.getByText('hi')).toBeTruthy();
   });
 
-  test('shows no badge while the request list is still loading (undefined data)', () => {
-    mockState.incoming = { data: undefined };
+  test('pressing it opens the language picker instead of navigating tabs', () => {
     render(<TabsLayout />);
 
-    expect(screen.queryByLabelText('profile-badge')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Change language'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/language');
   });
 
-  test('shows the exact count when there are pending requests', () => {
-    mockState.incoming = { data: requestsOfLength(3) };
-    render(<TabsLayout />);
-
-    const badge = screen.getByLabelText('profile-badge');
-    expect(badge).toHaveTextContent('3');
-  });
-
-  test('caps the badge at 9+ once past nine requests', () => {
-    mockState.incoming = { data: requestsOfLength(12) };
-    render(<TabsLayout />);
-
-    const badge = screen.getByLabelText('profile-badge');
-    expect(badge).toHaveTextContent('9+');
-  });
-
-  test('clears the badge when the request list becomes empty', () => {
-    mockState.incoming = { data: requestsOfLength(2) };
+  test('survives an orientation change', () => {
+    mockState.slotWidth = 72;
     const { rerender } = render(<TabsLayout />);
-    expect(screen.getByLabelText('profile-badge')).toHaveTextContent('2');
 
-    mockState.incoming = { data: [] };
+    mockState.slotWidth = 140;
     rerender(<TabsLayout />);
-    expect(screen.queryByLabelText('profile-badge')).toBeNull();
+
+    expect(screen.getByLabelText('Change language')).toBeTruthy();
+    expect(screen.getByText('hi')).toBeTruthy();
   });
 });

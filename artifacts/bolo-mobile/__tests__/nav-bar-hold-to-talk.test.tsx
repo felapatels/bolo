@@ -261,6 +261,11 @@ jest.mock('@/contexts/LanguageContext', () => ({
   }),
 }));
 
+// The floating tab bar reads the bottom safe-area inset directly.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 jest.mock('@/components/Screen', () => {
   const { View } = require('react-native');
   const React = require('react');

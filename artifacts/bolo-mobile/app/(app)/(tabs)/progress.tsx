@@ -272,7 +272,7 @@ export default function ProgressScreen() {
             ) : (
               <>
                 <Text style={[styles.section, { color: colors.foreground }]}>
-                  Unlock with Plus
+                  Unlock with All-Access
                 </Text>
                 <LockedFeatureCard
                   icon="repeat"
@@ -289,7 +289,7 @@ export default function ProgressScreen() {
                 <LockedFeatureCard
                   icon="award"
                   title="Exclusive badges"
-                  description="Earn Plus-only achievements as you learn."
+                  description="Earn exclusive achievements as you learn."
                   onPress={() => router.push('/(app)/paywall')}
                 />
               </>

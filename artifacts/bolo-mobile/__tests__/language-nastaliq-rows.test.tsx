@@ -1,16 +1,15 @@
-// Visual-regression snapshot for the language picker when it contains a row
+// Visual-regression snapshot for the language picker when it contains a tile
 // that uses the Nastaliq script (Urdu / Kashmiri). The Nastaliq overflow fix
-// applies extra lineHeight (48) and paddingVertical (20) to those rows; these
-// snapshots guard against future style changes that accidentally re-introduce
-// clipping.
+// applies extra lineHeight and tile min-height to those tiles; these snapshots
+// guard against future style changes that accidentally re-introduce clipping.
 //
 // Two snapshot groups are captured:
 //   • light mode  — primary colour #6C3FC5, white background
 //   • dark mode   — primary colour #A78BFA, near-black background
 //
 // The component under test is the full LanguageModal screen; we drive it with
-// a three-language fixture (one Nastaliq row, one regular row, one locked row)
-// so every LanguageRow branch is covered in each theme.
+// a three-language fixture (one Nastaliq tile, one regular tile, one locked
+// tile) so every LanguageTile branch is covered in each theme.
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
@@ -68,7 +67,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
     languages: LANGUAGES,
     activeLang: 'hi',
-    setActiveLang: jest.fn(),
+    adoptLanguageLocally: jest.fn(),
     isLoading: false,
   }),
 }));
@@ -169,13 +168,6 @@ jest.mock('@/components/FunFactLoader', () => {
   };
 });
 
-jest.mock('@/components/PlusUpsell', () => {
-  const { View } = require('react-native');
-  return {
-    PlusPill: () => <View testID="plus-pill" />,
-  };
-});
-
 jest.mock('@/lib/haptics', () => ({
   hapticLight: jest.fn(),
 }));
@@ -223,10 +215,12 @@ describe('LanguageRow Nastaliq rendering — light theme', () => {
     expect(getByText('اردو')).toBeTruthy();
   });
 
-  test('locked row (Tamil) renders with the Plus pill', () => {
-    const { getByText, getAllByTestId } = renderModal();
+  test('locked tile (Tamil) is labelled locked with a journey preview hint', () => {
+    const { getByText, getByLabelText } = renderModal();
     expect(getByText('தமிழ்')).toBeTruthy();
-    expect(getAllByTestId('plus-pill').length).toBeGreaterThan(0);
+    // The locked tile carries the crown glyph; its accessibility label is the
+    // stable contract for "this language needs All-Access".
+    expect(getByLabelText('Tamil — locked, preview its journey')).toBeTruthy();
   });
 });
 

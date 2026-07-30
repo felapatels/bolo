@@ -735,7 +735,7 @@ function voiceLabel(voiceId: string | null | undefined): string {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  plus: 'Bolo! Plus',
+  plus: 'Bolo! All-Access',
   family: 'Bolo! Family',
   one_language: 'One Language',
   free: 'Free',

@@ -74,6 +74,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetDailyQuiz: () => ({ data: undefined, isLoading: false }),
   useGetAccount: () => mockState.account,
   useListReviewPhrases: () => ({ data: [] }),
+  useListIncomingFriendRequests: () => ({ data: [] }),
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
 }));

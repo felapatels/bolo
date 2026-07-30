@@ -136,10 +136,10 @@ function UpgradePrompt({ onPress }: { onPress: () => void }) {
       </Text>
       <Text style={[styles.upsellDesc, { color: colors.mutedForeground }]}>
         Track mastery by topic, average scores, and your day-by-day activity with
-        Bolo! Plus.
+        Bolo! All-Access.
       </Text>
       <ChunkyButton
-        title="Go Plus"
+        title="Go All-Access"
         icon="star"
         onPress={onPress}
         style={{ marginTop: 20, alignSelf: 'stretch' }}

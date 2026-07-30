@@ -6,13 +6,13 @@ import { useColors } from '@/hooks/useColors';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AppFonts } from '@/constants/fonts';
 
-/** Small "PLUS" pill used to mark locked, Plus-only affordances. */
+/** Small "ALL-ACCESS" pill used to mark locked, All-Access-only affordances. */
 export function PlusPill({ style }: { style?: ViewStyle }) {
   const colors = useColors();
   return (
     <View style={[styles.pill, { backgroundColor: colors.gold }, style]}>
       <Feather name="star" size={11} color="#1a1200" />
-      <Text style={styles.pillText}>PLUS</Text>
+      <Text style={styles.pillText}>ALL-ACCESS</Text>
     </View>
   );
 }
@@ -38,7 +38,7 @@ export function LockedFeatureCard({
     <PressableScale
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityHint="Opens the Bolo! Plus upgrade screen"
+      accessibilityHint="Opens the Bolo! All-Access upgrade screen"
       style={[
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -77,13 +77,13 @@ export function LockedPhrasesCard({
   onPress: () => void;
 }) {
   const colors = useColors();
-  const label = `${count} more ${count === 1 ? 'phrase' : 'phrases'} with Plus`;
+  const label = `${count} more ${count === 1 ? 'phrase' : 'phrases'} with All-Access`;
   return (
     <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint="Opens the Bolo! Plus upgrade screen"
+      accessibilityHint="Opens the Bolo! All-Access upgrade screen"
       style={[
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -127,12 +127,12 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.bannerTitle, { color: colors.background }]}>
-          {isOneLanguage ? 'Go all-access' : 'Go Plus'}
+          Go All-Access
         </Text>
         <Text style={[styles.bannerSub, { color: colors.background }]}>
           {isOneLanguage
-            ? 'Every language, plus review & analytics.'
-            : 'All languages, unlimited lessons & more.'}
+            ? 'Every language, review & analytics.'
+            : 'Every language, the full phrase library & every game.'}
         </Text>
       </View>
       <Feather name="chevron-right" size={22} color={colors.background} />

@@ -78,7 +78,7 @@ export function UpgradeRequiredScreen({
           style={styles.actions}
         >
           <ChunkyButton
-            title={showTrial ? 'Start 7-day free trial' : 'Unlock with Plus'}
+            title={showTrial ? 'Start 7-day free trial' : 'Unlock with All-Access'}
             icon="star"
             onPress={onUpgrade}
             style={{ width: '100%' }}

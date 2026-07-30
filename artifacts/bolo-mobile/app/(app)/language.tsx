@@ -6,12 +6,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
-import { PlusPill } from '@/components/PlusUpsell';
 import { useExplicitLanguageChoice } from '@/lib/language-step';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { FunFactLoader } from '@/components/FunFactLoader';
@@ -48,12 +47,21 @@ export default function LanguageModal() {
     router.replace('/(app)/journey');
   };
 
+  const anyLocked = languages.some((l) => !isLanguageAllowed(l.code));
+
   return (
     <Screen padTop={false}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Choose a language
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            Choose a language
+          </Text>
+          {anyLocked ? (
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              Locked languages need All-Access — tap one to preview its journey.
+            </Text>
+          ) : null}
+        </View>
         <Pressable
           accessibilityLabel="Close"
           onPress={() => {
@@ -72,12 +80,14 @@ export default function LanguageModal() {
         <FlatList
           data={languages}
           keyExtractor={(l) => l.code}
-          contentContainerStyle={{ padding: 20, paddingTop: 4 }}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const locked = !isLanguageAllowed(item.code);
             return (
-              <LanguageRow
+              <LanguageTile
                 language={item}
                 active={item.code === activeLang}
                 locked={locked}
@@ -93,7 +103,10 @@ export default function LanguageModal() {
   );
 }
 
-function LanguageRow({
+// Rounded tile matching the web picker: prominent native script on top, the
+// full English name below (wrapping, never truncated), and a single corner
+// glyph — gold crown when the language needs All-Access, check when active.
+function LanguageTile({
   language,
   active,
   locked,
@@ -112,41 +125,48 @@ function LanguageRow({
         hapticLight();
         onPress();
       }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={
+        locked ? `${language.name} — locked, preview its journey` : language.name
+      }
       style={[
-        styles.row,
-        tall && styles.rowTall,
+        styles.tile,
+        tall && styles.tileTall,
         {
           backgroundColor: active ? `${colors.primary}14` : colors.card,
           borderColor: active ? colors.primary : colors.border,
-          opacity: locked ? 0.72 : 1,
         },
       ]}
     >
-      <View style={{ flex: 1 }}>
-        <Text
-          style={[
-            nativeTextStyle(language, { bold: true }),
-            styles.native,
-            tall && styles.nativeTall,
-            { color: colors.foreground },
-          ]}
-        >
-          {language.nativeName}
-        </Text>
-        <Text style={[styles.name, { color: colors.mutedForeground }]}>
-          {language.name} · {language.script}
-        </Text>
-      </View>
       {locked ? (
-        <View style={styles.rowRight}>
-          <PlusPill />
-          <Feather name="lock" size={18} color={colors.mutedForeground} />
-        </View>
+        <MaterialCommunityIcons
+          name="crown"
+          size={18}
+          color={colors.gold}
+          style={styles.corner}
+        />
       ) : active ? (
-        <Feather name="check-circle" size={22} color={colors.primary} />
-      ) : (
-        <Feather name="circle" size={22} color={colors.border} />
-      )}
+        <Feather
+          name="check-circle"
+          size={18}
+          color={colors.primary}
+          style={styles.corner}
+        />
+      ) : null}
+      <Text
+        style={[
+          nativeTextStyle(language, { bold: true }),
+          styles.native,
+          tall && styles.nativeTall,
+          { color: colors.foreground },
+        ]}
+      >
+        {language.nativeName}
+      </Text>
+      <Text style={[styles.name, { color: colors.foreground }]}>
+        {language.name}
+      </Text>
     </Pressable>
   );
 }
@@ -154,13 +174,15 @@ function LanguageRow({
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 8,
   },
   title: { fontFamily: AppFonts.extrabold, fontSize: 24 },
+  subtitle: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 4 },
   closeBtn: {
     width: 40,
     height: 40,
@@ -168,21 +190,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
+  gridContent: { padding: 20, paddingTop: 8 },
+  gridRow: { gap: 12 },
+  tile: {
+    flex: 1,
+    borderRadius: 22,
     borderWidth: 1.5,
-    marginBottom: 10,
+    padding: 16,
+    paddingTop: 18,
+    paddingRight: 30,
+    minHeight: 104,
+    marginBottom: 12,
+    justifyContent: 'flex-end',
   },
-  native: { fontSize: 22, textAlign: 'left' },
+  corner: { position: 'absolute', top: 12, right: 12 },
+  native: { fontSize: 24, textAlign: 'left' },
   // Nastaliq calligraphic glyphs cascade steeply above/below the baseline.
-  // Extra lineHeight gives the cascade room; extra paddingVertical on the row
-  // keeps the icon visually centered in the taller row.
-  nativeTall: { lineHeight: 48 },
-  rowTall: { paddingVertical: 20 },
-  name: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 3 },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // Extra lineHeight gives the cascade room; extra min-height on the tile
+  // keeps the grid row from clipping the taller glyphs.
+  nativeTall: { lineHeight: 52 },
+  tileTall: { minHeight: 128 },
+  name: { fontFamily: AppFonts.bold, fontSize: 14, marginTop: 6 },
 });

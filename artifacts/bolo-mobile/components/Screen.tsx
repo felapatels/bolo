@@ -37,8 +37,12 @@ export function Screen({
   );
 }
 
-/** Bottom padding that clears the floating tab bar in scroll views. */
-export const TAB_BAR_CLEARANCE = Platform.OS === 'web' ? 120 : 108;
+/**
+ * Bottom padding that clears the floating pill tab bar in scroll views.
+ * The bar is absolutely positioned (bottom inset + 74px height + margins),
+ * so scrollable content needs this much room to clear it plus a breathing gap.
+ */
+export const TAB_BAR_CLEARANCE = Platform.OS === 'web' ? 124 : 132;
 
 /**
  * Extra bottom clearance for tab-screen content whose LAST element sits flush

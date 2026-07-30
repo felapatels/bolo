@@ -91,3 +91,4 @@
 - [Onboarding nav races](onboarding-nav-races.md) — auto-launchers that navigate (tour) race same-commit gate Redirects on fresh accounts; gate on preconditions, not route prefixes; only real-browser probes catch it.
 - [.ipa icon verification](ipa-icon-verification.md) — settle "wrong icon" reports by extracting AppIcon from the .ipa (CgBI decode; MD5 never matches source); autoIncrement bumps buildNumber at trigger time.
 - [Home locked-language 402 showroom](home-402-showroom.md) — never auto-retry ANY 4xx (queryClient); a summary 402 renders the banner showroom/upgrade overlay, not the retry shell; verify merges by content — a rebase once dropped this silently.
+- [Timezone picker & ICU legacy ids](timezone-picker-icu.md) — ICU lists Asia/Calcutta not Kolkata; cmdk default fuzzy matches subsequences; reuse web TimezoneSelect alias+substring scorer for any timezone UI.

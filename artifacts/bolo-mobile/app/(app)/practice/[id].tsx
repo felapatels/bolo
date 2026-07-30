@@ -1346,7 +1346,7 @@ export default function PracticeScreen() {
           upgrade.reason === 'daily_lesson_limit'
             ? "You've hit today's free lessons"
             : upgrade.reason === 'feature_locked'
-              ? 'Full sentences are a Plus feature'
+              ? 'Full sentences are an All-Access feature'
               : 'Unlock this language'
         }
         message={upgrade.message}

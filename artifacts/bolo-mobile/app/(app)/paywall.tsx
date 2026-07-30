@@ -48,8 +48,8 @@ const ALL_ACCESS_BENEFITS: Benefit[] = [
   },
   {
     icon: 'zap',
-    title: 'Unlimited lessons',
-    desc: 'No daily cap — practice as much as you like.',
+    title: 'Full phrase library',
+    desc: 'Every phrase, sentence & game — no daily cap.',
   },
   {
     icon: 'repeat',
@@ -64,7 +64,7 @@ const ALL_ACCESS_BENEFITS: Benefit[] = [
   {
     icon: 'award',
     title: 'Exclusive badges',
-    desc: 'Earn Plus-only achievements as you learn.',
+    desc: 'Earn exclusive achievements as you learn.',
   },
 ];
 
@@ -77,8 +77,8 @@ function oneLanguageBenefits(chosenName: string | null): Benefit[] {
     },
     {
       icon: 'zap',
-      title: 'Unlimited lessons',
-      desc: 'No daily cap — practice as much as you like.',
+      title: 'Full phrase library',
+      desc: 'Every phrase and sentence — no daily cap.',
     },
   ];
 }
@@ -297,7 +297,7 @@ export default function PaywallScreen() {
         ? 'Start free trial'
         : 'Subscribe';
 
-  const brandTitle = tier === 'all_access' ? 'Bolo! Plus' : 'One Language';
+  const brandTitle = tier === 'all_access' ? 'Bolo! All-Access' : 'One Language';
 
   return (
     <Screen padTop={false}>
@@ -334,7 +334,7 @@ export default function PaywallScreen() {
         <Text style={[styles.subhead, { color: colors.mutedForeground }]}>
           {tier === 'all_access'
             ? 'Unlock the full Bolo! experience.'
-            : 'Unlimited lessons in Hindi plus the language you choose.'}
+            : 'Learn Hindi and the language you choose — no daily cap.'}
         </Text>
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}

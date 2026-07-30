@@ -197,7 +197,7 @@ describe('Plus phrase upsell on the topic screen', () => {
 
     // The count is driven straight off the server response, not hardcoded.
     expect(
-      screen.getByRole('button', { name: '7 more phrases with Plus' }),
+      screen.getByRole('button', { name: '7 more phrases with All-Access' }),
     ).toBeOnTheScreen();
   });
 
@@ -212,7 +212,7 @@ describe('Plus phrase upsell on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(
-      screen.getByRole('button', { name: '3 more phrases with Plus' }),
+      screen.getByRole('button', { name: '3 more phrases with All-Access' }),
     ).toBeOnTheScreen();
     expect(
       screen.queryByRole('button', { name: /7 more phrases/ }),
@@ -230,7 +230,7 @@ describe('Plus phrase upsell on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(
-      screen.queryByRole('button', { name: /more phrase(s)? with Plus/ }),
+      screen.queryByRole('button', { name: /more phrase(s)? with All-Access/ }),
     ).not.toBeOnTheScreen();
   });
 
@@ -243,7 +243,7 @@ describe('Plus phrase upsell on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(
-      screen.queryByRole('button', { name: /more phrase(s)? with Plus/ }),
+      screen.queryByRole('button', { name: /more phrase(s)? with All-Access/ }),
     ).not.toBeOnTheScreen();
   });
 
@@ -256,7 +256,7 @@ describe('Plus phrase upsell on the topic screen', () => {
     render(<CategoryScreen />);
 
     fireEvent.press(
-      screen.getByRole('button', { name: '4 more phrases with Plus' }),
+      screen.getByRole('button', { name: '4 more phrases with All-Access' }),
     );
 
     expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
@@ -292,7 +292,7 @@ describe('402 upgrade_required on the topic screen', () => {
         'Cancel anytime — no charge if you cancel before the trial ends.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();
   });
 
   test('tapping the trial CTA routes to the paywall', () => {
@@ -320,12 +320,12 @@ describe('402 upgrade_required on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(screen.getByText('Unlock this language')).toBeOnTheScreen();
-    expect(screen.getByText('Unlock with Plus')).toBeOnTheScreen();
+    expect(screen.getByText('Unlock with All-Access')).toBeOnTheScreen();
     expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
     expect(
       screen.queryByText(/Cancel anytime/),
     ).not.toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Unlock with Plus'));
+    fireEvent.press(screen.getByText('Unlock with All-Access'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
       params: { lang: 'hi', reason: 'language_locked' },
@@ -342,7 +342,7 @@ describe('402 upgrade_required on the topic screen', () => {
     render(<CategoryScreen />);
 
     expect(screen.getByText(/try again/i)).toBeOnTheScreen();
-    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();
     expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
   });
 });

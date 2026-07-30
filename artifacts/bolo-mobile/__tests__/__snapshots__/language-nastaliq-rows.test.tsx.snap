@@ -7,8 +7,9 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
   <View
     style={
       {
-        "alignItems": "center",
+        "alignItems": "flex-start",
         "flexDirection": "row",
+        "gap": 12,
         "justifyContent": "space-between",
         "paddingBottom": 8,
         "paddingHorizontal": 20,
@@ -16,21 +17,45 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
       }
     }
   >
-    <Text
+    <View
       style={
-        [
-          {
-            "fontFamily": "Inter_800ExtraBold",
-            "fontSize": 24,
-          },
-          {
-            "color": "#F9FAFB",
-          },
-        ]
+        {
+          "flex": 1,
+        }
       }
     >
-      Choose a language
-    </Text>
+      <Text
+        style={
+          [
+            {
+              "fontFamily": "Inter_800ExtraBold",
+              "fontSize": 24,
+            },
+            {
+              "color": "#F9FAFB",
+            },
+          ]
+        }
+      >
+        Choose a language
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontFamily": "Inter_600SemiBold",
+              "fontSize": 13,
+              "marginTop": 4,
+            },
+            {
+              "color": "#9CA3AF",
+            },
+          ]
+        }
+      >
+        Locked languages need All-Access — tap one to preview its journey.
+      </Text>
+    </View>
     <View
       accessibilityLabel="Close"
       accessibilityState={
@@ -88,7 +113,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
     contentContainerStyle={
       {
         "padding": 20,
-        "paddingTop": 4,
+        "paddingTop": 8,
       }
     }
     data={
@@ -143,62 +168,82 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
         style={null}
       >
         <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
           style={
             [
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
                 "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
               },
-              false,
               {
-                "backgroundColor": "#A78BFA14",
-                "borderColor": "#A78BFA",
-                "opacity": 1,
+                "gap": 12,
               },
             ]
           }
         >
           <View
-            style={
+            accessibilityLabel="Hindi"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": true,
               }
             }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                false,
+                {
+                  "backgroundColor": "#A78BFA14",
+                  "borderColor": "#A78BFA",
+                },
+              ]
+            }
           >
+            <View
+              color="#A78BFA"
+              name="check-circle"
+              size={18}
+              style={
+                {
+                  "position": "absolute",
+                  "right": 12,
+                  "top": 12,
+                }
+              }
+            />
             <Text
               style={
                 [
@@ -207,7 +252,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                     "writingDirection": "ltr",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   false,
@@ -223,90 +268,72 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#9CA3AF",
+                    "color": "#F9FAFB",
                   },
                 ]
               }
             >
               Hindi
-               · 
-              Devanagari
             </Text>
           </View>
           <View
-            color="#A78BFA"
-            name="check-circle"
-            size={22}
-          />
-        </View>
-      </View>
-      <View
-        onFocusCapture={[Function]}
-        onLayout={[Function]}
-        style={null}
-      >
-        <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
-          style={
-            [
+            accessibilityLabel="Urdu"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
-                "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
-              },
-              {
-                "paddingVertical": 20,
-              },
-              {
-                "backgroundColor": "#1C1C28",
-                "borderColor": "#2D2D3D",
-                "opacity": 1,
-              },
-            ]
-          }
-        >
-          <View
-            style={
-              {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": false,
               }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                {
+                  "minHeight": 128,
+                },
+                {
+                  "backgroundColor": "#1C1C28",
+                  "borderColor": "#2D2D3D",
+                },
+              ]
             }
           >
             <Text
@@ -317,11 +344,11 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                     "writingDirection": "rtl",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   {
-                    "lineHeight": 48,
+                    "lineHeight": 52,
                   },
                   {
                     "color": "#F9FAFB",
@@ -335,26 +362,19 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#9CA3AF",
+                    "color": "#F9FAFB",
                   },
                 ]
               }
             >
               Urdu
-               · 
-              Nastaliq
             </Text>
           </View>
-          <View
-            color="#2D2D3D"
-            name="circle"
-            size={22}
-          />
         </View>
       </View>
       <View
@@ -363,62 +383,81 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
         style={null}
       >
         <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
           style={
             [
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
                 "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
               },
-              false,
               {
-                "backgroundColor": "#1C1C28",
-                "borderColor": "#2D2D3D",
-                "opacity": 0.72,
+                "gap": 12,
               },
             ]
           }
         >
           <View
-            style={
+            accessibilityLabel="Tamil — locked, preview its journey"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": false,
               }
             }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                false,
+                {
+                  "backgroundColor": "#1C1C28",
+                  "borderColor": "#2D2D3D",
+                },
+              ]
+            }
           >
+            <View
+              name="crown"
+              size={18}
+              style={
+                {
+                  "position": "absolute",
+                  "right": 12,
+                  "top": 12,
+                }
+              }
+            />
             <Text
               style={
                 [
@@ -427,7 +466,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                     "writingDirection": "ltr",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   false,
@@ -443,38 +482,18 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#9CA3AF",
+                    "color": "#F9FAFB",
                   },
                 ]
               }
             >
               Tamil
-               · 
-              Tamil
             </Text>
-          </View>
-          <View
-            style={
-              {
-                "alignItems": "center",
-                "flexDirection": "row",
-                "gap": 8,
-              }
-            }
-          >
-            <View
-              testID="plus-pill"
-            />
-            <View
-              color="#9CA3AF"
-              name="lock"
-              size={18}
-            />
           </View>
         </View>
       </View>
@@ -490,8 +509,9 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
   <View
     style={
       {
-        "alignItems": "center",
+        "alignItems": "flex-start",
         "flexDirection": "row",
+        "gap": 12,
         "justifyContent": "space-between",
         "paddingBottom": 8,
         "paddingHorizontal": 20,
@@ -499,21 +519,45 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
       }
     }
   >
-    <Text
+    <View
       style={
-        [
-          {
-            "fontFamily": "Inter_800ExtraBold",
-            "fontSize": 24,
-          },
-          {
-            "color": "#1A1A1A",
-          },
-        ]
+        {
+          "flex": 1,
+        }
       }
     >
-      Choose a language
-    </Text>
+      <Text
+        style={
+          [
+            {
+              "fontFamily": "Inter_800ExtraBold",
+              "fontSize": 24,
+            },
+            {
+              "color": "#1A1A1A",
+            },
+          ]
+        }
+      >
+        Choose a language
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontFamily": "Inter_600SemiBold",
+              "fontSize": 13,
+              "marginTop": 4,
+            },
+            {
+              "color": "#6B7280",
+            },
+          ]
+        }
+      >
+        Locked languages need All-Access — tap one to preview its journey.
+      </Text>
+    </View>
     <View
       accessibilityLabel="Close"
       accessibilityState={
@@ -571,7 +615,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
     contentContainerStyle={
       {
         "padding": 20,
-        "paddingTop": 4,
+        "paddingTop": 8,
       }
     }
     data={
@@ -626,62 +670,82 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
         style={null}
       >
         <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
           style={
             [
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
                 "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
               },
-              false,
               {
-                "backgroundColor": "#6C3FC514",
-                "borderColor": "#6C3FC5",
-                "opacity": 1,
+                "gap": 12,
               },
             ]
           }
         >
           <View
-            style={
+            accessibilityLabel="Hindi"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": true,
               }
             }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                false,
+                {
+                  "backgroundColor": "#6C3FC514",
+                  "borderColor": "#6C3FC5",
+                },
+              ]
+            }
           >
+            <View
+              color="#6C3FC5"
+              name="check-circle"
+              size={18}
+              style={
+                {
+                  "position": "absolute",
+                  "right": 12,
+                  "top": 12,
+                }
+              }
+            />
             <Text
               style={
                 [
@@ -690,7 +754,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                     "writingDirection": "ltr",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   false,
@@ -706,90 +770,72 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#6B7280",
+                    "color": "#1A1A1A",
                   },
                 ]
               }
             >
               Hindi
-               · 
-              Devanagari
             </Text>
           </View>
           <View
-            color="#6C3FC5"
-            name="check-circle"
-            size={22}
-          />
-        </View>
-      </View>
-      <View
-        onFocusCapture={[Function]}
-        onLayout={[Function]}
-        style={null}
-      >
-        <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
-          style={
-            [
+            accessibilityLabel="Urdu"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
-                "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
-              },
-              {
-                "paddingVertical": 20,
-              },
-              {
-                "backgroundColor": "#FFFFFF",
-                "borderColor": "#E5E7EB",
-                "opacity": 1,
-              },
-            ]
-          }
-        >
-          <View
-            style={
-              {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": false,
               }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                {
+                  "minHeight": 128,
+                },
+                {
+                  "backgroundColor": "#FFFFFF",
+                  "borderColor": "#E5E7EB",
+                },
+              ]
             }
           >
             <Text
@@ -800,11 +846,11 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                     "writingDirection": "rtl",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   {
-                    "lineHeight": 48,
+                    "lineHeight": 52,
                   },
                   {
                     "color": "#1A1A1A",
@@ -818,26 +864,19 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#6B7280",
+                    "color": "#1A1A1A",
                   },
                 ]
               }
             >
               Urdu
-               · 
-              Nastaliq
             </Text>
           </View>
-          <View
-            color="#E5E7EB"
-            name="circle"
-            size={22}
-          />
         </View>
       </View>
       <View
@@ -846,62 +885,81 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
         style={null}
       >
         <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
           style={
             [
               {
-                "alignItems": "center",
-                "borderRadius": 18,
-                "borderWidth": 1.5,
                 "flexDirection": "row",
-                "gap": 12,
-                "marginBottom": 10,
-                "padding": 16,
               },
-              false,
               {
-                "backgroundColor": "#FFFFFF",
-                "borderColor": "#E5E7EB",
-                "opacity": 0.72,
+                "gap": 12,
               },
             ]
           }
         >
           <View
-            style={
+            accessibilityLabel="Tamil — locked, preview its journey"
+            accessibilityRole="button"
+            accessibilityState={
               {
-                "flex": 1,
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": false,
               }
             }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              [
+                {
+                  "borderRadius": 22,
+                  "borderWidth": 1.5,
+                  "flex": 1,
+                  "justifyContent": "flex-end",
+                  "marginBottom": 12,
+                  "minHeight": 104,
+                  "padding": 16,
+                  "paddingRight": 30,
+                  "paddingTop": 18,
+                },
+                false,
+                {
+                  "backgroundColor": "#FFFFFF",
+                  "borderColor": "#E5E7EB",
+                },
+              ]
+            }
           >
+            <View
+              name="crown"
+              size={18}
+              style={
+                {
+                  "position": "absolute",
+                  "right": 12,
+                  "top": 12,
+                }
+              }
+            />
             <Text
               style={
                 [
@@ -910,7 +968,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                     "writingDirection": "ltr",
                   },
                   {
-                    "fontSize": 22,
+                    "fontSize": 24,
                     "textAlign": "left",
                   },
                   false,
@@ -926,38 +984,18 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "fontFamily": "Inter_600SemiBold",
-                    "fontSize": 13,
-                    "marginTop": 3,
+                    "fontFamily": "Inter_700Bold",
+                    "fontSize": 14,
+                    "marginTop": 6,
                   },
                   {
-                    "color": "#6B7280",
+                    "color": "#1A1A1A",
                   },
                 ]
               }
             >
               Tamil
-               · 
-              Tamil
             </Text>
-          </View>
-          <View
-            style={
-              {
-                "alignItems": "center",
-                "flexDirection": "row",
-                "gap": 8,
-              }
-            }
-          >
-            <View
-              testID="plus-pill"
-            />
-            <View
-              color="#6B7280"
-              name="lock"
-              size={18}
-            />
           </View>
         </View>
       </View>

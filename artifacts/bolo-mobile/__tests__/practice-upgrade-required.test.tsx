@@ -188,7 +188,7 @@ describe('402 upgrade_required on the practice screen', () => {
         'Cancel anytime — no charge if you cancel before the trial ends.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();
   });
 
   test('tapping the trial CTA routes to the paywall', () => {
@@ -216,10 +216,10 @@ describe('402 upgrade_required on the practice screen', () => {
     render(<PracticeScreen />);
 
     expect(screen.getByText('Unlock this language')).toBeOnTheScreen();
-    expect(screen.getByText('Unlock with Plus')).toBeOnTheScreen();
+    expect(screen.getByText('Unlock with All-Access')).toBeOnTheScreen();
     expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
     expect(screen.queryByText(/Cancel anytime/)).not.toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Unlock with Plus'));
+    fireEvent.press(screen.getByText('Unlock with All-Access'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/paywall',
       params: { lang: 'gu', reason: 'language_locked' },
@@ -236,7 +236,7 @@ describe('402 upgrade_required on the practice screen', () => {
     render(<PracticeScreen />);
 
     expect(screen.getByText(/try again/i)).toBeOnTheScreen();
-    expect(screen.queryByText('Unlock with Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();
     expect(screen.queryByText('Start 7-day free trial')).not.toBeOnTheScreen();
   });
 });

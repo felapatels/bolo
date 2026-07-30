@@ -154,7 +154,7 @@ describe('SubscriptionScreen', () => {
     mockState.sub = loadingQuery();
     render(<SubscriptionScreen />);
     expect(screen.queryByText('Free plan')).toBeNull();
-    expect(screen.queryByText('Bolo! Plus')).toBeNull();
+    expect(screen.queryByText('Bolo! All-Access')).toBeNull();
   });
 
   it('routes a free learner to the paywall', () => {
@@ -260,7 +260,7 @@ describe('SubscriptionScreen', () => {
     expect(screen.getByText('Billing history')).toBeOnTheScreen();
     expect(screen.queryByText(/No past payments/i)).toBeNull();
     // A humanized plan label is derived from the product id.
-    expect(screen.getAllByText(/Bolo! Plus · Subscription/).length).toBe(2);
+    expect(screen.getAllByText(/Bolo! All-Access · Subscription/).length).toBe(2);
     // Both period statuses render (one active, plus the plan-state "Active").
     expect(screen.getByText('Expired')).toBeOnTheScreen();
   });

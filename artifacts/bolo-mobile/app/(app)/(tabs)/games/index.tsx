@@ -200,7 +200,7 @@ function GameCard({
             >
               <Feather name="star" size={10} color={colors.primary} />
               <Text style={[styles.pillText, { color: colors.primary }]}>
-                Plus
+                All-Access
               </Text>
             </View>
           ) : (

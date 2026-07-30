@@ -24,12 +24,11 @@ type BoloTabButtonProps = {
   style?: React.ComponentProps<typeof Pressable>['style'];
   children?: React.ReactNode;
 };
-import { useListIncomingFriendRequests } from '@workspace/api-client-react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { GlobeButton } from '@/components/GlobeButton';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 
 // ---------------------------------------------------------------------------
@@ -318,7 +317,80 @@ function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: Bolo
   );
 }
 
+// ---------------------------------------------------------------------------
+// Standard tab icon — a brand-filled pill sits behind the icon when the tab
+// is active, matching the floating-pill bar's filled active treatment.
+// ---------------------------------------------------------------------------
+function TabIcon({
+  name,
+  color,
+  focused,
+}: {
+  name: keyof typeof Feather.glyphMap;
+  color: string;
+  focused: boolean;
+}) {
+  const colors = useColors();
+  return (
+    <View style={[styles.iconPill, focused && { backgroundColor: colors.primary }]}>
+      <Feather name={name} size={20} color={focused ? colors.primaryForeground : color} />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Language switcher tab — the 5th slot. Opens the language picker rather than
+// navigating to a tab screen (Profile is reachable from the top-right button
+// on Home, where the friend-request badge also lives now). Mirrors the web
+// nav's language item: globe icon + uppercase active-language code.
+// ---------------------------------------------------------------------------
+function LanguageTabButton({ style }: BoloTabButtonProps) {
+  const colors = useColors();
+  const router = useRouter();
+  const { activeLang } = useLanguage();
+  return (
+    <Pressable
+      onPress={() => {
+        hapticLight();
+        router.push('/(app)/language');
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Change language"
+      style={(state) => [
+        typeof style === 'function' ? style(state) : style,
+        styles.langTabItem,
+      ]}
+    >
+      <View style={styles.iconPill}>
+        <Feather name="globe" size={20} color={colors.mutedForeground} />
+      </View>
+      <Text style={[styles.langTabCode, { color: colors.mutedForeground }]}>
+        {activeLang}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  iconPill: {
+    width: 46,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  langTabCode: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   boloOuter: {
     flex: 1,
     alignItems: 'center',
@@ -361,11 +433,7 @@ const styles = StyleSheet.create({
 
 export default function TabsLayout() {
   const colors = useColors();
-
-  // Shares the react-query cache with the Friends screen so the badge updates
-  // live when requests are accepted or declined there.
-  const { data: incoming } = useListIncomingFriendRequests();
-  const pendingCount = incoming?.length ?? 0;
+  const insets = useSafeAreaInsets();
 
   return (
     <ChatRecordingProvider>
@@ -378,12 +446,26 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         tabBarLabelStyle: { fontFamily: AppFonts.semibold, fontSize: 12 },
+        // Floating pill — detached from the screen edges with a soft drop
+        // shadow; sits above the home indicator via the safe-area inset.
         tabBarStyle: {
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: Math.max(insets.bottom, 14),
+          borderRadius: 32,
+          height: 74,
+          paddingTop: 6,
+          paddingBottom: 8,
           backgroundColor: colors.card,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          height: Platform.OS === 'web' ? 88 : 92,
-          paddingTop: 8,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: '#0F172A',
+          shadowOpacity: 0.16,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 16,
           // Required so the elevated Bolo bubble renders above the bar
           overflow: 'visible',
         },
@@ -394,8 +476,8 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Feather name="home" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="home" color={color} focused={focused} />
           ),
         }}
       />
@@ -404,8 +486,8 @@ export default function TabsLayout() {
         options={{
           title: 'Games',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Feather name="grid" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="grid" color={color} focused={focused} />
           ),
         }}
         listeners={({ navigation }) => ({
@@ -438,33 +520,20 @@ export default function TabsLayout() {
         options={{
           title: 'Progress',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Feather name="bar-chart-2" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="bar-chart-2" color={color} focused={focused} />
           ),
         }}
       />
+      {/* 5th slot — language switcher (opens the picker). The Profile screen
+          stays reachable from the top-right button on Home, which also carries
+          the friend-request badge now. */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Language',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Feather name="user" size={22} color={color} />
-          ),
-          // Friend-request badge surfaces on the Profile tab now that Friends
-          // lives inside the Account/Profile screen.
-          tabBarBadge:
-            pendingCount > 0
-              ? pendingCount > 9
-                ? '9+'
-                : pendingCount
-              : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
-            color: colors.primaryForeground,
-            fontFamily: AppFonts.bold,
-            fontSize: 11,
-          },
+          tabBarButton: (props) => <LanguageTabButton {...props} />,
         }}
       />
     </Tabs>
