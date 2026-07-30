@@ -347,7 +347,12 @@ export default function Home() {
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left / main column — the learning surface */}
-          <div className="space-y-8 lg:col-span-2">
+          {/* min-w-0: without it the grid track honors the ticket's intrinsic
+              min-content (the nowrap "Next stop: …" line + train + stub sum
+              past the viewport) and the whole page scrolls horizontally on
+              phones — truncate can only clip once the track is allowed to
+              shrink below min-content. Same on the aside below. */}
+          <div className="min-w-0 space-y-8 lg:col-span-2">
             {/* P1 v2 item 2: the journey IS the home hero — a full-width
                 boarding pass in the line's accent, visually continuous with
                 the /journey ticket-stub header. Carries live state (next stop,
@@ -582,7 +587,7 @@ export default function Home() {
           </div>
 
           {/* Right rail — accomplishments & next actions */}
-          <aside className="space-y-6 lg:col-span-1">
+          <aside className="min-w-0 space-y-6 lg:col-span-1">
             {latestBadgeSection}
             {reviewSection}
             {/* Recent plays shows here on mobile (in the flow), hidden on desktop
