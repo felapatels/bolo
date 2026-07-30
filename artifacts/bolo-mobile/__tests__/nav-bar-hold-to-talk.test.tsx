@@ -21,6 +21,16 @@ import {
 //  5. On-screen mascot Pressable — accessibilityLabel independently reflects
 //     the current recording phase ('Hold to speak' / 'Release to send') and
 //     pressIn starts recording through its own path, not the nav refs.
+//  6. Barge-in — holding during phase 'playing' stops the streaming playback,
+//     orphans the in-flight SSE turn, and transitions into recording.
+//
+// IMPORTANT prop-shape note (build 29 regression): the installed
+// @react-navigation/bottom-tabs v7 passes the selected flag to custom
+// tabBarButton renderers as `aria-selected` on native and does NOT pass
+// `accessibilityState`. An earlier version of this suite mocked the renderer
+// with `accessibilityState: { selected }`, which is exactly why the dead
+// nav-bird trigger shipped: tests passed while `focused` was always false on
+// device. The mock below now uses the real v7 shape.
 // ---------------------------------------------------------------------------
 
 // ── Shared mutable state for mocks ─────────────────────────────────────────
@@ -37,6 +47,9 @@ const mockState = {
   // For ChatScreen tests
   prepareRecordingSession: jest.fn(async () => true),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
+  // Shared stop spy for the streaming playback handle, so barge-in tests can
+  // assert the in-flight reply audio was stopped.
+  streamStop: jest.fn(),
 };
 
 // ── Common module mocks ─────────────────────────────────────────────────────
@@ -189,7 +202,9 @@ jest.mock('expo-router', () => {
         { accessibilityLabel: `tab-${name}` },
         options.tabBarButton({
           style: { width: 72 },
-          accessibilityState: { selected: mockState.selected },
+          // Real @react-navigation/bottom-tabs v7 native shape: the selected
+          // flag arrives as `aria-selected`; accessibilityState is NOT passed.
+          'aria-selected': mockState.selected,
           onPress: mockState.onPress ?? undefined,
         }),
       );
@@ -240,7 +255,7 @@ jest.mock('@/lib/audio', () => ({
   stopAndReadRecording: (...args: unknown[]) =>
     mockState.stopAndReadRecording(...args),
   playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
-  playStreamingAudio: jest.fn(async () => ({ stop: jest.fn() })),
+  playStreamingAudio: jest.fn(async () => ({ stop: mockState.streamStop })),
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
@@ -340,6 +355,9 @@ import {
   ChatRecordingProvider,
   useChatRecording,
 } from '@/components/ChatRecordingContext';
+import { hapticLight } from '@/lib/haptics';
+import { createAudioPlayer } from 'expo-audio';
+import { playStreamingAudio } from '@/lib/audio';
 
 // ── Shared setup ────────────────────────────────────────────────────────────
 
@@ -615,6 +633,22 @@ describe('BoloTabButton hold-to-talk gesture when focused', () => {
     expect(mockState.registerStop).toHaveBeenCalledTimes(1);
   });
 
+  test('pressIn fires the light haptic and start wrapper via the v7 aria-selected shape', async () => {
+    // Pins the exact build 29 device defect: the tab bar passes ONLY
+    // `aria-selected` (see the renderer mock above), and pressIn on the nav
+    // bird must still fire the haptic and the registered start handler.
+    mockState.selected = true;
+    render(<TabsLayout />);
+    await waitFor(() => expect(mockState.registerStart).toBeTruthy());
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Bolo'), 'pressIn');
+    });
+
+    expect(hapticLight).toHaveBeenCalled();
+    expect(mockState.registerStart).toHaveBeenCalledTimes(1);
+  });
+
   test('pressIn does NOT call start wrapper when NOT focused', async () => {
     mockState.selected = false;
     render(<TabsLayout />);
@@ -731,6 +765,116 @@ describe('On-screen mascot Pressable', () => {
     // Either way the label should no longer be 'Release to send'.
     await waitFor(() =>
       expect(screen.queryByLabelText('Release to send')).toBeNull(),
+    );
+  });
+});
+
+// ===========================================================================
+// 6. Barge-in — holding during phase 'playing' interrupts the reply
+//
+// Drives a full voice turn through the mocked XHR SSE channel up to the
+// progressive-streaming 'playing' phase, then invokes the nav-registered
+// start wrapper (the same one BoloTabButton's pressIn calls) and asserts the
+// interrupt semantics: playback stopped, recording started, and the still
+// open SSE turn orphaned so its late payload cannot hijack the new recording.
+// ===========================================================================
+
+describe('Barge-in during playing via the registered start wrapper', () => {
+  // Captured ChatRecordingContext so tests can call the wrappers chat.tsx
+  // registers and read the phase it mirrors into the context.
+  let capturedCtx: ReturnType<typeof useChatRecording> | null = null;
+
+  function CtxProbe() {
+    capturedCtx = useChatRecording();
+    return null;
+  }
+
+  beforeEach(() => {
+    capturedCtx = null;
+  });
+
+  /** Render chat inside a provider and drive a turn to phase 'playing'. */
+  async function reachPlayingPhase() {
+    render(
+      <ChatRecordingProvider>
+        <CtxProbe />
+        <ChatScreen />
+      </ChatRecordingProvider>,
+    );
+
+    // Hold and release the on-screen mascot to send a voice turn.
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Hold to speak'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Release to send')).toBeTruthy(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Release to send'), 'pressOut');
+    });
+    await waitFor(() => expect(xhrMock.send).toHaveBeenCalled());
+
+    // Stream the SSE prologue: early reply text (carries the squawk variant)
+    // followed by the progressive audio stream announcement. The audioStream
+    // event launches the native player and flips the phase to 'playing'
+    // while the SSE request is still open (audioDone/reply are pending).
+    await act(async () => {
+      xhrMock.responseText =
+        'event: replyText\ndata: {"replyText":"Namaste dost","replyEnglish":"Hello friend","squawkVariant":0}\n\n' +
+        'event: audioStream\ndata: {"streamId":"stream-1"}\n\n';
+      xhrMock.onprogress?.();
+    });
+    await waitFor(() => expect(capturedCtx?.phaseRef.current).toBe('playing'));
+    expect(playStreamingAudio).toHaveBeenCalledTimes(1);
+  }
+
+  test('start wrapper during playing stops playback and starts recording', async () => {
+    await reachPlayingPhase();
+
+    await act(async () => {
+      capturedCtx?.startRecordingRef.current?.();
+    });
+
+    await waitFor(() => expect(capturedCtx?.phaseRef.current).toBe('recording'));
+    // The in-flight streaming reply audio must have been stopped.
+    expect(mockState.streamStop).toHaveBeenCalled();
+  });
+
+  test('late payload from the interrupted SSE turn is orphaned and cannot hijack recording', async () => {
+    await reachPlayingPhase();
+
+    await act(async () => {
+      capturedCtx?.startRecordingRef.current?.();
+    });
+    await waitFor(() => expect(capturedCtx?.phaseRef.current).toBe('recording'));
+
+    // The interrupted turn's SSE request now completes with a full payload.
+    // Because barge-in bumped the turn counter, every late event and the
+    // final payload must be dropped: the phase stays 'recording' instead of
+    // flipping back to 'playing'.
+    await act(async () => {
+      xhrMock.status = 200;
+      xhrMock.responseText +=
+        'event: audioDone\ndata: {"ok":true}\n\n' +
+        'event: reply\ndata: {"transcript":"kaise ho","transcriptEnglish":"how are you","replyText":"Namaste dost","replyEnglish":"Hello friend","replyAudioBase64":"QUJD","format":"mp3","squawkVariant":0,"secondsRemaining":null}\n\n';
+      xhrMock.onload?.();
+    });
+
+    expect(capturedCtx?.phaseRef.current).toBe('recording');
+    // No second playback launch for the stale turn either.
+    expect(playStreamingAudio).toHaveBeenCalledTimes(1);
+  });
+
+  test('squawk chirp player keeps the audio session active (loudness seam guard)', async () => {
+    await reachPlayingPhase();
+
+    // playSquawk fired on the audioStream launch (squawkVariant 0). Its
+    // player must be created with keepAudioSessionActive so the chirp
+    // finishing while the reply is still buffering cannot deactivate the
+    // audio session mid-turn (the build 29 quiet-replies seam).
+    expect(createAudioPlayer).toHaveBeenCalledWith(
+      expect.anything(),
+      { keepAudioSessionActive: true },
     );
   });
 });

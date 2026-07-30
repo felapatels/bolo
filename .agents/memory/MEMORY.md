@@ -95,3 +95,5 @@
 - [Timezone picker & ICU legacy ids](timezone-picker-icu.md) — ICU lists Asia/Calcutta not Kolkata; cmdk default fuzzy matches subsequences; reuse web TimezoneSelect alias+substring scorer for any timezone UI.
 - [RN-web rotated/vertical text](rn-web-rotated-text.md) — rotated Text reserves only its unrotated box, and RN-web Text's maxWidth:'100%' clamps explicit widths; use the measured absolute-slot pattern.
 - [rn-svg percentage sizing](rn-svg-percentage-height.md) — a percentage-height Svg in NORMAL FLOW inflates native Yoga unboundedly (full-screen ticket, build 28) while Expo web looks perfect; measure via onLayout + absolute wrappers.
+- [bottom-tabs v7 aria-selected](bottom-tabs-aria-selected.md) — custom tabBarButton gets 'aria-selected', NOT accessibilityState, on native; test mocks must use the real shape or a dead trigger stays green.
+- [expo-audio session auto-deactivation](expo-audio-session-deactivation.md) — any finishing/paused player deactivates the iOS session unless another is strictly .playing (buffering doesn't count); pass keepAudioSessionActive on session-managed players.

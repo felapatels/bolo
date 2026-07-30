@@ -75,7 +75,14 @@ const SQUAWK_ASSETS = [
  * the start of Bolo's speech rather than blocking it.
  */
 function playSquawk(variant: 0 | 1 | 2): void {
-  const sfxPlayer = createAudioPlayer(SQUAWK_ASSETS[variant]);
+  // keepAudioSessionActive: without it, this ~0.5 s chirp finishing while the
+  // streamed reply is still buffering (buffering players do not count as
+  // "playing" to expo-audio's deactivation check) tears down the audio
+  // session mid-turn and degrades the reply's volume and quality. See
+  // lib/audio.ts playStreamingAudio for the full seam description.
+  const sfxPlayer = createAudioPlayer(SQUAWK_ASSETS[variant], {
+    keepAudioSessionActive: true,
+  });
   const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
     if (s.didJustFinish) {
       try { sub.remove(); } catch {}
@@ -441,9 +448,14 @@ export default function ChatScreen() {
     const wasPlaying = phase === 'playing';
     if (phase !== 'idle' && phase !== 'error' && !wasProcessing && !wasPlaying) return;
 
-    if (wasProcessing) {
+    if (wasProcessing || wasPlaying) {
       // Supersede the in-flight request by bumping the turn counter; when the
       // old response arrives its turn ID will no longer match and it is dropped.
+      // The playing case needs this too: with progressive voice streaming the
+      // SSE turn can still be open (audioDone and reply events pending) while
+      // the reply audio is already playing. Without the bump, a late reply
+      // payload from the interrupted turn would still match and flip the phase
+      // back to 'playing' in the middle of the new recording.
       activeTurnRef.current++;
       finishingRef.current = false;
     }

@@ -208,7 +208,20 @@ export async function playStreamingAudio(
       void ensureRecordingMode().catch(() => {});
   };
 
-  const player = createAudioPlayer({ uri: url, headers });
+  // keepAudioSessionActive: by default expo-audio schedules an AVAudioSession
+  // setActive(false) 0.1 s after ANY player finishes or pauses, unless some
+  // other registered player is strictly in the .playing state. A streaming
+  // reply that is still buffering does not count as playing, so a short clip
+  // (e.g. the squawk chirp) finishing during the buffer window deactivates
+  // the session that activatePlaybackMode just configured, and AVPlayer then
+  // reactivates it implicitly outside our session model. That was the build
+  // 29 "replies quieter than the greeting" seam: the greeting is the only
+  // clip never preceded by another player's completion. Keeping the session
+  // active leaves its lifecycle entirely to the serialized mode-flip queue.
+  const player = createAudioPlayer(
+    { uri: url, headers },
+    { keepAudioSessionActive: true },
+  );
   const sub = player.addListener('playbackStatusUpdate', (s) => {
     if (s.didJustFinish) {
       onDone?.();
@@ -276,7 +289,10 @@ export async function playBase64Audio(
       void ensureRecordingMode().catch(() => {});
   };
 
-  const player = createAudioPlayer({ uri });
+  // keepAudioSessionActive: prevent expo-audio's automatic session
+  // deactivation when this clip finishes or pauses; see playStreamingAudio
+  // for the full explanation of the build 29 loudness seam.
+  const player = createAudioPlayer({ uri }, { keepAudioSessionActive: true });
   const sub = player.addListener('playbackStatusUpdate', (s) => {
     if (s.didJustFinish) {
       onDone?.();

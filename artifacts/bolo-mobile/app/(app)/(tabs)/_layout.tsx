@@ -21,6 +21,11 @@ type BoloTabButtonProps = {
   onPress?: React.ComponentProps<typeof Pressable>['onPress'];
   onLongPress?: React.ComponentProps<typeof Pressable>['onLongPress'];
   accessibilityState?: { selected?: boolean; disabled?: boolean };
+  // @react-navigation/bottom-tabs v7 passes the selected flag to custom
+  // tabBarButton renderers as `aria-selected` on native and does NOT pass
+  // accessibilityState. Both shapes are accepted so the button works with
+  // either renderer contract.
+  'aria-selected'?: boolean;
   style?: React.ComponentProps<typeof Pressable>['style'];
   children?: React.ReactNode;
 };
@@ -221,9 +226,22 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 // ---------------------------------------------------------------------------
 // Elevated center Bolo tab button
 // ---------------------------------------------------------------------------
-function BoloTabButton({ onPress, onLongPress, accessibilityState, style }: BoloTabButtonProps) {
+function BoloTabButton({
+  onPress,
+  onLongPress,
+  accessibilityState,
+  'aria-selected': ariaSelected,
+  style,
+}: BoloTabButtonProps) {
   const colors = useColors();
-  const focused = accessibilityState?.selected ?? false;
+  // Build 29 defect: only accessibilityState?.selected was read here, but the
+  // installed @react-navigation/bottom-tabs v7 tab bar passes `aria-selected`
+  // (and no accessibilityState) on native. `focused` was therefore always
+  // false on device, so pressIn never fired the haptic or the registered
+  // start handler (the press-scale animation is unconditional, which is why
+  // the button still showed visual feedback). Read the v7 prop first and keep
+  // the legacy accessibilityState shape as a fallback.
+  const focused = ariaSelected ?? accessibilityState?.selected ?? false;
   const reduceMotion = useReducedMotion();
 
   // Hold-to-talk context — available when the chat screen is mounted.

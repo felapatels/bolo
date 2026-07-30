@@ -15,5 +15,7 @@ description: How Bolo's chat voice streams over SSE and plays before synthesis f
 - iOS/WebKit (ALL iPhone browsers, incl. Chrome) blocks `.play()` on any element that didn't start playing inside a real user gesture — the reply plays seconds after the tap, so per-turn `new Audio(...)` is silently blocked (captions-but-no-voice). Web chat routes playback through two pooled elements (voice + SFX) blessed with a silent WAV inside the gesture handlers; never create a fresh Audio element for delayed playback on a surface reachable from iOS web.
 - jsdom test trap: any code that constructs `Audio` synchronously in a gesture handler requires test stubs to be constructible classes — `vi.stubGlobal("Audio", vi.fn(() => ({...})))` throws "not a constructor" the moment the handler runs.
 
+- Barge-in trap: with progressive streaming the SSE turn is STILL OPEN while phase is 'playing', so any interrupt path that starts a new recording must bump the active-turn counter for `wasPlaying` too (not just `wasProcessing`) or the interrupted turn's late `reply` payload flips the phase back and hijacks the recording.
+
 **Why:** cuts the voice wait to first-chunk latency (~300 ms observed) instead of full-clip synthesis.
 **How to apply:** any future streamed-audio feature (mobile, phrase audio) should reuse the opt-in header + audioDone-as-commit protocol.
