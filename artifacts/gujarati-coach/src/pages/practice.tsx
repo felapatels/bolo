@@ -530,11 +530,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         // the learner left off instead of replaying from the top. Only the
         // starting index changes: the phrase set is not filtered, and back
         // navigation still returns to the journey. When every phrase is at
-        // 80+ findIndex misses (-1) and startIdx stays 0 — a completed
-        // station replays from the beginning.
-        const firstBelowCredit = phrases.findIndex(
-          p => p.bestScore == null || p.bestScore < 80,
-        );
+        // 80+ findIndex misses (-1) and startIdx stays 0 — an all-mastered
+        // station is a deliberate review visit that replays from phrase 1.
+        //
+        // Teaser taste sets are INERT to resume: a teaser-state caller gets
+        // the fixed free taste set (rows carry `teaser` progress), which must
+        // always play from the top — skipping an already-attempted free
+        // phrase would shorten the taste → upsell flow.
+        const isTeaserSet = phrases.some(p => p.teaser != null);
+        const firstBelowCredit = isTeaserSet
+          ? -1
+          : phrases.findIndex(p => p.bestScore == null || p.bestScore < 80);
         if (firstBelowCredit > 0) startIdx = firstBelowCredit;
       }
       if (startIdx > 0) setCurrentIndex(startIdx);

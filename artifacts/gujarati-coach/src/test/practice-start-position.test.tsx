@@ -90,7 +90,11 @@ function renderPage(ui: ReactElement, path: string) {
 }
 
 /** A group-member phrase with a controllable mastery score. */
-function phraseAt(id: number, bestScore: number | null) {
+function phraseAt(
+  id: number,
+  bestScore: number | null,
+  extra: Record<string, unknown> = {},
+) {
   return {
     id,
     nativeScript: `સ્ક્રિપ્ટ${id}`,
@@ -98,8 +102,12 @@ function phraseAt(id: number, bestScore: number | null) {
     english: `english ${id}`,
     bestScore,
     mastered: bestScore != null && bestScore >= 80,
+    ...extra,
   };
 }
+
+/** The fixed M1 taste set: teaser rows carry per-phrase teaser progress. */
+const TEASER = { teaser: { consumed: 1, limit: 3 } };
 
 function loaded(data: unknown) {
   return {
@@ -157,13 +165,31 @@ describe("practice start position (Task 954: station resume)", () => {
     await expectStartsAt("phrase-2", "2/3");
   });
 
-  test("fully-passed station falls back to the first phrase", async () => {
+  test("all-mastered station is a deliberate review visit: starts at phrase 1 with the full set", async () => {
+    // Pin (not just fallback coverage): re-entering a fully-passed station is
+    // a review session — it must start at phrase 1 and keep every phrase
+    // practiceable (full-length counter), never bounce or skip ahead.
     h.groupPhrases = loaded([
       phraseAt(1, 95),
       phraseAt(2, 88),
       phraseAt(3, 80),
     ]);
     renderPage(<Practice />, "/practice/0?group=7");
+
+    await expectStartsAt("phrase-1", "1/3");
+  });
+
+  test("teaser taste set is INERT to resume: always plays from the top, even with an attempted phrase", async () => {
+    // A teaser-state caller gets the fixed free taste set (rows carry
+    // `teaser` progress). Without the inertness guard, the attempted first
+    // phrase (bestScore 95) would make resume skip straight to phrase 2 and
+    // shorten the taste → upsell flow.
+    h.groupPhrases = loaded([
+      phraseAt(1, 95, TEASER),
+      phraseAt(2, null, TEASER),
+      phraseAt(3, null, TEASER),
+    ]);
+    renderPage(<Practice />, "/practice/0?group=1");
 
     await expectStartsAt("phrase-1", "1/3");
   });

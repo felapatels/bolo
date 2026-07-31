@@ -14,3 +14,4 @@ Rules:
 - All new API fields (`teaser` on UpgradeRequired/Phrase/AttemptResult, reason `teaser_exhausted`) are optional/additive for Expo back-compat.
 - Trap: test files that `mock.module("@workspace/db")` enumerate namedExports; any new table import in the route chain (e.g. lessonGroupsTable) breaks them with "does not provide an export" — add the stub table to each mock.
 - Known gap (facts doc debt row): pronunciation/TTS routes never language-gate; if closed later, honor the teaser exception.
+- Teaser taste sets are INERT to start-position/resume logic on every platform: the fixed free set always plays from the top (skipping an attempted phrase shortens taste → upsell). Client signal: teaser-state responses carry per-phrase `teaser` progress — check `phrases.some(p => p.teaser)` before any resume/skip logic.
