@@ -11,6 +11,16 @@ import {
   chatTurnsTable,
   familyPlansTable,
   familySeatsTable,
+  xpLedgerTable,
+  userAbilityTable,
+  userItemMemoryTable,
+  phraseReportsTable,
+  dailyQuizCompletionsTable,
+  gameSessionsTable,
+  lessonGroupProgressTable,
+  lessonGroupTestoutsTable,
+  scriptTraceProgressTable,
+  contactSubmissionsTable,
   type User,
 } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
@@ -453,6 +463,45 @@ export function createAccountRouter(
             eq(friendshipsTable.addresseeId, id),
           ),
         );
+
+      // All user-keyed tables covered by this handler (FK-safe order):
+      //   family_seats, family_plans, chat_turns, friend_invites,
+      //   attempts, badges, lesson_generations, friendships,
+      //   xp_ledger, user_ability, user_item_memory,
+      //   phrase_reports, daily_quiz_completions,
+      //   game_sessions, lesson_group_progress, lesson_group_testouts,
+      //   script_trace_progress, contact_submissions, users
+      // TODO (build-32): also delete token_ledger and token_spend_ledger
+      //   once those tables are added by the build-32 schema work.
+      await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, id));
+      await db
+        .delete(userAbilityTable)
+        .where(eq(userAbilityTable.userId, id));
+      await db
+        .delete(userItemMemoryTable)
+        .where(eq(userItemMemoryTable.userId, id));
+      await db
+        .delete(phraseReportsTable)
+        .where(eq(phraseReportsTable.userId, id));
+      await db
+        .delete(dailyQuizCompletionsTable)
+        .where(eq(dailyQuizCompletionsTable.userId, id));
+      await db
+        .delete(gameSessionsTable)
+        .where(eq(gameSessionsTable.userId, id));
+      await db
+        .delete(lessonGroupProgressTable)
+        .where(eq(lessonGroupProgressTable.userId, id));
+      await db
+        .delete(lessonGroupTestoutsTable)
+        .where(eq(lessonGroupTestoutsTable.userId, id));
+      await db
+        .delete(scriptTraceProgressTable)
+        .where(eq(scriptTraceProgressTable.userId, id));
+      await db
+        .delete(contactSubmissionsTable)
+        .where(eq(contactSubmissionsTable.userId, id));
+
       await db.delete(usersTable).where(eq(usersTable.id, id));
 
       res.json({ deleted: true });

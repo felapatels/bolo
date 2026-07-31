@@ -14,6 +14,16 @@ import {
   friendshipsTable,
   familyPlansTable,
   familySeatsTable,
+  xpLedgerTable,
+  userAbilityTable,
+  userItemMemoryTable,
+  phraseReportsTable,
+  dailyQuizCompletionsTable,
+  gameSessionsTable,
+  lessonGroupProgressTable,
+  lessonGroupTestoutsTable,
+  scriptTraceProgressTable,
+  contactSubmissionsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -35,6 +45,13 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 const TEST_USER_ID = "test_account_user";
 const FRIEND_ID = "test_account_friend";
 const TEST_LANG = "__test_acct_lang";
+
+// Phrase id used when seeding tables that require a phrase FK.
+// Resolved in before() from the first available phrase row.
+let TEST_PHRASE_ID: number;
+// Lesson-group id used when seeding tables that require a lesson_group FK.
+// Resolved in before() from the first available lesson_groups row.
+let TEST_LESSON_GROUP_ID: number;
 
 // Records of the Clerk-side operations the routes performed.
 interface Recorded {
@@ -150,6 +167,135 @@ before(async () => {
       responded_at timestamptz
     );
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS xp_ledger (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      source text NOT NULL,
+      ref_id text NOT NULL,
+      xp integer NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, source, ref_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_ability (
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      theta real NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, language_code)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_item_memory (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      phrase_id integer NOT NULL,
+      stability real NOT NULL DEFAULT 0,
+      difficulty real NOT NULL DEFAULT 5,
+      state text NOT NULL DEFAULT 'new',
+      reps integer NOT NULL DEFAULT 0,
+      lapses integer NOT NULL DEFAULT 0,
+      scheduled_days integer NOT NULL DEFAULT 0,
+      due_at timestamptz NOT NULL DEFAULT now(),
+      last_review_at timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, phrase_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS phrase_reports (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      phrase_id integer NOT NULL,
+      reason text NOT NULL,
+      note text,
+      language_code text NOT NULL REFERENCES languages(code),
+      stage text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS daily_quiz_completions (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      quiz_date date NOT NULL,
+      score integer NOT NULL,
+      xp_awarded integer NOT NULL DEFAULT 0,
+      completed_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, language_code, quiz_date)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_sessions (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      game text NOT NULL,
+      correct_count integer NOT NULL DEFAULT 0,
+      total_count integer NOT NULL DEFAULT 0,
+      xp_awarded integer NOT NULL DEFAULT 0,
+      context text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lesson_group_progress (
+      user_id text NOT NULL REFERENCES users(id),
+      lesson_group_id integer NOT NULL,
+      status text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, lesson_group_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lesson_group_testouts (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      lesson_group_id integer NOT NULL,
+      passed boolean NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS script_trace_progress (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      chapter text NOT NULL,
+      character_id text NOT NULL,
+      passed boolean NOT NULL DEFAULT false,
+      best_score integer,
+      attempt_count integer NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, chapter, character_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+      id serial PRIMARY KEY,
+      user_id text REFERENCES users(id),
+      name text NOT NULL,
+      email text NOT NULL,
+      category text NOT NULL,
+      message text NOT NULL,
+      email_sent boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+
+  // Resolve a phrase id for tables that require one (user_item_memory, phrase_reports).
+  const phraseRow = await pool.query<{ id: number }>("SELECT id FROM phrases LIMIT 1");
+  TEST_PHRASE_ID = phraseRow.rows[0]?.id ?? 1;
+
+  // Resolve a lesson_group id for tables that require one (lesson_group_progress, lesson_group_testouts).
+  const lgRow = await pool.query<{ id: number }>("SELECT id FROM lesson_groups LIMIT 1");
+  TEST_LESSON_GROUP_ID = lgRow.rows[0]?.id ?? 1;
 
   await db
     .insert(languagesTable)
@@ -346,6 +492,15 @@ test("POST /account/password enforces a minimum length and calls Clerk", async (
 // --- Deletion --------------------------------------------------------------
 
 test("DELETE /account removes the Clerk user and purges all local rows", async () => {
+  // Covered tables (14 total):
+  //   attempts, badges, lesson_generations, friendships   — existing
+  //   xp_ledger, user_ability, user_item_memory,
+  //   phrase_reports, daily_quiz_completions,
+  //   game_sessions, lesson_group_progress,
+  //   lesson_group_testouts, script_trace_progress,
+  //   contact_submissions                                 — added here
+  // TODO (build-32): extend with token_ledger, token_spend_ledger.
+
   // Seed one row in every user-owned table.
   await db.insert(attemptsTable).values({
     userId: TEST_USER_ID,
@@ -373,6 +528,64 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     requesterId: TEST_USER_ID,
     addresseeId: FRIEND_ID,
     status: "accepted",
+  });
+
+  // Five newly-covered tables.
+  await db.insert(xpLedgerTable).values({
+    userId: TEST_USER_ID,
+    languageCode: TEST_LANG,
+    source: "attempt",
+    refId: "test-ref-1",
+    xp: 10,
+  });
+  await db.insert(userAbilityTable).values({
+    userId: TEST_USER_ID,
+    languageCode: TEST_LANG,
+  });
+  await db.insert(userItemMemoryTable).values({
+    userId: TEST_USER_ID,
+    phraseId: TEST_PHRASE_ID,
+  });
+  await pool.query(
+    `INSERT INTO phrase_reports
+       (user_id, phrase_id, reason, language_code, stage)
+     VALUES ($1, $2, 'other', $3, 'word')
+     ON CONFLICT DO NOTHING`,
+    [TEST_USER_ID, TEST_PHRASE_ID, TEST_LANG],
+  );
+  await db.insert(dailyQuizCompletionsTable).values({
+    userId: TEST_USER_ID,
+    languageCode: TEST_LANG,
+    quizDate: "2026-01-01",
+    score: 3,
+  });
+  await db.insert(gameSessionsTable).values({
+    userId: TEST_USER_ID,
+    languageCode: TEST_LANG,
+    game: "word-match",
+  });
+  await pool.query(
+    `INSERT INTO lesson_group_progress (user_id, lesson_group_id, status)
+     VALUES ($1, $2, 'in_progress')
+     ON CONFLICT DO NOTHING`,
+    [TEST_USER_ID, TEST_LESSON_GROUP_ID],
+  );
+  await pool.query(
+    `INSERT INTO lesson_group_testouts (user_id, lesson_group_id, passed)
+     VALUES ($1, $2, false)`,
+    [TEST_USER_ID, TEST_LESSON_GROUP_ID],
+  );
+  await db.insert(scriptTraceProgressTable).values({
+    userId: TEST_USER_ID,
+    chapter: "test-chapter",
+    characterId: "test-char",
+  });
+  await db.insert(contactSubmissionsTable).values({
+    userId: TEST_USER_ID,
+    name: "Test User",
+    email: "acct@example.test",
+    category: "general",
+    message: "test message",
   });
 
   const { status, json } = await del("/account");
@@ -405,6 +618,56 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     .from(friendshipsTable)
     .where(eq(friendshipsTable.requesterId, TEST_USER_ID));
   assert.equal(friends.length, 0);
+  const xpRows = await db
+    .select()
+    .from(xpLedgerTable)
+    .where(eq(xpLedgerTable.userId, TEST_USER_ID));
+  assert.equal(xpRows.length, 0);
+  const abilityRows = await db
+    .select()
+    .from(userAbilityTable)
+    .where(eq(userAbilityTable.userId, TEST_USER_ID));
+  assert.equal(abilityRows.length, 0);
+  const memoryRows = await db
+    .select()
+    .from(userItemMemoryTable)
+    .where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  assert.equal(memoryRows.length, 0);
+  const reportRows = await db
+    .select()
+    .from(phraseReportsTable)
+    .where(eq(phraseReportsTable.userId, TEST_USER_ID));
+  assert.equal(reportRows.length, 0);
+  const quizRows = await db
+    .select()
+    .from(dailyQuizCompletionsTable)
+    .where(eq(dailyQuizCompletionsTable.userId, TEST_USER_ID));
+  assert.equal(quizRows.length, 0);
+  const gameRows = await db
+    .select()
+    .from(gameSessionsTable)
+    .where(eq(gameSessionsTable.userId, TEST_USER_ID));
+  assert.equal(gameRows.length, 0);
+  const lgpRows = await db
+    .select()
+    .from(lessonGroupProgressTable)
+    .where(eq(lessonGroupProgressTable.userId, TEST_USER_ID));
+  assert.equal(lgpRows.length, 0);
+  const lgtRows = await db
+    .select()
+    .from(lessonGroupTestoutsTable)
+    .where(eq(lessonGroupTestoutsTable.userId, TEST_USER_ID));
+  assert.equal(lgtRows.length, 0);
+  const stpRows = await db
+    .select()
+    .from(scriptTraceProgressTable)
+    .where(eq(scriptTraceProgressTable.userId, TEST_USER_ID));
+  assert.equal(stpRows.length, 0);
+  const contactRows = await db
+    .select()
+    .from(contactSubmissionsTable)
+    .where(eq(contactSubmissionsTable.userId, TEST_USER_ID));
+  assert.equal(contactRows.length, 0);
 });
 
 test("DELETE /account dissolves a family plan the user owns", async () => {
