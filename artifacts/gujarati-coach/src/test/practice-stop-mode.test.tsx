@@ -200,11 +200,12 @@ describe("hold-to-talk recording mechanics", () => {
     expect(bellyButton().disabled).toBe(false);
   });
 
-  test("belly zone is not rendered while coach is speaking (playing_coach)", async () => {
+  test("belly zone IS rendered while coach is speaking (barge-in, Task 907)", async () => {
     renderPage(<Practice />); // silent mode OFF → starts in playing_coach
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    // During playing_coach the belly zone is hidden.
-    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+    // Barge-in: the belly zone stays mounted during playback so a hold can
+    // stop the audio and record on the same gesture. Not recording yet.
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 

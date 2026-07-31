@@ -292,8 +292,10 @@ describe("silent mode — next phrase", () => {
 
     // Coach audio for phrase1 must start.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    // We are in playing_coach — belly zone is hidden (not idle/recording).
-    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+    // We are in playing_coach — since barge-in (Task 907) the belly zone
+    // stays mounted during playback, but recording has not started.
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 });
 
@@ -347,12 +349,13 @@ describe("belly zone availability", () => {
     expect(belly.disabled).toBe(false);
   });
 
-  test("belly zone is not rendered while the coach is playing (playing_coach)", async () => {
+  test("belly zone IS rendered while the coach is playing (barge-in, Task 907)", async () => {
     renderPage(<Practice />); // silent mode OFF
     // Coach audio kicks off — we're in playing_coach before onended fires.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    // Belly zone is hidden during playing_coach.
-    expect(document.querySelector('[aria-label="Hold to speak"]')).toBeNull();
+    // Barge-in: the belly zone stays mounted during playback so a hold can
+    // stop the audio and record on the same gesture. Not recording yet.
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 

@@ -1204,6 +1204,7 @@ export const EvaluatePronunciationBody = zod.object({
 
 export const EvaluatePronunciationResponse = zod.object({
   "transcript": zod.string(),
+  "transcriptRomanized": zod.string().optional().describe('Display-only romanization of `transcript` (deterministic transliteration, card-style ASCII, e.g. \"kem cho\"). A transcript that is already Latin passes through unchanged. Empty (\"\") when the script has no clean romanization (Perso-Arabic, Ol Chiki, Meetei Mayek) or on nocatch\/empty-transcript outcomes. Clients hide the romanized line when this is empty. Optional for older-client compatibility; never stored or used in scoring.'),
   "score": zod.number().optional().describe('Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional.'),
   "band": zod.enum(['nocatch', 'perfect', 'great', 'good', 'almost', 'retry']).describe('Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder.'),
   "xpAwarded": zod.number().describe('XP earned for this attempt. Display only — the signed token is authoritative.'),

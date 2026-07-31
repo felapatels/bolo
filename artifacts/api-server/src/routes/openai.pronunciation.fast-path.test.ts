@@ -263,6 +263,9 @@ test("fast-path: sim ≥ 0.93 → passed=true, no LLM call", async () => {
   assert.equal(llmCallCount, 0, "fast-path must not call the LLM");
   assert.ok(typeof json.evaluationToken === "string", "must return a signed evaluation token");
   assert.equal(json.transcript, "kem cho", "transcript in response must match what STT returned");
+  // Task 907: an already-Latin transcript passes through as its own romanized form.
+  assert.equal(json.transcriptRomanized, "kem cho",
+    "Latin transcript must pass through as transcriptRomanized");
 });
 
 test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", async () => {
@@ -358,6 +361,9 @@ test("empty transcript: route returns passed=false, no LLM call", async () => {
   assert.equal(json.passed, false);
   assert.equal(json.score, 0);
   assert.equal(llmCallCount, 0, "empty transcript must not reach the LLM");
+  // Task 907: nocatch/empty-transcript paths carry an empty romanized form.
+  assert.equal(json.transcriptRomanized, "",
+    "empty transcript must return an empty transcriptRomanized");
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -418,6 +424,10 @@ test("fix #2 — native-script STT transcript for a long target still triggers t
     "native-script transcript for a long target must still use fast path — " +
     "short guard must not fire just because normalizeLatin(nativeTranscript) is empty");
   assert.equal(json.passed, true, "native-script exact match must pass via fast path");
+  // Task 907: a covered native script (Gujarati) is transliterated to card
+  // style for display; scoring inputs and bands above are untouched.
+  assert.equal(json.transcriptRomanized, "kem cho",
+    "Gujarati transcript must romanize to card-style ASCII");
 });
 
 test("fix #3 — STT retry fires for sim=0.30 first-pass transcript (widened from 0.25 to 0.40)", async () => {

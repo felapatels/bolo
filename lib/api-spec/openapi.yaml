@@ -2790,6 +2790,16 @@ components:
       properties:
         transcript:
           type: string
+        transcriptRomanized:
+          type: string
+          description: >-
+            Display-only romanization of `transcript` (deterministic
+            transliteration, card-style ASCII, e.g. "kem cho"). A transcript
+            that is already Latin passes through unchanged. Empty ("") when
+            the script has no clean romanization (Perso-Arabic, Ol Chiki,
+            Meetei Mayek) or on nocatch/empty-transcript outcomes. Clients
+            hide the romanized line when this is empty. Optional for
+            older-client compatibility; never stored or used in scoring.
         score:
           type: integer
           description: >-

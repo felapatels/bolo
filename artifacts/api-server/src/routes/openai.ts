@@ -18,6 +18,7 @@ import {
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
+import { romanizeTranscript } from "../lib/romanizeTranscript";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreBands";
 import { computePronunciationXp } from "../lib/xpEngine";
@@ -667,6 +668,7 @@ router.post(
         `Speech recognition can't reliably hear ${language} yet, so we don't score it. Listen to the phrase, record yourself, and compare by ear. Your practice still counts!`;
       res.json({
         transcript: "",
+        transcriptRomanized: "",
         score: 0,
         passed: false,
         band: nocatchBand,
@@ -749,6 +751,7 @@ router.post(
       const nocatchBand: PronunciationBand = "nocatch";
       res.json({
         transcript: "",
+        transcriptRomanized: "",
         score: 0,
         passed: false,
         band: nocatchBand,
@@ -923,6 +926,7 @@ router.post(
         const fastXp = computePronunciationXp(fastBand, phraseDifficulty);
         res.json({
           transcript,
+          transcriptRomanized: romanizeTranscript(transcript, languageCode),
           score,
           passed: true,
           band: fastBand,
@@ -1044,6 +1048,9 @@ router.post(
           "Our listener glitched on that one and didn't catch what you said. That's on us, not you. Give it one more go!";
         res.json({
           transcript,
+          // nocatch paths carry no romanized form by design: the recognizer
+          // glitched, so a transliteration of that transcript is noise.
+          transcriptRomanized: "",
           score: 0,
           passed: false,
           band: nocatchBand,
@@ -1080,6 +1087,7 @@ router.post(
         "Nice effort! Keep practicing and you'll get it even better.";
       res.json({
         transcript,
+        transcriptRomanized: romanizeTranscript(transcript, languageCode),
         score,
         passed,
         band: llmBand,

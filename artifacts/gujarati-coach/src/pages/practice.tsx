@@ -197,7 +197,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<SessionState>("intro");
-  const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string } | null>(null);
+  const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string; transcript: string; transcriptRomanized: string } | null>(null);
   // Keyed by phraseId so retrying a phrase overwrites its previous entry
   // instead of appending a duplicate. The summary derives an ordered list from
   // `phrases` so phrase ordering is preserved.
@@ -562,6 +562,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, result?.feedback, result?.tip]);
 
+  // ── Positive hold-confirmation (Task 907, pattern from chat's Task 848) ──
+  // The pointerId of the live hold gesture, or null when no hold is active.
+  // Release is detected by WINDOW-level listeners installed at hold start, so
+  // a pointerup the button never sees (permission prompt steals it, relayout
+  // under the finger, tab switch) still ends the hold. Unlike chat (which
+  // discards), practice routes every hold-end through its release semantic:
+  // release means "done speaking", so it finishes and sends.
+  const activeHoldPointerRef = useRef<number | null>(null);
+  // Removes the window listeners WITHOUT firing release semantics (used when
+  // a new hold replaces a stale one, and on unmount so an unmount can never
+  // trigger an evaluation).
+  const holdCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => {
+    holdCleanupRef.current?.();
+  }, []);
+
   // Prevents a manual stop and any double-release from both firing.
   const finishingRef = useRef(false);
   // True once recorder.startRecording() has resolved — lets finishRecording
@@ -634,6 +650,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         xpBreakdown: evalRes.xpBreakdown,
         feedback: evalRes.feedback,
         tip: evalRes.tip,
+        transcript: evalRes.transcript,
+        transcriptRomanized: evalRes.transcriptRomanized ?? "",
       });
       // Overwrite by phraseId so retries replace rather than duplicate.
       setSessionResults(prev => ({
@@ -768,13 +786,36 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage, isUnsupported, setOwnRecording]);
 
   const startRecording = async () => {
-    if (state !== "idle") return;
+    // Barge-in (Task 907): a hold is honoured not just from idle but while
+    // the example phrase plays and while a result (and its spoken feedback)
+    // is on screen. Recording/evaluating are still excluded — a hold there is
+    // either the live gesture itself or an in-flight evaluation.
+    if (state !== "idle" && state !== "playing_coach" && state !== "result") return;
     isPendingStopRef.current = false;
     setEvalError(null);
+    if (state !== "idle") {
+      // Stop whatever is playing RIGHT NOW, on the same gesture. Pausing here
+      // is belt-and-braces; leaving the state also runs the playback effects'
+      // cleanups, which pause + null these refs and set their `cancelled`
+      // flags so a late-resolving synthesis can never start playing.
+      audioRef.current?.pause();
+      feedbackAudioRef.current?.pause();
+      // Discard any pre-synthesized feedback audio so nothing resumes later.
+      feedbackAudioPendingRef.current = null;
+      setState("idle");
+    }
+    const holdPointerId = activeHoldPointerRef.current;
     try {
       // Hold-to-talk always uses manual stop — the learner releases their
       // finger to finish, so silence detection is not needed.
       await recorder.startRecording(undefined);
+      // Positive hold-confirmation: if the hold that started this recording
+      // is no longer live (released or replaced while the mic was being
+      // granted), treat it as a release — practice's release semantic is
+      // "done speaking", so it finishes and sends rather than discarding.
+      if (holdPointerId !== null && activeHoldPointerRef.current !== holdPointerId) {
+        isPendingStopRef.current = true;
+      }
       isRecordingRef.current = true;
       setState("recording");
       // Race: if the learner released before startRecording resolved (quick tap
@@ -788,18 +829,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
   };
 
-  const handleBellyPointerDown = (e: React.PointerEvent) => {
-    // Capture the pointer so pointerup fires on this element even if the
-    // learner's finger drifts off it slightly.
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // setPointerCapture is unavailable in some test/jsdom environments.
-    }
-    void startRecording();
-  };
-
-  const handleBellyPointerUp = () => {
+  const handleBellyRelease = () => {
     if (isRecordingRef.current) {
       void finishRecording();
     } else {
@@ -809,12 +839,50 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
   };
 
-  const handleBellyPointerCancel = () => {
-    if (isRecordingRef.current) {
-      void finishRecording();
-    } else {
-      isPendingStopRef.current = true;
+  // Marks a hold gesture as live and installs window-level release listeners.
+  // pointerup/pointercancel anywhere (and window blur, when the permission
+  // prompt or a tab switch steals focus) end the hold and run the release
+  // semantic — the button's own handlers are no longer trusted to see it.
+  const beginHold = (pointerId: number) => {
+    holdCleanupRef.current?.();
+    activeHoldPointerRef.current = pointerId;
+    const cleanup = () => {
+      window.removeEventListener("pointerup", onRelease);
+      window.removeEventListener("pointercancel", onRelease);
+      window.removeEventListener("blur", onBlur);
+      if (activeHoldPointerRef.current === pointerId) {
+        activeHoldPointerRef.current = null;
+      }
+      if (holdCleanupRef.current === cleanup) {
+        holdCleanupRef.current = null;
+      }
+    };
+    const onRelease = (e: PointerEvent) => {
+      // Ignore other pointers (a second finger) — only this hold's release counts.
+      if (e.pointerId !== undefined && e.pointerId !== pointerId) return;
+      cleanup();
+      handleBellyRelease();
+    };
+    const onBlur = () => {
+      cleanup();
+      handleBellyRelease();
+    };
+    window.addEventListener("pointerup", onRelease);
+    window.addEventListener("pointercancel", onRelease);
+    window.addEventListener("blur", onBlur);
+    holdCleanupRef.current = cleanup;
+  };
+
+  const handleBellyPointerDown = (e: React.PointerEvent) => {
+    // Capture the pointer so pointerup fires on this element even if the
+    // learner's finger drifts off it slightly.
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // setPointerCapture is unavailable in some test/jsdom environments.
     }
+    beginHold(e.pointerId);
+    void startRecording();
   };
 
   const handleErrorRetry = () => {
@@ -1121,8 +1189,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             ? "thinking"
             : "thumbsup";
 
-  // The belly zone is interactive only when the learner can actually record.
-  const bellyActive = state === "idle" || state === "recording";
+  // The belly zone is interactive whenever a hold can meaningfully record —
+  // including DURING example playback and while a result (with its spoken
+  // feedback) is showing: barge-in stops the audio and records on the same
+  // gesture (Task 907). Only evaluating/error/summary keep it unmounted.
+  const bellyActive =
+    state === "idle" ||
+    state === "recording" ||
+    state === "playing_coach" ||
+    state === "result";
 
   return (
     <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
@@ -1429,9 +1504,6 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               <div className="absolute inset-0">
                 <button
                   onPointerDown={handleBellyPointerDown}
-                  onPointerUp={handleBellyPointerUp}
-                  onPointerLeave={handleBellyPointerUp}
-                  onPointerCancel={handleBellyPointerCancel}
                   disabled={!bellyActive}
                   aria-label={state === "recording" ? "Release to submit" : "Hold to speak"}
                   style={{ touchAction: "none" }}
@@ -1646,6 +1718,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       <BandLadder band={result.band} />
                     )}
                   </div>
+                  {/* "We heard" — raw transcript plus card-style romanized
+                      form (Task 907), mirroring mobile's placement and tone.
+                      The romanized line hides when the server sent none
+                      (uncovered script, nocatch) or when it would just repeat
+                      an already-Latin transcript. */}
+                  {result.transcript && (
+                    <p className="text-sm text-muted-foreground mb-1">
+                      We heard: "{result.transcript}"
+                    </p>
+                  )}
+                  {result.transcript &&
+                    result.transcriptRomanized &&
+                    result.transcriptRomanized.toLowerCase() !== result.transcript.toLowerCase() && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        "{result.transcriptRomanized}"
+                      </p>
+                    )}
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
                   {result.tip && (
                     <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>

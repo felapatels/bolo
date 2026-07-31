@@ -1923,6 +1923,18 @@ export default function PracticeScreen() {
                 We heard: "{result.transcript}"
               </Text>
             ) : null}
+            {/* Card-style romanized form of the transcript (Task 907). The
+                server sends "" for scripts it cannot romanize cleanly and on
+                nocatch, and an already-Latin transcript would just repeat —
+                hide the line in both cases. */}
+            {result.transcript &&
+            result.transcriptRomanized &&
+            result.transcriptRomanized.toLowerCase() !==
+              result.transcript.toLowerCase() ? (
+              <Text style={[styles.heardRomanized, { color: colors.mutedForeground }]}>
+                "{result.transcriptRomanized}"
+              </Text>
+            ) : null}
             {result.feedback ? (
               <Text style={[styles.feedback, { color: colors.foreground }]}>
                 {result.feedback}
@@ -2408,6 +2420,12 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.semibold,
     fontSize: 15,
     marginTop: 12,
+    fontStyle: 'italic',
+  },
+  heardRomanized: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    marginTop: 2,
     fontStyle: 'italic',
   },
   feedback: {
