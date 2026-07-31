@@ -14,10 +14,12 @@ export const ANALYTICS_EVENTS = {
   SESSION_COMPLETED: 'session_completed',
   PAYWALL_VIEWED: 'paywall_viewed',
   PURCHASE_COMPLETED: 'purchase_completed',
-  // Task #906: the Phrasebook surface replaced the home topic grid; fired on
-  // each open of the Phrasebook library screen. There was never a dedicated
-  // topic-open event, so nothing else moved or was renamed.
+  // Build 31 one-path restructure: the home topic list became a single
+  // Phrasebook door backed by a library surface. phrasebook_opened fires when
+  // the surface mounts; topic_opened fires when a topic is opened from it.
+  // (No topic-open event existed before this; both names are new.)
   PHRASEBOOK_OPENED: 'phrasebook_opened',
+  TOPIC_OPENED: 'topic_opened',
 } as const;
 
 export type AnalyticsEvent =

@@ -77,6 +77,10 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  // Test-out mode is idle in these suites (no ?mode=testout).
+  useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() }),
+  getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],
+  useSubmitLessonGroupTestout: () => ({ mutate: vi.fn(), data: undefined, isError: false, error: null, isPending: false }),
   useReportPhrase: () => ({ mutate: vi.fn() }),
   // Group mode is idle in these suites (no ?group= param).
   useListLessonGroupPhrases: () => ({

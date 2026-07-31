@@ -53,6 +53,7 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
 /** AsyncStorage key recording that the daily-goal celebration already fired. */
 function goalCelebratedStorageKey(lang: string, date: string): string {
@@ -444,6 +445,7 @@ export default function HomeScreen() {
             ]}
           >
             <PressableScale
+              testID="phrasebook-door"
               onPress={() => {
                 hapticLight();
                 router.push('/(app)/phrasebook');
@@ -473,8 +475,14 @@ export default function HomeScreen() {
                 {(categories.data ?? []).slice(0, 3).map((cat) => (
                   <PressableScale
                     key={cat.id}
+                    testID={`phrasebook-chip-${cat.id}`}
                     onPress={() => {
                       hapticLight();
+                      track(ANALYTICS_EVENTS.TOPIC_OPENED, {
+                        categoryId: cat.id,
+                        language: activeLang,
+                        source: 'home_chip',
+                      });
                       router.push(`/(app)/category/${cat.id}`);
                     }}
                     accessibilityRole="button"
@@ -496,6 +504,7 @@ export default function HomeScreen() {
                 ))}
                 {(categories.data ?? []).length > 3 ? (
                   <PressableScale
+                    testID="phrasebook-chip-more"
                     onPress={() => {
                       hapticLight();
                       router.push('/(app)/phrasebook');

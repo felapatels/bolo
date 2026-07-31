@@ -142,7 +142,7 @@ jest.mock('@workspace/api-client-react', () => ({
     }
   },
   useListCategories: () => ({
-    data: undefined,
+    data: mockState.categories,
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -191,6 +191,7 @@ function setZones(perZone: any[][], envelope: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockState.isPlus = true;
+  mockState.categories = undefined;
   nextId = 100;
   setZones([[], [], [], [], [], []]);
 });
@@ -281,9 +282,30 @@ describe('journey map — group-scoped routing', () => {
 
     fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
     expect(screen.getByText('This stop is still locked')).toBeOnTheScreen();
-    // No test-out offer (approved ruling: web deferred it, mobile mirrors).
-    expect(screen.queryByText(/test out/i)).toBeNull();
     expect(mockState.push).not.toHaveBeenCalled();
+
+    // Task 906: the dialog offers the Express test-out beside Keep practicing.
+    const link = screen.getByTestId('link-test-out');
+    expect(screen.getByText('Test out of this stop')).toBeOnTheScreen();
+    fireEvent.press(link);
+    expect(mockState.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(app)/practice/[id]',
+        params: expect.objectContaining({ mode: 'testout' }),
+      }),
+    );
+  });
+
+  it('renders zone titles from the categories listing when it has loaded', () => {
+    mockState.categories = [
+      { id: 1, title: 'Greetings & Kindness' },
+      { id: 2, title: 'Family' },
+    ];
+    setZones([[grp({ status: 'unlocked' })], [], [], [], [], []]);
+    render(<JourneyScreen />);
+    // Server title wins over the hardcoded journeyLines fallback; the zone
+    // postcard renders it uppercased inside the fare-zone line.
+    expect(screen.getByText(/GREETINGS & KINDNESS/)).toBeOnTheScreen();
   });
 
   it('gates sentence stops behind the first-class dialog for Free learners', () => {

@@ -85,6 +85,7 @@ const NotFound = lazyRoute(() => import('@/pages/not-found'));
 const PREFETCH_ORDER = [
   Journey,
   Practice,
+  Phrasebook,
   Chat,
   Games,
   Progress,

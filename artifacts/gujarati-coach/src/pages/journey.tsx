@@ -24,7 +24,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Lock, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
 import {
@@ -72,6 +72,9 @@ type LockInfo = {
   kind: "progression" | "sentence" | "language";
   stopLabel: string;
   zoneTitle: string;
+  /** Route pieces for the progression dialog's test-out action. */
+  zoneId?: number;
+  groupId?: number;
 };
 
 function stageRank(g: LessonGroupSummary): number {
@@ -853,6 +856,8 @@ export default function Journey() {
                                 : "progression",
                             stopLabel: `${stopLabel} · ${zone.geoName}`,
                             zoneTitle: zone.title,
+                            zoneId: zone.id,
+                            groupId: s.id,
                           })
                         }
                         side={side}
@@ -915,7 +920,7 @@ export default function Journey() {
               <DialogHeader>
                 <DialogTitle>This stop is still locked</DialogTitle>
                 <DialogDescription>
-                  {lock.stopLabel}: finish the stop before it to board here.
+                  {lock.stopLabel}: finish the stop before this one to board here.
                   The {line.lineName} runs station by station.
                 </DialogDescription>
               </DialogHeader>
@@ -926,6 +931,19 @@ export default function Journey() {
               >
                 Keep practicing
               </button>
+              {/* Express test-out: five sampled phrases, one take each, judged
+                  server-side (0.8 pass ratio). Quiet secondary action so the
+                  default path stays "finish the stop before it". */}
+              {lock.zoneId !== undefined && lock.groupId !== undefined && (
+                <Link
+                  href={`/practice/${lock.zoneId}?group=${lock.groupId}&mode=testout`}
+                  onClick={() => setLock(null)}
+                  data-testid="link-test-out"
+                  className="flex w-full items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                >
+                  Test out of this stop
+                </Link>
+              )}
             </>
           )}
           {lock?.kind === "sentence" && (
@@ -978,14 +996,9 @@ export default function Journey() {
               </Link>
             </>
           )}
-          <button
-            type="button"
-            onClick={() => setLock(null)}
-            aria-label="Close"
-            className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground hover:bg-muted"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {/* No manual close button here: DialogContent renders its own X
+              top-right, and a second one stacked on it (the defect this
+              replaced) reads as a rendering glitch. */}
         </DialogContent>
       </Dialog>
     </div>

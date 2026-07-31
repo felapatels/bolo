@@ -87,6 +87,9 @@ type LockInfo = {
   kind: 'progression' | 'sentence' | 'language';
   stopLabel: string;
   zoneTitle: string;
+  /** Route pieces for the progression dialog's test-out action. */
+  zoneId?: number;
+  groupId?: number;
 };
 
 function stageRank(g: LessonGroupSummary): number {
@@ -759,6 +762,8 @@ export default function JourneyScreen() {
                     : 'progression',
                 stopLabel: `${stopLabel} · ${zone.geoName}`,
                 zoneTitle: zone.title,
+                zoneId: zone.id,
+                groupId: s.id,
               });
             };
             return (
@@ -956,8 +961,8 @@ export default function JourneyScreen() {
       </ScrollView>
 
       {/* Lock dialogs: entitlement locks and progression locks read
-          differently — a true mirror of the shipped web dialogs (web deferred
-          test-out, so there is no test-out path here either). */}
+          differently — a true mirror of the shipped web dialogs, including
+          the progression dialog's Express test-out action. */}
       <Modal
         visible={lock !== null}
         transparent
@@ -975,7 +980,7 @@ export default function JourneyScreen() {
                   This stop is still locked
                 </Text>
                 <Text style={[styles.dialogBody, { color: colors.mutedForeground }]}>
-                  {lock.stopLabel}: finish the stop before it to board here. The{' '}
+                  {lock.stopLabel}: finish the stop before this one to board here. The{' '}
                   {line.lineName} runs station by station.
                 </Text>
                 <Pressable
@@ -986,6 +991,28 @@ export default function JourneyScreen() {
                     Keep practicing
                   </Text>
                 </Pressable>
+                {/* Express test-out: five sampled phrases, one take each,
+                    judged server-side (0.8 pass ratio). Quiet secondary action
+                    so the default path stays "finish the stop before it". */}
+                {lock.zoneId !== undefined && lock.groupId !== undefined && (
+                  <Pressable
+                    testID="link-test-out"
+                    accessibilityRole="button"
+                    onPress={() => {
+                      const { zoneId, groupId } = lock;
+                      setLock(null);
+                      router.push({
+                        pathname: '/(app)/practice/[id]',
+                        params: { id: String(zoneId), group: String(groupId), mode: 'testout' },
+                      });
+                    }}
+                    style={[styles.dialogSecondaryCta, { borderColor: colors.border, backgroundColor: colors.card }]}
+                  >
+                    <Text style={[styles.dialogSecondaryCtaText, { color: colors.foreground }]}>
+                      Test out of this stop
+                    </Text>
+                  </Pressable>
+                )}
               </>
             )}
             {lock?.kind === 'sentence' && (
@@ -1406,6 +1433,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   dialogCtaText: { fontFamily: AppFonts.extrabold, fontSize: 14 },
+  dialogSecondaryCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    paddingVertical: 12,
+    marginTop: 10,
+  },
+  dialogSecondaryCtaText: { fontFamily: AppFonts.bold, fontSize: 14 },
   dialogClose: {
     position: 'absolute',
     right: 14,

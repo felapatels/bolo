@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight } from "lucide-react";
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -711,9 +711,14 @@ export default function Home() {
             >
               <section
                 aria-label="Phrasebook"
+                data-testid="phrasebook-door"
                 className="relative rounded-3xl border border-card-border bg-card p-5 shadow-[0_4px_0_rgba(0,0,0,0.08)] transition-all hover:-translate-y-0.5"
               >
-                <Link href="/phrasebook" className="group flex items-center gap-3">
+                <Link
+                  href="/phrasebook"
+                  data-testid="link-phrasebook-door"
+                  className="group flex items-center gap-3"
+                >
                   {/* Stretched hit area: the whole card opens the Phrasebook */}
                   <span className="absolute inset-0 rounded-3xl" aria-hidden />
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -733,6 +738,14 @@ export default function Home() {
                       <Link
                         key={cat.id}
                         href={`/learn/${cat.id}`}
+                        data-testid={`phrasebook-chip-${cat.id}`}
+                        onClick={() =>
+                          track(ANALYTICS_EVENTS.TOPIC_OPENED, {
+                            categoryId: cat.id,
+                            language: activeLang,
+                            source: "home_chip",
+                          })
+                        }
                         className="inline-flex items-center gap-1.5 rounded-full border border-card-border bg-background px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
                       >
                         {cat.title}
@@ -746,6 +759,7 @@ export default function Home() {
                     {(categories ?? []).length > 3 && (
                       <Link
                         href="/phrasebook"
+                        data-testid="phrasebook-chip-more"
                         className="inline-flex items-center rounded-full border border-dashed border-card-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
                         +{(categories ?? []).length - 3} more

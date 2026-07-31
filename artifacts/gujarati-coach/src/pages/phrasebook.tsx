@@ -148,7 +148,18 @@ export default function Phrasebook() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ ...springs.gentle, delay: 0.05 + i * 0.05 }}
                 >
-                  <Link href={`/learn/${cat.id}`} className="block h-full">
+                  <Link
+                    href={`/learn/${cat.id}`}
+                    data-testid={`phrasebook-topic-${cat.id}`}
+                    onClick={() =>
+                      track(ANALYTICS_EVENTS.TOPIC_OPENED, {
+                        categoryId: cat.id,
+                        language: activeLang,
+                        source: "phrasebook",
+                      })
+                    }
+                    className="block h-full"
+                  >
                     <div
                       className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-card p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
                       style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}

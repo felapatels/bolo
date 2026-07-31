@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
@@ -97,6 +97,16 @@ describe("phrasebook page (task 906)", () => {
     const back = screen.getByText("Home").closest("a");
     expect(back).toHaveAttribute("href", "/app");
     expect(screen.getByRole("heading", { name: "Phrasebook" })).toBeInTheDocument();
+  });
+
+  test("opening a topic fires topic_opened with the phrasebook source", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("phrasebook-topic-1"));
+    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.TOPIC_OPENED, {
+      categoryId: 1,
+      language: "gu",
+      source: "phrasebook",
+    });
   });
 
   test("fires phrasebook_opened exactly once on mount", () => {

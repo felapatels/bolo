@@ -21,6 +21,7 @@ import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { categoryIcon } from '@/lib/ui';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analyticsEvents';
+import { LessonError } from '@/components/LessonError';
 
 export default function PhrasebookScreen() {
   const colors = useColors();
@@ -76,9 +77,10 @@ export default function PhrasebookScreen() {
             ))}
           </View>
         ) : categories.isError ? (
-          <ErrorNote
-            message="Couldn't load your topics. Please try again."
-            color={colors.destructive}
+          <LessonError
+            onRetry={() => void categories.refetch()}
+            isRetrying={categories.isFetching}
+            onBack={() => router.back()}
           />
         ) : (categories.data ?? []).length === 0 ? (
           <ErrorNote
@@ -92,7 +94,14 @@ export default function PhrasebookScreen() {
                 key={cat.id}
                 index={i}
                 category={cat}
-                onPress={() => router.push(`/(app)/category/${cat.id}`)}
+                onPress={() => {
+                  track(ANALYTICS_EVENTS.TOPIC_OPENED, {
+                    categoryId: cat.id,
+                    language: activeLang,
+                    source: 'phrasebook',
+                  });
+                  router.push(`/(app)/category/${cat.id}`);
+                }}
               />
             ))}
           </View>
@@ -126,7 +135,10 @@ function CategoryCard({
   return (
     <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(420).delay(120 + index * 70)}>
       <PressableScale
+        testID={`phrasebook-topic-${category.id}`}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Open the ${category.title} topic`}
         style={[
           styles.catCard,
           {

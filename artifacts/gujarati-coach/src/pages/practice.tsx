@@ -5,6 +5,9 @@ import {
   useListCategorySentences,
   useListReviewPhrases,
   useListLessonGroupPhrases,
+  useGetLessonGroupTestout,
+  getGetLessonGroupTestoutQueryKey,
+  useSubmitLessonGroupTestout,
   useSynthesizeSpeech, 
   useEvaluatePronunciation, 
   useCreateAttempt,
@@ -138,6 +141,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const groupParam = searchParams.get("group");
   const groupId = groupParam ? parseInt(groupParam, 10) : NaN;
   const isGroup = !isReview && Number.isFinite(groupId) && groupId > 0;
+  // Test-out mode (journey progression dialog): the same session flow runs
+  // over the server's sampled phrase set; per-phrase attempts are NOT saved.
+  // The batch of evaluation tokens is judged in one shot at the end.
+  const isTestout = isGroup && searchParams.get("mode") === "testout";
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
@@ -177,17 +184,27 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   );
   const groupQuery = useListLessonGroupPhrases(isGroup ? groupId : 0, {
     query: {
-      enabled: isGroup,
+      enabled: isGroup && !isTestout,
       queryKey: getListLessonGroupPhrasesQueryKey(isGroup ? groupId : 0),
     },
   });
+  // Test-out sessions load the server-sampled subset instead of the full
+  // group list. The endpoint enforces the same entitlement and progression
+  // gates as the group endpoint, so the upgrade/locked handling below applies
+  // to it unchanged.
+  const testoutQuery = useGetLessonGroupTestout(isTestout ? groupId : 0, {
+    query: {
+      enabled: isTestout,
+      queryKey: getGetLessonGroupTestoutQueryKey(isTestout ? groupId : 0),
+    },
+  });
   const {
-    data: phrases,
-    isLoading: loadingPhrases,
-    isError,
-    error,
-    isFetching,
-    refetch,
+    data: listData,
+    isLoading: listLoading,
+    isError: listIsError,
+    error: listError,
+    isFetching: listFetching,
+    refetch: refetchList,
   } = isReview
     ? reviewQuery
     : isGroup
@@ -195,9 +212,40 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       : isSentences
         ? sentencesQuery
         : categoryQuery;
+  // The test-out sample wraps its phrases in an envelope (with sampleSize and
+  // requiredCorrect), so its query cannot join the destructure above.
+  const phrases = isTestout ? testoutQuery.data?.phrases : listData;
+  const loadingPhrases = isTestout ? testoutQuery.isLoading : listLoading;
+  const isError = isTestout ? testoutQuery.isError : listIsError;
+  const error = isTestout ? testoutQuery.error : listError;
+  const isFetching = isTestout ? testoutQuery.isFetching : listFetching;
+  const refetch = isTestout ? testoutQuery.refetch : refetchList;
+  const testoutSampleSize = testoutQuery.data?.sampleSize ?? 5;
+  const testoutRequiredCorrect = testoutQuery.data?.requiredCorrect ?? 4;
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
+  // Test-out judgment: one POST with the whole run's evaluation tokens. The
+  // server samples, scores, and latches tested_out; the client only reports
+  // pass/fail. On a pass the journey listing is refreshed so the stop unlocks
+  // and the Express stamp appears on return.
+  const submitTestout = useSubmitLessonGroupTestout({
+    mutation: {
+      onSuccess: (res) => {
+        if (res.passed) {
+          playCue('session_complete');
+          webHaptic('success');
+          queryClient.invalidateQueries({ queryKey: getListCategoryLessonGroupsQueryKey(id, activeLang) });
+          queryClient.invalidateQueries({ queryKey: getListLessonGroupPhrasesQueryKey(groupId) });
+        } else {
+          webHaptic('warning');
+        }
+      },
+    },
+  });
+  // Server-signed evaluation tokens collected during a test-out run, keyed by
+  // phrase id (a retaken phrase would overwrite, but test-out has no retakes).
+  const testoutTokensRef = useRef<Record<number, string>>({});
   const recorder = useVoiceRecorder();
   
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -737,7 +785,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // XP arc: badge flies from the result panel to the XP counter. Fires
       // whenever XP was actually awarded (any passing band — the half-credit
       // group earns at the 0.5 band factor). retry/nocatch award no XP, so no arc.
-      if (isPassingBand(evalRes.band) && evalRes.xpAwarded > 0) {
+      // Test-out runs record no attempt and award no XP, so no arc either.
+      if (!isTestout && isPassingBand(evalRes.band) && evalRes.xpAwarded > 0) {
         if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
         xpArcTimerRef.current = setTimeout(() => {
           const rect = resultPanelRef.current?.getBoundingClientRect();
@@ -759,7 +808,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       else if (newConsec === 5) showToast("🔥🔥 On a roll!");
       else if (newConsec === 10) showToast("🔥🔥🔥 UNSTOPPABLE!");
 
-      try {
+      if (isTestout) {
+        // Test-out attempts are never saved individually. Collect the
+        // server-signed token; the whole run is judged in one POST when the
+        // last phrase lands (see handleNext). No XP, badges, or invalidations
+        // happen here because nothing was recorded.
+        testoutTokensRef.current[phrase!.id] = evalRes.evaluationToken;
+      } else try {
         // Save the attempt for the signed-in user. The score/feedback are
         // carried inside the server-signed evaluation token, so the server —
         // not the client — decides what gets recorded. The response reports any
@@ -812,7 +867,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       finishingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage, isUnsupported, setOwnRecording]);
+  }, [recorder, evaluate, createAttempt, queryClient, phrase, id, activeLang, activeLanguage, isUnsupported, isTestout, setOwnRecording]);
 
   const startRecording = async () => {
     // Barge-in (Task 907): a hold is honoured not just from idle but while
@@ -922,6 +977,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     setState("idle");
   };
 
+  // Build the test-out submission from the collected tokens and POST it. Also
+  // reused by the verdict screen's "Try again" after a transient submit error
+  // (the tokens are still in hand, so no re-recording is needed).
+  const submitTestoutRun = () => {
+    const attempts = (phrases ?? [])
+      .map(p => ({ phraseId: p.id, evaluationToken: testoutTokensRef.current[p.id] }))
+      .filter((a): a is { phraseId: number; evaluationToken: string } => Boolean(a.evaluationToken));
+    if (attempts.length === 0) return;
+    submitTestout.mutate({ id: groupId, data: { attempts } });
+  };
+
   const handleNext = () => {
     feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
     setResult(null);
@@ -940,6 +1006,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       setCurrentIndex(c => c + 1);
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentMode ? "idle" : "playing_coach");
+    } else if (isTestout) {
+      // End of a test-out run: hand the batch to the server for judgment. The
+      // verdict screen reads the mutation state directly (pending, pass,
+      // fail, or a transient error with a resubmit action). The regular
+      // session summary, haptics, and SESSION_COMPLETED event are skipped:
+      // nothing was recorded, so there is no session to celebrate yet.
+      submitTestoutRun();
+      setState("summary");
     } else {
       // Fire a session-end haptic: success if any phrase passed, warning if not.
       // Mirrors the mobile done-screen haptic in the phase==='done' effect.
@@ -1043,6 +1117,105 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               : "No phrases found here."}
         </h2>
         <Link href={backHref} className="text-primary font-bold">Go back</Link>
+      </div>
+    );
+  }
+
+  // Test-out verdict screen: rendered instead of the regular session summary
+  // so a test-out run never shows XP totals it did not earn. The mutation
+  // state drives it directly: pending, transient error (resubmit keeps the
+  // collected tokens), pass (stop unlocked, Express stamp on the map), or
+  // fail (encouraging copy, back to practicing via the journey).
+  if (state === "summary" && isTestout) {
+    const outcome = submitTestout.data;
+    const throttled = submitTestout.error instanceof ApiError && submitTestout.error.status === 429;
+    return (
+      <div className="app-surface min-h-[100dvh] flex flex-col bg-background" data-testid="testout-summary">
+        <Confetti active={outcome?.passed === true} />
+        <header className="mx-auto w-full max-w-2xl px-4 py-3 flex items-center shrink-0">
+          <Link href="/journey" aria-label="Back to journey" className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-7 h-7" />
+          </Link>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-12 text-center mx-auto w-full max-w-md">
+          {submitTestout.isError ? (
+            <>
+              <Mascot pose="tryagain" size={140} />
+              <h2 className="mt-6 text-xl font-black">Couldn't check your run</h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-snug">
+                {throttled
+                  ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
+                  : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
+              </p>
+              <div className="mt-8 w-full space-y-3">
+                {!throttled && (
+                  <button
+                    type="button"
+                    onClick={submitTestoutRun}
+                    data-testid="button-testout-resubmit"
+                    className="w-full bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+                  >
+                    Try again
+                  </button>
+                )}
+                <Link
+                  href="/journey"
+                  data-testid="link-testout-journey"
+                  className="block w-full bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl active:scale-95 transition-all"
+                >
+                  Back to the journey
+                </Link>
+              </div>
+            </>
+          ) : outcome?.passed ? (
+            <>
+              <Mascot pose="cheer" size={140} idle="cheer" />
+              <div
+                className="mt-6 -rotate-6 border-4 border-success text-success font-black tracking-[0.2em] text-2xl px-4 py-1 rounded-lg"
+                aria-hidden
+              >
+                EXPRESS
+              </div>
+              <h2 className="mt-4 text-xl font-black" data-testid="text-testout-passed">You tested out of this stop!</h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-snug">
+                You nailed {outcome.correctCount ?? testoutRequiredCorrect} of {outcome.sampleSize ?? testoutSampleSize} phrases.
+                The gates are open and your ticket carries the Express stamp. Ride on!
+              </p>
+              <Link
+                href="/journey"
+                data-testid="link-testout-journey"
+                className="mt-8 block w-full bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+              >
+                Back to the journey
+              </Link>
+            </>
+          ) : outcome ? (
+            <>
+              <Mascot pose="thumbsup" size={140} />
+              <h2 className="mt-6 text-xl font-black" data-testid="text-testout-failed">Not this time, and that's okay</h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-snug">
+                You said {outcome.correctCount ?? 0} of {outcome.sampleSize ?? testoutSampleSize} phrases well; the
+                express needs {outcome.requiredCorrect ?? testoutRequiredCorrect}. A little more practice and this stop
+                is yours.
+              </p>
+              <Link
+                href="/journey"
+                data-testid="link-testout-keep-practicing"
+                className="mt-8 block w-full bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+              >
+                Keep practicing
+              </Link>
+            </>
+          ) : (
+            <>
+              <Mascot pose="thinking" size={140} />
+              <h2 className="mt-6 text-xl font-black" data-testid="text-testout-checking">Checking your run...</h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-snug">
+                The conductor is looking over your takes.
+              </p>
+            </>
+          )}
+        </main>
       </div>
     );
   }
@@ -1321,6 +1494,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-4 pb-4 min-h-0">
+
+        {/* ── Express test-out banner: one quiet line so the learner knows the
+            rules of the run (one take per phrase, pass mark). ─────────────── */}
+        {isTestout && (
+          <div
+            data-testid="testout-banner"
+            className="mb-2 shrink-0 rounded-xl border border-border bg-muted/40 px-3 py-2 text-center text-xs font-bold text-muted-foreground"
+          >
+            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this stop.
+          </div>
+        )}
 
         {/* ── Approximate-feedback notice (degraded languages, spec 1) ────── */}
         <AnimatePresence>
@@ -1803,7 +1987,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 >
                   <RefreshCcw className="w-5 h-5" /> Record again
                 </button>
-              ) : state === "result" && result?.band === "retry" ? (
+              ) : state === "result" && result?.band === "retry" && !isTestout ? (
                 /* Retry band (batch 1 addendum, mobile parity): another take is
                    the productive default, so "Try again" gets the primary
                    treatment and "Next phrase" drops to a quieter bordered
@@ -1825,17 +2009,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <button 
-                    onClick={handleRetry}
-                    className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <RefreshCcw className="w-5 h-5" /> Retry
-                  </button>
+                  {/* Test-out is one take per phrase: no retry, only forward.
+                      (The retry-band branch above is also bypassed in
+                      test-out mode for the same reason.) */}
+                  {!isTestout && (
+                    <button 
+                      onClick={handleRetry}
+                      className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                      <RefreshCcw className="w-5 h-5" /> Retry
+                    </button>
+                  )}
                   <button 
                     onClick={handleNext}
                     className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
                   >
-                    Next <ArrowRight className="w-5 h-5" />
+                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : "Next"} <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               )}

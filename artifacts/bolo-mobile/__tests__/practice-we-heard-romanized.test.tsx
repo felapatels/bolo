@@ -43,6 +43,18 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetLessonGroupTestout: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  getGetLessonGroupTestoutQueryKey: (id: unknown) => ['testout', id],
+  useSubmitLessonGroupTestout: () => ({
+    mutateAsync: jest.fn(async () => ({})),
+    isPending: false,
+    reset: jest.fn(),
+  }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),

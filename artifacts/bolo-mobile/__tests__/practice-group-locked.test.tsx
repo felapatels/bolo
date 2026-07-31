@@ -28,6 +28,10 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Test-out mode is idle in these suites (no mode: testout param).
+  useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
+  useSubmitLessonGroupTestout: () => ({ mutate: jest.fn(), data: undefined, isError: false, error: null, isPending: false }),
   useReportPhrase: () => ({ mutate: jest.fn() }),
   ApiError: class ApiError extends Error {
     status: number;

@@ -164,7 +164,7 @@ beforeEach(() => {
 
 describe("home brand splash (task 902)", () => {
   test("cold load overlays the moment on the skeleton; data landing cuts it short and hands off", async () => {
-    const { rerenderHome } = renderHome();
+      const { rerenderHome } = renderHome();
     // Splash overlays the ticket-and-card skeleton, never a bare spinner.
     expect(splash()).not.toBeNull();
     expect(skeleton()).not.toBeNull();

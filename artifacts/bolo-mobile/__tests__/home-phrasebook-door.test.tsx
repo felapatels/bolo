@@ -2,38 +2,23 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Task #906: the home topic grid moved behind a Phrasebook door card, and the
-// full library lives on the /(app)/phrasebook screen.
-//
-// Home contract:
-//  1. The door card renders (title + subtitle) and opens /(app)/phrasebook.
-//  2. The chip row deep-links the first three topics into their category
-//     screen, shows mastered/total only once mastery has started, and
-//     collapses the rest into a "+N more" chip that opens the Phrasebook.
-//  3. The old "Topics" grid is gone from home (no 4th topic, no grid header).
-//
-// Phrasebook screen contract:
-//  4. Every topic renders as a card that opens /(app)/category/:id.
-//  5. Opening the screen fires phrasebook_opened exactly once.
-//  6. An empty library shows the empty note.
+// Build 31 one-path restructure: the home screen shows NO topic list. Directly
+// below the boarding pass sits one quiet bordered Phrasebook door card (book
+// icon, title, subtitle, chevron) with a chip row previewing the first 3
+// topics (mastered/total only where progress exists) plus a "+N more" chip.
+// The card opens /(app)/phrasebook; chips deep-link to /(app)/category/:id.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
+const mockPush = jest.fn();
 const mockTrack = jest.fn();
-
-const CATS = [
-  { id: 1, title: 'Greetings & Manners', titleNative: null, iconName: 'HandHeart', accent: null, phraseCount: 5, masteredCount: 2 },
-  { id: 2, title: 'Family', titleNative: null, iconName: 'Users', accent: null, phraseCount: 6, masteredCount: 0 },
-  { id: 3, title: 'Numbers 1-10', titleNative: null, iconName: 'Hash', accent: null, phraseCount: 10, masteredCount: 0 },
-  { id: 4, title: 'Food & Eating', titleNative: null, iconName: 'Utensils', accent: null, phraseCount: 7, masteredCount: 1 },
-];
 
 jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { firstName: 'Priya' } }),
 }));
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockState.push, back: mockState.back, replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
   useFocusEffect: (cb: () => void) => { cb(); },
 }));
 
@@ -108,18 +93,14 @@ jest.mock('@/hooks/useIdleTimer', () => ({
   useIdleTimer: () => ({ isIdle: false, onActivity: jest.fn() }),
 }));
 
-jest.mock('@/components/SkeletonCard', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return { SkeletonCard: () => React.createElement(View, { testID: 'skeleton' }) };
-});
-
+// Passes props through (unlike older harness mocks) so testID and
+// accessibility props land on the rendered Pressable.
 jest.mock('@/components/PressableScale', () => {
   const React = require('react');
   const { Pressable } = require('react-native');
   return {
-    PressableScale: ({ children, onPress, style, ...rest }: any) =>
-      React.createElement(Pressable, { onPress, style, ...rest }, children),
+    PressableScale: ({ children, ...props }: any) =>
+      React.createElement(Pressable, props, children),
   };
 });
 
@@ -131,7 +112,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({
-  useEntitlements: () => ({ isPlus: false, isLoading: false, dailyNewLessons: null }),
+  useEntitlements: () => ({ isPlus: true, isLoading: false, dailyNewLessons: null }),
 }));
 
 jest.mock('@/components/PlusUpsell', () => {
@@ -175,6 +156,14 @@ jest.mock('@/lib/ui', () => ({
   scoreColor: () => '#10B981',
 }));
 
+// track defers to mockTrack lazily: jest.mock factories run before the
+// module-scope consts initialize, so a direct `track: mockTrack` captures
+// undefined.
+jest.mock('@/lib/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+  ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => String(k).toLowerCase() }),
+}));
+
 jest.mock('@/lib/haptics', () => ({
   hapticLight: jest.fn(),
   hapticMedium: jest.fn(),
@@ -195,109 +184,71 @@ jest.mock('@/components/NamePromptCard', () => ({
   NamePromptCard: () => null,
 }));
 
-jest.mock('@/components/journey/JourneyPassCard', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return { JourneyPassCard: () => React.createElement(View, { testID: 'journey-pass' }) };
-});
-
-jest.mock('@/lib/analytics', () => ({
-  track: (...args: unknown[]) => mockTrack(...args),
-  trackOnce: jest.fn(),
-  initAnalytics: jest.fn(),
-  identifyUser: jest.fn(),
-  ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => String(k).toLowerCase() }),
-}));
-
 // Imported after all mocks.
 import HomeScreen from '../app/(app)/(tabs)/index';
-import PhrasebookScreen from '../app/(app)/phrasebook';
+
+const CATS = [
+  { id: 1, title: 'Greetings & Manners', titleNative: null, iconName: 'HandHeart', accent: null, phraseCount: 5, masteredCount: 2 },
+  { id: 2, title: 'Family', titleNative: null, iconName: 'Users', accent: null, phraseCount: 5, masteredCount: 0 },
+  { id: 3, title: 'Numbers 1-10', titleNative: null, iconName: 'Hash', accent: null, phraseCount: 5, masteredCount: 0 },
+  { id: 4, title: 'Food & Eating', titleNative: null, iconName: 'Utensils', accent: null, phraseCount: 5, masteredCount: 0 },
+];
 
 beforeEach(() => {
-  mockState.push = jest.fn();
-  mockState.back = jest.fn();
+  jest.clearAllMocks();
   mockState.categories = {
-    data: [...CATS],
+    data: CATS,
     isLoading: false,
     isError: false,
     refetch: jest.fn(),
     isRefetching: false,
   };
-  mockTrack.mockClear();
 });
 
-describe('HomeScreen - Phrasebook door replaces the topic grid', () => {
-  it('renders the door card and opens the Phrasebook', () => {
+describe('HomeScreen - Phrasebook door (build 31)', () => {
+  it('renders the door card and opens the Phrasebook surface on press', () => {
     render(<HomeScreen />);
 
     expect(screen.getByText('Phrasebook')).toBeOnTheScreen();
     expect(screen.getByText('Browse and practice any topic')).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByLabelText('Open the Phrasebook'));
-    expect(mockState.push).toHaveBeenCalledWith('/(app)/phrasebook');
+    fireEvent.press(screen.getByTestId('phrasebook-door'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/phrasebook');
   });
 
-  it('chips deep-link the first three topics; mastery shows only once started', () => {
+  it('previews the first 3 topics as chips, progress only where it exists, plus a +N more chip', () => {
     render(<HomeScreen />);
 
-    fireEvent.press(screen.getByLabelText('Open the Greetings & Manners topic'));
-    expect(mockState.push).toHaveBeenCalledWith('/(app)/category/1');
+    expect(screen.getByText(/Greetings & Manners/)).toBeOnTheScreen();
+    expect(screen.getByText(/2\/5/)).toBeOnTheScreen();
+    expect(screen.getByText(/Family/)).toBeOnTheScreen();
+    expect(screen.queryByText(/0\/5/)).toBeNull();
+    expect(screen.getByText(/Numbers 1-10/)).toBeOnTheScreen();
+    // Fourth topic folds into the +N more chip.
+    expect(screen.queryByText(/Food & Eating/)).toBeNull();
+    expect(screen.getByText('+1 more')).toBeOnTheScreen();
 
-    expect(screen.getByText('Family')).toBeOnTheScreen();
-    expect(screen.getByText('Numbers 1-10')).toBeOnTheScreen();
-    // Greetings has mastery underway: 2/5. Family has none: no 0/6 anywhere.
-    expect(screen.getByText('2/5')).toBeOnTheScreen();
-    expect(screen.queryByText('0/6')).toBeNull();
+    fireEvent.press(screen.getByTestId('phrasebook-chip-more'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/phrasebook');
   });
 
-  it('collapses extra topics into a +N more chip that opens the Phrasebook', () => {
+  it('chip taps deep-link to the topic and fire topic_opened (home_chip source)', () => {
     render(<HomeScreen />);
 
-    fireEvent.press(screen.getByText('+1 more'));
-    expect(mockState.push).toHaveBeenCalledWith('/(app)/phrasebook');
-    // The 4th topic itself is NOT on home anymore (grid removed).
-    expect(screen.queryByText('Food & Eating')).toBeNull();
+    fireEvent.press(screen.getByTestId('phrasebook-chip-1'));
+    expect(mockTrack).toHaveBeenCalledWith('topic_opened', {
+      categoryId: 1,
+      language: 'gu',
+      source: 'home_chip',
+    });
+    expect(mockPush).toHaveBeenCalledWith('/(app)/category/1');
+  });
+
+  it('shows no topic list on home (grid removed)', () => {
+    render(<HomeScreen />);
+
     expect(screen.queryByText('Topics')).toBeNull();
-  });
-
-  it('home does not fire phrasebook_opened', () => {
-    render(<HomeScreen />);
-    const fired = mockTrack.mock.calls.map((c) => c[0]);
-    expect(fired).not.toContain('phrasebook_opened');
-  });
-});
-
-describe('PhrasebookScreen - the full topic library', () => {
-  it('lists every topic and opens its category screen', () => {
-    render(<PhrasebookScreen />);
-
-    for (const cat of CATS) {
-      expect(screen.getByText(cat.title)).toBeOnTheScreen();
-    }
-    fireEvent.press(screen.getByText('Food & Eating'));
-    expect(mockState.push).toHaveBeenCalledWith('/(app)/category/4');
-  });
-
-  it('fires phrasebook_opened exactly once on mount', () => {
-    render(<PhrasebookScreen />);
-
-    const fired = mockTrack.mock.calls.filter((c) => c[0] === 'phrasebook_opened');
-    expect(fired).toHaveLength(1);
-    expect(fired[0]![1]).toMatchObject({ language: 'gu' });
-  });
-
-  it('shows the empty note when no topics exist', () => {
-    mockState.categories = {
-      data: [],
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-      isRefetching: false,
-    };
-    render(<PhrasebookScreen />);
-
-    expect(
-      screen.getByText('No topics available for this language yet.'),
-    ).toBeOnTheScreen();
+    // Grid cards carried percent pills; the door and chips never do.
+    expect(screen.queryByText('40%')).toBeNull();
   });
 });

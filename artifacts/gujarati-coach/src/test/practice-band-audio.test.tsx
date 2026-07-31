@@ -82,6 +82,18 @@ vi.mock("@workspace/api-client-react", () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: h.synth, isPending: false }),
   useEvaluatePronunciation: () => ({ mutateAsync: h.evaluate, isPending: false }),
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
+  useGetLessonGroupTestout: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: () => {},
+  }),
+  getGetLessonGroupTestoutQueryKey: (id: unknown) => ["testout", id],
+  useSubmitLessonGroupTestout: () => ({
+    mutateAsync: async () => ({}),
+    isPending: false,
+    reset: () => {},
+  }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),

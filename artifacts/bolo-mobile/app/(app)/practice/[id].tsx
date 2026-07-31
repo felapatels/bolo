@@ -51,6 +51,10 @@ import {
   getListBadgesQueryKey,
   useListLessonGroupPhrases,
   getListLessonGroupPhrasesQueryKey,
+  useGetLessonGroupTestout,
+  getGetLessonGroupTestoutQueryKey,
+  useSubmitLessonGroupTestout,
+  getListCategoryLessonGroupsQueryKey,
   type PronunciationResult,
   type EarnedBadge,
 } from '@workspace/api-client-react';
@@ -380,18 +384,23 @@ export default function PracticeScreen() {
   const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId, stage, skipMastered, group } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage, skipMastered, group, mode } = useLocalSearchParams<{
     id: string;
     phrase?: string;
     stage?: string;
     skipMastered?: string;
     group?: string;
+    mode?: string;
   }>();
   const categoryId = Number(id);
   // Spec D1b-M: `?group=` scopes the session to one journey stop (lesson
   // group) — the flow is identical, only the phrase source changes.
   const groupId = Number(group);
   const isGroup = Number.isFinite(groupId) && groupId > 0;
+  // Test-out mode (journey progression dialog): the same session flow runs
+  // over the server's sampled phrase set; per-phrase attempts are NOT saved.
+  // The batch of evaluation tokens is judged in one shot at the end.
+  const isTestout = isGroup && mode === 'testout';
   const { activeLang, activeLanguage, speechCapability } = useLanguage();
   // Speech-recognition gating (server-classified, defaults to full scoring):
   //  • 'unsupported' → listen-record-compare only, never send an evaluation.
@@ -420,12 +429,25 @@ export default function PracticeScreen() {
   // (its stage lives server-side, so `?group=` wins over `?stage=`).
   const groupQuery = useListLessonGroupPhrases(groupId, {
     query: {
-      enabled: isGroup,
+      enabled: isGroup && !isTestout,
       queryKey: getListLessonGroupPhrasesQueryKey(groupId),
     },
   });
-  const phrases = isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
-  const list = phrases.data ?? [];
+  // Test-out sessions load the server-sampled subset instead of the full
+  // group list. The endpoint enforces the same entitlement gates as the group
+  // endpoint, so the 402 handling below applies to it unchanged. Its data is
+  // an envelope (phrases + sampleSize + requiredCorrect), so the phrase list
+  // is unwrapped separately below.
+  const testoutQuery = useGetLessonGroupTestout(isTestout ? groupId : 0, {
+    query: {
+      enabled: isTestout,
+      queryKey: getGetLessonGroupTestoutQueryKey(isTestout ? groupId : 0),
+    },
+  });
+  const phrases = isTestout ? testoutQuery : isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
+  const list = (isTestout ? testoutQuery.data?.phrases : (isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery).data) ?? [];
+  const testoutSampleSize = testoutQuery.data?.sampleSize ?? 5;
+  const testoutRequiredCorrect = testoutQuery.data?.requiredCorrect ?? 4;
 
   // Read the learner's TTS voice preference so the client-side audio cache
   // key can include the voice ID. Without this, changing voice mid-session
@@ -439,6 +461,31 @@ export default function PracticeScreen() {
   const synth = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
+  // Test-out judgment: one POST with the whole run's evaluation tokens. The
+  // server samples, scores, and latches tested_out; the client only reports
+  // pass/fail. On a pass the journey listing is refreshed so the stop unlocks
+  // and the Express stamp appears on return.
+  const submitTestout = useSubmitLessonGroupTestout({
+    mutation: {
+      onSuccess: (res) => {
+        if (res.passed) {
+          playCue('session_complete');
+          hapticNotify(Haptics.NotificationFeedbackType.Success);
+          queryClient.invalidateQueries({
+            queryKey: getListCategoryLessonGroupsQueryKey(categoryId, activeLang),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getListLessonGroupPhrasesQueryKey(groupId),
+          });
+        } else {
+          hapticNotify(Haptics.NotificationFeedbackType.Warning);
+        }
+      },
+    },
+  });
+  // Server-signed evaluation tokens collected during a test-out run, keyed by
+  // phrase id (test-out has no retakes, so each phrase writes exactly once).
+  const testoutTokensRef = React.useRef<Record<number, string>>({});
 
   const [index, setIndex] = React.useState(0);
   const [phase, setPhase] = React.useState<Phase>('idle');
@@ -1252,7 +1299,8 @@ export default function PracticeScreen() {
       // XP arc fires whenever XP was actually awarded (any passing band —
       // the half-credit group earns at the 0.5 band factor, so the counter
       // moves and the arc connects the result to it). retry/nocatch award no XP.
-      if (isPassingBand(res.band) && res.xpAwarded > 0) {
+      // Test-out runs record no attempt and award no XP, so no arc either.
+      if (!isTestout && isPassingBand(res.band) && res.xpAwarded > 0) {
         // Measure where the result card lands, then launch the arc from it.
         if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
         xpArcTimerRef.current = setTimeout(() => {
@@ -1268,7 +1316,14 @@ export default function PracticeScreen() {
 
       // The learner has their score — saving the attempt below must never
       // take the result away from them or silently reset the screen.
-      try {
+      if (isTestout) {
+        // Test-out attempts are never saved individually. Collect the
+        // server-signed token; the whole run is judged in one POST when the
+        // last phrase lands (see next()). No XP, badges, or invalidations
+        // happen here because nothing was recorded.
+        const currentPhrase = list[index];
+        if (currentPhrase) testoutTokensRef.current[currentPhrase.id] = res.evaluationToken;
+      } else try {
         // Record the attempt using the server-signed token only.
         const attempt = await createAttempt.mutateAsync({
           data: { evaluationToken: res.evaluationToken },
@@ -1343,6 +1398,14 @@ export default function PracticeScreen() {
       }
       setIndex((i) => i + 1);
       setPhaseSync('idle');
+    } else if (isTestout) {
+      // End of a test-out run: hand the batch to the server for judgment. The
+      // verdict screen reads the mutation state directly (pending, pass,
+      // fail, or a transient error with a resubmit action). The regular done
+      // screen and SESSION_COMPLETED event are skipped: nothing was recorded,
+      // so there is no session to celebrate yet.
+      submitTestoutRun();
+      setPhaseSync('done');
     } else {
       track(ANALYTICS_EVENTS.SESSION_COMPLETED, {
         language: activeLang,
@@ -1350,6 +1413,17 @@ export default function PracticeScreen() {
       });
       setPhaseSync('done');
     }
+  };
+
+  // Build the test-out submission from the collected tokens and POST it. Also
+  // reused by the verdict screen's "Try again" after a transient submit error
+  // (the tokens are still in hand, so no re-recording is needed).
+  const submitTestoutRun = () => {
+    const attempts = list
+      .map((p) => ({ phraseId: p.id, evaluationToken: testoutTokensRef.current[p.id] }))
+      .filter((a): a is { phraseId: number; evaluationToken: string } => Boolean(a.evaluationToken));
+    if (attempts.length === 0) return;
+    submitTestout.mutate({ id: groupId, data: { attempts } });
   };
 
   const tryAgain = () => {
@@ -1457,6 +1531,109 @@ export default function PracticeScreen() {
   }
 
   // --- Summary ---
+  // Test-out verdict screen: rendered instead of the regular done screen so a
+  // test-out run never shows XP totals it did not earn. The mutation state
+  // drives it directly: pending, transient error (resubmit keeps the collected
+  // tokens), pass (stop unlocked, Express stamp on the map), or fail
+  // (encouraging copy, back to practicing via the journey).
+  if (phase === 'done' && isTestout) {
+    const outcome = submitTestout.data;
+    const throttled = submitTestout.error instanceof ApiError && submitTestout.error.status === 429;
+    return (
+      <Screen>
+        <PracticeHeader onClose={() => router.back()} label="Express check" />
+        <View style={styles.summaryWrap} testID="testout-summary">
+          {submitTestout.isError ? (
+            <>
+              <Mascot pose="tryagain" size={148} motion="none" />
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
+                Couldn't check your run
+              </Text>
+              <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
+                {throttled
+                  ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
+                  : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
+              </Text>
+              {!throttled && (
+                <ChunkyButton
+                  title="Try again"
+                  icon="refresh-cw"
+                  onPress={submitTestoutRun}
+                  style={{ width: '100%', marginTop: 28 }}
+                  testID="testout-resubmit-button"
+                />
+              )}
+              <Pressable
+                onPress={() => router.back()}
+                accessibilityRole="button"
+                testID="testout-back-journey"
+                style={[styles.testoutSecondaryBtn, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.testoutSecondaryText, { color: colors.foreground }]}>
+                  Back to the journey
+                </Text>
+              </Pressable>
+            </>
+          ) : outcome?.passed ? (
+            <>
+              <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
+                <Mascot pose="cheer" size={168} motion="bounce" />
+              </Animated.View>
+              <View style={styles.testoutStamp} aria-hidden>
+                <Text style={styles.testoutStampText}>EXPRESS</Text>
+              </View>
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]} testID="testout-passed-title">
+                You tested out of this stop!
+              </Text>
+              <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
+                You nailed {outcome.correctCount ?? testoutRequiredCorrect} of{' '}
+                {outcome.sampleSize ?? testoutSampleSize} phrases. The gates are open and your ticket
+                carries the Express stamp. Ride on!
+              </Text>
+              <ChunkyButton
+                title="Back to the journey"
+                icon="map"
+                onPress={() => router.back()}
+                style={{ width: '100%', marginTop: 28 }}
+                testID="testout-journey-button"
+              />
+            </>
+          ) : outcome ? (
+            <>
+              <Mascot pose="thumbsup" size={148} motion="none" />
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]} testID="testout-failed-title">
+                Not this time, and that's okay
+              </Text>
+              <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
+                You said {outcome.correctCount ?? 0} of {outcome.sampleSize ?? testoutSampleSize} phrases
+                well; the express needs {outcome.requiredCorrect ?? testoutRequiredCorrect}. A little more
+                practice and this stop is yours.
+              </Text>
+              <ChunkyButton
+                title="Keep practicing"
+                icon="map"
+                onPress={() => router.back()}
+                style={{ width: '100%', marginTop: 28 }}
+                testID="testout-keep-practicing-button"
+              />
+            </>
+          ) : (
+            <>
+              <Mascot pose="thinking" size={148} motion="float" />
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]} testID="testout-checking-title">
+                Checking your run...
+              </Text>
+              <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
+                The conductor is looking over your takes.
+              </Text>
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+            </>
+          )}
+        </View>
+      </Screen>
+    );
+  }
+
   if (phase === 'done') {
     const bandVals = Object.values(bands);
     const totalXp = Object.values(xpData).reduce((sum, d) => sum + d.xp, 0);
@@ -1634,6 +1811,18 @@ export default function PracticeScreen() {
         silentMode={silentModeUI}
         onToggleSilentMode={toggleSilentModeUI}
       />
+      {/* Express test-out banner: one quiet line so the learner knows the
+          rules of the run (one take per phrase, pass mark). */}
+      {isTestout && (
+        <View
+          testID="testout-banner"
+          style={[styles.testoutBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}
+        >
+          <Text style={[styles.testoutBannerText, { color: colors.mutedForeground }]}>
+            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this stop.
+          </Text>
+        </View>
+      )}
       <View style={styles.progressOuter}>
         <ScoreTrail
           total={list.length}
@@ -2019,7 +2208,7 @@ export default function PracticeScreen() {
 
       {/* Controls */}
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
-        {phase === 'result' && result?.band === 'retry' ? (
+        {phase === 'result' && result?.band === 'retry' && !isTestout ? (
           // Retry band: another take is the productive default, so "Try
           // again" gets the primary chunky button and "Next phrase" drops to
           // a quieter bordered secondary. Hard evaluation failures (phase
@@ -2046,15 +2235,19 @@ export default function PracticeScreen() {
           </View>
         ) : phase === 'result' || phase === 'compare' ? (
           <View style={styles.resultButtons}>
-            <Pressable
-              onPress={tryAgain}
-              accessibilityRole="button"
-              accessibilityLabel={phase === 'compare' ? 'Practice again' : 'Record again'}
-              testID="retry-button"
-              style={[styles.retryBtn, { borderColor: colors.border }]}
-            >
-              <Feather name="rotate-ccw" size={20} color={colors.foreground} />
-            </Pressable>
+            {/* Test-out is one take per phrase: no retry, only forward. (The
+                retry-band branch above is also bypassed in test-out mode.) */}
+            {!isTestout && (
+              <Pressable
+                onPress={tryAgain}
+                accessibilityRole="button"
+                accessibilityLabel={phase === 'compare' ? 'Practice again' : 'Record again'}
+                testID="retry-button"
+                style={[styles.retryBtn, { borderColor: colors.border }]}
+              >
+                <Feather name="rotate-ccw" size={20} color={colors.foreground} />
+              </Pressable>
+            )}
             <ChunkyButton
               title={index + 1 < list.length ? 'Next phrase' : 'Finish'}
               icon="arrow-right"
@@ -2550,6 +2743,47 @@ const styles = StyleSheet.create({
     marginTop: 60,
   },
   summaryWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 20 },
+  // Express test-out: in-run rules banner and verdict-screen pieces.
+  testoutBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  testoutBannerText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  testoutStamp: {
+    marginTop: 20,
+    borderWidth: 4,
+    borderColor: '#16A34A',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    transform: [{ rotate: '-6deg' }],
+  },
+  testoutStampText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 24,
+    letterSpacing: 4,
+    color: '#16A34A',
+  },
+  testoutSecondaryBtn: {
+    width: '100%',
+    marginTop: 12,
+    borderWidth: 2,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  testoutSecondaryText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 15,
+  },
   trophy: {
     width: 120,
     height: 120,
