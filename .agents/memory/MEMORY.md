@@ -104,3 +104,4 @@
 - [Express test-out client mode](testout-mode.md) — test-out reuses the practice screens as a mode (phrase source, persistence, CTAs, verdict), never a parallel recorder; fail path leaves via the journey.
 - [api-client mock factories](api-client-mock-factories.md) — full-replacement test mocks break when a shared screen imports a new hook; patch all factories in one scripted pass; RNTL skips aria-hidden.
 - [QA probe run pitfalls](qa-probe-pitfalls.md) — piping a probe through head SIGPIPE-kills it mid-run; shots dirs are cwd-relative; seeded badge rows need REAL badge keys; use a:visible at mobile widths.
+- [Pronunciation scoring signal audit](pronunciation-scoring-signal.md) — transcript-centric pipeline is accent-blind; STT logprobs don't discriminate; gpt-audio hears accent but needs 3-run median; Azure PA covers only hi/ta of 22.
