@@ -4,9 +4,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 // Spec B2 client behavior: fire-and-forget with an optimistic toast, optional
 // note in the payload, and silent failure (nothing user-visible on error).
 const mutateSpy = vi.fn();
-vi.mock("@workspace/api-client-react", () => ({
-  useReportPhrase: () => ({ mutate: mutateSpy }),
-}));
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useReportPhrase: () => ({ mutate: mutateSpy }),
+  };
+});
 
 const toastSpy = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({

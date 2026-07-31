@@ -52,9 +52,14 @@ const manyPhrases = Array.from({ length: 4 }, (_, i) => ({
   english: `english-${i}`,
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  // The language picker persists explicit picks (B1) — stubbed, never asserted.
-  useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    // The language picker persists explicit picks (B1) — stubbed; never asserted.
+    useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],
   // Categories — one entry so the first is auto-selected on the setup screen.
   useListCategories: () => ({
@@ -79,7 +84,8 @@ vi.mock("@workspace/api-client-react", () => ({
     mutateAsync: vi.fn(async () => ({ audioBase64: "AAA", format: "mp3" })),
     isPending: false,
   }),
-}));
+  };
+});
 
 import SpeedRoundPage from "@/pages/games/speed-round";
 

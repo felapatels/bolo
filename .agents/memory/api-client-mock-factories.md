@@ -1,16 +1,16 @@
 ---
-name: api-client test mock factories are full replacements
-description: Adding a new hook import to a shared screen breaks dozens of test files; patch all mock factories in one scripted pass
+name: api-client mock factories
+description: Shared per-platform mock helpers for @workspace/api-client-react tests — the rule, why, and migration traps.
 ---
 
-# Full-replacement api-client mock factories
+# api-client mock helpers
 
-Nearly every web (vitest) and mobile (jest) UI test mocks `@workspace/api-client-react` with a FULL-replacement factory (`() => ({ ... })`, no importOriginal spread). Consequence: importing a NEW hook in a widely-tested screen (practice, journey, home) instantly breaks every test file that imports that screen.
+**The rule:** Never full-replacement-mock `@workspace/api-client-react` inline in a test file. Each platform has ONE shared test helper exporting idle-safe defaults for every hook; test factories spread it and override only what they exercise. The helpers are typed exhaustively (`satisfies` over the client's export keys), so a hook added to the client without a helper entry is a typecheck error on BOTH platforms — update both helpers, not just the one whose screens use the hook.
 
-**Symptoms differ by runner:** vitest fails loudly at import time (`No "<hook>" export is defined on the mock`); jest silently yields `undefined` and fails later with `undefined is not a function` when the hook is called.
+**Why:** Full-replacement factories made every new hook import in a shared screen break dozens of test files at mock-init time.
 
-**How to apply:** after adding hook imports to a shared screen, patch every affected factory in one scripted pass (node script matching the exact `vi.mock("@workspace/api-client-react", () => ({` / `jest.mock('@workspace/api-client-react', () => ({` opening line and inserting idle-safe defaults). Target only test files that actually import the screen (grep the import), not every file that mocks the module.
+**How to apply:** New client hook → add an idle default + its QueryKey entry to each platform's helper.
 
-**Related RNTL trap:** RNTL v13 default queries skip `aria-hidden` subtrees; assert decorative elements with `{ includeHiddenElements: true }`.
-
-**Stateful mutation stubs:** to drive a component that reads mutation state (`.data`/`.isError`) from a mocked hook, back the mock with `React.useState` inside the factory (require/import react in the factory) and flip it in `mutate()` — the component re-renders naturally, no act() gymnastics.
+**Traps:**
+- Scripted whole-file rewrites of test files can corrupt multiline bodies. After any scripted migration, run the full suite — transform errors are the tell.
+- RNTL v13 skips aria-hidden subtrees; queries that pass on web may find nothing on mobile.

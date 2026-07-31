@@ -55,8 +55,13 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  // Test-out mode is idle in these suites (no ?mode=testout).
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    // Test-out mode is idle in these suites (no ?mode=testout).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],
   useSubmitLessonGroupTestout: () => ({ mutate: vi.fn(), data: undefined, isError: false, error: null, isPending: false }),
@@ -95,7 +100,8 @@ vi.mock("@workspace/api-client-react", () => ({
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
-}));
+  };
+});
 
 import Practice from "@/pages/practice";
 

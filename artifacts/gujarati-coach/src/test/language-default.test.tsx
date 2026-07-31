@@ -40,16 +40,23 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useListLanguages: () => ({ data: h.languages, isLoading: false }),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useListLanguages: () => ({ data: h.languages, isLoading: false }),
   useGetEntitlements: () => ({ data: h.entitlementsData }),
-    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+    useGetProgressSummary: vi.fn(() => ({ data: undefined,
+    isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useGetAccount: () => ({ data: h.accountData }),
   getGetAccountQueryKey: () => ["account"],
   useUpdateAccountPreferences: () => ({ mutate: h.updatePrefs }),
-}));
+  };
+});
 
 // ---------------------------------------------------------------------------
 // A tiny consumer that exposes activeLang in the DOM so tests can assert on it

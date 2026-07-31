@@ -80,8 +80,13 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useListLanguages: () => ({ data: h.languages, isLoading: false }),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useListLanguages: () => ({ data: h.languages, isLoading: false }),
   useGetEntitlements: () => ({ data: h.entitlementsData }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
@@ -92,7 +97,8 @@ vi.mock("@workspace/api-client-react", () => ({
     mutate: h.updatePrefs,
     isPending: false,
   }),
-}));
+  };
+});
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: h.toast }),

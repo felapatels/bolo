@@ -55,52 +55,21 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useReportPhrase: () => ({ mutate: vi.fn() }),
-  useListLessonGroupPhrases: () => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-    error: null,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-  getListLessonGroupPhrasesQueryKey: () => ["lesson-group-phrases"],
-  getListCategoryLessonGroupsQueryKey: () => ["category-lesson-groups"],
-  ApiError: class extends Error {},
-  useListCategoryPhrases: () => h.categoryPhrases,
-  useListCategorySentences: () => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-    error: null,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-  getListCategorySentencesQueryKey: () => ["category-sentences"],
-  useListReviewPhrases: () => h.reviewPhrases,
-  useSynthesizeSpeech: () => ({ mutateAsync: h.synth, isPending: false }),
-  useEvaluatePronunciation: () => ({ mutateAsync: h.evaluate, isPending: false }),
-  useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
-  useGetLessonGroupTestout: () => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-    refetch: () => {},
-  }),
-  getGetLessonGroupTestoutQueryKey: (id: unknown) => ["testout", id],
-  useSubmitLessonGroupTestout: () => ({
-    mutateAsync: async () => ({}),
-    isPending: false,
-    reset: () => {},
-  }),
-  getListCategoryPhrasesQueryKey: () => ["category-phrases"],
-  getListReviewPhrasesQueryKey: () => ["review"],
-  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
-  getGetProgressSummaryQueryKey: () => ["progress-summary"],
-  getListRecentAttemptsQueryKey: () => ["recent-attempts"],
-  getListBadgesQueryKey: () => ["badges"],
-}));
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useListCategoryPhrases: () => h.categoryPhrases,
+    useListReviewPhrases: () => h.reviewPhrases,
+    useSynthesizeSpeech: () => ({ mutateAsync: h.synth, isPending: false }),
+    useEvaluatePronunciation: () => ({ mutateAsync: h.evaluate, isPending: false }),
+    useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
+    // getGetLessonGroupTestoutQueryKey uses a non-standard key shape in this suite.
+    getGetLessonGroupTestoutQueryKey: (id: unknown) => ["testout", id],
+  };
+});
 
 import Practice from "@/pages/practice";
 

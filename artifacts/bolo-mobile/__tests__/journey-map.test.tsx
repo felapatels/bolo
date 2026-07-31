@@ -130,8 +130,11 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: mockState.isPlus, isOneLanguage: false }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  ApiError: class ApiError extends Error {
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    ApiError: class ApiError extends Error {
     status: number;
     data: unknown;
     constructor(status: number, data: unknown) {
@@ -141,7 +144,7 @@ jest.mock('@workspace/api-client-react', () => ({
       this.data = data;
     }
   },
-  useListCategories: () => ({
+    useListCategories: () => ({
     data: mockState.categories,
     isLoading: false,
     isError: false,
@@ -155,8 +158,9 @@ jest.mock('@workspace/api-client-react', () => ({
     error: null,
     isFetching: false,
     refetch: jest.fn(),
-  }),
-}));
+    }),
+  };
+});;
 
 // Imported after the mocks are declared.
 import JourneyScreen from '@/app/(app)/journey';

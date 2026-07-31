@@ -27,8 +27,11 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useGetLessonGroupTestout: () => ({
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    useGetLessonGroupTestout: () => ({
     data: undefined,
     isLoading: false,
     isError: false,
@@ -64,7 +67,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   getListBadgesQueryKey: () => ['badges'],
   useGetAccount: () => ({ data: undefined }),
-}));
+  };
+});;
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

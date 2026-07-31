@@ -51,8 +51,11 @@ jest.mock('@/lib/entrance', () => ({
   useAppearSkip: () => true,
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetProgressSummary: () => mockState.summary,
@@ -65,7 +68,8 @@ jest.mock('@workspace/api-client-react', () => ({
   useListIncomingFriendRequests: () => ({ data: [] }),
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
-}));
+  };
+});;
 
 jest.mock('@/components/Screen', () => {
   const React = require('react');

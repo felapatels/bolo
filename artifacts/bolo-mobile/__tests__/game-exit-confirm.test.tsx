@@ -27,24 +27,20 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
-  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
-  useGetAccount: () => mockState.account,
-  useListCategories: () => mockState.categories,
-  useListCategoryPhrases: () => mockState.phrases,
-  getListCategoryPhrasesQueryKey: () => ['phrases'],
-  useRecordGameSession: () => ({ mutate: jest.fn() }),
-  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-  getGetProgressSummaryQueryKey: () => ['progress'],
-  useGetDailyQuiz: () => mockState.quiz,
-  useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
-  getGetDailyQuizQueryKey: () => ['daily-quiz'],
-  // Bare function used directly by the quiz's ListenQuestion (not a hook).
-  synthesizeSpeech: (...args: unknown[]) => mockState.synth(...args),
-}));
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
+    useGetAccount: () => mockState.account,
+    useListCategories: () => mockState.categories,
+    useListCategoryPhrases: () => mockState.phrases,
+    useGetDailyQuiz: () => mockState.quiz,
+    useCompleteDailyQuiz: () => ({ mutateAsync: mockState.complete }),
+    // Bare function used directly by the quiz's ListenQuestion (not a hook).
+    synthesizeSpeech: (...args: unknown[]) => mockState.synth(...args),
+  };
+});
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

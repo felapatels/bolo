@@ -23,8 +23,11 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
@@ -35,7 +38,8 @@ jest.mock('@workspace/api-client-react', () => ({
   useRecordGameSession: () => ({ mutate: jest.fn() }),
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
-}));
+  };
+});;
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

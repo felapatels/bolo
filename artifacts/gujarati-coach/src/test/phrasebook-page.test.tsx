@@ -52,10 +52,16 @@ vi.mock("@/lib/analytics", async () => {
   };
 });
 
-vi.mock("@workspace/api-client-react", () => ({
-  useListCategories: () => h.cats,
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useListCategories: () => h.cats,
   getListCategoriesQueryKey: () => ["categories"],
-}));
+  };
+});
 
 import Phrasebook from "@/pages/phrasebook";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";

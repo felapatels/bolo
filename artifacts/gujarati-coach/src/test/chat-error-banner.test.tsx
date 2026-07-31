@@ -96,8 +96,13 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  getChatTurnUrl: () => "/api/chat/turn",
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    getChatTurnUrl: () => "/api/chat/turn",
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;
@@ -108,7 +113,8 @@ vi.mock("@workspace/api-client-react", () => ({
       this.data = data;
     }
   },
-}));
+  };
+});
 
 vi.mock("@/components/mascot", () => ({
   Mascot: () => <div data-testid="mascot" />,

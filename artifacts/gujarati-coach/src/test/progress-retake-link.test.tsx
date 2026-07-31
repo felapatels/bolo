@@ -74,8 +74,13 @@ const h = vi.hoisted(() => ({
   attempts: [] as unknown[],
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useGetProgressSummary: () => ({
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useGetProgressSummary: () => ({
     data: {
       phrasesMastered: 5,
       totalAttempts: 20,
@@ -87,8 +92,9 @@ vi.mock("@workspace/api-client-react", () => ({
   useListRecentAttempts: () => ({
     data: h.attempts,
     isLoading: false,
-  }),
-}));
+    }),
+  };
+});
 
 // Imported after all mocks so the page picks up the hoisted state.
 import Progress from "@/pages/progress";

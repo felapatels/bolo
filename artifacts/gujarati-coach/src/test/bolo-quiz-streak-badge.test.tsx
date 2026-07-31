@@ -34,14 +34,20 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useGetDailyQuiz: () => ({ data: h.quizData, isLoading: false }),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useGetDailyQuiz: () => ({ data: h.quizData, isLoading: false }),
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useCompleteDailyQuiz: () => ({ mutateAsync: h.completeMutateAsync }),
   useSynthesizeSpeech: () => ({ mutateAsync: vi.fn(), isPending: false }),
   getGetDailyQuizQueryKey: () => ["daily-quiz"],
-}));
+  };
+});
 
 // Imported after the mocks so the page picks up the hoisted mock values.
 import BoloQuizPage from "@/pages/games/bolo-quiz";

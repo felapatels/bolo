@@ -39,9 +39,13 @@ jest.mock('@/lib/entrance', () => ({
   useAppearSkip: () => true,
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  useListCategories: () => mockState.categories,
-}));
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    useListCategories: () => mockState.categories,
+  };
+});;
 
 jest.mock('@/components/Screen', () => {
   const React = require('react');

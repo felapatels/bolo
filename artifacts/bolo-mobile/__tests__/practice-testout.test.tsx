@@ -25,28 +25,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
   const ReactActual = require('react');
   return {
-    useListLessonGroupPhrases: () => ({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-      isFetching: false,
-      refetch: jest.fn(),
-    }),
-    getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
-    useListCategoryLessonGroups: () => ({
-      data: { lessonGroups: [] },
-      isLoading: false,
-      isError: false,
-      error: null,
-      isFetching: false,
-      refetch: jest.fn(),
-    }),
-    getListCategoryLessonGroupsQueryKey: () => ['category-lesson-groups'],
+    ...apiClientMockDefaults,
     useGetLessonGroupTestout: () => mockState.testout,
-    getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
     // Stateful mutation stub: mutate() records the call, then resolves to the
     // configured verdict (or stays pending when submitResult is null).
     useSubmitLessonGroupTestout: (opts?: {
@@ -73,34 +56,9 @@ jest.mock('@workspace/api-client-react', () => {
         },
       };
     },
-    useReportPhrase: () => ({ mutate: jest.fn() }),
-    ApiError: class ApiError extends Error {},
-    useListCategoryPhrases: () => ({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-      isFetching: false,
-      refetch: jest.fn(),
-    }),
-    useListCategorySentences: () => ({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-      isFetching: false,
-      refetch: jest.fn(),
-    }),
-    getListCategorySentencesQueryKey: () => ['sentences'],
     useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
     useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
     useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
-    useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-    getGetProgressSummaryQueryKey: () => ['progress'],
-    getListRecentAttemptsQueryKey: () => ['attempts'],
-    getListCategoryPhrasesQueryKey: () => ['phrases'],
-    getListBadgesQueryKey: () => ['badges'],
-    useGetAccount: () => ({ data: undefined }),
   };
 });
 

@@ -42,8 +42,13 @@ vi.mock("@/lib/entitlements", async (importOriginal) => ({
   useEntitlements: () => ({ isAllAccess: true, isLoading: false }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useListCategories: () => ({
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useListCategories: () => ({
     data: undefined,
     isLoading: false,
     isError: false,
@@ -57,8 +62,9 @@ vi.mock("@workspace/api-client-react", () => ({
     error: null,
     isFetching: false,
     refetch: vi.fn(),
-  }),
-}));
+    }),
+  };
+});
 
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";

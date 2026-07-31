@@ -62,9 +62,14 @@ vi.mock("@/lib/billing", () => ({
   cancelPlus: (...args: unknown[]) => h.cancelPlus(...args),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  ApiError,
-  useGetAccountSubscription: () => h.sub,
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    ApiError,
+    useGetAccountSubscription: () => h.sub,
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useCancelAccountSubscription: () => ({ mutateAsync: h.cancel }),
@@ -72,7 +77,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useUnpauseAccountSubscription: () => ({ mutateAsync: h.unpause, isPending: false }),
   useAcceptRetentionOffer: () => ({ mutateAsync: h.retention }),
   useGetFamily: () => h.family,
-}));
+  };
+});
 
 import Subscription from "@/pages/subscription";
 

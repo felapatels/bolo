@@ -24,16 +24,16 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
   // Stable references — new arrays on every call would trigger the
   // useEffect([allPhrases]) shuffle on every render, causing an infinite loop.
   const CATS = [{ id: 42, title: 'Greetings', slug: 'greetings' }];
   const PHS = [{ id: 1, nativeScript: 'ક', romanized: 'ka', english: 'ka-en' }];
   return {
+    ...apiClientMockDefaults,
     useListCategories: () => ({ data: CATS, isLoading: false }),
     useListCategoryPhrases: () => ({ data: PHS, isLoading: false }),
     useRecordGameSession: () => ({ mutate: jest.fn() }),
-    useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-  getGetProgressSummaryQueryKey: () => ['progress'],
     // Prompt audio (Build 30 batch 3) - stubbed, playback is not asserted here.
     useSynthesizeSpeech: () => ({ mutateAsync: jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' })) }),
     useGetAccount: () => ({ data: { preferences: { learning: { ttsVoice: 'voice-A' } } } }),

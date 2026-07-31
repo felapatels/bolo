@@ -47,42 +47,35 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mockQueryClient,
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
-  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
-  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  // Defined inside the factory so it's the exact class friends.tsx narrows on
-  // with `err instanceof ApiError`; tests build errors from the same reference
-  // via the value import above.
-  ApiError: class ApiError extends Error {
-    status: number;
-    data: unknown;
-    constructor(status: number, data: unknown) {
-      super('ApiError');
-      this.name = 'ApiError';
-      this.status = status;
-      this.data = data;
-    }
-  },
-  useSearchFriendByEmail: () => mockState.search,
-  useSendFriendRequest: () => mockState.sendRequest,
-  useSendFriendInvite: () => mockState.sendInvite ?? { mutate: jest.fn(), isPending: false },
-  useListIncomingFriendRequests: () => mockState.incoming,
-  useListOutgoingFriendRequests: () => mockState.outgoing,
-  useListFriends: () => mockState.friends,
-  useAcceptFriendRequest: () => mockState.accept,
-  useDeclineFriendRequest: () => mockState.decline,
-  useRemoveFriend: () => mockState.remove,
-  useGetFriendsLeaderboard: () => mockState.leaderboard,
-  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
-  getSearchFriendByEmailQueryKey: () => ['search-friend'],
-  getListIncomingFriendRequestsQueryKey: () => ['incoming'],
-  getListOutgoingFriendRequestsQueryKey: () => ['outgoing'],
-  getListFriendsQueryKey: () => ['friends'],
-  getGetFriendsLeaderboardQueryKey: () => ['leaderboard'],
-}));
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    // Defined inside the factory so it's the exact class friends.tsx narrows on
+    // with `err instanceof ApiError`; tests build errors from the same reference
+    // via the value import above.
+    ApiError: class ApiError extends Error {
+      status: number;
+      data: unknown;
+      constructor(status: number, data: unknown) {
+        super('ApiError');
+        this.name = 'ApiError';
+        this.status = status;
+        this.data = data;
+      }
+    },
+    useSearchFriendByEmail: () => mockState.search,
+    useSendFriendRequest: () => mockState.sendRequest,
+    useSendFriendInvite: () => mockState.sendInvite ?? { mutate: jest.fn(), isPending: false },
+    useListIncomingFriendRequests: () => mockState.incoming,
+    useListOutgoingFriendRequests: () => mockState.outgoing,
+    useListFriends: () => mockState.friends,
+    useAcceptFriendRequest: () => mockState.accept,
+    useDeclineFriendRequest: () => mockState.decline,
+    useRemoveFriend: () => mockState.remove,
+    useGetFriendsLeaderboard: () => mockState.leaderboard,
+  };
+});
 
 // Keep the font registry from pulling in every @expo-google-fonts package.
 jest.mock('@/constants/fonts', () => ({

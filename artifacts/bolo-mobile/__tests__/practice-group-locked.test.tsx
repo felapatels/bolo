@@ -27,8 +27,11 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-jest.mock('@workspace/api-client-react', () => ({
-  // Test-out mode is idle in these suites (no mode: testout param).
+jest.mock('@workspace/api-client-react', () => {
+  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
+  return {
+    ...apiClientMockDefaults,
+    // Test-out mode is idle in these suites (no mode: testout param).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
   useSubmitLessonGroupTestout: () => ({ mutate: jest.fn(), data: undefined, isError: false, error: null, isPending: false }),
@@ -73,7 +76,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   getListBadgesQueryKey: () => ['badges'],
   useGetAccount: () => ({ data: undefined }),
-}));
+  };
+});;
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

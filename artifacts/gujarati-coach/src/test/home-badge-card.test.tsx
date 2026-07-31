@@ -53,8 +53,13 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],
@@ -89,7 +94,8 @@ vi.mock("@workspace/api-client-react", () => ({
   useListBadges: () => ({ data: h.badges, isLoading: false }),
   useListIncomingFriendRequests: () => ({ data: [], isLoading: false }),
   useListCategoryLessonGroups: () => ({ data: undefined, isLoading: false, isError: true }),
-}));
+  };
+});
 
 // Imported after the mocks are declared.
 import Home from "@/pages/home";

@@ -15,11 +15,17 @@ const h = vi.hoisted(() => ({
   languages: undefined as unknown,
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
-  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+vi.mock("@workspace/api-client-react", async () => {
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
+  return {
+    ...apiClientMockDefaults,
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useListLanguages: () => ({ data: h.languages, isLoading: false }),
-}));
+  };
+});
 
 // Imported after the mock is declared so the page picks up the mocked hook.
 import Landing from "@/pages/landing";

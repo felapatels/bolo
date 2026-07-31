@@ -59,20 +59,13 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", async () => {
+
   const React = await import("react");
+  const { apiClientMockDefaults } = await import(
+    "@/test-helpers/api-client-mock"
+  );
   return {
-    useReportPhrase: () => ({ mutate: vi.fn() }),
-    // The regular group listing must stay idle in testout mode.
-    useListLessonGroupPhrases: () => ({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-      isFetching: false,
-      refetch: vi.fn(),
-    }),
-    getListLessonGroupPhrasesQueryKey: () => ["lesson-group-phrases"],
-    getListCategoryLessonGroupsQueryKey: () => ["category-lesson-groups"],
+    ...apiClientMockDefaults,
     useGetLessonGroupTestout: () => h.testout,
     getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],
     // Stateful mutation stub: mutate() records the call, then resolves to the
