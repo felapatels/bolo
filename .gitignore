@@ -50,3 +50,6 @@ Thumbs.db
 
 # QA E2E screenshots
 qa/shots/
+
+# Pronunciation pilot — WAV clip files (large; stay in /tmp)
+qa/pilot-clips/
