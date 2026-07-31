@@ -542,3 +542,17 @@ D1b direction decided: **Gujarat Express (Mockup C) merged** — rail-line layou
 | Spec E (copy and voice) | Not written |
 | Spec F (progress and accomplishment) | Not written |
 | Spec G (social) | Not written |
+
+---
+
+### openai.ts merge-scramble recovery (July 31, 2026)
+
+**What happened:** Task #952 (pilot capture: tee pronunciation audio to R2) auto-merged onto Task #948 (progression completion: Polish card + zone capstone chat). Both tasks modified `openai.ts` in overlapping regions. Git's 3-way merge garbled ~400 lines, mixing greeting-TTS context with phrase-TTS context. The merged file was syntactically valid TypeScript and typechecked clean (compatible types), so no gate caught it. Root cause of the gate gap: #952's task-agent typecheck ran against its isolated pre-merge branch; no post-merge boot or typecheck ran on the combined result.
+
+**Recovery:** Restored from HEAD~1 (c21397a, Task #948 baseline) as the clean base, then applied exactly three legitimate #952 deltas: `import { teeAudioToPilot }`, first `teeAudioToPilot` call (fast-path STT branch), second call (LLM evaluation branch), plus `rawBuffer` hoist above the try block so both call sites can reach it.
+
+**`buildUserPrompt` fix (parrotChat.ts):** Function had three spec gaps vs `docs/specs/progression-completion.md §4`: scenario block was placed before `Language:` (should be after), `History:` label was omitted, scenario title was omitted from the scenario block. All three fixed.
+
+**Boot smoke test added:** `artifacts/api-server/src/test/server-boot.test.ts` — two tests: app module import + openai route module import. Any parse-level corruption in any route file surfaces here before the server is manually started.
+
+**`@workspace/db` mock completeness rule:** `openai.pronunciation.language-hint.test.ts` mocks `@workspace/db` via `mock.module`. Its `namedExports` list must include every table that `openai.ts`'s import line references. When `zoneConversationStampsTable` was added to `openai.ts` (Task #948) the mock was not updated, causing 9 test failures. Fix: add the missing entry to the mock's namedExports. **Do not add workarounds to production files to accommodate stale test mocks.** Known mock gaps (tables in schema, absent from mock): `dailyQuizCompletionsTable`, `dailyQuizzesTable`, `lessonGroupProgressTable`, `lessonGroupTestoutsTable`, `phraseReportsTable`, `scriptTraceProgressTable`, `userItemMemoryTable`. Phantom entry (in mock, not in schema): `phraseScheduleTable`. Task #922's release slot is the correct home for a shared mock factory.

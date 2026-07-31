@@ -913,10 +913,15 @@ export function buildUserPrompt(
   const said = isEffectivelyEmpty(transcript)
     ? "(The learner's speech was unclear or silent — you couldn't make out any words.)"
     : transcript;
+  // Spec: scenario block is injected AFTER Language: and BEFORE History: so
+  // the static system prompt prefix remains byte-identical (preserving
+  // OpenAI prompt-cache hits) while still giving Bolo its role context.
+  // The scenario title is included so the model sees both the role label and
+  // the verbatim framing copy without having to infer the title from prose.
   const scenarioBlock = scenario
-    ? `Scenario: ${scenario.framingCopy}\n${scenario.steerInstructions}\n\n`
+    ? `Scenario: ${scenario.title}\n${scenario.framingCopy}\n${scenario.steerInstructions}\n\n`
     : "";
-  return `${scenarioBlock}Language: ${languageName}\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
+  return `Language: ${languageName}\n${scenarioBlock}History:\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
 }
 
 // Maximum character count of the TTS-bound text after squawk stripping and

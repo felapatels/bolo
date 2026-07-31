@@ -1,0 +1,14 @@
+When your current language-hint probe work reaches a conclusion, complete the following as one report. This is the input for your forensics/audit pass and the freeze-exit gate.
+
+A. Migration drift, root cause candidate identified. Task #954 reports 0033_snapshot.json is MISSING from drizzle meta. Mechanism: with no 0033 snapshot, generate diffs against 0032 and re-emits zone_conversation_stamps DDL as a duplicate 0034. Both task checkouts (#922, #954) reproduced this independently. Answer:
+1. On current main: does lib/db/drizzle/meta/ contain a 0033 snapshot? Is the 0034 you committed in 37a8cc0 the duplicate DDL or a defused no-op? Does a fresh generate on current main produce an empty diff?
+2. Was your earlier empty-diff experiment run before or after 37a8cc0 committed the 0034 meta? If after, the discrepancy with the task checkouts is explained and no anomaly remains.
+3. Apply the canonical fix, once, on main: either restore the 0033 snapshot and drop 0034, or keep 0034 defused with its snapshot as the new baseline. State which you chose and why. Verify migrations run clean against the dev database afterward (a duplicate-DDL 0034 would fail on a db where 0033 already created the table). Both task agents were ordered not to touch this and have reverted.
+4. Confirm the drift is independent of the language-hint/barrel failure and say so in the forensics writeup.
+
+B. Scope inventory of 37a8cc0. List everything the commit touched beyond openai.ts, one line each on why. Known so far: 0034 migration files and api-client-mock.ts hooks (useGetScenario, useListZoneStamps, QueryKey helpers). This is needed to run the release queue: #922 may now carry an empty delta, and #954's 13 per-file stubs may be partly absorbed.
+
+C. Final suite report requirements: exactly three TTS cache failures present (expected pending #947, do not fix), zero failures elsewhere, both boot smoke tests passing, and state whether all 9 language-hint failures shared the single root cause you land on. Then complete the #952 merge forensics and the sibling-scramble audit (what else beyond openai.ts the bad merge touched, if anything).
+
+Post all of A, B, C plus forensics and audit as one completion message. The freeze lifts on that message and releases begin one at a time: #947, then #922, then #954, then #963, then #905.
+</br>Do not start new fixes outside this list.

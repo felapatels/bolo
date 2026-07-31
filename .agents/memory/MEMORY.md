@@ -67,6 +67,7 @@
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
 - [Pronunciation band derivation](band-derivation.md) — five-band ladder is display-only (93/68 tunable, 80/55 FROZEN credit-group edges); band is score-only, never from LLM `passed`; legacy rows normalize at read.
 - [Codebase facts doc](codebase-facts-doc.md) — docs/CODEBASE-FACTS.md must be updated at the end of every task (changes, debt); section numbering never changes.
+- [@workspace/db mock completeness](db-mock-completeness.md) — mock.module namedExports for @workspace/db must track schema; missing entry = SyntaxError at test link time; only language-hint.test.ts does this; #922 owns the shared-factory fix.
 - [Motion & Feedback Engine](motion-feedback-engine.md) — nocatch = system miss (nothing negative); session confetti needs half good; count-up chips are animated TextInputs (assert via label).
 - [Speech capability tiers](speech-capability.md) — per-language STT flag (ks/sat degraded, mni/brx unsupported); script-mismatch = nocatch universally; Latin sim<0.45 rule.
 - [Observability (Sentry + PostHog)](observability-sentry-posthog.md) — env-gated inits, scrub rules (drop req.body!), 7-event allowlist, @opentelemetry/api drizzle-orm dedup trap.
