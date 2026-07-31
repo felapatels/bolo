@@ -1,0 +1,14 @@
+→ NEW TASK — paste once
+
+Web only: train size bump + boarding-pass tear-off transition. Follow-up to the train/station art task just merged; consult docs/CODEBASE-FACTS.md and the :root tuning constants. Same constraints: transforms/opacity only, reduced-motion gated, no new dependencies, no em dashes, mobile untouched.
+
+Train slightly bigger. Scale the redrawn train up modestly on both surfaces — the home ticket and the journey rail marker — in the 15-20% range, via the tuning constants where possible. It must not collide with the ticket text block or overflow the marker slot; report the before/after rendered sizes at both surfaces. If the journey-marker size reveals detail smearing at the new scale, report it rather than redrawing.
+Tear-off on tap. When the user activates the home boarding pass, play a stub-tear before navigating to the journey: the right stub (fare-zone side, along the existing perforation line) visually separates — a slight rotation and translate away from the body, ticket body giving a small counter-recoil — then navigation proceeds. Requirements:
+Total added delay before navigation begins must stay under roughly 250ms; the tear can also overlap route transition rather than fully precede it. Navigation must NEVER be blocked if the animation fails; wrap so any error falls through to immediate navigation.
+Works with the existing press spring (press-down, release triggers tear). Sequence on the framer layer or CSS class toggle consistent with the current setup; the perforation line and stub already exist as distinct elements in the ticket structure per the earlier stub work, use them rather than restructuring the ticket.
+Reduced-motion: no tear, instant navigation, as today.
+Keyboard/enter activation gets the same behavior as tap or goes instant; report which.
+The tear must not fire on the journey header ticket, only the home pass.
+Add tear timing/rotation/distance to the :root constants block for tuning.
+
+Pin with tests: navigation fires with the tear enabled (not swallowed by the animation path), reduced-motion navigates instantly, tear class/sequence triggers on activation, and the animation-failure fallback navigates. Enumerate test counts before and after. Live probe: capture the tear mid-sequence in a screenshot if the harness supports it, otherwise report as animation-verified-by-eye-needed. Report per item with file paths.

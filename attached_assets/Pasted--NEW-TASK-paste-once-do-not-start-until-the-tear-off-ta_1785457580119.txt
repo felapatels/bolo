@@ -1,0 +1,12 @@
+→ NEW TASK — paste once — do not start until the tear-off task has merged
+
+Web only: rail segment pulse toward the next stop. Follow-up to the journey art tasks; consult docs/CODEBASE-FACTS.md and the :root tuning constants. Same constraints: transforms/opacity only, reduced-motion gated, no new dependencies, no em dashes, mobile untouched.
+
+Directional pulse on the active rail segment. On the journey map, the track segment connecting the current stop to the next stop gets a repeating pulse that travels in the direction of the next stop, so the user reads "the journey continues this way." Only that one segment animates: segments behind the current stop and beyond the next stop stay static.
+Implementation should suit how the serpentine track is drawn (per the ticket/journey structure, the rails render as tie/dash marks along a path): acceptable approaches include a traveling opacity wave across the tie marks, or a small glowing dot/comet traveling the segment path, in the line accent color. Choose based on what the existing rail rendering supports cleanly; report which approach and why.
+Direction must be correct on every serpentine orientation (left-to-right, right-to-left, and curve segments), including the segment leaving the last stop of a zone toward the next zone header if that boundary exists on the map.
+Calm cadence consistent with the station glow (the 2.6s-4.5s family), long-travel rather than strobing; it should read as flow, not alarm.
+Edge cases: zone complete (current stop is last in zone), journey complete (no next stop) — no pulse, no errors. Locked next stop still gets the pulse (the journey continues even if the door is locked; that pairing with the lock icon is the invitation to unlock or test out).
+Timing/opacity/travel-speed constants join the :root block.
+
+Pin with tests: pulse present only on the active segment, absent when no next stop, reduced-motion static, direction assertion if the rendering approach makes it testable. Enumerate test counts before and after. Live probe screenshot; note that motion direction needs eye verification and say so explicitly.
