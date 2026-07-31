@@ -218,10 +218,13 @@ describe('journey map — station state rendering', () => {
       screen.getByText(/Ahmedabad Junction → Dwarka · 2\/7 stations/),
     ).toBeOnTheScreen();
 
-    // Per-state copy and adornments.
-    expect(screen.getByText(/Completed · 8\/8 mastered/)).toBeOnTheScreen();
+    // Per-state copy and adornments. Build 31 moved the mastered fraction
+    // out of the status line into a visual progress row on attempted stops.
+    expect(screen.getByText('Completed')).toBeOnTheScreen();
+    expect(screen.getByText('8/8 mastered')).toBeOnTheScreen();
     expect(screen.getByText('EXPRESS')).toBeOnTheScreen(); // tested_out stamp
-    expect(screen.getByText(/In progress · 3\/8 mastered/)).toBeOnTheScreen();
+    expect(screen.getByText(/In progress/)).toBeOnTheScreen();
+    expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
     expect(screen.getByText(/Bolo is waiting here/)).toBeOnTheScreen(); // current stop
     expect(screen.getByText('ALL-ACCESS')).toBeOnTheScreen(); // sentence diamond chip
     expect(screen.getByText(/Now boarding/)).toBeOnTheScreen(); // Plus sentence stop is open
@@ -349,6 +352,91 @@ describe('journey header ticket sizing (build-28 regression)', () => {
 // notch), and the right-stub stamp slot must reserve the stamp's FULL
 // rotated bounding box (a 44px stamp tilted -12 degrees spans ~53px; the old
 // 52px slot clipped its corners).
+// Build 31 (web journey.tsx parity): the current stop's card is dressed as a
+// station signboard (roof bar + glyph + glow ring), non-current stops carry
+// a zone-color tick, attempted stops trade the "x/y mastered" status suffix
+// for a real progress track, and the rail segment between the current stop
+// and the next one carries a directional pulse.
+describe('journey map — build 31 signboard dressing + rail pulse', () => {
+  function threeStopZone() {
+    const a = grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 });
+    const b = grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 });
+    const c = grp({ status: 'locked' });
+    setZones([[a, b, c], [], [], [], [], []]);
+    return { a, b, c };
+  }
+
+  it('dresses only the current stop as a signboard with glow and glyph', () => {
+    const { a, b, c } = threeStopZone();
+    render(<JourneyScreen />);
+
+    expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
+    expect(screen.getByTestId('stop-glow')).toBeOnTheScreen();
+    expect(screen.getAllByTestId('station-sign-glyph').length).toBe(1);
+
+    // Non-current stops get the tick; the signboard stop does not.
+    expect(screen.getByTestId(`stop-tick-${a.id}`)).toBeOnTheScreen();
+    expect(screen.getByTestId(`stop-tick-${c.id}`)).toBeOnTheScreen();
+    expect(screen.queryByTestId(`stop-tick-${b.id}`)).toBeNull();
+  });
+
+  it('renders a measured progress track on attempted stops only', () => {
+    const { StyleSheet } = require('react-native');
+    const { a, b, c } = threeStopZone();
+    render(<JourneyScreen />);
+
+    const fullFill = StyleSheet.flatten(
+      screen.getByTestId(`stop-progress-${a.id}`).props.style,
+    );
+    const partFill = StyleSheet.flatten(
+      screen.getByTestId(`stop-progress-${b.id}`).props.style,
+    );
+    expect(fullFill.width).toBe(80); // 8/8 of the 80px track
+    expect(partFill.width).toBe(30); // 3/8 of the 80px track
+    expect(screen.queryByTestId(`stop-progress-${c.id}`)).toBeNull(); // unattempted
+
+    expect(screen.getByText('8/8 mastered')).toBeOnTheScreen();
+    expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
+  });
+
+  it('pulses exactly the rail segment from the current stop to the next one', () => {
+    threeStopZone();
+    render(<JourneyScreen />);
+    // b -> c is one within-zone segment; a -> b must NOT pulse.
+    expect(screen.getAllByTestId('rail-pulse').length).toBe(1);
+  });
+
+  it('shows no pulse and no signboard when there is no current stop', () => {
+    setZones([
+      [grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 })],
+      [grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 })],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+    expect(screen.queryAllByTestId('rail-pulse').length).toBe(0);
+    expect(screen.queryByTestId('signboard-bar')).toBeNull();
+    expect(screen.queryByTestId('stop-glow')).toBeNull();
+  });
+
+  it('drops the pulse and glow under reduced motion but keeps the static dressing', () => {
+    const reanimated = require('react-native-reanimated');
+    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    try {
+      threeStopZone();
+      render(<JourneyScreen />);
+      expect(screen.queryAllByTestId('rail-pulse').length).toBe(0);
+      expect(screen.queryByTestId('stop-glow')).toBeNull();
+      expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
+      expect(screen.getAllByTestId('station-sign-glyph').length).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('journey header inset and stamp slot (build 30)', () => {
   it('pads the header by the top inset and sizes the slot from the rotated extent', () => {
     const { StyleSheet } = require('react-native');

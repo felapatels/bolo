@@ -22,13 +22,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useColorScheme,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Path, G, Rect } from 'react-native-svg';
+import Animated, {
+  interpolate,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import {
   useListCategories,
   useListCategoryLessonGroups,
@@ -52,6 +59,8 @@ import {
 } from '@/components/journey/TicketParts';
 import { Bunting, TracksideDoodad, ZoneVista, SCENERY_GRAY } from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
+import { useThemePrefValue } from '@/contexts/ThemeContext';
+import { useLoopProgress } from '@/lib/useLoopProgress';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
@@ -61,6 +70,7 @@ const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
 // mobile-width, max 390px).
 const MAP_MAX_W = 390;
 const STATION_H = 100; // vertical rhythm per station row
+const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
@@ -92,6 +102,67 @@ function isStatusAccessible(status: LessonGroupSummary['status']): boolean {
   );
 }
 
+/** Station signboard silhouette shown beside the current stop's name — the
+ *  rn-svg port of the web StationSignGlyph (journey.tsx). */
+function StationSignGlyph({ color }: { color: string }) {
+  return (
+    <Svg testID="station-sign-glyph" width={14} height={12} viewBox="0 0 14 12" fill="none">
+      <Path d="M1 4 L7 0.5 L13 4 Z" fill={color} />
+      <Rect x={2.5} y={4.5} width={9} height={3.5} rx={1} fill={color} opacity={0.3} />
+      <Rect x={3.5} y={8} width={1.4} height={4} fill={color} />
+      <Rect x={9.1} y={8} width={1.4} height={4} fill={color} />
+    </Svg>
+  );
+}
+
+/** Pulsing zone-colored ring around the current stop's signboard card (web:
+ *  station-stop-glow keyframes, 2.6s opacity 0.45→1). Extracted so the loop
+ *  hook lives outside the station map loop; callers gate on reduced motion.
+ *  Opacity-only animation; the ring + shadow are static styles. */
+function StopGlowPulse({ color }: { color: string }) {
+  const progress = useLoopProgress(2600, true);
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.5, 1], [0.45, 1, 0.45]),
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      testID="stop-glow"
+      style={[styles.stopGlow, { borderColor: color, shadowColor: color }, style]}
+    />
+  );
+}
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+// One dash period of the rail pulse: 6px dash + 18px gap. The offset animates
+// from one full period down to zero, so the dashes march in the direction of
+// increasing path length — every segment path is drawn top-down toward the
+// next stop, which is exactly "toward the next station".
+const RAIL_PULSE_PERIOD = 24;
+
+/** Directional energy on the rail segment(s) leaving the current station:
+ *  accent dashes flowing toward the next stop (~900ms per period). Mobile
+ *  defines this pattern (task #917); the web map's segments are static. */
+function RailPulse({ d, color }: { d: string; color: string }) {
+  const progress = useLoopProgress(900, true);
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: (1 - progress.value) * RAIL_PULSE_PERIOD,
+  }));
+  return (
+    <AnimatedPath
+      d={d}
+      stroke={color}
+      strokeWidth={4}
+      strokeLinecap="round"
+      strokeDasharray="6 18"
+      fill="none"
+      animatedProps={animatedProps}
+      testID="rail-pulse"
+    />
+  );
+}
+
 /** Marker sitting on the rail: circle for phrase stops, diamond for the
  *  first-class sentence stops, train for the current stop. */
 function StationMarker({
@@ -115,7 +186,7 @@ function StationMarker({
       <View style={[styles.markerCurrentOuter, { backgroundColor: `${color}33` }]}>
         <View style={[styles.markerCurrentRing, { backgroundColor: color }]}>
           <View style={styles.markerCurrentPill}>
-            <TrainEngine color={color} width={32} height={22} />
+            <TrainEngine tint={color} width={32} height={22} motion="bob" />
           </View>
         </View>
       </View>
@@ -174,6 +245,14 @@ export default function JourneyScreen() {
   const { isPlus } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
+  const reduceMotion = useReducedMotion();
+  // Web --station-surface (index.css): warm off-white in light mode, deep
+  // navy in dark — the current stop's signboard card stock. Resolved the
+  // same way useColors picks its palette.
+  const systemScheme = useColorScheme();
+  const themePref = useThemePrefValue();
+  const isDark = (themePref === 'system' ? systemScheme : themePref) === 'dark';
+  const stationSurface = isDark ? '#1B2232' : '#FCFAF5';
   // Web measures the map column with a ResizeObserver; on native the window
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
@@ -377,6 +456,30 @@ export default function JourneyScreen() {
 
   const stationPts = pts.filter((p) => p.kind === 'station');
 
+  // Rail pulse (#917): the segment(s) leaving the current station toward the
+  // next stop (any postcard midpoint between them included), so the accent
+  // dashes flow from the train toward wherever Bolo goes next. A locked next
+  // stop still pulses — the energy points at it either way. No current
+  // station (fresh line, showroom, all done) means no pulse.
+  const pulseSegIdxs = new Set<number>();
+  if (currentId && !reduceMotion) {
+    const curPtIdx = pts.findIndex(
+      (p) => p.kind === 'station' && p.station?.id === currentId,
+    );
+    if (curPtIdx >= 0) {
+      let nextStopIdx = -1;
+      for (let i = curPtIdx + 1; i < pts.length; i++) {
+        if (pts[i]!.kind !== 'postcard') {
+          nextStopIdx = i;
+          break;
+        }
+      }
+      if (nextStopIdx > curPtIdx) {
+        for (let i = curPtIdx; i < nextStopIdx; i++) pulseSegIdxs.add(i);
+      }
+    }
+  }
+
   return (
     <Screen padTop={false}>
       {/* Boarding-pass header — full-ticket treatment */}
@@ -504,18 +607,18 @@ export default function JourneyScreen() {
               height={end - start}
               viewBox={`0 ${start} ${mapW} ${end - start}`}
             >
-              {segs
-                .filter((s) => s.y1 > start && s.y0 < end)
-                .map((s, i) => {
-                  const railColor = s.lit ? line.accent : GRAY;
-                  return (
-                    <G key={i} opacity={s.lit ? 1 : 0.5}>
-                      <Path d={s.d} stroke={railColor} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
-                      <Path d={s.d} stroke={railColor} strokeWidth={8.5} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
-                      <Path d={s.d} stroke={colors.background} strokeWidth={4} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
-                    </G>
-                  );
-                })}
+              {segs.map((s, i) => {
+                if (!(s.y1 > start && s.y0 < end)) return null;
+                const railColor = s.lit ? line.accent : GRAY;
+                return (
+                  <G key={i} opacity={s.lit ? 1 : 0.5}>
+                    <Path d={s.d} stroke={railColor} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
+                    <Path d={s.d} stroke={railColor} strokeWidth={8.5} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
+                    <Path d={s.d} stroke={colors.background} strokeWidth={4} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
+                    {pulseSegIdxs.has(i) && <RailPulse d={s.d} color={line.accent} />}
+                  </G>
+                );
+              })}
               {/* Trackside scenery: one small scene in the free strip beside
                   each station (opposite its card), cycling by station index. */}
               {stationPts.map((p, i) => {
@@ -694,13 +797,33 @@ export default function JourneyScreen() {
                       style={[
                         styles.card,
                         isCurrent && {
-                          backgroundColor: colors.card,
+                          backgroundColor: stationSurface,
                           borderWidth: 1,
                           borderColor: zoneColor,
+                          paddingTop: 14,
                         },
                       ]}
                     >
+                      {/* Signboard dressing: the current stop gets a full-width
+                          zone-color roof bar + pulsing glow; every other stop
+                          hangs a small tick from its top edge (web parity). */}
+                      {isCurrent ? (
+                        <View
+                          testID="signboard-bar"
+                          style={[styles.signboardBar, { backgroundColor: zoneColor }]}
+                        />
+                      ) : (
+                        <View
+                          testID={`stop-tick-${s.id}`}
+                          style={[
+                            styles.stopTick,
+                            { backgroundColor: accessible ? zoneColor : colors.border },
+                          ]}
+                        />
+                      )}
+                      {isCurrent && !reduceMotion && <StopGlowPulse color={zoneColor} />}
                       <View style={styles.cardTitleRow}>
+                        {isCurrent && <StationSignGlyph color={zoneColor} />}
                         <Text
                           style={[
                             styles.cardTitle,
@@ -740,11 +863,46 @@ export default function JourneyScreen() {
                         ]}
                       >
                         {statusCopy}
-                        {s.attemptedCount
-                          ? ` · ${s.masteredCount}/${s.phraseCount} mastered`
-                          : ` · ${s.phraseCount} phrases`}
+                        {!s.attemptedCount ? ` · ${s.phraseCount} phrases` : ''}
                         {isCurrent && ' · Bolo is waiting here'}
                       </Text>
+                      {/* Started stops trade the text fraction for a real
+                          progress track (web parity). */}
+                      {s.attemptedCount ? (
+                        <View style={styles.cardProgressRow}>
+                          <View
+                            style={[
+                              styles.cardProgressTrack,
+                              { backgroundColor: accessible ? `${zoneColor}26` : colors.muted },
+                            ]}
+                          >
+                            <View
+                              testID={`stop-progress-${s.id}`}
+                              style={[
+                                styles.cardProgressFill,
+                                {
+                                  width: Math.round(
+                                    (Math.min(s.masteredCount ?? 0, s.phraseCount ?? 0) /
+                                      Math.max(s.phraseCount ?? 0, 1)) *
+                                      CARD_PROGRESS_W,
+                                  ),
+                                  backgroundColor: accessible
+                                    ? zoneColor
+                                    : colors.mutedForeground,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.cardProgressLabel,
+                              { color: isCurrent ? zoneColor : colors.mutedForeground },
+                            ]}
+                          >
+                            {s.masteredCount}/{s.phraseCount} mastered
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     {side === 'right' && isCurrent && <Mascot pose="cheer" size={44} motion="none" />}
                   </Pressable>
@@ -1106,7 +1264,58 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    position: 'relative',
   },
+  // Full-width zone-color roof bar across the current stop's card (the
+  // signboard's painted roof; web: h-1.5 rounded-t accent bar).
+  signboardBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 6,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+  },
+  // Short platform tick hanging from every other stop's top edge.
+  stopTick: {
+    position: 'absolute',
+    top: 0,
+    left: 12,
+    width: 28,
+    height: 4,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    opacity: 0.55,
+  },
+  // Pulsing ring hugging the current card's border (opacity animated by
+  // StopGlowPulse; ring + shadow are static).
+  stopGlow: {
+    position: 'absolute',
+    left: -4,
+    right: -4,
+    top: -4,
+    bottom: -4,
+    borderRadius: 14,
+    borderWidth: 3,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  cardProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  cardProgressTrack: {
+    width: CARD_PROGRESS_W,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  cardProgressFill: { height: 6, borderRadius: 3 },
+  cardProgressLabel: { fontFamily: AppFonts.bold, fontSize: 10 },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',

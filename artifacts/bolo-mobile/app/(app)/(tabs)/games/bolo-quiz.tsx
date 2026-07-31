@@ -535,18 +535,21 @@ export function AlreadyDoneScreen({
 export default function BoloQuizScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { isPlus } = useEntitlements();
+  const { isPlus, isLoading: entitlementsLoading } = useEntitlements();
   const { activeLang, activeLanguage } = useLanguage();
   const accountQuery = useGetAccount();
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
   const { soundOn, toggle: toggleSound } = useGameAudio();
 
-  // Gate: redirect non-Plus users
+  // Gate: redirect non-Plus users. Fail closed while entitlements are still
+  // loading (#892): a Plus user deep-linking straight here must not be
+  // bounced to the paywall before the entitlements query resolves.
   useEffect(() => {
+    if (entitlementsLoading) return;
     if (!isPlus) {
       router.replace('/(app)/paywall');
     }
-  }, [isPlus, router]);
+  }, [isPlus, entitlementsLoading, router]);
 
   const quizParams = { lang: activeLang };
   const { data, isLoading } = useGetDailyQuiz(quizParams, {

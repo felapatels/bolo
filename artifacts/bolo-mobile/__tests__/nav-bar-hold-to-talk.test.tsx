@@ -865,6 +865,24 @@ describe('Barge-in during playing via the registered start wrapper', () => {
     expect(playStreamingAudio).toHaveBeenCalledTimes(1);
   });
 
+  // Build 31 (#890): holding the ON-SCREEN mascot during 'playing' barges in
+  // exactly like the nav bird — the old pressIn gate only fired for
+  // idle/error/processing, so holding Bolo himself while he was talking did
+  // nothing and learners had to find the little skip button instead.
+  test('holding the on-screen mascot during playing barges in like the nav bird', async () => {
+    await reachPlayingPhase();
+
+    // While Bolo talks the mascot still reads 'Hold to speak' (it only flips
+    // to 'Release to send' once recording is live).
+    await act(async () => {
+      fireEvent(screen.getByLabelText('Hold to speak'), 'pressIn');
+    });
+
+    await waitFor(() => expect(capturedCtx?.phaseRef.current).toBe('recording'));
+    // The in-flight streaming reply audio was stopped by the same gesture.
+    expect(mockState.streamStop).toHaveBeenCalled();
+  });
+
   test('squawk chirp player keeps the audio session active (loudness seam guard)', async () => {
     await reachPlayingPhase();
 

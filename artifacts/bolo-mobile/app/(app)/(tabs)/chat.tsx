@@ -1578,7 +1578,11 @@ export default function ChatScreen() {
           isPressingRef.current = true;
           // Dismiss the hold-hint on first interaction.
           dismissHoldHint();
-          if (phase === 'idle' || phase === 'error' || phase === 'processing') void handleStartRecording();
+          // 'playing' included since #890: holding Bolo himself now barges in
+          // exactly like the nav bird — handleStartRecording stops playback,
+          // orphans the in-flight turn, and records on the same gesture.
+          if (phase === 'idle' || phase === 'error' || phase === 'processing' || phase === 'playing')
+            void handleStartRecording();
         }}
         onPressOut={() => {
           isPressingRef.current = false;
@@ -1588,7 +1592,7 @@ export default function ChatScreen() {
           // completes and calls handleStopRecording itself.
           if (phase === 'recording') void handleStopRecording();
         }}
-        disabled={phase === 'playing' || capExhausted}
+        disabled={capExhausted}
         style={[styles.mascotArea, messages.length === 0 && styles.mascotAreaFull]}
         accessibilityRole="button"
         accessibilityLabel={

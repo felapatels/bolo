@@ -1,0 +1,233 @@
+// Build 31 items 2 + 3: the home boarding pass gains progress-aware CTA copy
+// and the stub tear-off activation. Pinned here:
+//   - CTA 3-state copy (Start / Resume at Stop N · X to go / Continue), with
+//     the phrase counter dropping at zero-left and going singular at one.
+//   - The tear NEVER blocks navigation: onPress fires at the 500ms mark of
+//     the tear, re-presses during the tear are swallowed, and the pass
+//     restores (re-pressable) after the reset window.
+//   - Reduced motion activates instantly with zero theatrics.
+
+import React from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
+
+const mockState: Record<string, any> = {
+  journey: { current: null, doneCount: 0 },
+};
+
+jest.mock('react-native-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const passthrough = ({ children, ...props }: any) =>
+    React.createElement(View, props, children);
+  return {
+    __esModule: true,
+    default: passthrough,
+    Svg: passthrough,
+    G: passthrough,
+    Path: passthrough,
+    Circle: passthrough,
+    Rect: passthrough,
+    Pattern: passthrough,
+    Defs: passthrough,
+    Line: passthrough,
+  };
+});
+
+jest.mock('@expo/vector-icons', () => {
+  const { Text } = require('react-native');
+  return {
+    Feather: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
+  };
+});
+
+jest.mock('@/constants/fonts', () => ({
+  AppFonts: {
+    regular: 'Inter_400Regular',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+    extrabold: 'Inter_800ExtraBold',
+  },
+  nativeTextStyle: () => ({}),
+  isTallCascadingScript: () => false,
+}));
+
+jest.mock('@/hooks/useColors', () => ({
+  useColors: () => ({
+    background: '#FFFFFF',
+    card: '#F5F5F5',
+    border: '#E0E0E0',
+    cardBorder: '#E0E0E0',
+    foreground: '#1A1A1A',
+    mutedForeground: '#888888',
+    primary: '#4F46E5',
+    secondary: '#0D9488',
+  }),
+}));
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({
+    activeLang: 'hi',
+    activeLanguage: { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  }),
+}));
+
+jest.mock('@/lib/useJourneyProgress', () => ({
+  useJourneyProgress: () => mockState.journey,
+}));
+
+import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+
+const CURRENT = {
+  geoName: 'New Delhi',
+  stopNumber: 3,
+  stopCount: 9,
+  phraseCount: 10,
+  masteredCount: 6,
+  zoneIndex: 1,
+  started: true,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockState.journey = { current: null, doneCount: 0 };
+});
+
+describe('progress-aware CTA copy (web home.tsx parity)', () => {
+  it('fresh line: Start your journey', () => {
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Start your journey')).toBeOnTheScreen();
+  });
+
+  it('mid-journey: Resume at Stop N with phrases-to-go counter', () => {
+    mockState.journey = { current: CURRENT, doneCount: 2 };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Resume at Stop 3 · 4 phrases to go')).toBeOnTheScreen();
+  });
+
+  it('singular counter at one phrase left', () => {
+    mockState.journey = {
+      current: { ...CURRENT, masteredCount: 9 },
+      doneCount: 2,
+    };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Resume at Stop 3 · 1 phrase to go')).toBeOnTheScreen();
+  });
+
+  it('drops the counter when the stop is fully mastered', () => {
+    mockState.journey = {
+      current: { ...CURRENT, masteredCount: 10 },
+      doneCount: 2,
+    };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Resume at Stop 3')).toBeOnTheScreen();
+  });
+
+  it('progress but no current stop (locked/errored): Continue your journey', () => {
+    mockState.journey = { current: null, doneCount: 3 };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Continue your journey')).toBeOnTheScreen();
+  });
+});
+
+describe('stub tear-off activation', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  it('fires onPress at the 500ms tear mark — navigation is never blocked', () => {
+    const onPress = jest.fn();
+    render(<JourneyPassCard onPress={onPress} />);
+
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    expect(onPress).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(499);
+    });
+    expect(onPress).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows re-presses while tearing, then restores to pressable', () => {
+    const onPress = jest.fn();
+    render(<JourneyPassCard onPress={onPress} />);
+
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    // Mid-tear re-press: ignored entirely (no double navigation).
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+
+    // After the reset window the intact pass is back and pressable again.
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onPress).toHaveBeenCalledTimes(2);
+  });
+
+  it('rapid double-press before React commits still navigates exactly once', () => {
+    const onPress = jest.fn();
+    render(<JourneyPassCard onPress={onPress} />);
+
+    // Two presses in the SAME event burst — the tearing state has not
+    // committed yet, so only a synchronous ref guard can swallow the second.
+    const card = screen.getByTestId('journey-pass-card');
+    fireEvent.press(card);
+    fireEvent.press(card);
+
+    act(() => {
+      jest.advanceTimersByTime(1200);
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('navigates with the LATEST onPress when the parent rerenders mid-tear', () => {
+    const stale = jest.fn();
+    const fresh = jest.fn();
+    const view = render(<JourneyPassCard onPress={stale} />);
+
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    // Parent rerenders with a new callback during the 500ms delay.
+    view.rerender(<JourneyPassCard onPress={fresh} />);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(stale).not.toHaveBeenCalled();
+    expect(fresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('reduced motion activates instantly with no tear', () => {
+    const reanimated = require('react-native-reanimated');
+    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    try {
+      const onPress = jest.fn();
+      render(<JourneyPassCard onPress={onPress} />);
+      fireEvent.press(screen.getByTestId('journey-pass-card'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+      // No idle theatrics either: glow and shimmer never mount.
+      expect(screen.queryByTestId('pass-glow')).toBeNull();
+      expect(screen.queryByTestId('pass-shimmer')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

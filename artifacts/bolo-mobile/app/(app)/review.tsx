@@ -298,7 +298,6 @@ function ReviewHeader({ onClose, label }: { onClose: () => void; label: string }
 
 function RecordButton({
   phase,
-  coachPlaying,
   unsupported,
   onPressIn,
   onPressOut,
@@ -307,7 +306,6 @@ function RecordButton({
   noInput,
 }: {
   phase: Phase;
-  coachPlaying: boolean;
   /** Unsupported languages record without scoring, so the hint copy changes. */
   unsupported?: boolean;
   onPressIn: () => void;
@@ -350,7 +348,10 @@ function RecordButton({
 
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
-  const blocked = evaluating || coachPlaying;
+  // Barge-in (#913, web Task 907 parity): the mic stays live while the coach
+  // is speaking — a hold stops the audio and records on the same gesture
+  // (startRecording calls stopPlayback first). Only evaluation blocks it.
+  const blocked = evaluating;
 
   return (
     <View style={styles.recordWrap}>
@@ -365,10 +366,7 @@ function RecordButton({
           onPressOut={onPressOut}
           style={[
             styles.recordBtn,
-            {
-              backgroundColor: recording ? colors.accent : colors.primary,
-              opacity: blocked && !evaluating ? 0.45 : 1,
-            },
+            { backgroundColor: recording ? colors.accent : colors.primary },
           ]}
         >
           {evaluating ? (
@@ -378,17 +376,20 @@ function RecordButton({
           )}
         </Pressable>
       </View>
-      {/* Spec D2: live waveform — only while actually recording. */}
-      {recording ? (
-        <Waveform amplitude={amplitude} level={ampLevel} height={22} />
-      ) : null}
-      <Text style={[styles.recordHint, { color: colors.mutedForeground }]}>
-        {evaluating
-          ? unsupported
-            ? 'Saving your recording...'
-            : 'Scoring your pronunciation...'
-          : coachPlaying
-            ? 'Listen first...'
+      {/* Spec D2: live waveform — only while actually recording. The slot
+          keeps its height in every phase so the button never shifts under a
+          holding finger when recording starts (frame-stability contract). */}
+      <View style={styles.waveSlot} testID="waveform-slot">
+        {recording ? (
+          <Waveform amplitude={amplitude} level={ampLevel} height={22} />
+        ) : null}
+      </View>
+      <View style={styles.hintSlot} testID="record-hint-slot">
+        <Text style={[styles.recordHint, { color: colors.mutedForeground }]}>
+          {evaluating
+            ? unsupported
+              ? 'Saving your recording...'
+              : 'Scoring your pronunciation...'
             : recording
               ? noInput
                 ? "We can't hear you - check your mic"
@@ -396,7 +397,8 @@ function RecordButton({
                   ? 'Release to compare'
                   : 'Release to score'
               : 'Hold and say it out loud'}
-      </Text>
+        </Text>
+      </View>
     </View>
   );
 }
@@ -1463,6 +1465,17 @@ export default function ReviewScreen() {
                 We heard: "{result.transcript}"
               </Text>
             ) : null}
+            {/* Card-style romanized form of the transcript (#914, same rules
+                as practice per Task 907): the server sends "" for scripts it
+                cannot romanize cleanly and on nocatch, and an already-Latin
+                transcript would just repeat — hide the line in both cases. */}
+            {result.transcript &&
+            result.transcriptRomanized &&
+            result.transcriptRomanized.toLowerCase() !== result.transcript.toLowerCase() ? (
+              <Text style={[styles.heardRomanized, { color: colors.mutedForeground }]}>
+                "{result.transcriptRomanized}"
+              </Text>
+            ) : null}
             {result.feedback ? (
               <Text style={[styles.feedback, { color: colors.foreground }]}>{result.feedback}</Text>
             ) : null}
@@ -1533,7 +1546,6 @@ export default function ReviewScreen() {
         ) : (
           <RecordButton
             phase={phase}
-            coachPlaying={coachPlaying}
             unsupported={isUnsupported}
             onPressIn={() => {
               isPressingRef.current = true;
@@ -1678,6 +1690,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heard: { fontFamily: AppFonts.semibold, fontSize: 15, marginTop: 12, fontStyle: 'italic' },
+  heardRomanized: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2, fontStyle: 'italic' },
   feedback: { fontFamily: AppFonts.regular, fontSize: 15, lineHeight: 22, marginTop: 10 },
   tipBox: {
     flexDirection: 'row',
@@ -1716,7 +1729,11 @@ const styles = StyleSheet.create({
   recordCenter: { alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 88, height: 88, borderRadius: 44 },
   recordBtn: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
-  recordHint: { fontFamily: AppFonts.semibold, fontSize: 15 },
+  // Frame-stability contract: waveform and hint render in reserved fixed-
+  // height slots so phase changes never move the record button mid-hold.
+  waveSlot: { height: 22, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  hintSlot: { height: 40, alignSelf: 'stretch', alignItems: 'center' },
+  recordHint: { fontFamily: AppFonts.semibold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
   emptyWrap: {
     flex: 1,
     alignItems: 'center',

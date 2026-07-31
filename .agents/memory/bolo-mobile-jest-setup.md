@@ -59,6 +59,22 @@ filter which sees stale dist.
 - Fix pattern: script-patch the stubs into the TOP of each `() => ({ ... })` factory; later duplicate keys win in object literals, so file-specific mock overrides are unaffected. Watch for the odd factory written as `() => { return {...} }` (block body) — the insert regex must skip or handle it.
 - Playwright-against-Expo-web notes: qa/node_modules has playwright-core (ESM ignores NODE_PATH); RN Modal overlays don't hide the page underneath from `getByText`, so target modal rows by their unique subtitle (e.g. "Gujarati · Gujarati"), not the native-script name that also appears on the home pill.
 
+## Reanimated mock specifics worth relying on
+- `useReducedMotion` in the jest-setup reanimated mock returns false but is
+  `jest.spyOn`-able from a test (`jest.spyOn(require('react-native-reanimated'), 'useReducedMotion').mockReturnValue(true)`)
+  to drive reduced-motion branches without a separate mock file.
+- `useAnimatedProps` in the setup mock EXECUTES the worklet once at render.
+  Worklets must therefore tolerate a synchronous first call (no `.value` writes
+  that assume UI-thread context); in exchange, tests see the initial derived
+  props for free.
+- rn-svg is NOT globally mocked — each test file that renders svg components
+  needs a local `jest.mock('react-native-svg', ...)` including every primitive
+  the component tree uses (Rect, Pattern, Line, Path, Circle...). A missing
+  primitive renders as undefined and RNTL throws a cryptic element-type error.
+- Assert "no percentage sizing" regressions via
+  `expect(JSON.stringify(screen.toJSON())).not.toContain('"%')` — but never
+  `JSON.stringify` a host element's `props.children` (circular fiber refs).
+
 ## onLayout-gated UI renders empty in jest
 Components that render children only after an `onLayout` measurement (e.g. the
 Word Match card grid sizes cards from the measured grid box) show an EMPTY
