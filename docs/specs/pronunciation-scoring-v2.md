@@ -268,6 +268,16 @@ Following the C1 rollout precedent (LLMs cannot reliably validate low-resource c
 | brx | Bodo | Indefinitely transcript-scored | Low-resource; LLM unreliable |
 | mni | Manipuri | Indefinitely transcript-scored | Low-resource; LLM unreliable |
 
+### Backend swappability
+
+The grading backend is an implementation detail behind the score. The client contract and band ladder are backend-agnostic: five bands (perfect/great/good/almost/retry), the frozen 80/55 credit-group edges, nocatch semantics, and `scoreBands.ts` thresholds are all unchanged regardless of which backend produces the raw numeric score.
+
+The gpt-audio ensemble defined in this spec is the initial production backend. The anticipated long-term replacement is a self-hosted phoneme-scoring backend -- IndicMFA/GOP or a wav2vec2-class model -- which would eliminate the per-attempt API cost, extend reliable coverage to all 22 languages including the four low-resource languages currently excluded from audio grading, and keep learner audio inside the app's own infrastructure.
+
+Qualifying a replacement backend uses the same pilot harness acceptance criteria defined in section 1 (separation, stability, wrong-phrase handling, false negative rate). The voice contribution corpus collected under `docs/specs/voice-data-program.md` is the evaluation set for that qualification: real learner recordings with known bands and transcripts, spanning the language and accent distribution of the actual user population, are the ground truth against which any replacement is measured.
+
+Swapping the backend requires: (1) the replacement passes the pilot criteria on the contributed corpus; (2) `audioEnsembleGrade()` in `openai.ts` is replaced by a call to the new backend returning the same `{ median, raw, feedback, tip }` shape; (3) `scoring_path` in the `attempts` table records the new backend name. No client changes, no band-ladder changes, and no schema changes beyond the `scoring_path` string are required.
+
 ---
 
 ## 5. Cost, latency, and budget controls
