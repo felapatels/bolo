@@ -63,8 +63,13 @@ export function UpgradeCard({
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-black leading-tight text-foreground">
+        {/* flex-wrap: the pill is deliberately never-shrink/never-wrap (the
+            language picker relies on that), so at narrow widths this row must
+            let it yield to the next line instead of squeezing the title into
+            one-word-per-line wrapping or clipping the card edge. min-w-0 on
+            the title keeps long words truncatable within the wrapped line. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 className="min-w-0 text-lg font-black leading-tight text-foreground">
             {title}
           </h3>
           <PlusPill />
