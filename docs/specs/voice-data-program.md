@@ -458,3 +458,13 @@ The spec proposes a one-time grant of 10 tokens (`voice_contribution_optin` sour
 
 **Finding 7 -- OpenAI API terms and offline evaluation (confirm before using corpus):**
 Retained recordings continue to flow through gpt-audio for real-time scoring (unchanged). The additional use case -- using the labeled corpus for offline evaluation of alternative scoring backends (see `docs/specs/pronunciation-scoring-v2.md`, Backend swappability note) -- is a distinct use of the audio data from real-time API processing. Confirm with Aakesh (and if necessary with legal counsel) whether OpenAI's API terms permit the use of audio data submitted via the API as an offline evaluation corpus. This is a terms-of-service question, not a technical one, and it affects whether the corpus can be used to qualify a self-hosted replacement backend.
+
+### Decisions (July 31, 2025)
+
+- **Finding 1:** Fix pulled forward to a standalone pre-build-32 task (orphaned deletion rows).
+- **Finding 2:** Provider confirmed as Cloudflare R2; credential provisioning happens at the start of build 32.
+- **Finding 3:** Bundled into a single legal consultation at build 32 planning, together with Finding 4's India-residency question and Finding 7.
+- **Finding 4:** Cloudflare's standard DPA will be signed at account creation regardless of EU/UK scope.
+- **Finding 5:** 18+ declaration checkbox is sufficient for launch; revisit before any India-focused marketing push.
+- **Finding 6:** 10 tokens confirmed.
+- **Finding 7:** See Finding 3 bundle.
