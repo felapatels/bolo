@@ -1997,12 +1997,20 @@ router.get(
             : {}),
           // allTopBand: true when every phrase in the group has a best score
           // >= BAND_THRESHOLDS.great (80, FROZEN). Used for the polish stamp.
-          allTopBand:
-            phraseIds.length > 0 &&
-            phraseIds.every((pid) => {
-              const s = stats.get(pid);
-              return s != null && s.attemptCount > 0 && (s.bestScore ?? -1) >= BAND_THRESHOLDS.great;
-            }),
+          // Omitted for showroom callers: the field is meaningless there (a
+          // locked/teaser caller can never attempt the full group) and the
+          // showroom contract is counts-and-statuses-only. The field is
+          // optional/additive in the schema, so omission is contract-safe.
+          ...(showroom
+            ? {}
+            : {
+                allTopBand:
+                  phraseIds.length > 0 &&
+                  phraseIds.every((pid) => {
+                    const s = stats.get(pid);
+                    return s != null && s.attemptCount > 0 && (s.bestScore ?? -1) >= BAND_THRESHOLDS.great;
+                  }),
+              }),
         };
       }),
       unassignedCount: ctx.unassignedCount,
