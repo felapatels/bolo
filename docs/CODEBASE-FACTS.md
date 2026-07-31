@@ -6,6 +6,8 @@ Last updated after: Spec 0 Task 1, Spec 0 Task 2, Spec 1a, Spec 1 v3, the band-d
 
 **Maintenance rule:** after every completed task, append what changed. Anything in here that turns out to be wrong is worth more than the correction itself, because it means a spec was written against it.
 
+Last updated after: ... Task 927 (Token Economy design spec, July 31, 2026 — see `docs/specs/token-economy.md`; no code changes; key findings: (1) consumable NON_SUBSCRIPTION_PURCHASE events would accidentally grant Plus via the existing concernedEntitlement null-fallback in revenuecatSync.ts — must add to IGNORED_EVENT_TYPES before any token SKUs go live; (2) daily lesson limit is dead code since July 30 and recommended for removal in Build 32; (3) advisory lock pattern for token spend = pg_advisory_xact_lock consistent with teaser and phraseReports patterns; (4) token balance = SUM(token_ledger.amount) - SUM(token_spend_ledger.cost), never a stored counter; Build 32 slice: ledger tables + earn hooks + Station Pause + Express Multiplier + RevenueCat NON_SUBSCRIPTION_PURCHASE handler + tokenBalance on /progress/summary + remove dead cap code; Build 33 slice: test-out retries + Streak Repair + All-Access monthly grant + web/mobile surfaces)
+
 **Section numbering is stable.** Specs reference section 9 for working rules. Do not renumber.
 
 ---
