@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  findNodeHandle,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -36,21 +34,18 @@ import {
   useListIncomingFriendRequests,
   getGetDailyQuizQueryKey,
   getListReviewPhrasesQueryKey,
-  type Category,
 } from '@workspace/api-client-react';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
-import { useTour, TOUR_STEP_INDEX } from '@/contexts/TourContext';
-import { SkeletonCard } from '@/components/SkeletonCard';
 import { PressableScale } from '@/components/PressableScale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
-import { categoryIcon, scoreColor } from '@/lib/ui';
+import { scoreColor } from '@/lib/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
@@ -161,58 +156,6 @@ export default function HomeScreen() {
 
   const { isIdle, onActivity } = useIdleTimer(10);
 
-  // Spotlight targets for the welcome tour — the stats row ("watch yourself
-  // grow") and the Topics section header ("pick a topic").
-  const { registerHighlightRef, registerScrollIntoView } = useTour();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const statsRowRef = useRef<View>(null);
-  const topicsRef = useRef<View>(null);
-  useEffect(() => {
-    registerHighlightRef(TOUR_STEP_INDEX.topics, topicsRef);
-    registerHighlightRef(TOUR_STEP_INDEX.progress, statsRowRef);
-  }, [registerHighlightRef]);
-
-  useEffect(() => {
-    // Stats row is near the top of the page — scrolling to 0 ensures it is
-    // fully visible before the spotlight is measured.
-    registerScrollIntoView(TOUR_STEP_INDEX.progress, () => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    });
-
-    // Topics header may be below the fold.  Measure its position relative to
-    // the ScrollView so we can scroll exactly to it (minus a small margin so
-    // the element isn't right at the very top edge).
-    registerScrollIntoView(TOUR_STEP_INDEX.topics, () => {
-      // findNodeHandle is a native-only API that throws on web — skip straight
-      // to the fixed-offset fallback when running in Expo web / browser preview.
-      if (Platform.OS === 'web') {
-        scrollViewRef.current?.scrollTo({ y: 500, animated: true });
-        return;
-      }
-      const scrollNode = findNodeHandle(scrollViewRef.current);
-      if (!topicsRef.current || !scrollNode) {
-        // Fallback: just scroll a reasonable distance to reveal the Topics
-        // section, which typically starts around 450–600 dp from the top.
-        scrollViewRef.current?.scrollTo({ y: 500, animated: true });
-        return;
-      }
-      topicsRef.current.measureLayout(
-        scrollNode,
-        (_, y) => {
-          // Scroll so the element sits 24 dp below the top of the viewport.
-          scrollViewRef.current?.scrollTo({
-            y: Math.max(0, y - 24),
-            animated: true,
-          });
-        },
-        () => {
-          // measureLayout failed (element not yet laid out) — use the fallback.
-          scrollViewRef.current?.scrollTo({ y: 500, animated: true });
-        },
-      );
-    });
-  }, [registerScrollIntoView]);
-
   const firstName = user?.firstName ?? 'friend';
   const nativeProps = nativeTextStyle(activeLanguage);
   const nativeTallScript = isTallCascadingScript(activeLanguage);
@@ -295,7 +238,6 @@ export default function HomeScreen() {
         toastKey={goalToastKey}
       />
       <ScrollView
-        ref={scrollViewRef}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: TAB_BAR_CLEARANCE,
@@ -407,7 +349,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
-        <View ref={statsRowRef} collapsable={false} style={styles.statsRowWrapper}>
+        <View style={styles.statsRowWrapper}>
           <LinearGradient
             colors={['#4f46e5', '#3b6fef', '#7c3aed']}
             start={{ x: 0, y: 0 }}
@@ -489,6 +431,93 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
+        {/* Phrasebook door (Task #906): the topic grid moved to the
+            /(app)/phrasebook library screen; home keeps one quiet bordered
+            card directly below the boarding pass so the pass stays the
+            loudest element. The chip row reuses the categories this screen
+            already fetches (no new API calls). */}
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(210)}>
+          <View
+            style={[
+              styles.doorCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <PressableScale
+              onPress={() => {
+                hapticLight();
+                router.push('/(app)/phrasebook');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Open the Phrasebook"
+              style={styles.doorHeader}
+            >
+              <View style={[styles.doorIcon, { backgroundColor: `${colors.primary}1A` }]}>
+                <Feather name="book-open" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.doorTitle, { color: colors.foreground }]}>
+                  Phrasebook
+                </Text>
+                <Text
+                  style={[styles.doorSub, { color: colors.mutedForeground }]}
+                  numberOfLines={1}
+                >
+                  Browse and practice any topic
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+            </PressableScale>
+            {(categories.data ?? []).length > 0 ? (
+              <View style={styles.doorChips}>
+                {(categories.data ?? []).slice(0, 3).map((cat) => (
+                  <PressableScale
+                    key={cat.id}
+                    onPress={() => {
+                      hapticLight();
+                      router.push(`/(app)/category/${cat.id}`);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open the ${cat.title} topic`}
+                    style={[
+                      styles.doorChip,
+                      { backgroundColor: colors.background, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.doorChipText, { color: colors.foreground }]}>
+                      {cat.title}
+                    </Text>
+                    {cat.masteredCount > 0 ? (
+                      <Text style={[styles.doorChipCount, { color: colors.mutedForeground }]}>
+                        {cat.masteredCount}/{cat.phraseCount}
+                      </Text>
+                    ) : null}
+                  </PressableScale>
+                ))}
+                {(categories.data ?? []).length > 3 ? (
+                  <PressableScale
+                    onPress={() => {
+                      hapticLight();
+                      router.push('/(app)/phrasebook');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="See all topics in the Phrasebook"
+                    style={[
+                      styles.doorChip,
+                      styles.doorChipMore,
+                      { borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.doorChipCount, { color: colors.mutedForeground }]}>
+                      +{(categories.data ?? []).length - 3} more
+                    </Text>
+                  </PressableScale>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        </Animated.View>
+
         {/* Daily quiz card */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(220)}>
           <DailyQuizCard
@@ -529,43 +558,6 @@ export default function HomeScreen() {
             <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
           </Animated.View>
         ) : null}
-
-        {/* Topics */}
-        <View ref={topicsRef} collapsable={false}>
-          <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.duration(500).delay(380)}
-            style={[styles.sectionTitle, { color: colors.foreground }]}
-          >
-            Topics
-          </Animated.Text>
-        </View>
-
-        {categories.isLoading ? (
-          <View style={{ gap: 12, marginVertical: 8 }}>
-            {[0, 1, 2, 3].map((i) => (
-              <SkeletonCard key={i} height={80} borderRadius={14} />
-            ))}
-          </View>
-        ) : categories.isError ? (
-          <ErrorNote
-            message="Couldn't load topics. Pull to refresh."
-            color={colors.destructive}
-          />
-        ) : (categories.data ?? []).length === 0 ? (
-          <ErrorNote
-            message="No topics available for this language yet."
-            color={colors.mutedForeground}
-          />
-        ) : (
-          (categories.data ?? []).map((cat, i) => (
-            <CategoryCard
-              key={cat.id}
-              index={i}
-              category={cat}
-              onPress={() => router.push(`/(app)/category/${cat.id}`)}
-            />
-          ))
-        )}
 
         {/* Recent plays */}
         {(recent.data ?? []).length > 0 ? (
@@ -937,109 +929,6 @@ function GradientStatCell({
   );
 }
 
-function CategoryCard({
-  category,
-  onPress,
-  index,
-}: {
-  category: Category;
-  onPress: () => void;
-  index: number;
-}) {
-  const colors = useColors();
-  const { activeLanguage } = useLanguage();
-  const pct =
-    category.phraseCount > 0
-      ? Math.round((category.masteredCount / category.phraseCount) * 100)
-      : 0;
-
-  const accent = category.accent || colors.primary;
-
-  const skipEnter = useAppearSkip();
-  return (
-    <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(420).delay(420 + index * 70)}>
-      <PressableScale
-        onPress={onPress}
-        style={[
-          styles.catCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: accent,
-            // 3-D tile shadow matching web's shadow-[0_6px_0_var(--tile)]
-            shadowColor: accent,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 1,
-            shadowRadius: 0,
-            elevation: 6,
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[`${accent}4D`, `${accent}1A`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.catIcon}
-        >
-          <Feather
-            name={categoryIcon(category.iconName)}
-            size={22}
-            color={accent}
-          />
-        </LinearGradient>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.catTitle, { color: colors.foreground }]}>
-            {category.title}
-          </Text>
-          {category.titleNative ? (
-            <Text
-              style={[
-                nativeTextStyle(activeLanguage),
-                styles.catNative,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              {category.titleNative}
-            </Text>
-          ) : null}
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressBar,
-                { backgroundColor: colors.muted },
-              ]}
-            >
-              <View
-                style={{
-                  width: `${pct}%`,
-                  height: '100%',
-                  backgroundColor: accent,
-                  borderRadius: 999,
-                }}
-              />
-            </View>
-            <View style={[styles.pctPill, { backgroundColor: accent }]}>
-              <Text style={styles.pctPillText}>{pct}%</Text>
-            </View>
-          </View>
-        </View>
-        {/* Circular play button replacing the plain chevron */}
-        <View style={[styles.catPlayBtn, { backgroundColor: accent }]}>
-          <Feather name="play" size={15} color="#ffffff" />
-        </View>
-      </PressableScale>
-    </Animated.View>
-  );
-}
-
-function ErrorNote({ message, color }: { message: string; color: string }) {
-  const skipEnter = useAppearSkip();
-  return (
-    <Animated.Text entering={skipEnter ? undefined : FadeIn} style={[styles.errorNote, { color }]}>
-      {message}
-    </Animated.Text>
-  );
-}
-
 const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
@@ -1192,48 +1081,47 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
-  catCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
+  // Phrasebook door card (Task #906)
+  doorCard: {
     borderRadius: 14,
     borderWidth: 1,
+    padding: 14,
     marginBottom: 12,
   },
-  catIcon: {
-    width: 46,
-    height: 46,
+  doorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  doorIcon: {
+    width: 42,
+    height: 42,
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  catTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
-  catNative: { fontSize: 13, marginTop: 1 },
-  progressTrack: {
+  doorTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
+  doorSub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 1 },
+  doorChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  doorChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  progressBar: {
-    flex: 1,
-    height: 7,
+    gap: 6,
     borderRadius: 999,
-    overflow: 'hidden',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  pctPill: {
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+  doorChipMore: {
+    borderStyle: 'dashed',
   },
-  pctPillText: {
-    fontFamily: AppFonts.bold,
-    fontSize: 11,
-    color: '#ffffff',
-  },
+  doorChipText: { fontFamily: AppFonts.bold, fontSize: 12 },
+  doorChipCount: { fontFamily: AppFonts.bold, fontSize: 12 },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1300,12 +1188,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconBtnBadgeText: { fontFamily: AppFonts.bold, fontSize: 10 },
-  errorNote: {
-    fontFamily: AppFonts.regular,
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 20,
-  },
   privacyLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1335,15 +1217,6 @@ const styles = StyleSheet.create({
   reviewTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
   reviewSub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
   reviewNow: { fontFamily: AppFonts.bold, fontSize: 13 },
-
-  // CategoryCard play button
-  catPlayBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   // Streak arc value wrapper
   arcValueWrap: {

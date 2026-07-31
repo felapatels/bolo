@@ -3,26 +3,28 @@
  * directly on home with the seeded default language (Hindi):
  *
  *  1. A fresh account (hasChosenLanguage=false) is NOT routed to
- *     /choose-language, and the guided tour fires on first home load.
+ *     /choose-language.
  *  2. Accounts that already chose a language behave identically.
  *  3. A failed account fetch still renders home without routing anywhere.
  *
  * The /choose-language screen itself remains a normal navigable route (see
  * language-choice-step.test.tsx), and the hasChosenLanguage flag + one-PATCH
- * helper are retained — only the redirect gate and its tour hold are gone.
+ * helper are retained — only the redirect gate is gone.
  *
- * Exercises the real AppLayout bootstrappers + real TourContext.
+ * (The guided tour and its auto-launch were removed entirely in Task #906,
+ * so this suite no longer asserts anything about tour behavior.)
+ *
+ * Exercises the real AppLayout.
  */
 
 import React from 'react';
-import { render, screen, act } from '@testing-library/react-native';
+import { render, act } from '@testing-library/react-native';
 
 // ─── mutable state controlled per-test ──────────────────────────────────────
 
 const mockState = {
   /** null = account still loading / fetch failed (no data) */
   hasChosenLanguage: false as boolean | null,
-  hasCompletedTour: false,
   push: jest.fn(),
   replace: jest.fn(),
 };
@@ -42,7 +44,6 @@ jest.mock('@workspace/api-client-react', () => ({
         : {
             preferences: {
               learning: {
-                hasCompletedTour: mockState.hasCompletedTour,
                 hasChosenLanguage: mockState.hasChosenLanguage,
               },
             },
@@ -96,19 +97,6 @@ jest.mock('@/components/ReminderScheduler', () => ({
   ReminderScheduler: () => null,
 }));
 
-// GuidedTour probe: renders testID="tour-overlay" only while the tour is open.
-jest.mock('@/components/GuidedTour', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const { useTour } = require('@/contexts/TourContext');
-  return {
-    GuidedTour: () => {
-      const { isOpen } = useTour();
-      return isOpen ? React.createElement(View, { testID: 'tour-overlay' }) : null;
-    },
-  };
-});
-
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     background: '#FFFFFF',
@@ -123,7 +111,6 @@ import AppLayout from '../app/(app)/_layout';
 
 beforeEach(() => {
   mockState.hasChosenLanguage = false;
-  mockState.hasCompletedTour = false;
   mockState.push = jest.fn();
   mockState.replace = jest.fn();
 });
@@ -136,13 +123,11 @@ const wasRoutedToStep = () =>
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe('B1 gate removal — fresh accounts land on home', () => {
-  test('a fresh account is NOT routed to the language step and the tour fires', async () => {
+  test('a fresh account is NOT routed to the language step', async () => {
     render(<AppLayout />);
     await act(async () => {});
 
     expect(wasRoutedToStep()).toBe(false);
-    // No gate hold: the tour opens on first home load (hasCompletedTour=false).
-    expect(screen.getByTestId('tour-overlay')).toBeTruthy();
   });
 
   test('accounts that already chose a language behave identically', async () => {
@@ -151,16 +136,6 @@ describe('B1 gate removal — fresh accounts land on home', () => {
     await act(async () => {});
 
     expect(wasRoutedToStep()).toBe(false);
-    expect(screen.getByTestId('tour-overlay')).toBeTruthy();
-  });
-
-  test('a completed tour never re-launches', async () => {
-    mockState.hasCompletedTour = true;
-    render(<AppLayout />);
-    await act(async () => {});
-
-    expect(wasRoutedToStep()).toBe(false);
-    expect(screen.queryByTestId('tour-overlay')).toBeNull();
   });
 
   test('a failed account fetch renders home without routing anywhere', async () => {

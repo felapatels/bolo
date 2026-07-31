@@ -239,8 +239,8 @@ describe("B1 gate removal", () => {
     // A fresh account (hasChosenLanguage=false) lands directly on home with
     // the seeded default language; /app renders without any gate wrapper.
     // import.meta.glob resolves at transform time — resurrecting the file
-    // breaks this pin. (The companion behavioral pin lives in
-    // tour-auto-launcher.test.tsx: fresh account → tour fires on home.)
+    // breaks this pin. (The guided tour and its auto-launcher were removed
+    // entirely in Task #906; fresh accounts simply land on home.)
     const matches = import.meta.glob("../components/language-choice-gate.tsx");
     expect(Object.keys(matches)).toHaveLength(0);
   });

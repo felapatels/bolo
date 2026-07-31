@@ -99,14 +99,6 @@ jest.mock('@/hooks/useIdleTimer', () => ({
   useIdleTimer: () => ({ isIdle: false, onActivity: jest.fn() }),
 }));
 
-jest.mock('@/contexts/TourContext', () => ({
-  useTour: () => ({
-    registerHighlightRef: jest.fn(),
-    registerScrollIntoView: jest.fn(),
-  }),
-  TOUR_STEP_INDEX: { topics: 0, progress: 1 },
-}));
-
 jest.mock('@/components/SkeletonCard', () => {
   const React = require('react');
   const { View } = require('react-native');

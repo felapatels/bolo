@@ -40,7 +40,7 @@ function subscribe(listener: () => void): () => void {
 
 /**
  * Reactive read of the session skip flag. Backed by a tiny external store so
- * the gate/tour bootstrappers re-evaluate the moment "Skip for now" is tapped
+ * dependent screens re-evaluate the moment "Skip for now" is tapped
  * (a plain module read would leave them holding stale state).
  */
 export function useLanguageStepSkipped(): boolean {

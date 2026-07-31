@@ -168,7 +168,7 @@ describe("home brand splash (task 902)", () => {
     // Splash overlays the ticket-and-card skeleton, never a bare spinner.
     expect(splash()).not.toBeNull();
     expect(skeleton()).not.toBeNull();
-    expect(screen.queryByText("Browse by topic")).toBeNull();
+    expect(screen.queryByText("Phrasebook")).toBeNull();
     // Mascot (canonical PNG), wordmark and train are all in the moment.
     expect(
       (splash() as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
@@ -184,7 +184,7 @@ describe("home brand splash (task 902)", () => {
     // is well under the 1800ms full-beat fallback, so this passing proves the
     // data-ready cut-short, not the timer.
     await waitFor(() => expect(splash()).toBeNull());
-    expect(screen.getByText("Browse by topic")).toBeInTheDocument();
+    expect(screen.getByText("Phrasebook")).toBeInTheDocument();
     expect(skeleton()).toBeNull();
   });
 
@@ -209,7 +209,7 @@ describe("home brand splash (task 902)", () => {
       await waitFor(() => expect(splash()).toBeNull());
       // Data is still loading: the skeleton stays, content does not appear.
       expect(skeleton()).not.toBeNull();
-      expect(screen.queryByText("Browse by topic")).toBeNull();
+      expect(screen.queryByText("Phrasebook")).toBeNull();
     } finally {
       spy.mockRestore();
     }
@@ -226,7 +226,7 @@ describe("home brand splash (task 902)", () => {
     h.catsLoading = false;
     renderHome();
     expect(splash()).toBeNull();
-    expect(screen.getByText("Browse by topic")).toBeInTheDocument();
+    expect(screen.getByText("Phrasebook")).toBeInTheDocument();
   });
 
   test("client-side navigation back to home does not replay the moment", () => {
@@ -252,7 +252,7 @@ describe("home brand splash (task 902)", () => {
       h.catsLoading = false;
       rerenderHome();
       await waitFor(() =>
-        expect(screen.getByText("Browse by topic")).toBeInTheDocument(),
+        expect(screen.getByText("Phrasebook")).toBeInTheDocument(),
       );
     } finally {
       errSpy.mockRestore();

@@ -5,6 +5,8 @@ description: Auto-launching flows that navigate (tours, wizards) race same-commi
 
 **Rule:** Any component that auto-launches a flow which NAVIGATES (guided tour, setup wizard) must check every onboarding precondition — not just "am I on a blocked route right now". Route-prefix blocklists are insufficient: at first render the location is still the pre-redirect route.
 
+The concrete tour instance below has since been removed from both clients; the rule applies to ANY auto-launching flow that navigates.
+
 **Why:** July 30, 2026 — Bolo web's tour auto-launcher only blocked by route prefix. On a truly fresh account (tour not completed AND language not chosen), the launcher's effect ran while location was still `/app`; `startTour` navigated to step 1's route (`/app`) in the same React commit as the language gate's `Redirect to /choose-language`. The navigations cancelled out: URL stayed `/app`, the gate kept rendering a spent `<Redirect>` (null), and the learner saw the tour over a BLANK page. Every brand-new signup would have hit it.
 
 **How to apply:**

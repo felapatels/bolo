@@ -14,6 +14,10 @@ export const ANALYTICS_EVENTS = {
   SESSION_COMPLETED: 'session_completed',
   PAYWALL_VIEWED: 'paywall_viewed',
   PURCHASE_COMPLETED: 'purchase_completed',
+  // Task #906: the Phrasebook surface replaced the home topic grid; fired on
+  // each open of the Phrasebook library screen. There was never a dedicated
+  // topic-open event, so nothing else moved or was renamed.
+  PHRASEBOOK_OPENED: 'phrasebook_opened',
 } as const;
 
 export type AnalyticsEvent =

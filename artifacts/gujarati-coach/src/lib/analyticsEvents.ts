@@ -16,6 +16,10 @@ export const ANALYTICS_EVENTS = {
   // Demo-day polish (P1 v2 item 2): distinguishes journey entries that come
   // through the home boarding-pass hero from direct /journey navigation.
   JOURNEY_ENTERED_VIA_HERO: "journey_entered_via_hero",
+  // Task #906: the Phrasebook surface replaced the home topic grid; fired on
+  // each open of the Phrasebook library page. There was never a dedicated
+  // topic-open event, so nothing else moved or was renamed.
+  PHRASEBOOK_OPENED: "phrasebook_opened",
 } as const;
 
 export type AnalyticsEvent =

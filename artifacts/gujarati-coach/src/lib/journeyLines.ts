@@ -1,8 +1,11 @@
 // Spec D1b: the 22 themed rail lines of the journey map — structured content,
 // never hardcoded in components (acceptance 9). Each language renders as one
 // line; the six zones map positionally onto the six categories in DB
-// sort_order (authoritative table below; a live mismatch is a hard stop, not a
-// remap — behavior 8). Zone geographic names are category-independent:
+// sort_order. The id joins in JOURNEY_ZONES are authoritative; its title
+// strings are a loading-state fallback only — live zone titles come from the
+// categories listing the journey clients already fetch (Task #906), so a
+// server-side rename needs no client release. Zone geographic names are
+// category-independent:
 // Z1-Z6 columns of the approved naming table apply in category order, the
 // zone's name appears on its sign/postcard, and inner stations are numbered
 // ("Stop N of M" — decision 4). Labels are English-only for v1 (decision 6);

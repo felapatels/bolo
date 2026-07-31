@@ -68,7 +68,6 @@ import { useTheme, type Theme } from "@/lib/theme-context";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
-import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -163,7 +162,6 @@ export default function Account() {
     (l) => l.code === chosenLanguage,
   )?.name;
   const { theme, setTheme } = useTheme();
-  const { startTour } = useTour();
 
   const { data: account, isLoading } = useGetAccount();
   const updateProfile = useUpdateAccountProfile();
@@ -696,19 +694,6 @@ export default function Account() {
           </div>
           )}
 
-          {/* Replay guided tour */}
-          <button
-            onClick={() => startTour({ steps: TOUR_STEPS })}
-            className="flex w-full items-center justify-between rounded-2xl border border-card-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
-          >
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground">Replay product tour</p>
-              <p className="truncate text-sm text-muted-foreground">
-                Walk through the Bolo! intro again.
-              </p>
-            </div>
-            <Map className="h-5 w-5 shrink-0 text-muted-foreground" />
-          </button>
         </Section>
 
         {/* Social */}

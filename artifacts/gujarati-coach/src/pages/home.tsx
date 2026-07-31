@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Trophy, Sparkles, Flame, Star, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -21,26 +21,11 @@ import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticke
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired } from "@/lib/entitlements";
-import { useTour, TOUR_STEPS } from "@/lib/tour-context";
 import { motion, useReducedMotion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
-import type { CSSProperties } from "react";
-
-const iconMap: Record<string, React.ElementType> = {
-  HandHeart,
-  Users,
-  Hash,
-  Utensils,
-  Sun,
-  Smile,
-  BookOpen,
-  Star,
-  Sparkles,
-  Flame,
-};
 
 // Boarding-pass press feedback tuning. The CSS idle-motion constants (breathe,
 // shimmer, glow, arrow, train) live in index.css under "Boarding pass and
@@ -113,7 +98,6 @@ export default function Home() {
         }`
       : "Continue your journey";
   const { isPlus, features, dailyNewLessons } = useEntitlements();
-  const { startTour } = useTour();
   // placeholderData: keepPreviousData — when LanguageProvider reconciles the
   // active language from /account and the key flips, the prior language's
   // data stays visible (transitional only) instead of restarting from a
@@ -383,14 +367,6 @@ export default function Home() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={() => startTour({ steps: TOUR_STEPS })}
-              title="Take the product tour"
-              aria-label="Take the product tour"
-              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-card border border-card-border text-muted-foreground hover:text-foreground shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
             <Link
               href="/account"
               title="Account & settings"
@@ -721,70 +697,64 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Categories Grid */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-accent" />
-                <h2 className="text-xl font-black text-foreground tracking-tight">Browse by topic</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-                {categories?.map((cat, i) => {
-                  const Icon = iconMap[cat.iconName] || BookOpen;
-                  const accent = cat.accent || "var(--color-primary)";
-                  const progress = cat.phraseCount > 0 ? Math.round((cat.masteredCount / cat.phraseCount) * 100) : 0;
-                  const done = progress >= 100;
-
-                  return (
-                    <motion.div
-                      key={cat.id}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ ...springs.gentle, delay: 0.1 + i * 0.05 }}
-                    >
-                      <Link href={`/learn/${cat.id}`} className="block h-full">
-                        <div
-                          className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-card p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
-                          style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}
-                        >
-                          <div
-                            className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-10"
-                            style={{ backgroundColor: accent }}
-                          />
-
-                          <div className="flex items-center justify-between">
-                            <div
-                              className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm"
-                              style={{ backgroundColor: accent }}
-                            >
-                              <Icon className="h-6 w-6" />
-                            </div>
-                            <span className="text-xs font-black" style={{ color: accent }}>
-                              {done ? "Done!" : `${progress}%`}
-                            </span>
-                          </div>
-
-                          <h3 className="mt-3 text-base font-black leading-tight text-foreground">{cat.title}</h3>
-                          {cat.titleNative && (
-                            <p className="mt-0.5 truncate text-sm text-muted-foreground" style={native.style} dir={native.dir}>
-                              {cat.titleNative}
-                            </p>
-                          )}
-
-                          <div className="mt-auto pt-4">
-                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full transition-all duration-1000 ease-out"
-                                style={{ width: `${progress}%`, backgroundColor: accent }}
-                              />
-                            </div>
-                          </div>
-                        </div>
+            {/* Phrasebook door (Task #906): the topic grid moved to the
+                /phrasebook library surface; home keeps one quiet bordered
+                card so the boarding pass stays the loudest element on the
+                page. The chip row reuses the categories this page already
+                fetches (no new API calls). The header row is a stretched
+                link over the card; chips sit above it (relative) and
+                deep-link into their topic. */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.gentle, delay: 0.1 }}
+            >
+              <section
+                aria-label="Phrasebook"
+                className="relative rounded-3xl border border-card-border bg-card p-5 shadow-[0_4px_0_rgba(0,0,0,0.08)] transition-all hover:-translate-y-0.5"
+              >
+                <Link href="/phrasebook" className="group flex items-center gap-3">
+                  {/* Stretched hit area: the whole card opens the Phrasebook */}
+                  <span className="absolute inset-0 rounded-3xl" aria-hidden />
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <BookOpen className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-black text-foreground">Phrasebook</span>
+                    <span className="block truncate text-sm font-semibold text-muted-foreground">
+                      Browse and practice any topic
+                    </span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                {(categories ?? []).length > 0 && (
+                  <div className="relative mt-4 flex flex-wrap gap-2">
+                    {categories?.slice(0, 3).map((cat) => (
+                      <Link
+                        key={cat.id}
+                        href={`/learn/${cat.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-card-border bg-background px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+                      >
+                        {cat.title}
+                        {cat.masteredCount > 0 && (
+                          <span className="font-black text-muted-foreground">
+                            {cat.masteredCount}/{cat.phraseCount}
+                          </span>
+                        )}
                       </Link>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </section>
+                    ))}
+                    {(categories ?? []).length > 3 && (
+                      <Link
+                        href="/phrasebook"
+                        className="inline-flex items-center rounded-full border border-dashed border-card-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        +{(categories ?? []).length - 3} more
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </section>
+            </motion.div>
 
             {/* Daily lesson allowance (Free only) */}
             {showDailyMeter && (

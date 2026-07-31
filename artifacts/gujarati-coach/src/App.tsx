@@ -16,12 +16,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { LanguageProvider } from './lib/language-context';
 import { ThemeProvider } from './lib/theme-context';
-import { TourProvider } from './lib/tour-context';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
-import { GuidedTourOverlay } from '@/components/guided-tour-overlay';
-import { TourAutoLauncher } from '@/components/tour-auto-launcher';
 import { ClerkAuthSync } from '@/components/clerk-auth-sync';
 
 import Landing from '@/pages/landing';
@@ -63,6 +60,7 @@ const ChooseLanguage = lazyRoute(() => import('@/pages/choose-language'));
 const CategoryDetail = lazyRoute(() => import('@/pages/category-detail'));
 const Practice = lazyRoute(() => import('@/pages/practice'));
 const Journey = lazyRoute(() => import('@/pages/journey'));
+const Phrasebook = lazyRoute(() => import('@/pages/phrasebook'));
 const Progress = lazyRoute(() => import('@/pages/progress'));
 const Friends = lazyRoute(() => import('@/pages/friends'));
 const Games = lazyRoute(() => import('@/pages/games/index'));
@@ -319,6 +317,13 @@ function AppRouter() {
           </AppShell>
         </Guard>
       </Route>
+      <Route path="/phrasebook">
+        <Guard>
+          <AppShell>
+            <Phrasebook />
+          </AppShell>
+        </Guard>
+      </Route>
       <Route path="/learn/:categoryId">
         <Guard>
           <CategoryDetail />
@@ -479,15 +484,11 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>
-            <TourProvider>
-              <TooltipProvider>
-                <AppRouter />
-                <IdleRoutePrefetch />
-                <Toaster />
-                <GuidedTourOverlay />
-                <TourAutoLauncher />
-              </TooltipProvider>
-            </TourProvider>
+            <TooltipProvider>
+              <AppRouter />
+              <IdleRoutePrefetch />
+              <Toaster />
+            </TooltipProvider>
           </LanguageProvider>
         </ThemeProvider>
       </QueryClientProvider>

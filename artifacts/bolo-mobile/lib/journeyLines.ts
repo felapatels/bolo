@@ -2,8 +2,11 @@
 // the web table (gujarati-coach/src/lib/journeyLines.ts), which is the source
 // of truth. Structured content, never hardcoded in components. Each language
 // renders as one line; the six zones map positionally onto the six categories
-// in DB sort_order (authoritative table below; a live mismatch is a hard stop,
-// not a remap). Zone geographic names are category-independent: Z1-Z6 columns
+// in DB sort_order. The id joins in JOURNEY_ZONES are authoritative; its title
+// strings are a loading-state fallback only — live zone titles come from the
+// categories listing the journey screen already fetches (Task #906), so a
+// server-side rename needs no app release. Zone geographic names are
+// category-independent: Z1-Z6 columns
 // of the approved naming table apply in category order, the zone's name
 // appears on its sign/postcard, and inner stations are numbered ("Stop N of
 // M"). Labels are English-only for v1; the one native-script accent string is

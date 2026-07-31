@@ -525,23 +525,12 @@ export default function Journey() {
     );
   }
 
-  // Behavior 8: the embedded zone table is authoritative; a live mismatch is a
-  // hard stop, never a silent remap.
+  // Task #906: zone display titles come from the categories listing the map
+  // already fetches, so a server-side rename shows up here without a client
+  // release. The JOURNEY_ZONES table keeps the id joins authoritative and its
+  // hardcoded titles serve only as the loading-state fallback (the old
+  // title-mismatch hard stop is gone; ids alone define the mapping).
   const categories = categoriesQuery.data;
-  const zoneMismatch =
-    categories !== undefined &&
-    JOURNEY_ZONES.some(
-      (z) => !categories.some((c) => c.id === z.id && c.title === z.title),
-    );
-  if (zoneMismatch) {
-    return (
-      <LessonErrorScreen
-        backHref="/app"
-        onRetry={() => void categoriesQuery.refetch()}
-        isRetrying={categoriesQuery.isFetching}
-      />
-    );
-  }
 
   // M1 access envelope: present only in showroom (teaser/exhausted) mode.
   const access =
@@ -563,7 +552,12 @@ export default function Journey() {
       stopNumber: gi + 1,
       stopCount: groups.length,
     }));
-    return { ...z, geoName: line.zones[i]!, stations };
+    return {
+      ...z,
+      title: categories?.find((c) => c.id === z.id)?.title ?? z.title,
+      geoName: line.zones[i]!,
+      stations,
+    };
   });
 
   const allStations = zones.flatMap((z) => z.stations);

@@ -3,21 +3,13 @@ import { Home, Trophy, Gamepad2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguagePicker } from "@/components/language-picker";
 import { useLanguage } from "@/lib/language-context";
-import { useTour } from "@/lib/tour-context";
 import { XpCounter } from "@/components/XpCounter";
 import { Mascot } from "@/components/mascot";
 
 export function BottomNav() {
   const [location] = useLocation();
   const { activeLang } = useLanguage();
-  const { isOpen, currentNavHighlight } = useTour();
-
   const chatActive = location === "/chat";
-
-  // Returns true when the given nav key should show a pulsing tour highlight.
-  function isTourHighlighted(key: "home" | "chat" | "games" | "progress") {
-    return isOpen && currentNavHighlight === key;
-  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-safe lg:hidden">
@@ -36,7 +28,6 @@ export function BottomNav() {
           <span
             className={cn(
               "flex flex-col items-center gap-1 rounded-full p-1 transition-all",
-              isTourHighlighted("home") && "animate-pulse ring-2 ring-primary/60",
             )}
           >
             <Home className="w-6 h-6" strokeWidth={location === "/app" ? 2.5 : 2} />
@@ -53,7 +44,6 @@ export function BottomNav() {
           <span
             className={cn(
               "flex flex-col items-center gap-1 rounded-full p-1 transition-all",
-              isTourHighlighted("games") && "animate-pulse ring-2 ring-primary/60",
             )}
           >
             <Gamepad2 className="w-6 h-6" strokeWidth={location.startsWith("/games") ? 2.5 : 2} />
@@ -79,7 +69,6 @@ export function BottomNav() {
                 chatActive
                   ? "border-primary bg-gradient-to-b from-primary/15 to-primary/5 shadow-primary/30"
                   : "border-border shadow-black/10 hover:border-primary/50 hover:shadow-primary/20",
-                isTourHighlighted("chat") && "animate-pulse ring-2 ring-primary/60",
               )}
             >
               {/* Rigged Bolo in calm ambient mode: blinks and breathes, but no
@@ -107,7 +96,6 @@ export function BottomNav() {
           <span
             className={cn(
               "flex flex-col items-center gap-1 rounded-full p-1 transition-all",
-              isTourHighlighted("progress") && "animate-pulse ring-2 ring-primary/60",
             )}
           >
             <Trophy className="w-6 h-6" strokeWidth={location === "/progress" ? 2.5 : 2} />
