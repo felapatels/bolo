@@ -1,0 +1,21 @@
+{
+  "phrase": "na",
+  "phraseNative": "ના",
+  "phraseIdx": 6,
+  "attemptType": "heavy_accent",
+  "clipDuration": 0.57,
+  "clipRms": -19.6,
+  "transcript": "哈呀哈呀",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    15,
+    12,
+    15
+  ],
+  "ensembleMedian": 15,
+  "proposedBand": "retry",
+  "feedback": "Hey, I can hear you're giving it a shot! The attempt had a very different sound from the target. The target 'ના' is just that simple 'n' sound followed by a clear 'aa'. Let’s keep going step by step!",
+  "tip": "Try to say 'na' with a short 'n' and an open 'aa' sound, like 'nah'."
+}

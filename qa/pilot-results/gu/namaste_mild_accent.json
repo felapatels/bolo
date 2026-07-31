@@ -1,0 +1,21 @@
+{
+  "phrase": "namaste",
+  "phraseNative": "નમસ્તે",
+  "phraseIdx": 2,
+  "attemptType": "mild_accent",
+  "clipDuration": 1.5,
+  "clipRms": -18.9,
+  "transcript": "Perfect.",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

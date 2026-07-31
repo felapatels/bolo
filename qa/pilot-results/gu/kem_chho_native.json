@@ -1,0 +1,21 @@
+{
+  "phrase": "kem chho?",
+  "phraseNative": "કેમ છો?",
+  "phraseIdx": 1,
+  "attemptType": "native",
+  "clipDuration": 1.5,
+  "clipRms": -18.2,
+  "transcript": "",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

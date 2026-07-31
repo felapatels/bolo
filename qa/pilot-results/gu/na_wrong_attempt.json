@@ -1,0 +1,21 @@
+{
+  "phrase": "na",
+  "phraseNative": "ના",
+  "phraseIdx": 6,
+  "attemptType": "wrong_attempt",
+  "clipDuration": 1.48,
+  "clipRms": -13.5,
+  "transcript": "माफ करिजो",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    33,
+    23,
+    42
+  ],
+  "ensembleMedian": 33,
+  "proposedBand": "retry",
+  "feedback": "Hey, I hear you're giving it a good go! You had that 'ah' vowel sound close, but it came out more like 'ma' instead of 'na'. The starting consonant ‘n’ didn’t quite land this time—no worries, that’s the trickier bit!",
+  "tip": "Focus on making a clear 'n' sound by placing your tongue just behind your top teeth before that 'ah' sound."
+}

@@ -1,0 +1,21 @@
+{
+  "phrase": "namaste",
+  "phraseNative": "નમસ્તે",
+  "phraseIdx": 2,
+  "attemptType": "heavy_accent",
+  "clipDuration": 1.5,
+  "clipRms": -24.6,
+  "transcript": "नमस्ते",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    95,
+    62,
+    55
+  ],
+  "ensembleMedian": 62,
+  "proposedBand": "almost",
+  "feedback": "Hey, you're definitely on the right track with that attempt! You got the rhythm down pretty well, and the 'na' sound was nice and clear. The main thing to tune up is the last part—'ste' needs a crisper 't' and a bit more clarity on the final vowel.",
+  "tip": "Focus on making that 't' in 'ste' crisp and quick, and keep the final 'e' vowel nice and short."
+}

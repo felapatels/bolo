@@ -1,0 +1,21 @@
+{
+  "phrase": "na",
+  "phraseNative": "ના",
+  "phraseIdx": 6,
+  "attemptType": "native",
+  "clipDuration": 0.42,
+  "clipRms": -21.3,
+  "transcript": "Nah.",
+  "currentPipelineScore": 67,
+  "currentPipelineSim": 0.667,
+  "currentPipelineBand": "almost",
+  "ensembleRaw": [
+    0,
+    0,
+    88
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

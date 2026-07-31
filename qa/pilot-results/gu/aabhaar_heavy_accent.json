@@ -1,0 +1,21 @@
+{
+  "phrase": "aabhaar",
+  "phraseNative": "આભાર",
+  "phraseIdx": 4,
+  "attemptType": "heavy_accent",
+  "clipDuration": 0.52,
+  "clipRms": -12.8,
+  "transcript": "阿帕",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    60
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

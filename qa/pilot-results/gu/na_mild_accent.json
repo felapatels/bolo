@@ -1,0 +1,21 @@
+{
+  "phrase": "na",
+  "phraseNative": "ના",
+  "phraseIdx": 6,
+  "attemptType": "mild_accent",
+  "clipDuration": 1.5,
+  "clipRms": -21.2,
+  "transcript": "Na.",
+  "currentPipelineScore": 100,
+  "currentPipelineSim": 1,
+  "currentPipelineBand": "perfect",
+  "ensembleRaw": [
+    75,
+    89,
+    65
+  ],
+  "ensembleMedian": 75,
+  "proposedBand": "good",
+  "feedback": "Nice try! You got that 'n' sound nicely. The vowel was close, but it sounded a little more like 'uh' than the clean 'aa' we want for Gujarati. Let’s polish that vowel a bit more to get it spot on.",
+  "tip": "Stretch out that 'aa' sound at the end—keep your mouth open and relaxed, and let it flow."
+}

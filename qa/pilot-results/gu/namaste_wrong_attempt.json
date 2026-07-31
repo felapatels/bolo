@@ -1,0 +1,21 @@
+{
+  "phrase": "namaste",
+  "phraseNative": "નમસ્તે",
+  "phraseIdx": 2,
+  "attemptType": "wrong_attempt",
+  "clipDuration": 1.5,
+  "clipRms": -17.8,
+  "transcript": "Didn't catch that.",
+  "currentPipelineScore": 21,
+  "currentPipelineSim": 0.214,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "Hmm, I couldn’t make out any clear speech sounds from that attempt at all. Don’t worry, it’s a fresh start for next time! Let’s try focusing on one sound or syllable and building from there.",
+  "tip": "Start by clearly saying ‘na’ with a soft ‘n’ sound at the front of your mouth, almost like saying ‘nut’ without the ‘t’."
+}

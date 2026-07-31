@@ -1,0 +1,21 @@
+{
+  "phrase": "ha",
+  "phraseNative": "હા",
+  "phraseIdx": 5,
+  "attemptType": "mild_accent",
+  "clipDuration": 0.58,
+  "clipRms": -15.8,
+  "transcript": "Perfect.",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

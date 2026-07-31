@@ -1,0 +1,21 @@
+{
+  "phrase": "maaf karjo",
+  "phraseNative": "માફ કરજો",
+  "phraseIdx": 7,
+  "attemptType": "heavy_accent",
+  "clipDuration": 0.77,
+  "clipRms": -12.8,
+  "transcript": "Didn't catch that.",
+  "currentPipelineScore": 7,
+  "currentPipelineSim": 0.071,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "Hey, I couldn't quite catch what you said this time. That's okay—sometimes the audio can be tricky. Let’s give it another shot so we can really dig into your pronunciation and find what’s working and what to improve.",
+  "tip": "Make sure your recording is clear and loud enough for me to hear all the sounds."
+}

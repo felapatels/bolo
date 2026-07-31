@@ -1,0 +1,21 @@
+{
+  "phrase": "majaa-maan",
+  "phraseNative": "મજામાં",
+  "phraseIdx": 3,
+  "attemptType": "mild_accent",
+  "clipDuration": 1.5,
+  "clipRms": -14.5,
+  "transcript": "نایٹ مزاج",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

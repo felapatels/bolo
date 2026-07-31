@@ -1,0 +1,21 @@
+{
+  "phrase": "majaa-maan",
+  "phraseNative": "મજામાં",
+  "phraseIdx": 3,
+  "attemptType": "wrong_attempt",
+  "clipDuration": 1.5,
+  "clipRms": -16,
+  "transcript": "Try again.",
+  "currentPipelineScore": 38,
+  "currentPipelineSim": 0.375,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

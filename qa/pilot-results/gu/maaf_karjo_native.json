@@ -1,0 +1,21 @@
+{
+  "phrase": "maaf karjo",
+  "phraseNative": "માફ કરજો",
+  "phraseIdx": 7,
+  "attemptType": "native",
+  "clipDuration": 1.1,
+  "clipRms": -13.2,
+  "transcript": "معاف کرجو",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    92
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "",
+  "tip": ""
+}

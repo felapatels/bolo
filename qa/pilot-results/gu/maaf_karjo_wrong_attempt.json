@@ -1,0 +1,21 @@
+{
+  "phrase": "maaf karjo",
+  "phraseNative": "માફ કરજો",
+  "phraseIdx": 7,
+  "attemptType": "wrong_attempt",
+  "clipDuration": 1.5,
+  "clipRms": -18.9,
+  "transcript": "다기 동동",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    15,
+    15,
+    15
+  ],
+  "ensembleMedian": 15,
+  "proposedBand": "retry",
+  "feedback": "Hey there, I can tell you gave it a shot, but it came out quite different from 'maaf karjo'. You got the number of syllables off and the sounds didn’t really match up. Good on you for trying though! Let’s zero in on those consonant sounds next time.",
+  "tip": "Focus on 'maa' like 'ma' from 'mama' and 'kar' with a crisp 'k' sound to start."
+}

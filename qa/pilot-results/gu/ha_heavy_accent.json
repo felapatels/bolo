@@ -1,0 +1,21 @@
+{
+  "phrase": "ha",
+  "phraseNative": "હા",
+  "phraseIdx": 5,
+  "attemptType": "heavy_accent",
+  "clipDuration": 0.45,
+  "clipRms": -21.5,
+  "transcript": "Nono.",
+  "currentPipelineScore": 0,
+  "currentPipelineSim": 0,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    5,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "Hey there! I didn’t catch any attempt at the word—just silence. Totally fine, and we can absolutely try again. Remember to say 'હા' out loud, and we’ll work from there!",
+  "tip": "Give it a shot by starting with a clear 'h' sound and an open 'aa' vowel."
+}

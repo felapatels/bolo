@@ -1,0 +1,21 @@
+{
+  "phrase": "majaa-maan",
+  "phraseNative": "મજામાં",
+  "phraseIdx": 3,
+  "attemptType": "heavy_accent",
+  "clipDuration": 0.77,
+  "clipRms": -13.1,
+  "transcript": "Didn't catch that.",
+  "currentPipelineScore": 14,
+  "currentPipelineSim": 0.143,
+  "currentPipelineBand": "retry",
+  "ensembleRaw": [
+    0,
+    0,
+    0
+  ],
+  "ensembleMedian": 0,
+  "proposedBand": "retry",
+  "feedback": "Hey there! I couldn’t catch any of the sounds that match 'મજામાં' this time. No worries—it’s totally fine to give it another shot. Let’s aim to get that first 'majaa' part nice and clear.",
+  "tip": "Try starting with a smooth 'ma' sound, like in 'mother', and then stretch out the ‘jaa’ with a soft 'j'."
+}
