@@ -44,12 +44,12 @@ function ScenarioBanner({ scenario }: ScenarioBannerProps) {
   );
 }
 
-interface PhraseChipsProps {
+interface PhraseChi psProps {
   scenario: ScenarioData | null | undefined;
   usedPhrases: Set<string>;
 }
 
-function PhraseChips({ scenario, usedPhrases }: PhraseChipsProps) {
+function PhraseChips({ scenario, usedPhrases }: { scenario: ScenarioData | null | undefined; usedPhrases: Set<string> }) {
   if (!scenario) return null;
   return (
     <div data-testid="target-phrase-chips">

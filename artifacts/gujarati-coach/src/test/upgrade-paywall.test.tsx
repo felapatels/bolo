@@ -30,18 +30,12 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
+vi.mock("@workspace/api-client-react", () => ({
+  useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   getGetEntitlementsQueryKey: () => ["entitlements"],
-  };
-});
+}));
 
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),

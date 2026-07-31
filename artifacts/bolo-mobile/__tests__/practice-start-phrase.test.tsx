@@ -28,31 +28,51 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-jest.mock('@workspace/api-client-react', () => {
-  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
-  return {
-    ...apiClientMockDefaults,
-    // Tests that use instanceof ApiError need the local class reference.
-    ApiError: class ApiError extends Error {
-      status: number;
-      data: unknown;
-      constructor(status: number, data: unknown) {
-        super('ApiError');
-        this.name = 'ApiError';
-        this.status = status;
-        this.data = data;
-      }
-    },
-    useListCategoryPhrases: () => mockState.phrases,
-    useSynthesizeSpeech: () => ({
-      // Never settles: the auto-play coach effect stays pending so it can't
-      // trigger state updates outside act() after a test finishes.
-      mutateAsync: jest.fn(() => new Promise(() => {})),
-    }),
-    useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
-    useCreateAttempt: () => ({ mutateAsync: jest.fn() }),
-  };
-});
+jest.mock('@workspace/api-client-react', () => ({
+  // Test-out mode is idle in these suites (no mode: testout param).
+  useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
+  useSubmitLessonGroupTestout: () => ({ mutate: jest.fn(), data: undefined, isError: false, error: null, isPending: false }),
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
+  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useReportPhrase: () => ({ mutate: jest.fn() }),
+  ApiError: class ApiError extends Error {
+    status: number;
+    data: unknown;
+    constructor(status: number, data: unknown) {
+      super('ApiError');
+      this.name = 'ApiError';
+      this.status = status;
+      this.data = data;
+    }
+  },
+  useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage is idle in these suites (no ?stage=sentences).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
+  useSynthesizeSpeech: () => ({
+    // Never settles: the auto-play coach effect stays pending so it can't
+    // trigger state updates outside act() after a test finishes.
+    mutateAsync: jest.fn(() => new Promise(() => {})),
+  }),
+  useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
+  useCreateAttempt: () => ({ mutateAsync: jest.fn() }),
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: () => ['progress'],
+  getListRecentAttemptsQueryKey: () => ['attempts'],
+  getListCategoryPhrasesQueryKey: () => ['phrases'],
+  getListBadgesQueryKey: () => ['badges'],
+  useGetAccount: () => ({ data: undefined }),
+}));
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

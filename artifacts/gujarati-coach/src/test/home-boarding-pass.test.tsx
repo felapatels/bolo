@@ -82,13 +82,8 @@ vi.mock("framer-motion", async (importOriginal) => ({
   useReducedMotion: () => h.reduceMotion,
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
+vi.mock("@workspace/api-client-react", () => ({
+  useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],
@@ -128,8 +123,7 @@ vi.mock("@workspace/api-client-react", async () => {
     h.groupsError
       ? { data: undefined, isLoading: false, isError: true }
       : { data: { lessonGroups: h.groups }, isLoading: false, isError: false },
-  };
-});
+}));
 
 // Imported after the mocks are declared.
 import Home from "@/pages/home";

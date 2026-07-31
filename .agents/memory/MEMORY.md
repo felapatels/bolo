@@ -103,7 +103,7 @@
 - [Transcript romanization](transcript-romanization.md) — sanscript by Unicode block (tamil_extended!), Perso-Arabic/Ol Chiki/Meetei → ""; no-phraseId requests lack languageCode so style needs a script fallback.
 - [Instant band audio](band-audio-instant-feedback.md) — closed-set spoken lines = bundled clips; server prewarm needs a pending-join (plain cache-warm races the client); probe traps: 80-char src logs, coach clip is the first data:audio.
 - [Express test-out client mode](testout-mode.md) — test-out reuses the practice screens as a mode (phrase source, persistence, CTAs, verdict), never a parallel recorder; fail path leaves via the journey.
-- [api-client mock factories](api-client-mock-factories.md) — spread the per-platform shared helper (test-helpers/api-client-mock.ts), never full-replacement mocks; scripted rewrites corrupt files — run the suite after; RNTL skips aria-hidden.
+- [api-client mock factories](api-client-mock-factories.md) — full-replacement test mocks break when a shared screen imports a new hook; patch all factories in one scripted pass; RNTL skips aria-hidden.
 - [QA probe run pitfalls](qa-probe-pitfalls.md) — piping a probe through head SIGPIPE-kills it mid-run; shots dirs are cwd-relative; seeded badge rows need REAL badge keys; use a:visible at mobile widths.
 - [Pronunciation scoring signal audit](pronunciation-scoring-signal.md) — transcript-centric pipeline is accent-blind; STT logprobs don't discriminate; gpt-audio hears accent but needs 3-run median; Azure PA covers only hi/ta of 22.
 - [Pronunciation pilot findings](pronunciation-pilot-findings.md) — gpt-audio works on clean clips; WAV→MP3 required; recording contamination (phone speaker via mic) invalidated most clips; re-run with earphones.

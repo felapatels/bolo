@@ -66,13 +66,8 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
+vi.mock("@workspace/api-client-react", () => ({
+  useGetEntitlements: () => ({ data: h.entitlements, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],
@@ -91,8 +86,7 @@ vi.mock("@workspace/api-client-react", async () => {
   // useJourneyProgress. Errored state here → hero falls back to generic copy;
   // gating assertions are unaffected (presentation only).
   useListCategoryLessonGroups: () => ({ data: undefined, isLoading: false, isError: true }),
-  };
-});
+}));
 
 // Imported after the mocks are declared.
 import { LanguagePicker } from "@/components/language-picker";

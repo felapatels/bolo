@@ -31,26 +31,39 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockState.push, back: mockState.back }),
 }));
 
-jest.mock('@workspace/api-client-react', () => {
-  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
-  return {
-    ...apiClientMockDefaults,
-    // Defined inside the factory so it's the exact class the screen narrows on
-    // with `err instanceof ApiError`.
-    ApiError: class ApiError extends Error {
-      status: number;
-      data: unknown;
-      constructor(status: number, data: unknown) {
-        super('ApiError');
-        this.name = 'ApiError';
-        this.status = status;
-        this.data = data;
-      }
-    },
-    useListCategories: () => mockState.categories,
-    useListCategoryPhrases: () => mockState.phrases,
-  };
-});
+jest.mock('@workspace/api-client-react', () => ({
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
+  useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // Defined inside the factory so it's the exact class the screen narrows on
+  // with `err instanceof ApiError`.
+  ApiError: class ApiError extends Error {
+    status: number;
+    data: unknown;
+    constructor(status: number, data: unknown) {
+      super('ApiError');
+      this.name = 'ApiError';
+      this.status = status;
+      this.data = data;
+    }
+  },
+  useListCategories: () => mockState.categories,
+  useListCategoryPhrases: () => mockState.phrases,
+  // Sentence stage stays idle in these suites (fixtures are locked/sentence-less).
+  useListCategorySentences: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+  getListCategorySentencesQueryKey: () => ['sentences'],
+  getListCategoryPhrasesQueryKey: () => ['phrases'],
+  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
+}));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: mockState.isPlus }),

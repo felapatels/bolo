@@ -23,11 +23,8 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
-jest.mock('@workspace/api-client-react', () => {
-  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
-  return {
-    ...apiClientMockDefaults,
-    // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+jest.mock('@workspace/api-client-react', () => ({
+  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -47,8 +44,7 @@ jest.mock('@workspace/api-client-react', () => {
     isRefetching: false,
     refetch: jest.fn(),
   }),
-  };
-});;
+}));
 
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({

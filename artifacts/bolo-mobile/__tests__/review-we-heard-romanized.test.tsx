@@ -41,11 +41,8 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
 }));
 
-jest.mock('@workspace/api-client-react', () => {
-  const { apiClientMockDefaults } = require('../test-helpers/api-client-mock');
-  return {
-    ...apiClientMockDefaults,
-    useListReviewPhrases: () => mockState.phrases,
+jest.mock('@workspace/api-client-react', () => ({
+  useListReviewPhrases: () => mockState.phrases,
   getListReviewPhrasesQueryKey: () => ['review-phrases'],
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
@@ -57,8 +54,7 @@ jest.mock('@workspace/api-client-react', () => {
   getListBadgesQueryKey: () => ['badges'],
   useGetAccount: () => ({ data: undefined }),
   ApiError: class ApiError extends Error {},
-  };
-});;
+}));
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),

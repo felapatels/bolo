@@ -14,20 +14,13 @@ import { memoryLocation } from "wouter/memory-location";
 
 const h = vi.hoisted(() => ({ isPlus: false, isLoading: false }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useListCategories: () => ({ data: [{ id: 1, title: "Basics" }], isLoading: false }),
-  useListCategoryPhrases: () => ({ data: [],
-    isLoading: false }),
+vi.mock("@workspace/api-client-react", () => ({
+  useListCategories: () => ({ data: [{ id: 1, title: "Basics" }], isLoading: false }),
+  useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   useRecordGameSession: () => ({ mutate: vi.fn() }),
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
-  };
-});
+}));
 
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({

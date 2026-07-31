@@ -65,14 +65,9 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: h.invalidateQueries, setQueryData: vi.fn() }),
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    ApiError,
-    useSearchFriendByEmail: () => h.search,
+vi.mock("@workspace/api-client-react", () => ({
+  ApiError,
+  useSearchFriendByEmail: () => h.search,
   useSendFriendRequest: () => h.sendRequest,
   useListIncomingFriendRequests: () => h.incoming,
   useListOutgoingFriendRequests: () => h.outgoing,
@@ -88,8 +83,7 @@ vi.mock("@workspace/api-client-react", async () => {
   getListOutgoingFriendRequestsQueryKey: () => ["outgoing"],
   getListFriendsQueryKey: () => ["friends"],
   getGetFriendsLeaderboardQueryKey: () => ["leaderboard"],
-  };
-});
+}));
 
 // Imported after the mocks are declared.
 import Friends from "@/pages/friends";

@@ -77,23 +77,16 @@ vi.mock("@/lib/theme-context", () => ({
   useTheme: () => ({ theme: "system", setTheme: h.setTheme }),
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    ApiError,
-    getGetAccountQueryKey: () => ["account"],
+vi.mock("@workspace/api-client-react", () => ({
+  ApiError,
+  getGetAccountQueryKey: () => ["account"],
   useGetAccount: () => h.account,
-    useGetProgressSummary: vi.fn(() => ({ data: undefined,
-    isLoading: false })),
+    useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useUpdateAccountProfile: () => h.updateProfile,
   useUpdateAccountPreferences: () => h.updatePrefs,
   useDeleteAccount: () => h.deleteAccount,
-  };
-});
+}));
 
 import Account, { _clearVoiceSampleCache, VoiceCard } from "@/pages/account";
 

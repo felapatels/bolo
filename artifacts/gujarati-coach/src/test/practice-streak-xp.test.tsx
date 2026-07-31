@@ -46,13 +46,8 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    // Test-out mode is idle in these suites (no ?mode=testout).
+vi.mock("@workspace/api-client-react", () => ({
+  // Test-out mode is idle in these suites (no ?mode=testout).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],
   useSubmitLessonGroupTestout: () => ({ mutate: vi.fn(), data: undefined, isError: false, error: null, isPending: false }),
@@ -102,8 +97,7 @@ vi.mock("@workspace/api-client-react", async () => {
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
-  };
-});
+}));
 
 import Practice from "@/pages/practice";
 
@@ -138,7 +132,7 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
 // Generous timeout for waitFor calls — the CI validation environment runs all
 // test suites in parallel so individual async steps can take longer than the
 // 1 s default without indicating a real failure.
-const WT = { timeout: 20000 };
+const WT = { timeout: 8000 };
 
 /** Render with silent mode and the given phrase list, then wait for idle. */
 async function reachIdle(phraseList = phrases.slice(0, 3)) {

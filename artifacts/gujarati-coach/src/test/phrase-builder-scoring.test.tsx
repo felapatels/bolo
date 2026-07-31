@@ -16,18 +16,11 @@ const PHRASES = [
   { id: 2, nativeScript: "ccc ddd", romanized: "ccc ddd", english: "three four" },
 ];
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useListCategories: () => ({ data: [{ id: 7, title: "Basics" }] }),
-  useListCategoryPhrases: () => ({ data: PHRASES,
-    isLoading: false }),
+vi.mock("@workspace/api-client-react", () => ({
+  useListCategories: () => ({ data: [{ id: 7, title: "Basics" }] }),
+  useListCategoryPhrases: () => ({ data: PHRASES, isLoading: false }),
   useRecordGameSession: () => ({
-    mutate: (_args: unknown,
-    opts?: { onSuccess?: (d: { xpEarned: number }) => void }) => {
+    mutate: (_args: unknown, opts?: { onSuccess?: (d: { xpEarned: number }) => void }) => {
       opts?.onSuccess?.({ xpEarned: 12 });
     },
   }),
@@ -38,8 +31,7 @@ vi.mock("@workspace/api-client-react", async () => {
     mutateAsync: vi.fn(async () => ({ audioBase64: "AAA", format: "mp3" })),
     isPending: false,
   }),
-  };
-});
+}));
 
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({

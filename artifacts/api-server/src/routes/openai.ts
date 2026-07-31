@@ -253,13 +253,13 @@ export { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 // GET /openai/tts/voices — return the curated voice catalog + the caller's
 // current preference (null means Auto / use language default).
 router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as AuthedRequest).userId;
+  const userId = (req as AuthedRequest).userId;
   let current: string | null = null;
   try {
-          const user = await db.query.usersTable.findFirst({
-            where: eq(usersTable.id, userId),
-            columns: { ttsVoice: true },
-          });
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { ttsVoice: true },
+    });
     current = user?.ttsVoice ?? null;
   } catch (err) {
     req.log.warn({ err }, "Could not load user ttsVoice preference");
@@ -269,7 +269,7 @@ router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<vo
 
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
-  const parsed = ChatTurnBody.safeParse(req.body);
+  const parsed = SynthesizeSpeechBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid speech payload" });
     return;
@@ -282,7 +282,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // Select the ElevenLabs voice that best matches the requested language.
   // Falls back to the default multilingual voice for unmapped codes.
-        const elevenLabsVoiceId = getVoiceIdForLanguage(p.languageCode);
+  let elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
 
   // When a valid previewVoiceId is supplied, use it directly — this is the
   // voice-picker audition path. It bypasses the language-voice mapping and the
@@ -309,7 +309,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     //   2. The user's resolved plan is Plus.
     //   3. The user has a non-null ttsVoice from the VOICE_CATALOG.
     try {
-    const userId = (req as AuthedRequest).userId;
+      const userId = (req as AuthedRequest).userId;
       if (userId) {
         const resolvedPlan = (req as EntitledRequest).resolvedPlan;
 
@@ -317,9 +317,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         // phrase play.  The cache is invalidated by PATCH /account/preferences
         // whenever ttsVoice changes, and expires naturally after 60 s.
         let ttsVoice: string | null = null;
-      const cached = await db.query.ttsCacheTable.findFirst({
-        where: eq(ttsCacheTable.cacheKey, cacheKey),
-      });
+        const cached = voicePrefCache.get(userId);
         if (cached && cached.expiresAt > Date.now()) {
           ttsVoice = cached.ttsVoice;
         } else {
@@ -367,21 +365,21 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
   // Unified phrase cache key: incorporates provider, model, and voice so the
   // prewarm and the playback route always target the same namespace.
-    const cacheKey = greetingAudioCacheKey(
-      languageCode,
-      greetingIdentity.provider,
-      greetingIdentity.model,
-      greetingIdentity.voice,
-      BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
-    );
+  const cacheKey = phraseTtsCacheKey(
+    text,
+    phraseIdentity.provider,
+    phraseIdentity.model,
+    synthesisVoice,
+    languageName ?? "",
+  );
 
-    const t0 = Date.now();
+  const t0 = Date.now();
 
-    // --- cache hit ---
-    try {
-      const cached = await db.query.ttsCacheTable.findFirst({
-        where: eq(ttsCacheTable.cacheKey, cacheKey),
-      });
+  // --- cache hit ---
+  try {
+    const cached = await db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+    });
     if (cached) {
       req.log.info(
         {
@@ -438,10 +436,9 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   if (TTS_PROVIDER === "gpt-audio") {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
-        if (buffer.length === 0)
-          throw new Error("gpt-audio returned empty audio for greeting");
-        const audioBase64 = buffer.toString("base64");
+      const buffer = await textToSpeech(text, phraseIdentity.voice as any, "mp3", languageName);
+      if (buffer.length === 0) throw new Error("gpt-audio returned empty audio");
+      const audioBase64 = buffer.toString("base64");
       db.insert(ttsCacheTable)
         .values({ cacheKey, audioBase64, format: "mp3" })
         .onConflictDoNothing()
@@ -470,100 +467,83 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // --- gpt-4o-mini-tts path ---
   if (TTS_PROVIDER === "gpt-4o-mini-tts") {
     try {
-        const response = await openai.audio.speech.create({
-          model: "gpt-4o-mini-tts",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          voice: greetingIdentity.voice as any,
-          input: ttsText,
-          ...(greetingIdentity.instructions
-            ? { instructions: greetingIdentity.instructions }
-            : {}),
-          response_format: "mp3",
-        });
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
-        if (buffer.length === 0)
-          throw new Error("gpt-audio returned empty audio for greeting");
-        const audioBase64 = buffer.toString("base64");
-
-    // Persist to cache (best-effort; a race between two concurrent requests is
-    // harmless — the second upsert just overwrites with identical data).
-    db.insert(ttsCacheTable)
-      .values({ cacheKey, audioBase64, format: "mp3" })
-      .onConflictDoNothing()
-      .execute()
-      .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
-
-    // Throttled, fire-and-forget quota visibility: logs remaining ElevenLabs
-    // credits and warns before the monthly allowance runs out.
-    void elevenLabsQuotaMonitor.maybeCheck();
-
-    req.log.info(
-      {
-        provider: phraseIdentity.provider,
-        model: phraseIdentity.model,
-        voice: synthesisVoice,
-        language: languageName ?? "",
-        chars: text.length,
-        hit: false,
-        ms: Date.now() - t0,
-      },
-      "[phrase-tts]",
-    );
-    res.json({ audioBase64, format: "mp3" });
-    return;
-  } catch (err) {
-    // ElevenLabs failed (quota exhausted, outage, missing key, …).
-    // Log and nudge the quota monitor, then try two fallbacks in order:
-    //   1. Legacy-cached audio (old voice, zero cost, instant) — covers the
-    //      transition period while old tts_cache rows still exist.
-    //   2. gpt-audio synthesis — covers phrases with no legacy entry.
-    // Fallback audio is deliberately NOT cached under the new key so the
-    // next request retries ElevenLabs once it recovers.
-    req.log.warn({ err }, "ElevenLabs TTS failed — attempting fallbacks");
-    void elevenLabsQuotaMonitor.maybeCheck();
-
-    // Fallback 1: legacy-provider cached audio.
-    try {
-      const legacy = await db.query.ttsCacheTable.findFirst({
-        where: eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(text, chosen, languageName)),
-      });
-      if (legacy) {
-        req.log.info({}, "TTS fallback: serving legacy-provider cached audio");
-        res.json({ audioBase64: legacy.audioBase64, format: legacy.format });
-        return;
-      }
-    } catch (fallbackErr) {
-      req.log.warn({ err: fallbackErr }, "TTS legacy-cache fallback read failed");
-    }
-  }
-
-  // Fallback 2: gpt-audio synthesis (not cached; lower fidelity but always
-  // available regardless of ElevenLabs status).
-  try {
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
-          if (buffer.length === 0)
-            throw new Error("gpt-audio returned empty audio for greeting");
-          res.json({
-            text: displayText,
-            english: englishText,
-            audioBase64: buffer.toString("base64"),
-            format: "mp3",
-            squawkVariant: GREETING_SQUAWK_VARIANT,
-          });
-        } catch (fallbackErr) {
-          req.log.error(
-            { err: fallbackErr },
-            "Greeting synthesis failed (both providers)",
-          );
-          res.status(502).json({ error: "Could not generate greeting audio" });
-        }
-      }
-    } else {
-      // gpt-audio path — always available.
-      try {
+      const response = await openai.audio.speech.create({
+        model: "gpt-4o-mini-tts",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
-        const audioBase64 = buffer.toString("base64");
+        voice: phraseIdentity.voice as any,
+        input: text,
+        response_format: "mp3",
+      });
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length === 0) throw new Error("gpt-4o-mini-tts returned empty audio");
+      const audioBase64 = buffer.toString("base64");
+      db.insert(ttsCacheTable)
+        .values({ cacheKey, audioBase64, format: "mp3" })
+        .onConflictDoNothing()
+        .execute()
+        .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
+      req.log.info(
+        {
+          provider: phraseIdentity.provider,
+          model: phraseIdentity.model,
+          voice: phraseIdentity.voice,
+          language: languageName ?? "",
+          chars: text.length,
+          hit: false,
+          ms: Date.now() - t0,
+        },
+        "[phrase-tts]",
+      );
+      res.json({ audioBase64, format: "mp3" });
+    } catch (err) {
+      req.log.error({ err }, "gpt-4o-mini-tts TTS failed");
+      res.status(502).json({ error: "Could not generate speech" });
+    }
+    return;
+  }
+
+  // --- ElevenLabs path (USE_ELEVENLABS_TTS = true) ---
+
+  // Proactive quota guard: if the cached quota shows ElevenLabs credits are
+  // exhausted, skip the API call entirely and jump straight to the fallback
+  // chain. This avoids a wasted round-trip (and its latency + error log) on
+  // every request when the monthly allowance is gone.
+  if (elevenLabsQuotaMonitor.isExhausted()) {
+    req.log.info({}, "ElevenLabs quota exhausted — using fallback");
+    // Kick off a throttled quota refresh so the cached state can clear once
+    // credits are replenished (top-up, new billing cycle). Without this call
+    // the monitor would never poll while we're in permanent-fallback mode.
+    void elevenLabsQuotaMonitor.maybeCheck();
+    // Fall through to the legacy-cache → gpt-audio fallback chain below.
+    try {
+      const legacy = await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(text, chosen, languageName)),
+      });
+      if (legacy) {
+        req.log.info({}, "TTS fallback: serving legacy-provider cached audio");
+        res.json({ audioBase64: legacy.audioBase64, format: legacy.format });
+        return;
+      }
+    } catch (fallbackErr) {
+      req.log.warn({ err: fallbackErr }, "TTS legacy-cache fallback read failed");
+    }
+    // Fallback 2: gpt-audio synthesis.
+    try {
+      const buffer = await textToSpeech(text, chosen, "mp3", languageName);
+      if (buffer.length === 0) {
+        throw new Error("gpt-audio fallback returned empty audio");
+      }
+      res.json({ audioBase64: buffer.toString("base64"), format: "mp3" });
+    } catch (err) {
+      req.log.error({ err }, "TTS failed (ElevenLabs quota exhausted and gpt-audio fallback failed)");
+      res.status(502).json({ error: "Could not generate speech" });
+    }
+    return;
+  }
+
+  try {
+    const buffer = await textToSpeechElevenLabs(text, elevenLabsVoiceId, languageName, undefined, getLanguageIdForCode(languageCode));
+    const audioBase64 = buffer.toString("base64");
 
     // Persist to cache (best-effort; a race between two concurrent requests is
     // harmless — the second upsert just overwrites with identical data).
@@ -620,7 +600,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // Fallback 2: gpt-audio synthesis (not cached; lower fidelity but always
   // available regardless of ElevenLabs status).
   try {
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
+    const buffer = await textToSpeech(text, chosen, "mp3", languageName);
     if (buffer.length === 0) {
       throw new Error("gpt-audio fallback returned empty audio");
     }
@@ -635,7 +615,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 router.post(
   "/openai/pronunciation",
   async (req: Request, res: Response): Promise<void> => {
-  const parsed = ChatTurnBody.safeParse(req.body);
+    const parsed = EvaluatePronunciationBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid pronunciation payload" });
       return;
@@ -662,7 +642,7 @@ router.post(
     let targetNative = parsed.data.targetNative;
     let targetRomanized = parsed.data.targetRomanized;
     let targetEnglish = parsed.data.targetEnglish;
-    const languageCode = String(req.query.languageCode ?? "").trim();
+    let languageCode = "";
     let resolvedPhraseId: number | null = null;
     // Phrase difficulty (1–3), used for XP computation. Defaults to 1 when no
     // catalog phrase is attached (free-practice or custom phrase).
@@ -688,9 +668,7 @@ router.post(
     // DB so a client-provided languageName cannot mislead Whisper with a
     // mismatched language (e.g. "Hindi" for a Gujarati phrase).  Falls back to
     // the client-supplied value when the language record is not found.
-    const language = await db.query.languagesTable.findFirst({
-      where: eq(languagesTable.code, languageCode),
-    });
+    let language = languageName?.trim() || "the target language";
     let speechCapability: string = "supported";
     if (phraseId != null && languageCode) {
       try {
@@ -717,10 +695,9 @@ router.post(
     // listen-record-compare mode; this branch is the backstop if one calls
     // anyway. Band 'nocatch' = no XP, no streak break, no mastery penalty.
     if (speechCapability === "unsupported") {
-        const nocatchBand: PronunciationBand = "nocatch";
+      const nocatchBand: PronunciationBand = "nocatch";
       const feedback =
-        result.feedback ??
-        "Nice effort! Keep practicing and you'll get it even better.";
+        `Speech recognition can't reliably hear ${language} yet, so we don't score it. Listen to the phrase, record yourself, and compare by ear. Your practice still counts!`;
       const nocatchTip =
         "Play the phrase and your recording back to back to hear the difference.";
       // Task 903: start feedback-voice synthesis before the response even
@@ -764,8 +741,12 @@ router.post(
       ...(languageCode ? { language: languageCode } : {}),
       prompt: `A language learner is speaking ${language}. Transcribe exactly what they say.`,
     };
+
+    const rawBuffer = Buffer.from(audioBase64, "base64");
     let transcript = "";
-    let rawBuffer: Buffer | null = null;
+    try {
+      // Pass the client-reported mimeType as a fallback hint so very short
+      // recordings whose magic bytes aren't detected skip the ffmpeg path.
       const { buffer, format } = await ensureCompatibleFormat(rawBuffer, parsed.data.mimeType);
       transcript = (await speechToText(buffer, format, sttOptions)).trim();
 
@@ -803,10 +784,9 @@ router.post(
 
     if (isEffectivelyEmpty(transcript)) {
       const feedback =
-        result.feedback ??
-        "Nice effort! Keep practicing and you'll get it even better.";
+        "I couldn't hear anything that time! Tap the button and say it nice and clear.";
       const emptyTip = "Hold your phone a little closer and speak up.";
-        const nocatchBand: PronunciationBand = "nocatch";
+      const nocatchBand: PronunciationBand = "nocatch";
       // Task 903: eval-time fire-and-forget feedback-voice synthesis.
       prewarmFeedbackTts(feedback, emptyTip, req.log);
       res.json({
@@ -1074,79 +1054,12 @@ router.post(
       req.log.info(`[cache] route=pronunciation prompt_tokens=${completion.usage?.prompt_tokens ?? 0} cached_tokens=${_cachedPronTokens}`);
 
       const content = completion.choices[0]?.message?.content ?? "{}";
-    const result = await runParrotTurn(
-      {
-        audioBuffer,
-        mimeType,
-        textTranscript: textInput,
-        languageName: language.name,
-        languageCode,
-        history: trimmedHistory,
-        seedWords,
-        seedNativeWords,
-        clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
-        scenario,
-        onTranscript: (transcript, durationSeconds) => {
-          capturedTranscript = transcript;
-          capturedDuration = durationSeconds;
-          if (wantsSSE) {
-            sseWrite(res, "transcript", { transcript });
-          }
-        },
-        onTranscriptEnglish: (transcriptEnglish) => {
-          if (wantsSSE && transcriptEnglish) {
-            sseWrite(res, "transcriptEnglish", { transcriptEnglish });
-          }
-        },
-        // Flush Bolo's reply text as soon as the LLM returns — before voice
-        // synthesis — so the client can show the bubble while TTS runs. The
-        // final `reply` event keeps its full payload for backward compat.
-        onReplyReady: (replyText, replyEnglish, squawkVariant) => {
-          if (wantsSSE) {
-            sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
-            // TTS starts right after this callback, so this is the earliest
-            // useful moment to hand the client its progressive audio URL —
-            // the native player connects and starts pulling chunks as they
-            // are synthesized.
-            if (audioStream) {
-              sseWrite(res, "audioStream", { streamId: audioStream.id });
-            }
-          }
-        },
-        // Stream raw MP3 chunks as ElevenLabs produces them so SSE clients can
-        // start playback before synthesis finishes. `audioDone` fires only on
-        // a complete stream; without it, clients fall back to the full clip
-        // carried by the final `reply` event. Non-SSE clients get neither
-        // callback and keep the buffered path unchanged.
-        ...(wantsAudioStream || audioStream
-          ? {
-              onAudioChunk: (base64Chunk: string) => {
-                if (wantsAudioStream) {
-                  sseWrite(res, "audioChunk", { chunk: base64Chunk });
-                }
-                if (audioStream) {
-                  appendChatAudioChunk(
-                    audioStream,
-                    Buffer.from(base64Chunk, "base64"),
-                  );
-                }
-              },
-              onAudioDone: () => {
-                // audioDone doubles as the client's commit signal in "url"
-                // mode: only when it arrives does the client trust the
-                // progressive stream to carry the complete clip.
-                sseWrite(res, "audioDone", {});
-                if (audioStream) completeChatAudioStream(audioStream);
-              },
-            }
-          : {}),
-        // Per-stage timings so slow stages are visible in production logs.
-        onTimings: (timings) => {
-          // Optional chain: test apps mount this router without pino-http.
-          req.log?.info({ ...timings, languageCode }, "chat turn stage timings");
-        },
-      },
-    );
+      const result = JSON.parse(content) as {
+        score?: number;
+        passed?: boolean;
+        feedback?: string;
+        tip?: string;
+      };
 
       const llmScore = Math.max(
         0,
@@ -1183,9 +1096,8 @@ router.post(
       // every language, including fully supported ones.
       if (guarded.nocatch) {
         const nocatchBand: PronunciationBand = "nocatch";
-      const feedback =
-        result.feedback ??
-        "Nice effort! Keep practicing and you'll get it even better.";
+        const feedback =
+          "Our listener glitched on that one and didn't catch what you said. That's on us, not you. Give it one more go!";
         const glitchTip =
           "Nothing to fix on your end — just try the same thing again.";
         // Task 903: eval-time fire-and-forget feedback-voice synthesis.
@@ -1282,15 +1194,13 @@ router.post(
 router.post(
   "/openai/generate-phrase",
   async (req: Request, res: Response): Promise<void> => {
-  const parsed = ChatTurnBody.safeParse(req.body);
+    const parsed = GeneratePhraseBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid phrase request" });
       return;
     }
     const { languageName, categoryTitle, difficulty } = parsed.data;
-    const language = await db.query.languagesTable.findFirst({
-      where: eq(languagesTable.code, languageCode),
-    });
+    const language = languageName?.trim() || "Hindi";
 
     try {
       const completion = await openai.chat.completions.create({
@@ -1316,79 +1226,11 @@ router.post(
       });
 
       const content = completion.choices[0]?.message?.content ?? "{}";
-    const result = await runParrotTurn(
-      {
-        audioBuffer,
-        mimeType,
-        textTranscript: textInput,
-        languageName: language.name,
-        languageCode,
-        history: trimmedHistory,
-        seedWords,
-        seedNativeWords,
-        clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
-        scenario,
-        onTranscript: (transcript, durationSeconds) => {
-          capturedTranscript = transcript;
-          capturedDuration = durationSeconds;
-          if (wantsSSE) {
-            sseWrite(res, "transcript", { transcript });
-          }
-        },
-        onTranscriptEnglish: (transcriptEnglish) => {
-          if (wantsSSE && transcriptEnglish) {
-            sseWrite(res, "transcriptEnglish", { transcriptEnglish });
-          }
-        },
-        // Flush Bolo's reply text as soon as the LLM returns — before voice
-        // synthesis — so the client can show the bubble while TTS runs. The
-        // final `reply` event keeps its full payload for backward compat.
-        onReplyReady: (replyText, replyEnglish, squawkVariant) => {
-          if (wantsSSE) {
-            sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
-            // TTS starts right after this callback, so this is the earliest
-            // useful moment to hand the client its progressive audio URL —
-            // the native player connects and starts pulling chunks as they
-            // are synthesized.
-            if (audioStream) {
-              sseWrite(res, "audioStream", { streamId: audioStream.id });
-            }
-          }
-        },
-        // Stream raw MP3 chunks as ElevenLabs produces them so SSE clients can
-        // start playback before synthesis finishes. `audioDone` fires only on
-        // a complete stream; without it, clients fall back to the full clip
-        // carried by the final `reply` event. Non-SSE clients get neither
-        // callback and keep the buffered path unchanged.
-        ...(wantsAudioStream || audioStream
-          ? {
-              onAudioChunk: (base64Chunk: string) => {
-                if (wantsAudioStream) {
-                  sseWrite(res, "audioChunk", { chunk: base64Chunk });
-                }
-                if (audioStream) {
-                  appendChatAudioChunk(
-                    audioStream,
-                    Buffer.from(base64Chunk, "base64"),
-                  );
-                }
-              },
-              onAudioDone: () => {
-                // audioDone doubles as the client's commit signal in "url"
-                // mode: only when it arrives does the client trust the
-                // progressive stream to carry the complete clip.
-                sseWrite(res, "audioDone", {});
-                if (audioStream) completeChatAudioStream(audioStream);
-              },
-            }
-          : {}),
-        // Per-stage timings so slow stages are visible in production logs.
-        onTimings: (timings) => {
-          // Optional chain: test apps mount this router without pino-http.
-          req.log?.info({ ...timings, languageCode }, "chat turn stage timings");
-        },
-      },
-    );
+      const result = JSON.parse(content) as {
+        nativeScript?: string;
+        romanized?: string;
+        english?: string;
+      };
 
       if (!result.nativeScript || !result.romanized || !result.english) {
         res.status(502).json({ error: "Could not generate a phrase" });
@@ -1443,7 +1285,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   // read it directly from the raw body so Zod's strip mode doesn't lose it.
   const scenarioId =
     typeof req.body?.scenarioId === "string" ? req.body.scenarioId : undefined;
-    const scenario = SCENARIOS[String(req.params.id)];
+  const scenario = scenarioId ? SCENARIOS[scenarioId] : undefined;
 
   const { userId, resolvedPlan } = req as EntitledRequest;
 
@@ -1466,9 +1308,9 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
-    const language = await db.query.languagesTable.findFirst({
-      where: eq(languagesTable.code, languageCode),
-    });
+  const language = await db.query.languagesTable.findFirst({
+    where: eq(languagesTable.code, languageCode),
+  });
   if (!language) {
     res.status(404).json({ error: "Unknown language" });
     return;
@@ -1902,9 +1744,46 @@ router.get(
             : {}),
           response_format: "mp3",
         });
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
+        const buffer = Buffer.from(await response.arrayBuffer());
         if (buffer.length === 0)
-          throw new Error("gpt-audio returned empty audio for greeting");
+          throw new Error("gpt-4o-mini-tts returned empty greeting audio");
+        const audioBase64 = buffer.toString("base64");
+        db.insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: "mp3" })
+          .onConflictDoNothing()
+          .execute()
+          .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
+        req.log.info(
+          {
+            provider: greetingIdentity.provider,
+            model: greetingIdentity.model,
+            voice: greetingIdentity.voice,
+            language: languageName,
+            hit: false,
+            ms: Date.now() - t0,
+          },
+          "[greeting-tts]",
+        );
+        res.json({
+          text: displayText,
+          english: englishText,
+          audioBase64,
+          format: "mp3",
+          squawkVariant: GREETING_SQUAWK_VARIANT,
+        });
+      } catch (err) {
+        req.log.error({ err }, "Greeting gpt-4o-mini-tts synthesis failed");
+        res.status(502).json({ error: "Could not generate greeting audio" });
+      }
+    } else if (greetingIdentity.provider === "elevenlabs") {
+      try {
+        const buffer = await textToSpeechElevenLabs(
+          ttsText,
+          greetingIdentity.voice,
+          languageName,
+          greetingIdentity.model,
+          getLanguageIdForCode(languageCode),
+        );
         const audioBase64 = buffer.toString("base64");
         db.insert(ttsCacheTable)
           .values({ cacheKey, audioBase64, format: "mp3" })
@@ -1937,40 +1816,7 @@ router.get(
           "Greeting ElevenLabs synthesis failed, falling back to gpt-audio",
         );
         try {
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
-        const audioBase64 = buffer.toString("base64");
-        db.insert(ttsCacheTable)
-          .values({ cacheKey, audioBase64, format: "mp3" })
-          .onConflictDoNothing()
-          .execute()
-          .catch((err) => req.log.warn({ err }, "Greeting cache write failed"));
-        req.log.info(
-          {
-            provider: greetingIdentity.provider,
-            model: greetingIdentity.model,
-            voice: greetingIdentity.voice,
-            language: languageName,
-            hit: false,
-            ms: Date.now() - t0,
-          },
-          "[greeting-tts]",
-        );
-        res.json({
-          text: displayText,
-          english: englishText,
-          audioBase64,
-          format: "mp3",
-          squawkVariant: GREETING_SQUAWK_VARIANT,
-        });
-      } catch (err) {
-        // ElevenLabs failed — fall back to gpt-audio (not cached so the next
-        // request retries ElevenLabs once it recovers).
-        req.log.warn(
-          { err },
-          "Greeting ElevenLabs synthesis failed, falling back to gpt-audio",
-        );
-        try {
-        const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
+          const buffer = await textToSpeech(ttsText, "shimmer", "mp3", languageName);
           if (buffer.length === 0)
             throw new Error("gpt-audio returned empty audio for greeting");
           res.json({

@@ -36,13 +36,8 @@ vi.mock("@/lib/entitlements", () => ({
   upgradeHrefForDenial: () => "/upgrade",
 }));
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    useListCategories: () => ({
+vi.mock("@workspace/api-client-react", () => ({
+  useListCategories: () => ({
     data: h.categories,
     isLoading: false,
     isError: false,
@@ -78,9 +73,8 @@ vi.mock("@workspace/api-client-react", async () => {
     error: null,
     isFetching: false,
     refetch: vi.fn(),
-    }),
-  };
-});
+  }),
+}));
 
 // Imported after the mocks are declared.
 import Journey from "@/pages/journey";

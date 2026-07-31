@@ -68,17 +68,34 @@ const CATS = [
   { id: 4, title: "Food & Eating", titleNative: null, iconName: "Utensils", accent: null, phraseCount: 5, masteredCount: 0 },
 ];
 
-vi.mock("@workspace/api-client-react", async () => {
-  const { apiClientMockDefaults } = await import(
-    "@/test-helpers/api-client-mock"
-  );
-  return {
-    ...apiClientMockDefaults,
-    // This suite drives the chip row with real category data.
-    useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
-    useListCategories: () => ({ data: CATS, isLoading: false }),
-  };
-});
+vi.mock("@workspace/api-client-react", () => ({
+  useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
+  getGetEntitlementsQueryKey: () => ["entitlements"],
+  useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
+  getGetAccountQueryKey: () => ["account"],
+  useGetProgressSummary: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isPlaceholderData: false,
+    refetch: vi.fn(),
+  }),
+  getGetProgressSummaryQueryKey: () => ["summary"],
+  useGetAccount: () => ({ data: undefined }),
+  useListCategories: () => ({ data: CATS, isLoading: false }),
+  getListCategoriesQueryKey: () => ["categories"],
+  useListRecentAttempts: () => ({ data: [], isLoading: false }),
+  useListReviewPhrases: () => ({ data: [], isLoading: false }),
+  getListReviewPhrasesQueryKey: () => ["review"],
+  useListBadges: () => ({ data: undefined, isLoading: false }),
+  useListIncomingFriendRequests: () => ({ data: [], isLoading: false }),
+  useListCategoryLessonGroups: () => ({
+    data: { lessonGroups: [] },
+    isLoading: false,
+    isError: false,
+  }),
+}));
 
 // Imported after the mocks are declared.
 import Home from "@/pages/home";
