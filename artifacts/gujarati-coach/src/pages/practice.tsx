@@ -523,6 +523,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         // every phrase is mastered (avoids an empty session).
         const firstUnmastered = phrases.findIndex(p => !p.mastered);
         if (firstUnmastered > 0) startIdx = firstUnmastered;
+      } else if (isGroup && !isTestout && !polishMode && !phraseIdsParam) {
+        // Task 954: re-entering a journey station resumes at the first phrase
+        // still below the credit edge (bestScore >= 80 — the same threshold
+        // lesson-group completion uses), so a half-done station picks up where
+        // the learner left off instead of replaying from the top. Only the
+        // starting index changes: the phrase set is not filtered, and back
+        // navigation still returns to the journey. When every phrase is at
+        // 80+ findIndex misses (-1) and startIdx stays 0 — a completed
+        // station replays from the beginning.
+        const firstBelowCredit = phrases.findIndex(
+          p => p.bestScore == null || p.bestScore < 80,
+        );
+        if (firstBelowCredit > 0) startIdx = firstBelowCredit;
       }
       if (startIdx > 0) setCurrentIndex(startIdx);
 

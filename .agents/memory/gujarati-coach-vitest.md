@@ -56,7 +56,8 @@ contract so a regression can't silently lock out payers or leak Plus to Free.
 - Purely additive CSS reflow (same single tree, `lg:` grid/col tweaks) is fine and needs no hook —
   only structural swaps risk the duplicate-DOM trap.
 
-- Web tests mock `@workspace/api-client-react` per-file with explicit export lists. Any component change that starts importing another generated export (e.g. a `get<Op>QueryKey` getter for `placeholderData`/`enabled` options) breaks every mocking test that renders it with "No X export is defined on the mock" — add the new export to those mocks in the same change.
+- Web tests mock `@workspace/api-client-react` by spreading `src/test/api-client-mock.ts` → `baseApiClientMock()` FIRST (runtime-derived surface; new generated exports are covered automatically), overriding only the hooks whose data drives the test. Never hand-roll a full export list.
+- **Practice auto-start race:** the session chrome (header, belly "Hold to speak" button) already renders during the transient `intro` state, before the auto-start effect commits its index jump — and those updates can land after `render()` returns. Tests about the starting phrase must `await act(async () => {})` then `waitFor` the expected phrase text; waiting on chrome passes on the pre-effect DOM and asserts against index 0.
 
 ## Two mock traps
 - Never full-module-mock @tanstack/react-query: components import `keepPreviousData` etc. Partial-mock via `importOriginal`, overriding only `useQueryClient` (suites rendering the language picker need it — the picker persists picks through a preferences mutation).
