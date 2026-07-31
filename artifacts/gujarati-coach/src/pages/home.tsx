@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
@@ -46,6 +46,10 @@ const iconMap: Record<string, React.ElementType> = {
 // Low damping is what produces the overshoot spring-back on release.
 const PASS_PRESS_SCALE = 0.94;
 const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
+// Stub-tear navigation fallback. The authoritative delay lives in index.css
+// as --tear-nav-delay (the :root tuning constants block, in ms); this value
+// is only used when the CSS var cannot be read (jsdom, ancient UA).
+const TEAR_NAV_DELAY_FALLBACK_MS = 500;
 
 export default function Home() {
   const { user } = useUser();
@@ -53,6 +57,39 @@ export default function Home() {
   const { activeLang, activeLanguage } = useLanguage();
   const reduceMotion = useReducedMotion();
   const isDesktop = useIsDesktop();
+  const [, navigate] = useLocation();
+  // Boarding-pass stub tear (home pass only). `tearing` toggles the CSS
+  // classes; the timer ref lets unmount cancel a pending delayed navigation.
+  const [tearing, setTearing] = useState(false);
+  const tearTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (tearTimerRef.current !== null) window.clearTimeout(tearTimerRef.current);
+    },
+    [],
+  );
+  // Pass activation: analytics, then the stub tear, then the journey.
+  // Navigation is NEVER blocked: reduced motion returns early so the Link
+  // navigates natively and instantly, and any animation-path failure falls
+  // through to an immediate navigate(). Keyboard Enter fires the anchor's
+  // click event, so it plays the same tear as pointer activation.
+  const handlePassActivate = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    track(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, { language: activeLang });
+    if (reduceMotion || tearing) return; // instant native Link navigation
+    try {
+      e.preventDefault();
+      setTearing(true);
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(
+        "--tear-nav-delay",
+      );
+      const parsed = parseFloat(raw);
+      const delay =
+        Number.isFinite(parsed) && parsed > 0 ? parsed : TEAR_NAV_DELAY_FALLBACK_MS;
+      tearTimerRef.current = window.setTimeout(() => navigate("/journey"), delay);
+    } catch {
+      navigate("/journey");
+    }
+  };
   const native = useNativeText();
   const journeyLine = getJourneyLine(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
@@ -497,29 +534,53 @@ export default function Home() {
               >
               <Link
                 href="/journey"
-                onClick={() =>
-                  track(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, { language: activeLang })
-                }
-                className="group relative block w-full overflow-hidden rounded-3xl text-white shadow-[0_8px_0_rgba(0,0,0,0.18)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]"
-                style={{ backgroundColor: journeyLine.accent }}
+                onClick={handlePassActivate}
+                className={cn(
+                  "group relative block w-full rounded-3xl text-white transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]",
+                  // While tearing, the container itself disappears (transparent
+                  // bg, no shadow, no clipping): the widening gap between the
+                  // two departing halves shows the actual page behind the
+                  // pass, so it reads as a ticket floating over the page.
+                  tearing
+                    ? "overflow-visible shadow-none"
+                    : "overflow-hidden shadow-[0_8px_0_rgba(0,0,0,0.18)]",
+                )}
+                style={{
+                  backgroundColor: tearing ? "transparent" : journeyLine.accent,
+                }}
               >
-                {/* full-ticket treatment: diagonal brand-stripe ticket stock */}
-                <TicketStripes ink="rgba(255,255,255,0.05)" />
+                {/* full-ticket treatment: diagonal brand-stripe ticket stock
+                    (hidden while tearing; the halves carry their own stock) */}
+                {!tearing && <TicketStripes ink="rgba(255,255,255,0.05)" />}
                 {/* shimmer sweep across the ticket face, once per heartbeat
                     (transform-only band; the Link's overflow-hidden clips it) */}
-                {!reduceMotion && (
+                {!reduceMotion && !tearing && (
                   <div
                     className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-ticket-shimmer bg-gradient-to-r from-transparent via-white/25 to-transparent"
                     aria-hidden
                   />
                 )}
-                <div
-                  className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
-                  aria-hidden
-                />
+                {!tearing && (
+                  <div
+                    className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
+                    aria-hidden
+                  />
+                )}
                 <div className="relative flex items-stretch">
-                  {/* main body */}
-                  <div className="min-w-0 flex-1">
+                  {/* main body (pulls away leftward while the stub tears off;
+                      while tearing it carries its own ticket stock + rounded
+                      left corners so it reads as a torn half of the pass) */}
+                  <div
+                    className={cn(
+                      "min-w-0 flex-1",
+                      tearing && "animate-body-tear rounded-l-3xl",
+                    )}
+                    style={
+                      tearing
+                        ? { backgroundColor: journeyLine.accent }
+                        : undefined
+                    }
+                  >
                     <div className="p-5 pr-3 lg:p-6 lg:pr-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -537,7 +598,7 @@ export default function Home() {
                         </div>
                         <TrainEngine
                           className={cn(
-                            "mt-1 h-10 w-auto shrink-0 text-white drop-shadow-sm lg:h-14",
+                            "mt-1 h-[var(--train-ticket-h)] w-auto shrink-0 text-white drop-shadow-sm lg:h-[var(--train-ticket-h-lg)]",
                             !reduceMotion && "animate-train-drive",
                           )}
                         />
@@ -601,8 +662,19 @@ export default function Home() {
                       fare-zone stamp, vertical line name. No floating punch
                       dot — cutout circles only ever straddle card edges
                       (approved ruling, ported from the mobile build-28 pass). */}
-                  <TicketPerforationV light />
-                  <div className="relative flex w-16 shrink-0 flex-col items-center justify-between py-4">
+                  {/* the perforation hides while tearing: the dashed line is
+                      replaced by the two jagged torn edges */}
+                  {!tearing && <TicketPerforationV light />}
+                  <div
+                    className={cn(
+                      "relative flex w-16 shrink-0 flex-col items-center justify-between py-4",
+                      tearing && "animate-stub-tear rounded-r-3xl",
+                    )}
+                    // While tearing, the piece carries its own ticket stock so
+                    // it reads as a torn-off piece of the pass, not floating
+                    // stamp art (at rest the Link's identical accent shows).
+                    style={tearing ? { backgroundColor: journeyLine.accent } : undefined}
+                  >
                     {journey.current && (
                       <div className="-mx-4">
                         <ZoneStamp
@@ -625,7 +697,7 @@ export default function Home() {
               {/* soft glow / elevated shadow pulse lifting the pass off the
                   page (opacity-only overlay; outside the Link so its outward
                   shadow is not clipped by overflow-hidden) */}
-              {!reduceMotion && (
+              {!reduceMotion && !tearing && (
                 <div
                   className="pointer-events-none absolute inset-0 rounded-3xl animate-pass-glow"
                   style={{ boxShadow: `0 6px 28px 2px ${journeyLine.accent}` }}

@@ -124,12 +124,15 @@ function StationMarker({
   if (isCurrent) {
     return (
       <div
-        className="w-10 h-7 rounded-full bg-white flex items-center justify-center px-1"
+        className="w-[46px] h-8 rounded-full bg-white flex items-center justify-center px-1"
         style={{ boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33`, color }}
         title="Your current stop"
       >
-        {/* Soft idle bob on the parked train, whole-element transform only. */}
-        <TrainEngine className={cn("w-8 h-full", !reduceMotion && "animate-train-bob")} />
+        {/* Soft idle bob on the parked train, whole-element transform only.
+            Width routed through the :root tuning constants (task 899 bump). */}
+        <TrainEngine
+          className={cn("w-[var(--train-marker-w)] h-full", !reduceMotion && "animate-train-bob")}
+        />
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -17,7 +17,11 @@ import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 // (3) reduced motion renders the pass static: the idle animation classes are
 //     not applied at all. jsdom cannot evaluate the CSS media block that
 //     neutralizes keyframes in real browsers, so the JS gating is what these
-//     tests can and do pin.
+//     tests can and do pin;
+// (4) the stub tear (task 899): activation applies the tear classes and the
+//     delayed navigation still fires (never swallowed by the animation path),
+//     reduced motion navigates instantly with no tear, and a failure inside
+//     the animation path falls through to immediate navigation.
 const h = vi.hoisted(() => ({
   groups: [] as unknown[],
   groupsError: false,
@@ -124,9 +128,12 @@ vi.mock("@workspace/api-client-react", () => ({
 // Imported after the mocks are declared.
 import Home from "@/pages/home";
 
-function renderHome(): ReturnType<typeof render> {
-  const { hook } = memoryLocation({ path: "/app", record: true });
-  return render(<Router hook={hook}>{(<Home />) as ReactElement}</Router>);
+function renderHome(): ReturnType<typeof render> & { history: string[] } {
+  const { hook, history } = memoryLocation({ path: "/app", record: true });
+  return {
+    ...render(<Router hook={hook}>{(<Home />) as ReactElement}</Router>),
+    history,
+  };
 }
 
 /** A phrase-stage lesson group as the pass's zone queries see it. */
@@ -208,5 +215,52 @@ describe("home boarding pass motion", () => {
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, {
       language: "gu",
     });
+  });
+});
+
+describe("home boarding pass stub tear (task 899)", () => {
+  const getPass = () =>
+    screen.getByText("Start your journey").closest("a") as HTMLElement;
+
+  test("activation applies the tear sequence AND the navigation still fires", async () => {
+    const { container, history } = renderHome();
+    await userEvent.setup().click(getPass());
+    // Tear classes land on the stub and the ticket body.
+    expect(container.querySelector(".animate-stub-tear")).not.toBeNull();
+    expect(container.querySelector(".animate-body-tear")).not.toBeNull();
+    // Navigation is delayed by --tear-nav-delay (fallback constant in jsdom,
+    // where the :root var is not readable) but is never swallowed.
+    expect(history).not.toContain("/journey");
+    await waitFor(() => expect(history).toContain("/journey"));
+  });
+
+  test("reduced motion navigates instantly with no tear", async () => {
+    h.reduceMotion = true;
+    const { container, history } = renderHome();
+    await userEvent.setup().click(getPass());
+    // Native Link navigation, synchronously, and no tear classes anywhere.
+    expect(history).toContain("/journey");
+    expect(container.querySelector(".animate-stub-tear")).toBeNull();
+    expect(container.querySelector(".animate-body-tear")).toBeNull();
+  });
+
+  test("a failure inside the animation path falls through to immediate navigation", () => {
+    const { history } = renderHome();
+    const pass = getPass();
+    // Make the tear's CSS-var read blow up, scoped to the documentElement
+    // lookup the handler performs so unrelated style reads keep working.
+    const original = window.getComputedStyle.bind(window);
+    const spy = vi
+      .spyOn(window, "getComputedStyle")
+      .mockImplementation((el: Element, pseudo?: string | null) => {
+        if (el === document.documentElement) throw new Error("boom");
+        return original(el, pseudo);
+      });
+    try {
+      fireEvent.click(pass);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(history).toContain("/journey");
   });
 });

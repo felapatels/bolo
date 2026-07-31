@@ -1,0 +1,12 @@
+---
+name: Ticket tear-off pattern
+description: User-approved recipe for tearing a piece off a card/ticket so the motion actually reads as a tear (web boarding pass; reuse for any mobile tear).
+---
+
+# Tear-off pieces must carry their own card stock
+
+**Rule (final, user-approved after 3 rounds):** tear the card into pieces that ALL move, and let the gap show the real page. Concretely: (1) BOTH halves animate away from each other (one side only reads as content sliding off an intact card); (2) each half carries its own copy of the card background, rounded outer corners, a jagged STATIC clip-path rip edge, and a STATIC `filter: drop-shadow(...)` (box-shadow does not work: clip-path clips it away); (3) the card container itself goes transparent for the tear (bg, shadow, glow, deco layers, overflow-hidden all off) so the widening gap shows whatever is actually behind the card. Do NOT paint the gap with a color: a page-colored underlay reads as a white box behind the card, a darkened recess reads as a container too; transparency is what reads as "floating over the page". Add a grip-then-give wobble (brief counter-rotation) and slight sag. Animate transforms/opacity only; clip-path and filters stay static. Make it slower than feels right in isolation: the user asked twice for a longer tear (final: ~600ms animation, navigation at ~500ms).
+
+**Why:** the first web boarding-pass tear moved only the stub's contents over the ticket's own identical background, so the user saw stamp art sliding across an intact ticket and reported "tear off doesn't look right, it should tear imperfectly at the dotted line and be slightly longer." The approved fix added the stock + underlay + jagged clip edge and lengthened the sequence (nav delay 180ms to 360ms, overriding the spec's ~250ms cap at the user's request).
+
+**How to apply:** any future tear/peel effect (e.g. the mobile boarding pass): check where the surface's background is actually painted before animating a child away, and expect "clean + fast" to read as nothing happening. Web reference implementation: gujarati-coach home pass (`animate-stub-tear` in index.css, tear vars in the :root tuning block).

@@ -98,3 +98,4 @@
 - [rn-svg percentage sizing](rn-svg-percentage-height.md) — a percentage-height Svg in NORMAL FLOW inflates native Yoga unboundedly (full-screen ticket, build 28) while Expo web looks perfect; measure via onLayout + absolute wrappers.
 - [bottom-tabs v7 aria-selected](bottom-tabs-aria-selected.md) — custom tabBarButton gets 'aria-selected', NOT accessibilityState, on native; test mocks must use the real shape or a dead trigger stays green.
 - [expo-audio session auto-deactivation](expo-audio-session-deactivation.md) — any finishing/paused player deactivates the iOS session unless another is strictly .playing (buffering doesn't count); pass keepAudioSessionActive on session-managed players.
+- [Ticket tear-off pattern](ticket-tear-pattern.md) — a torn-off piece must carry its own card stock, reveal a bg underlay, and rip on a jagged static clip-path; a clean fast slide reads as nothing happening.

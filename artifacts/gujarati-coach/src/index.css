@@ -260,6 +260,18 @@
   --station-bounce-cycle: 2.2s;  /* journey station train bounce */
   --station-bounce-height: -4px;
   --steam-rise: -11px;           /* steam puff rise above the funnel */
+  --train-ticket-h: 47px;        /* home pass train height, mobile (was 40px) */
+  --train-ticket-h-lg: 65px;     /* home pass train height, lg (was 56px) */
+  --train-marker-w: 37px;        /* journey rail-marker train width (was 32px) */
+  --tear-duration: 600ms;        /* stub tear + body recoil run time */
+  --tear-nav-delay: 500ms;       /* pass activation -> navigation. MUST be in ms:
+                                    home.tsx parses this value to time navigate() */
+  --tear-rotate: 16deg;          /* stub peel rotation at full tear */
+  --tear-distance: 34px;         /* stub travel toward the right edge */
+  --tear-drop: 10px;             /* stub sag as it comes free */
+  --tear-body-distance: -18px;   /* ticket-body travel away from the stub */
+  --tear-body-rotate: -3deg;     /* ticket-body tilt as the halves separate */
+  --tear-body-drop: 2px;         /* ticket-body sag */
   --station-surface: hsl(40 55% 97.5%); /* warm signboard surface, active stop card */
 }
 .dark {
@@ -332,6 +344,112 @@
 }
 .animate-train-drive {
   animation: train-drive var(--train-drive-cycle) ease-in-out infinite;
+}
+/* Stub tear on boarding-pass activation (home pass ONLY; the journey header
+   ticket shares the ticket components but never receives these classes).
+   BOTH halves tear away from each other along the existing perforation:
+   the fare-zone stub swings right and falls free while the ticket body
+   pulls left with a slight tilt. During the tear the Link container goes
+   transparent (deco layers hidden in home.tsx), so the widening gap shows
+   the actual page behind the pass and the halves read as floating pieces.
+   home.tsx navigates after --tear-nav-delay, so the tail of the tear
+   overlaps the route swap. Animated properties are transforms/opacity
+   only (clip-path rip edges and drop-shadows are static for the tear's
+   lifetime). Reduced motion never applies the classes (JS gate in
+   home.tsx) and the reduce block above collapses them regardless.
+   The `forwards` fill is safe here: the torn subtrees contain no
+   position-fixed descendants and home unmounts at navigation. */
+@keyframes stub-tear {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  /* grips at the perforation before giving way: tiny counter-rotation */
+  16% {
+    transform: translate(1.5px, 0) rotate(-2.5deg);
+    opacity: 1;
+  }
+  45% {
+    transform: translate(
+        calc(var(--tear-distance) * 0.35),
+        calc(var(--tear-drop) * 0.25)
+      )
+      rotate(calc(var(--tear-rotate) * 0.55));
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tear-distance), var(--tear-drop))
+      rotate(var(--tear-rotate));
+    opacity: 0;
+  }
+}
+.animate-stub-tear {
+  /* pivot at the top of the perforation, like tearing from the corner */
+  transform-origin: top left;
+  animation: stub-tear var(--tear-duration) cubic-bezier(0.3, 0.1, 0.6, 1) forwards;
+  /* free-floating piece over the page (static; follows the clip-path) */
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.25));
+  /* Imperfect rip: jagged left edge along the perforation. Static clip-path
+     (applied for the tear's lifetime, never animated), so the animation
+     itself stays transforms/opacity only. */
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 100%,
+    4px 100%,
+    1px 94%,
+    5px 86%,
+    2px 79%,
+    6px 70%,
+    1px 62%,
+    4px 55%,
+    2px 47%,
+    6px 39%,
+    1px 31%,
+    5px 24%,
+    2px 16%,
+    5px 8%
+  );
+}
+@keyframes body-tear {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  /* grip: leans toward the stub before the perforation gives way */
+  16% {
+    transform: translate(1px, 0) rotate(0.6deg);
+  }
+  100% {
+    transform: translate(var(--tear-body-distance), var(--tear-body-drop))
+      rotate(var(--tear-body-rotate));
+  }
+}
+.animate-body-tear {
+  transform-origin: center left;
+  animation: body-tear var(--tear-duration) cubic-bezier(0.3, 0.1, 0.5, 1) forwards;
+  /* free-floating piece over the page (static; follows the clip-path) */
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.25));
+  /* Imperfect rip: jagged right edge, complementing the stub's left edge. */
+  clip-path: polygon(
+    0% 0%,
+    calc(100% - 4px) 0%,
+    calc(100% - 1px) 6%,
+    calc(100% - 5px) 14%,
+    calc(100% - 2px) 22%,
+    calc(100% - 6px) 31%,
+    calc(100% - 1px) 39%,
+    calc(100% - 4px) 47%,
+    calc(100% - 2px) 55%,
+    calc(100% - 6px) 63%,
+    calc(100% - 1px) 71%,
+    calc(100% - 5px) 79%,
+    calc(100% - 2px) 87%,
+    calc(100% - 5px) 94%,
+    calc(100% - 1px) 100%,
+    0% 100%
+  );
 }
 /* Journey "Now boarding" card: strong border/glow pulse, opacity-only. */
 @keyframes stop-glow-pulse {
