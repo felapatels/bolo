@@ -12,6 +12,8 @@ import {
   categoriesTable,
   lessonsTable,
   phrasesTable,
+  xpLedgerTable,
+  userItemMemoryTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -161,6 +163,37 @@ before(async () => {
       sort_order integer NOT NULL DEFAULT 0
     );
   `);
+  // xp_ledger: the analytics route reads totalXp from here, not from attempts.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS xp_ledger (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      source text NOT NULL,
+      ref_id text NOT NULL,
+      xp integer NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT uq_xp_ledger_user_source_ref UNIQUE (user_id, source, ref_id)
+    );
+  `);
+  // user_item_memory: the analytics route counts reviewDueCount from here.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_item_memory (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      phrase_id integer NOT NULL REFERENCES phrases(id),
+      stability real NOT NULL DEFAULT 0,
+      difficulty real NOT NULL DEFAULT 5,
+      state text NOT NULL DEFAULT 'new',
+      reps integer NOT NULL DEFAULT 0,
+      lapses integer NOT NULL DEFAULT 0,
+      scheduled_days integer NOT NULL DEFAULT 0,
+      due_at timestamptz NOT NULL DEFAULT now(),
+      last_review_at timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT uq_user_item_memory_user_phrase UNIQUE (user_id, phrase_id)
+    );
+  `);
   // Dev DB can lag migrations; make sure users has every current column
   // (shared shim — see ../lib/testDbCompat).
   await ensureUsersColumns();
@@ -293,12 +326,33 @@ before(async () => {
   //                             interval 1d => due at T+1d > now => NOT due
   // => reviewDueCount 2 (a2, b2); totalXp = 100+50+70+90+40+70 = 420.
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
+  await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
   await seedAttempt(p.a1, 100, dayT2);
   await seedAttempt(p.a2, 50, dayT5);
   await seedAttempt(p.b1, 70, dayT2);
   await seedAttempt(p.b1, 90, dayT);
   await seedAttempt(p.b2, 40, dayT);
   await seedAttempt(p.b3, 70, dayT);
+
+  // Seed XP ledger: the analytics route reads totalXp from xp_ledger.
+  // Sum: 100+50+70+90+40+70 = 420, matching the seeded attempt scores.
+  await db.insert(xpLedgerTable).values([
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-a1", xp: 100 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-a2", xp: 50 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-b1a", xp: 70 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-b1b", xp: 90 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-b2", xp: 40 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "an-b3", xp: 70 },
+  ]).onConflictDoNothing();
+
+  // Seed FSRS memory: the analytics route counts reviewDueCount from userItemMemoryTable.
+  // a2 and b2 are unmastered and due now; a1/b1 are mastered (no memory row needed);
+  // b3 passed at level 1 so it's scheduled for tomorrow (not due) — no memory row.
+  await db.insert(userItemMemoryTable).values([
+    { userId: TEST_USER_ID, phraseId: p.a2, reps: 1, stability: 1, dueAt: dayT5 },
+    { userId: TEST_USER_ID, phraseId: p.b2, reps: 1, stability: 1, dueAt: dayT },
+  ]).onConflictDoNothing();
 
   await setTier("plus");
 
@@ -329,6 +383,9 @@ after(async () => {
   }
   try {
     await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
+    // xp_ledger and user_item_memory reference users + phrases — delete before those tables.
+    await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
+    await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
     // FK order: phrases → lessons → categories, then the language + user.
     await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
     await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));

@@ -15,6 +15,7 @@ import {
   attemptsTable,
   gameSessionsTable,
   badgesTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -295,6 +296,9 @@ after(async () => {
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(gameSessionsTable).where(eq(gameSessionsTable.userId, TEST_USER_ID));
+  // xp_ledger rows reference users(id) — delete before the user row to avoid FK violation.
+  // Game-session success tests write to xp_ledger via the real route.
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await db
     .delete(phrasesTable)
     .where(eq(phrasesTable.categoryId, premiumCategoryId));

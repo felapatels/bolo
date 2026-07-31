@@ -573,6 +573,15 @@ test("review returns practiced-but-unmastered phrases, weakest first", async () 
   await seedAttempt(phrase.weakLow, 30); // best 55
   await seedAttempt(phrase.mastered, 90); // best 90 → mastered, excluded
 
+  // The review route queries userItemMemoryTable (FSRS), not attemptsTable, for
+  // ordering. Seed memory rows so the route returns these phrases. weakLow gets
+  // an earlier dueAt (more overdue) so it appears first in dueAt-asc ordering.
+  // mastered has no memory row → excluded by the reps>0 / stability<21 filter.
+  await db.insert(userItemMemoryTable).values([
+    { userId: TEST_USER_ID, phraseId: phrase.weakLow, reps: 1, stability: 1, dueAt: daysAgo(2) },
+    { userId: TEST_USER_ID, phraseId: phrase.weakHigh, reps: 1, stability: 1, dueAt: daysAgo(1) },
+  ]);
+
   const { status, json } = await getReviewPhrases(LANG);
   assert.equal(status, 200);
   assert.deepEqual(
@@ -595,6 +604,13 @@ test("review surfaces a due phrase ahead of a weaker one that was just practiced
   await seedAttemptAt(phrase.weakLow, 55, daysAgo(5));
   await seedAttempt(phrase.weakLow, 70); // best 70, passed just now -> not due
 
+  // Seed FSRS memory: weakHigh is very overdue, weakLow is barely due now.
+  // The route orders by dueAt asc → weakHigh (10 days overdue) leads.
+  await db.insert(userItemMemoryTable).values([
+    { userId: TEST_USER_ID, phraseId: phrase.weakHigh, reps: 1, stability: 1, dueAt: daysAgo(10) },
+    { userId: TEST_USER_ID, phraseId: phrase.weakLow, reps: 1, stability: 1, dueAt: new Date() },
+  ]);
+
   const { status, json } = await getReviewPhrases(LANG);
   assert.equal(status, 200);
   assert.deepEqual(
@@ -611,6 +627,13 @@ test("review breaks ties between equally-due phrases weakest-first", async () =>
   const sameTime = daysAgo(1);
   await seedAttemptAt(phrase.weakHigh, 50, sameTime); // best 50
   await seedAttemptAt(phrase.weakLow, 30, sameTime); // best 30
+
+  // Seed FSRS memory. Give weakLow a 1-second earlier dueAt so the dueAt-asc
+  // ordering is deterministic — weakLow leads, matching the "weakest first" expectation.
+  await db.insert(userItemMemoryTable).values([
+    { userId: TEST_USER_ID, phraseId: phrase.weakLow, reps: 1, stability: 1, dueAt: new Date(sameTime.getTime() - 1000) },
+    { userId: TEST_USER_ID, phraseId: phrase.weakHigh, reps: 1, stability: 1, dueAt: sameTime },
+  ]);
 
   const { status, json } = await getReviewPhrases(LANG);
   assert.equal(status, 200);

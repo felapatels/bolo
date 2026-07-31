@@ -13,6 +13,7 @@ import {
   categoriesTable,
   lessonsTable,
   phrasesTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -154,6 +155,19 @@ before(async () => {
       sort_order integer NOT NULL DEFAULT 0
     );
   `);
+  // xp_ledger: the progress/summary and /badges routes read xp from here, not attempts.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS xp_ledger (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      source text NOT NULL,
+      ref_id text NOT NULL,
+      xp integer NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT uq_xp_ledger_user_source_ref UNIQUE (user_id, source, ref_id)
+    );
+  `);
 
   await db
     .insert(usersTable)
@@ -228,12 +242,24 @@ before(async () => {
   //    xp 380, averageScore round(380/6)=63, streak 1, attemptsToday 6.
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await seedAttempt(phrase.a, 100);
   await seedAttempt(phrase.b, 90);
   await seedAttempt(phrase.b, 40);
   await seedAttempt(phrase.c, 50);
   await seedAttempt(phrase.d, 70);
   await seedAttempt(phrase.d, 30);
+
+  // Seed XP ledger: the progress/summary route reads xp from xp_ledger, not attempts.
+  // Sum: 100+90+40+50+70+30 = 380, matching the seeded attempt scores.
+  await db.insert(xpLedgerTable).values([
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-a", xp: 100 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-b1", xp: 90 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-b2", xp: 40 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-c", xp: 50 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-d1", xp: 70 },
+    { userId: TEST_USER_ID, languageCode: LANG, source: "bootstrap", refId: "pr-d2", xp: 30 },
+  ]).onConflictDoNothing();
 
   // Persist a known set of earned badges. The /badges earned flag reads from
   // these rows (not from live metrics), so this fixes exactly which come back
@@ -266,6 +292,8 @@ before(async () => {
 after(async () => {
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  // xp_ledger references users and languages — delete before those tables.
+  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );

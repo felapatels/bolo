@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // Unit tests for sendContactNotification.
 //
 // Verified contracts:
-//   1. reply_to equals the submitter's email address
+//   1. replyTo equals the submitter's email address
 //   2. to uses process.env.SUPPORT_INBOX_EMAIL when set
 //   3. to falls back to "LARKsupport@gmail.com" when SUPPORT_INBOX_EMAIL is unset
 //
@@ -78,7 +78,7 @@ before(() => {
   process.env.RESEND_FROM = "hello@bolo-india.app";
 });
 
-test("sendContactNotification: reply_to equals the submitter email", async () => {
+test("sendContactNotification: replyTo equals the submitter email", async () => {
   const startIdx = capturedCalls.length;
 
   await withEnv({ SUPPORT_INBOX_EMAIL: "team@example.com" }, async () => {
@@ -88,7 +88,7 @@ test("sendContactNotification: reply_to equals the submitter email", async () =>
 
   const call = capturedCalls[startIdx];
   assert.ok(call, "expected Resend emails.send to have been called");
-  assert.equal(call.reply_to, "alice@example.com");
+  assert.equal(call.replyTo, "alice@example.com");
 });
 
 test("sendContactNotification: to uses SUPPORT_INBOX_EMAIL when set", async () => {

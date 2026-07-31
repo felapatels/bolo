@@ -472,21 +472,23 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
 
   await warmGreetings(deps);
 
-  // Each captured voice ID must equal what getVoiceIdForLanguage returns for
-  // that language code — proving warmGreetings resolves the voice per-language
-  // rather than hard-coding a single Bolo voice for every greeting.
-  const expectedGu = getVoiceIdForLanguage("gu");
-  const expectedHi = getVoiceIdForLanguage("hi");
+  // Each captured voice ID must equal what phraseAudioIdentity() returns for
+  // that language code — the single source of truth for provider+voice that
+  // both warmGreetings and the /openai/tts route must use. For ElevenLabs this
+  // is a per-language voice ID; for other providers it is the fixed phrase-audio
+  // default voice.
+  const expectedGu = phraseAudioIdentity("gu").voice;
+  const expectedHi = phraseAudioIdentity("hi").voice;
 
   assert.equal(
     capturedVoiceIds["Gujarati"],
     expectedGu,
-    `warmGreetings must synthesize Gujarati with voice ${expectedGu} (from getVoiceIdForLanguage("gu")), got: ${capturedVoiceIds["Gujarati"]}`,
+    `warmGreetings must synthesize Gujarati with voice ${expectedGu} (from phraseAudioIdentity("gu").voice), got: ${capturedVoiceIds["Gujarati"]}`,
   );
   assert.equal(
     capturedVoiceIds["Hindi"],
     expectedHi,
-    `warmGreetings must synthesize Hindi with voice ${expectedHi} (from getVoiceIdForLanguage("hi")), got: ${capturedVoiceIds["Hindi"]}`,
+    `warmGreetings must synthesize Hindi with voice ${expectedHi} (from phraseAudioIdentity("hi").voice), got: ${capturedVoiceIds["Hindi"]}`,
   );
 });
 
@@ -515,15 +517,19 @@ test("warmGreetings uses the unified Laura voice for all languages (task #643)",
     capturedVoiceIds["Gujarati"] && capturedVoiceIds["Hindi"],
     "Both Gujarati and Hindi greetings must have been synthesized",
   );
-  const expectedVoice = getVoiceIdForLanguage("gu");
+  // With the current TTS provider, all languages use the provider-resolved voice
+  // from phraseAudioIdentity() (the fixed phrase-audio default for non-ElevenLabs
+  // providers). The unification check still holds: warmGreetings must resolve
+  // the voice through phraseAudioIdentity(), not hardcode a stale ElevenLabs ID.
+  const expectedVoice = phraseAudioIdentity("gu").voice;
   assert.equal(
     capturedVoiceIds["Gujarati"],
-    DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Gujarati greeting must use the Laura Auto-default voice after unification",
+    expectedVoice,
+    "Gujarati greeting must use the provider-resolved voice from phraseAudioIdentity",
   );
   assert.equal(
     capturedVoiceIds["Hindi"],
-    DEFAULT_MULTILINGUAL_VOICE_ID,
-    "Hindi greeting must use the Laura Auto-default voice after unification",
+    phraseAudioIdentity("hi").voice,
+    "Hindi greeting must use the provider-resolved voice from phraseAudioIdentity",
   );
 });

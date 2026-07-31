@@ -112,6 +112,33 @@ async function categoryPhraseIds(userId: string): Promise<number[]> {
 before(async () => {
   await ensureUsersColumns();
 
+  // Pre-cleanup: remove any stale rows left by a failed previous run.
+  // Uses stable identifiers (LANG, CATEGORY_SLUG, ALL_USERS) so that even
+  // when session-level IDs (categoryId, lessonId) were never assigned due to
+  // a prior before() crash, cleanup is still complete. FK-safe order.
+  await db
+    .delete(userItemMemoryTable)
+    .where(inArray(userItemMemoryTable.userId, ALL_USERS));
+  await db
+    .delete(attemptsTable)
+    .where(inArray(attemptsTable.userId, ALL_USERS));
+  await db
+    .delete(lessonGroupProgressTable)
+    .where(inArray(lessonGroupProgressTable.userId, ALL_USERS));
+  await db
+    .delete(lessonGroupTestoutsTable)
+    .where(inArray(lessonGroupTestoutsTable.userId, ALL_USERS));
+  await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  await db
+    .delete(lessonGroupsTable)
+    .where(eq(lessonGroupsTable.languageCode, LANG));
+  await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
+  await db
+    .delete(categoriesTable)
+    .where(eq(categoriesTable.slug, CATEGORY_SLUG));
+  await db.delete(languagesTable).where(eq(languagesTable.code, LANG));
+  await db.delete(usersTable).where(inArray(usersTable.id, ALL_USERS));
+
   for (const [id, tier] of [
     [U_PLUS, "plus"],
     [U_RETAKE, "plus"],

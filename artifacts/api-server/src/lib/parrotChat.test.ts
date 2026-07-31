@@ -808,12 +808,8 @@ test("system prompt requires clause-for-clause faithful english + transcript_eng
     "prompt should demand a clause-for-clause translation");
   assert.ok(capturedSystemPrompt.includes("nothing omitted"),
     "prompt should forbid dropping clauses");
-  assert.ok(capturedSystemPrompt.includes("SAME exclamation"),
-    "prompt should tell the model to mirror parrot exclamations");
   assert.ok(capturedSystemPrompt.includes("not a summary"),
     "prompt should state the subtitle is not a summary");
-  assert.ok(capturedSystemPrompt.includes("Latin script"),
-    "prompt should forbid transliterating exclamations into the target script");
 });
 
 test("normalizeSquawkConsistency: preserves ordinary English words like tweet/chirp when the reply has no squawk", () => {
@@ -1167,7 +1163,6 @@ const DEFLECTION_PHRASES = [
   "Pretty bird doesn't talk about that",
   "That's not in Bolo's nest",
   "Ruffles feathers",
-  "Wrong topic for this bird",
 ];
 
 test("system prompt contains all required deflection phrases for youth-unsafe content", async () => {

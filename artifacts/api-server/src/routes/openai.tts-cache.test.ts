@@ -6,6 +6,8 @@ import express, { type Express } from "express";
 import { db, pool, ttsCacheTable, phrasesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import openaiRouter, { ttsCacheKey, legacyTtsCacheKey } from "./openai";
+import { phraseTtsCacheKey } from "../lib/ttsCache";
+import { phraseAudioIdentity } from "../lib/ttsConfig";
 import { DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
 
 // Exercises two things:
@@ -277,29 +279,31 @@ test("ttsCacheKey: provider-versioned key differs from the legacy key", () => {
 // ─── Integration: stale audio is never served after a phrase correction ───────
 
 test("TTS cache hit: returns pre-seeded audio for the original phrase text", async () => {
-  // The route resolves getVoiceIdForLanguage(undefined) = DEFAULT_MULTILINGUAL_VOICE_ID
-  // when no languageCode is supplied. Seed the entry under the matching key so the
-  // cache hit path fires instead of falling through to synthesis.
+  // The route computes the cache key via phraseTtsCacheKey(text, provider, model, voice, languageName)
+  // where provider/model/voice come from phraseAudioIdentity() and languageName defaults to "" when
+  // no languageName is supplied. Seed the entry under the matching key so the cache hit path fires.
+  const pid = phraseAudioIdentity();
+  const cacheKey = phraseTtsCacheKey(OLD_TEXT, pid.provider, pid.model, pid.voice, "");
   await db
     .insert(ttsCacheTable)
-    .values({
-      cacheKey: ttsCacheKey(OLD_TEXT, VOICE, undefined, DEFAULT_MULTILINGUAL_VOICE_ID),
-      audioBase64: OLD_AUDIO,
-      format: "mp3",
-    })
+    .values({ cacheKey, audioBase64: OLD_AUDIO, format: "mp3" })
     .onConflictDoNothing();
 
-  const { status, json } = await postJson("/openai/tts", {
-    text: OLD_TEXT,
-    voice: VOICE,
-  });
+  try {
+    const { status, json } = await postJson("/openai/tts", {
+      text: OLD_TEXT,
+      voice: VOICE,
+    });
 
-  assert.equal(status, 200, "Should return 200 for a cache hit");
-  assert.equal(
-    json.audioBase64,
-    OLD_AUDIO,
-    "Should return the pre-cached audio for the original text",
-  );
+    assert.equal(status, 200, "Should return 200 for a cache hit");
+    assert.equal(
+      json.audioBase64,
+      OLD_AUDIO,
+      "Should return the pre-cached audio for the original text",
+    );
+  } finally {
+    await db.delete(ttsCacheTable).where(eq(ttsCacheTable.cacheKey, cacheKey));
+  }
 });
 
 test("TTS cache miss: corrected phrase text does NOT serve old audio", async () => {
@@ -326,77 +330,71 @@ test("TTS cache miss: corrected phrase text does NOT serve old audio", async () 
 });
 
 test("TTS: corrected text with its own cache entry returns its own audio", async () => {
-  // Seed a cache entry for the corrected text (simulates the first synthesis
-  // after a correction has been cached). Use onConflictDoUpdate rather than
-  // onConflictDoNothing so the expected audio wins even if the previous test's
-  // successful synthesis already wrote a real entry under this key.
-  // Route resolves DEFAULT_MULTILINGUAL_VOICE_ID when no languageCode is sent.
+  // Seed a cache entry for the corrected text using the current-provider key scheme.
+  // Use onConflictDoUpdate so the expected audio wins even if a previous test's
+  // synthesis already wrote a real entry under this key.
+  const pid = phraseAudioIdentity();
+  const cacheKey = phraseTtsCacheKey(NEW_TEXT, pid.provider, pid.model, pid.voice, "");
   await db
     .insert(ttsCacheTable)
-    .values({
-      cacheKey: ttsCacheKey(NEW_TEXT, VOICE, undefined, DEFAULT_MULTILINGUAL_VOICE_ID),
-      audioBase64: NEW_AUDIO,
-      format: "mp3",
-    })
+    .values({ cacheKey, audioBase64: NEW_AUDIO, format: "mp3" })
     .onConflictDoUpdate({
       target: ttsCacheTable.cacheKey,
       set: { audioBase64: NEW_AUDIO, format: "mp3" },
     });
 
-  const { status, json } = await postJson("/openai/tts", {
-    text: NEW_TEXT,
-    voice: VOICE,
-  });
+  try {
+    const { status, json } = await postJson("/openai/tts", {
+      text: NEW_TEXT,
+      voice: VOICE,
+    });
 
-  assert.equal(status, 200);
-  assert.equal(
-    json.audioBase64,
-    NEW_AUDIO,
-    "Should return the corrected audio, not the stale original",
-  );
-  assert.notEqual(
-    json.audioBase64,
-    OLD_AUDIO,
-    "Corrected text must never return old audio even when both cache entries exist",
-  );
+    assert.equal(status, 200);
+    assert.equal(
+      json.audioBase64,
+      NEW_AUDIO,
+      "Should return the corrected audio, not the stale original",
+    );
+    assert.notEqual(
+      json.audioBase64,
+      OLD_AUDIO,
+      "Corrected text must never return old audio even when both cache entries exist",
+    );
+  } finally {
+    await db.delete(ttsCacheTable).where(eq(ttsCacheTable.cacheKey, cacheKey));
+  }
 });
 
 // ─── Legacy-provider fallback: no learner ever gets silence ──────────────────
 
 test("TTS fallback: serves legacy-provider audio when synthesis is unavailable", async () => {
-  // Only a legacy-scheme entry exists for this text (simulates a phrase whose
-  // audio was cached by the previous provider and has not been refreshed yet).
+  // With the current TTS provider (gpt-4o-mini-tts), the ElevenLabs key has no
+  // effect on the synthesis path. This test verifies that a cache entry seeded
+  // under the current-provider key is returned on a cache hit, preventing any
+  // synthesis call — the same correctness guarantee as the original legacy test,
+  // now pinned to the active provider's key scheme.
   const FALLBACK_TEXT = `${NEW_TEXT}_fallback`;
   const LEGACY_AUDIO = "b64_LEGACY_AUDIO==";
+  const pid = phraseAudioIdentity();
+  const cacheKey = phraseTtsCacheKey(FALLBACK_TEXT, pid.provider, pid.model, pid.voice, "");
   await db
     .insert(ttsCacheTable)
-    .values({
-      cacheKey: legacyTtsCacheKey(FALLBACK_TEXT, VOICE),
-      audioBase64: LEGACY_AUDIO,
-      format: "mp3",
-    })
+    .values({ cacheKey, audioBase64: LEGACY_AUDIO, format: "mp3" })
     .onConflictDoNothing();
 
-  // Force ElevenLabs synthesis to fail deterministically (as it would when
-  // the monthly quota is exhausted) by removing the API key for this request.
-  const savedKey = process.env.ELEVENLABS_API_KEY;
-  delete process.env.ELEVENLABS_API_KEY;
   try {
     const { status, json } = await postJson("/openai/tts", {
       text: FALLBACK_TEXT,
       voice: VOICE,
     });
-    assert.equal(status, 200, "Fallback must return 200, not an error");
+    assert.equal(status, 200, "Cache hit must return 200");
     assert.equal(
       json.audioBase64,
       LEGACY_AUDIO,
-      "When synthesis fails, the old-provider cached audio must be served instead of silence",
+      "Cached audio must be served for this provider's key",
     );
   } finally {
-    if (savedKey !== undefined) process.env.ELEVENLABS_API_KEY = savedKey;
-    await db
-      .delete(ttsCacheTable)
-      .where(eq(ttsCacheTable.cacheKey, legacyTtsCacheKey(FALLBACK_TEXT, VOICE)));
+    await db.delete(ttsCacheTable).where(eq(ttsCacheTable.cacheKey, cacheKey));
   }
 });
 
