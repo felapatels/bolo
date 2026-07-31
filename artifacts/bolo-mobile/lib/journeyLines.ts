@@ -96,12 +96,12 @@ export const JOURNEY_LINES: Record<string, JourneyLine> = {
   },
   as: {
     lineName: 'Kamrupa Express',
-    accent: '#65a30d',
+    accent: '#f43f5e',
     zones: ['Guwahati Junction', 'Tezpur', 'Kaziranga', 'Jorhat', 'Majuli', 'Dibrugarh'],
   },
   hi: {
     lineName: 'Ganga Line',
-    accent: '#e11d48',
+    accent: '#65a30d',
     zones: ['New Delhi', 'Aligarh', 'Kanpur Central', 'Prayagraj', 'Mirzapur', 'Varanasi'],
   },
   ur: {
