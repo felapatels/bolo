@@ -60,7 +60,7 @@ export async function sendContactNotification(
     const { error } = await client.emails.send({
       from: fromAddress(),
       to: process.env.SUPPORT_INBOX_EMAIL ?? "LARKsupport@gmail.com",
-      reply_to: email,
+      replyTo: email,
       subject: `BOLO Contact Form: ${categoryLabel} from ${name}`,
       html: `
         <h2>New contact form submission</h2>

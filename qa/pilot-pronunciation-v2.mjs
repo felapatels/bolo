@@ -45,26 +45,45 @@ const { values: args } = parseArgs({
     lang:      { type: "string" },
     phrases:   { type: "string" },
     "dry-run": { type: "boolean", default: false },
+    // R2 mode: list + download pilot clips directly from Cloudflare R2.
+    // Mutually exclusive with --video.  Requires --lang; --phrases is optional
+    // (used only to label results when provided).
+    r2:        { type: "boolean", default: false },
   },
   allowPositionals: false,
 });
 
-if (!args.video || !args.lang || !args.phrases) {
+if (args.r2 && args.video) {
+  console.error("--r2 and --video are mutually exclusive");
+  process.exit(1);
+}
+if (!args.lang) {
+  console.error("--lang is required");
+  process.exit(1);
+}
+if (!args.r2 && (!args.video || !args.phrases)) {
   console.error(
-    "Usage: node qa/pilot-pronunciation-v2.mjs --video <mp4> --lang <code> --phrases <csv>",
+    "Usage (video mode): node qa/pilot-pronunciation-v2.mjs --video <mp4> --lang <code> --phrases <csv>\n" +
+    "Usage (R2 mode):    node qa/pilot-pronunciation-v2.mjs --r2 --lang <code> [--phrases <csv>]",
   );
   process.exit(1);
 }
 
-const LANG             = args.lang;
-const VIDEO_PATH       = join(ROOT, args.video);
-const PHRASE_ROMANIZED = args.phrases.split(",").map((s) => s.trim());
-const DRY_RUN          = args["dry-run"];
-const N_PHRASES        = PHRASE_ROMANIZED.length;
+const LANG    = args.lang;
+const DRY_RUN = args["dry-run"];
 
-if (!existsSync(VIDEO_PATH)) {
-  console.error(`Video not found: ${VIDEO_PATH}`);
-  process.exit(1);
+// Video-mode-only constants — undefined (and unused) in R2 mode.
+let VIDEO_PATH       = "";
+let PHRASE_ROMANIZED = /** @type {string[]} */ ([]);
+let N_PHRASES        = 0;
+if (!args.r2) {
+  VIDEO_PATH       = join(ROOT, /** @type {string} */ (args.video));
+  PHRASE_ROMANIZED = /** @type {string} */ (args.phrases).split(",").map((s) => s.trim());
+  N_PHRASES        = PHRASE_ROMANIZED.length;
+  if (!existsSync(VIDEO_PATH)) {
+    console.error(`Video not found: ${VIDEO_PATH}`);
+    process.exit(1);
+  }
 }
 
 // ── Phrase catalog ────────────────────────────────────────────────────────────
@@ -90,6 +109,15 @@ const AI_API_KEY     = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 if (!OPENAI_API_KEY) { console.error("OPENAI_API_KEY not set"); process.exit(1); }
 if (!AI_BASE_URL)    { console.error("AI_INTEGRATIONS_OPENAI_BASE_URL not set"); process.exit(1); }
 if (!AI_API_KEY)     { console.error("AI_INTEGRATIONS_OPENAI_API_KEY not set"); process.exit(1); }
+
+// ── R2 mode early exit ────────────────────────────────────────────────────────
+// All helper functions (audioEnsemble, audioGradeOnce, ffmpeg, etc.) are
+// declared with `function` later in the file and are hoisted, so they are
+// available here even though this code executes before their textual position.
+if (args.r2) {
+  await r2Mode();
+  process.exit(0);
+}
 
 // ── Scoring helpers (inlined from scoreBands.ts + pronunciationGuards.ts) ────
 
@@ -903,3 +931,254 @@ mkdirSync(dirname(SUMMARY_PATH), { recursive: true });
 writeFileSync(SUMMARY_PATH, lines.join("\n") + "\n");
 console.log(`\n   → Summary: ${SUMMARY_PATH}`);
 console.log(`═══════════════════════════════════════════════════════\n`);
+
+// ── R2 mode ───────────────────────────────────────────────────────────────────
+// Called early (before any video-mode code) when --r2 is passed.
+// All scoring helpers (audioEnsemble, audioGradeOnce, bandFromScore, ffmpeg …)
+// are `function` declarations that are hoisted, so they are in scope here even
+// though their textual position is above this point in the file.
+
+async function r2Mode() {
+  const LANG_NAMES_R2 = { gu: "Gujarati", hi: "Hindi", ta: "Tamil", te: "Telugu" };
+  const langName = LANG_NAMES_R2[LANG] ?? LANG;
+
+  // Dynamic import — only loaded in R2 mode, so video mode incurs no extra startup.
+  const { S3Client, ListObjectsV2Command, GetObjectCommand } =
+    await import("@aws-sdk/client-s3");
+
+  const accountId      = process.env.R2_ACCOUNT_ID;
+  const accessKeyId    = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const bucket         = process.env.R2_BUCKET_NAME;
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    console.error(
+      "R2 mode requires: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME",
+    );
+    process.exit(1);
+  }
+
+  const s3 = new S3Client({
+    region: "auto",
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const prefix = `pilot-clips/${LANG}/`;
+  console.log(`\n═══════════════════════════════════════════════════════`);
+  console.log(`  Pronunciation Pilot — R2 Mode — ${langName}`);
+  console.log(`═══════════════════════════════════════════════════════\n`);
+  console.log(`[1] Listing R2 objects at ${prefix} …`);
+
+  // Paginate through all objects under the prefix.
+  const allKeys = [];
+  let continuationToken;
+  do {
+    const resp = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
+      }),
+    );
+    for (const obj of resp.Contents ?? []) {
+      if (obj.Key) allKeys.push(obj.Key);
+    }
+    continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  const m4aKeys = allKeys.filter((k) => k.endsWith(".m4a"));
+  if (m4aKeys.length === 0) {
+    console.log(`   No .m4a clips found at ${prefix}`);
+    return;
+  }
+  console.log(`   → ${m4aKeys.length} clip(s) found.\n`);
+
+  // Helper: drain a web-compatible readable stream into a Buffer.
+  async function collectStream(stream) {
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    return Buffer.concat(chunks);
+  }
+
+  const TMP_DIR = `/tmp/pilot-r2-${LANG}`;
+  mkdirSync(TMP_DIR, { recursive: true });
+
+  // [2] Download each .m4a clip + its .json sidecar.
+  console.log(`[2] Downloading ${m4aKeys.length} clip(s) and sidecars …`);
+  const clipItems = [];
+  for (const m4aKey of m4aKeys) {
+    const clipId     = m4aKey.slice(prefix.length).replace(/\.m4a$/, "");
+    const sidecarKey = m4aKey.replace(/\.m4a$/, ".json");
+    try {
+      // Download and write clip locally.
+      const clipResp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: m4aKey }));
+      const m4aBytes = await collectStream(clipResp.Body);
+      const m4aPath  = join(TMP_DIR, `${clipId}.m4a`);
+      const mp3Path  = join(TMP_DIR, `${clipId}.mp3`);
+      writeFileSync(m4aPath, m4aBytes);
+      // gpt-audio requires MP3 — M4A/WAV inputs produce ~5 audio tokens.
+      ffmpeg("-i", m4aPath, "-ar", "24000", "-ac", "1", "-b:a", "128k", mp3Path);
+
+      // Download sidecar (best-effort; missing sidecar is non-fatal).
+      let sidecar = null;
+      try {
+        const scResp  = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: sidecarKey }));
+        const scBytes = await collectStream(scResp.Body);
+        sidecar = JSON.parse(scBytes.toString("utf-8"));
+      } catch {
+        /* no sidecar — proceed without metadata */
+      }
+
+      clipItems.push({ clipId, mp3Path, sidecar });
+      const label = sidecar?.targetRomanized ?? clipId;
+      console.log(`   ✓ ${clipId.slice(0, 12)}…  phrase="${label}"`);
+    } catch (err) {
+      console.warn(`   ⚠ ${m4aKey}: ${err.message}`);
+    }
+  }
+
+  if (clipItems.length === 0) {
+    console.log("   No clips could be downloaded.");
+    return;
+  }
+
+  // [3] Group by phraseId (numeric DB id) or targetRomanized as fallback.
+  console.log(`\n[3] Grouping by phraseId / targetRomanized …`);
+  const groupMap = new Map();
+  for (const item of clipItems) {
+    const key = String(item.sidecar?.phraseId ?? item.sidecar?.targetRomanized ?? "unknown");
+    if (!groupMap.has(key)) {
+      groupMap.set(key, {
+        phraseKey:       key,
+        targetRomanized: item.sidecar?.targetRomanized ?? key,
+        targetNative:    item.sidecar?.targetNative    ?? key,
+        clips:           [],
+      });
+    }
+    groupMap.get(key).clips.push(item);
+  }
+  console.log(`   → ${groupMap.size} phrase group(s)`);
+  for (const [, grp] of groupMap) {
+    console.log(`     "${grp.targetRomanized}": ${grp.clips.length} clip(s)`);
+  }
+
+  // [4] Run gpt-audio ensemble per clip (concurrency=2, 400 ms pacing).
+  console.log(`\n[4] gpt-audio ensemble (${clipItems.length} clip(s)) …`);
+  const clipResults = [];
+  let ensIdx = 0;
+  for (const item of clipItems) {
+    if (ensIdx > 0) await new Promise((r) => setTimeout(r, 400));
+    ensIdx++;
+    const nat = item.sidecar?.targetNative    ?? "";
+    const rom = item.sidecar?.targetRomanized ?? "";
+    try {
+      const b64    = readFileSync(item.mp3Path).toString("base64");
+      const result = await audioEnsemble(b64, nat, rom);
+      if (!result) {
+        console.warn(`   [${ensIdx}/${clipItems.length}] ⚠ ensemble null — ${item.clipId.slice(0, 8)}…`);
+        clipResults.push({ ...item, ensembleRaw: null, median: null });
+      } else {
+        console.log(
+          `   [${ensIdx}/${clipItems.length}] "${rom || (item.clipId.slice(0, 8) + "…")}":` +
+          ` raw=[${result.raw.join(",")}] median=${result.median}`,
+        );
+        clipResults.push({ ...item, ensembleRaw: result.raw, median: result.median });
+      }
+    } catch (err) {
+      console.warn(`   [${ensIdx}/${clipItems.length}] ⚠ error: ${err.message}`);
+      clipResults.push({ ...item, ensembleRaw: null, median: null });
+    }
+  }
+
+  // [5] Acceptance criteria.
+  //
+  // Criteria 1, 3, 4 (separation / wrong-phrase-cap / false-negative) require
+  // known attempt-type labels (native / heavy_accent / mild_accent / wrong_attempt).
+  // Pilot-capture clips carry no such label in the sidecar, so those criteria
+  // are reported as SKIP.
+  //
+  // Criterion 2 (stability: spread ≤ 30 across multiple clips of the same phrase)
+  // CAN be evaluated from the ensemble scores within each phrase group.
+  const stabFails = [];
+  let crit2Pass = true;
+  for (const [, grp] of groupMap) {
+    const scores = grp.clips
+      .map((c) => clipResults.find((r) => r.clipId === c.clipId)?.median)
+      .filter((s) => s != null);
+    if (scores.length >= 2) {
+      const spread = Math.max(...scores) - Math.min(...scores);
+      if (spread > 30) {
+        crit2Pass = false;
+        stabFails.push({ phrase: grp.targetRomanized, scores, spread });
+      }
+    }
+  }
+
+  // [6] Report.
+  const rLines = [];
+  function remit(s = "") { rLines.push(s); console.log(s); }
+
+  remit(`\n# Pronunciation Pilot Report — R2 Mode — ${langName}`);
+  remit(`**Mode: R2 (server-side pilot tee clips)**`);
+  remit(`Generated: ${new Date().toISOString()}`);
+  remit(`R2 prefix: \`${prefix}\``);
+  remit(`Clips downloaded: ${clipItems.length} / ${m4aKeys.length}`);
+  remit(`Phrase groups: ${groupMap.size}`);
+  remit();
+
+  remit(`## Full Results Table\n`);
+  remit(`> Raw score = gpt-audio ensemble median. No proposed-band column (band is a display-layer`);
+  remit(`> with provisional thresholds and must not enter the pilot data).\n`);
+  remit(`| # | Phrase | ClipId (prefix) | Transcript | Orig Score | Ens Raw | Median |`);
+  remit(`|---|--------|-----------------|------------|------------|---------|--------|`);
+  for (const [i, r] of clipResults.entries()) {
+    const rom      = (r.sidecar?.targetRomanized ?? "—").slice(0, 18);
+    const tx       = (r.sidecar?.transcript ?? "—").slice(0, 22).replace(/\|/g, "\\|");
+    const raw      = r.ensembleRaw ? `[${r.ensembleRaw.join(",")}]` : "—";
+    const med      = r.median != null ? String(r.median) : "—";
+    const origScore = r.sidecar?.score != null ? String(r.sidecar.score) : "—";
+    remit(`| ${i + 1} | ${rom} | ${r.clipId.slice(0, 12)}… | ${tx} | ${origScore} | ${raw} | ${med} |`);
+  }
+  remit();
+
+  remit(`## Criterion 1: Separation (native − heavy_accent ≥ 20)\n`);
+  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels; separation cannot be computed.\n`);
+
+  remit(`## Criterion 2: Stability (max−min ≤ 30 per phrase group)\n`);
+  if (!stabFails.length) {
+    const tested = [...groupMap.values()].filter((g) => g.clips.length >= 2).length;
+    remit(`All phrase groups with ≥ 2 clips within stability threshold (spread ≤ 30).` +
+      ` Groups tested: ${tested}/${groupMap.size}.`);
+  } else {
+    remit(`| Phrase | Scores | Spread |`);
+    remit(`|--------|--------|--------|`);
+    for (const f of stabFails) {
+      remit(`| ${f.phrase} | [${f.scores.join(",")}] | ${f.spread} |`);
+    }
+  }
+  remit(`\n**Criterion 2: ${crit2Pass ? "✅ PASS" : "❌ FAIL"}**\n`);
+
+  remit(`## Criterion 3: Wrong-phrase cap (wrong_attempt median < 55)\n`);
+  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels.\n`);
+
+  remit(`## Criterion 4: False-negative rate (mild_accent < 55 ≤ 1)\n`);
+  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels.\n`);
+
+  remit(`---`);
+  remit(`## Overall\n`);
+  remit(`| Criterion | Result |`);
+  remit(`|-----------|--------|`);
+  remit(`| 1. Separation     | SKIP — no attempt-type labels |`);
+  remit(`| 2. Stability      | ${crit2Pass ? "✅ PASS" : "❌ FAIL"} |`);
+  remit(`| 3. Wrong-phrase   | SKIP — no attempt-type labels |`);
+  remit(`| 4. False-negative | SKIP — no attempt-type labels |`);
+  remit();
+  remit(`> Criteria 1/3/4 require recordings tagged as native / heavy_accent / mild_accent /`);
+  remit(`> wrong_attempt.  Run \`--video\` mode with a labelled recording session to evaluate them.`);
+
+  const R2_SUMMARY = join(ROOT, "qa/pilot-results", `r2_summary_${LANG}.md`);
+  mkdirSync(dirname(R2_SUMMARY), { recursive: true });
+  writeFileSync(R2_SUMMARY, rLines.join("\n") + "\n");
+  console.log(`\n   → Summary: ${R2_SUMMARY}`);
+  console.log(`═══════════════════════════════════════════════════════\n`);
+}
