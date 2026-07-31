@@ -1,0 +1,20 @@
+→ NEW TASK — paste once — do not start until the tear-off task (#899) has merged
+
+Web only: animated launch moment ("brand splash"). Consult docs/CODEBASE-FACTS.md and agent memory (motion engine rules, canonical mascot) before any code. Constraints throughout: canonical mascot pixels only with whole-image transforms (NO new mascot artwork, no video assets), transforms/opacity animation only, reduced-motion fully respected, no new dependencies, no em dashes, mobile untouched.
+
+Design, 2-layer for web (web has no native launch screen):
+
+Brand moment. On cold load of the authed app, before home content renders, play a 1.5-2s brand moment: the canonical mascot entering with whole-image transforms (scale/translate/rotate per motion rules — e.g. hop in and settle), the "Bolo!" wordmark, and optionally the redrawn train sliding through, on a clean brand-colored backdrop. It plays while home data loads.
+Skeleton handoff. The moment hands off to a home skeleton (build it in this task if none exists: ticket-shaped and card-shaped placeholder blocks matching home's layout) which then resolves into real content as queries land.
+
+Hard behavioral rules:
+
+Never blocks. If home data is ready before the moment finishes, cut the moment short and hand off immediately. If data is ready at first paint (warm cache), the moment may be skipped entirely or play a minimal beat; report which you chose and why.
+Cold-start only. Plays on initial app load, never on client-side navigation back to home.
+Reduced motion: no animated moment; straight to skeleton/content.
+Failure-safe: any error in the moment falls through to normal home render. The moment must not delay data fetching — queries fire as they do today, the moment overlays.
+Sign-in and unauthed routes untouched.
+
+Step 0 first, report before building: where the authed app mounts relative to home's first query firing, whether any splash/loading state exists today, whether a home skeleton exists (the debt notes suggest not), and where the canonical mascot asset and wordmark are consumed on web. Then build. Timing/scale constants join the :root tuning block.
+
+Pin with tests: data-ready-early cuts the moment short (handoff fires), reduced-motion skips to content, navigation-back does not replay, failure fallback renders home. Enumerate test counts before and after. Live probe: capture the moment and skeleton states via the qa harness, and report cold vs warm load behavior separately.
