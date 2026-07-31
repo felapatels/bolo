@@ -144,7 +144,7 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
-    band: "nailed",
+    band: "great",
     passed: true,
     xpAwarded: 9,
     feedback: "Great!",
@@ -232,7 +232,7 @@ describe("hold-to-talk recording mechanics", () => {
 
     await waitFor(() => expect(h.stopRecording).toHaveBeenCalled());
     await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
   });
 });
 
@@ -278,7 +278,7 @@ describe("evaluation error surfacing", () => {
     await reachIdle();
     await recordAndStop();
 
-    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
     expect(screen.getByText(/couldn't be saved to your progress/i)).toBeInTheDocument();
   });
 });

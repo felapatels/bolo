@@ -6,7 +6,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
-import { BandPill, bandFromScore, bandLabel } from "@/components/ui/band-pill";
+import { BandPill, bandFromScore, bandLabel, bandTextClass } from "@/components/ui/band-pill";
 import { BadgesGallery } from "@/components/badges-gallery";
 import { NextBadgeSpotlight } from "@/components/next-badge-spotlight";
 import { AdvancedAnalytics } from "@/components/advanced-analytics";
@@ -59,9 +59,7 @@ export default function Progress() {
                 <span
                   className={cn(
                     "text-xl leading-9",
-                    bandFromScore(summary.bestScore) === "nailed" && "text-success",
-                    bandFromScore(summary.bestScore) === "close" && "text-primary",
-                    bandFromScore(summary.bestScore) === "retry" && "text-destructive",
+                    bandTextClass(bandFromScore(summary.bestScore)),
                   )}
                 >
                   {bandLabel(bandFromScore(summary.bestScore))}

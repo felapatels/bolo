@@ -40,7 +40,8 @@ import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
-import { BandPill, type Band } from "@/components/ui/band-pill";
+import { BandPill, isFullCreditBand, isPassingBand, normalizeBand, type Band } from "@/components/ui/band-pill";
+import { BandLadder } from "@/components/ui/band-ladder";
 import { PhraseReportButton } from "@/components/phrase-report";
 import { playCue } from "@/lib/sound";
 import { XpArc } from "@/components/XpArc";
@@ -55,10 +56,13 @@ function approxNoticeKey(code: string): string {
   return `bolo.approxNoticeSeen.${code}`;
 }
 
-// Maps a pronunciation band to its CSS color (mirrors ScoreRing color thresholds).
+// Maps a pronunciation band to its CSS color (five-band ladder gradient;
+// retry/nocatch keep the pre-five-band destructive fallback).
 function bandCss(band: Band): string {
-  if (band === "nailed") return "hsl(var(--success))";
-  if (band === "close") return "hsl(var(--primary))";
+  if (band === "perfect") return "hsl(var(--success))";
+  if (band === "great") return "hsl(var(--accent))";
+  if (band === "good") return "hsl(var(--primary))";
+  if (band === "almost") return "hsl(var(--muted-foreground))";
   return "hsl(var(--destructive))";
 }
 
@@ -607,7 +611,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const audioBase64 = btoa(binary);
 
       trackOnce(ANALYTICS_EVENTS.FIRST_PHRASE_ATTEMPTED, { language: activeLang });
-      const evalRes = await evaluate.mutateAsync({
+      const evalRaw = await evaluate.mutateAsync({
         data: {
           phraseId: phrase!.id,
           targetNative: phrase!.nativeScript,
@@ -618,6 +622,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           mimeType: blob.type
         }
       });
+      // Normalize defensively: a stale/mixed-version server may still emit
+      // legacy band names, which would leave the ladder with no highlighted
+      // rung and fall through every band branch below.
+      const evalRes = { ...evalRaw, band: normalizeBand(evalRaw.band, evalRaw.score) };
 
       setResult({
         band: evalRes.band,
@@ -658,30 +666,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       setState("result");
       // Web haptics — mirror the mobile practice pattern exactly.
       webHaptic('medium');
-      if (evalRes.band === 'nailed') {
+      if (isFullCreditBand(evalRes.band)) {
         webHaptic('heavy');
         setTimeout(() => webHaptic('heavy'), 140);
       }
 
-      // Band-driven cues (Spec 1): correct on nailed, wrong+shake on retry.
-      // nocatch is a system miss, not a learner error (rule 16): no wrong
-      // cue, no shake.
-      if (evalRes.band === 'nailed') {
+      // Band-driven cues (Spec 1): correct on a full-credit band (legacy
+      // 'nailed' group), wrong+shake on retry. nocatch is a system miss, not
+      // a learner error (rule 16): no wrong cue, no shake.
+      if (isFullCreditBand(evalRes.band)) {
         playCue('correct');
       } else if (evalRes.band === 'retry') {
         playCue('wrong');
         setShakeKey(k => k + 1);
       }
 
-      if (evalRes.band === 'nailed') {
+      // Confetti is reserved for the TOP band only.
+      if (evalRes.band === 'perfect') {
         setShowConfetti(true);
         if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
       }
       // XP arc: badge flies from the result panel to the XP counter. Fires
-      // whenever XP was actually awarded (nailed AND close — close earns at
-      // the 0.6 band factor). retry/nocatch award no XP, so no arc.
-      if ((evalRes.band === 'nailed' || evalRes.band === 'close') && evalRes.xpAwarded > 0) {
+      // whenever XP was actually awarded (any passing band — the half-credit
+      // group earns at the 0.5 band factor). retry/nocatch award no XP, so no arc.
+      if (isPassingBand(evalRes.band) && evalRes.xpAwarded > 0) {
         if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
         xpArcTimerRef.current = setTimeout(() => {
           const rect = resultPanelRef.current?.getBoundingClientRect();
@@ -695,9 +704,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         }, 250);
       }
 
-      // Hot-streak tracking: increment consecutive good counter (nailed or close)
-      // using a ref so we always see the latest value inside this callback.
-      const newConsec = (evalRes.band === 'nailed' || evalRes.band === 'close') ? consecutiveGoodRef.current + 1 : 0;
+      // Hot-streak tracking: increment consecutive good counter (any passing
+      // band) using a ref so we always see the latest value inside this callback.
+      const newConsec = isPassingBand(evalRes.band) ? consecutiveGoodRef.current + 1 : 0;
       consecutiveGoodRef.current = newConsec;
       if (newConsec === 3) showToast("🔥 3 in a row!");
       else if (newConsec === 5) showToast("🔥🔥 On a roll!");
@@ -835,11 +844,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // Fire a session-end haptic: success if any phrase passed, warning if not.
       // Mirrors the mobile done-screen haptic in the phase==='done' effect.
       const _entries = (phrases ?? []).map(p => sessionResults[p.id]).filter(Boolean);
-      const _anyPassed = _entries.some(e => e.band === 'nailed' || e.band === 'close');
+      const _anyPassed = _entries.some(e => isPassingBand(e.band));
       webHaptic(_anyPassed ? 'success' : 'warning');
       // Celebratory sound gated on the same condition as summary confetti:
-      // at least half of the phrases ended nailed or close.
-      const _good = _entries.filter(e => e.band === 'nailed' || e.band === 'close').length;
+      // at least half of the phrases ended in a passing band.
+      const _good = _entries.filter(e => isPassingBand(e.band)).length;
       if (_entries.length > 0 && _good * 2 >= _entries.length) {
         playCue('session_complete');
       }
@@ -947,11 +956,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       .filter((r): r is NonNullable<typeof r> => r !== undefined);
     const attemptCount = orderedSummaryEntries.length;
     const totalXp = orderedSummaryEntries.reduce((a, r) => a + r.xpAwarded, 0);
-    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => r.band === "nailed");
-    const anyPassed = orderedSummaryEntries.some(r => r.band === "nailed" || r.band === "close");
+    // "Perfect session" = every phrase ended full-credit (legacy 'nailed'
+    // group, unchanged behavior under the five-band split).
+    const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => isFullCreditBand(r.band));
+    const anyPassed = orderedSummaryEntries.some(r => isPassingBand(r.band));
     // Spec 1 gating: session confetti only when at least half of the phrases
-    // ended nailed or close — never on rough sessions.
-    const goodCount = orderedSummaryEntries.filter(r => r.band === "nailed" || r.band === "close").length;
+    // ended in a passing band — never on rough sessions.
+    const goodCount = orderedSummaryEntries.filter(r => isPassingBand(r.band)).length;
     const celebrateSession = attemptCount > 0 && goodCount * 2 >= attemptCount;
     return (
       <div className="app-surface min-h-screen flex flex-col bg-background p-6 mx-auto w-full max-w-xl">
@@ -1095,9 +1106,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // cheering back up) once a band lands.
   const mascotPose: MascotPose =
     state === "result" && result
-      ? result.band === "nailed"
+      ? isFullCreditBand(result.band)
         ? "cheer"
-        : result.band === "close"
+        : isPassingBand(result.band)
           ? "thumbsup"
           : result.band === "nocatch"
             ? "thinking" // system miss, not learner error (Spec 1 rule 16)
@@ -1614,14 +1625,26 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
                   <p className={cn(
                     "text-xl font-black mb-1",
-                    result.band === "nailed" ? "text-success" :
-                    result.band === "close" ? "text-primary" :
+                    result.band === "perfect" ? "text-success" :
+                    result.band === "great" ? "text-success" :
+                    result.band === "good" ? "text-primary" :
+                    result.band === "almost" ? "text-primary" :
                     "text-foreground"
                   )}>
-                    {result.band === "nailed" ? "Amazing!" : result.band === "close" ? "Nice work!" : "Good try — keep going!"}
+                    {result.band === "perfect" ? "Perfect!"
+                      : result.band === "great" ? "Amazing!"
+                      : result.band === "good" ? "Nice work!"
+                      : result.band === "almost" ? "So close!"
+                      : "Good try, keep going!"}
                   </p>
                   <div className="my-2 flex justify-center">
-                    <BandPill band={result.band} />
+                    {/* Five-band ladder for scored attempts; nocatch keeps its
+                        neutral pill and never shows the ladder (rule 16). */}
+                    {result.band === "nocatch" ? (
+                      <BandPill band={result.band} />
+                    ) : (
+                      <BandLadder band={result.band} />
+                    )}
                   </div>
                   <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
                   {result.tip && (

@@ -24,7 +24,7 @@ export interface Attempt {
   score: number;
   passed: boolean;
   /**
-     * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+     * Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.
      * @nullable
      */
   band?: AttemptBand;

@@ -7,14 +7,16 @@
  */
 
 /**
- * Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP).
+ * Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder.
  */
 export type PronunciationResultBand = typeof PronunciationResultBand[keyof typeof PronunciationResultBand];
 
 
 export const PronunciationResultBand = {
   nocatch: 'nocatch',
-  nailed: 'nailed',
-  close: 'close',
+  perfect: 'perfect',
+  great: 'great',
+  good: 'good',
+  almost: 'almost',
   retry: 'retry',
 } as const;

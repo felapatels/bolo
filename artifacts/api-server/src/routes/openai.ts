@@ -19,6 +19,7 @@ import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
+import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreBands";
 import { computePronunciationXp } from "../lib/xpEngine";
 import {
   applyScoreGuards,
@@ -916,15 +917,17 @@ router.post(
             Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
           ]!;
         const { feedback, tip } = pick;
-        const nailedBand: PronunciationBand = "nailed";
-        const nailedXp = computePronunciationXp(nailedBand, phraseDifficulty);
+        // Score-only five-band derivation; the fast path only fires on
+        // near-exact matches, so this lands in the full-credit group.
+        const fastBand: PronunciationBand = bandFromScore(score);
+        const fastXp = computePronunciationXp(fastBand, phraseDifficulty);
         res.json({
           transcript,
           score,
           passed: true,
-          band: nailedBand,
-          xpAwarded: nailedXp,
-          xpBreakdown: nailedXp > 0 ? `Full XP — nailed it` : null,
+          band: fastBand,
+          xpAwarded: fastXp,
+          xpBreakdown: fastXp > 0 ? `Full XP` : null,
           feedback,
           tip,
           evaluationToken: signEvaluation({
@@ -938,8 +941,8 @@ router.post(
             score,
             passed: true,
             feedback,
-            band: nailedBand,
-            xpAwarded: nailedXp,
+            band: fastBand,
+            xpAwarded: fastXp,
             latencyMs: latencyMs ?? null,
           }),
         });
@@ -1067,10 +1070,10 @@ router.post(
         return;
       }
       const { score, passed } = guarded;
-      // Band derives from score only (Spec 0 rule 40): >=80 nailed, 55-79 close,
-      // <55 retry. Never derive it from `passed` — a trusted LLM `passed` boolean
-      // could otherwise produce band 'nailed' at a sub-80 score.
-      const llmBand: PronunciationBand = score >= 80 ? "nailed" : score >= 55 ? "close" : "retry";
+      // Band derives from score only (Spec 0 rule 40) via the five-band config
+      // in scoreBands.ts. Never derive it from `passed` — a trusted LLM `passed`
+      // boolean could otherwise produce a full-credit band at a sub-80 score.
+      const llmBand: PronunciationBand = bandFromScore(score);
       const llmXp = computePronunciationXp(llmBand, phraseDifficulty);
       const feedback =
         result.feedback ??
@@ -1082,8 +1085,8 @@ router.post(
         band: llmBand,
         xpAwarded: llmXp,
         xpBreakdown:
-          llmBand === "nailed" ? `Full XP — nailed it` :
-          llmBand === "close"  ? `Half XP — close try` :
+          isFullCreditBand(llmBand) ? `Full XP` :
+          isHalfCreditBand(llmBand) ? `Half XP` :
           null,
         feedback,
         tip: result.tip ?? "Try to say each syllable slowly and clearly.",

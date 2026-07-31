@@ -89,7 +89,8 @@ export function deriveGroupStatuses(
 
 // Test-out assessment composition (approved proposal): sample up to
 // TESTOUT_SAMPLE_SIZE phrases from the group's rows accessible to the caller;
-// pass requires band 'nailed' (score >= 80) on at least
+// pass requires a full-credit band (five-band perfect|great, i.e. the frozen
+// legacy 'nailed' boundary of score >= 80) on at least
 // ceil(TESTOUT_PASS_RATIO * sampleSize) of them.
 export const TESTOUT_SAMPLE_SIZE = 5;
 export const TESTOUT_PASS_RATIO = 0.8;

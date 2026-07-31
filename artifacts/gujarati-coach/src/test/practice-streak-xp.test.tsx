@@ -145,20 +145,20 @@ async function reachIdle(phraseList = phrases.slice(0, 3)) {
   await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
 }
 
-type Band = "nailed" | "close" | "retry" | "nocatch";
+type Band = "great" | "good" | "retry" | "nocatch";
 
 function bandLabel(band: Band): string {
-  return band === "nailed" ? "Amazing!" : band === "close" ? "Nice work!" : "Good try — keep going!";
+  return band === "great" ? "Amazing!" : band === "good" ? "Nice work!" : "Good try, keep going!";
 }
 
 /**
  * Score one phrase: hold → release → wait for the band result card.
  * Resets h.startRecording so the waitFor sees a fresh call each time.
  */
-async function scoreOnce(band: Band = "nailed", xpAwarded = 10) {
+async function scoreOnce(band: Band = "great", xpAwarded = 10) {
   h.evaluate.mockResolvedValueOnce({
     band,
-    passed: band === "nailed" || band === "close",
+    passed: band === "great" || band === "good",
     xpAwarded,
     feedback: "Good!",
     tip: "Keep it up.",
@@ -178,7 +178,7 @@ async function scoreOnce(band: Band = "nailed", xpAwarded = 10) {
 }
 
 /** Score a phrase and advance to the next one. */
-async function scoreAndNext(band: Band = "nailed", xpAwarded = 10) {
+async function scoreAndNext(band: Band = "great", xpAwarded = 10) {
   await scoreOnce(band, xpAwarded);
   fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
   await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
@@ -188,7 +188,7 @@ beforeEach(() => {
   localStorage.clear();
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
-    band: "nailed",
+    band: "great",
     passed: true,
     xpAwarded: 10,
     feedback: "Good!",
@@ -207,10 +207,10 @@ describe("hot-streak toasts", () => {
   test('shows "🔥 3 in a row!" after three consecutive nailed/close bands', async () => {
     await reachIdle(phrases.slice(0, 3));
 
-    await scoreAndNext("close");
-    await scoreAndNext("nailed");
+    await scoreAndNext("good");
+    await scoreAndNext("great");
     // Third consecutive passing band — toast fires
-    await scoreOnce("nailed");
+    await scoreOnce("great");
 
     await waitFor(
       () => expect(screen.getByText("🔥 3 in a row!")).toBeInTheDocument(),
@@ -221,12 +221,12 @@ describe("hot-streak toasts", () => {
   test('shows "🔥🔥 On a roll!" after five consecutive nailed/close bands', async () => {
     await reachIdle(phrases.slice(0, 5));
 
-    await scoreAndNext("close");
-    await scoreAndNext("nailed");
-    await scoreAndNext("nailed");
-    await scoreAndNext("close");
+    await scoreAndNext("good");
+    await scoreAndNext("great");
+    await scoreAndNext("great");
+    await scoreAndNext("good");
     // Fifth consecutive passing band — "On a roll!" fires
-    await scoreOnce("nailed");
+    await scoreOnce("great");
 
     await waitFor(
       () => expect(screen.getByText("🔥🔥 On a roll!")).toBeInTheDocument(),
@@ -244,10 +244,10 @@ describe("hot-streak toasts", () => {
     await reachIdle(tenPhrases);
 
     for (let i = 0; i < 9; i++) {
-      await scoreAndNext("nailed");
+      await scoreAndNext("great");
     }
     // Tenth consecutive passing band — "UNSTOPPABLE!" fires
-    await scoreOnce("nailed");
+    await scoreOnce("great");
 
     await waitFor(
       () => expect(screen.getByText("🔥🔥🔥 UNSTOPPABLE!")).toBeInTheDocument(),
@@ -258,9 +258,9 @@ describe("hot-streak toasts", () => {
   test("resets the streak counter after a retry band", async () => {
     await reachIdle(phrases.slice(0, 3));
 
-    await scoreAndNext("nailed");  // streak = 1
+    await scoreAndNext("great");  // streak = 1
     await scoreAndNext("retry", 0);  // streak resets to 0
-    await scoreOnce("nailed");     // streak = 1 — no "3 in a row" toast yet
+    await scoreOnce("great");     // streak = 1 — no "3 in a row" toast yet
 
     // Brief pause to confirm the toast does NOT appear
     await new Promise((r) => setTimeout(r, 150));
@@ -279,8 +279,8 @@ describe("mid-session toasts", () => {
   test('fires "Halfway there! 💪" exactly once at the midpoint', async () => {
     await reachIdle(fourPhrases);
 
-    await scoreAndNext("nailed"); // index 0 → 1
-    await scoreOnce("nailed");    // index 1 — next click will go to index 2
+    await scoreAndNext("great"); // index 0 → 1
+    await scoreOnce("great");    // index 1 — next click will go to index 2
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
     await waitFor(
       () => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(),
@@ -291,9 +291,9 @@ describe("mid-session toasts", () => {
   test('fires "Last one! 🦜 Finish strong!" exactly once on the final phrase', async () => {
     await reachIdle(fourPhrases);
 
-    await scoreAndNext("nailed"); // → index 1
-    await scoreAndNext("nailed"); // → index 2
-    await scoreOnce("nailed");    // index 2 — next click will go to index 3 (last)
+    await scoreAndNext("great"); // → index 1
+    await scoreAndNext("great"); // → index 2
+    await scoreOnce("great");    // index 2 — next click will go to index 3 (last)
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
     await waitFor(
       () => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(),
@@ -304,12 +304,12 @@ describe("mid-session toasts", () => {
   test("each mid-session toast fires at most once per session", async () => {
     await reachIdle(fourPhrases);
 
-    await scoreAndNext("nailed"); // → 1
-    await scoreOnce("nailed");
+    await scoreAndNext("great"); // → 1
+    await scoreOnce("great");
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, halfway toast
     await waitFor(() => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(), WT);
 
-    await scoreOnce("nailed");
+    await scoreOnce("great");
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 3, last toast
     await waitFor(() => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(), WT);
 
@@ -320,8 +320,8 @@ describe("mid-session toasts", () => {
   test("halfway toast does not fire for sessions with fewer than 4 phrases", async () => {
     await reachIdle(phrases.slice(0, 3)); // 3 phrases — below the 4-phrase guard
 
-    await scoreAndNext("nailed"); // → 1
-    await scoreOnce("nailed");
+    await scoreAndNext("great"); // → 1
+    await scoreOnce("great");
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, no halfway toast
 
     await new Promise((r) => setTimeout(r, 150));
@@ -335,25 +335,25 @@ describe("mid-session toasts", () => {
 describe("band display", () => {
   test("shows the nailed tagline after a nailed band", async () => {
     await reachIdle(phrases.slice(0, 1));
-    await scoreOnce("nailed");
+    await scoreOnce("great");
     expect(screen.getByText("Amazing!")).toBeInTheDocument();
   });
 
   test("shows the close tagline after a close band", async () => {
     await reachIdle(phrases.slice(0, 1));
-    await scoreOnce("close", 5);
+    await scoreOnce("good", 5);
     expect(screen.getByText("Nice work!")).toBeInTheDocument();
   });
 
   test("shows the retry tagline after a retry band", async () => {
     await reachIdle(phrases.slice(0, 1));
     await scoreOnce("retry", 0);
-    expect(screen.getByText("Good try — keep going!")).toBeInTheDocument();
+    expect(screen.getByText("Good try, keep going!")).toBeInTheDocument();
   });
 
   test("no numeric score element is ever rendered in the result card", async () => {
     await reachIdle(phrases.slice(0, 1));
-    await scoreOnce("nailed");
+    await scoreOnce("great");
     expect(screen.queryByText(/Score:/)).toBeNull();
   });
 });
@@ -366,8 +366,8 @@ describe("session summary XP chip", () => {
     // Two phrases, xpAwarded 8 each → totalXp = 16
     await reachIdle(phrases.slice(0, 2));
 
-    await scoreAndNext("nailed", 8);
-    await scoreOnce("nailed", 8);
+    await scoreAndNext("great", 8);
+    await scoreOnce("great", 8);
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
@@ -380,8 +380,8 @@ describe("session summary XP chip", () => {
     // nailed (10 XP) + close (5 XP) = 15 XP
     await reachIdle(phrases.slice(0, 2));
 
-    await scoreAndNext("nailed", 10);
-    await scoreOnce("close", 5);
+    await scoreAndNext("great", 10);
+    await scoreOnce("good", 5);
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
@@ -393,8 +393,8 @@ describe("session summary XP chip", () => {
   test('shows "PERFECT SESSION! 🏆" when every phrase is nailed', async () => {
     await reachIdle(phrases.slice(0, 2));
 
-    await scoreAndNext("nailed");
-    await scoreOnce("nailed");
+    await scoreAndNext("great");
+    await scoreOnce("great");
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(
@@ -407,8 +407,8 @@ describe("session summary XP chip", () => {
     // One nailed, one close — passes but not perfect
     await reachIdle(phrases.slice(0, 2));
 
-    await scoreAndNext("nailed");
-    await scoreOnce("close", 5);
+    await scoreAndNext("great");
+    await scoreOnce("good", 5);
     fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
 
     await waitFor(

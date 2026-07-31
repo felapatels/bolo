@@ -102,6 +102,12 @@ import {
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { applyFsrsRating, scoreAndBandToRating } from "../lib/fsrsScheduler";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
+import {
+  bandFromScore,
+  isFullCreditBand,
+  isHalfCreditBand,
+  normalizeBand,
+} from "../lib/scoreBands";
 import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
 import {
   getUnlockedGroupIds,
@@ -1048,7 +1054,9 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
 
   // ── Scoring Core v2: prepare FSRS + Elo inputs before the insert ──────────
   // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
-  const band: PronunciationBand = claims.band ?? (claims.score >= 80 ? "nailed" : claims.score >= 55 ? "close" : "retry");
+  // verifyEvaluation already normalizes legacy three-band names, so this
+  // fallback only fires for pre-band tokens (band claim absent entirely).
+  const band: PronunciationBand = claims.band ?? bandFromScore(claims.score);
   const xpAwarded = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
   // Load current FSRS memory and learner ability in parallel (only when phraseId is known).
@@ -1075,7 +1083,9 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   const theta = abilityRow?.theta ?? 0;
   const beta = 0; // phrase beta: will be populated by a future drift sweep
   const K_THETA = 0.15;
-  const outcome = band === "nailed" ? 1.0 : band === "close" ? 0.5 : 0.0;
+  // Elo outcome keys on the FROZEN credit groups (legacy nailed=1.0 / close=0.5),
+  // so the five-band display split can never move Elo.
+  const outcome = isFullCreditBand(band) ? 1.0 : isHalfCreditBand(band) ? 0.5 : 0.0;
   const expected = 1 / (1 + Math.exp(-(theta - beta)));
   const thetaDelta = isNocatch ? 0 : K_THETA * (outcome - expected);
 
@@ -1399,7 +1409,9 @@ router.get(
         transcript: row.transcript,
         score: row.score,
         passed: row.passed,
-        band: row.band ?? null,
+        // Legacy stored rows carry three-band names; normalize to the five-band
+        // ladder at read time (exact — legacy bands came from the same score).
+        band: row.band == null ? null : normalizeBand(row.band, row.score),
         feedback: row.feedback,
         createdAt: row.createdAt.toISOString(),
       })),
@@ -1510,7 +1522,7 @@ router.get(
       averageScore,
       bestScore: metrics.bestScore,
       currentStreakDays: metrics.currentStreakDays,
-      // Spec D2: consecutive days with at least one nailed/close attempt.
+      // Spec D2: consecutive days with at least one passing-band attempt.
       // Derived at query time from the same attempts rows; optional field
       // for installed-client back-compat.
       speakingStreakDays: computeSpeakingStreakDays(attempts, timezone),
@@ -2125,7 +2137,8 @@ router.get(
 // mastery-equivalent performance: GET samples up to TESTOUT_SAMPLE_SIZE of the
 // group's phrases (accessible to the caller — premium text is never sent to a
 // caller without extended-library access); POST submits the server-signed
-// evaluation tokens for those attempts. Pass = band 'nailed' (score >= 80) on
+// evaluation tokens for those attempts. Pass = a full-credit band (five-band
+// perfect|great, the frozen legacy 'nailed' score >= 80 boundary) on
 // at least ceil(0.8 * sampleSize). Entitlement gates run FIRST, so unlock
 // state never grants access that entitlements deny.
 
@@ -2285,7 +2298,7 @@ router.post(
 
     const seen = new Set<number>();
     let verified = 0;
-    let nailed = 0;
+    let fullCredit = 0;
     for (const a of parsed.data.attempts) {
       const claims = verifyEvaluation(a.evaluationToken);
       if (
@@ -2303,7 +2316,9 @@ router.post(
       }
       seen.add(a.phraseId);
       verified++;
-      if (claims.band === "nailed") nailed++;
+      // Test-out pass rule: full-credit attempts only (legacy 'nailed', now
+      // the perfect|great group — same frozen score >= 80 boundary).
+      if (claims.band !== undefined && isFullCreditBand(claims.band)) fullCredit++;
     }
     if (verified !== sampleSize) {
       res.status(400).json({
@@ -2312,7 +2327,7 @@ router.post(
       return;
     }
 
-    const passed = nailed >= required;
+    const passed = fullCredit >= required;
     await db.transaction(async (tx) => {
       await tx.insert(lessonGroupTestoutsTable).values({
         userId,
@@ -2338,7 +2353,7 @@ router.post(
 
     res.json({
       passed,
-      correctCount: nailed,
+      correctCount: fullCredit,
       requiredCorrect: required,
       sampleSize,
       status: passed ? "tested_out" : undefined,

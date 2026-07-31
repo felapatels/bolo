@@ -65,7 +65,7 @@
 - [Script Trace glyph guides](script-trace-glyph-guides.md) — outlines are M/L/Q/C only; Z→closing L unconditionally; curve samplers must hit t=1 exactly or winding leaks phantom geometry.
 - [Script Trace coverage scoring](script-trace-coverage-scoring.md) — score = coverage×precision×spread (40 pass); adaptive-res skeleton + hairline outline fallback, loop-safe RDP; RN demo on UI thread.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
-- [Pronunciation band derivation](band-derivation.md) — band is score-only (80/55 thresholds), never from LLM `passed`; UI branches key on band, null band falls back to score.
+- [Pronunciation band derivation](band-derivation.md) — five-band ladder is display-only (93/68 tunable, 80/55 FROZEN credit-group edges); band is score-only, never from LLM `passed`; legacy rows normalize at read.
 - [Codebase facts doc](codebase-facts-doc.md) — docs/CODEBASE-FACTS.md must be updated at the end of every task (changes, debt); section numbering never changes.
 - [Motion & Feedback Engine](motion-feedback-engine.md) — nocatch = system miss (nothing negative); session confetti needs half good; count-up chips are animated TextInputs (assert via label).
 - [Speech capability tiers](speech-capability.md) — per-language STT flag (ks/sat degraded, mni/brx unsupported); script-mismatch = nocatch universally; Latin sim<0.45 rule.

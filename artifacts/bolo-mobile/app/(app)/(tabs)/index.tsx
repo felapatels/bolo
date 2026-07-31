@@ -626,8 +626,12 @@ export default function HomeScreen() {
                             color:
                               scoreColor(Number(a.score), colors, a.band) === colors.success
                                 ? colors.successForeground
+                                : scoreColor(Number(a.score), colors, a.band) === colors.accent
+                                ? colors.accentForeground
                                 : scoreColor(Number(a.score), colors, a.band) === colors.primary
                                 ? colors.primaryForeground
+                                : scoreColor(Number(a.score), colors, a.band) === colors.mutedForeground
+                                ? colors.card
                                 : colors.destructiveForeground,
                           },
                         ]}

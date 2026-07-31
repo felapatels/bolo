@@ -7,15 +7,17 @@
  */
 
 /**
- * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+ * Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.
  * @nullable
  */
 export type AttemptBand = typeof AttemptBand[keyof typeof AttemptBand] | null;
 
 
 export const AttemptBand = {
-  nailed: 'nailed',
-  close: 'close',
+  perfect: 'perfect',
+  great: 'great',
+  good: 'good',
+  almost: 'almost',
   retry: 'retry',
   nocatch: 'nocatch',
 } as const;

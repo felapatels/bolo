@@ -87,7 +87,7 @@ function nailedToken(userId: string, phraseId: number): string {
     score: 95,
     passed: true,
     feedback: "x",
-    band: "nailed",
+    band: "perfect",
     xpAwarded: 10,
   });
 }
@@ -104,7 +104,7 @@ function closeToken(userId: string, phraseId: number): string {
     score: 60,
     passed: false,
     feedback: "x",
-    band: "close",
+    band: "almost",
     xpAwarded: 5,
   });
 }

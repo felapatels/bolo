@@ -192,7 +192,7 @@ beforeEach(async () => {
   mockState.evaluate = jest.fn(async () => ({
     score: 60,
     passed: true,
-    band: 'nailed',
+    band: 'great',
     xpAwarded: 6,
     transcript: 'na',
     feedback: 'Good job!',

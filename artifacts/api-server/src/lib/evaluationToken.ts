@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PronunciationBand } from "./fsrsScheduler";
+import { normalizeBand } from "./scoreBands";
 
 // The authoritative evaluation the server computed for a single spoken attempt.
 // It is signed by the server at pronunciation time and later replayed, verbatim,
@@ -18,7 +19,8 @@ export interface EvaluationClaims {
   feedback: string;
   // ── Scoring Core v2 additions (optional so tokens issued before this upgrade
   //    remain valid; verifyEvaluation fills safe defaults for missing fields) ──
-  // Qualitative band for this attempt: 'nailed' | 'close' | 'retry' | 'nocatch'.
+  // Qualitative five-band ladder value for this attempt:
+  // 'perfect' | 'great' | 'good' | 'almost' | 'retry' | 'nocatch'.
   band?: PronunciationBand;
   // XP to credit when this attempt is recorded.  0 for retry/nocatch bands.
   xpAwarded?: number;
@@ -108,13 +110,15 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
 
   const { exp: _exp, ...claims } = payload;
 
-  // Back-compat: tokens issued before the v2 upgrade won't have band/xpAwarded.
-  // Provide safe defaults so old tokens aren't rejected outright — the
-  // attempt write path will store band=null/xp=0 for them.
-  const safeband: PronunciationBand =
-    (claims.band as PronunciationBand | undefined) ??
-    // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
-    (claims.score >= 80 ? "nailed" : claims.score >= 55 ? "close" : "retry");
+  // Back-compat: tokens issued before the v2 upgrade won't have band/xpAwarded,
+  // and tokens signed just before the five-band deploy carry legacy three-band
+  // names (they stay valid for TOKEN_TTL_MS across the deploy). normalizeBand
+  // maps legacy/missing values via score-only derivation (Spec 0 rule 40 —
+  // never derive band from `passed`) and passes nocatch through untouched.
+  const safeband: PronunciationBand = normalizeBand(
+    claims.band as string | undefined,
+    claims.score,
+  );
   const safeXp: number = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
   return { ...claims, band: safeband, xpAwarded: safeXp };

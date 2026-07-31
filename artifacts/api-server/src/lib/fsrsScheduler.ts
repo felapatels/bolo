@@ -5,14 +5,19 @@
 // cards jump straight to multi-day review intervals after the first Good/Easy
 // rating — there are no in-session micro-steps to track.
 //
-// Rating → score band mapping:
-//   nailed  (score ≥ 80)  → Good (3) or Easy (4) depending on score
-//   close   (55–79)       → Hard (2)
-//   retry   (score < 55)  → Again (1)
-//   nocatch              → Again (1)  (treated as a lapse for scheduling)
+// Rating → score band mapping (five-band display, legacy credit groups frozen):
+//   perfect/great (score ≥ 80, legacy 'nailed') → Good (3) or Easy (4) at ≥ 93
+//   good/almost   (55–79, legacy 'close')       → Hard (2)
+//   retry         (score < 55)                  → Again (1)
+//   nocatch                                     → Again (1)  (lapse for scheduling)
 
 import { createEmptyCard, FSRS, Rating, State } from "ts-fsrs";
 import type { Card, Grade } from "ts-fsrs";
+import {
+  isFullCreditBand,
+  isHalfCreditBand,
+  type PronunciationBand,
+} from "./scoreBands";
 
 // Export re-usable Rating/State constants so callers don't need to import ts-fsrs directly.
 export { Rating, State };
@@ -26,25 +31,26 @@ const scheduler = new FSRS({
   enable_short_term: false,
 });
 
-export type PronunciationBand = "nailed" | "close" | "retry" | "nocatch";
+// Re-export so existing imports (`import type { PronunciationBand } from
+// "./fsrsScheduler"`) keep working; the canonical definition lives in the
+// scoreBands config block.
+export type { PronunciationBand };
 
-// Maps a pronunciation score (0–100) or band to a ts-fsrs Rating.
+// Maps a pronunciation band to a ts-fsrs Rating. Keys on the FROZEN credit
+// groups (legacy nailed/close equivalents), so five-band display tuning can
+// never move an FSRS rating.
 export function bandToRating(band: PronunciationBand): Rating {
-  switch (band) {
-    case "nailed":
-      return Rating.Good;
-    case "close":
-      return Rating.Hard;
-    case "retry":
-    case "nocatch":
-      return Rating.Again;
-  }
+  if (isFullCreditBand(band)) return Rating.Good;
+  if (isHalfCreditBand(band)) return Rating.Hard;
+  return Rating.Again; // retry, nocatch
 }
 
-// When a score is available we can upgrade "nailed" to Easy for near-perfect
-// attempts (≥ 93 → same threshold as the fast-path).
+// When a score is available we can upgrade a full-credit band to Easy for
+// near-perfect attempts. Deliberately pinned to the SCORE (≥ 93, same as the
+// fast-path) rather than band === 'perfect', so recalibrating the provisional
+// perfect/great display split can never change FSRS behavior.
 export function scoreAndBandToRating(score: number, band: PronunciationBand): Rating {
-  if (band === "nailed" && score >= 93) return Rating.Easy;
+  if (isFullCreditBand(band) && score >= 93) return Rating.Easy;
   return bandToRating(band);
 }
 

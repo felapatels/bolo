@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { BarChart3, ChevronRight, Loader2, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { bandFromScore, bandLabel } from "@/components/ui/band-pill";
+import { bandFromScore, bandLabel, bandTextClass } from "@/components/ui/band-pill";
 import { useEntitlements, upgradeHref } from "@/lib/entitlements";
 import { UpgradeCard } from "@/components/plus";
 
@@ -80,12 +80,7 @@ function AnalyticsPanel({ lang }: { lang: string }) {
                             <span
                               className={cn(
                                 "ml-2",
-                                bandFromScore(cat.averageScore) === "nailed" &&
-                                  "text-success",
-                                bandFromScore(cat.averageScore) === "close" &&
-                                  "text-primary",
-                                bandFromScore(cat.averageScore) === "retry" &&
-                                  "text-destructive",
+                                bandTextClass(bandFromScore(cat.averageScore)),
                               )}
                             >
                               {bandLabel(bandFromScore(cat.averageScore))}

@@ -140,7 +140,7 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
-    band: "nailed",
+    band: "great",
     passed: true,
     xpAwarded: 9,
     feedback: "Nice work on that greeting!",
@@ -171,7 +171,7 @@ async function recordAndScore() {
       document.querySelector('[aria-label="Release to submit"]') ?? belly;
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
 }
 
 describe("spoken feedback after scoring", () => {

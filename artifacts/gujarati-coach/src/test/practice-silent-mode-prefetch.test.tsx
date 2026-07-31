@@ -161,7 +161,7 @@ beforeEach(() => {
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
     score: 90,
-    band: "nailed",
+    band: "great",
     passed: true,
     xpAwarded: 9,
     feedback: "Great!",
@@ -214,7 +214,7 @@ async function scoreAndNext() {
     fireEvent.pointerUp(releaseTarget);
   });
   // Wait for result screen.
-  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
   // Tap "Next".
   fireEvent.click(screen.getByText("Next"));
 }
@@ -228,7 +228,7 @@ async function scorePhrase() {
       document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ describe("belly zone availability", () => {
     await act(async () => {
       resolveEval({
         score: 90,
-        band: "nailed",
+        band: "great",
         passed: true,
         xpAwarded: 9,
         feedback: "Great!",
@@ -453,7 +453,7 @@ describe("audio prefetch", () => {
         document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
       fireEvent.pointerUp(releaseTarget);
     });
-    await waitFor(() => expect(screen.getByText("Nailed it")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
 
     // Reset synth call count so we can count only what happens during phrase1's
     // coach play.

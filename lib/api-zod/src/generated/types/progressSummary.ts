@@ -14,7 +14,7 @@ export interface ProgressSummary {
   averageScore: number;
   bestScore: number;
   currentStreakDays: number;
-  /** Spec D2 speaking streak: consecutive calendar days (learner's IANA timezone) each containing at least one attempt with band 'nailed' or 'close'. Optional for installed-client back-compat; derived at query time, never stored. */
+  /** Spec D2 speaking streak: consecutive calendar days (learner's IANA timezone) each containing at least one attempt in a passing band (perfect, great, good, or almost). Optional for installed-client back-compat; derived at query time, never stored. */
   speakingStreakDays?: number;
   attemptsToday: number;
   xp: number;

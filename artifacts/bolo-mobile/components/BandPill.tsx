@@ -2,30 +2,19 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { BAND_LABEL, bandColor, type Band } from '@/lib/ui';
 
-export type Band = 'nocatch' | 'nailed' | 'close' | 'retry';
-
-const BAND_LABEL: Record<Band, string> = {
-  nailed: 'Nailed it',
-  close: 'Close',
-  retry: 'Try again',
-  nocatch: "Didn't catch that",
-};
+export type { Band };
 
 /**
  * Pill that renders a pronunciation quality band label.
  * Visual weight matches the existing XP chip in the session summary.
- * Colors mirror the ScoreRing / ScoreTrail thresholds:
- *   nailed → success green, close → gold/amber, retry/nocatch → destructive red.
+ * Colors follow the five-band ladder gradient in lib/ui.ts (nocatch renders
+ * neutral — a system miss is never presented negatively, Spec 1 rule 16).
  */
 export function BandPill({ band }: { band: Band }) {
   const colors = useColors();
-  const color =
-    band === 'nailed'
-      ? colors.success
-      : band === 'close'
-        ? (colors as any).gold ?? '#F59E0B'
-        : colors.destructive;
+  const color = bandColor(band, colors);
 
   return (
     <View

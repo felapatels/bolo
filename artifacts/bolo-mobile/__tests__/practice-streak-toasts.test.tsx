@@ -148,12 +148,12 @@ function successQuery(data: unknown) {
 }
 
 function goodResult(score = 80) {
-  const band = score >= 70 ? 'nailed' : score >= 55 ? 'close' : 'retry';
+  const band = score >= 70 ? 'great' : score >= 55 ? 'good' : 'retry';
   return {
     score,
     passed: band !== 'retry',
     band,
-    xpAwarded: band === 'nailed' ? Math.round(score / 10) : 0,
+    xpAwarded: band === 'great' ? Math.round(score / 10) : 0,
     transcript: 'ok',
     feedback: 'Good!',
     tip: null,

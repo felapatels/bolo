@@ -110,6 +110,7 @@ jest.mock('@/hooks/useColors', () => ({
 }));
 
 jest.mock('@/lib/ui', () => ({
+  ...jest.requireActual('@/lib/ui'),
   scoreColor: (_score: number) => '#10B981',
 }));
 
@@ -201,7 +202,7 @@ beforeEach(async () => {
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
   // Default: score-less response. Individual tests override per-case.
   mockState.evaluate = jest.fn(async () => ({
-    band: 'nailed',
+    band: 'great',
     passed: true,
     xpAwarded: 10,
     transcript: 'test',
@@ -238,7 +239,7 @@ async function doRecordAndWaitForGradeLabel(expectedLabel: string) {
 describe('acceptance item 5 — score absent from evaluate response (mobile)', () => {
   test('renders Nailed-it result without crashing when score is omitted', async () => {
     mockState.evaluate = jest.fn(async () => ({
-      band: 'nailed',
+      band: 'great',
       passed: true,
       xpAwarded: 10,
       transcript: 'test',
@@ -258,7 +259,7 @@ describe('acceptance item 5 — score absent from evaluate response (mobile)', (
 
   test('renders Close result without crashing when score is omitted', async () => {
     mockState.evaluate = jest.fn(async () => ({
-      band: 'close',
+      band: 'good',
       passed: true,
       xpAwarded: 5,
       transcript: 'test',

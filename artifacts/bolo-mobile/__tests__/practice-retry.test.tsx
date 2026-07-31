@@ -258,7 +258,7 @@ describe('score card retry', () => {
     mockState.evaluate = jest.fn(async () => ({
       score: 60,
       passed: false,
-      band: 'close',
+      band: 'good',
       xpAwarded: 4,
       transcript: 'namste',
       feedback: 'Almost!',

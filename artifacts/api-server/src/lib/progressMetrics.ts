@@ -147,20 +147,32 @@ export function computeStreakDays(
 }
 
 // Speaking streak (Spec D2): consecutive calendar days, in the learner's IANA
-// timezone, each containing at least one attempt whose band is 'nailed' or
-// 'close'. Bands 'retry' and 'nocatch' never qualify a day — a day of failed
-// attempts does not count, and a day where the microphone never worked does
-// not count. Derived from attempts at query time (never stored), and reuses
-// computeStreakDays so the date bucketing and the mid-day fallback (a day with
-// no qualifying attempt yet anchors to yesterday) are byte-for-byte the same
-// as the general streak.
+// timezone, each containing at least one attempt whose band qualifies as
+// passing (five-band perfect/great/good/almost, i.e. the legacy nailed|close
+// set — stored rows written before the five-band rollout keep the legacy
+// names, so both generations are accepted). Bands 'retry' and 'nocatch' never
+// qualify a day — a day of failed attempts does not count, and a day where the
+// microphone never worked does not count. Derived from attempts at query time
+// (never stored), and reuses computeStreakDays so the date bucketing and the
+// mid-day fallback (a day with no qualifying attempt yet anchors to yesterday)
+// are byte-for-byte the same as the general streak.
+const SPEAKING_STREAK_QUALIFYING_BANDS = new Set([
+  // Five-band ladder passing set (frozen credit groups):
+  "perfect",
+  "great",
+  "good",
+  "almost",
+  // Legacy names still present on stored attempt rows:
+  "nailed",
+  "close",
+]);
 export function computeSpeakingStreakDays(
   attempts: { createdAt: Date; band: string | null }[],
   timeZone?: string | null,
 ): number {
   return computeStreakDays(
     attempts
-      .filter((a) => a.band === "nailed" || a.band === "close")
+      .filter((a) => a.band != null && SPEAKING_STREAK_QUALIFYING_BANDS.has(a.band))
       .map((a) => a.createdAt),
     timeZone,
   );

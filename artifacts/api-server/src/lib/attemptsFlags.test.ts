@@ -74,7 +74,7 @@ test("flags = 'latency_missing' when signed token has latencyMs: null", async ()
     score:        80,
     passed:       true,
     feedback:     "Good.",
-    band:         "nailed" as const,
+    band:         "great" as const,
     xpAwarded:    10,
     latencyMs:    null,   // ← the field clients currently never send
   };
@@ -133,7 +133,7 @@ test("flags is null when latencyMs is a positive integer", async () => {
     score:        80,
     passed:       true,
     feedback:     "Good.",
-    band:         "nailed" as const,
+    band:         "great" as const,
     xpAwarded:    10,
     latencyMs:    800,   // ← client sent it — guard can fire
   };

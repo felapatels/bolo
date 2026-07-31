@@ -134,7 +134,7 @@ beforeEach(async () => {
   mockState.evaluate = jest.fn(async () => ({
     score: 88,
     passed: true,
-    band: 'nailed',
+    band: 'great',
     xpAwarded: 8,
     transcript: 'namaste',
     feedback: 'Great!',
@@ -173,11 +173,11 @@ describe('score trail — phrase-index alignment', () => {
     await waitForRecordReady();
     await recordAndScore();
 
-    // Dot for phrase 0 should be accessible with the band label "Nailed it"
-    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    // Dot for phrase 0 should be accessible with the band label "Great"
+    expect(screen.getByLabelText('Great')).toBeOnTheScreen();
     // Dot for phrase 1 should still be unattempted (no accessibilityLabel)
     // Dot for phrase 1 should still be unattempted (no band label yet)
-    const allScoreLabels = screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/);
+    const allScoreLabels = screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/);
     expect(allScoreLabels).toHaveLength(1);
   });
 
@@ -201,13 +201,13 @@ describe('score trail — phrase-index alignment', () => {
     // After first attempt, phrase 0 dot = 40
     expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
     // Only one scored dot so far
-    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/)).toHaveLength(1);
 
     // Retry same phrase with a better score
     mockState.evaluate = jest.fn(async () => ({
       score: 82,
       passed: true,
-      band: 'nailed',
+      band: 'great',
       xpAwarded: 8,
       transcript: 'namaste',
       feedback: 'Much better!',
@@ -225,17 +225,17 @@ describe('score trail — phrase-index alignment', () => {
 
     // Dot 0 should now show 82, not 40
     expect(screen.queryByLabelText('Try again')).toBeNull();
-    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Great')).toBeOnTheScreen();
     // Phrase 1 dot must still be unattempted — only one scored dot total
-    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/)).toHaveLength(1);
   });
 
   test('advancing to phrase 1 gives each phrase its own dot score', async () => {
     // Phrase 0 scores 75, phrase 1 scores 55
-    // phrase 0: score=75, passed=true → "nailed" → "Nailed it"
+    // phrase 0: score=75, passed=true → "great" → "Great"
     // phrase 1: score=40, passed=false → "retry" → "Try again"
     const results = [
-      { score: 75, passed: true, band: 'nailed', xpAwarded: 7 },
+      { score: 75, passed: true, band: 'great', xpAwarded: 7 },
       { score: 40, passed: false, band: 'retry', xpAwarded: 0 },
     ];
     let call = 0;
@@ -249,8 +249,8 @@ describe('score trail — phrase-index alignment', () => {
     await recordAndScore();
 
     // Phrase 0 dot = 75
-    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(1);
+    expect(screen.getByLabelText('Great')).toBeOnTheScreen();
+    expect(screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/)).toHaveLength(1);
 
     // Advance to phrase 1
     await act(async () => {
@@ -260,8 +260,8 @@ describe('score trail — phrase-index alignment', () => {
     await recordAndScore();
 
     // Both dots should now be scored with their own values
-    expect(screen.getByLabelText('Nailed it')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Great')).toBeOnTheScreen();
     expect(screen.getByLabelText('Try again')).toBeOnTheScreen();
-    expect(screen.queryAllByLabelText(/^(Nailed it|Close|Try again|Didn't catch that)$/)).toHaveLength(2);
+    expect(screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/)).toHaveLength(2);
   });
 });

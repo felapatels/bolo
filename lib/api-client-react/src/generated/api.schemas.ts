@@ -452,15 +452,17 @@ export interface AttemptInput {
 }
 
 /**
- * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+ * Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.
  * @nullable
  */
 export type AttemptBand = typeof AttemptBand[keyof typeof AttemptBand] | null;
 
 
 export const AttemptBand = {
-  nailed: 'nailed',
-  close: 'close',
+  perfect: 'perfect',
+  great: 'great',
+  good: 'good',
+  almost: 'almost',
   retry: 'retry',
   nocatch: 'nocatch',
 } as const;
@@ -482,7 +484,7 @@ export interface Attempt {
   score: number;
   passed: boolean;
   /**
-     * Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+     * Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.
      * @nullable
      */
   band?: AttemptBand;
@@ -537,7 +539,7 @@ export interface ProgressSummary {
   averageScore: number;
   bestScore: number;
   currentStreakDays: number;
-  /** Spec D2 speaking streak: consecutive calendar days (learner's IANA timezone) each containing at least one attempt with band 'nailed' or 'close'. Optional for installed-client back-compat; derived at query time, never stored. */
+  /** Spec D2 speaking streak: consecutive calendar days (learner's IANA timezone) each containing at least one attempt in a passing band (perfect, great, good, or almost). Optional for installed-client back-compat; derived at query time, never stored. */
   speakingStreakDays?: number;
   attemptsToday: number;
   xp: number;
@@ -607,15 +609,17 @@ export interface PronunciationInput {
 }
 
 /**
- * Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP).
+ * Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder.
  */
 export type PronunciationResultBand = typeof PronunciationResultBand[keyof typeof PronunciationResultBand];
 
 
 export const PronunciationResultBand = {
   nocatch: 'nocatch',
-  nailed: 'nailed',
-  close: 'close',
+  perfect: 'perfect',
+  great: 'great',
+  good: 'good',
+  almost: 'almost',
   retry: 'retry',
 } as const;
 
@@ -623,11 +627,11 @@ export interface PronunciationResult {
   transcript: string;
   /** Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional. */
   score?: number;
-  /** Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP). */
+  /** Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder. */
   band: PronunciationResultBand;
   /** XP earned for this attempt. Display only — the signed token is authoritative. */
   xpAwarded: number;
-  /** Human-readable explanation of the XP awarded, e.g. "Full XP — nailed it". */
+  /** Human-readable explanation of the XP awarded, e.g. "Full XP". */
   xpBreakdown?: string | null;
   passed: boolean;
   feedback: string;

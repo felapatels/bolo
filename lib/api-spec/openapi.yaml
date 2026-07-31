@@ -2510,8 +2510,8 @@ components:
           type: boolean
         band:
           type: ["string", "null"]
-          enum: ["nailed", "close", "retry", "nocatch", null]
-          description: Pronunciation quality band for this attempt; null for rows recorded before banding shipped.
+          enum: ["perfect", "great", "good", "almost", "retry", "nocatch", null]
+          description: Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.
         feedback:
           type: string
         createdAt:
@@ -2651,9 +2651,9 @@ components:
           type: integer
           description: >-
             Spec D2 speaking streak: consecutive calendar days (learner's IANA
-            timezone) each containing at least one attempt with band 'nailed'
-            or 'close'. Optional for installed-client back-compat; derived at
-            query time, never stored.
+            timezone) each containing at least one attempt in a passing band
+            (perfect, great, good, or almost). Optional for installed-client
+            back-compat; derived at query time, never stored.
         attemptsToday:
           type: integer
         xp:
@@ -2798,18 +2798,20 @@ components:
             stops sending it; clients must treat this field as optional.
         band:
           type: string
-          enum: [nocatch, nailed, close, retry]
+          enum: [nocatch, perfect, great, good, almost, retry]
           description: >-
-            Four-state pronunciation quality band. `nailed` = excellent (full
-            XP). `close` = passing attempt (half XP). `retry` = below passing
-            threshold (no XP). `nocatch` = no usable audio detected (no XP).
+            Five-band pronunciation ladder value, top to bottom: `perfect` and
+            `great` earn full XP, `good` and `almost` earn half XP, `retry` is
+            below the passing threshold (no XP). `nocatch` = no usable audio
+            detected (no XP); it is a separate system outcome, not a rung on
+            the ladder.
         xpAwarded:
           type: integer
           description: XP earned for this attempt. Display only — the signed token is authoritative.
         xpBreakdown:
           type: string
           nullable: true
-          description: Human-readable explanation of the XP awarded, e.g. "Full XP — nailed it".
+          description: Human-readable explanation of the XP awarded, e.g. "Full XP".
         passed:
           type: boolean
         feedback:

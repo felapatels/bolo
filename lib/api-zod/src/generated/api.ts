@@ -411,7 +411,7 @@ export const ListRecentAttemptsResponseItem = zod.object({
   "transcript": zod.string(),
   "score": zod.number(),
   "passed": zod.boolean(),
-  "band": zod.union([zod.literal('nailed'),zod.literal('close'),zod.literal('retry'),zod.literal('nocatch'),zod.literal(null)]).nullish().describe('Pronunciation quality band for this attempt; null for rows recorded before banding shipped.'),
+  "band": zod.union([zod.literal('perfect'),zod.literal('great'),zod.literal('good'),zod.literal('almost'),zod.literal('retry'),zod.literal('nocatch'),zod.literal(null)]).nullish().describe('Five-band pronunciation ladder value for this attempt (legacy stored rows are normalized server-side); null for rows recorded before banding shipped.'),
   "feedback": zod.string(),
   "createdAt": zod.coerce.date()
 })
@@ -453,7 +453,7 @@ export const GetProgressSummaryResponse = zod.object({
   "averageScore": zod.number(),
   "bestScore": zod.number(),
   "currentStreakDays": zod.number(),
-  "speakingStreakDays": zod.number().optional().describe('Spec D2 speaking streak: consecutive calendar days (learner\'s IANA timezone) each containing at least one attempt with band \'nailed\' or \'close\'. Optional for installed-client back-compat; derived at query time, never stored.'),
+  "speakingStreakDays": zod.number().optional().describe('Spec D2 speaking streak: consecutive calendar days (learner\'s IANA timezone) each containing at least one attempt in a passing band (perfect, great, good, or almost). Optional for installed-client back-compat; derived at query time, never stored.'),
   "attemptsToday": zod.number(),
   "xp": zod.number(),
   "todayXp": zod.number(),
@@ -1205,9 +1205,9 @@ export const EvaluatePronunciationBody = zod.object({
 export const EvaluatePronunciationResponse = zod.object({
   "transcript": zod.string(),
   "score": zod.number().optional().describe('Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional.'),
-  "band": zod.enum(['nocatch', 'nailed', 'close', 'retry']).describe('Four-state pronunciation quality band. `nailed` = excellent (full XP). `close` = passing attempt (half XP). `retry` = below passing threshold (no XP). `nocatch` = no usable audio detected (no XP).'),
+  "band": zod.enum(['nocatch', 'perfect', 'great', 'good', 'almost', 'retry']).describe('Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder.'),
   "xpAwarded": zod.number().describe('XP earned for this attempt. Display only — the signed token is authoritative.'),
-  "xpBreakdown": zod.string().nullish().describe('Human-readable explanation of the XP awarded, e.g. \"Full XP — nailed it\".'),
+  "xpBreakdown": zod.string().nullish().describe('Human-readable explanation of the XP awarded, e.g. \"Full XP\".'),
   "passed": zod.boolean(),
   "feedback": zod.string(),
   "tip": zod.string(),

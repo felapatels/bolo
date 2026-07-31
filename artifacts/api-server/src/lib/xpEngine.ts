@@ -4,23 +4,26 @@
 import { db, xpLedgerTable, attemptsTable, gameSessionsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import type { PronunciationBand } from "./fsrsScheduler";
+import { isFullCreditBand, isHalfCreditBand } from "./scoreBands";
 
 // ── Pronunciation XP ──────────────────────────────────────────────────────────
 
 // Base XP for a pronunciation attempt, keyed by phrase difficulty (1–3) and
-// the qualitative band. Difficulty defaults to 1 when unknown.
+// the qualitative band's FROZEN credit group (legacy nailed/close equivalents,
+// so the five-band display split never moves XP amounts). Difficulty defaults
+// to 1 when unknown.
 //
-//   Difficulty 1: nailed=10, close=5,  retry/nocatch=0
-//   Difficulty 2: nailed=15, close=7,  retry/nocatch=0
-//   Difficulty 3: nailed=20, close=10, retry/nocatch=0
+//   Difficulty 1: perfect/great=10, good/almost=5,  retry/nocatch=0
+//   Difficulty 2: perfect/great=15, good/almost=7,  retry/nocatch=0
+//   Difficulty 3: perfect/great=20, good/almost=10, retry/nocatch=0
 export function computePronunciationXp(
   band: PronunciationBand,
   difficulty: number,
 ): number {
   const clamped = Math.max(1, Math.min(3, Math.round(difficulty)));
   const base = 5 + clamped * 5; // diff 1=10, 2=15, 3=20
-  if (band === "nailed") return base;
-  if (band === "close") return Math.floor(base * 0.5);
+  if (isFullCreditBand(band)) return base;
+  if (isHalfCreditBand(band)) return Math.floor(base * 0.5);
   return 0; // retry, nocatch
 }
 

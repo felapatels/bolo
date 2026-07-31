@@ -121,6 +121,7 @@ jest.mock('@/hooks/useColors', () => ({
 }));
 
 jest.mock('@/lib/ui', () => ({
+  ...jest.requireActual('@/lib/ui'),
   scoreColor: (_score: number) => '#10B981',
 }));
 
@@ -231,7 +232,7 @@ beforeEach(async () => {
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
   mockState.evaluateQueue = [] as Array<{ score: number; passed: boolean }>;
   mockState.evaluate = jest.fn(async () => {
-    const entry = mockState.evaluateQueue.shift() ?? { score: 75, passed: true, band: 'nailed', xpAwarded: 8 };
+    const entry = mockState.evaluateQueue.shift() ?? { score: 75, passed: true, band: 'great', xpAwarded: 8 };
     return {
       score: entry.score,
       passed: entry.passed,
@@ -304,9 +305,9 @@ describe('hot-streak milestone toast', () => {
   test('shows "🔥 3 in a row!" toast after three consecutive scores ≥ 70', async () => {
     // Queue three good scores.
     mockState.evaluateQueue = [
-      { score: 75, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 80, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 70, passed: true, band: 'nailed', xpAwarded: 8 },
+      { score: 75, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 80, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
     ];
 
     render(<PracticeScreen />);
@@ -343,8 +344,8 @@ describe('hot-streak milestone toast', () => {
 
   test('does NOT show the toast after two consecutive good scores then a miss', async () => {
     mockState.evaluateQueue = [
-      { score: 75, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 80, passed: true, band: 'nailed', xpAwarded: 8 },
+      { score: 75, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 80, passed: true, band: 'great', xpAwarded: 8 },
       // Miss breaks the streak — count resets.
       { score: 40, passed: false, band: 'retry', xpAwarded: 0 },
     ];
@@ -383,9 +384,9 @@ describe('perfect-session detection', () => {
     // Keep scores below 90 — a score ≥ 90 schedules a real 140 ms setTimeout
     // for hapticHeavy that would fire after Jest tears down the environment.
     mockState.evaluateQueue = [
-      { score: 88, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 86, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 80, passed: true, band: 'nailed', xpAwarded: 8 },
+      { score: 88, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 86, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 80, passed: true, band: 'great', xpAwarded: 8 },
     ];
 
     render(<PracticeScreen />);
@@ -420,9 +421,9 @@ describe('perfect-session detection', () => {
   test('does NOT show perfect title when one score is below 80', async () => {
     mockState.phrases = successQuery(PHRASES.slice(0, 3));
     mockState.evaluateQueue = [
-      { score: 85, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 79, passed: false, band: 'close', xpAwarded: 4 }, // one score below threshold (79 → close, not passed)
-      { score: 88, passed: true, band: 'nailed', xpAwarded: 8 }, // kept below 90 to avoid a real setTimeout for hapticHeavy
+      { score: 85, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 79, passed: false, band: 'good', xpAwarded: 4 }, // one score below threshold (79 → close, not passed)
+      { score: 88, passed: true, band: 'great', xpAwarded: 8 }, // kept below 90 to avoid a real setTimeout for hapticHeavy
     ];
 
     render(<PracticeScreen />);
@@ -460,9 +461,9 @@ describe('XP chip', () => {
     // Spec 1a: XP is server-authoritative. 3 attempts × xpAwarded 8 → "+24 XP"
     mockState.phrases = successQuery(PHRASES.slice(0, 3));
     mockState.evaluateQueue = [
-      { score: 70, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 70, passed: true, band: 'nailed', xpAwarded: 8 },
-      { score: 70, passed: true, band: 'nailed', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
     ];
 
     render(<PracticeScreen />);
@@ -499,7 +500,7 @@ describe('XP chip', () => {
     // Score kept below 90 to avoid a real 140 ms hapticHeavy setTimeout that
     // would fire after Jest tears down the environment.
     mockState.phrases = successQuery(PHRASES); // all 6
-    mockState.evaluateQueue = PHRASES.map(() => ({ score: 85, passed: true, band: 'nailed', xpAwarded: 8 }));
+    mockState.evaluateQueue = PHRASES.map(() => ({ score: 85, passed: true, band: 'great', xpAwarded: 8 }));
 
     render(<PracticeScreen />);
 

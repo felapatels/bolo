@@ -1,9 +1,15 @@
 ---
-name: Pronunciation band derivation
-description: Band is score-only server-side; passed is deprecated for UX branching.
+name: Pronunciation band derivation (five-band)
+description: Five-band ladder is display-only; behavior keys on frozen credit groups; band is score-only, never from LLM `passed`.
 ---
-Band derives from score only (Spec 0 rule 40): >=80 nailed, 55–79 close, <55 retry (nocatch is separate, set upstream). Never derive band from the LLM `passed` boolean — the LLM could assert passed at a sub-80 score and inflate the band.
+Five bands since July 2026, top to bottom: perfect >=93, great 80-92, good 68-79, almost 55-67, retry <55 (nocatch separate, set upstream, never from score). Single server config: `artifacts/api-server/src/lib/scoreBands.ts`; client mirrors in web `ui/band-pill.tsx` and mobile `lib/ui.ts`, pinned by the three sharedConstants contract suites.
 
-**Why:** an earlier implementation used `passed ? 'nailed' : ...`, making `passed ⇔ nailed` and leaving the "close" UX (thumbsup mascot, light haptic, neutral icon) dead code, plus an LLM-trust seam.
+**Frozen vs tunable:** 93 and 68 are display splits marked TUNING PENDING — move freely. 80 and 55 are FROZEN legacy nailed/close boundaries: every behavioral consumer (XP, Elo, FSRS rating, speaking streak, session gates, test-out) keys on credit groups whose edges are exactly these. Full credit = perfect|great (legacy nailed), half credit = good|almost (legacy close). Use `isFullCreditBand`/`isHalfCreditBand`/`isPassingBand`, never compare individual band names in behavioral code.
 
-**How to apply:** all UI branches (mascot, haptics, result icon, score colors) should key on `band`, not `passed`. `Attempt.band` is nullable for pre-banding rows — fall back to computing from score with the same 80/55 thresholds. When a test and code disagree on thresholds, check the spec before changing either.
+**Legacy rows:** no data migration — attempts written before the switch still store nailed/close. Read paths use `normalizeBand(band, score)` (exact re-derivation, same score field); the speaking-streak qualifying set also accepts legacy names directly.
+
+**Ladder UI:** result cards render all five labels with the achieved band filled (BandLadder on both platforms); labels only, never numeric scores; nocatch never shows the ladder and keeps a neutral (muted, not destructive) pill/flash. Per-attempt confetti is perfect-only.
+
+**Why score-only:** an earlier implementation used `passed ? 'nailed' : ...`, letting an LLM-asserted boolean inflate the band and dead-coding the middle UX. Never derive band from `passed`.
+
+**Test trap:** several mobile jest files partially mock `@/lib/ui` (e.g. just `scoreColor`); any new export the practice/review screens call becomes `undefined` in those tests and the screen lands on the generic eval-error card. Spread `jest.requireActual('@/lib/ui')` in such mocks.

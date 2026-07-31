@@ -311,13 +311,25 @@ test("scheduling ignores attempts with no phrase id", () => {
 // nocatch never qualify a day, and the date bucketing must match the general
 // streak exactly (same localDayKey + mid-day fallback).
 
-test("speaking streak counts only days with a nailed or close attempt", () => {
+test("speaking streak counts only days with a passing attempt (legacy stored bands)", () => {
+  // Legacy 'nailed'/'close' rows persist in the attempts table — they must
+  // keep qualifying days after the five-band migration (read-time compat).
   const streak = computeSpeakingStreakDays([
     { createdAt: todayAt(9), band: "nailed" },
     { createdAt: utcDaysAgo(1), band: "close" },
     { createdAt: utcDaysAgo(2), band: "nailed" },
   ]);
   assert.equal(streak, 3);
+});
+
+test("all four passing five-band names qualify a speaking-streak day", () => {
+  const streak = computeSpeakingStreakDays([
+    { createdAt: todayAt(9), band: "perfect" },
+    { createdAt: utcDaysAgo(1), band: "great" },
+    { createdAt: utcDaysAgo(2), band: "good" },
+    { createdAt: utcDaysAgo(3), band: "almost" },
+  ]);
+  assert.equal(streak, 4);
 });
 
 test("retry and nocatch attempts never qualify a speaking-streak day", () => {

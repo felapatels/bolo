@@ -41,6 +41,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
+import { BandLadder } from '@/components/BandLadder';
+import { isFullCreditBand, isHalfCreditBand, isPassingBand, normalizeBand } from '@/lib/ui';
 import { XpCounter } from '@/components/XpCounter';
 import { EmptyState } from '@/components/EmptyState';
 import { appear, useAppearSkip } from '@/lib/entrance';
@@ -95,15 +97,34 @@ import { glyphsForLanguage } from '@/lib/scriptGlyphs';
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'compare' | 'error' | 'done';
 
 const BAND_LABEL: Record<Band, string> = {
-  nailed: 'Nailed it',
-  close: 'Close',
+  perfect: 'Perfect',
+  great: 'Great',
+  good: 'Good',
+  almost: 'Almost',
   retry: 'Try again',
   nocatch: "Didn't catch that",
 };
 
-function bandColor(band: Band, colors: { success: string; gold: string; destructive: string }): string {
-  if (band === 'nailed') return colors.success;
-  if (band === 'close') return colors.gold;
+// Five-band ladder gradient from brand tokens (top to bottom): success green,
+// accent teal, primary indigo, muted slate, destructive red. retry keeps its
+// destructive treatment; nocatch renders neutral (system miss, Spec 1 rule 16).
+// NOTE: deliberately kept as a local copy mirroring practice/[id].tsx
+// (documented debt — extraction is a separate task).
+function bandColor(
+  band: Band,
+  colors: {
+    success: string;
+    accent: string;
+    primary: string;
+    mutedForeground: string;
+    destructive: string;
+  },
+): string {
+  if (band === 'perfect') return colors.success;
+  if (band === 'great') return colors.accent;
+  if (band === 'good') return colors.primary;
+  if (band === 'almost') return colors.mutedForeground;
+  if (band === 'nocatch') return colors.mutedForeground;
   return colors.destructive;
 }
 
@@ -168,7 +189,7 @@ function ScoreTrail({
   currentIndex: number;
   colors: {
     success: string;
-    gold: string;
+    accent: string;
     destructive: string;
     muted: string;
     primary: string;
@@ -679,17 +700,17 @@ export default function ReviewScreen() {
   }, [phase, result, spokenEnabled]);
 
   // Session-end celebration — confetti only when at least half of the phrases
-  // ended nailed or close (Spec 1 gating; no confetti on rough sessions).
+  // ended in a passing band (Spec 1 gating; no confetti on rough sessions).
   React.useEffect(() => {
     if (phase === 'done') {
       const vals = Object.values(bands);
-      const good = vals.filter((b) => b === 'nailed' || b === 'close').length;
+      const good = vals.filter((b) => isPassingBand(b)).length;
       if (vals.length > 0 && good * 2 >= vals.length) {
         // Celebratory sound gated on the same condition as confetti.
         playCue('session_complete');
         fireConfetti(4000);
       }
-      if (vals.length > 0 && vals.every((b) => b === 'nailed')) {
+      if (vals.length > 0 && vals.every((b) => isFullCreditBand(b))) {
         hapticHeavy();
       }
     }
@@ -862,7 +883,7 @@ export default function ReviewScreen() {
         return;
       }
 
-      const res = await evaluate.mutateAsync({
+      const resRaw = await evaluate.mutateAsync({
         data: {
           phraseId: phrase.id,
           targetNative: phrase.nativeScript,
@@ -873,6 +894,10 @@ export default function ReviewScreen() {
           mimeType: 'audio/m4a',
         },
       });
+      // Normalize defensively: a stale/mixed-version server may still emit
+      // legacy band names, which would leave the ladder with no highlighted
+      // rung and fall through every band branch below.
+      const res = { ...resRaw, band: normalizeBand(resRaw.band, resRaw.score) };
 
       const spokenText = [res.feedback, res.tip].filter(Boolean).join(' ');
       feedbackAudioRef.current =
@@ -893,15 +918,16 @@ export default function ReviewScreen() {
       }));
       setPhaseSync('result');
 
-      const fColor =
-        res.band === 'nailed' ? colors.success : res.band === 'close' ? '#F59E0B' : colors.destructive;
+      // Full-bleed color flash keyed to the five-band ladder color (nocatch
+      // resolves to the neutral muted tone — a system miss is never red).
+      const fColor = bandColor(res.band, colors);
       setFlashColor(fColor);
       flashOpacity.value = withSequence(
         withTiming(0.18, { duration: 150 }),
         withTiming(0, { duration: 250 }),
       );
 
-      if (res.band === 'nailed' || res.band === 'close') {
+      if (isPassingBand(res.band)) {
         consecutiveGoodRef.current += 1;
         const streak = consecutiveGoodRef.current;
         if (streak === 3 || streak === 5 || streak === 10) {
@@ -915,13 +941,14 @@ export default function ReviewScreen() {
         consecutiveGoodRef.current = 0;
       }
 
-      // Band-driven feedback: nailed celebrates, close gets a gentle tap,
-      // retry warns. nocatch is a system miss, not a learner error (Spec 1
-      // rule 16): no negative haptic, no wrong cue, no shake.
-      if (res.band === 'nailed') {
+      // Band-driven feedback: full-credit bands (legacy 'nailed' group)
+      // celebrate, half-credit bands get a gentle tap, retry warns. nocatch
+      // is a system miss, not a learner error (Spec 1 rule 16): no negative
+      // haptic, no wrong cue, no shake.
+      if (isFullCreditBand(res.band)) {
         hapticNotify(Haptics.NotificationFeedbackType.Success);
         playCue('correct');
-      } else if (res.band === 'close') {
+      } else if (isHalfCreditBand(res.band)) {
         hapticLight();
       } else if (res.band === 'retry') {
         hapticNotify(Haptics.NotificationFeedbackType.Warning);
@@ -929,13 +956,15 @@ export default function ReviewScreen() {
         triggerShake();
       }
 
-      if (res.band === 'nailed') {
+      // Confetti is reserved for the TOP band only.
+      if (res.band === 'perfect') {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
-      // XP arc fires whenever XP was actually awarded (nailed AND close —
-      // close earns at the 0.6 band factor). retry/nocatch award no XP.
-      if ((res.band === 'nailed' || res.band === 'close') && res.xpAwarded > 0) {
+      // XP arc fires whenever XP was actually awarded (any passing band —
+      // the half-credit group earns at the 0.5 band factor). retry/nocatch
+      // award no XP.
+      if (isPassingBand(res.band) && res.xpAwarded > 0) {
         // Measure where the result card lands, then launch the arc from it.
         if (xpArcTimerRef.current) clearTimeout(xpArcTimerRef.current);
         xpArcTimerRef.current = setTimeout(() => {
@@ -1061,8 +1090,10 @@ export default function ReviewScreen() {
   if (phase === 'done') {
     const bandVals = Object.values(bands);
     const totalXp = Object.values(xpData).reduce((sum, d) => sum + d.xp, 0);
-    const isPerfect = bandVals.length > 0 && bandVals.every((b) => b === 'nailed');
-    const anyPassed = bandVals.some((b) => b === 'nailed' || b === 'close');
+    // "Perfect session" = every phrase ended full-credit (legacy 'nailed'
+    // group, unchanged behavior under the five-band split).
+    const isPerfect = bandVals.length > 0 && bandVals.every((b) => isFullCreditBand(b));
+    const anyPassed = bandVals.some((b) => isPassingBand(b));
     // Unsupported languages score nothing; the count comes from the ear-training
     // compare stages the learner completed.
     const reviewedCount = isUnsupported ? comparedIdx.size : bandVals.length;
@@ -1176,9 +1207,9 @@ export default function ReviewScreen() {
         : phase === 'compare'
           ? 'thumbsup' // ear-training practice always "counts" — never blame
           : phase === 'result' && result
-            ? result.band === 'nailed'
+            ? isFullCreditBand(result.band)
               ? 'cheer'
-              : result.band === 'close'
+              : isHalfCreditBand(result.band)
                 ? 'thumbsup'
                 : result.band === 'nocatch'
                   ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
@@ -1188,7 +1219,7 @@ export default function ReviewScreen() {
   const mascotMotion =
     phase === 'recording'
       ? 'sway'
-      : phase === 'result' && result?.band === 'nailed'
+      : phase === 'result' && result && isFullCreditBand(result.band)
         ? 'bounce'
         : 'float';
 
@@ -1365,11 +1396,23 @@ export default function ReviewScreen() {
             ]}
           >
             <Text style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}>
-              {result.band === 'nailed' ? 'Excellent 🌟' : result.band === 'close' ? 'Good 👍' : 'Keep trying 🔄'}
+              {result.band === 'perfect'
+                ? 'Perfect 🌟'
+                : result.band === 'great'
+                  ? 'Excellent 🌟'
+                  : result.band === 'good'
+                    ? 'Good 👍'
+                    : result.band === 'almost'
+                      ? 'Almost there 👍'
+                      : 'Keep trying 🔄'}
             </Text>
 
+            {/* Five-band ladder for scored attempts; nocatch keeps its
+                neutral pill below and never shows the ladder (rule 16). */}
+            {result.band !== 'nocatch' ? <BandLadder band={result.band} /> : null}
+
             <View style={styles.resultTop}>
-              <BandPill band={result.band} />
+              {result.band === 'nocatch' ? <BandPill band={result.band} /> : null}
               <Pressable
                 onPress={toggleSpokenFeedback}
                 accessibilityRole="button"
@@ -1384,11 +1427,11 @@ export default function ReviewScreen() {
                   color={spokenEnabled ? bandColor(result.band, colors) : colors.mutedForeground}
                 />
               </Pressable>
-              {result.band === 'nailed' ? (
+              {isFullCreditBand(result.band) ? (
                 <Feather name="check-circle" size={40} color={bandColor(result.band, colors)} />
-              ) : result.band === 'close' ? (
-                // Close is not a failure — neutral icon, band-colored, no retry
-                // affordance here (matches the practice screen's treatment).
+              ) : isHalfCreditBand(result.band) ? (
+                // Half credit is not a failure — neutral icon, band-colored, no
+                // retry affordance here (matches the practice screen's treatment).
                 <Feather name="thumbs-up" size={40} color={bandColor(result.band, colors)} />
               ) : (
                 <Pressable

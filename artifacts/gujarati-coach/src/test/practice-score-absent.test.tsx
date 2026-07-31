@@ -155,7 +155,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     // Evaluate returns band/xpAwarded but NO score field — the shape the
     // server will eventually send once score is fully removed.
     h.evaluate.mockResolvedValueOnce({
-      band: "nailed",
+      band: "great",
       passed: true,
       xpAwarded: 10,
       feedback: "Great work!",
@@ -180,7 +180,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
 
   test("renders the result card without crashing when score is omitted (close band)", async () => {
     h.evaluate.mockResolvedValueOnce({
-      band: "close",
+      band: "good",
       passed: true,
       xpAwarded: 5,
       feedback: "Almost there.",
@@ -216,7 +216,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     await triggerRecording();
 
     await waitFor(
-      () => expect(screen.getByText("Good try — keep going!")).toBeInTheDocument(),
+      () => expect(screen.getByText("Good try, keep going!")).toBeInTheDocument(),
       WT,
     );
     expect(screen.queryByText(/Score:/)).toBeNull();
