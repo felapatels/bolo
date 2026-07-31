@@ -62,7 +62,8 @@ vi.mock("@/lib/billing", () => ({
   cancelPlus: (...args: unknown[]) => h.cancelPlus(...args),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   ApiError,
   useGetAccountSubscription: () => h.sub,
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),

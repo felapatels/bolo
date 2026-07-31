@@ -52,7 +52,8 @@ const manyPhrases = Array.from({ length: 4 }, (_, i) => ({
   english: `english-${i}`,
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   // The language picker persists explicit picks (B1) — stubbed, never asserted.
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],

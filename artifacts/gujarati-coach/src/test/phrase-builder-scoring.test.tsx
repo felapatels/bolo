@@ -16,7 +16,8 @@ const PHRASES = [
   { id: 2, nativeScript: "ccc ddd", romanized: "ccc ddd", english: "three four" },
 ];
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListCategories: () => ({ data: [{ id: 7, title: "Basics" }] }),
   useListCategoryPhrases: () => ({ data: PHRASES, isLoading: false }),
   useRecordGameSession: () => ({

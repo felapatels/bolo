@@ -74,7 +74,8 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useReportPhrase: () => ({ mutate: vi.fn() }),
   useListLessonGroupPhrases: () => ({
     data: undefined,

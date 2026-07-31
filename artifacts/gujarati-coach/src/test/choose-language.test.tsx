@@ -80,7 +80,8 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListLanguages: () => ({ data: h.languages, isLoading: false }),
   useGetEntitlements: () => ({ data: h.entitlementsData }),
   getGetEntitlementsQueryKey: () => ["entitlements"],

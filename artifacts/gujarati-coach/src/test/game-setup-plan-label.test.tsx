@@ -14,7 +14,8 @@ import { memoryLocation } from "wouter/memory-location";
 
 const h = vi.hoisted(() => ({ isPlus: false, isLoading: false }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListCategories: () => ({ data: [{ id: 1, title: "Basics" }], isLoading: false }),
   useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   useRecordGameSession: () => ({ mutate: vi.fn() }),

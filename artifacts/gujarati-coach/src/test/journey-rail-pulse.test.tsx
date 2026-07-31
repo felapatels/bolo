@@ -42,7 +42,8 @@ vi.mock("@/lib/entitlements", async (importOriginal) => ({
   useEntitlements: () => ({ isAllAccess: true, isLoading: false }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListCategories: () => ({
     data: undefined,
     isLoading: false,

@@ -23,6 +23,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import express, { type Request, type Response, type NextFunction } from "express";
+import { createDbMockExports } from "../test/dbMock";
 
 // ─── Captured STT call state ──────────────────────────────────────────────────
 // Each test sets these before making a request; the mock closure reads them back
@@ -124,12 +125,15 @@ mock.module("@workspace/integrations-openai-ai-server/audio", {
   },
 });
 
-// Mock @workspace/db so the route's phrase lookup returns our stub without
-// touching the real database.  All query methods that the pronunciation handler
+// Mock @workspace/db via the canonical factory (src/test/dbMock.ts) so the
+// route's phrase lookup returns our stub without touching the real database.
+// The factory supplies every schema-barrel export (typecheck-enforced against
+// the real module, so schema additions update ONE place); only the db query
+// stubs below are test-specific.  All query methods the pronunciation handler
 // calls (findFirst on phrasesTable, usersTable; findMany on phrasesTable) are
 // stubbed; insert is a no-op.
 mock.module("@workspace/db", {
-  namedExports: {
+  namedExports: createDbMockExports({
     db: {
       query: {
         phrasesTable: {
@@ -158,40 +162,7 @@ mock.module("@workspace/db", {
         }),
       }),
     },
-    // Table definitions are only used as arguments to drizzle helpers (eq, etc.);
-    // these just need to be plain objects so the import doesn't throw.
-    phrasesTable: {},
-    ttsCacheTable: {},
-    languagesTable: {},
-    usersTable: {},
-    // Scoring Core v2 tables (imported by xpEngine/fsrsScheduler via the route chain).
-    xpLedgerTable: {},
-    attemptsTable: {},
-    gameSessionsTable: {},
-    userAbilityTable: {},
-    phraseScheduleTable: {},
-    badgesTable: {},
-    chatTurnsTable: {},
-    familyPlansTable: {},
-    familySeatsTable: {},
-    friendInvitesTable: {},
-    friendshipsTable: {},
-    lessonGenerationsTable: {},
-    contactSubmissionsTable: {},
-    categoriesTable: {},
-    lessonsTable: {},
-    lessonGroupsTable: {},
-    zoneConversationStampsTable: {},
-    pool: { end: async () => {} },
-    // Re-export drizzle helpers so transitive imports don't fail.
-    eq: () => ({}),
-    inArray: () => ({}),
-    asc: () => ({}),
-    and: () => ({}),
-    or: () => ({}),
-    desc: () => ({}),
-    sql: () => ({}),
-  },
+  }),
 });
 
 // ─── Express test server ──────────────────────────────────────────────────────

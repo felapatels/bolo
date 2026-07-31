@@ -61,6 +61,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 vi.mock("@workspace/api-client-react", async () => {
   const React = await import("react");
   return {
+    ...(await (await import("./api-client-mock")).baseApiClientMock()),
     useReportPhrase: () => ({ mutate: vi.fn() }),
     // The regular group listing must stay idle in testout mode.
     useListLessonGroupPhrases: () => ({

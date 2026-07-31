@@ -77,7 +77,8 @@ vi.mock("@/lib/theme-context", () => ({
   useTheme: () => ({ theme: "system", setTheme: h.setTheme }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   ApiError,
   getGetAccountQueryKey: () => ["account"],
   useGetAccount: () => h.account,

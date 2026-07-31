@@ -15,7 +15,8 @@ const h = vi.hoisted(() => ({
   languages: undefined as unknown,
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
   useListLanguages: () => ({ data: h.languages, isLoading: false }),

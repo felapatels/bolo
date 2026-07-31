@@ -14,8 +14,12 @@ import {
   attemptsTable,
   lessonGenerationsTable,
   lessonGroupsTable,
+  userItemMemoryTable,
+  phraseReportsTable,
+  xpLedgerTable,
+  userAbilityTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
@@ -73,7 +77,41 @@ let lessonId: number;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// FK-safe cleanup: phrases rows for LANG can be referenced by user_item_memory
+// (the api-server startup backfill seeds FSRS memory rows from attempts at
+// threshold = 1, so a previous interrupted run + a server boot is enough) and
+// by phrase_reports. Deleting phrases without clearing dependents first fails
+// with an FK violation. Deletes are guarded with to_regclass so the suite also
+// survives a database where those tables have not been provisioned.
+
+async function tableExists(name: string): Promise<boolean> {
+  const r = await pool.query("SELECT to_regclass($1) AS reg", [
+    `public.${name}`,
+  ]);
+  return r.rows[0]?.reg !== null;
+}
+
+async function deletePhraseDependents(): Promise<void> {
+  const rows = await db
+    .select({ id: phrasesTable.id })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.languageCode, LANG));
+  const ids = rows.map((r) => r.id);
+  if (ids.length === 0) return;
+  if (await tableExists("user_item_memory")) {
+    await db
+      .delete(userItemMemoryTable)
+      .where(inArray(userItemMemoryTable.phraseId, ids));
+  }
+  if (await tableExists("phrase_reports")) {
+    await db
+      .delete(phraseReportsTable)
+      .where(inArray(phraseReportsTable.phraseId, ids));
+  }
+}
+
 async function resetPhrases(count: number): Promise<number[]> {
+  await deletePhraseDependents();
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
   const rows = await db
     .insert(phrasesTable)
@@ -285,6 +323,8 @@ after(async () => {
     .delete(lessonGenerationsTable)
     .where(eq(lessonGenerationsTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
+  // Clear FK dependents (user_item_memory, phrase_reports) before phrases.
+  await deletePhraseDependents();
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
   // Slice 2: the replenisher now creates lesson_groups at insert time.
   await db
@@ -293,6 +333,23 @@ after(async () => {
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.id, categoryId));
   await db.delete(languagesTable).where(eq(languagesTable.code, LANG));
+  // Clear user-scoped rows that hold FKs to users before deleting the user.
+  // Scoring Core backfill can create these for TEST_USER_ID between runs.
+  if (await tableExists("user_item_memory")) {
+    await db
+      .delete(userItemMemoryTable)
+      .where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  }
+  if (await tableExists("xp_ledger")) {
+    await db
+      .delete(xpLedgerTable)
+      .where(eq(xpLedgerTable.userId, TEST_USER_ID));
+  }
+  if (await tableExists("user_ability")) {
+    await db
+      .delete(userAbilityTable)
+      .where(eq(userAbilityTable.userId, TEST_USER_ID));
+  }
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER_ID));
   await pool.end();
 });

@@ -46,7 +46,8 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   // Test-out mode is idle in these suites (no ?mode=testout).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],

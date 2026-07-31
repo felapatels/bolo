@@ -36,7 +36,8 @@ vi.mock("@/lib/entitlements", () => ({
   upgradeHrefForDenial: () => "/upgrade",
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListCategories: () => ({
     data: h.categories,
     isLoading: false,

@@ -52,7 +52,8 @@ vi.mock("@/lib/analytics", async () => {
   };
 });
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useListCategories: () => h.cats,
   getListCategoriesQueryKey: () => ["categories"],
 }));

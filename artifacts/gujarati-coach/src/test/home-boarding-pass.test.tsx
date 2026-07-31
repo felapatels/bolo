@@ -82,7 +82,8 @@ vi.mock("framer-motion", async (importOriginal) => ({
   useReducedMotion: () => h.reduceMotion,
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useGetEntitlements: () => ({ data: PLUS_ENTITLEMENTS, isLoading: false }),
   getGetEntitlementsQueryKey: () => ["entitlements"],
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),

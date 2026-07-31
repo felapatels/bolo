@@ -74,7 +74,8 @@ const h = vi.hoisted(() => ({
   attempts: [] as unknown[],
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useGetProgressSummary: () => ({
     data: {
       phrasesMastered: 5,

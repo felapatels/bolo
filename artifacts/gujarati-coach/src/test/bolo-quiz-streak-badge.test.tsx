@@ -34,7 +34,8 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useGetDailyQuiz: () => ({ data: h.quizData, isLoading: false }),
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),

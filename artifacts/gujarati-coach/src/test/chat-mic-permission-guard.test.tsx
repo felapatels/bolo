@@ -91,7 +91,8 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
   }),
 }));
 
-vi.mock("@workspace/api-client-react", () => ({
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
   getChatTurnUrl: () => "/api/chat/turn",
   ApiError: class ApiError extends Error {
     status: number;
