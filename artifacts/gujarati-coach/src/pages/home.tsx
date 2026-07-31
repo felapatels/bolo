@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Trophy, Sparkles, Flame, Star, Loader2, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
+import { BookOpen, Trophy, Sparkles, Flame, Star, ArrowRight, Settings, HandHeart, Users, Hash, Utensils, Sun, Smile, Target, Zap, MessageCircle, HelpCircle, Mic } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -9,6 +9,8 @@ import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
+import { HomeSkeleton } from "@/components/home-skeleton";
+import { BrandSplash, useBrandSplash } from "@/components/brand-splash";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -148,6 +150,13 @@ export default function Home() {
       },
     },
   );
+  // Cold-start brand splash (task 902): overlays the loading home on the
+  // first arrival of a page load. It never delays the queries above/below
+  // (they fire on this same render, exactly as before), cuts short the moment
+  // categories land, and skips for reduced motion, warm cache, navigation
+  // back, and any decision failure. Lifecycle lives in brand-splash.tsx;
+  // timing constants in the index.css :root tuning block.
+  const splash = useBrandSplash(!loadingCats);
   const { data: attempts } = useListRecentAttempts({ lang: activeLang, limit: 3 });
   // Review is a Plus feature; only fetch the review queue when it's unlocked
   // (Free callers 402 on this route).
@@ -199,11 +208,15 @@ export default function Home() {
 
   // First paint blocks on categories only — the page's structural content.
   // The stats summary fills into a height-reserved banner when it arrives.
+  // While categories load, home shows the ticket-and-card skeleton (task 902,
+  // replacing the old blocking spinner); on a cold load the brand splash
+  // overlays it until data lands or the beat finishes.
   if (loadingCats) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-primary">
-        <Loader2 className="h-12 w-12 animate-spin" />
-      </div>
+      <>
+        <HomeSkeleton />
+        {splash.active && <BrandSplash exiting={splash.exiting} />}
+      </>
     );
   }
 
@@ -817,6 +830,9 @@ export default function Home() {
       </main>
       {/* Daily goal celebration — mirrors the MilestoneToast on mobile home */}
       <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />
+      {/* Splash exit fade can outlive the skeleton by a beat when data cuts
+          the moment short — keep it mounted (portaled to body) until done. */}
+      {splash.active && <BrandSplash exiting={splash.exiting} />}
     </div>
   );
 }
