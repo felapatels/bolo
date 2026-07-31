@@ -1,0 +1,92 @@
+SPEC: Games Hub Redesign (2-Column, Colorful, Animated)
+
+CONTEXT
+The games hub cards are functional but visually flat: no color identity per game, minimal motion, single-column feel. This spec redesigns the hub as a colorful 2-column grid with larger, more playful animation, using the established motion engine vocabulary (Spec 1 v3). This is a delight task: no new game logic, no scoring changes, no navigation restructuring. The games themselves are untouched; only the hub surface and its cards change. Target both web and mobile in one pass if the hub is a shared component; if the surfaces are separate, do web first and report before starting mobile.
+
+SEQUENCING (verify before starting)
+1. No other task holds the games hub file(s). This task must not run while any release queue or incident freeze is active.
+2. The motion engine (Spec 1 v3) primitives must be available in the codebase; this spec consumes them and defines no new easing curves or timing constants.
+3. This task is independent of chat, home, practice, and journey surfaces and must not touch them.
+
+STEP 0: INVENTORY (report findings before writing any code)
+1. Locate the games hub screen(s) and card component(s) on web and mobile. Report whether they share a component or are separate implementations.
+2. List every game currently rendered in the hub and the data each card displays (title, icon or art, progress, lock state, anything else).
+3. Report what motion engine primitives exist and their names (spring configs, entrance patterns, press feedback, stagger utilities) per Spec 1 v3.
+4. Report the current color and theming approach: are there per-game colors or art assets already defined anywhere (config, assets, theme tokens)?
+5. Report how locked or entitlement-gated games are currently presented, if any are.
+6. Report current grid or list layout and how it responds to narrow and wide viewports.
+Do not proceed past Step 0 without posting this inventory.
+
+STORY 1: Two-column colorful card grid
+As a learner opening the games hub,
+I want a vibrant two-column grid where each game has its own color identity,
+So that the hub feels playful and each game is instantly recognizable.
+
+Business value: The games hub is a retention surface; a flat hub undersells the content behind it. Distinct color identities improve recognition and make the hub feel like a place worth returning to.
+
+Acceptance criteria:
+1. The system shall display the games hub as a two-column grid of cards at standard phone and web widths.
+2. The system shall assign each game a distinct color identity applied consistently to its card.
+3. The system shall display each card's title and game art legibly against its color treatment, meeting the app's existing contrast standards.
+4. The system shall preserve all information currently shown on each card (per the Step 0 item 2 inventory), restyled but not removed.
+5. The system shall degrade to a single column only below a minimum width threshold, and shall never render cards with truncated titles at supported widths.
+
+Implementation notes:
+- Per-game colors live in one static config (game id to color tokens), not scattered in components, so future games add a line, not a redesign.
+- Color identities should draw from the existing app palette family; extend the palette only if the Step 0 inventory shows too few distinct hues, and keep any additions in the theme tokens.
+- Card art: reuse existing per-game art or icons at larger scale. Do not commission or generate new art in this task; if art gaps exist, note them in the report.
+- Locked or gated games keep their color identity desaturated or dimmed rather than gray boxes, so the hub stays colorful while the gate stays obvious.
+
+STORY 2: Motion pass (entrance, press, and idle restraint)
+As a learner interacting with the games hub,
+I want cards that respond with lively, polished motion,
+So that the hub feels alive and tactile without being noisy.
+
+Business value: Motion quality is a primary carrier of perceived app quality. A tactile hub increases game entry rates and matches the polish level of the band UI and boarding pass interactions.
+
+Acceptance criteria:
+1. The system shall animate card entrance when the hub is opened, using a staggered pattern across the grid.
+2. The system shall provide press feedback on each card that begins within one frame of touch or click and resolves smoothly whether the press is completed or cancelled.
+3. The system shall complete all entrance motion within a duration that never delays the user's ability to tap a card.
+4. The system shall respect the platform reduced-motion setting by replacing entrance and press animation with immediate or minimal transitions.
+5. The system shall not run repeating idle animations on cards.
+
+Implementation notes:
+- Use motion engine (Spec 1 v3) primitives exclusively: existing spring configs, stagger utility, and press feedback pattern. Define no new curves, durations, or spring constants; if a needed primitive is missing, report it rather than inventing one inline.
+- Entrance stagger should read as one quick cascade, not a slow reveal; cards must be interactive immediately even mid-entrance.
+- Press feedback scale and shadow treatment should match whatever the boarding pass or band UI already established, for cross-app consistency.
+- Mobile: verify press feedback does not conflict with scroll gestures on the grid.
+
+STORY 3: Verification pass on device and web
+As a product owner,
+I want the redesigned hub verified on a real device and web preview,
+So that color, contrast, motion, and touch behavior are confirmed where users experience them.
+
+Business value: Expo-web rendering is not sufficient evidence for native motion and touch behavior; device verification is a standing rule for UI claims.
+
+Acceptance criteria:
+1. The system shall render the redesigned hub correctly on web preview and on a native device build, including grid layout, colors, and lock states.
+2. The system shall demonstrate entrance and press motion on device without dropped frames in normal use.
+3. The system shall demonstrate the reduced-motion behavior on at least one platform.
+4. All games shall remain launchable from their cards on both platforms.
+
+Implementation notes:
+- Report device verification with specifics (which device or build, what was checked), not a blanket claim.
+- If mobile is a separate implementation and this pass is web-only per the Step 0 finding, this story applies to web now and is copied into the mobile parity follow-up.
+
+OPEN QUESTIONS
+1. Should per-game colors be fixed by design choice or derived from each game's existing art? Recommend fixed config for predictability; confirm.
+2. Is there any appetite for a subtle hub background treatment (very light pattern or gradient) as part of this pass, or cards only? Recommend cards only for v1; confirm.
+3. Do any games need their card art upscaled or re-exported for the larger card size? Answer comes from Step 0 item 2; flag any asset gaps rather than shipping blurry art.
+
+ASSUMPTIONS
+1. No new games are added or removed in this task; the set from Step 0 item 2 is final for this pass.
+2. Game entry navigation, entitlement gating logic, and game internals are unchanged; only presentation changes.
+3. The motion engine primitives from Spec 1 v3 are stable and available on both platforms.
+4. No em dashes and no emoji beyond existing app conventions in any copy touched.
+
+UX / MOCKUP LINKS
+None. Reference points for tone: band UI chip treatment for color confidence, boarding pass press feedback for tactile standard.
+
+GATE
+Typecheck clean, full canonical suite green except documented expected failures, both boot smoke tests pass, no snapshot or layout test regressions in untouched surfaces, and the Story 3 verification report posted with device specifics. Manual check: hub renders 2-column with distinct per-game colors, entrance cascade plays once, press feedback is immediate, reduced motion respected, locked games visibly gated, every game launches.
