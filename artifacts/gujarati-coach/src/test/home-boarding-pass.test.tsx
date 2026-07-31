@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
@@ -158,6 +158,18 @@ beforeEach(() => {
   h.track.mockClear();
 });
 
+afterEach(() => {
+  // Task #905 hygiene: any test that lets the tear reach navigation spawns
+  // the body-level hand-off overlay, whose removal in jsdom is time-based
+  // (real ~900ms fallback timer — no animation events fire here). Purge it
+  // after EVERY test so no test inherits a stale clone: the clones duplicate
+  // the pass copy, which breaks getByText in later tests. The overlay's own
+  // remove() is idempotent, so the timer firing later is harmless.
+  document.body
+    .querySelectorAll("[data-tear-overlay]")
+    .forEach((n) => n.remove());
+});
+
 describe("home boarding pass CTA copy", () => {
   test("zero progress shows Start your journey, and the idle motion classes are applied", () => {
     const { container } = renderHome();
@@ -263,5 +275,93 @@ describe("home boarding pass stub tear (task 899)", () => {
       spy.mockRestore();
     }
     expect(history).toContain("/journey");
+  });
+});
+
+// Task #905: at the navigation moment the two mid-tear halves hand off to a
+// document.body-level fixed overlay that outlives home's unmount, resumes
+// the tear keyframes via negative animation-delay, and gust-sweeps each
+// piece away over the incoming route. These pins cover the overlay's
+// lifecycle: spawn AT NAVIGATION (never before), removal on the final gust
+// animationend, removal via the timeout fallback when animation events
+// never fire (jsdom fires none, so that pin exercises the REAL fallback
+// path), and the two paths that must never create an overlay at all
+// (reduced motion, animation-path failure).
+describe("home boarding pass tear hand-off overlay (task 905)", () => {
+  const getPass = () =>
+    screen.getByText("Start your journey").closest("a") as HTMLElement;
+  const overlay = () => document.body.querySelector("[data-tear-overlay]");
+  const animEnd = (name: string) =>
+    Object.assign(new Event("animationend", { bubbles: true }), {
+      animationName: name,
+    });
+
+  test("both halves hand off to the overlay at navigation; only the final gust animationend removes it (no orphaned node)", async () => {
+    const { history } = renderHome();
+    await userEvent.setup().click(getPass());
+    // Nothing is spawned at activation — the hand-off happens in the same
+    // beat as the delayed navigation.
+    expect(overlay()).toBeNull();
+    await waitFor(() => expect(history).toContain("/journey"));
+    const node = overlay() as HTMLElement;
+    expect(node).not.toBeNull();
+    // Inert, fixed, above the incoming route.
+    expect(node.getAttribute("aria-hidden")).toBe("true");
+    expect(node.style.pointerEvents).toBe("none");
+    expect(node.style.position).toBe("fixed");
+    // BOTH halves ride the overlay, resuming their tear keyframes inside
+    // staggered gust wrappers.
+    expect(node.querySelectorAll(".animate-stub-tear").length).toBe(1);
+    expect(node.querySelectorAll(".animate-body-tear").length).toBe(1);
+    expect(node.querySelectorAll(".animate-gust-away").length).toBe(2);
+    const final = node.querySelector("[data-gust-final]") as HTMLElement;
+    expect(final).not.toBeNull();
+    // A bubbling tear-keyframe end must NOT remove the overlay mid-gust...
+    fireEvent(final, animEnd("stub-tear"));
+    expect(overlay()).not.toBeNull();
+    // ...only the final wrapper's gust end does.
+    fireEvent(final, animEnd("gust-away"));
+    expect(overlay()).toBeNull();
+  });
+
+  test("overlay removes itself via the timeout fallback when animationend never fires", async () => {
+    const { history } = renderHome();
+    fireEvent.click(getPass());
+    await waitFor(() => expect(history).toContain("/journey"));
+    expect(overlay()).not.toBeNull();
+    // jsdom never dispatches animation events, so reaching removal here
+    // proves the --tear-overlay-cleanup deadline (fallback 900ms from the
+    // hand-off) fires.
+    await waitFor(() => expect(overlay()).toBeNull(), { timeout: 2500 });
+  });
+
+  test("reduced motion navigates instantly and never creates an overlay", async () => {
+    h.reduceMotion = true;
+    const { history } = renderHome();
+    await userEvent.setup().click(getPass());
+    expect(history).toContain("/journey");
+    expect(overlay()).toBeNull();
+  });
+
+  test("failure inside the animation path leaves no orphaned overlay and still navigates", () => {
+    const { history } = renderHome();
+    const pass = getPass();
+    // Same scoped blow-up as the 899 failure pin: the overlay spawn reads
+    // the cleanup var from documentElement BEFORE touching the DOM, so a
+    // failing style read must produce zero overlay nodes.
+    const original = window.getComputedStyle.bind(window);
+    const spy = vi
+      .spyOn(window, "getComputedStyle")
+      .mockImplementation((el: Element, pseudo?: string | null) => {
+        if (el === document.documentElement) throw new Error("boom");
+        return original(el, pseudo);
+      });
+    try {
+      fireEvent.click(pass);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(history).toContain("/journey");
+    expect(overlay()).toBeNull();
   });
 });

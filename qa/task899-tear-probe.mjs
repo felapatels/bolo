@@ -1,4 +1,10 @@
 // Task #899: train size bump + boarding-pass stub tear probe.
+// Task #905: extended — the visible stub tear now plays on a body-level
+// fixed overlay clone ([data-tear-overlay]) that outlives home's unmount;
+// MODE=after additionally verifies the overlay is still finishing OVER the
+// journey route right after navigation and is removed (animationend or the
+// --tear-overlay-cleanup fallback) afterwards, in both the slowed and the
+// real-timing runs.
 //
 // MODE=before  -> measure rendered train sizes on the home pass (mobile +
 //                 desktop viewports) and inside the journey rail-marker pill.
@@ -145,6 +151,10 @@ if (MODE === "after") {
     const d = document.documentElement.style;
     d.setProperty("--tear-duration", "1600ms");
     d.setProperty("--tear-nav-delay", "1400ms");
+    // Task #905: the overlay reads its removal deadline at the hand-off
+    // (navigation); keep it comfortably past the stretched tear tail + gust
+    // so the fallback timer never culls the clones mid-flight.
+    d.setProperty("--tear-overlay-cleanup", "2600ms");
   });
   await page.evaluate(`${findPass}().click()`);
   await page.waitForTimeout(500);
@@ -152,11 +162,30 @@ if (MODE === "after") {
     url: location.pathname,
     stubTear: !!document.querySelector(".animate-stub-tear"),
     bodyTear: !!document.querySelector(".animate-body-tear"),
+    overlay: !!document.querySelector("[data-tear-overlay]"),
   }));
   await page.screenshot({ path: `${OUT}/mid-tear.png` });
   console.log("mid-tear state (slowed):", JSON.stringify(midState));
   await page.waitForURL(/\/journey/, { timeout: 5000 });
   console.log("navigation after slowed tear: OK ->", page.url());
+  // Task #905: the torn stub must still be finishing OVER the journey route
+  // right after the swap (tear ends at 1600ms, nav fired at 1400ms)...
+  const overlayPostNav = await page.evaluate(
+    () => !!document.querySelector("[data-tear-overlay]"),
+  );
+  await page.screenshot({ path: `${OUT}/overlay-over-journey.png` });
+  // ...and must be GONE once the animation has ended (animationend path).
+  await page.waitForTimeout(1600);
+  const overlaySettled = await page.evaluate(
+    () => !!document.querySelector("[data-tear-overlay]"),
+  );
+  console.log(
+    "overlay (slowed run): over journey right after nav =",
+    overlayPostNav,
+    "(want true); after animation end =",
+    overlaySettled,
+    "(want false)",
+  );
 
   // --- Real-timing run: measure click -> /journey latency with stock vars.
   await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle", timeout: 60000 });
@@ -165,6 +194,15 @@ if (MODE === "after") {
   await page.evaluate(`${findPass}().click()`);
   await page.waitForURL(/\/journey/, { timeout: 5000 });
   console.log(`real-timing click -> /journey in ${Date.now() - t0}ms`);
+  // Task #905: stock timing — the cleanup deadline is 900ms from the
+  // hand-off (navigation), and the final gust ends ~540ms after it, so by
+  // ~1.2s post-navigation the overlay must be gone (animationend normally
+  // beats the fallback).
+  await page.waitForTimeout(1200);
+  const overlayRealGone = await page.evaluate(
+    () => !document.querySelector("[data-tear-overlay]"),
+  );
+  console.log("overlay removed after real-timing run:", overlayRealGone, "(want true)");
 }
 
 await browser.close();

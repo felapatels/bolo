@@ -37,6 +37,113 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // as --tear-nav-delay (the :root tuning constants block, in ms); this value
 // is only used when the CSS var cannot be read (jsdom, ancient UA).
 const TEAR_NAV_DELAY_FALLBACK_MS = 500;
+// Task #905: overlay cleanup deadline fallback, mirroring
+// --tear-overlay-cleanup in the same :root block. Measured from the
+// hand-off at navigation; must stay longer than --gust-stagger +
+// --gust-duration so the animationend path normally wins the race.
+const TEAR_OVERLAY_CLEANUP_FALLBACK_MS = 900;
+
+// Task #905: the tear's final beat used to be cut when navigation at
+// --tear-nav-delay unmounted home mid-animation. In the same beat as
+// navigate(), the two torn halves now HAND OFF to a fixed-position overlay
+// appended to document.body: each half is cloned in place with a negative
+// animation-delay so its tear keyframes resume exactly where the in-tree
+// copy stopped, then a gust (transform/opacity-only wrapper animation)
+// sweeps each piece away over the incoming journey route — the stub first,
+// the ticket body a --gust-stagger later, each continuing its own tear
+// trajectory (never morphing toward the journey header ticket). The overlay
+// is deliberately NOT React-owned (a portal would unmount with home), is
+// inert (pointer-events none, aria-hidden), and removes itself when the
+// final gust ends — with a timeout fallback (--tear-overlay-cleanup) for
+// environments where animation events never fire (backgrounded tab, jsdom).
+// Any failure here is swallowed by the caller: navigation always proceeds.
+function spawnTearHandoffOverlay(body: HTMLElement, stub: HTMLElement): void {
+  // Read the cleanup deadline BEFORE touching the DOM so a failing style
+  // read can never leave an orphaned node behind.
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(
+    "--tear-overlay-cleanup",
+  );
+  const parsed = parseFloat(raw);
+  const cleanupMs =
+    Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : TEAR_OVERLAY_CLEANUP_FALLBACK_MS;
+  const container = document.createElement("div");
+  container.setAttribute("data-tear-overlay", "");
+  container.setAttribute("aria-hidden", "true");
+  Object.assign(container.style, {
+    position: "fixed",
+    inset: "0",
+    zIndex: "60",
+    pointerEvents: "none",
+  });
+  // Layout-true (untransformed) placement: offsets against the half's
+  // offsetParent (the flex row, which never carries a tear transform), so
+  // each clone lands exactly on its in-tree half's base box no matter where
+  // the tear animation currently has it. The breathe wrapper is paused
+  // while tearing (see the JSX) so no ancestor scale skews this. jsdom has
+  // no offsetParent/offsets; everything degrades to 0-rects there, which
+  // the lifecycle tests accept.
+  const place = (el: HTMLElement, wrapper: HTMLElement) => {
+    const parentRect =
+      el.offsetParent instanceof HTMLElement
+        ? el.offsetParent.getBoundingClientRect()
+        : { top: 0, left: 0 };
+    Object.assign(wrapper.style, {
+      position: "absolute",
+      top: `${parentRect.top + el.offsetTop}px`,
+      left: `${parentRect.left + el.offsetLeft}px`,
+      width: `${el.offsetWidth}px`,
+      height: `${el.offsetHeight}px`,
+    });
+  };
+  const mkHalf = (el: HTMLElement, dir: 1 | -1, gustFinal: boolean) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "animate-gust-away";
+    place(el, wrapper);
+    // Per-half gust direction: each piece drifts along its own tear
+    // trajectory (stub right, body left). Values resolve against the :root
+    // tuning constants at computed-value time.
+    wrapper.style.setProperty(
+      "--gust-x",
+      dir === 1 ? "var(--gust-drift)" : "calc(-1 * var(--gust-drift))",
+    );
+    wrapper.style.setProperty(
+      "--gust-r",
+      dir === 1 ? "var(--gust-rotate)" : "calc(-1 * var(--gust-rotate))",
+    );
+    wrapper.style.animationDelay = dir === 1 ? "0ms" : "var(--gust-stagger)";
+    if (gustFinal) wrapper.setAttribute("data-gust-final", "");
+    const clone = el.cloneNode(true) as HTMLElement;
+    // Resume the tear keyframes exactly where the in-tree half stopped
+    // (the inline delay outranks the class shorthand's implicit 0s).
+    clone.style.animationDelay = "calc(-1 * var(--tear-nav-delay))";
+    clone.style.margin = "0";
+    wrapper.appendChild(clone);
+    container.appendChild(wrapper);
+  };
+  mkHalf(stub, 1, false);
+  // The body half gusts last (--gust-stagger), so its gust end is the
+  // overlay's removal signal.
+  mkHalf(body, -1, true);
+  let removed = false;
+  const remove = () => {
+    if (removed) return;
+    removed = true;
+    window.clearTimeout(timer);
+    container.remove();
+  };
+  const timer = window.setTimeout(remove, cleanupMs);
+  container.addEventListener("animationend", (e) => {
+    // The clones' own tear-keyframe ends bubble through here first; only
+    // the FINAL wrapper's gust end may remove the overlay.
+    if ((e as AnimationEvent).animationName !== "gust-away") return;
+    if (!(e.target instanceof Element) || !e.target.hasAttribute("data-gust-final"))
+      return;
+    remove();
+  });
+  document.body.appendChild(container);
+}
 
 export default function Home() {
   const { user } = useUser();
@@ -49,6 +156,10 @@ export default function Home() {
   // classes; the timer ref lets unmount cancel a pending delayed navigation.
   const [tearing, setTearing] = useState(false);
   const tearTimerRef = useRef<number | null>(null);
+  // The in-tree torn halves; measured + cloned into the body-level hand-off
+  // overlay at the navigation moment (Task #905).
+  const tearStubRef = useRef<HTMLDivElement | null>(null);
+  const tearBodyRef = useRef<HTMLDivElement | null>(null);
   useEffect(
     () => () => {
       if (tearTimerRef.current !== null) window.clearTimeout(tearTimerRef.current);
@@ -72,7 +183,21 @@ export default function Home() {
       const parsed = parseFloat(raw);
       const delay =
         Number.isFinite(parsed) && parsed > 0 ? parsed : TEAR_NAV_DELAY_FALLBACK_MS;
-      tearTimerRef.current = window.setTimeout(() => navigate("/journey"), delay);
+      tearTimerRef.current = window.setTimeout(() => {
+        // Hand-off (Task #905): clone the mid-tear halves into the
+        // body-level overlay in the same beat as navigation, so React's
+        // unmount swaps the pixels seamlessly and the tear + gust finish
+        // over the journey. Overlay failure is cosmetic and must never
+        // block or delay the navigation below.
+        try {
+          const bodyHalf = tearBodyRef.current;
+          const stubHalf = tearStubRef.current;
+          if (bodyHalf && stubHalf) spawnTearHandoffOverlay(bodyHalf, stubHalf);
+        } catch {
+          /* tear tail lost; navigation proceeds */
+        }
+        navigate("/journey");
+      }, delay);
     } catch {
       navigate("/journey");
     }
@@ -513,7 +638,11 @@ export default function Home() {
                   the entrance motion.div and press motion.div inline
                   transforms, and a CSS transform animation on either of those
                   elements would override them while running. */}
-              <div className={cn("relative", !reduceMotion && "animate-ticket-breathe")}>
+              {/* Breathe pauses while tearing (Task #905): the hand-off
+                  overlay measures the halves' layout boxes at navigation,
+                  and an ancestor scale mid-breathe would skew the clone
+                  placement by up to the breathe amplitude. */}
+              <div className={cn("relative", !reduceMotion && !tearing && "animate-ticket-breathe")}>
               {/* Tactile press: pronounced scale-down, overshoot spring back
                   on release (PASS_PRESS_* constants above). */}
               <motion.div
@@ -560,6 +689,7 @@ export default function Home() {
                       while tearing it carries its own ticket stock + rounded
                       left corners so it reads as a torn half of the pass) */}
                   <div
+                    ref={tearBodyRef}
                     className={cn(
                       "min-w-0 flex-1",
                       tearing && "animate-body-tear rounded-l-3xl",
@@ -655,6 +785,7 @@ export default function Home() {
                       replaced by the two jagged torn edges */}
                   {!tearing && <TicketPerforationV light />}
                   <div
+                    ref={tearStubRef}
                     className={cn(
                       "relative flex w-16 shrink-0 flex-col items-center justify-between py-4",
                       tearing && "animate-stub-tear rounded-r-3xl",

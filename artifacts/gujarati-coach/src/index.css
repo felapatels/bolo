@@ -275,6 +275,18 @@
   --tear-body-distance: -18px;   /* ticket-body travel away from the stub */
   --tear-body-rotate: -3deg;     /* ticket-body tilt as the halves separate */
   --tear-body-drop: 2px;         /* ticket-body sag */
+  --tear-overlay-cleanup: 900ms; /* hand-off overlay removal deadline (Task
+                                    #905), measured from navigation. MUST be
+                                    in ms: home.tsx parses it. Timeout
+                                    fallback for when animationend never
+                                    fires (backgrounded tab); keep it longer
+                                    than --gust-stagger + --gust-duration so
+                                    the animationend path normally wins. */
+  --gust-drift: 120px;           /* torn-piece drift distance across the swap */
+  --gust-drop: 22px;             /* torn-piece sag during the gust */
+  --gust-rotate: 9deg;           /* extra rotation range as pieces blow away */
+  --gust-duration: 420ms;        /* gust exit run time per half */
+  --gust-stagger: 120ms;         /* body half lags the stub into the gust */
   /* Brand splash: cold-load launch moment (brand-splash.tsx). */
   --splash-duration: 1800ms;     /* full beat while home data still loads. MUST
                                     be in ms: brand-splash.tsx parses this */
@@ -366,13 +378,17 @@
    pulls left with a slight tilt. During the tear the Link container goes
    transparent (deco layers hidden in home.tsx), so the widening gap shows
    the actual page behind the pass and the halves read as floating pieces.
-   home.tsx navigates after --tear-nav-delay, so the tail of the tear
-   overlaps the route swap. Animated properties are transforms/opacity
-   only (clip-path rip edges and drop-shadows are static for the tear's
-   lifetime). Reduced motion never applies the classes (JS gate in
-   home.tsx) and the reduce block above collapses them regardless.
-   The `forwards` fill is safe here: the torn subtrees contain no
-   position-fixed descendants and home unmounts at navigation. */
+   home.tsx navigates after --tear-nav-delay; at that same beat the
+   mid-tear halves are cloned into a body-level fixed overlay (Task #905,
+   spawnTearHandoffOverlay) where these keyframes RESUME via a negative
+   animation-delay and the gust-away wrapper below sweeps each piece off
+   over the incoming journey route — so the tear is never cut by home's
+   unmount. Animated properties are transforms/opacity only (clip-path rip
+   edges and drop-shadows are static for the tear's lifetime). Reduced
+   motion never applies the classes (JS gate in home.tsx) and the reduce
+   block above collapses them regardless. The `forwards` fill is safe
+   here: the torn subtrees contain no position-fixed descendants, home
+   unmounts at navigation, and the overlay clones are removed at gust end. */
 @keyframes stub-tear {
   0% {
     transform: translate(0, 0) rotate(0deg);
@@ -464,6 +480,30 @@
     calc(100% - 1px) 100%,
     0% 100%
   );
+}
+/* Gust hand-off (Task #905): at --tear-nav-delay the mid-tear halves are
+   cloned into a body-level fixed overlay (home.tsx spawnTearHandoffOverlay)
+   where their tear keyframes resume via negative animation-delay, and this
+   wrapper animation sweeps each piece away over the incoming journey route
+   — each along its own tear trajectory (per-half --gust-x/--gust-r set
+   inline as ± the :root constants; never a morph toward the journey header
+   ticket), the body half --gust-stagger behind the stub. Transforms/opacity
+   only. The `both` fill is safe here: the overlay contains no
+   position-fixed descendants and is removed at the final gust's
+   animationend (or the --tear-overlay-cleanup timeout). */
+@keyframes gust-away {
+  from {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--gust-x, var(--gust-drift)), var(--gust-drop))
+      rotate(var(--gust-r, var(--gust-rotate)));
+    opacity: 0;
+  }
+}
+.animate-gust-away {
+  animation: gust-away var(--gust-duration) cubic-bezier(0.35, 0, 0.85, 1) both;
 }
 /* Journey "Now boarding" card: strong border/glow pulse, opacity-only. */
 @keyframes stop-glow-pulse {
