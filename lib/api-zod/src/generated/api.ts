@@ -54,7 +54,8 @@ export const ListCategoriesResponseItem = zod.object({
   "masteredCount": zod.number(),
   "lockedPhraseCount": zod.number().describe('How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library.'),
   "sentenceCount": zod.number().describe('How many full sentences the topic\'s Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language.'),
-  "sentencesLocked": zod.boolean().describe('Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences.')
+  "sentencesLocked": zod.boolean().describe('Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences.'),
+  "polishEnabled": zod.boolean().optional().describe('Server feature flag: when true, the client should show the Polish re-run card on stop completion and Polish re-entry on journey station cards. Gated by POLISH_ENABLED env var (default false). Optional\/additive -- absent clients behave as if false.')
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
@@ -77,7 +78,8 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "masteredCount": zod.number().optional(),
   "status": zod.enum(['locked', 'unlocked', 'in_progress', 'completed', 'tested_out']).optional().describe('Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed\/tested_out; tested_out when the learner passed the test-out assessment. Optional\/additive - older clients may ignore it.'),
   "stage": zod.enum(['phrase', 'sentence']).optional().describe('Which learning stage this group\'s members belong to: the starter \"phrase\" list every topic opens with, or the Plus-only \"sentence\" stage. Derived from the group\'s member phrases (groups are homogeneous by construction); an empty group reads as \"phrase\". Optional\/additive - part of the journey-map contract mobile reuses.'),
-  "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.')
+  "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.'),
+  "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.')
 })).optional(),
   "unassignedCount": zod.number().optional(),
   "access": zod.enum(['teaser', 'exhausted']).optional().describe('Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone\/station structure instead of a 402 so the journey map can render as the paywall\'s showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). \"teaser\" while free taster phrases remain, \"exhausted\" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language.'),
@@ -109,6 +111,7 @@ export const GetLessonGroupTestoutResponse = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -167,6 +170,7 @@ export const ListLessonGroupPhrasesResponseItem = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -197,6 +201,7 @@ export const ListCategorySentencesResponseItem = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -226,6 +231,7 @@ export const ListCategoryPhrasesResponseItem = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -265,6 +271,7 @@ export const AddCategoryPhrasesResponseItem = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -294,6 +301,7 @@ export const ListReviewPhrasesResponseItem = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -322,6 +330,7 @@ export const GetPhraseResponse = zod.object({
   "bestScore": zod.number().nullable(),
   "mastered": zod.boolean(),
   "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
@@ -1253,7 +1262,8 @@ export const ChatTurnBody = zod.object({
   "text": zod.string()
 }).describe('A single prior turn in the rolling conversation-context window.')).optional().describe('A short recent-turn window (client-supplied; not persisted server-side) so replies stay contextual.'),
   "clientDurationSeconds": zod.number().nullish().describe('Client-measured duration (in seconds) of the recorded audio clip. When present the server uses this value to debit the caller\'s weekly chat-time allowance instead of inferring it from audio length. Optional; omitted by older clients.'),
-  "mimeType": zod.string().optional().describe('MIME type of the audio payload (e.g. \"audio\/m4a\"). Optional; omitted by older clients that always send m4a.')
+  "mimeType": zod.string().optional().describe('MIME type of the audio payload (e.g. \"audio\/m4a\"). Optional; omitted by older clients that always send m4a.'),
+  "scenarioId": zod.string().optional().describe('Optional zone capstone scenario identifier (e.g. \"greetings-manners\"). When supplied the server injects the scenario framing and steering instructions into the prompt, gates zone 2+ on Plus, tracks phrase usage, and writes a zone_conversation_stamp on majority completion.')
 })
 
 export const ChatTurnResponse = zod.object({
@@ -1264,7 +1274,11 @@ export const ChatTurnResponse = zod.object({
   "replyAudioBase64": zod.string().describe('Ready-to-play synthesized speech of the reply.'),
   "format": zod.string(),
   "languageCode": zod.string(),
-  "secondsRemaining": zod.number().nullable().describe('Seconds of weekly chat time left for the caller; null means unlimited (One Language and Plus).')
+  "secondsRemaining": zod.number().nullable().describe('Seconds of weekly chat time left for the caller; null means unlimited (One Language and Plus).'),
+  "phrasesUsed": zod.array(zod.string()).optional().describe('Romanized target phrases from the scenario\'s target list that the server detected in the learner\'s transcript this turn (case-insensitive substring match). Only present when a scenarioId was supplied.'),
+  "sceneDone": zod.boolean().optional().describe('True when the majority of the scenario\'s target phrases have been used across the session, signalling that the capstone is complete. Only present when a scenarioId was supplied.'),
+  "xpAwarded": zod.number().optional().describe('XP awarded on this turn (non-zero only on the first sceneDone=true turn; 0 on replays). Only present when a scenarioId was supplied.'),
+  "tokensEarned": zod.number().optional().describe('Chai tokens earned this turn (always 0 in build 32; the token engine stub will be wired when tokenEngine.ts lands). Only present when a scenarioId was supplied.')
 })
 
 
@@ -1363,5 +1377,41 @@ export const JoinFamilyResponse = zod.object({
   "previousSubscriptionCanceled": zod.boolean(),
   "active": zod.boolean()
 })
+
+
+/**
+ * Returns the public subset of a scenario (title, framing copy, target phrases). Steering instructions are never sent to the client. Auth required; no entitlement gate -- the gate is on POST /openai/chat.
+ * @summary Fetch client-safe metadata for a zone capstone scenario
+ */
+export const GetScenarioParams = zod.object({
+  "id": zod.coerce.string().describe('Scenario id (e.g. \"greetings-manners\")')
+})
+
+export const GetScenarioResponse = zod.object({
+  "id": zod.string(),
+  "zoneIndex": zod.number().describe('0-based zone index.'),
+  "title": zod.string().describe('Short scene title shown in the chat banner.'),
+  "framingCopy": zod.string().describe('One-sentence scene setter shown below the title.'),
+  "targetPhrases": zod.array(zod.object({
+  "romanized": zod.string(),
+  "native": zod.string()
+})).describe('Phrases to use as chip targets in the chat UI.')
+}).describe('Client-safe subset of a zone capstone scenario. Steering instructions are never sent to the client.')
+
+
+/**
+ * Returns a lightweight list of zones the caller has already completed the capstone conversation for. Used by the journey map to show "Replay the chat" links on completed zones.
+ * @summary List zone capstone conversation stamps for the caller
+ */
+export const ListZoneStampsQueryParams = zod.object({
+  "lang": zod.coerce.string().describe('Language code to filter stamps by.')
+})
+
+export const ListZoneStampsResponseItem = zod.object({
+  "zoneIndex": zod.number().describe('0-based zone index.'),
+  "languageCode": zod.string(),
+  "createdAt": zod.coerce.date()
+}).describe('Record that a learner completed a zone capstone conversation.')
+export const ListZoneStampsResponse = zod.array(ListZoneStampsResponseItem)
 
 

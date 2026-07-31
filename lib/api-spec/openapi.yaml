@@ -1723,6 +1723,62 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /scenarios/{id}:
+    get:
+      operationId: getScenario
+      tags: [openai]
+      summary: Fetch client-safe metadata for a zone capstone scenario
+      description: >-
+        Returns the public subset of a scenario (title, framing copy, target
+        phrases). Steering instructions are never sent to the client. Auth
+        required; no entitlement gate -- the gate is on POST /openai/chat.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Scenario id (e.g. "greetings-manners")
+      responses:
+        "200":
+          description: Scenario metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioPublic"
+        "404":
+          description: Unknown scenario id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /journey/zone-stamps:
+    get:
+      operationId: listZoneStamps
+      tags: [learning]
+      summary: List zone capstone conversation stamps for the caller
+      description: >-
+        Returns a lightweight list of zones the caller has already completed
+        the capstone conversation for. Used by the journey map to show "Replay
+        the chat" links on completed zones.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Language code to filter stamps by.
+      responses:
+        "200":
+          description: List of completed zone stamps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZoneStamp"
+
 components:
   schemas:
     Ok:
@@ -2235,6 +2291,13 @@ components:
             Whether the sentence stage is locked for this caller (true for
             everyone without Bolo! Plus). Server-authoritative; clients show
             an upgrade nudge instead of requesting the sentences.
+        polishEnabled:
+          type: boolean
+          description: >-
+            Server feature flag: when true, the client should show the Polish
+            re-run card on stop completion and Polish re-entry on journey
+            station cards. Gated by POLISH_ENABLED env var (default false).
+            Optional/additive -- absent clients behave as if false.
       required:
         - id
         - slug
@@ -2277,6 +2340,12 @@ components:
           type: boolean
         attemptCount:
           type: integer
+        bestBand:
+          type: ["string", "null"]
+          description: >-
+            The best band the learner has achieved on this phrase (derived from
+            bestScore). One of "perfect", "great", "good", "almost", "retry".
+            Null when the phrase has never been attempted. Optional/additive.
         teaser:
           $ref: "#/components/schemas/TeaserProgress"
       required:
@@ -2333,6 +2402,13 @@ components:
             the caller views a plan-locked language in teaser mode (the
             journey map's visibly marked "free taste" stop). Absent on every
             other group and in every other access state.
+        allTopBand:
+          type: boolean
+          description: >-
+            True when every phrase in this group has been attempted and the
+            learner's best band is "perfect" or "great" (score >= 80) on all
+            of them. Used to show the gold stamp overlay on the journey map
+            when POLISH_ENABLED is on. Optional/additive.
 
     LessonGroupTestoutSample:
       type: object
@@ -2922,6 +2998,13 @@ components:
           description: >-
             MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted
             by older clients that always send m4a.
+        scenarioId:
+          type: string
+          description: >-
+            Optional zone capstone scenario identifier (e.g. "greetings-manners").
+            When supplied the server injects the scenario framing and steering
+            instructions into the prompt, gates zone 2+ on Plus, tracks phrase
+            usage, and writes a zone_conversation_stamp on majority completion.
       required:
         - languageCode
 
@@ -2954,6 +3037,31 @@ components:
           description: >-
             Seconds of weekly chat time left for the caller; null means
             unlimited (One Language and Plus).
+        phrasesUsed:
+          type: array
+          items:
+            type: string
+          description: >-
+            Romanized target phrases from the scenario's target list that the
+            server detected in the learner's transcript this turn (case-insensitive
+            substring match). Only present when a scenarioId was supplied.
+        sceneDone:
+          type: boolean
+          description: >-
+            True when the majority of the scenario's target phrases have been
+            used across the session, signalling that the capstone is complete.
+            Only present when a scenarioId was supplied.
+        xpAwarded:
+          type: integer
+          description: >-
+            XP awarded on this turn (non-zero only on the first sceneDone=true
+            turn; 0 on replays). Only present when a scenarioId was supplied.
+        tokensEarned:
+          type: integer
+          description: >-
+            Chai tokens earned this turn (always 0 in build 32; the token
+            engine stub will be wired when tokenEngine.ts lands).
+            Only present when a scenarioId was supplied.
       required:
         - transcript
         - transcriptEnglish
@@ -2963,6 +3071,58 @@ components:
         - format
         - languageCode
         - secondsRemaining
+
+    ScenarioPublic:
+      type: object
+      description: >-
+        Client-safe subset of a zone capstone scenario. Steering instructions
+        are never sent to the client.
+      properties:
+        id:
+          type: string
+        zoneIndex:
+          type: integer
+          description: 0-based zone index.
+        title:
+          type: string
+          description: Short scene title shown in the chat banner.
+        framingCopy:
+          type: string
+          description: One-sentence scene setter shown below the title.
+        targetPhrases:
+          type: array
+          items:
+            type: object
+            properties:
+              romanized:
+                type: string
+              native:
+                type: string
+            required: [romanized, native]
+          description: Phrases to use as chip targets in the chat UI.
+      required:
+        - id
+        - zoneIndex
+        - title
+        - framingCopy
+        - targetPhrases
+
+    ZoneStamp:
+      type: object
+      description: Record that a learner completed a zone capstone conversation.
+      properties:
+        zoneIndex:
+          type: integer
+          description: 0-based zone index.
+        languageCode:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - zoneIndex
+        - languageCode
+        - createdAt
 
     AddPhrasesInput:
       type: object

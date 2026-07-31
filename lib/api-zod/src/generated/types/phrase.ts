@@ -22,5 +22,10 @@ export interface Phrase {
   bestScore: number | null;
   mastered: boolean;
   attemptCount: number;
+  /**
+     * The best band the learner has achieved on this phrase (derived from bestScore). One of "perfect", "great", "good", "almost", "retry". Null when the phrase has never been attempted. Optional/additive.
+     * @nullable
+     */
+  bestBand?: string | null;
   teaser?: TeaserProgress;
 }

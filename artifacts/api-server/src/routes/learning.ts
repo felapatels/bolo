@@ -14,6 +14,7 @@ import {
   userAbilityTable,
   xpLedgerTable,
   usersTable,
+  zoneConversationStampsTable,
 } from "@workspace/db";
 import { asc, desc, eq, and, ne, inArray, sql, gte, isNull } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
@@ -104,11 +105,13 @@ import { applyFsrsRating, scoreAndBandToRating } from "../lib/fsrsScheduler";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import {
   bandFromScore,
+  BAND_THRESHOLDS,
   isFullCreditBand,
   isHalfCreditBand,
   normalizeBand,
 } from "../lib/scoreBands";
 import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
+import { POLISH_ENABLED } from "../lib/featureFlags";
 import {
   getUnlockedGroupIds,
   isPhraseServable,
@@ -153,6 +156,7 @@ function serializePhrase(
   stats: Map<number, PhraseStats>,
 ) {
   const s = stats.get(p.id);
+  const bestScore = s?.bestScore ?? null;
   return {
     id: p.id,
     categoryId: p.categoryId,
@@ -163,7 +167,10 @@ function serializePhrase(
     hint: p.hint,
     difficulty: p.difficulty,
     sortOrder: p.sortOrder,
-    bestScore: s?.bestScore ?? null,
+    bestScore,
+    // bestBand: derived from bestScore so practice.tsx can pre-filter
+    // sub-top-band phrases when polish=1 is in the URL (step 10 of task 948).
+    bestBand: bestScore !== null ? bandFromScore(bestScore) : null,
     mastered: s?.mastered ?? false,
     attemptCount: s?.attemptCount ?? 0,
   };
@@ -412,6 +419,7 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       // stage holds, and whether this caller still needs an upgrade to open it.
       sentenceCount: sentencesByCategory.get(c.id) ?? 0,
       sentencesLocked: !callerFeatures.sentences,
+      polishEnabled: POLISH_ENABLED,
     };
   });
 
@@ -1987,6 +1995,14 @@ router.get(
           ...(teaserGroupId != null && g.id === teaserGroupId
             ? { teaserStation: true }
             : {}),
+          // allTopBand: true when every phrase in the group has a best score
+          // >= BAND_THRESHOLDS.great (80, FROZEN). Used for the polish stamp.
+          allTopBand:
+            phraseIds.length > 0 &&
+            phraseIds.every((pid) => {
+              const s = stats.get(pid);
+              return s != null && s.attemptCount > 0 && (s.bestScore ?? -1) >= BAND_THRESHOLDS.great;
+            }),
         };
       }),
       unassignedCount: ctx.unassignedCount,
@@ -2358,6 +2374,35 @@ router.post(
       sampleSize,
       status: passed ? "tested_out" : undefined,
     });
+  },
+);
+
+// GET /journey/zone-stamps — lightweight list of zone capstone stamps for the
+// caller, used by the journey map to show "Replay the chat" links on zones
+// where the learner has already completed the capstone conversation.
+router.get(
+  "/journey/zone-stamps",
+  async (req: Request, res: Response): Promise<void> => {
+    const lang = String(req.query.lang ?? "");
+    if (!lang) {
+      res.status(400).json({ error: "lang is required" });
+      return;
+    }
+    const userId = getUserId(req);
+    const stamps = await db
+      .select({
+        zoneIndex: zoneConversationStampsTable.zoneIndex,
+        languageCode: zoneConversationStampsTable.languageCode,
+        createdAt: zoneConversationStampsTable.createdAt,
+      })
+      .from(zoneConversationStampsTable)
+      .where(
+        and(
+          eq(zoneConversationStampsTable.userId, userId),
+          eq(zoneConversationStampsTable.languageCode, lang),
+        ),
+      );
+    res.json(stamps);
   },
 );
 

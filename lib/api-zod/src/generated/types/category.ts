@@ -24,4 +24,6 @@ export interface Category {
   sentenceCount: number;
   /** Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences. */
   sentencesLocked: boolean;
+  /** Server feature flag: when true, the client should show the Polish re-run card on stop completion and Polish re-entry on journey station cards. Gated by POLISH_ENABLED env var (default false). Optional/additive -- absent clients behave as if false. */
+  polishEnabled?: boolean;
 }

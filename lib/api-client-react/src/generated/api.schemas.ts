@@ -269,6 +269,8 @@ export interface Category {
   sentenceCount: number;
   /** Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences. */
   sentencesLocked: boolean;
+  /** Server feature flag: when true, the client should show the Polish re-run card on stop completion and Polish re-entry on journey station cards. Gated by POLISH_ENABLED env var (default false). Optional/additive -- absent clients behave as if false. */
+  polishEnabled?: boolean;
 }
 
 /**
@@ -296,6 +298,11 @@ export interface Phrase {
   bestScore: number | null;
   mastered: boolean;
   attemptCount: number;
+  /**
+     * The best band the learner has achieved on this phrase (derived from bestScore). One of "perfect", "great", "good", "almost", "retry". Null when the phrase has never been attempted. Optional/additive.
+     * @nullable
+     */
+  bestBand?: string | null;
   teaser?: TeaserProgress;
 }
 
@@ -338,6 +345,8 @@ export interface LessonGroupSummary {
   stage?: LessonGroupSummaryStage;
   /** True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map's visibly marked "free taste" stop). Absent on every other group and in every other access state. */
   teaserStation?: boolean;
+  /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
+  allTopBand?: boolean;
 }
 
 export interface LessonGroupTestoutSample {
@@ -686,6 +695,8 @@ export interface ChatTurnInput {
   clientDurationSeconds?: number | null;
   /** MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted by older clients that always send m4a. */
   mimeType?: string;
+  /** Optional zone capstone scenario identifier (e.g. "greetings-manners"). When supplied the server injects the scenario framing and steering instructions into the prompt, gates zone 2+ on Plus, tracks phrase usage, and writes a zone_conversation_stamp on majority completion. */
+  scenarioId?: string;
 }
 
 export interface ChatTurnResult {
@@ -706,6 +717,44 @@ export interface ChatTurnResult {
      * @nullable
      */
   secondsRemaining: number | null;
+  /** Romanized target phrases from the scenario's target list that the server detected in the learner's transcript this turn (case-insensitive substring match). Only present when a scenarioId was supplied. */
+  phrasesUsed?: string[];
+  /** True when the majority of the scenario's target phrases have been used across the session, signalling that the capstone is complete. Only present when a scenarioId was supplied. */
+  sceneDone?: boolean;
+  /** XP awarded on this turn (non-zero only on the first sceneDone=true turn; 0 on replays). Only present when a scenarioId was supplied. */
+  xpAwarded?: number;
+  /** Chai tokens earned this turn (always 0 in build 32; the token engine stub will be wired when tokenEngine.ts lands). Only present when a scenarioId was supplied. */
+  tokensEarned?: number;
+}
+
+export type ScenarioPublicTargetPhrasesItem = {
+  romanized: string;
+  native: string;
+};
+
+/**
+ * Client-safe subset of a zone capstone scenario. Steering instructions are never sent to the client.
+ */
+export interface ScenarioPublic {
+  id: string;
+  /** 0-based zone index. */
+  zoneIndex: number;
+  /** Short scene title shown in the chat banner. */
+  title: string;
+  /** One-sentence scene setter shown below the title. */
+  framingCopy: string;
+  /** Phrases to use as chip targets in the chat UI. */
+  targetPhrases: ScenarioPublicTargetPhrasesItem[];
+}
+
+/**
+ * Record that a learner completed a zone capstone conversation.
+ */
+export interface ZoneStamp {
+  /** 0-based zone index. */
+  zoneIndex: number;
+  languageCode: string;
+  createdAt: string;
 }
 
 export interface AddPhrasesInput {
@@ -1164,5 +1213,12 @@ export type JoinFamily200 = {
   ownerName: string;
   previousSubscriptionCanceled: boolean;
   active: boolean;
+};
+
+export type ListZoneStampsParams = {
+/**
+ * Language code to filter stamps by.
+ */
+lang: string;
 };
 

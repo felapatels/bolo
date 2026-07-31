@@ -22,4 +22,6 @@ export interface LessonGroupSummary {
   stage?: LessonGroupSummaryStage;
   /** True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map's visibly marked "free taste" stop). Absent on every other group and in every other access state. */
   teaserStation?: boolean;
+  /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
+  allTopBand?: boolean;
 }

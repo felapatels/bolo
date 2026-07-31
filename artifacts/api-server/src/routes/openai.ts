@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, phrasesTable, ttsCacheTable, languagesTable, usersTable } from "@workspace/db";
-import { eq, inArray, asc } from "drizzle-orm";
+import { db, phrasesTable, ttsCacheTable, languagesTable, usersTable, zoneConversationStampsTable } from "@workspace/db";
+import { eq, inArray, asc, and } from "drizzle-orm";
 import {
   openai,
   textToSpeech,
@@ -21,7 +21,7 @@ import { signEvaluation } from "../lib/evaluationToken";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreBands";
-import { computePronunciationXp } from "../lib/xpEngine";
+import { computePronunciationXp, writeZoneCapstoneXp } from "../lib/xpEngine";
 import {
   applyScoreGuards,
   compareToTarget,
@@ -30,7 +30,8 @@ import {
   simToScore,
 } from "../lib/pronunciationGuards";
 import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
-import { upgradeRequired } from "../lib/entitlements";
+import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
+import { SCENARIOS, toPublicScenario } from "../lib/scenarios";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -1259,7 +1260,21 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // scenarioId is additive and not yet in the generated ChatTurnBody schema;
+  // read it directly from the raw body so Zod's strip mode doesn't lose it.
+  const scenarioId =
+    typeof req.body?.scenarioId === "string" ? req.body.scenarioId : undefined;
+  const scenario = scenarioId ? SCENARIOS[scenarioId] : undefined;
+
   const { userId, resolvedPlan } = req as EntitledRequest;
+
+  // Zone 2+ capstone requires Plus. Zone 1 is free for everyone.
+  if (scenario && scenario.zoneIndex >= 1) {
+    if (!featuresForPlan(resolvedPlan.plan).allLanguages) {
+      sendUpgradeRequired(res, upgradeRequired("feature_locked", "Zone capstone chat requires All-Access", "allLanguages"));
+      return;
+    }
+  }
 
   // Language access follows the existing plan-based allowlist (Free/One
   // Language may be locked out of this language entirely).
@@ -1361,6 +1376,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         seedWords,
         seedNativeWords,
         clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
+        scenario,
         onTranscript: (transcript, durationSeconds) => {
           capturedTranscript = transcript;
           capturedDuration = durationSeconds;
@@ -1442,6 +1458,68 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);
     const secondsRemaining = await chatSecondsRemaining(resolvedPlan, userId);
 
+    // Scenario completion logic: detect target phrase usage and track overall
+    // coverage. All matching is case-insensitive substring against the learner's
+    // transcript. phrasesUsed = matches in THIS turn; sceneDone = majority of
+    // all target phrases used across the session (history + this turn).
+    let scenarioFields: {
+      phrasesUsed?: string[];
+      sceneDone?: boolean;
+      xpAwarded?: number;
+      tokensEarned?: number;
+    } = {};
+    if (scenario) {
+      const thisTranscript = capturedTranscript || result.transcript;
+      const lowerThis = thisTranscript.toLowerCase();
+      const phrasesUsedThisTurn = scenario.targetPhrases
+        .filter((tp) => lowerThis.includes(tp.romanized.toLowerCase()))
+        .map((tp) => tp.romanized);
+
+      // Compute cumulative usage from history (learner turns only) + this turn.
+      const allLearnerText = [
+        ...trimmedHistory
+          .filter((h) => h.role === "learner")
+          .map((h) => h.text.toLowerCase()),
+        lowerThis,
+      ].join(" ");
+      const usedOverall = new Set(
+        scenario.targetPhrases
+          .filter((tp) => allLearnerText.includes(tp.romanized.toLowerCase()))
+          .map((tp) => tp.romanized),
+      );
+
+      const majority = usedOverall.size > scenario.targetPhrases.length / 2;
+
+      let xpAwarded = 0;
+      let tokensEarned = 0; // Chai token stub -- will be non-zero when tokenEngine.ts lands
+      if (majority) {
+        // Write a zone_conversation_stamps row idempotently. If already stamped,
+        // ON CONFLICT DO NOTHING means no double-XP.
+        const [stamp] = await db
+          .insert(zoneConversationStampsTable)
+          .values({
+            userId,
+            languageCode,
+            zoneIndex: scenario.zoneIndex,
+          })
+          .onConflictDoNothing()
+          .returning();
+        if (stamp) {
+          // First completion: award XP. Idempotency is via the stamp id.
+          const CAPSTONE_XP = 20;
+          await writeZoneCapstoneXp(userId, languageCode, stamp.id, CAPSTONE_XP);
+          xpAwarded = CAPSTONE_XP;
+        }
+      }
+
+      scenarioFields = {
+        phrasesUsed: phrasesUsedThisTurn,
+        sceneDone: majority,
+        xpAwarded,
+        tokensEarned,
+      };
+    }
+
     const replyPayload = {
       transcript: capturedTranscript || result.transcript,
       transcriptEnglish: result.transcriptEnglish,
@@ -1452,6 +1530,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       squawkVariant: result.squawkVariant,
       languageCode,
       secondsRemaining,
+      ...scenarioFields,
     };
 
     // A turn whose streaming TTS fell back to buffered synthesis never fired
@@ -1885,6 +1964,22 @@ router.post(
       req.log.error({ err }, "TTS cache eviction failed");
       res.status(500).json({ error: "Cache eviction failed" });
     }
+  },
+);
+
+// GET /scenarios/:id — client-safe scenario metadata.
+// Returns the public subset of a zone capstone scenario (title, framing copy,
+// target phrases). Steering instructions are never sent. Auth required; no
+// entitlement gate here -- the gate is on POST /openai/chat.
+router.get(
+  "/scenarios/:id",
+  async (req: Request, res: Response): Promise<void> => {
+    const scenario = SCENARIOS[String(req.params.id)];
+    if (!scenario) {
+      res.status(404).json({ error: "Unknown scenario" });
+      return;
+    }
+    res.json(toPublicScenario(scenario));
   },
 );
 

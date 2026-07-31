@@ -66,6 +66,7 @@ import type {
   ListCategoriesParams,
   ListRecentAttemptsParams,
   ListReviewPhrasesParams,
+  ListZoneStampsParams,
   Ok,
   PauseSubscriptionInput,
   Phrase,
@@ -77,6 +78,7 @@ import type {
   PronunciationInput,
   PronunciationResult,
   RegenerateFamilyCode200,
+  ScenarioPublic,
   ScriptTraceCharacterProgress,
   ScriptTraceProgressInput,
   SearchFriendByEmailParams,
@@ -90,7 +92,8 @@ import type {
   UpdateProfileInput,
   UpgradeRequired,
   UserSummary,
-  VoiceListResult
+  VoiceListResult,
+  ZoneStamp
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -4509,4 +4512,167 @@ export const useJoinFamily = <TError = ErrorType<Error>,
       > => {
       return useMutation(getJoinFamilyMutationOptions(options));
     }
+
+export const getGetScenarioUrl = (id: string,) => {
+
+
+
+
+  return `/api/scenarios/${id}`
+}
+
+/**
+ * Returns the public subset of a scenario (title, framing copy, target phrases). Steering instructions are never sent to the client. Auth required; no entitlement gate -- the gate is on POST /openai/chat.
+ * @summary Fetch client-safe metadata for a zone capstone scenario
+ */
+export const getScenario = async (id: string, options?: RequestInit): Promise<ScenarioPublic> => {
+
+  return customFetch<ScenarioPublic>(getGetScenarioUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScenarioQueryKey = (id: string,) => {
+    return [
+    `/api/scenarios/${id}`
+    ] as const;
+    }
+
+
+export const getGetScenarioQueryOptions = <TData = Awaited<ReturnType<typeof getScenario>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScenarioQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScenario>>> = ({ signal }) => getScenario(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScenarioQueryResult = NonNullable<Awaited<ReturnType<typeof getScenario>>>
+export type GetScenarioQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Fetch client-safe metadata for a zone capstone scenario
+ */
+
+export function useGetScenario<TData = Awaited<ReturnType<typeof getScenario>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScenarioQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListZoneStampsUrl = (params: ListZoneStampsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/journey/zone-stamps?${stringifiedParams}` : `/api/journey/zone-stamps`
+}
+
+/**
+ * Returns a lightweight list of zones the caller has already completed the capstone conversation for. Used by the journey map to show "Replay the chat" links on completed zones.
+ * @summary List zone capstone conversation stamps for the caller
+ */
+export const listZoneStamps = async (params: ListZoneStampsParams, options?: RequestInit): Promise<ZoneStamp[]> => {
+
+  return customFetch<ZoneStamp[]>(getListZoneStampsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListZoneStampsQueryKey = (params?: ListZoneStampsParams,) => {
+    return [
+    `/api/journey/zone-stamps`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListZoneStampsQueryOptions = <TData = Awaited<ReturnType<typeof listZoneStamps>>, TError = ErrorType<unknown>>(params: ListZoneStampsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listZoneStamps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListZoneStampsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listZoneStamps>>> = ({ signal }) => listZoneStamps(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listZoneStamps>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListZoneStampsQueryResult = NonNullable<Awaited<ReturnType<typeof listZoneStamps>>>
+export type ListZoneStampsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List zone capstone conversation stamps for the caller
+ */
+
+export function useListZoneStamps<TData = Awaited<ReturnType<typeof listZoneStamps>>, TError = ErrorType<unknown>>(
+ params: ListZoneStampsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listZoneStamps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListZoneStampsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

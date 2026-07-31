@@ -14,6 +14,7 @@ import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
 import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
+import type { Scenario } from "./scenarios";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -119,6 +120,12 @@ export interface ParrotTurnInput {
    * which would crash with "Invalid data found when processing input".
    */
   mimeType?: string;
+  /**
+   * Optional zone capstone scenario. When present, the framing copy and
+   * steering instructions are injected into the user message (not the system
+   * prompt), preserving OpenAI prompt-cache hits on the static BOLO_PERSONA_PROMPT.
+   */
+  scenario?: Scenario;
 }
 
 // Per-stage wall-clock durations for one chat turn, in milliseconds.
@@ -884,10 +891,21 @@ Always write "reply" first; "english" is the translation of "reply" and must be 
 Do not include any text outside the JSON object.`;
 }
 
-function buildUserPrompt(
+/**
+ * Assembles the user-message prompt for one chat turn.
+ *
+ * When a scenario is supplied, its framing copy and steering instructions are
+ * prepended to the message so Bolo plays the correct role. This keeps the
+ * static system prompt (BOLO_PERSONA_PROMPT) byte-identical on every request,
+ * preserving OpenAI prompt-cache hits.
+ *
+ * Exported for unit-testing scenario injection without running a full turn.
+ */
+export function buildUserPrompt(
   languageName: string,
   history: ChatHistoryTurn[],
   transcript: string,
+  scenario?: Scenario,
 ): string {
   const historyText = history
     .map((h) => `${h.role === "learner" ? "Learner" : "Bolo"}: ${h.text}`)
@@ -895,7 +913,10 @@ function buildUserPrompt(
   const said = isEffectivelyEmpty(transcript)
     ? "(The learner's speech was unclear or silent — you couldn't make out any words.)"
     : transcript;
-  return `Language: ${languageName}\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
+  const scenarioBlock = scenario
+    ? `Scenario: ${scenario.framingCopy}\n${scenario.steerInstructions}\n\n`
+    : "";
+  return `${scenarioBlock}Language: ${languageName}\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
 }
 
 // Maximum character count of the TTS-bound text after squawk stripping and
@@ -1000,7 +1021,7 @@ export async function runParrotTurn(
     transcriptEnglish,
   } = await deps.reply(
     BOLO_PERSONA_PROMPT,
-    buildUserPrompt(input.languageName, effectiveHistory, transcript),
+    buildUserPrompt(input.languageName, effectiveHistory, transcript, input.scenario),
   );
   const replyMs = Date.now() - replyStart;
 

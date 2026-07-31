@@ -22,3 +22,4 @@ export * from "./gameSessions";
 export * from "./userItemMemory";
 export * from "./userAbility";
 export * from "./xpLedger";
+export * from "./zoneConversationStamps";

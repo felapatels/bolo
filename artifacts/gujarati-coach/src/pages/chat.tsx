@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   getChatTurnUrl,
+  useGetScenario,
   type ChatTurnMessage,
 } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
@@ -85,10 +86,21 @@ function formatSeconds(s: number): string {
 
 export default function ChatPage() {
   const [, setLocation] = useLocation();
+  // Parse ?scenario=<id> from the URL to enable scenario (capstone) mode.
+  const searchStr = useSearch();
+  const scenarioId = new URLSearchParams(searchStr).get("scenario") ?? undefined;
   const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
   const recorder = useVoiceRecorder();
   const prefersReducedMotion = useReducedMotion();
+
+  // Scenario metadata (title, framing copy, target phrases) — fetched only
+  // when a scenarioId is present in the URL. Steering instructions are
+  // server-only; this endpoint returns the client-safe subset.
+  const scenarioQuery = useGetScenario(scenarioId ?? "", {
+    query: { enabled: !!scenarioId, queryKey: ["scenario", scenarioId ?? ""] },
+  });
+  const scenario = scenarioQuery.data;
 
   // Per-session chat language — does NOT change the global active language.
   const [chatLang, setChatLang] = useState<string>(activeLang);
@@ -103,6 +115,10 @@ export default function ChatPage() {
     number | null | undefined
   >(undefined);
   const [textInputValue, setTextInputValue] = useState<string>("");
+  // Scenario mode state: accumulated romanized phrases the learner has used
+  // across all turns, and whether Bolo has signalled the scene is complete.
+  const [usedPhrases, setUsedPhrases] = useState<Set<string>>(new Set());
+  const [sceneDone, setSceneDone] = useState(false);
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -779,7 +795,7 @@ export default function ChatPage() {
             ? { "X-Audio-Stream": "1" }
             : {}),
         },
-        body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history }),
+        body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history, ...(scenarioId ? { scenarioId } : {}) }),
         signal: abortController.signal,
       });
 
@@ -917,6 +933,13 @@ export default function ChatPage() {
             const format = (payload.format as string) || "mp3";
             const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
             const secondsRemaining = payload.secondsRemaining as number | null;
+            // Scenario: accumulate used phrases and scene-done flag.
+            const turnPhrasesUsed = (payload.phrasesUsed as string[] | undefined) ?? [];
+            const turnSceneDone = (payload.sceneDone as boolean | undefined) ?? false;
+            if (turnPhrasesUsed.length > 0) {
+              setUsedPhrases(prev => new Set([...prev, ...turnPhrasesUsed]));
+            }
+            if (turnSceneDone) setSceneDone(true);
 
             const replyWords = replyText.split(/\s+/).filter(Boolean);
             // Skip the typewriter reveal when the early replyText bubble was
@@ -1286,7 +1309,7 @@ export default function ChatPage() {
       const res = await fetch(chatUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-        body: JSON.stringify({ languageCode: chatLang, textInput: text, history }),
+        body: JSON.stringify({ languageCode: chatLang, textInput: text, history, ...(scenarioId ? { scenarioId } : {}) }),
         signal: abortController.signal,
       });
 
@@ -1347,6 +1370,13 @@ export default function ChatPage() {
             const format = (payload.format as string) || "mp3";
             const squawkVariant = payload.squawkVariant as 0 | 1 | 2 | null;
             const remainingSecs = payload.secondsRemaining as number | null;
+            // Scenario: accumulate used phrases and scene-done flag.
+            const textTurnPhrasesUsed = (payload.phrasesUsed as string[] | undefined) ?? [];
+            const textTurnSceneDone = (payload.sceneDone as boolean | undefined) ?? false;
+            if (textTurnPhrasesUsed.length > 0) {
+              setUsedPhrases(prev => new Set([...prev, ...textTurnPhrasesUsed]));
+            }
+            if (textTurnSceneDone) setSceneDone(true);
 
             if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
             else setSecondsRemaining(null);
@@ -1511,12 +1541,27 @@ export default function ChatPage() {
         </Link>
 
         <div className="flex-1 text-center">
-          <h1 className="text-lg font-black text-foreground">Talk to Bolo</h1>
+          <h1 className="text-lg font-black text-foreground">
+            {scenario ? scenario.title : "Talk to Bolo"}
+          </h1>
         </div>
 
         {/* Spacer to keep title centered */}
         <div className="h-10 w-10 shrink-0" />
       </header>
+
+      {/* Scenario banner: non-dismissible framing strip when in scenario mode.
+          Shown below the header once the scenario metadata loads. */}
+      {scenario && (
+        <div
+          className="mx-4 mb-1 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2"
+          data-testid="scenario-banner"
+        >
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {scenario.framingCopy}
+          </p>
+        </div>
+      )}
 
       {/* Language picker pill */}
       <div className="flex justify-center pb-3">
@@ -1874,6 +1919,31 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* Scenario target-phrase chips: shown in scenario mode above the input.
+          Each chip displays the romanized phrase and turns green once the
+          server reports it used (phrasesUsed in any turn's reply payload). */}
+      {scenario && scenario.targetPhrases && scenario.targetPhrases.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-4 pb-2" data-testid="target-phrase-chips">
+          {scenario.targetPhrases.map((tp) => {
+            const used = usedPhrases.has(tp.romanized);
+            return (
+              <span
+                key={tp.romanized}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
+                  used
+                    ? "border-green-400 bg-green-100 text-green-700"
+                    : "border-border bg-white text-muted-foreground",
+                )}
+                data-testid={`phrase-chip-${tp.romanized}`}
+              >
+                {tp.romanized}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* Error message */}
       <AnimatePresence>
         {phase === "error" && errorMsg && (
@@ -1971,6 +2041,33 @@ export default function ChatPage() {
           </motion.button>
         )}
       </div>
+      {/* Scenario completion overlay: shown once when the server signals
+          sceneDone=true. Full-screen; Bolo in cheer pose; XP chip; "Back
+          to journey" CTA. A revisit with an existing stamp still shows
+          the chat surface (overlay is session state, not persisted). */}
+      {sceneDone && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm px-6 text-center"
+          data-testid="scenario-completion-overlay"
+        >
+          <Mascot pose="cheer" idle="cheer" size={160} />
+          <h2 className="mt-6 text-2xl font-black text-foreground leading-tight">
+            Zone complete!
+          </h2>
+          <p className="mt-2 text-base text-muted-foreground">
+            You spoke {chatLanguage?.name ?? chatLang} at the chai stall!
+          </p>
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary">
+            +20 XP
+          </div>
+          <Link
+            href="/app"
+            className="mt-8 flex w-full max-w-xs items-center justify-center rounded-2xl bg-primary py-4 text-base font-black text-primary-foreground shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+          >
+            Back to journey
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,10 +21,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   useListCategories,
   useListCategoryLessonGroups,
+  useListZoneStamps,
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Star } from "lucide-react";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
 import {
@@ -50,6 +51,17 @@ import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticke
 import { Bunting, TracksideDoodad, ZoneVista } from "@/components/journey-scenery";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
+
+// Client-side scenario id lookup by zone index (0-based). Must stay in sync
+// with the server-side SCENARIOS map in artifacts/api-server/src/lib/scenarios.ts.
+// Adding a new zone scenario is a content-only change: add the entry here and
+// the matching entry in scenarios.ts.
+function scenarioIdForZone(zoneIndex: number): string | undefined {
+  const MAP: Record<number, string> = {
+    0: "greetings-manners",
+  };
+  return MAP[zoneIndex];
+}
 
 // Serpentine layout rhythm (approved "pronounced" treatment). The map column
 // is mobile-width (max 390px) and centers inside the page's max-w-2xl on
@@ -177,6 +189,9 @@ function ZonePostcard({
   accent,
   stationCount,
   grayed,
+  zoneAllDone,
+  scenarioId,
+  hasStamp,
 }: {
   zoneIndex: number;
   zoneTitle: string;
@@ -184,6 +199,9 @@ function ZonePostcard({
   accent: string;
   stationCount: number;
   grayed: boolean;
+  zoneAllDone?: boolean;
+  scenarioId?: string;
+  hasStamp?: boolean;
 }) {
   const color = grayed ? GRAY : accent;
   return (
@@ -270,6 +288,7 @@ function StationCard({
   href,
   onLocked,
   side,
+  polishEnabled,
 }: {
   station: Station;
   color: string;
@@ -279,6 +298,7 @@ function StationCard({
   href: string;
   onLocked: () => void;
   side: "left" | "right";
+  polishEnabled?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
@@ -406,6 +426,14 @@ function StationCard({
           >
             {masteredAtStop}/{phrasesAtStop} mastered
           </span>
+          {/* All-top-band gold stamp: shown when POLISH_ENABLED is on and every
+              phrase in the stop has reached Perfect or Great. */}
+          {polishEnabled && station.allTopBand && (
+            <Star
+              className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"
+              aria-label="All phrases top band"
+            />
+          )}
         </div>
       ) : null}
     </div>
@@ -483,6 +511,9 @@ export default function Journey() {
   // One language's map never fetches another language's data (behavior 9):
   // exactly six fixed zone queries for the active language.
   const categoriesQuery = useListCategories({ lang: activeLang });
+  // Zone conversation stamps: lightweight list of zones where the learner
+  // has already completed the capstone chat. Used to show "Replay the chat".
+  const stampsQuery = useListZoneStamps({ lang: activeLang });
   const q1 = useListCategoryLessonGroups(JOURNEY_ZONES[0].id, activeLang);
   const q2 = useListCategoryLessonGroups(JOURNEY_ZONES[1].id, activeLang);
   const q3 = useListCategoryLessonGroups(JOURNEY_ZONES[2].id, activeLang);
@@ -538,6 +569,12 @@ export default function Journey() {
   // hardcoded titles serve only as the loading-state fallback (the old
   // title-mismatch hard stop is gone; ids alone define the mapping).
   const categories = categoriesQuery.data;
+  // Polish feature flag: read from any category item (all carry the same value).
+  const polishEnabled = categories?.some(c => c.polishEnabled) ?? false;
+  // Zone conversation stamps: set of zoneIndex values that the learner has
+  // already completed (capstone chat done). Stamp list is fetched in the
+  // background and used to show "Replay the chat" vs "Chat with Bolo".
+  const stampedZoneIndices = new Set(stampsQuery.data?.map(s => s.zoneIndex) ?? []);
 
   // M1 access envelope: present only in showroom (teaser/exhausted) mode.
   const access =
@@ -559,11 +596,15 @@ export default function Journey() {
       stopNumber: gi + 1,
       stopCount: groups.length,
     }));
+    const zoneAllDone =
+      stations.length > 0 &&
+      stations.every(s => s.status === "completed" || s.status === "tested_out");
     return {
       ...z,
       title: categories?.find((c) => c.id === z.id)?.title ?? z.title,
       geoName: line.zones[i]!,
       stations,
+      zoneAllDone,
     };
   });
 
@@ -838,6 +879,9 @@ export default function Journey() {
                       accent={line.accent}
                       stationCount={zone.stations.length}
                       grayed={grayed}
+                      zoneAllDone={zone.zoneAllDone}
+                      scenarioId={scenarioIdForZone(zoneIndex)}
+                      hasStamp={stampedZoneIndices.has(zoneIndex)}
                     />
                   </div>
                   {/* interchange diamond pinned where the track meets the zone
@@ -930,7 +974,22 @@ export default function Journey() {
                           })
                         }
                         side={side}
+                        polishEnabled={polishEnabled}
                       />
+                      {/* Polish pill: flag-gated secondary CTA below the station
+                          card for completed/tested-out stops where not every
+                          phrase has reached top band. Renders outside the
+                          StationCard link to avoid nested interactive elements. */}
+                      {polishEnabled &&
+                        (s.status === "completed" || s.status === "tested_out") &&
+                        !s.allTopBand && (
+                          <Link
+                            href={`/practice/${zone.id}?group=${s.id}&polish=1`}
+                            className="mt-0.5 flex w-full items-center justify-center rounded-lg border border-border py-1 text-[10px] font-bold text-primary transition-colors hover:bg-accent"
+                          >
+                            Polish phrases
+                          </Link>
+                        )}
                     </div>
                   </div>
                 );

@@ -24,4 +24,12 @@ export interface ChatTurnResult {
      * @nullable
      */
   secondsRemaining: number | null;
+  /** Romanized target phrases from the scenario's target list that the server detected in the learner's transcript this turn (case-insensitive substring match). Only present when a scenarioId was supplied. */
+  phrasesUsed?: string[];
+  /** True when the majority of the scenario's target phrases have been used across the session, signalling that the capstone is complete. Only present when a scenarioId was supplied. */
+  sceneDone?: boolean;
+  /** XP awarded on this turn (non-zero only on the first sceneDone=true turn; 0 on replays). Only present when a scenarioId was supplied. */
+  xpAwarded?: number;
+  /** Chai tokens earned this turn (always 0 in build 32; the token engine stub will be wired when tokenEngine.ts lands). Only present when a scenarioId was supplied. */
+  tokensEarned?: number;
 }

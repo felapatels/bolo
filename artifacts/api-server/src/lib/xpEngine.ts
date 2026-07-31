@@ -117,6 +117,27 @@ export async function writeDailyQuizXp(
     .onConflictDoNothing();
 }
 
+// Writes one xp_ledger row for a zone capstone conversation. Idempotent via
+// the stamp id as refId — replaying the capstone never double-awards XP.
+export async function writeZoneCapstoneXp(
+  userId: string,
+  languageCode: string,
+  stampId: number,
+  xp: number,
+): Promise<void> {
+  if (xp <= 0) return;
+  await db
+    .insert(xpLedgerTable)
+    .values({
+      userId,
+      languageCode,
+      source: "zone_capstone",
+      refId: String(stampId),
+      xp,
+    })
+    .onConflictDoNothing();
+}
+
 // Reads the total XP for a user in one language from the ledger.
 export async function readLedgerXp(
   userId: string,

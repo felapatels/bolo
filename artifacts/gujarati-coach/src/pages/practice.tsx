@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, Link, useSearch } from "wouter";
 import { 
   useListCategoryPhrases, 
   useListCategorySentences,
   useListReviewPhrases,
   useListLessonGroupPhrases,
+  useListCategories,
   useGetLessonGroupTestout,
   getGetLessonGroupTestoutQueryKey,
   useSubmitLessonGroupTestout,
@@ -145,6 +146,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // over the server's sampled phrase set; per-phrase attempts are NOT saved.
   // The batch of evaluation tokens is judged in one shot at the end.
   const isTestout = isGroup && searchParams.get("mode") === "testout";
+  // Polish mode: only practice sub-top-band phrases (POLISH_ENABLED flag required).
+  // phraseIds=<csv> overrides which phrases to run; polish=1 computes the sub-top
+  // set client-side from the bestBand field the server now returns per phrase.
+  const phraseIdsParam = !isReview && !isTestout && !isSentences ? searchParams.get("phraseIds") : null;
+  const polishMode = !isReview && !isTestout && !isSentences && searchParams.get("polish") === "1";
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
@@ -214,7 +220,30 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         : categoryQuery;
   // The test-out sample wraps its phrases in an envelope (with sampleSize and
   // requiredCorrect), so its query cannot join the destructure above.
-  const phrases = isTestout ? testoutQuery.data?.phrases : listData;
+  const rawPhrases = isTestout ? testoutQuery.data?.phrases : listData;
+  // Apply phraseIds or polish filter. Filtering here means all downstream code
+  // (session loop, summary) automatically operates on the filtered set.
+  // Safety: when the filter would produce an empty list (e.g. all top-band),
+  // fall back to the full set so the session always has something to practice.
+  const phrases = useMemo(() => {
+    if (!rawPhrases) return rawPhrases;
+    if (phraseIdsParam) {
+      const idSet = new Set(
+        phraseIdsParam.split(",").map(s => parseInt(s, 10)).filter(n => !isNaN(n)),
+      );
+      // Only include phrase IDs that actually exist in the loaded set to prevent
+      // URL injection from injecting foreign phrases.
+      const filtered = rawPhrases.filter(p => idSet.has(p.id));
+      return filtered.length > 0 ? filtered : rawPhrases;
+    }
+    if (polishMode) {
+      const filtered = rawPhrases.filter(
+        p => p.bestBand !== "perfect" && p.bestBand !== "great",
+      );
+      return filtered.length > 0 ? filtered : rawPhrases;
+    }
+    return rawPhrases;
+  }, [rawPhrases, phraseIdsParam, polishMode]);
   const loadingPhrases = isTestout ? testoutQuery.isLoading : listLoading;
   const isError = isTestout ? testoutQuery.isError : listIsError;
   const error = isTestout ? testoutQuery.error : listError;
@@ -222,6 +251,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const refetch = isTestout ? testoutQuery.refetch : refetchList;
   const testoutSampleSize = testoutQuery.data?.sampleSize ?? 5;
   const testoutRequiredCorrect = testoutQuery.data?.requiredCorrect ?? 4;
+  // Polish feature flag: read from the categories listing (already cached from
+  // the journey map in most sessions; adds no extra network request).
+  const categoriesForFlag = useListCategories({ lang: activeLang });
+  const polishEnabled = categoriesForFlag.data?.some(c => c.polishEnabled) ?? false;
   const synthesize = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -298,6 +331,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // with the unconditional hooks — the loading/error early returns below would
   // otherwise change the hook count between renders.
   const [showHint, setShowHint] = useState(false);
+  // Polish card dismissal state: set true when the learner taps "Skip".
+  const [polishDismissed, setPolishDismissed] = useState(false);
   useEffect(() => {
     if (!phrases || phrases.length === 0) return;
     const key = "bolo.practice.hint.v1";
@@ -1367,6 +1402,58 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </motion.div>
         </div>
         
+        {/* Polish card: flag-gated, shown when POLISH_ENABLED is on and any
+            phrase scored below Great this session. A single "Skip" button
+            dismisses with zero friction; "Re-run" navigates to a filtered
+            practice session. Never blocks the existing "Done" flow. */}
+        {polishEnabled && !polishDismissed && (() => {
+          const subTopPhrases = orderedSummaryEntries.filter(
+            r => r.band !== "perfect" && r.band !== "great",
+          );
+          if (subTopPhrases.length === 0) return null;
+          const polishHref = isGroup
+            ? `/practice/${id}?group=${groupId}&phraseIds=${subTopPhrases.map(r => r.phraseId).join(",")}`
+            : null;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.2 }}
+              className="w-full rounded-2xl border border-border bg-card p-4 mb-3 text-left"
+            >
+              <p className="text-sm font-black text-foreground mb-1">Polish your phrases</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {subTopPhrases.length} phrase{subTopPhrases.length !== 1 ? "s" : ""} scored below Great -- run them again to lock in the improvement.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {subTopPhrases.map(r => (
+                  <span key={r.phraseId} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium">
+                    <span className="w-2 h-2 rounded-full" style={{ background: bandCss(r.band) }} aria-hidden />
+                    {r.english}
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                {polishHref && (
+                  <Link
+                    href={polishHref}
+                    className="flex-1 rounded-xl bg-primary py-2.5 text-center text-sm font-black text-primary-foreground active:scale-[0.97] transition-transform"
+                  >
+                    Re-run these phrases
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPolishDismissed(true)}
+                  className="rounded-xl border px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip
+                </button>
+              </div>
+            </motion.div>
+          );
+        })()}
+
         <Link href={backHref} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all">
           Done
         </Link>

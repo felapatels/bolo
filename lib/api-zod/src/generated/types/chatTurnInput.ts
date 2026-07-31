@@ -26,4 +26,6 @@ export interface ChatTurnInput {
   clientDurationSeconds?: number | null;
   /** MIME type of the audio payload (e.g. "audio/m4a"). Optional; omitted by older clients that always send m4a. */
   mimeType?: string;
+  /** Optional zone capstone scenario identifier (e.g. "greetings-manners"). When supplied the server injects the scenario framing and steering instructions into the prompt, gates zone 2+ on Plus, tracks phrase usage, and writes a zone_conversation_stamp on majority completion. */
+  scenarioId?: string;
 }
