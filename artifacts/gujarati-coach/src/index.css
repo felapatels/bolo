@@ -259,6 +259,9 @@
   --stop-glow-max: 1;
   --station-bounce-cycle: 2.2s;  /* journey station train bounce */
   --station-bounce-height: -4px;
+  --rail-pulse-cycle: 3.4s;      /* journey active-segment pulse: one full traversal of the run, so this is also the travel speed */
+  --rail-pulse-min: 0;           /* pulse dot opacity floor (invisible between pulses) */
+  --rail-pulse-peak: 0.85;       /* pulse dot opacity peak */
   --steam-rise: -11px;           /* steam puff rise above the funnel */
   --train-ticket-h: 47px;        /* home pass train height, mobile (was 40px) */
   --train-ticket-h-lg: 65px;     /* home pass train height, lg (was 56px) */
@@ -473,6 +476,28 @@
 }
 .animate-stop-glow-pulse {
   animation: stop-glow-pulse var(--stop-glow-cycle) ease-in-out infinite;
+}
+
+/* Journey rail: directional pulse on the active run (current stop to next
+   stop). Each accent dot pulses opacity on a shared cycle; the per-dot
+   --rail-pulse-delay fraction (set inline, growing toward the next stop)
+   phases the pulses so the wave travels in the direction of the journey.
+   Opacity only, base frame opacity 0 and no fill mode, so the reduced-motion
+   reset above leaves a clean static rail with no leftover artifacts. */
+.rail-pulse-dot {
+  opacity: 0;
+  animation: rail-pulse var(--rail-pulse-cycle) linear infinite;
+  animation-delay: calc(var(--rail-pulse-delay, 0) * var(--rail-pulse-cycle));
+}
+@keyframes rail-pulse {
+  0%,
+  34%,
+  100% {
+    opacity: var(--rail-pulse-min);
+  }
+  12% {
+    opacity: var(--rail-pulse-peak);
+  }
 }
 /* Journey station train: lively double station bounce. */
 @keyframes train-bob {

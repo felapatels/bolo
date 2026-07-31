@@ -60,6 +60,9 @@ const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
+// Task #917: pulse markers sampled per active-run segment (geometry density,
+// not timing; the timing constants live in the :root block in index.css).
+const PULSE_DOTS_PER_SEG = 8;
 
 type Station = LessonGroupSummary & {
   zoneId: number;
@@ -475,6 +478,7 @@ export default function Journey() {
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   const { ref: mapRef, w: mapW } = useMapWidth();
+  const reduceMotion = useReducedMotion();
 
   // One language's map never fetches another language's data (behavior 9):
   // exactly six fixed zone queries for the active language.
@@ -634,6 +638,50 @@ export default function Journey() {
     };
   });
 
+  // Task #917: directional pulse on the active run. The run is the rail path
+  // from the current stop to the NEXT STATION in path order; at a zone
+  // boundary that spans two segments (station to postcard, postcard to
+  // station) and the dot sequence stays continuous across the seam. No next
+  // station (current stop is the final station, journey complete, or showroom
+  // with no boardable stop) means no dots, and the terminus never counts as a
+  // next stop, so nothing ever pulses toward it.
+  const currentPtIdx =
+    currentId != null
+      ? pts.findIndex((p) => p.kind === "station" && p.station!.id === currentId)
+      : -1;
+  let nextPtIdx = -1;
+  for (let i = currentPtIdx + 1; currentPtIdx !== -1 && i < pts.length; i++) {
+    if (pts[i]!.kind === "station") {
+      nextPtIdx = i;
+      break;
+    }
+  }
+  // Accent dots sampled directly on the rail beziers (same control points the
+  // segment `d` strings use), ordered current stop first. The per-dot delay
+  // fraction grows along that order, so the CSS opacity wave always travels
+  // toward the next stop, on every serpentine orientation. Reduced motion
+  // renders no dots at all (the CSS base frame is opacity 0 as backstop).
+  const pulseDots: { x: number; y: number }[] = [];
+  if (!reduceMotion && currentPtIdx !== -1 && nextPtIdx !== -1) {
+    for (let i = currentPtIdx; i < nextPtIdx; i++) {
+      const a = pts[i]!;
+      const b = pts[i + 1]!;
+      const dy = (b.y - a.y) / 2;
+      const c1 = { x: a.x, y: a.y + dy };
+      const c2 = { x: b.x, y: b.y - dy };
+      for (let s = 0; s < PULSE_DOTS_PER_SEG; s++) {
+        // Sample midpoints of equal t slices: stays off both endpoints, so no
+        // dot hides under a station marker or the interchange diamond.
+        const t = (s + 0.5) / PULSE_DOTS_PER_SEG;
+        const u = 1 - t;
+        pulseDots.push({
+          x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+          y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y,
+        });
+      }
+    }
+  }
+
   let stationIdx = 0;
 
   return (
@@ -746,6 +794,27 @@ export default function Journey() {
                     />
                   );
                 })}
+              {/* Task #917: directional pulse dots on the active run. Delay
+                  fraction grows with sample order (current stop to next), so
+                  the repeating opacity wave reads as flow toward the next
+                  stop. Absent entirely under reduced motion or when there is
+                  no next station. */}
+              {pulseDots.map((p, i) => (
+                <circle
+                  key={`pulse-${i}`}
+                  className="rail-pulse-dot"
+                  data-testid="rail-pulse-dot"
+                  cx={p.x}
+                  cy={p.y}
+                  r={3}
+                  fill={line.accent}
+                  style={
+                    {
+                      "--rail-pulse-delay": (i / pulseDots.length).toFixed(4),
+                    } as React.CSSProperties
+                  }
+                />
+              ))}
               {/* Festival bunting over the terminus */}
               <Bunting x1={20} x2={mapW - 20} y={termY - 34} accent={line.accent} />
             </svg>
