@@ -102,6 +102,7 @@ vi.mock("@workspace/api-client-react", async () => ({
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
+  useListCategories: () => ({ data: undefined, isLoading: false }),
 }));
 
 // Imported after the mocks are declared.

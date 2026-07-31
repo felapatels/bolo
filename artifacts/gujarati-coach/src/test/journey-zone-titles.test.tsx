@@ -53,6 +53,7 @@ vi.mock("@workspace/api-client-react", async () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
+  useListZoneStamps: () => ({ data: [], isLoading: false, isError: false, isFetching: false, refetch: vi.fn() }),
   useListCategoryLessonGroups: () => ({
     data: { lessonGroups: GROUPS },
     isLoading: false,

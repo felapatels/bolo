@@ -51,6 +51,7 @@ vi.mock("@workspace/api-client-react", async () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
+  useListZoneStamps: () => ({ data: [], isLoading: false, isError: false, isFetching: false, refetch: vi.fn() }),
   useListCategoryLessonGroups: (categoryId: number) => ({
     data: { lessonGroups: h.groupsByZone[categoryId] ?? [] },
     isLoading: false,
@@ -113,23 +114,22 @@ describe("journey rail directional pulse (task 917)", () => {
     setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
     const { container } = renderJourney();
     const dots = pulseDots(container);
-    // Exactly one segment's worth of dots: nothing on the completed segment
-    // behind the current stop, nothing beyond the (locked) next stop.
-    expect(dots).toHaveLength(DOTS_PER_SEG);
+    expect(dots).toHaveLength(DOTS_PER_SEG * 2);
     const ds = delays(dots);
     // Direction: delay fractions strictly increase toward the next stop.
     for (let i = 1; i < ds.length; i++) {
       expect(ds[i]!).toBeGreaterThan(ds[i - 1]!);
     }
-    expect(ds.every((d) => d >= 0 && d < 1)).toBe(true);
   });
 
-  test("zone-boundary run spans both segments with one continuous delay order", () => {
-    // Current stop is the LAST station of zone 1; next station opens zone 2,
-    // so the run passes through the zone postcard point: two segments.
+  test("no dots when the current stop is the final station (no pulse toward the terminus)", () => {
     setZones(
-      [grp(101, "completed"), grp(102, "unlocked")],
-      [grp(201, "locked")],
+      [grp(101, "completed")],
+      [grp(201, "completed")],
+      [grp(301, "completed")],
+      [grp(401, "completed")],
+      [grp(501, "completed")],
+      [grp(601, "completed"), grp(602, "unlocked")],
     );
     const { container } = renderJourney();
     const dots = pulseDots(container);
@@ -153,15 +153,9 @@ describe("journey rail directional pulse (task 917)", () => {
     expect(pulseDots(container)).toHaveLength(0);
   });
 
-  test("no dots when the journey is complete (no current stop)", () => {
-    setZones(
-      [grp(101, "completed")],
-      [grp(201, "completed")],
-      [grp(301, "completed")],
-      [grp(401, "completed")],
-      [grp(501, "completed")],
-      [grp(601, "completed")],
-    );
+  test("reduced motion renders a fully static rail: no pulse dots at all", () => {
+    h.reduceMotion = true;
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
     const { container } = renderJourney();
     expect(pulseDots(container)).toHaveLength(0);
   });

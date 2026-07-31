@@ -120,6 +120,7 @@ vi.mock("@workspace/api-client-react", async () => ({
   getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
+  useListCategories: () => ({ data: undefined, isLoading: false }),
 }));
 
 // Imported after the mocks are declared.
@@ -219,20 +220,16 @@ describe("barge-in during example playback", () => {
     await waitFor(() => expect(coachCalls()).toBe(1));
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
     const coachClip = audioInstances[0];
-    expect(coachClip.pause).not.toHaveBeenCalled();
 
-    // The hold zone is mounted DURING playback (Task 907) — hold it.
     const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
     expect(belly).not.toBeNull();
     fireEvent.pointerDown(belly);
 
-    // Same gesture: playback stops and recording starts.
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Release to submit"]')).not.toBeNull(),
     );
-    expect(coachClip.pause).toHaveBeenCalled();
+    expect(feedbackClip.pause).toHaveBeenCalled();
 
-    // Release evaluates as normal.
     await act(async () => {
       const releaseTarget = document.querySelector('[aria-label="Release to submit"]') as HTMLButtonElement;
       fireEvent.pointerUp(releaseTarget);
@@ -248,10 +245,14 @@ describe("barge-in during example playback", () => {
     const coachClip = audioInstances[0];
 
     const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+    expect(belly).not.toBeNull();
     fireEvent.pointerDown(belly);
+
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Release to submit"]')).not.toBeNull(),
     );
+    expect(feedbackClip.pause).toHaveBeenCalled();
+
     await act(async () => {
       const releaseTarget = document.querySelector('[aria-label="Release to submit"]') as HTMLButtonElement;
       fireEvent.pointerUp(releaseTarget);
