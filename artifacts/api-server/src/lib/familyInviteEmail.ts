@@ -120,6 +120,7 @@ export async function sendFamilyInviteEmail(opts: {
     subject: `${opts.inviterName} invited you to their ${APP_NAME} family plan`,
     html: buildHtml(opts.inviterName, opts.joinUrl),
     text: buildText(opts.inviterName, opts.joinUrl),
+    reply_to: "support@bolo-india.app",
   };
 
   const response = await connectors.proxy(

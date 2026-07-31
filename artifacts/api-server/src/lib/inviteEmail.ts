@@ -140,6 +140,7 @@ export async function sendFriendInviteEmail(opts: {
     subject: `${inviterName} wants to practice Indian languages with you`,
     html: buildHtml(inviterName, INVITE_CTA_URL),
     text: buildText(inviterName, INVITE_CTA_URL),
+    reply_to: "support@bolo-india.app",
   };
 
   const response = await connectors.proxy(

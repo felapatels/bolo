@@ -40,7 +40,10 @@ export interface ContactNotificationParams {
 }
 
 /**
- * Sends a support notification to the LARK team inbox.
+ * Sends a support notification to the team inbox.
+ * Recipient defaults to LARKsupport@gmail.com but can be overridden via
+ * the SUPPORT_INBOX_EMAIL env var. reply_to is set to the submitter's own
+ * address so a team reply lands in the user's inbox.
  * Returns true on success, false on any failure (the caller records
  * email_sent accordingly without surfacing the error to the user).
  */
@@ -56,7 +59,8 @@ export async function sendContactNotification(
   try {
     const { error } = await client.emails.send({
       from: fromAddress(),
-      to: "LARKsupport@gmail.com",
+      to: process.env.SUPPORT_INBOX_EMAIL ?? "LARKsupport@gmail.com",
+      reply_to: email,
       subject: `BOLO Contact Form: ${categoryLabel} from ${name}`,
       html: `
         <h2>New contact form submission</h2>

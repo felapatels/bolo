@@ -6,10 +6,10 @@ import { logger } from "./logger";
 // logged by the caller and never disturbs the TTS path.
 
 const ALERT_TO = process.env.ELEVENLABS_ALERT_EMAIL ?? "aakeshp@gmail.com";
-// Default to Resend's shared onboarding sender: it works without domain
-// verification (noreply@boloapp.in is NOT verified with Resend and gets a 403).
+// Sender defaults to the verified bolo-india.app domain; override via
+// ELEVENLABS_ALERT_FROM if a different address is needed.
 const ALERT_FROM =
-  process.env.ELEVENLABS_ALERT_FROM ?? "Bolo! <onboarding@resend.dev>";
+  process.env.ELEVENLABS_ALERT_FROM ?? "Bolo! <support@bolo-india.app>";
 
 let resend: Resend | null = null;
 

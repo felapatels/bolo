@@ -1,7 +1,7 @@
 import { Link } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
 
-const CONTACT_EMAIL = 'privacy@bolo.app';
+const CONTACT_EMAIL = 'privacy@bolo-india.app';
 const LAST_UPDATED = 'July 13, 2026';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
