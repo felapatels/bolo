@@ -2015,8 +2015,53 @@ router.get(
       return;
     }
 
-    // Free is limited to Hindi; other languages require Bolo! Plus.
-    if (await denyLockedLanguage(req, res, group.languageCode)) return;
+    // Free is limited to Hindi; other languages require Bolo! Plus — with the
+    // same M1 teaser exception the category-phrases route implements (see the
+    // teaser branch on GET /categories/:id/phrases/:lang): a teaser-state
+    // caller asking for the designated taste group (the one the journey
+    // listing marks `teaserStation: true` — the group holding the teaser
+    // phrase set) gets exactly the teaser phrase rows, in the same per-phrase
+    // shape, instead of a 402. This branch MUST return before the
+    // sequential-unlock guard below so no lesson_group_progress latch rows
+    // are ever written for a language the caller's plan doesn't own
+    // (lib/lessonGroupAccess.ts CALLER CONTRACT). Exhausted callers and
+    // non-taste groups keep today's 402 byte-identical via
+    // sendLockedLanguageDenial.
+    const access = await getLanguageAccess(req, group.languageCode);
+    if (access.state !== "allowed") {
+      if (access.state !== "teaser") {
+        sendLockedLanguageDenial(req, res, access);
+        return;
+      }
+      const teaserRows = await db
+        .select()
+        .from(phrasesTable)
+        .where(
+          and(
+            inArray(phrasesTable.id, access.teaserPhraseIds),
+            eq(phrasesTable.lessonGroupId, id),
+          ),
+        )
+        .orderBy(
+          asc(phrasesTable.lessonGroupPosition),
+          asc(phrasesTable.id),
+        );
+      if (teaserRows.length === 0) {
+        // Not the taste group: plain denial, exactly like today.
+        sendLockedLanguageDenial(req, res, access);
+        return;
+      }
+      const teaserAttempts = await fetchUserAttempts(
+        userId,
+        group.languageCode,
+      );
+      const teaserStats = buildPhraseStats(teaserAttempts);
+      const teaser = { consumed: access.consumed, limit: TEASER_LIMIT };
+      res.json(
+        teaserRows.map((p) => ({ ...serializePhrase(p, teaserStats), teaser })),
+      );
+      return;
+    }
 
     const { resolvedPlan } = req as EntitledRequest;
     const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;

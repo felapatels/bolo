@@ -8,6 +8,7 @@ import {
   pool,
   attemptsTable,
   badgesTable,
+  lessonGroupProgressTable,
   usersTable,
   languagesTable,
   categoriesTable,
@@ -46,6 +47,10 @@ let baseUrl: string;
 let greetingsId: number;
 let otherCategoryId: number;
 const OTHER_CATEGORY_SLUG = "__test_cat_teaser_other";
+
+// Fixture group ids (group 1 hosts the teaser set = the "taste station").
+let group1Id: number;
+let group2Id: number;
 
 // Fixture phrase ids.
 let teaserIds: number[]; // the 3 canonical teaser phrases, in position order
@@ -92,6 +97,9 @@ async function postAttempt(
 }
 
 async function clearUserRows(): Promise<void> {
+  await db
+    .delete(lessonGroupProgressTable)
+    .where(eq(lessonGroupProgressTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
   await db.delete(userAbilityTable).where(eq(userAbilityTable.userId, TEST_USER_ID));
@@ -116,6 +124,20 @@ before(async () => {
       position integer NOT NULL,
       title text,
       created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  // The entitled-path tests run the sequential-unlock guard, which reads (and
+  // may latch into) lesson_group_progress; provision it like the showroom
+  // suite does (shared live Postgres may lag committed migrations).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lesson_group_progress (
+      user_id text NOT NULL REFERENCES users(id),
+      lesson_group_id integer NOT NULL REFERENCES lesson_groups(id),
+      status text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT lesson_group_progress_user_id_lesson_group_id_pk
+        PRIMARY KEY (user_id, lesson_group_id)
     );
   `);
 
@@ -170,6 +192,8 @@ before(async () => {
     .insert(lessonGroupsTable)
     .values({ languageCode: LANG, categoryId: greetingsId, position: 2 })
     .returning();
+  group1Id = group1.id;
+  group2Id = group2.id;
 
   const phrase = (over: Partial<typeof phrasesTable.$inferInsert>) => ({
     lessonId: greetLesson.id,
@@ -402,4 +426,105 @@ test("covered languages are never teaser-limited; payload absent when allowed", 
   const attempt = await postAttempt(fourthPhraseId, 90);
   assert.equal(attempt.status, 201);
   assert.equal(attempt.json.teaser, undefined);
+});
+
+// ── Free-taste phrases on the journey taste station ─────────────────────────
+// GET /lesson-groups/:id/phrases mirrors the category-phrases teaser branch:
+// the designated taste group (the one the journey listing marks
+// teaserStation) serves exactly the teaser rows; every other group on the
+// locked language keeps today's 402; the teaser branch returns BEFORE the
+// sequential-unlock guard so no lesson_group_progress latch rows are ever
+// written for an unowned language.
+
+test("teaser state: the taste group's phrases route serves exactly the teaser rows, and attempts on them work", async () => {
+  const { status, json } = await get(`/lesson-groups/${group1Id}/phrases`);
+  assert.equal(status, 200);
+  assert.deepEqual(json.map((p: any) => p.id), teaserIds);
+  const ids = json.map((p: any) => p.id);
+  for (const excluded of [sentencePhraseId, fourthPhraseId, group2PhraseId]) {
+    assert.ok(!ids.includes(excluded));
+  }
+  for (const p of json) {
+    assert.deepEqual(p.teaser, { consumed: 0, limit: TEASER_LIMIT });
+  }
+
+  // Byte-for-byte the same phrase set the category-phrases teaser branch
+  // serves — one teaser contract, two scopes.
+  const category = await get(`/categories/${greetingsId}/phrases/${LANG}`);
+  assert.equal(category.status, 200);
+  assert.deepEqual(
+    json.map((p: any) => p.id),
+    category.json.map((p: any) => p.id),
+  );
+
+  // POST /attempts accepts a phrase reached via this flow (the id-aware
+  // teaser exception) — verified, not assumed.
+  const attempt = await postAttempt(json[0].id, 90);
+  assert.equal(attempt.status, 201);
+  assert.deepEqual(attempt.json.teaser, { consumed: 1, limit: TEASER_LIMIT });
+
+  // The teaser branch returned before the unlock latch: zero progress rows.
+  const latched = await db
+    .select()
+    .from(lessonGroupProgressTable)
+    .where(eq(lessonGroupProgressTable.userId, TEST_USER_ID));
+  assert.equal(latched.length, 0, "teaser call must never write latch rows");
+});
+
+test("teaser state: a non-taste group on the locked language still 402s with teaser progress", async () => {
+  const denied = await get(`/lesson-groups/${group2Id}/phrases`);
+  assert.equal(denied.status, 402);
+  assert.equal(denied.json.reason, "language_locked");
+  assert.deepEqual(denied.json.teaser, { consumed: 0, limit: TEASER_LIMIT });
+});
+
+test("exhausted state: the taste group 402s teaser_exhausted and never latches, even at completion ratio", async () => {
+  // Master the 3 teaser phrases plus the 4th group-1 phrase directly in the
+  // attempts table: exhausts the teaser AND puts group 1 at 4/5 mastered,
+  // exactly the COMPLETION_RATIO (0.8) threshold — so if this 402 path ever
+  // reached the unlock derivation, it WOULD latch a completion row. It must
+  // not, for a language the caller's plan doesn't own.
+  for (const pid of [...teaserIds, fourthPhraseId]) {
+    await db.insert(attemptsTable).values({
+      userId: TEST_USER_ID,
+      languageCode: LANG,
+      phraseId: pid,
+      nativeScript: "x",
+      romanized: "x",
+      english: "x",
+      transcript: "x",
+      score: 100,
+      passed: true,
+      feedback: "x",
+    });
+  }
+  const denied = await get(`/lesson-groups/${group1Id}/phrases`);
+  assert.equal(denied.status, 402);
+  assert.equal(denied.json.reason, "teaser_exhausted");
+  assert.deepEqual(denied.json.teaser, {
+    consumed: TEASER_LIMIT,
+    limit: TEASER_LIMIT,
+  });
+
+  const latched = await db
+    .select()
+    .from(lessonGroupProgressTable)
+    .where(eq(lessonGroupProgressTable.userId, TEST_USER_ID));
+  assert.equal(latched.length, 0, "402 path must never write latch rows");
+});
+
+test("entitled caller behavior on the group-phrases route is unchanged", async () => {
+  await db
+    .update(usersTable)
+    .set({ tier: "plus", subscriptionStatus: "active" })
+    .where(eq(usersTable.id, TEST_USER_ID));
+  const { status, json } = await get(`/lesson-groups/${group1Id}/phrases`);
+  assert.equal(status, 200);
+  // Full group content in position order (sentence row first), no teaser
+  // field anywhere — the pre-existing contract, byte-identical.
+  assert.deepEqual(
+    json.map((p: any) => p.id),
+    [sentencePhraseId, ...teaserIds, fourthPhraseId],
+  );
+  for (const p of json) assert.equal(p.teaser, undefined);
 });
