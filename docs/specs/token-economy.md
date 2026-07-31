@@ -362,6 +362,46 @@ The monthly grant fires lazily on `GET /entitlements` (the account reconcile cal
 Web: `artifacts/gujarati-coach/src/pages/account` surfaces (subscription tab).  
 Mobile: `artifacts/bolo-mobile/app/(app)/account/subscription.tsx`.
 
+### 4.5 Spend Vignette: Chaiwala
+
+Every confirmed token spend triggers a platform vignette lasting approximately 1.5 seconds before the result chip appears. The vignette is purely client-side and decorative: the spend endpoint commits the grant first, and the vignette plays after the server response. Animation failure (timeout, frame drop, reduced-motion) never blocks or delays the grant.
+
+**Character:** Chaiwala is a new flat train-world character asset sized and styled to match the Gujarat Express world. The asset is to be drawn for this build task; it is not derived from any existing mockup. Chaiwala is used as a proper noun in code identifiers, copy, and documentation — the same convention as Bolo. Chaiwala is reused in two additional contexts:
+- Chaiwala's chai stall serves as the backdrop for the Zone 1 conversation capstone (cross-reference `docs/specs/progression-completion.md`, the chai stall scenario).
+- Chaiwala may appear as optional scenery on the journey map.
+
+**Bolo in the vignette:** The canonical Bolo PNG (one of the five approved assets) appears at Chaiwala's cart using whole-image transforms only, consistent with the canonical mascot rule.
+
+**Coin arc:** 1 to 3 coin sprites animate along an arc from the balance display toward Chaiwala. The coin count scales with spend size:
+
+| Spend item | Coin count |
+|---|---|
+| Station Pause | 1 |
+| Express Multiplier | 2 |
+| Test-out retry | 1 |
+| Streak Repair | 3 |
+
+**Per-spend counter goods** (the good appears on Chaiwala's cart counter during the vignette):
+
+| Spend item | Good that appears |
+|---|---|
+| Station Pause | Chai glass with steam |
+| Express Multiplier | Two chai glasses |
+| Test-out retry | A small ticket |
+| Streak Repair | A mended item |
+
+**Balance tick-down:** The displayed token balance animates downward in sync with the coin arc, reaching the new balance when the arc completes.
+
+**Result chip:** After the arc lands, the result chip confirming the granted item pops in using the existing motion-feedback spring convention.
+
+**Skippable:** A tap anywhere during the vignette skips to the result chip immediately. The skip path must still show the correct final balance and the result chip.
+
+**Reduced-motion:** When the platform's reduced-motion preference is active (`prefers-reduced-motion: reduce` on web; `useReducedMotion()` on mobile via the existing framer-motion hook), the vignette is replaced by an instant receipt: the counter good appears statically, the balance jumps to its new value without animation, and the result chip appears without a spring. The grant is identical either way.
+
+**Timing constants:** The vignette duration (1.5 s), coin arc duration (0.9 s), balance tick-down duration (0.8 s), and result chip spring parameters are named constants that join the shared motion tuning conventions alongside the existing practice result-card and confetti timing constants.
+
+**Failure contract:** If the vignette component throws or the animation frame is unavailable, the spend result is shown as a plain static receipt. The granted item is never conditional on the vignette completing.
+
 ---
 
 ## §5 — Daily Lesson Limit Recommendation
@@ -475,6 +515,15 @@ Each entry: title / files / size (S=small <1hr, M=medium 1-4hr, L=large >4hr) / 
 - Slice: 32
 - Depends-on: Nothing (independent, can be done in parallel with (a))
 - Notes: No client changes. No test assertions to remove (cap was disabled before tests were written post-July-30). Confirm by grepping `lesson_generations` and `daily_lesson_limit` in test files before deleting.
+
+**(h) Chaiwala spend vignette (client)**
+
+- Title: Chaiwala spend vignette — coin arc, counter goods, balance tick
+- Files: New `artifacts/gujarati-coach/src/components/ui/ChaiwalaVignette.tsx` (web); new `artifacts/bolo-mobile/components/ui/ChaiwalaVignette.tsx` (mobile); shared motion timing constants (co-located with existing practice result-card and confetti timing constants in each artifact); new Chaiwala flat character asset (SVG or PNG, drawn for this task, sized for train-world scale)
+- Size: M
+- Slice: 32
+- Depends-on: (c), (d)
+- Notes: Plays after the spend endpoint responds successfully; the grant is committed server-side before the vignette begins and is never blocked by it. Coin count and counter good per §4.5. Reduced-motion path must produce an instant static receipt with the correct final balance and result chip — no arc, no spring, no tick. Skippable on tap at any point. Chaiwala asset is a new flat train-world character drawn for this task (not sourced from any mockup or existing asset). Bolo rendered in the vignette must use a canonical PNG with whole-image transforms only. The vignette component catches its own errors and falls back to the static receipt. Timing constants (arc 0.9 s, tick 0.8 s, total 1.5 s, result-chip spring params) are named exports so they can be referenced by the Zone 1 capstone backdrop and journey-map scenery reuses in later tasks.
 
 ---
 
