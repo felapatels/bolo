@@ -39,6 +39,7 @@ CREATE INDEX token_ledger_user_created_idx ON token_ledger (user_id, created_at 
 | `quiz_perfect` | `daily_quiz_completions.id` with suffix `:perfect` | quiz language |
 | `purchase` | RevenueCat transaction id from the NON_SUBSCRIPTION_PURCHASE event | NULL |
 | `allaccess_monthly` | YYYY-MM billing cycle key (e.g. `2026-07`) | NULL |
+| `voice_contribution_optin` | `users.id` of the opting-in user | NULL (cross-language grant) |
 
 The `streak_day` ref_id uses the user's IANA-bucketed day key (same as `localDayKey()` in `progressMetrics.ts`) so it is idempotent across server restarts and retries.
 
@@ -142,6 +143,7 @@ A typical free learner who does 3-5 pronunciation attempts at difficulty 1-2 ear
 | `quiz_perfect` | **3** | Daily quiz score 5/5 (additive to quiz_pass; ref_id suffixed `:perfect`) | Total 5 tokens for a perfect quiz — matches a zone completion. |
 | `purchase` | varies | RevenueCat `NON_SUBSCRIPTION_PURCHASE` webhook | Tier-dependent; see §3.2. |
 | `allaccess_monthly` | **40** | Monthly All-Access grant; see §2.6 | On-read via cron or account load. |
+| `voice_contribution_optin` | **10** | One-time grant when learner enables the voice contribution toggle for the first time (`PATCH /account/preferences` sets `voiceContributionEnabled = true`) | One-time only; idempotent via `ref_id = users.id`. Cross-language (language_code NULL). See `docs/specs/voice-data-program.md` §9 Finding 6. |
 
 ### 2.3 Station Pause: "5-7 Days for a Free User" Math
 
