@@ -1,0 +1,22 @@
+→ NEW TASK — paste once
+
+Step 0 only. Report findings. Do NOT change any code. Consult docs/CODEBASE-FACTS.md and agent memory. This trace informs a product restructure (single path through the train) plus one live gate bug. Answer with file paths, quoted conditions, verified vs inferred. Cover web and mobile where surfaces differ.
+
+A. Stop-to-category mapping:
+
+How are journey stops defined relative to practice categories/topics? Report the data model: are stops slices of categories (which fields join them), or an independent sequence? Where does stop content come from at practice time?
+When a user masters phrases via a home topic card (outside the journey), does that mastery advance the corresponding stop? Trace the write path from a completed practice attempt to journey progress (useJourneyProgress inputs and their server source). State plainly whether train progress and topic progress are one ledger or two.
+Fare zone names vs topic names: zone 1 is "Greetings & Manners" and a home topic card is also "Greetings & Manners" — same entity or coincidence? Report the source of each string.
+
+B. Home entry-point inventory:
+4. List every surface on home (web and mobile) that starts or continues learning: boarding pass, topic cards ("Start a new topic"), anything else post-ContinueCard-removal. File paths and navigation targets for each.
+5. For each, what would removing it break (tests, deep links, notification resolvers, analytics)?
+
+C. Locked-stop and unlock model:
+6. Report how stop locking works today: what unlocks stop N+1, where the lock check lives (client and server), and what the locked-stop dialog offers. Confirm the #819 test-out slot: what the deferred UI was scoped to and what exists in code.
+
+D. Free-taste gate bug (free account, non-default language):
+7. Reproduce path: free account switches to Gujarati, lands on journey, a "free taste" affordance is shown, tapping it routes to the paywall. Trace the free-taste entitlement: what does the server grant free users per language (which stops/phrases), where is the client gate that routes to paywall, and quote the condition that fires. Identify whether the bug is client (gate ignores the free-taste grant), server (grant not issued for non-default languages), or copy (no taste actually exists for locked languages and the affordance lies).
+8. Report how the free taste works on Hindi (default) for comparison — same account state, what's accessible.
+
+Report format: lettered/numbered matching above. No fixes, no task proposals; end with a one-paragraph factual summary of whether train and topics share one progress ledger, since that determines the restructure's size.

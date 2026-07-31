@@ -72,6 +72,8 @@ const home = await page.evaluate(() => ({
   glow: !!document.querySelector(".animate-pass-glow"),
   nudge: !!document.querySelector(".animate-cta-arrow-nudge"),
   drive: !!document.querySelector(".animate-train-drive"),
+  wheels: document.querySelectorAll(".animate-train-drive .train-wheel").length,
+  steam: document.querySelectorAll(".animate-train-drive .train-steam").length,
   cta:
     (document.body.innerText.match(
       /Start your journey|Resume at Stop \d+ · \d+ phrases? to go|Continue your journey/,
@@ -93,6 +95,8 @@ const journey = await page.evaluate(() => {
   return {
     glow: !!glow,
     trainBob: !!document.querySelector(".animate-train-bob"),
+    wheels: document.querySelectorAll(".animate-train-bob .train-wheel").length,
+    steam: document.querySelectorAll(".animate-train-bob .train-steam").length,
   };
 });
 console.log("journey:", JSON.stringify(journey));
@@ -107,8 +111,12 @@ const ok =
   home.glow &&
   home.nudge &&
   home.drive &&
+  home.wheels === 4 &&
+  home.steam === 3 &&
   !!home.cta &&
   journey.glow &&
-  journey.trainBob;
+  journey.trainBob &&
+  journey.wheels === 4 &&
+  journey.steam === 3;
 console.log(ok ? "PROBE PASS" : "PROBE FAIL");
 process.exit(ok ? 0 : 1);

@@ -237,6 +237,19 @@ function ZonePostcard({
   );
 }
 
+/** Tiny station signboard glyph (awning + posts) for the active stop card.
+ *  UI art, not mascot art, so it may be drawn freely. */
+function StationSignGlyph({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 14 12" className="h-3 w-3.5 shrink-0" aria-hidden>
+      <path d="M1 4 L7 0.5 L13 4 Z" fill={color} />
+      <rect x="2.5" y="4.5" width="9" height="3.5" rx="1" fill={color} opacity="0.3" />
+      <rect x="3.5" y="8" width="1.4" height="4" fill={color} />
+      <rect x="9.1" y="8" width="1.4" height="4" fill={color} />
+    </svg>
+  );
+}
+
 /** Stop card (Link when boardable, lock-dialog button otherwise). The rail
  *  marker is positioned separately by the map on the track itself. */
 function StationCard({
@@ -260,6 +273,8 @@ function StationCard({
 }) {
   const reduceMotion = useReducedMotion();
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
+  const masteredAtStop = station.masteredCount ?? 0;
+  const phrasesAtStop = station.phraseCount ?? 0;
   const statusCopy =
     station.status === "completed"
       ? "Completed"
@@ -273,11 +288,34 @@ function StationCard({
   const card = (
     <div
       className={cn(
-        "relative min-w-0 rounded-lg px-3 py-2 transition-colors group-hover:bg-accent",
-        isCurrent && "bg-card border shadow-sm",
+        "relative min-w-0 rounded-lg px-3 py-2 transition-colors",
+        isCurrent ? "border pt-3 shadow-sm" : "group-hover:bg-accent",
       )}
-      style={isCurrent ? { borderColor: color } : undefined}
+      style={
+        isCurrent
+          ? { borderColor: color, background: "var(--station-surface)" }
+          : undefined
+      }
     >
+      {/* Station-signboard family marker: full-width accent bar on the
+          active card, a short quiet tick on every other stop so the whole
+          line reads as one system while the active card dominates. */}
+      {isCurrent ? (
+        <div
+          className="absolute inset-x-0 top-0 h-1.5 rounded-t-lg"
+          style={{ background: color }}
+          aria-hidden
+        />
+      ) : (
+        <div
+          className="absolute left-3 top-0 h-1 w-7 rounded-b"
+          style={{
+            background: accessible ? color : "hsl(var(--border))",
+            opacity: 0.55,
+          }}
+          aria-hidden
+        />
+      )}
       {/* "Now boarding" accent pulse: an opacity-only glow overlay so the
           animated property stays within the transforms/opacity budget. */}
       {isCurrent && !reduceMotion && (
@@ -288,6 +326,7 @@ function StationCard({
         />
       )}
       <div className="flex items-center gap-2 flex-wrap">
+        {isCurrent && <StationSignGlyph color={color} />}
         <span
           className={cn(
             "text-sm font-semibold",
@@ -328,9 +367,38 @@ function StationCard({
         style={isCurrent ? { color } : undefined}
       >
         {statusCopy}
-        {station.attemptedCount ? ` · ${station.masteredCount}/${station.phraseCount} mastered` : ` · ${station.phraseCount} phrases`}
+        {!station.attemptedCount && ` · ${station.phraseCount} phrases`}
         {isCurrent && " · Bolo is waiting here"}
       </div>
+      {/* Progress as a small filled track once the stop has attempts; the
+          fraction stays as a label. Quiet palette off the active card. */}
+      {station.attemptedCount ? (
+        <div className="mt-1 flex items-center gap-1.5">
+          <div
+            className="h-1.5 w-20 max-w-full overflow-hidden rounded-full"
+            style={{ background: accessible ? `${color}26` : "hsl(var(--muted))" }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${
+                  phrasesAtStop > 0
+                    ? Math.round((masteredAtStop / phrasesAtStop) * 100)
+                    : 0
+                }%`,
+                background: accessible ? color : "hsl(var(--muted-foreground))",
+              }}
+              data-testid={`progress-stop-${station.stopNumber}`}
+            />
+          </div>
+          <span
+            className={cn("text-[10px] font-bold", !isCurrent && "text-muted-foreground")}
+            style={isCurrent ? { color } : undefined}
+          >
+            {masteredAtStop}/{phrasesAtStop} mastered
+          </span>
+        </div>
+      ) : null}
     </div>
   );
   const body = (

@@ -259,6 +259,11 @@
   --stop-glow-max: 1;
   --station-bounce-cycle: 2.2s;  /* journey station train bounce */
   --station-bounce-height: -4px;
+  --steam-rise: -11px;           /* steam puff rise above the funnel */
+  --station-surface: hsl(40 55% 97.5%); /* warm signboard surface, active stop card */
+}
+.dark {
+  --station-surface: hsl(222 30% 15%);
 }
 @keyframes ticket-breathe {
   0%, 100% {
@@ -360,4 +365,62 @@
 }
 .animate-train-bob {
   animation: train-bob var(--station-bounce-cycle) ease-in-out infinite;
+}
+/* Train character parts (train-svg.tsx). Wheels spin and steam puffs rise
+   only while a parent carries the drive (home ticket) or bounce (journey
+   marker) class, both of which are already reduced-motion gated in JS; the
+   reduce block above also covers these keyframes. Steam rests at opacity 0,
+   so the parked engine is a clean static frame. */
+.train-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.train-steam {
+  opacity: 0;
+}
+.animate-train-drive .train-wheel {
+  animation: train-wheel-spin var(--train-drive-cycle) ease-in-out infinite;
+}
+.animate-train-bob .train-wheel {
+  animation: train-wheel-spin var(--station-bounce-cycle) ease-in-out infinite;
+}
+.animate-train-drive .train-steam {
+  animation: train-steam-puff var(--train-drive-cycle) ease-out infinite;
+}
+.animate-train-bob .train-steam {
+  animation: train-steam-puff var(--station-bounce-cycle) ease-out infinite;
+}
+.animate-train-drive .train-steam-2,
+.animate-train-bob .train-steam-2 {
+  animation-delay: 0.16s;
+}
+.animate-train-drive .train-steam-3,
+.animate-train-bob .train-steam-3 {
+  animation-delay: 0.3s;
+}
+/* Wheels turn through the drive and roll to a stop through the settle. */
+@keyframes train-wheel-spin {
+  0%, 48% {
+    transform: rotate(0deg);
+  }
+  84% {
+    transform: rotate(290deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+/* Puffs pop at the settle, rising and fading; invisible at both ends. */
+@keyframes train-steam-puff {
+  0%, 64% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  78% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--steam-rise)) scale(1.15);
+  }
 }
