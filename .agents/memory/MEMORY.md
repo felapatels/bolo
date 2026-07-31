@@ -100,3 +100,4 @@
 - [expo-audio session auto-deactivation](expo-audio-session-deactivation.md) — any finishing/paused player deactivates the iOS session unless another is strictly .playing (buffering doesn't count); pass keepAudioSessionActive on session-managed players.
 - [Ticket tear-off pattern](ticket-tear-pattern.md) — a torn-off piece must carry its own card stock, reveal a bg underlay, and rip on a jagged static clip-path; a clean fast slide reads as nothing happening.
 - [Transcript romanization](transcript-romanization.md) — sanscript by Unicode block (tamil_extended!), Perso-Arabic/Ol Chiki/Meetei → ""; no-phraseId requests lack languageCode so style needs a script fallback.
+- [Instant band audio](band-audio-instant-feedback.md) — closed-set spoken lines = bundled clips; server prewarm needs a pending-join (plain cache-warm races the client); probe traps: 80-char src logs, coach clip is the first data:audio.

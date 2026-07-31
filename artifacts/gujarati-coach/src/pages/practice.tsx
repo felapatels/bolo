@@ -35,6 +35,7 @@ import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-sta
 import { UpgradeCard, UpgradeScreen } from "@/components/plus";
 import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial } from "@/lib/entitlements";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
+import { playBandClip, preloadBandClips, type BandClipHandle } from "@/lib/band-audio";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
@@ -49,6 +50,10 @@ import { CountUp } from "@/components/ui/count-up";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare";
+
+// How long the result-speak sequence waits for feedback synthesis before
+// degrading to band-clip-only (Task 903). The result card never blocks.
+const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 
 // localStorage key that records the learner has already seen the "feedback is
 // approximate" notice for a given (degraded) language, so it shows only once.
@@ -417,6 +422,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Pre-synthesized feedback audio — started in parallel with createAttempt
   // so the voice is ready (or nearly ready) when the result card appears.
   const feedbackAudioPendingRef = useRef<Promise<{ audioBase64: string; format: string } | null> | null>(null);
+  // The instant band call-out clip playing for the current result (Task 903).
+  const bandClipRef = useRef<BandClipHandle | null>(null);
 
   const phrase = phrases?.[currentIndex];
 
@@ -521,25 +528,45 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, phrase?.id]);
 
-  // Read the coach's full feedback out loud whenever a result appears.
+  // Speak the result (Task 903): the band call-out plays instantly from a
+  // bundled clip, then the coach's full feedback + tip follows once its
+  // synthesis resolves. The result card itself is never blocked on audio.
   useEffect(() => {
     const spokenText = result
       ? [result.feedback, result.tip].filter(Boolean).join(" ")
       : "";
     // Read the setting fresh each time a result lands, so a toggle flipped on
     // the Account page applies to the very next score without a reload.
-    if (state === "result" && spokenText && spokenFeedback) {
+    if (state === "result" && result && spokenFeedback) {
       let cancelled = false;
+      // 1) Band call-out — pre-bundled audio, no synthesis wait. Correct
+      // band mapping is result.band itself (nocatch gets the neutral clip).
+      const clip = playBandClip(result.band);
+      bandClipRef.current = clip;
       const speak = async () => {
         try {
-          // Consume the pre-synthesized audio started in finishRecording
-          // (parallel with createAttempt). If it's ready the voice plays
-          // immediately; if not, we just await the same in-flight promise.
+          if (!spokenText) return;
+          // 2) Full feedback — consume the pre-synthesized audio started in
+          // finishRecording (parallel with createAttempt; server-side the
+          // synthesis began even earlier via the eval-time prewarm). A
+          // timeout guards the sequence: if synthesis is slow or failed,
+          // the band clip alone plays.
           const pending = feedbackAudioPendingRef.current;
           feedbackAudioPendingRef.current = null;
-          const res = pending
-            ? await pending
-            : await synthesize.mutateAsync({ data: { text: spokenText } });
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const timeout = new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), FEEDBACK_AUDIO_TIMEOUT_MS);
+          });
+          const res = await Promise.race([
+            pending ??
+              synthesize
+                .mutateAsync({ data: { text: spokenText } })
+                .catch(() => null),
+            timeout,
+          ]);
+          if (timer) clearTimeout(timer);
+          // Sequence: let the band call-out finish before the sentence starts.
+          if (clip) await clip.finished;
           if (!res || cancelled) return;
           const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           feedbackAudioRef.current = audio;
@@ -552,6 +579,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
       return () => {
         cancelled = true;
+        bandClipRef.current?.stop();
+        bandClipRef.current = null;
         if (feedbackAudioRef.current) {
           feedbackAudioRef.current.pause();
           feedbackAudioRef.current = null;
@@ -874,6 +903,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   const handleBellyPointerDown = (e: React.PointerEvent) => {
+    // Warm the browser cache for the six band call-out clips on the first
+    // record gesture, so the call-out plays instantly when the result lands.
+    preloadBandClips();
     // Capture the pointer so pointerup fires on this element even if the
     // learner's finger drifts off it slightly.
     try {

@@ -36,6 +36,7 @@ import { BandLadder } from '@/components/BandLadder';
 import { isFullCreditBand, isHalfCreditBand, isPassingBand, normalizeBand } from '@/lib/ui';
 import { XpCounter } from '@/components/XpCounter';
 import { appear, useAppearSkip } from '@/lib/entrance';
+import { playBandClip, type BandClipHandle } from '@/lib/band-audio';
 import {
   useListCategoryPhrases,
   useListCategorySentences,
@@ -95,6 +96,7 @@ import { glyphsForLanguage } from '@/lib/scriptGlyphs';
 // listen-record-compare card (no band, no XP).
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'compare' | 'error' | 'done';
 
+const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
   great: 'Great',
@@ -625,6 +627,9 @@ export default function PracticeScreen() {
     format?: string;
   } | null> | null>(null);
 
+  // The instant band call-out clip playing for the current result (Task 903).
+  const bandClipRef = React.useRef<BandClipHandle | null>(null);
+
   // Pre-warmed audio for the starting phrase — kicked off when the phrase list
   // first loads so the coach voice plays instantly instead of waiting 1–2 s
   // for gpt-audio synthesis after coachPlaying flips to true (which blocks
@@ -859,13 +864,27 @@ export default function PracticeScreen() {
   React.useEffect(() => {
     if (phase !== 'result' || !result) return;
     if (!spokenEnabled) return;
-    const pending = feedbackAudioRef.current;
-    if (!pending) return;
     stopPlayback();
     const token = playTokenRef.current;
+    // 1) Band call-out (Task 903) — bundled clip, starts effectively
+    // instantly; plays even when no feedback synthesis is pending. The
+    // nocatch band gets the neutral clip.
+    const clip = playBandClip(result.band);
+    bandClipRef.current = clip;
+    const pending = feedbackAudioRef.current;
     void (async () => {
       try {
-        const res = await pending;
+        // 2) Full feedback — usually already resolving (kicked at eval time
+        // client-side, and even earlier server-side). A timeout guards the
+        // sequence: slow or failed synthesis degrades to band-clip-only.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), FEEDBACK_AUDIO_TIMEOUT_MS);
+        });
+        const res = pending ? await Promise.race([pending, timeout]) : null;
+        if (timer) clearTimeout(timer);
+        // Sequence: let the band call-out finish before the sentence starts.
+        if (clip) await clip.finished;
         if (!res) return;
         if (token !== playTokenRef.current) return;
         playbackRef.current = await playBase64Audio(
@@ -881,7 +900,11 @@ export default function PracticeScreen() {
         // A missed read-aloud shouldn't interrupt practice; stay silent.
       }
     })();
-    return () => stopPlayback();
+    return () => {
+      bandClipRef.current?.stop();
+      bandClipRef.current = null;
+      stopPlayback();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result, spokenEnabled]);
 

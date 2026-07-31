@@ -35,6 +35,7 @@ import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
+import { getPendingFeedbackSynthesis, prewarmFeedbackTts } from "../lib/feedbackTts";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
 import {
   USE_ELEVENLABS_TTS,
@@ -398,6 +399,35 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     req.log.warn({ err }, "TTS cache read failed, synthesizing fresh");
   }
 
+  // --- eval-time prewarm join (Task 903) ---
+  // The pronunciation route fire-and-forgets feedback synthesis the moment
+  // the eval response is built; the client's follow-up request for the same
+  // text lands here milliseconds later — long before that synthesis finishes
+  // and its cache row exists. Join the in-flight work instead of starting a
+  // duplicate. On prewarm failure, fall through to a fresh synthesis.
+  const pendingSynth = getPendingFeedbackSynthesis(cacheKey);
+  if (pendingSynth) {
+    try {
+      const joined = await pendingSynth;
+      req.log.info(
+        {
+          provider: phraseIdentity.provider,
+          model: phraseIdentity.model,
+          voice: synthesisVoice,
+          language: languageName ?? "",
+          chars: text.length,
+          hit: "pending-prewarm",
+          ms: Date.now() - t0,
+        },
+        "[phrase-tts]",
+      );
+      res.json({ audioBase64: joined.audioBase64, format: joined.format });
+      return;
+    } catch {
+      // Prewarm synthesis failed — synthesize fresh below as if it never ran.
+    }
+  }
+
   // --- gpt-audio path ---
   // All ElevenLabs code below is fully preserved — set TTS_PROVIDER to
   // "elevenlabs" in lib/ttsConfig.ts to re-activate it with no other changes.
@@ -666,6 +696,11 @@ router.post(
       const nocatchBand: PronunciationBand = "nocatch";
       const feedback =
         `Speech recognition can't reliably hear ${language} yet, so we don't score it. Listen to the phrase, record yourself, and compare by ear. Your practice still counts!`;
+      const nocatchTip =
+        "Play the phrase and your recording back to back to hear the difference.";
+      // Task 903: start feedback-voice synthesis before the response even
+      // reaches the client, so its /openai/tts call joins the in-flight work.
+      prewarmFeedbackTts(feedback, nocatchTip, req.log);
       res.json({
         transcript: "",
         transcriptRomanized: "",
@@ -675,7 +710,7 @@ router.post(
         xpAwarded: 0,
         xpBreakdown: null,
         feedback,
-        tip: "Play the phrase and your recording back to back to hear the difference.",
+        tip: nocatchTip,
         evaluationToken: signEvaluation({
           userId,
           phraseId: resolvedPhraseId,
@@ -748,7 +783,10 @@ router.post(
     if (isEffectivelyEmpty(transcript)) {
       const feedback =
         "I couldn't hear anything that time! Tap the button and say it nice and clear.";
+      const emptyTip = "Hold your phone a little closer and speak up.";
       const nocatchBand: PronunciationBand = "nocatch";
+      // Task 903: eval-time fire-and-forget feedback-voice synthesis.
+      prewarmFeedbackTts(feedback, emptyTip, req.log);
       res.json({
         transcript: "",
         transcriptRomanized: "",
@@ -758,7 +796,7 @@ router.post(
         xpAwarded: 0,
         xpBreakdown: null,
         feedback,
-        tip: "Hold your phone a little closer and speak up.",
+        tip: emptyTip,
         evaluationToken: signEvaluation({
           userId,
           phraseId: resolvedPhraseId,
@@ -924,6 +962,8 @@ router.post(
         // near-exact matches, so this lands in the full-credit group.
         const fastBand: PronunciationBand = bandFromScore(score);
         const fastXp = computePronunciationXp(fastBand, phraseDifficulty);
+        // Task 903: eval-time fire-and-forget feedback-voice synthesis.
+        prewarmFeedbackTts(feedback, tip, req.log);
         res.json({
           transcript,
           transcriptRomanized: romanizeTranscript(transcript, languageCode),
@@ -1046,6 +1086,10 @@ router.post(
         const nocatchBand: PronunciationBand = "nocatch";
         const feedback =
           "Our listener glitched on that one and didn't catch what you said. That's on us, not you. Give it one more go!";
+        const glitchTip =
+          "Nothing to fix on your end — just try the same thing again.";
+        // Task 903: eval-time fire-and-forget feedback-voice synthesis.
+        prewarmFeedbackTts(feedback, glitchTip, req.log);
         res.json({
           transcript,
           // nocatch paths carry no romanized form by design: the recognizer
@@ -1057,7 +1101,7 @@ router.post(
           xpAwarded: 0,
           xpBreakdown: null,
           feedback,
-          tip: "Nothing to fix on your end — just try the same thing again.",
+          tip: glitchTip,
           evaluationToken: signEvaluation({
             userId,
             phraseId: resolvedPhraseId,
@@ -1085,6 +1129,9 @@ router.post(
       const feedback =
         result.feedback ??
         "Nice effort! Keep practicing and you'll get it even better.";
+      const llmTip = result.tip ?? "Try to say each syllable slowly and clearly.";
+      // Task 903: eval-time fire-and-forget feedback-voice synthesis.
+      prewarmFeedbackTts(feedback, llmTip, req.log);
       res.json({
         transcript,
         transcriptRomanized: romanizeTranscript(transcript, languageCode),
@@ -1097,7 +1144,7 @@ router.post(
           isHalfCreditBand(llmBand) ? `Half XP` :
           null,
         feedback,
-        tip: result.tip ?? "Try to say each syllable slowly and clearly.",
+        tip: llmTip,
         evaluationToken: signEvaluation({
           userId,
           phraseId: resolvedPhraseId,

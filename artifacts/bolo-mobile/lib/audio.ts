@@ -252,6 +252,63 @@ export async function playStreamingAudio(
   };
 }
 
+/**
+ * Play a bundled audio asset (static require() source) as COACH VOICE audio.
+ * Same session handling as playBase64Audio — iOS earpiece-mode flip while the
+ * mic session is warm, keepAudioSessionActive, playback-token guard — but
+ * skips the temp-file write since the asset is already local. Used for the
+ * instant band call-out clips (Task 903).
+ */
+export async function playAssetAudio(
+  source: number,
+  onDone?: () => void,
+): Promise<PlaybackHandle> {
+  const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
+  const myToken = ++playbackModeToken;
+  if (needsModeFlip) {
+    try {
+      await activatePlaybackMode();
+    } catch {
+      // If the flip fails, still play — quiet audio beats no audio.
+    }
+  }
+  const restoreMode = () => {
+    if (needsModeFlip && playbackModeToken === myToken)
+      void ensureRecordingMode().catch(() => {});
+  };
+
+  // keepAudioSessionActive: see playStreamingAudio for the deactivation seam.
+  const player = createAudioPlayer(source, { keepAudioSessionActive: true });
+  const sub = player.addListener('playbackStatusUpdate', (s) => {
+    if (s.didJustFinish) {
+      onDone?.();
+      try {
+        sub.remove();
+      } catch {}
+      try {
+        player.remove();
+      } catch {}
+      restoreMode();
+    }
+  });
+  player.play();
+  return {
+    stop: () => {
+      try {
+        sub.remove();
+      } catch {}
+      try {
+        // Pause before releasing (see playBase64Audio for why).
+        player.pause();
+      } catch {}
+      try {
+        player.remove();
+      } catch {}
+      restoreMode();
+    },
+  };
+}
+
 /** Play a base64-encoded audio clip. Resolves the handle immediately. */
 export async function playBase64Audio(
   base64: string,
