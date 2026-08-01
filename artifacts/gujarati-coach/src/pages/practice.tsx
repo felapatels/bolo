@@ -524,24 +524,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         const firstUnmastered = phrases.findIndex(p => !p.mastered);
         if (firstUnmastered > 0) startIdx = firstUnmastered;
       } else if (isGroup && !isTestout && !polishMode && !phraseIdsParam) {
-        // Task 954: re-entering a journey station resumes at the first phrase
-        // still below the credit edge (bestScore >= 80 — the same threshold
-        // lesson-group completion uses), so a half-done station picks up where
-        // the learner left off instead of replaying from the top. Only the
-        // starting index changes: the phrase set is not filtered, and back
-        // navigation still returns to the journey. When every phrase is at
-        // 80+ findIndex misses (-1) and startIdx stays 0 — an all-mastered
-        // station is a deliberate review visit that replays from phrase 1.
+        // Task 954 + completed-station ruling: a station session ALWAYS runs
+        // the first-unmastered scan — the first phrase whose bestScore is
+        // null or below the 80 credit edge (the same threshold lesson-group
+        // completion uses). Station status (completed / tested_out) never
+        // short-circuits the scan (no status field is consulted here), and
+        // the entry route cannot change the result: every route into a plain
+        // station session lands in this same branch. Index 0 is the fallback
+        // ONLY when the scan finds nothing — every phrase in the session at
+        // 80+ (a deliberate review visit replays from phrase 1). A
+        // tested-out station without per-phrase attempts is all-null, so the
+        // scan itself lands on index 0. Only the starting index changes: the
+        // phrase set is not filtered, and back navigation still returns to
+        // the journey.
         //
         // Teaser taste sets are INERT to resume: a teaser-state caller gets
         // the fixed free taste set (rows carry `teaser` progress), which must
         // always play from the top — skipping an already-attempted free
         // phrase would shorten the taste → upsell flow.
         const isTeaserSet = phrases.some(p => p.teaser != null);
-        const firstBelowCredit = isTeaserSet
-          ? -1
-          : phrases.findIndex(p => p.bestScore == null || p.bestScore < 80);
-        if (firstBelowCredit > 0) startIdx = firstBelowCredit;
+        if (!isTeaserSet) {
+          const firstBelowCredit = phrases.findIndex(
+            p => p.bestScore == null || p.bestScore < 80,
+          );
+          if (firstBelowCredit >= 0) startIdx = firstBelowCredit;
+        }
       }
       if (startIdx > 0) setCurrentIndex(startIdx);
 

@@ -213,3 +213,56 @@ describe("practice start position (Task 954: station resume)", () => {
     expect(document.querySelector('a[href="/journey"]')).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Completed-station ruling (web pre-brief Item 1): the first-unmastered scan
+// runs unconditionally for a station session; completion/tested-out status
+// never short-circuits it (practice consults no status field), and index 0 is
+// the fallback only when the scan finds nothing or no per-phrase data exists.
+// All runs use the journey revisit path from the live repro — the plain
+// `/practice/:zone?group=<id>` StationCard link — which is also the only
+// route into a station session, so entry-route parity is pinned by the same
+// URL shape every test below uses.
+// ---------------------------------------------------------------------------
+describe("practice start position (completed-station ruling)", () => {
+  test("REGRESSION PIN: completed station with interior unmastered (T,T,F,T,F) starts at index 2", async () => {
+    // The mastered pattern from the dev report: the scan must land on the
+    // first sub-80 phrase no matter what the station's status rollup says
+    // (the payload is the authority; status cannot short-circuit).
+    h.groupPhrases = loaded([
+      phraseAt(1, 95),
+      phraseAt(2, 85),
+      phraseAt(3, 40),
+      phraseAt(4, 90),
+      phraseAt(5, null),
+    ]);
+    renderPage(<Practice />, "/practice/0?group=7");
+
+    await expectStartsAt("phrase-3", "3/5");
+  });
+
+  test("unmastered at position 0 starts at 0 — scan and fallback agree, no off-by-one", async () => {
+    h.groupPhrases = loaded([
+      phraseAt(1, 40),
+      phraseAt(2, 95),
+      phraseAt(3, 90),
+    ]);
+    renderPage(<Practice />, "/practice/0?group=7");
+
+    await expectStartsAt("phrase-1", "1/3");
+  });
+
+  test("tested-out station with no per-phrase scores starts at phrase 1", async () => {
+    // A tested-out station records no per-phrase attempts: every bestScore
+    // is null, so the scan itself lands on index 0 (defined behavior for
+    // sessions with no per-phrase data).
+    h.groupPhrases = loaded([
+      phraseAt(1, null),
+      phraseAt(2, null),
+      phraseAt(3, null),
+    ]);
+    renderPage(<Practice />, "/practice/0?group=7");
+
+    await expectStartsAt("phrase-1", "1/3");
+  });
+});

@@ -109,3 +109,4 @@
 - [QA probe run pitfalls](qa-probe-pitfalls.md) — piping a probe through head SIGPIPE-kills it mid-run; shots dirs are cwd-relative; seeded badge rows need REAL badge keys; use a:visible at mobile widths.
 - [Pronunciation scoring signal audit](pronunciation-scoring-signal.md) — transcript-centric pipeline is accent-blind; STT logprobs don't discriminate; gpt-audio hears accent but needs 3-run median; Azure PA covers only hi/ta of 22.
 - [Pronunciation pilot findings](pronunciation-pilot-findings.md) — gpt-audio works on clean clips; WAV→MP3 required; recording contamination (phone speaker via mic) invalidated most clips; re-run with earphones.
+- [Plan-filtered rollups](plan-filtered-rollups.md) — tallies aggregated over ALL rows desync from plan-filtered payloads (journey "8/10 mastered" vs all-mastered Free session); probe the real payload before touching derivation code.
