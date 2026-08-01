@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Mascot } from "@/components/mascot";
+import { RAIL_PULSE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
 import { LessonErrorScreen } from "@/components/lesson-states";
@@ -72,9 +73,9 @@ const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
-// Task #917: pulse markers sampled per active-run segment (geometry density,
-// not timing; the timing constants live in the :root block in index.css).
-const PULSE_DOTS_PER_SEG = 8;
+// Task #917 / #973: comet samples per active-run segment come from the shared
+// RAIL_PULSE tuning export in lib/motion.tsx (geometry density, not timing;
+// the timing constants live in the :root block in index.css).
 
 type Station = LessonGroupSummary & {
   zoneId: number;
@@ -710,10 +711,10 @@ export default function Journey() {
       const dy = (b.y - a.y) / 2;
       const c1 = { x: a.x, y: a.y + dy };
       const c2 = { x: b.x, y: b.y - dy };
-      for (let s = 0; s < PULSE_DOTS_PER_SEG; s++) {
+      for (let s = 0; s < RAIL_PULSE.dotsPerSegment; s++) {
         // Sample midpoints of equal t slices: stays off both endpoints, so no
         // dot hides under a station marker or the interchange diamond.
-        const t = (s + 0.5) / PULSE_DOTS_PER_SEG;
+        const t = (s + 0.5) / RAIL_PULSE.dotsPerSegment;
         const u = 1 - t;
         pulseDots.push({
           x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
@@ -835,11 +836,13 @@ export default function Journey() {
                     />
                   );
                 })}
-              {/* Task #917: directional pulse dots on the active run. Delay
-                  fraction grows with sample order (current stop to next), so
-                  the repeating opacity wave reads as flow toward the next
-                  stop. Absent entirely under reduced motion or when there is
-                  no next station. */}
+              {/* Task #917 / #973: comet sweep on the active run. Delay
+                  fraction grows with sample order (current stop to next), and
+                  the sharp-attack / slow-decay keyframes light one bright head
+                  with a fading tail that travels toward the next stop. The
+                  inline color feeds the currentColor drop-shadow glow. Absent
+                  entirely under reduced motion or when there is no next
+                  station. */}
               {pulseDots.map((p, i) => (
                 <circle
                   key={`pulse-${i}`}
@@ -847,11 +850,12 @@ export default function Journey() {
                   data-testid="rail-pulse-dot"
                   cx={p.x}
                   cy={p.y}
-                  r={3}
+                  r={RAIL_PULSE.dotRadius}
                   fill={line.accent}
                   style={
                     {
                       "--rail-pulse-delay": (i / pulseDots.length).toFixed(4),
+                      color: line.accent,
                     } as React.CSSProperties
                   }
                 />

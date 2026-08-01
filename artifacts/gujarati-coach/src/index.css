@@ -259,9 +259,10 @@
   --stop-glow-max: 1;
   --station-bounce-cycle: 2.2s;  /* journey station train bounce */
   --station-bounce-height: -4px;
-  --rail-pulse-cycle: 3.4s;      /* journey active-segment pulse: one full traversal of the run, so this is also the travel speed */
-  --rail-pulse-min: 0;           /* pulse dot opacity floor (invisible between pulses) */
-  --rail-pulse-peak: 0.85;       /* pulse dot opacity peak */
+  --rail-pulse-cycle: 3.4s;      /* journey active-run comet: one full traversal of the run, so this is also the travel speed */
+  --rail-pulse-min: 0;           /* comet dot opacity floor (invisible outside the sweep) */
+  --rail-pulse-peak: 1;          /* comet head opacity peak (full strength; the faint 0.85 dots were the Task #973 defect) */
+  --rail-pulse-glow: 5px;        /* comet halo: drop-shadow blur radius around each lit dot */
   --steam-rise: -11px;           /* steam puff rise above the funnel */
   --train-ticket-h: 47px;        /* home pass train height, mobile (was 40px) */
   --train-ticket-h-lg: 65px;     /* home pass train height, lg (was 56px) */
@@ -518,25 +519,33 @@
   animation: stop-glow-pulse var(--stop-glow-cycle) ease-in-out infinite;
 }
 
-/* Journey rail: directional pulse on the active run (current stop to next
-   stop). Each accent dot pulses opacity on a shared cycle; the per-dot
-   --rail-pulse-delay fraction (set inline, growing toward the next stop)
-   phases the pulses so the wave travels in the direction of the journey.
+/* Journey rail: comet sweep on the active run (current stop to next stop).
+   Task #973 strengthened the old many-faint-dots wave into a single clearly
+   visible traveling comet: a sharp attack (4%) lights the head at full
+   --rail-pulse-peak with a currentColor glow, and the slow decay (through
+   22%) leaves a fading tail behind it. The per-dot --rail-pulse-delay
+   fraction (set inline, growing toward the next stop) phases the dots so the
+   head travels in the direction of the journey; geometry density and radius
+   live in the shared RAIL_PULSE export in lib/motion.tsx. Keyframe stop
+   percentages are the attack/decay shape and cannot be custom properties.
    Opacity only, base frame opacity 0 and no fill mode, so the reduced-motion
    reset above leaves a clean static rail with no leftover artifacts. */
 .rail-pulse-dot {
   opacity: 0;
+  filter: drop-shadow(0 0 var(--rail-pulse-glow) currentColor);
   animation: rail-pulse var(--rail-pulse-cycle) linear infinite;
   animation-delay: calc(var(--rail-pulse-delay, 0) * var(--rail-pulse-cycle));
 }
 @keyframes rail-pulse {
-  0%,
-  34%,
-  100% {
+  0% {
     opacity: var(--rail-pulse-min);
   }
-  12% {
+  4% {
     opacity: var(--rail-pulse-peak);
+  }
+  22%,
+  100% {
+    opacity: var(--rail-pulse-min);
   }
 }
 /* Journey station train: lively double station bounce. */

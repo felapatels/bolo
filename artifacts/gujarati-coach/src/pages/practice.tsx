@@ -25,7 +25,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
@@ -1118,6 +1118,50 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
   };
 
+  // ── Manual phrase navigation (Task #973) ────────────────────────────────
+  // Moving between phrases is FREE, never attempt-gated: attempts and
+  // bestScore live in sessionResults keyed by phrase id, so no visit order
+  // can lose progress. Navigation always lands in "idle" (never
+  // "playing_coach") and fires no recording, playback, or scoring side
+  // effect; the playing_coach effect's cleanup pauses any in-flight coach
+  // audio when state flips away, and the spoken-feedback effect does the same
+  // for result audio. Milestone toasts stay exclusive to auto-advance.
+  // Test-out runs are one take per phrase, forward only, so the controls do
+  // not render there and this is never called.
+  const goToPhrase = (target: number) => {
+    if (!phrases || target < 0 || target >= phrases.length) return;
+    // Never yank the phrase out from under an in-flight take or evaluation.
+    if (state === "recording" || state === "evaluating") return;
+    feedbackAudioPendingRef.current = null; // discard stale pre-synthesis
+    setResult(null);
+    setEvalError(null);
+    setShowConfetti(false);
+    setOwnRecording(null); // release any ear-training playback
+    setCurrentIndex(target);
+    setState("idle");
+  };
+
+  // Keyboard left/right arrows mirror the on-screen prev/next controls.
+  // Re-subscribed per render so the handler always closes over fresh state;
+  // guards keep it inert during recording/evaluating and in test-out mode.
+  useEffect(() => {
+    if (isTestout) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goToPhrase(currentIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goToPhrase(currentIndex + 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const upgrade = asUpgradeRequired(error);
   if (upgrade) {
     return (
@@ -1832,6 +1876,38 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   className="w-full h-full bg-transparent cursor-pointer select-none focus:outline-none"
                 />
               </div>
+            )}
+
+            {/* Manual prev/next phrase navigation (Task #973). Free, never
+                attempt-gated. Visually secondary and absolutely positioned at
+                the zone edges so the record button and waveform layout never
+                shift. Edge phrases disable their button; recording and
+                evaluating disable both. Hidden in test-out mode (one take per
+                phrase, forward only). Rendered after the belly hit zone so
+                they sit above it in the stacking order. */}
+            {!isTestout && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => goToPhrase(currentIndex - 1)}
+                  disabled={currentIndex === 0 || state === "recording" || state === "evaluating"}
+                  aria-label="Go to previous phrase"
+                  data-testid="button-prev-phrase"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-white/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPhrase(currentIndex + 1)}
+                  disabled={currentIndex >= phrases.length - 1 || state === "recording" || state === "evaluating"}
+                  aria-label="Go to next phrase"
+                  data-testid="button-next-phrase"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-white/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
             )}
           </div>
 

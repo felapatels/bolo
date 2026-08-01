@@ -63,9 +63,11 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
+import { RAIL_PULSE } from "@/lib/motion";
 
-// Must match PULSE_DOTS_PER_SEG in pages/journey.tsx.
-const DOTS_PER_SEG = 8;
+// Task #973: geometry constants are the shared RAIL_PULSE tuning export, so
+// this suite can never drift from what the page actually renders.
+const DOTS_PER_SEG = RAIL_PULSE.dotsPerSegment;
 
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
@@ -171,5 +173,20 @@ describe("journey rail directional pulse (task 917)", () => {
     setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
     const { container } = renderJourney();
     expect(pulseDots(container)).toHaveLength(0);
+  });
+
+  test("comet treatment (task 973): every dot renders at the shared tuning radius with the accent glow color", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    const { container } = renderJourney();
+    const dots = pulseDots(container);
+    expect(dots.length).toBeGreaterThan(0);
+    for (const d of dots) {
+      // Radius comes from RAIL_PULSE, not a hardcoded r=3 (the old faint-dot
+      // defect this treatment replaced).
+      expect(d.getAttribute("r")).toBe(String(RAIL_PULSE.dotRadius));
+      // The inline CSS color feeds the currentColor drop-shadow halo, so the
+      // glow always matches the line accent.
+      expect((d as SVGElement).style.color).not.toBe("");
+    }
   });
 });

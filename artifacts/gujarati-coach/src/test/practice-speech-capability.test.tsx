@@ -214,7 +214,8 @@ describe("unsupported language: ear-training mode", () => {
     );
     expect(screen.getByRole("button", { name: /^Hear the phrase$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Practice again/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Next/i })).toBeInTheDocument();
+    // Anchored: the task 973 nav control "Go to next phrase" must not match.
+    expect(screen.getByRole("button", { name: /^Next( phrase)?$/i })).toBeInTheDocument();
 
     // Critically: no pronunciation evaluation was ever requested, and no
     // scored band verdict is shown.

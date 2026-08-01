@@ -43,6 +43,27 @@ export const springs = {
 export type SpringName = keyof typeof springs;
 
 // ---------------------------------------------------------------------------
+// Journey rail comet tuning (Task #973). Geometry constants for the traveling
+// comet sweep on the journey map's active run. Timing and opacity live as the
+// --rail-pulse-* custom properties in the :root tuning block in index.css.
+// Named exports so composing work (for example the journey open sweep) and
+// tests share one source of truth instead of hardcoding values.
+// ---------------------------------------------------------------------------
+
+export const RAIL_PULSE = {
+  /**
+   * Bezier samples per rail segment. Dense enough that the lit stretch reads
+   * as one continuous comet tail rather than separate blinking dots.
+   */
+  dotsPerSegment: 10,
+  /**
+   * Radius of each sampled dot in SVG px. The r=3 dots this replaced read as
+   * noise at map scale; 4px plus the CSS glow reads as a single bright head.
+   */
+  dotRadius: 4,
+} as const;
+
+// ---------------------------------------------------------------------------
 // Entrance / idle helpers — return props you can spread onto a motion element.
 // ---------------------------------------------------------------------------
 
