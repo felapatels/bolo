@@ -177,6 +177,13 @@ jest.mock('@/components/NamePromptCard', () => ({
   NamePromptCard: () => null,
 }));
 
+// R4: home mounts the tear-SFX preloader; the real module pulls expo-audio,
+// which has no global jest mock.
+jest.mock('@/lib/tearAudio', () => ({
+  preloadTearAudio: jest.fn(),
+  playTearSfx: jest.fn(),
+}));
+
 // Imported after all mocks.
 import HomeScreen from '../app/(app)/(tabs)/index';
 

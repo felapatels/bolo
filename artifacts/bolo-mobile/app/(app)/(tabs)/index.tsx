@@ -53,6 +53,7 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
 /** AsyncStorage key recording that the daily-goal celebration already fired. */
@@ -89,6 +90,13 @@ export default function HomeScreen() {
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
   const recent = useListRecentAttempts({ lang: activeLang, limit: 5 });
+
+  // R4: decode the boarding-pass tear SFX at home mount (web's
+  // preload-at-mount pattern) so the first pass activation plays with zero
+  // load lag. Best-effort; failure keeps the tear silent, never broken.
+  useEffect(() => {
+    preloadTearAudio();
+  }, []);
 
   // Locked-language home (mirrors the web home's banner treatment): a 402
   // upgrade_required summary means the active language isn't on the learner's
@@ -676,6 +684,19 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+      {/* R5 (32.1): bottom fade mask. Recent-plays rows carry the same
+          "Didn't catch that" / "Retake" vocabulary as the practice feedback
+          bar, and the floating pill tab bar lets scroll content show in its
+          side margins and in the gap beneath the pill - which reads as a
+          leftover feedback bar peeking under the tab bar. Fading content out
+          before it enters the pill zone removes the phantom-bar effect.
+          pointerEvents none so touches pass straight through. */}
+      <LinearGradient
+        testID="home-bottom-fade"
+        pointerEvents="none"
+        colors={[`${colors.background}00`, colors.background]}
+        style={styles.bottomFade}
+      />
     </Screen>
   );
 }
@@ -1205,6 +1226,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconBtnBadgeText: { fontFamily: AppFonts.bold, fontSize: 10 },
+  // R5: fade zone over the bottom of the scroll content so rows dissolve
+  // before they reach the floating pill tab bar (pill top edge sits at most
+  // ~108px from the screen bottom: max(inset, 14) + 74px bar height).
+  bottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 110,
+  },
   privacyLink: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,0 +1,31 @@
+BRIEF B FINDINGS BATCH (everything except the scoring investigation, which you already hold). Two diagnostics to run now, read-only; the rest is the characterized respin backlog to hold until the respin brief is issued. Do not fix anything yet.
+
+=== DIAGNOSTIC 1 (blocker): Web station entry fails, "No phrases found here" ===
+Two failing routes observed on dev web, All-Access account: (a) the home boarding pass "Resume at Stop 2" tap (Gujarati line, pass showed Next stop Ahmedabad Junction, 0/10 at this stop); (b) the journey map station card tap on Stop 2 "Now boarding" (Hindi line). Both land on the "No phrases found here" empty state instead of a practice session. Diagnose read-only and report:
+1. For each route, the exact URL constructed on tap and the loader fetch it triggers; what the server returned for this account (200-empty vs 402 vs error), from server logs.
+2. Whether the empty state renders on error paths as well as genuinely empty data (is a denial or exception being swallowed into this copy?).
+3. Diff-check today's commits against this path: 4337839's resume-ruling change to the group-session start derivation (does the loader now early-return or mis-scope the phrase fetch on ?group= entry?), and the W7 BandPill commit's home.tsx touch.
+4. Server-side reproduction: call the group phrase endpoint with this account's params for both stops; post raw results.
+5. State whether the phrasebook-door entry path (category route) shares the failing code.
+If the cause is server-side phrase serving, flag HOTFIX for immediate fix ahead of the respin; if client/loader-side, it heads the respin list.
+
+=== DIAGNOSTIC 2 (blocker): Mobile chat recorder, once-per-install auto-record ===
+On first-ever mobile chat use (the session where the iOS mic permission dialog appeared), recording auto-started at permission grant with no explicit press, and the captured "user turn" was garbage (likely Bolo's own TTS greeting plus room noise), poisoning the conversation. After kill-and-relaunch (permission already granted), behavior is normal, so the bug fires exactly once per install, on every new user's first chat. This is the same unobserved-grant hole fixed on web chat; Brief A's item 5 audited mobile PRACTICE clean but explicitly scoped mobile chat out. Diagnose read-only and report:
+1. The mobile chat recorder's permission-grant flow: does the grant callback or any post-grant continuation start capture without an explicit press? Cite the code path.
+2. Whether the chat STT call sends the language hint (languageCode) the practice path sends; report the request shape.
+3. Whether echo/self-capture is possible while Bolo's TTS plays (does chat stop or duck playback before opening the mic?).
+Fix design per the web chat.tsx pattern (grant never starts recording, explicit action only) goes in the respin; report findings only.
+
+=== RESPIN BACKLOG (characterized, hold for the respin brief; no action now) ===
+
+R1. JourneyPassCard right stub layout (mobile, screenshot on file): four symptoms, one cause: the fixed stub column does not fit its content. FARE ZONE label collides with the dashed circle's top-left arc; the circle sits low; the vertical GUJARAT EXPRESS wordmark truncates with an ellipsis; AHMEDABAD JUNCTION wraps mid-word overlapping the circle's lower arc. Fix: rework the stub's internal layout so all four fit by design (label+circle scale as a unit to stub width; station name sized to fit or abbreviated by intent; vertical wordmark sized to available height, no ellipsis, shorten the string deliberately if needed). Verify at default and large accessibility text, two device widths; tear geometry unaffected.
+
+R2. Mobile journey scroll performance: choppy scroll on device post-Brief-A (scenery + depth + parallax port); no device perf measurement was taken at port time. Owner will report a reduce-motion split test (smooth under RM = animation layer; still choppy = static weight). Fix direction: parallax must run UI-thread (Reanimated scrollHandler + native-driver interpolation, never JS-thread scroll events); shadows get shadowPath or rasterization or consolidate to fewer shadowed containers; comet animation verified native-driver. Budget: 60fps on the owner's device, measured before/after per the web task's precedent; if a sub-piece cannot be made cheap, defer THAT sub-piece (parallax is the designated sacrifice per the original brief).
+
+R3. Quiz answer tiles need romanized subtitles (mobile; check web twin): Order the Words shows native-script-only tiles while the question card shows romanization, making the exercise unanswerable for learners who cannot read the script yet. Each tile gains the romanized form as a subtitle using the existing transliteration source and per-language rules (the #907 sanscript integration; no-romanization languages render no subtitle). Tile structured with a subtitle slot (future hide-romanization mode stays possible). Verify across quiz question types with word options; fix web in the same pass if shared.
+
+R4. Mobile tear SFX: port the recorded asset (web landed it at 57be2f6, gain 0.4) to mobile via expo-audio/expo-av with the preload-at-mount pattern; completes tear parity alongside the existing native haptic.
+
+R5. Possible bleed-through (unconfirmed): a "Didn't catch that / Retake" bar was visible peeking under the tab bar on the HOME screen in an owner screenshot, suggesting a chat/practice surface or sheet surviving navigation. Owner will report whether it persists after app kill; if confirmed, diagnose the z-order or dismissal leak.
+
+Acknowledge receipt, run the two diagnostics, and report; the respin brief that sequences fixes R1-R5 plus the diagnostic outcomes plus the scoring fix will follow once the scoring trace and the labeled capture set are in.

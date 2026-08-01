@@ -90,6 +90,20 @@ let recordingSessionActive = false;
 /** Tracks which mode the last enqueued flip targets, to skip redundant sets. */
 let modeIsRecording = false;
 
+/**
+ * True if mic permission is already granted. Never prompts - use this to
+ * gate background pre-warms so the permission dialog only ever appears in
+ * response to a real press (R6, 32.1).
+ */
+export async function hasRecordingPermission(): Promise<boolean> {
+  try {
+    const status = await AudioModule.getRecordingPermissionsAsync();
+    return status.granted;
+  } catch {
+    return false;
+  }
+}
+
 /** Ask for microphone permission and configure the audio session for recording. */
 export async function prepareRecordingSession(): Promise<boolean> {
   const status = await AudioModule.requestRecordingPermissionsAsync();

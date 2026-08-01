@@ -252,6 +252,16 @@ function OrderQuestion({
   const [available, setAvailable] = useState<string[]>([...q.tiles]);
   const [submitted, setSubmitted] = useState(false);
 
+  // R3: tile → romanized subtitle, aligned by index server-side. Identical
+  // tile text always romanizes identically, so a text-keyed map survives the
+  // staged/available splits. Empty entries (no clean romanization for the
+  // script) render no subtitle line at all.
+  const tileRomanization: Record<string, string> = {};
+  q.tiles.forEach((t, i) => {
+    const r = q.tileRomanizations?.[i];
+    if (r) tileRomanization[t] = r;
+  });
+
   const pick = (tile: string, idx: number) => {
     if (answered) return;
     setAvailable((a) => a.filter((_, i) => i !== idx));
@@ -290,13 +300,16 @@ function OrderQuestion({
             key={`${t}-${i}`}
             onClick={() => unpick(t, i)}
             className={cn(
-              "rounded-lg border px-3 py-1.5 text-base font-semibold transition-all",
+              "flex flex-col items-center rounded-lg border px-3 py-1.5 text-base font-semibold transition-all",
               submitted && correct && "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40",
               submitted && !correct && "border-red-400 bg-red-50 text-red-700 dark:bg-red-950/40",
               !submitted && "border-primary/50 bg-primary/10 text-primary",
             )}
           >
             {t}
+            {tileRomanization[t] && (
+              <span className="text-xs font-normal opacity-70">{tileRomanization[t]}</span>
+            )}
           </button>
         ))}
       </div>
@@ -307,9 +320,12 @@ function OrderQuestion({
           <button
             key={`${t}-${i}`}
             onClick={() => pick(t, i)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-base font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/40"
+            className="flex flex-col items-center rounded-lg border border-border bg-card px-3 py-1.5 text-base font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/40"
           >
             {t}
+            {tileRomanization[t] && (
+              <span className="text-xs font-normal text-muted-foreground">{tileRomanization[t]}</span>
+            )}
           </button>
         ))}
       </div>

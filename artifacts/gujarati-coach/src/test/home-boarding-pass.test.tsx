@@ -216,6 +216,32 @@ describe("home boarding pass CTA copy", () => {
     expect(screen.getByText("Continue your journey")).toBeInTheDocument();
     expect(screen.queryByText(/resume at stop/i)).toBeNull();
   });
+
+  // S2 map honesty: a planLocked group (all its phrases are premium, so the
+  // caller's plan can practice nothing there) is never the boarding-pass
+  // target. When the only stops ahead are planLocked, the pass upsells
+  // instead of promising a ride it cannot deliver.
+  test("planLocked stops ahead with nothing boardable render the All-Access nudge", () => {
+    h.groups = [
+      grp({ status: "completed", masteredCount: 5, attemptedCount: 5 }),
+      grp({ id: 2, position: 2, status: "locked", planLocked: true, phraseCount: 0 }),
+    ];
+    renderHome();
+    expect(
+      screen.getByText("Unlock your next stop with All-Access"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Continue your journey")).toBeNull();
+  });
+
+  test("a boardable current stop wins over planLocked stops further down the line", () => {
+    h.groups = [
+      grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 }),
+      grp({ id: 2, position: 2, status: "locked", planLocked: true, phraseCount: 0 }),
+    ];
+    renderHome();
+    expect(screen.getByText("Resume at Stop 1 · 3 phrases to go")).toBeInTheDocument();
+    expect(screen.queryByText("Unlock your next stop with All-Access")).toBeNull();
+  });
 });
 
 describe("home boarding pass motion", () => {

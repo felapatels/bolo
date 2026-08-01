@@ -310,3 +310,85 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
 
   return { score, passed: score >= 80 };
 }
+
+// ─── S1 dual-pass STT conservative choice ────────────────────────────────────
+
+export interface DualPassChoice {
+  /** The transcript band computation must use. */
+  transcript: string;
+  /** True when the two passes disagreed after normalization. */
+  disagreement: boolean;
+  /** True when both passes were effectively empty (silence/garble). */
+  bothEmpty: boolean;
+  /**
+   * True when the chosen (farther) transcript is effectively empty while the
+   * other pass heard content: the passes could not corroborate each other, so
+   * the route must resolve this as a system miss (nocatch), never a score.
+   */
+  chosenEmptyWithEvidence: boolean;
+}
+
+/** Normalizes a transcript for pass-vs-pass agreement checks: Latin transcripts
+ * fold through normalizeLatin, everything else through normalizeNative. */
+function normalizeForAgreement(text: string): string {
+  return isLatin(text) ? normalizeLatin(text) : normalizeNative(text);
+}
+
+/**
+ * S1 honesty rule: both STT passes run on every scored attempt. When they
+ * disagree (normalized inequality), band computation must use the transcript
+ * FARTHER from the target, never the pass that happens to match the target.
+ * An STT pass that normalizes a wrong pronunciation into the target transcript
+ * is exactly the failure mode this defends against.
+ *
+ * Distance ladder (lower sorts farther): comparable sim, then non-comparable
+ * (-1: unverifiable script), then effectively-empty (-2: no content at all).
+ * Ties keep the high-quality pass; a tie is equidistant, so preferring the
+ * better recognizer carries no toward-target bias.
+ */
+export function chooseConservativeTranscript(input: {
+  mini: string;
+  hq: string;
+  targetNative: string;
+  targetRomanized: string;
+}): DualPassChoice {
+  const mini = input.mini.trim();
+  const hq = input.hq.trim();
+  const miniEmpty = isEffectivelyEmpty(mini);
+  const hqEmpty = isEffectivelyEmpty(hq);
+  if (miniEmpty && hqEmpty) {
+    return {
+      transcript: "",
+      disagreement: false,
+      bothEmpty: true,
+      chosenEmptyWithEvidence: false,
+    };
+  }
+  const agree =
+    !miniEmpty &&
+    !hqEmpty &&
+    normalizeForAgreement(mini) === normalizeForAgreement(hq);
+  if (agree) {
+    // Same content after normalization; keep the high-quality rendering.
+    return {
+      transcript: hq,
+      disagreement: false,
+      bothEmpty: false,
+      chosenEmptyWithEvidence: false,
+    };
+  }
+  const effectiveSim = (t: string, empty: boolean): number => {
+    if (empty) return -2;
+    const cmp = compareToTarget(t, input.targetNative, input.targetRomanized);
+    return cmp.comparable ? cmp.sim : -1;
+  };
+  const miniEff = effectiveSim(mini, miniEmpty);
+  const hqEff = effectiveSim(hq, hqEmpty);
+  const chooseMini = miniEff < hqEff;
+  return {
+    transcript: chooseMini ? mini : hq,
+    disagreement: true,
+    bothEmpty: false,
+    chosenEmptyWithEvidence: chooseMini ? miniEmpty : hqEmpty,
+  };
+}

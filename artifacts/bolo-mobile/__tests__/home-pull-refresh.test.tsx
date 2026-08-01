@@ -177,6 +177,13 @@ jest.mock('@/components/NamePromptCard', () => ({
   NamePromptCard: () => null,
 }));
 
+// R4: home mounts the tear-SFX preloader; the real module pulls expo-audio,
+// which has no global jest mock.
+jest.mock('@/lib/tearAudio', () => ({
+  preloadTearAudio: jest.fn(),
+  playTearSfx: jest.fn(),
+}));
+
 // Imported after all mocks.
 import HomeScreen from '../app/(app)/(tabs)/index';
 
@@ -318,5 +325,22 @@ describe('HomeScreen - pull-to-refresh spinner', () => {
       getRefreshControl().props.onRefresh();
     });
     expect(getRefreshControl().props.refreshing).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R5 (32.1): the bottom fade mask. Recent-plays rows carry the same
+// "Didn't catch that" / "Retake" vocabulary as the practice feedback bar, so
+// a row showing through the floating pill tab bar's margins reads as a
+// leftover feedback bar. The fade dissolves content before the pill zone and
+// must never intercept touches.
+// ---------------------------------------------------------------------------
+
+describe('HomeScreen - bottom fade mask (R5)', () => {
+  it('renders the fade above the scroll content and passes touches through', () => {
+    render(<HomeScreen />);
+    const fade = screen.getByTestId('home-bottom-fade');
+    expect(fade).toBeOnTheScreen();
+    expect(fade.props.pointerEvents).toBe('none');
   });
 });

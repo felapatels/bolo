@@ -268,6 +268,16 @@ function OrderQuestion({
   const [available, setAvailable] = useState<string[]>([...q.tiles]);
   const [submitted, setSubmitted] = useState(false);
 
+  // R3: tile → romanized subtitle, aligned by index server-side. Identical
+  // tile text always romanizes identically, so a text-keyed map survives the
+  // staged/available splits. Empty entries (no clean romanization for the
+  // script) render no subtitle line at all.
+  const tileRomanization: Record<string, string> = {};
+  q.tiles.forEach((t, i) => {
+    const r = q.tileRomanizations?.[i];
+    if (r) tileRomanization[t] = r;
+  });
+
   const pick = (tile: string, idx: number) => {
     if (answered) return;
     setAvailable((a) => a.filter((_, i) => i !== idx));
@@ -312,6 +322,11 @@ function OrderQuestion({
                 }]}
               >
                 <Text style={[s.tileText, { color: submitted ? (correct ? '#15803d' : '#b91c1c') : colors.primary }]}>{t}</Text>
+                {tileRomanization[t] ? (
+                  <Text style={[s.tileRomanized, { color: submitted ? (correct ? '#15803d' : '#b91c1c') : colors.primary }]}>
+                    {tileRomanization[t]}
+                  </Text>
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -327,6 +342,11 @@ function OrderQuestion({
             style={[s.tile, { borderColor: colors.border, backgroundColor: colors.card }]}
           >
             <Text style={[s.tileText, { color: colors.foreground }]}>{t}</Text>
+            {tileRomanization[t] ? (
+              <Text style={[s.tileRomanized, { color: colors.mutedForeground }]}>
+                {tileRomanization[t]}
+              </Text>
+            ) : null}
           </Pressable>
         ))}
       </View>
@@ -827,8 +847,11 @@ const s = StyleSheet.create({
   stagedArea: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 14, padding: 12, minHeight: 56 },
   stagedHint: { fontFamily: AppFonts.regular, fontSize: 13 },
   tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 8 },
-  tileText: { fontFamily: AppFonts.semibold, fontSize: 18 },
+  tile: { borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 8, alignItems: 'center' },
+  tileText: { fontFamily: AppFonts.semibold, fontSize: 18, textAlign: 'center' },
+  // R3: romanized subtitle slot under each tile — no numberOfLines anywhere
+  // on tiles, so neither line can ever truncate at large text sizes.
+  tileRomanized: { fontFamily: AppFonts.regular, fontSize: 11, textAlign: 'center', marginTop: 1 },
 
   submitBtn: { borderRadius: 14, padding: 14, alignItems: 'center', justifyContent: 'center' },
   submitText: { fontFamily: AppFonts.bold, fontSize: 15 },

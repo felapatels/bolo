@@ -40,6 +40,12 @@ export interface GroupUnlockContext {
   byGroup: Map<number, number[]>;
   /** Stage per group id (groups are stage-homogeneous by construction). */
   stageByGroup: Map<number, "phrase" | "sentence">;
+  /**
+   * Phrase ids flagged premium (extended-library). Lets read endpoints compute
+   * plan-visible counts (S2 map honesty) without a second phrases query.
+   * Unlock/completion derivation stays plan-agnostic and does NOT use this.
+   */
+  premiumIds: Set<number>;
   /** Phrases in this (category, language) that no group claims yet. */
   unassignedCount: number;
   stats: Map<number, PhraseStats>;
@@ -82,6 +88,7 @@ export async function loadGroupUnlockContext(
           id: phrasesTable.id,
           lessonGroupId: phrasesTable.lessonGroupId,
           stage: phrasesTable.stage,
+          premium: phrasesTable.premium,
         })
         .from(phrasesTable)
         .where(
@@ -127,7 +134,9 @@ export async function loadGroupUnlockContext(
 
   const byGroup = new Map<number, number[]>();
   const stageByGroup = new Map<number, "phrase" | "sentence">();
+  const premiumIds = new Set<number>();
   for (const m of members) {
+    if (m.premium) premiumIds.add(m.id);
     if (m.lessonGroupId == null) continue;
     const list = byGroup.get(m.lessonGroupId) ?? [];
     list.push(m.id);
@@ -146,6 +155,7 @@ export async function loadGroupUnlockContext(
     groups,
     byGroup,
     stageByGroup,
+    premiumIds,
     unassignedCount: unassigned?.n ?? 0,
     stats,
     testedOutGroupIds: new Set(

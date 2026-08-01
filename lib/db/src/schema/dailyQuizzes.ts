@@ -43,6 +43,10 @@ export type OrderWordsQuestion = {
   romanized: string;
   english: string;
   tiles: string[]; // shuffled word/token array
+  // Romanized subtitle for each tile, parallel to `tiles` (R3, 32.1). ""
+  // entries (uncovered scripts) render no subtitle; optional because quizzes
+  // stored before the field shipped lack it.
+  tileRomanizations?: string[];
 };
 
 export type QuizQuestion =

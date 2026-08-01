@@ -93,7 +93,7 @@ type Station = LessonGroupSummary & {
 };
 
 type LockInfo = {
-  kind: 'progression' | 'sentence' | 'language';
+  kind: 'progression' | 'sentence' | 'language' | 'plan';
   stopLabel: string;
   zoneTitle: string;
   /** Route pieces for the progression dialog's test-out action. */
@@ -140,12 +140,18 @@ function StopGlowPulse({ color }: { color: string }) {
     <Animated.View
       pointerEvents="none"
       testID="stop-glow"
+      // R2 (32.1): the ring carries an iOS soft shadow (shadowRadius 8) and
+      // pulses opacity every frame. Rasterizing lets Core Animation fade one
+      // cached texture instead of recompositing the shadow per frame; the
+      // Android hardware-texture hint gives the same cached-layer fade.
+      shouldRasterizeIOS
+      renderToHardwareTextureAndroid
       style={[styles.stopGlow, { borderColor: color, shadowColor: color }, style]}
     />
   );
 }
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 // Rail comet tuning, mirroring the web source of truth (RAIL_PULSE in
 // lib/motion.tsx plus the --rail-pulse-* custom properties in index.css):
@@ -184,40 +190,34 @@ function RailPulseDot({
   color: string;
   progress: SharedValue<number>;
 }) {
-  const headProps = useAnimatedProps(() => ({
+  // R2 (32.1): ONE animated node per dot. The halo used to carry its own
+  // useAnimatedProps (0.35x the head keyframe), doubling the per-frame SVG
+  // prop writes on the UI thread; a shared group opacity with a static 0.35
+  // halo fill opacity is visually equivalent and halves that work.
+  const groupProps = useAnimatedProps(() => ({
     opacity: interpolate(
       (progress.value - delayFrac + 1) % 1,
       [0, 0.04, 0.22, 1],
       [0, 1, 0, 0],
     ),
   }));
-  const haloProps = useAnimatedProps(() => ({
-    opacity:
-      0.35 *
-      interpolate(
-        (progress.value - delayFrac + 1) % 1,
-        [0, 0.04, 0.22, 1],
-        [0, 1, 0, 0],
-      ),
-  }));
   return (
-    <>
-      <AnimatedCircle
+    <AnimatedG animatedProps={groupProps}>
+      <Circle
         cx={x}
         cy={y}
         r={RAIL_PULSE.dotRadius + 3}
         fill={color}
-        animatedProps={haloProps}
+        opacity={0.35}
       />
-      <AnimatedCircle
+      <Circle
         testID="rail-pulse-dot"
         cx={x}
         cy={y}
         r={RAIL_PULSE.dotRadius}
         fill={color}
-        animatedProps={headProps}
       />
-    </>
+    </AnimatedG>
   );
 }
 
@@ -954,7 +954,9 @@ export default function JourneyScreen() {
                   ? 'language'
                   : sentenceGated
                     ? 'sentence'
-                    : 'progression',
+                    : s.planLocked === true
+                      ? 'plan'
+                      : 'progression',
                 stopLabel: `${stopLabel} · ${zone.geoName}`,
                 zoneTitle: zone.title,
                 zoneId: zone.id,
@@ -1227,6 +1229,34 @@ export default function JourneyScreen() {
                     setLock(null);
                     router.push('/(app)/paywall');
                   }}
+                  style={[styles.dialogCta, { backgroundColor: colors.secondary }]}
+                >
+                  <Feather name="star" size={16} color="#ffffff" />
+                  <Text style={[styles.dialogCtaText, { color: '#ffffff' }]}>
+                    Unlock with All-Access
+                  </Text>
+                </Pressable>
+              </>
+            )}
+            {lock?.kind === 'plan' && (
+              <>
+                <View style={styles.dialogTitleRow}>
+                  <Feather name="lock" size={14} color={colors.foreground} />
+                  <Text style={[styles.dialogTitle, { color: colors.foreground }]}>
+                    This stop is All-Access territory
+                  </Text>
+                </View>
+                <Text style={[styles.dialogBody, { color: colors.mutedForeground }]}>
+                  {lock.stopLabel}: every phrase at this stop is part of the
+                  extended library. Unlock All-Access to keep riding the{' '}
+                  {line.lineName}.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setLock(null);
+                    router.push('/(app)/paywall');
+                  }}
+                  testID="plan-lock-upgrade"
                   style={[styles.dialogCta, { backgroundColor: colors.secondary }]}
                 >
                   <Feather name="star" size={16} color="#ffffff" />

@@ -1142,6 +1142,11 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     // Flag attempts where the client did not report latency so we can measure
     // what fraction of attempts are unguarded before making the field required.
     flags: claims.latencyMs == null ? "latency_missing" : null,
+    // S1 dual-pass honesty fields, replayed verbatim from the signed token.
+    // Null (not empty string) when the token predates dual-pass STT.
+    sttTranscriptMini: claims.sttTranscriptMini ?? null,
+    sttTranscriptHq: claims.sttTranscriptHq ?? null,
+    sttDisagreement: claims.sttDisagreement ?? null,
   };
 
   let row: typeof attemptsTable.$inferSelect;
@@ -1938,7 +1943,20 @@ router.get(
     // route uses, so the journey map can never disagree with what practice
     // actually serves.
     const ctx = await loadGroupUnlockContext(userId, id, lang);
-    const { groups, byGroup, stageByGroup, stats } = ctx;
+    const { groups, byGroup, stageByGroup, stats, premiumIds } = ctx;
+
+    // S2 map honesty: for an allowed caller without extended-library access,
+    // every per-group count reflects only the phrases their plan can actually
+    // practice (mirroring the premium filter on /lesson-groups/:id/phrases).
+    // A group whose plan-visible count is zero is reported locked with
+    // planLocked: true so clients render the Plus upsell instead of an
+    // unlocked station that serves an empty session. Showroom (teaser or
+    // exhausted) callers keep today's full-count payload byte-identical, and
+    // unlock/completion derivation below stays plan-agnostic.
+    const canAccessPremium =
+      showroom != null ||
+      featuresForPlan((req as EntitledRequest).resolvedPlan.plan)
+        .extendedLibrary;
 
     // D1a Slice 2: sequential unlock, derived at read time. Entitlement
     // precedence still holds — a showroom caller never reaches the unlock
@@ -1971,7 +1989,12 @@ router.get(
 
     res.json({
       lessonGroups: groups.map((g) => {
-        const phraseIds = byGroup.get(g.id) ?? [];
+        const allIds = byGroup.get(g.id) ?? [];
+        const phraseIds = canAccessPremium
+          ? allIds
+          : allIds.filter((pid) => !premiumIds.has(pid));
+        const planLocked =
+          !canAccessPremium && allIds.length > 0 && phraseIds.length === 0;
         let attempted = 0;
         let mastered = 0;
         for (const pid of phraseIds) {
@@ -1986,11 +2009,14 @@ router.get(
           phraseCount: phraseIds.length,
           attemptedCount: attempted,
           masteredCount: mastered,
-          status: derived
-            ? derived.get(g.id) ?? "locked"
-            : g.id === teaserGroupId
-              ? "unlocked"
-              : "locked",
+          status: planLocked
+            ? "locked"
+            : derived
+              ? derived.get(g.id) ?? "locked"
+              : g.id === teaserGroupId
+                ? "unlocked"
+                : "locked",
+          ...(planLocked ? { planLocked: true } : {}),
           stage: stageByGroup.get(g.id) ?? "phrase",
           ...(teaserGroupId != null && g.id === teaserGroupId
             ? { teaserStation: true }

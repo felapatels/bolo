@@ -86,6 +86,8 @@ jest.mock('expo-audio', () => ({
 }));
 
 jest.mock('@/lib/audio', () => ({
+  // R6: pre-warm gate - granted by default so suites keep their warm-mic setup.
+  hasRecordingPermission: jest.fn(async () => true),
   prepareRecordingSession: (...args: unknown[]) =>
     mockState.prepareRecordingSession(...args),
   prepareRecorderInSession: jest.fn(async () => undefined),
@@ -330,14 +332,22 @@ describe('text input row is inside the KeyboardAvoidingView', () => {
   test('KAV gains flex:1 once a message bubble appears', async () => {
     render(<ChatScreen />);
 
-    // Quick hold-and-release starts async recorder startup; the startup guard
-    // calls handleStopRecording, which synchronously adds the pending learner
-    // bubble (setMessages) before any network I/O, giving messages.length > 0.
+    // A real hold-and-release: the stop path synchronously adds the pending
+    // learner bubble (setMessages) before any network I/O, giving
+    // messages.length > 0.
+    // R6 (32.1): a quick tap now aborts instead of submitting, so hold
+    // through startup and release only after the minimum recording duration
+    // (clock spied) - the stop path then adds the pending learner bubble.
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
     await act(async () => {
-      const mascot = screen.getByRole('button', { name: 'Hold to speak' });
-      fireEvent(mascot, 'pressIn');
-      fireEvent(mascot, 'pressOut');
+      fireEvent(screen.getByRole('button', { name: 'Hold to speak' }), 'pressIn');
     });
+    now += 500;
+    await act(async () => {
+      fireEvent(screen.getByRole('button', { name: 'Release to send' }), 'pressOut');
+    });
+    nowSpy.mockRestore();
 
     // Once a message exists the transcript ScrollView appears, so the KAV
     // must carry flex:1 so the transcript can scroll inside the available
@@ -360,11 +370,19 @@ describe('transcript ScrollView is inside the KeyboardAvoidingView', () => {
     const { UNSAFE_getAllByType } = render(<ChatScreen />);
 
     // Trigger a pending learner bubble so the transcript appears.
+    // R6 (32.1): a quick tap now aborts instead of submitting, so hold
+    // through startup and release only after the minimum recording duration
+    // (clock spied) - the stop path then adds the pending learner bubble.
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
     await act(async () => {
-      const mascot = screen.getByRole('button', { name: 'Hold to speak' });
-      fireEvent(mascot, 'pressIn');
-      fireEvent(mascot, 'pressOut');
+      fireEvent(screen.getByRole('button', { name: 'Hold to speak' }), 'pressIn');
     });
+    now += 500;
+    await act(async () => {
+      fireEvent(screen.getByRole('button', { name: 'Release to send' }), 'pressOut');
+    });
+    nowSpy.mockRestore();
 
     // The pending bubble text is shown; verify the KAV contains the ScrollView.
     const kav = getKAV();

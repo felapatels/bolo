@@ -282,9 +282,11 @@ test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", a
   assert.ok(json.score < 80, `wrong word score must be < 80, got ${json.score}`);
 });
 
-test("fast-path: sim = 1.0 (exact match) → score exactly 100", async () => {
-  // An exact transcript match normalises to sim = 1.0.
-  // simToScore(1.0, 0.90) = 80 + (1.0 - 0.90) / (1.0 - 0.90) * 20 = 100.
+test("fast-path: sim = 1.0 (exact match) → S1 honesty cap holds score at 92 / band 'great'", async () => {
+  // An exact transcript match normalises to sim = 1.0. simToScore would give
+  // 100, but the S1 honesty cap fires: transcript equals the normalized target
+  // and both STT passes agree, so the score caps at 92 and the band at 'great'.
+  // 'Perfect' is unreachable for a target-equal transcript until scoring v2.
   stubbedTranscript = "kem chho";
   llmCallCount = 0;
 
@@ -292,7 +294,8 @@ test("fast-path: sim = 1.0 (exact match) → score exactly 100", async () => {
 
   assert.equal(status, 200);
   assert.equal(json.passed, true);
-  assert.equal(json.score, 100, `expected score 100 for sim = 1.0, got ${json.score}`);
+  assert.equal(json.score, 92, `expected capped score 92 for sim = 1.0, got ${json.score}`);
+  assert.equal(json.band, "great", `expected band 'great' under the honesty cap, got ${json.band}`);
   assert.equal(llmCallCount, 0, "must not call the LLM");
 });
 
@@ -430,40 +433,39 @@ test("fix #2 — native-script STT transcript for a long target still triggers t
     "Gujarati transcript must romanize to card-style ASCII");
 });
 
-test("fix #3 — STT retry fires for sim=0.30 first-pass transcript (widened from 0.25 to 0.40)", async () => {
-  // The first-pass returns "hello world" which has very low sim relative to
-  // "kem chho" (well below 0.40). The retry returns "kem cho" which has
-  // sim=1.0. The route must prefer the retry transcript, triggering the fast
-  // path and returning passed=true with transcript="kem cho".
-  sttQueue = ["hello world", "kem cho"]; // first-pass, then retry
+test("S1 dual-pass — disagreeing passes score the transcript FARTHER from the target (no toward-target tie-break)", async () => {
+  // The mini pass hears "hello world" (sim far below the target) while the
+  // high-quality pass hears "kem cho" (sim = 1.0). Pre-S1, the toward-target
+  // tie-break preferred "kem cho" and fast-passed the attempt. The S1 honesty
+  // rule scores the FARTHER transcript instead: "hello world" goes down the
+  // LLM path (mock returns 55) and the attempt does not pass.
+  sttQueue = ["hello world", "kem cho"]; // mini pass, then high-quality pass
   sttCallCount = 0;
   llmCallCount = 0;
 
   const { status, json } = await postPronunciation("કેમ છો", "kem chho");
 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
-  // Two STT calls must have been made (first pass + retry).
-  assert.ok(sttCallCount >= 2, `expected ≥2 STT calls (first-pass + retry), got ${sttCallCount}`);
-  // The retry transcript "kem cho" wins the tie-break, triggering the fast path.
-  assert.equal(json.transcript, "kem cho", "response must use the better retry transcript");
-  assert.equal(json.passed, true, "retry transcript at sim=1.0 must pass via fast path");
-  assert.equal(llmCallCount, 0, "retry transcript is good enough for fast path, no LLM needed");
+  assert.equal(sttCallCount, 2, `expected exactly 2 STT calls (dual-pass), got ${sttCallCount}`);
+  assert.equal(json.transcript, "hello world",
+    "band computation must use the transcript farther from the target");
+  assert.equal(json.passed, false,
+    "the target-matching pass must never silently win a disagreement");
+  assert.ok(llmCallCount >= 1, "the farther transcript must go down the LLM path");
 });
 
-test("fix #3 — boundary: a marginal first-pass sim=0.30 triggers retry, sim=0.45 does not", async () => {
-  // Verify the retry threshold is now 0.40. A transcript with sim ~0.30 must
-  // retry; a transcript with sim ~0.45 must not. We test the retry fires here
-  // by checking the sttCallCount after a low-sim first pass.
-  //
-  // "lo worde" vs "kem chho" (normalized: "lovorde" vs "kemch"):
-  // levenshtein ≈ 5, max ≈ 7 → sim ≈ 0.29 — below 0.40, retry must fire.
-  sttQueue = ["lo worde", "kem cho"]; // first-pass sim≈0.29, retry=good
+test("S1 dual-pass — both STT passes run on every scored attempt, even a strong first pass", async () => {
+  // Pre-S1, the high-quality pass only ran when the first pass looked weak.
+  // Now both passes run unconditionally so the scored transcript can never be
+  // a single pass's fabrication.
+  stubbedTranscript = "kem cho"; // both passes agree at sim = 1.0
   sttCallCount = 0;
   llmCallCount = 0;
 
   const { status } = await postPronunciation("કેમ છો", "kem chho");
   assert.equal(status, 200);
-  assert.ok(sttCallCount >= 2, `sim≈0.29 first-pass must trigger retry, got sttCallCount=${sttCallCount}`);
+  assert.equal(sttCallCount, 2,
+    `expected exactly 2 STT calls on a strong attempt, got ${sttCallCount}`);
 });
 
 test("fix #4 — near-match-floor preserves LLM passed=false when score is above floor but LLM signals a problem", async () => {

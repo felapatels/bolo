@@ -28,6 +28,10 @@ const CATS = [
   { id: 4, title: 'Food & Eating', titleNative: null, iconName: 'Utensils', accent: null, phraseCount: 7, masteredCount: 1 },
 ];
 
+jest.mock('@/lib/tearAudio', () => ({
+  preloadTearAudio: jest.fn(),
+  playTearSfx: jest.fn(),
+}));
 jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { firstName: 'Priya' } }),
 }));

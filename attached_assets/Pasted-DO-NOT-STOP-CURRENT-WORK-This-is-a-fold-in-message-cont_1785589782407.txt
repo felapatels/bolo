@@ -1,0 +1,16 @@
+DO NOT STOP CURRENT WORK. This is a fold-in message: continue whatever respin item you are mid-implementation on, and absorb the following at your next natural boundary between items. If you are currently mid-R1 specifically, finish your current file cleanly, then apply the amendment before R1's tests.
+
+=== R1 AMENDMENT (scope change): ticket stub layout defect is CROSS-PLATFORM ===
+Web's boarding pass stub shows the same symptom family as mobile's (owner screenshot on file, Ganga Line pass on dev web): the FARE ZONE label collides with the dashed circle's arc so the E overlaps and renders as "FARE ZONB", and the station name inside the circle truncates mid-word ("NEW DE..."). R1's scope is amended to cover BOTH platforms' pass stubs with shared design rules, implemented in each platform's idiom:
+1. The fare-zone label and dashed circle fit as a single unit scaled to the stub's width; no collision at any supported width.
+2. The station name inside the circle is sized to fit or abbreviated by intent, never truncated mid-word or wrapped over the circle's arc.
+3. The vertical line-name wordmark (GUJARAT EXPRESS, GANGA LINE) is sized to its available height with no ellipsis; shorten the string deliberately if it cannot fit.
+4. The circle centers correctly against the pass text block.
+5. While in the web pass: check the resume row at phone width for collisions between the streak chip, the daily-goal chip, and the resume text; fix spacing only if they collide.
+Verify both platforms at standard and large accessibility text, two widths each; tear geometry unaffected on both.
+
+=== FACTUAL QUESTION (one line, read-only, answer whenever convenient) ===
+The web pass for a free account shows "0/50 today" with a target icon: (1) daily XP goal or daily lesson limit? (2) where does 50 come from (plan-differentiated, seeded default, hardcoded)? Cite the source, change nothing. If it is the lesson limit, note its fate is already on the 33 docket (item g).
+
+=== QUEUE NOTE ===
+The #994 tee verification (clip key or error for my recorded attempt) and the chat greeting hang remain the first things to report when you surface; this amendment folds into respin scope and does not jump that queue.

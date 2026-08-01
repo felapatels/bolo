@@ -45,8 +45,10 @@ import {
   TicketPerforationV,
   TicketStripes,
   ZoneStamp,
+  stampSizeForExtent,
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
+import { playTearSfx } from '@/lib/tearAudio';
 
 // Web tuning constants (index.css :root block + PASS_PRESS_* in home.tsx).
 const PASS_CYCLE_MS = 3200; // breathe + shimmer + glow share one heartbeat
@@ -124,6 +126,10 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
   // The rotated line name reserves real layout space: measure the slot the
   // column gives it and size the text to that extent (see stubLineSlot).
   const [nameExtent, setNameExtent] = React.useState(78);
+  // R1 amendment: fitted wordmark - font sized to the measured run, and the
+  // string deliberately shortened (whole trailing words) if even the floor
+  // font cannot fit. Never an ellipsis, never a mid-word cut.
+  const stubWordmark = fitStubWordmark(line.lineName, nameExtent);
   // Face width for the shimmer band's travel (band = 1/3 of the face).
   const [passW, setPassW] = React.useState(0);
 
@@ -250,6 +256,11 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
       onPressRef.current();
       return;
     }
+    // R4: the recorded paper-tear SFX fires at the exact tear start, in the
+    // same beat as PressableScale's press haptic. Fire-and-forget: it never
+    // delays the tear or the scheduled navigation, and it sits AFTER the
+    // reduceMotion early-return, so reduced motion stays instant and silent.
+    playTearSfx();
     tearingRef.current = true;
     setTearing(true);
     tearProgress.value = 0;
@@ -280,7 +291,9 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
             ? ` · ${phrasesLeftAtStop} ${phrasesLeftAtStop === 1 ? 'phrase' : 'phrases'} to go`
             : ''
         }`
-      : 'Continue your journey';
+      : journey.planBlocked
+        ? 'Unlock your next stop with All-Access'
+        : 'Continue your journey';
 
   return (
     <Animated.View style={[styles.wrap, breatheStyle]}>
@@ -426,14 +439,17 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
             ]}
           >
             {/* Fixed slot so the rotated stamp's visual extent is part of the
-                layout — it can't drift over the perforation or the line name. */}
+                layout — it can't drift over the perforation or the line name.
+                R1: the stamp size derives from the stub width (label + circle
+                scale as a unit), instead of a hardcoded 48 that ignored the
+                column it lives in. */}
             <View testID="home-stamp-slot" style={styles.stampSlot}>
               {journey.current && (
                 <ZoneStamp
                   ink="rgba(255,255,255,0.8)"
                   zone={journey.current.zoneIndex + 1}
                   name={journey.current.geoName}
-                  size={48}
+                  size={STAMP_SIZE}
                 />
               )}
             </View>
@@ -447,6 +463,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
                 matches the slot's, the 90° rotation makes it fill the slot's
                 vertical strip exactly — on native and web alike. */}
             <View
+              testID="stub-line-slot"
               style={styles.stubLineSlot}
               onLayout={(e) => {
                 const h = Math.round(e.nativeEvent.layout.height);
@@ -454,10 +471,18 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
               }}
             >
               <Text
-                numberOfLines={1}
+                testID="stub-line-name"
+                allowFontScaling={false}
                 style={[
                   styles.stubLine,
                   {
+                    // R1: the wordmark is sized to the measured run so it can
+                    // NEVER ellipsize — font fits the extent by construction
+                    // (numberOfLines + fixed 8px used to truncate "GUJARAT
+                    // EXPRESS" on short cards). Decorative fitting: pinned
+                    // against OS font scaling like the stamp.
+                    fontSize: stubWordmark.fontSize,
+                    letterSpacing: stubWordmark.fontSize >= 7 ? 1.2 : 0.6,
                     // maxWidth too: react-native-web clamps text to the parent's
                     // width (measured: width:60 computed as 14px without it).
                     width: nameExtent,
@@ -467,7 +492,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
                   },
                 ]}
               >
-                {line.lineName.toUpperCase()}
+                {stubWordmark.text}
               </Text>
             </View>
             {tearing && <TornEdge color={line.accent} side="left" />}
@@ -481,6 +506,41 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
 // Width of the vertical line-name slot; also the rotated text's line height,
 // so the offset math in the render centers it exactly.
 const STUB_LINE_SLOT_W = 14;
+
+// R1: the stub column's fixed width, and the stamp that fits it. The stamp's
+// ROTATED extent (not its nominal square) must clear the column with a 4px
+// margin per side, so label + circle scale as one unit to the stub.
+const STUB_W = 64;
+const STAMP_SIZE = stampSizeForExtent(STUB_W - 8);
+
+// R1: fit the vertical wordmark's font to the measured vertical run.
+// 0.75em per uppercase extrabold glyph (tracking included in the margin);
+// clamped to 5..8 so degenerate measurements stay legible, never ellipsized.
+export function stubLineFontSize(lineName: string, extent: number): number {
+  const glyphs = Math.max(1, lineName.trim().length);
+  return Math.max(5, Math.min(8, (extent - 8) / (glyphs * 0.75)));
+}
+
+// R1 amendment (rule 3, shared with web): when even the floor font overflows
+// the measured run (24-28 glyph line names like "Darjeeling Himalayan
+// Railway" on short cards), shorten the string DELIBERATELY by dropping
+// trailing words - never an ellipsis, never a mid-word cut. extent <= 0
+// keeps the full name (unmeasured render).
+export function fitStubWordmark(
+  lineName: string,
+  extent: number,
+): { text: string; fontSize: number } {
+  const full = lineName.trim().toUpperCase();
+  let words = full.split(/\s+/);
+  let fontSize = stubLineFontSize(full, extent);
+  if (extent <= 0) return { text: full, fontSize };
+  const run = (text: string, px: number) => text.length * px * 0.75 + 8;
+  while (words.length > 1 && run(words.join(' '), fontSize) > extent) {
+    words = words.slice(0, -1);
+    fontSize = stubLineFontSize(words.join(' '), extent);
+  }
+  return { text: words.join(' '), fontSize };
+}
 
 const styles = StyleSheet.create({
   // Breathe wrapper carries the outer spacing so the glow overlay's inset
@@ -632,20 +692,23 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   ctaText: { fontFamily: AppFonts.extrabold, fontSize: 14, color: '#ffffff', flexShrink: 1 },
+  // R1: top-anchored column (space-between let the circle drift low when the
+  // body side grew taller); the stamp docks under the top padding and the
+  // wordmark slot soaks up the remaining run.
   stub: {
-    width: 64,
+    width: STUB_W,
     flexShrink: 0,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    gap: 4,
+    justifyContent: 'flex-start',
+    paddingVertical: 12,
+    gap: 6,
   },
-  // Centers the 48px stamp inside its full rotated visual extent (the -12
-  // degree tilt makes the bounding box ~57px; the old 56px slot clipped the
-  // corners). Still inside the 64px stub, clear of the perforation.
+  // Centers the stamp inside its full rotated visual extent (the -12 degree
+  // tilt makes the bounding box ~1.19x; an exact-size slot clips the
+  // corners). Derived from STAMP_SIZE so it always clears the perforation.
   stampSlot: {
-    width: zoneStampExtent(48),
-    height: zoneStampExtent(48),
+    width: zoneStampExtent(STAMP_SIZE),
+    height: zoneStampExtent(STAMP_SIZE),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -657,11 +720,10 @@ const styles = StyleSheet.create({
     width: STUB_LINE_SLOT_W,
     position: 'relative',
   },
+  // Font size + tracking computed per measured extent in the render (R1).
   stubLine: {
     position: 'absolute',
     fontFamily: AppFonts.extrabold,
-    fontSize: 8,
-    letterSpacing: 1.2,
     lineHeight: STUB_LINE_SLOT_W,
     color: 'rgba(255,255,255,0.7)',
     transform: [{ rotate: '90deg' }],

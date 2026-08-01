@@ -19,4 +19,6 @@ export interface OrderWordsQuestion {
   english: string;
   /** Shuffled word tiles to arrange */
   tiles: string[];
+  /** Romanized subtitle for each tile, parallel to `tiles`. Empty-string entries mean the tile's script has no clean romanization and clients render no subtitle. Absent on quizzes stored before the field shipped. */
+  tileRomanizations?: string[];
 }

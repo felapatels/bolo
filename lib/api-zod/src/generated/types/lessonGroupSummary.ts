@@ -24,4 +24,6 @@ export interface LessonGroupSummary {
   teaserStation?: boolean;
   /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
   allTopBand?: boolean;
+  /** True when the caller's plan can see ZERO of this group's phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount/attemptedCount/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser/exhausted) payloads. Optional/additive. */
+  planLocked?: boolean;
 }

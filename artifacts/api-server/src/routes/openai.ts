@@ -25,6 +25,7 @@ import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreB
 import { computePronunciationXp, writeZoneCapstoneXp } from "../lib/xpEngine";
 import {
   applyScoreGuards,
+  chooseConservativeTranscript,
   compareToTarget,
   isEffectivelyEmpty,
   normalizeLatin,
@@ -86,7 +87,9 @@ For very short targets (1-2 syllables), apply the same bands per-sound — do no
 
 Within each band, pick a specific score that reflects exactly how close the attempt was — avoid rounding to 5 or 10 unless the attempt truly sits exactly at that boundary. For example, within 80–89 prefer 83 or 87 over always writing 85.
 
-Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if it wasn't perfect, gently point out the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly, concrete pronunciation tip phrased conversationally). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`;
+The transcript is your ONLY evidence: you cannot hear the audio itself, so never invent a flaw the transcript does not show. Only point out a specific sound to work on when the transcript itself shows that sound was off, missing, or replaced. If the transcript matches the target, do NOT name a sound to polish or claim their delivery was flawless; celebrate warmly, own the limits of your ears (you judged the sounds, not the accent), and encourage them to keep practicing in general terms.
+
+Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if the transcript shows a specific miss, gently point out that one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly tip: a concrete pronunciation tip only when the transcript shows a specific difference, otherwise a general practice suggestion). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`;
 
 const router: IRouter = Router();
 
@@ -744,37 +747,41 @@ router.post(
 
     const rawBuffer = Buffer.from(audioBase64, "base64");
     let transcript = "";
+    let sttTranscriptMini = "";
+    let sttTranscriptHq = "";
+    let sttDisagreement = false;
+    let sttChosenEmptyWithEvidence = false;
     try {
       // Pass the client-reported mimeType as a fallback hint so very short
       // recordings whose magic bytes aren't detected skip the ffmpeg path.
       const { buffer, format } = await ensureCompatibleFormat(rawBuffer, parsed.data.mimeType);
-      transcript = (await speechToText(buffer, format, sttOptions)).trim();
 
-      // Second pass with the higher-quality model when the fast pass heard
-      // nothing or something wildly unlike the target — cheap insurance
-      // against failing a good attempt on a transcription quirk.
-      // Threshold widened from 0.25 to 0.40: marginal first-pass transcripts
-      // (sim 0.26–0.40) often carry enough error to mislead scoring, and the
-      // tie-break logic below already handles cases where the retry isn't better.
-      const firstLooksBad =
-        isEffectivelyEmpty(transcript) ||
-        (() => {
-          const cmp = compareToTarget(transcript, targetNative, targetRomanized);
-          return cmp.comparable && cmp.sim <= 0.40;
-        })();
-      if (firstLooksBad) {
-        const retry = (
-          await speechToText(buffer, format, { ...sttOptions, highQuality: true })
-        ).trim();
-        if (!isEffectivelyEmpty(retry)) {
-          // Keep whichever transcript is closer to the target; ties go to the
-          // higher-quality pass.
-          const a = compareToTarget(transcript, targetNative, targetRomanized);
-          const b = compareToTarget(retry, targetNative, targetRomanized);
-          if (isEffectivelyEmpty(transcript) || !a.comparable || b.sim >= a.sim) {
-            transcript = retry;
-          }
-        }
+      // S1 dual-pass honesty rule: BOTH STT passes run on every scored attempt,
+      // not just weak first passes. When they disagree, the band computation
+      // uses the transcript FARTHER from the target (the conservative reading);
+      // the old toward-target tie-break silently preferred the pass that
+      // matched the target, which is exactly the normalize-into-the-target
+      // failure mode this defends against.
+      const [miniRaw, hqRaw] = await Promise.all([
+        speechToText(buffer, format, sttOptions),
+        speechToText(buffer, format, { ...sttOptions, highQuality: true }),
+      ]);
+      sttTranscriptMini = miniRaw.trim();
+      sttTranscriptHq = hqRaw.trim();
+      const choice = chooseConservativeTranscript({
+        mini: sttTranscriptMini,
+        hq: sttTranscriptHq,
+        targetNative,
+        targetRomanized,
+      });
+      transcript = choice.transcript;
+      sttDisagreement = choice.disagreement;
+      sttChosenEmptyWithEvidence = choice.chosenEmptyWithEvidence;
+      if (sttDisagreement) {
+        req.log.info(
+          { mini: sttTranscriptMini, hq: sttTranscriptHq, chosen: transcript },
+          "STT passes disagree; scoring the transcript farther from the target",
+        );
       }
     } catch (err) {
       req.log.error({ err }, "Speech-to-text failed");
@@ -783,9 +790,16 @@ router.post(
     }
 
     if (isEffectivelyEmpty(transcript)) {
-      const feedback =
-        "I couldn't hear anything that time! Tap the button and say it nice and clear.";
-      const emptyTip = "Hold your phone a little closer and speak up.";
+      // Two ways here: both passes empty (silence/garble), or the passes
+      // disagreed and the farther transcript is the empty one. In the second
+      // case the passes could not corroborate each other, so the honest
+      // resolution is a system miss with no-fault copy, never a score.
+      const feedback = sttChosenEmptyWithEvidence
+        ? "Our two listeners heard that one differently, so we can't score it fairly. That's on us, not you. Give it one more go!"
+        : "I couldn't hear anything that time! Tap the button and say it nice and clear.";
+      const emptyTip = sttChosenEmptyWithEvidence
+        ? "Nothing to fix on your end. Just try the same thing again."
+        : "Hold your phone a little closer and speak up.";
       const nocatchBand: PronunciationBand = "nocatch";
       // Task 903: eval-time fire-and-forget feedback-voice synthesis.
       prewarmFeedbackTts(feedback, emptyTip, req.log);
@@ -813,6 +827,9 @@ router.post(
           band: nocatchBand,
           xpAwarded: 0,
           latencyMs: latencyMs ?? null,
+          sttTranscriptMini,
+          sttTranscriptHq,
+          sttDisagreement,
         }),
       });
       return;
@@ -821,6 +838,17 @@ router.post(
     // Compute phonetic similarity once here so both the fast-path and the LLM
     // path can reuse it without a second call.
     const targetSim = compareToTarget(transcript, targetNative, targetRomanized);
+
+    // S1 honesty cap (global, amended): no scored attempt bands 'perfect' or
+    // scores above 92 until audio-aware scoring v2 exists. A transcript-only
+    // pipeline cannot hear accent, so even a near-miss scored highly by the LLM
+    // must cap at 92 / 'great'. The cap fires unconditionally on all paths.
+    //
+    // honestyCapApplies is kept for copy selection only: the "our ears could
+    // verify everything" pool applies when the transcript exactly equals the
+    // target AND both passes agree; otherwise the standard copy pool is used.
+    const honestyCapApplies =
+      targetSim.comparable && targetSim.sim === 1 && !sttDisagreement;
 
     // Fast-path guard: short targets (≤ 4 normalized chars) bypass character-level
     // fast-path scoring. Levenshtein on 2–3 characters is unreliable — a single
@@ -905,7 +933,9 @@ router.post(
       }
 
       if (!fastPathWrongPhrase) {
-        const score = simToScore(targetSim.sim, 0.90);
+        const rawFastScore = simToScore(targetSim.sim, 0.90);
+        // Global honesty cap: no attempt scores above 92 until scoring v2.
+        const score = Math.min(rawFastScore, 92);
 
         // Pool of varied warm feedback strings so repeat excellent attempts each
         // feel fresh. All strings are read-aloud friendly: no emojis or special
@@ -954,11 +984,37 @@ router.post(
           },
         ];
 
+        // S1 capped-result copy: owns the uncertainty honestly. It celebrates
+        // what the system could verify ("to our ears") without claiming
+        // flawlessness and without inventing specific flaws it cannot hear.
+        const HONESTY_CAP_RESPONSES: Array<{ feedback: string; tip: string }> = [
+          {
+            feedback:
+              "That sounded spot-on to our ears! Every sound we could check lined up with the target. Keep saying it like that and it will stick for good.",
+            tip: "Try it once more from memory to really lock it in.",
+          },
+          {
+            feedback:
+              "Our ears caught every sound right where it should be. That was a really strong attempt and you should feel great about it.",
+            tip: "Say it again a little faster and keep it just as clear.",
+          },
+          {
+            feedback:
+              "That matched everything we can hear! You are getting really comfortable with this phrase, and that kind of practice pays off.",
+            tip: "Try using it in a short sentence to make it feel natural.",
+          },
+          {
+            feedback:
+              "We heard all the right sounds in all the right places. Lovely work, keep that rhythm going.",
+            tip: "Repeat it twice in a row without stopping to build the muscle memory.",
+          },
+        ];
+
         // Pick randomly so repeat excellent attempts each feel fresh.
-        const pick =
-          FAST_PASS_RESPONSES[
-            Math.floor(Math.random() * FAST_PASS_RESPONSES.length)
-          ]!;
+        const pool = honestyCapApplies
+          ? HONESTY_CAP_RESPONSES
+          : FAST_PASS_RESPONSES;
+        const pick = pool[Math.floor(Math.random() * pool.length)]!;
         const { feedback, tip } = pick;
         // Score-only five-band derivation; the fast path only fires on
         // near-exact matches, so this lands in the full-credit group.
@@ -990,6 +1046,9 @@ router.post(
             band: fastBand,
             xpAwarded: fastXp,
             latencyMs: latencyMs ?? null,
+            sttTranscriptMini,
+            sttTranscriptHq,
+            sttDisagreement,
           }),
         });
         // Fire-and-forget pilot capture — never delays the response.
@@ -1128,11 +1187,20 @@ router.post(
             band: nocatchBand,
             xpAwarded: 0,
             latencyMs: latencyMs ?? null,
+            sttTranscriptMini,
+            sttTranscriptHq,
+            sttDisagreement,
           }),
         });
         return;
       }
-      const { score, passed } = guarded;
+      let { score } = guarded;
+      const { passed } = guarded;
+      // Global honesty cap: no attempt scores above 92 regardless of path
+      // (short targets, wrong-phrase fallthrough, near-match, exact match).
+      if (score > 92) {
+        score = 92;
+      }
       // Band derives from score only (Spec 0 rule 40) via the five-band config
       // in scoreBands.ts. Never derive it from `passed` — a trusted LLM `passed`
       // boolean could otherwise produce a full-credit band at a sub-80 score.
@@ -1171,6 +1239,9 @@ router.post(
           band: llmBand,
           xpAwarded: llmXp,
           latencyMs: latencyMs ?? null,
+          sttTranscriptMini,
+          sttTranscriptHq,
+          sttDisagreement,
         }),
       });
       // Fire-and-forget pilot capture — never delays the response.

@@ -69,6 +69,8 @@ jest.mock('expo-audio', () => ({
 }));
 
 jest.mock('@/lib/audio', () => ({
+  // R6: pre-warm gate - granted by default so suites keep their warm-mic setup.
+  hasRecordingPermission: jest.fn(async () => true),
   prepareRecordingSession: jest.fn(async () => true),
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),

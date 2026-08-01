@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
@@ -19,7 +19,13 @@ import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
-import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
+import {
+  TicketPerforationV,
+  TicketStripes,
+  ZoneStamp,
+  fitStubWordmark,
+  stampSizeForExtent,
+} from "@/components/ticket";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired } from "@/lib/entitlements";
@@ -35,6 +41,54 @@ import { useUser } from "@clerk/react";
 // Low damping is what produces the overshoot spring-back on release.
 const PASS_PRESS_SCALE = 0.94;
 const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
+
+// R1 amendment: the stub column's fixed width (w-16) and the stamp that fits
+// it. The stamp's ROTATED extent (not its nominal square) must clear the
+// column with a 4px margin per side, so label + circle scale as one unit to
+// the stub (mobile JourneyPassCard parity).
+const STUB_W = 64;
+const HOME_STAMP_SIZE = stampSizeForExtent(STUB_W - 8);
+
+/** Vertical line-name wordmark, sized to its measured vertical run so it can
+ *  never ellipsize (R1 amendment; fixed 9px + 0.2em used to overflow the run
+ *  for long line names). Before the first measurement (and in jsdom, where
+ *  clientHeight is 0) it renders the full name at top size; the observer
+ *  corrects it in real browsers. */
+function StubWordmark({ lineName }: { lineName: string }) {
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const [extent, setExtent] = useState(0);
+  useLayoutEffect(() => {
+    const el = slotRef.current;
+    if (!el) return;
+    const measure = () => setExtent(el.clientHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const { text, fontSize } = fitStubWordmark(lineName, extent);
+  return (
+    <div
+      ref={slotRef}
+      className="flex min-h-0 w-full flex-1 items-center justify-center"
+      aria-hidden
+    >
+      <div
+        data-testid="stub-line-name"
+        className="select-none font-black uppercase text-white/70"
+        style={{
+          writingMode: "vertical-rl",
+          fontSize,
+          lineHeight: 1.2,
+          letterSpacing: fontSize >= 7 ? "0.15em" : "0.08em",
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
 // Stub-tear navigation fallback. The authoritative delay lives in index.css
 // as --tear-nav-delay (the :root tuning constants block, in ms); this value
 // is only used when the CSS var cannot be read (jsdom, ancient UA).
@@ -229,7 +283,9 @@ export default function Home() {
             ? ` · ${phrasesLeftAtStop} ${phrasesLeftAtStop === 1 ? "phrase" : "phrases"} to go`
             : ""
         }`
-      : "Continue your journey";
+      : journey.planBlocked
+        ? "Unlock your next stop with All-Access"
+        : "Continue your journey";
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   // placeholderData: keepPreviousData — when LanguageProvider reconciles the
   // active language from /account and the key flips, the prior language's
@@ -788,7 +844,7 @@ export default function Home() {
                   <div
                     ref={tearStubRef}
                     className={cn(
-                      "relative flex w-16 shrink-0 flex-col items-center justify-between py-4",
+                      "relative flex w-16 shrink-0 flex-col items-center gap-2 py-4",
                       tearing && "animate-stub-tear rounded-r-3xl",
                     )}
                     // While tearing, the piece carries its own ticket stock so
@@ -797,21 +853,14 @@ export default function Home() {
                     style={tearing ? { backgroundColor: journeyLine.accent } : undefined}
                   >
                     {journey.current && (
-                      <div className="-mx-4">
-                        <ZoneStamp
-                          ink="rgba(255,255,255,0.8)"
-                          zone={journey.current.zoneIndex + 1}
-                          name={journey.current.geoName}
-                        />
-                      </div>
+                      <ZoneStamp
+                        ink="rgba(255,255,255,0.8)"
+                        zone={journey.current.zoneIndex + 1}
+                        name={journey.current.geoName}
+                        size={HOME_STAMP_SIZE}
+                      />
                     )}
-                    <div
-                      className="select-none text-[9px] font-black uppercase tracking-[0.2em] text-white/70"
-                      style={{ writingMode: "vertical-rl" }}
-                      aria-hidden
-                    >
-                      {journeyLine.lineName}
-                    </div>
+                    <StubWordmark lineName={journeyLine.lineName} />
                   </div>
                 </div>
               </Link>

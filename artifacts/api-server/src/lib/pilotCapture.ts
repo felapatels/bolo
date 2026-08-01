@@ -115,8 +115,29 @@ export async function teeAudioToPilot(
         ContentType: "application/json",
       }),
     );
+    // Success is logged with the clip key so a capture session can be
+    // verified from server logs alone (and each clip located in R2).
+    uploadSuccessCount++;
+    console.log(
+      `[pilot-capture] uploaded clip ${clipKey} (success #${uploadSuccessCount} this process)`,
+    );
   } catch (err) {
-    // Log at WARN — never rethrow; the eval response must be unaffected.
-    console.warn("[pilot-capture] R2 upload failed:", err);
+    // Never rethrow — the eval response must be unaffected. But a failed
+    // upload means a pilot clip is PERMANENTLY LOST, so it is logged at
+    // ERROR with a running count: silent loss (e.g. malformed R2
+    // credentials failing every upload) must be visible in the logs.
+    uploadFailureCount++;
+    console.error(
+      `[pilot-capture] R2 upload FAILED — clip ${clipKey} LOST (failure #${uploadFailureCount} this process):`,
+      err,
+    );
   }
 }
+
+/** Running totals for this process, exported for tests and health checks. */
+export function getPilotCaptureCounters(): { successes: number; failures: number } {
+  return { successes: uploadSuccessCount, failures: uploadFailureCount };
+}
+
+let uploadSuccessCount = 0;
+let uploadFailureCount = 0;

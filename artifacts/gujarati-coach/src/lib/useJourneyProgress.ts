@@ -37,6 +37,13 @@ export interface JourneyProgress {
   doneCount: number;
   totalCount: number;
   isLoading: boolean;
+  /**
+   * True when no boardable stop exists but the line continues into stops the
+   * caller's plan cannot see (planLocked groups, or sentence stops for a Free
+   * learner). The boarding pass renders an upgrade nudge instead of the
+   * generic "continue" copy — the honest reading of "nothing to board".
+   */
+  planBlocked: boolean;
 }
 
 export function useJourneyProgress(
@@ -54,11 +61,12 @@ export function useJourneyProgress(
 
   const isLoading = zoneQueries.some((q) => q.isLoading);
   if (isLoading || zoneQueries.some((q) => q.isError)) {
-    return { current: null, doneCount: 0, totalCount: 0, isLoading };
+    return { current: null, doneCount: 0, totalCount: 0, isLoading, planBlocked: false };
   }
 
   let doneCount = 0;
   let totalCount = 0;
+  let anyPlanGated = false;
   let current: JourneyCurrentStop | null = null;
   zoneQueries.forEach((q, i) => {
     const groups = [...((q.data as LessonGroupList | undefined)?.lessonGroups ?? [])].sort(
@@ -67,8 +75,16 @@ export function useJourneyProgress(
     groups.forEach((g, gi) => {
       totalCount += 1;
       if (g.status === "completed" || g.status === "tested_out") doneCount += 1;
+      // S2 map honesty: a planLocked group has ZERO phrases the caller's plan
+      // can practice (the server already reports it status "locked"); it can
+      // never be the boarding-pass target. Same for a Free learner's sentence
+      // stop. Both count toward planBlocked when nothing boardable remains.
+      if (g.planLocked === true || (g.stage === "sentence" && !isAllAccess)) {
+        anyPlanGated = true;
+      }
       if (
         current === null &&
+        g.planLocked !== true &&
         (g.status === "unlocked" || g.status === "in_progress") &&
         !(g.stage === "sentence" && !isAllAccess)
       ) {
@@ -85,5 +101,11 @@ export function useJourneyProgress(
     });
   });
 
-  return { current, doneCount, totalCount, isLoading: false };
+  return {
+    current,
+    doneCount,
+    totalCount,
+    isLoading: false,
+    planBlocked: current === null && anyPlanGated,
+  };
 }

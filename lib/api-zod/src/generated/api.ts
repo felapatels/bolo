@@ -79,7 +79,8 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "status": zod.enum(['locked', 'unlocked', 'in_progress', 'completed', 'tested_out']).optional().describe('Sequential unlock state, derived at read time. A group is completed when at least 80% of its phrases reach bestScore >= 80; unlocked when it is first or its predecessor is completed\/tested_out; tested_out when the learner passed the test-out assessment. Optional\/additive - older clients may ignore it.'),
   "stage": zod.enum(['phrase', 'sentence']).optional().describe('Which learning stage this group\'s members belong to: the starter \"phrase\" list every topic opens with, or the Plus-only \"sentence\" stage. Derived from the group\'s member phrases (groups are homogeneous by construction); an empty group reads as \"phrase\". Optional\/additive - part of the journey-map contract mobile reuses.'),
   "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.'),
-  "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.')
+  "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.'),
+  "planLocked": zod.boolean().optional().describe('True when the caller\'s plan can see ZERO of this group\'s phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount\/attemptedCount\/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser\/exhausted) payloads. Optional\/additive.')
 })).optional(),
   "unassignedCount": zod.number().optional(),
   "access": zod.enum(['teaser', 'exhausted']).optional().describe('Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone\/station structure instead of a 402 so the journey map can render as the paywall\'s showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). \"teaser\" while free taster phrases remain, \"exhausted\" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language.'),
@@ -1081,7 +1082,8 @@ export const GetDailyQuizResponse = zod.object({
   "nativeScript": zod.string().describe('The correct answer (space-separated words)'),
   "romanized": zod.string(),
   "english": zod.string(),
-  "tiles": zod.array(zod.string()).describe('Shuffled word tiles to arrange')
+  "tiles": zod.array(zod.string()).describe('Shuffled word tiles to arrange'),
+  "tileRomanizations": zod.array(zod.string()).optional().describe('Romanized subtitle for each tile, parallel to `tiles`. Empty-string entries mean the tile\'s script has no clean romanization and clients render no subtitle. Absent on quizzes stored before the field shipped.\n')
 }).describe('Arrange shuffled word\/token tiles into the correct phrase.')])).describe('The 5 quiz questions'),
   "score": zod.number().nullish().describe('Learner\'s score (0-5), only present when completed=true'),
   "total": zod.number().nullish().describe('Total questions (always 5), only present when completed=true'),

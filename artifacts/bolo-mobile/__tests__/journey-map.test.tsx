@@ -335,6 +335,35 @@ describe('journey map — group-scoped routing', () => {
     fireEvent.press(screen.getByText('Unlock with All-Access'));
     expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
   });
+
+  // S2 map honesty: a planLocked group (every phrase premium, so the Free
+  // caller can practice nothing there) opens the All-Access dialog, never
+  // the progression dialog and never practice.
+  it('opens the All-Access plan dialog for a planLocked stop', () => {
+    mockState.isPlus = false;
+    setZones([
+      [
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+        grp({ status: 'locked', planLocked: true, phraseCount: 0 }),
+      ],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    expect(screen.getByText('This stop is All-Access territory')).toBeOnTheScreen();
+    // Not the progression dialog: no test-out escape hatch for plan gating.
+    expect(screen.queryByText('This stop is still locked')).toBeNull();
+    expect(screen.queryByTestId('link-test-out')).toBeNull();
+    expect(mockState.push).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('plan-lock-upgrade'));
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
+  });
 });
 
 // Build-28 device regression: a percentage-height Svg in the header ticket's

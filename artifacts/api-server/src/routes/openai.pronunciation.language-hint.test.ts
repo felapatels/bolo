@@ -536,15 +536,13 @@ test("STT prompt falls back to client-supplied languageName when DB has no recor
   stubLanguage = { code: "gu", name: "Gujarati" };
 });
 
-test("high-quality STT retry is NOT fired when the first-pass transcript is already strong", async () => {
-  // The retry branch fires only when the first-pass transcript is empty or has
-  // similarity ≤ 0.40 to the target.  When the first pass returns a transcript
-  // that is phonetically close to the target (e.g. the romanized form "na" for
-  // target romanized "na"), the condition is false and speechToText must be
-  // called exactly once — no costly second pass.
-  //
-  // This guards against a future refactor that accidentally always fires the
-  // retry, which would double API cost on every pronunciation evaluation.
+test("both STT passes fire even when the first-pass transcript is already strong (S1 dual-pass)", async () => {
+  // Pre-S1 this test pinned the opposite behavior: the high-quality pass was
+  // a RETRY reserved for empty or low-similarity first passes, and a strong
+  // first pass had to stay a single call to save API cost. The S1 scoring
+  // honesty rule inverted that on purpose - a transcript that matches the
+  // target is exactly the case the second listener must corroborate before a
+  // perfect band is allowed, so BOTH passes now run on every scored attempt.
   stubbedTranscript = "na"; // phonetically identical to target romanized "na"
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
@@ -562,14 +560,22 @@ test("high-quality STT retry is NOT fired when the first-pass transcript is alre
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
   assert.equal(
     capturedSttOptions.length,
-    1,
-    `expected exactly 1 speechToText call (no high-quality retry) when first transcript is strong, got ${capturedSttOptions.length}`,
+    2,
+    `expected the S1 dual-pass pair (mini + high quality) even on a strong first pass, got ${capturedSttOptions.length}`,
   );
 
-  // Confirm the single call did NOT set highQuality.
-  assert.notEqual(
-    capturedSttOptions[0]!.highQuality,
-    true,
-    "the single speechToText call must NOT have highQuality: true",
+  // Exactly one of the pair is the high-quality pass, and both carry the
+  // same language hint.
+  assert.equal(
+    capturedSttOptions.filter((o) => o.highQuality === true).length,
+    1,
+    "exactly one of the two passes must set highQuality: true",
   );
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.equal(opts.language, "gu", `call #${i + 1} must carry the language hint`);
+    assert.ok(
+      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
+      `call #${i + 1}: prompt must name the language, got ${JSON.stringify(opts.prompt)}`,
+    );
+  }
 });

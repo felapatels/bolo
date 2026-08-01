@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, Link, useSearch } from "wouter";
+import { useParams, Link, Redirect, useSearch } from "wouter";
 import { 
   useListCategoryPhrases, 
   useListCategorySentences,
@@ -1212,14 +1212,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }
 
   if (phrases.length === 0) {
+    // S2 map honesty: a plain practice session with zero phrases means the
+    // caller reached a stop their plan cannot see (the listing now reports
+    // such groups planLocked, so this is defensive). Send them back to the
+    // journey map, where the station renders locked with the Plus upsell,
+    // instead of stranding them on a dead-end empty state. Review and
+    // sentence sessions keep their legitimate empty states.
+    if (!isReview && !isSentences) {
+      return <Redirect to="/journey" replace />;
+    }
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold mb-4">
-          {isReview
-            ? "Nothing to review right now."
-            : isSentences
-              ? "No sentences found here."
-              : "No phrases found here."}
+          {isReview ? "Nothing to review right now." : "No sentences found here."}
         </h2>
         <Link href={backHref} className="text-primary font-bold">Go back</Link>
       </div>

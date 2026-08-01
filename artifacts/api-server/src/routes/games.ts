@@ -20,6 +20,7 @@ import {
   languageCodeFromChapter,
 } from "../lib/badgeAward";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
+import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { writeGameSessionXp, writeDailyQuizXp, computeGameDecayMultiplier, computeGameDifficultyMultiplier, applyGameXpMultipliers } from "../lib/xpEngine";
 
 const router: IRouter = Router();
@@ -172,18 +173,13 @@ async function generateQuizQuestions(
         distractorRomanizations: poolPhrases.map((p) => p.romanized),
       });
     } else {
-      // order_words: tokenise by whitespace into tiles; shuffle them.
-      const tokens = phrase.nativeScript.trim().split(/\s+/);
-      let tiles: string[];
-      if (tokens.length >= 2) {
-        tiles = shuffle([...tokens]);
-      } else {
-        const extras = sampleN(
-          others.filter((p) => !p.nativeScript.includes(" ")),
-          2,
-        ).map((p) => p.nativeScript);
-        tiles = shuffle([phrase.nativeScript, ...extras]);
-      }
+      // order_words (R3, 32.1): shuffled tiles plus index-aligned romanized
+      // subtitles.
+      const { tiles, tileRomanizations } = buildOrderTiles(
+        phrase,
+        others,
+        languageCode,
+      );
       questions.push({
         type: "order_words",
         phraseId: phrase.id,
@@ -191,11 +187,52 @@ async function generateQuizQuestions(
         romanized: phrase.romanized,
         english: phrase.english,
         tiles,
+        tileRomanizations,
       });
     }
   }
 
   return questions;
+}
+
+/**
+ * Build the shuffled tile + subtitle arrays for an order_words question
+ * (R3, 32.1). Exported for tests: the alignment invariant — element i of
+ * tileRomanizations describes element i of tiles — must survive the shuffle.
+ *
+ * Word tokens have no curated per-word romanization, so the Task-907
+ * display-only transliterator supplies one; scripts it cannot cover yield ""
+ * and clients render no subtitle. The single-word fallback path builds tiles
+ * from whole phrases, which DO have curated romanizations — those are
+ * preferred over re-transliteration.
+ */
+export function buildOrderTiles(
+  phrase: PhraseRow,
+  others: PhraseRow[],
+  languageCode: string,
+): { tiles: string[]; tileRomanizations: string[] } {
+  const tokens = phrase.nativeScript.trim().split(/\s+/);
+  let pairs: Array<{ tile: string; romanized: string }>;
+  if (tokens.length >= 2) {
+    pairs = tokens.map((t) => ({
+      tile: t,
+      romanized: romanizeTranscript(t, languageCode),
+    }));
+  } else {
+    const extras = sampleN(
+      others.filter((p) => !p.nativeScript.includes(" ")),
+      2,
+    );
+    pairs = [
+      { tile: phrase.nativeScript, romanized: phrase.romanized },
+      ...extras.map((p) => ({ tile: p.nativeScript, romanized: p.romanized })),
+    ];
+  }
+  shuffle(pairs);
+  return {
+    tiles: pairs.map((p) => p.tile),
+    tileRomanizations: pairs.map((p) => p.romanized),
+  };
 }
 
 /**

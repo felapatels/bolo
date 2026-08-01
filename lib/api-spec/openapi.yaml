@@ -2409,6 +2409,17 @@ components:
             learner's best band is "perfect" or "great" (score >= 80) on all
             of them. Used to show the gold stamp overlay on the journey map
             when POLISH_ENABLED is on. Optional/additive.
+        planLocked:
+          type: boolean
+          description: >-
+            True when the caller's plan can see ZERO of this group's phrases
+            (every member is premium and the caller lacks extended-library
+            access), so the station is reported locked with a Plus upsell
+            instead of an unlocked stop that would serve an empty practice
+            session. For these callers phraseCount/attemptedCount/
+            masteredCount count only plan-visible phrases. Absent for
+            extended-library callers and in showroom (teaser/exhausted)
+            payloads. Optional/additive.
 
     LessonGroupTestoutSample:
       type: object
@@ -3685,6 +3696,15 @@ components:
           items:
             type: string
           description: Shuffled word tiles to arrange
+        tileRomanizations:
+          type: array
+          items:
+            type: string
+          description: >
+            Romanized subtitle for each tile, parallel to `tiles`. Empty-string
+            entries mean the tile's script has no clean romanization and
+            clients render no subtitle. Absent on quizzes stored before the
+            field shipped.
       required:
         - type
         - phraseId

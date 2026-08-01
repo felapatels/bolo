@@ -251,6 +251,7 @@ jest.mock('@/lib/audio', () => ({
   prepareRecordingSession: (...args: unknown[]) =>
     mockState.prepareRecordingSession(...args),
   prepareRecorderInSession: jest.fn(async () => undefined),
+  hasRecordingPermission: jest.fn(async () => true),
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: (...args: unknown[]) =>
     mockState.stopAndReadRecording(...args),
@@ -802,17 +803,26 @@ describe('Barge-in during playing via the registered start wrapper', () => {
       </ChatRecordingProvider>,
     );
 
-    // Hold and release the on-screen mascot to send a voice turn.
-    await act(async () => {
-      fireEvent(screen.getByLabelText('Hold to speak'), 'pressIn');
-    });
-    await waitFor(() =>
-      expect(screen.queryByLabelText('Release to send')).toBeTruthy(),
-    );
-    await act(async () => {
-      fireEvent(screen.getByLabelText('Release to send'), 'pressOut');
-    });
-    await waitFor(() => expect(xhrMock.send).toHaveBeenCalled());
+    // Hold and release the on-screen mascot to send a voice turn. R6 added a
+    // minimum-duration guard (sub-300ms holds abort instead of submitting),
+    // so the release must happen on an advanced clock to count as a real hold.
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      await act(async () => {
+        fireEvent(screen.getByLabelText('Hold to speak'), 'pressIn');
+      });
+      await waitFor(() =>
+        expect(screen.queryByLabelText('Release to send')).toBeTruthy(),
+      );
+      now += 500;
+      await act(async () => {
+        fireEvent(screen.getByLabelText('Release to send'), 'pressOut');
+      });
+      await waitFor(() => expect(xhrMock.send).toHaveBeenCalled());
+    } finally {
+      nowSpy.mockRestore();
+    }
 
     // Stream the SSE prologue: early reply text (carries the squawk variant)
     // followed by the progressive audio stream announcement. The audioStream

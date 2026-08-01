@@ -71,6 +71,14 @@ export function zoneStampExtent(size: number): number {
   return Math.ceil(size * (Math.cos(rad) + Math.sin(rad)));
 }
 
+/** Inverse of zoneStampExtent: the largest stamp size whose rotated visual
+ *  extent fits the given slot width. Lets a host derive the stamp from its
+ *  own column width (R1: label + circle scale as a unit to the stub). */
+export function stampSizeForExtent(extent: number): number {
+  const rad = (STAMP_ROTATION_DEG * Math.PI) / 180;
+  return Math.floor(extent / (Math.cos(rad) + Math.sin(rad)));
+}
+
 // Deterministic fit for the stamp's geoName line. Real zone names run up to
 // "Thiruvananthapuram Central"; the old fixed 7px font with maxWidth +
 // numberOfLines={1} guaranteed an ellipsis for most of them. Instead, size
@@ -78,8 +86,11 @@ export function zoneStampExtent(size: number): number {
 // on spaces (no numberOfLines, so truncation is impossible). 0.7em per
 // uppercase extrabold character is a conservative advance estimate; the
 // floor keeps degenerate names from vanishing entirely.
+// R1: the budget is 0.72 of the diameter, not 0.84 — the name sits BELOW the
+// zone numeral, where the circle's chord is far narrower than the equator.
+// The 0.84 budget let "AHMEDABAD" graze the lower arc and wrap mid-word.
 export function stampNameFontSize(name: string, size: number): number {
-  const budget = size * 0.84;
+  const budget = size * 0.72;
   const longestWord = Math.max(
     1,
     ...name.trim().split(/\s+/).map((w) => w.length),
@@ -87,7 +98,15 @@ export function stampNameFontSize(name: string, size: number): number {
   return Math.max(3, Math.min(7, budget / (longestWord * 0.7)));
 }
 
-/** Rubber-stamp fare-zone ring in brand ink. */
+/** Rubber-stamp fare-zone ring in brand ink.
+ *
+ *  R1 sizing contract: EVERY piece of type inside the ring derives from
+ *  `size`, so the label + circle scale as one unit wherever the stamp is
+ *  placed. The old fixed 7px FARE ZONE label was wider than the chord near
+ *  the top arc of a 48px ring, colliding with the dashed border. The stamp
+ *  is a decorative ticket fitting (the zone name also appears in the pass
+ *  subtitle), so its type is pinned against OS font scaling — accessibility
+ *  text sizes must never re-introduce the collision. */
 export function ZoneStamp({
   ink,
   zone,
@@ -99,6 +118,11 @@ export function ZoneStamp({
   name: string;
   size?: number;
 }) {
+  // Label chord: the label row sits ~0.3 diameters above center, where the
+  // chord is ~0.8 of the diameter. 0.115em per glyph keeps FARE ZONE (9
+  // glyphs + tracking) comfortably inside it at any size.
+  const labelFontSize = Math.max(4, Math.round(size * 0.115));
+  const zoneFontSize = Math.max(12, Math.round(size * 0.375));
   const nameFontSize = stampNameFontSize(name, size);
   return (
     <View
@@ -113,15 +137,37 @@ export function ZoneStamp({
         },
       ]}
     >
-      <Text style={[styles.stampLabel, { color: ink }]}>FARE ZONE</Text>
-      <Text style={[styles.stampZone, { color: ink }]}>{zone}</Text>
       <Text
+        allowFontScaling={false}
+        style={[
+          styles.stampLabel,
+          {
+            color: ink,
+            fontSize: labelFontSize,
+            lineHeight: labelFontSize + 1,
+            letterSpacing: labelFontSize >= 6 ? 0.6 : 0.3,
+          },
+        ]}
+      >
+        FARE ZONE
+      </Text>
+      <Text
+        allowFontScaling={false}
+        style={[
+          styles.stampZone,
+          { color: ink, fontSize: zoneFontSize, lineHeight: zoneFontSize + 1 },
+        ]}
+      >
+        {zone}
+      </Text>
+      <Text
+        allowFontScaling={false}
         testID="zone-stamp-name"
         style={[
           styles.stampName,
           {
             color: ink,
-            maxWidth: size * 0.84,
+            maxWidth: size * 0.72,
             fontSize: nameFontSize,
             lineHeight: nameFontSize + 1,
             // Tracking only at full size; squeezed names need every pixel.
@@ -193,16 +239,13 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-12deg' }],
     flexShrink: 0,
   },
+  // Font size, line height, and tracking are computed per size in ZoneStamp
+  // (R1: the stamp's type scales as a unit with the ring).
   stampLabel: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 7,
-    letterSpacing: 1,
-    lineHeight: 8,
   },
   stampZone: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 18,
-    lineHeight: 19,
   },
   // Size, line height, and tracking are computed per name in ZoneStamp.
   stampName: {

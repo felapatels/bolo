@@ -48,7 +48,12 @@ import {
   useEntitlements,
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
-import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
+import {
+  TicketPerforationV,
+  TicketStripes,
+  ZoneStamp,
+  stampSizeForExtent,
+} from "@/components/ticket";
 import {
   Bunting,
   SCENERY_PLACEMENT,
@@ -113,7 +118,7 @@ type Station = LessonGroupSummary & {
 };
 
 type LockInfo = {
-  kind: "progression" | "sentence" | "language";
+  kind: "progression" | "sentence" | "language" | "plan";
   stopLabel: string;
   zoneTitle: string;
   /** Route pieces for the progression dialog's test-out action. */
@@ -852,7 +857,10 @@ export default function Journey() {
                     ink={line.accent}
                     zone={currentStation.zoneIndex + 1}
                     name={currentZone.geoName}
-                    size={44}
+                    // R1 amendment: derive the stamp from the slot so label +
+                    // circle scale as one unit (76px slot - 16px px-2 padding
+                    // - 8px rotated-extent margin).
+                    size={stampSizeForExtent(52)}
                   />
                 )}
               </div>
@@ -1077,7 +1085,9 @@ export default function Journey() {
                               ? "language"
                               : sentenceGated
                                 ? "sentence"
-                                : "progression",
+                                : s.planLocked === true
+                                  ? "plan"
+                                  : "progression",
                             stopLabel: `${stopLabel} · ${zone.geoName}`,
                             zoneTitle: zone.title,
                             zoneId: zone.id,
@@ -1204,6 +1214,30 @@ export default function Journey() {
               <Link
                 href={upgradeHref({ plan: "plus" })}
                 onClick={() => setLock(null)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
+              >
+                <Sparkles className="w-4 h-4" />
+                Unlock with All-Access
+              </Link>
+            </>
+          )}
+          {lock?.kind === "plan" && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Lock className="w-4 h-4" aria-hidden />
+                  This stop is All-Access territory
+                </DialogTitle>
+                <DialogDescription>
+                  {lock.stopLabel}: every phrase at this stop is part of the
+                  extended library. Unlock All-Access to keep riding the{" "}
+                  {line.lineName}.
+                </DialogDescription>
+              </DialogHeader>
+              <Link
+                href={upgradeHref({ plan: "plus" })}
+                onClick={() => setLock(null)}
+                data-testid="link-plan-lock-upgrade"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
               >
                 <Sparkles className="w-4 h-4" />

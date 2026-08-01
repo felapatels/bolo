@@ -40,6 +40,7 @@ import {
   prepareRecorderInSession,
   ensureRecordingMode,
   stopAndReadRecording,
+  hasRecordingPermission,
   playBase64Audio,
   playStreamingAudio,
   RECORDING_PRESET,
@@ -59,6 +60,10 @@ const HISTORY_WINDOW = 3;
 
 // Free-tier weekly cap in seconds (matches backend constant).
 const FREE_WEEKLY_CAP_SECONDS = 120;
+
+// R6 (32.1): holds shorter than this are taps, not utterances - the stop
+// path aborts and discards them instead of submitting a garbage clip.
+const MIN_RECORDING_MS = 300;
 
 // Parrot squawk SFX assets, indexed by the server's squawkVariant.
 const SQUAWK_ASSETS = [
@@ -325,9 +330,20 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder]);
 
-  // Pre-warm on mount and after each turn (return to idle)
+  // Pre-warm on mount and after each turn (return to idle). R6 (32.1): the
+  // pre-warm must never be the thing that prompts for mic permission - it
+  // only runs once permission is already granted. The permission prompt
+  // belongs to the first real press (handleStartRecording -> prepareRecorder).
   React.useEffect(() => {
-    if (phase === 'idle') void prepareRecorder();
+    if (phase !== 'idle') return;
+    let cancelled = false;
+    void (async () => {
+      if (!(await hasRecordingPermission())) return;
+      if (!cancelled) void prepareRecorder();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [phase, prepareRecorder]);
 
   // Clean up playback and word-reveal on unmount
@@ -496,15 +512,33 @@ export default function ChatScreen() {
     }
     try {
       await ensureRecordingMode();
+      // R6 (32.1) leg 1: positive hold confirmation. A permission grant (or
+      // any of the prepare/mode awaits above resolving) must never start a
+      // recording by itself. Continue only if the finger is verifiably still
+      // down - otherwise (released while the prompt was open, or lifted
+      // during startup) tear down without recording, matching the web
+      // hold-confirmation pattern.
+      if (!isPressingRef.current) {
+        setPhase('idle');
+        return;
+      }
+      // R6 leg 3: re-stop playback immediately before record(). Streamed
+      // reply audio can begin playing during the awaits above; the stop at
+      // the top of this function is too early to catch it. (Cast: TS
+      // otherwise narrows the ref to the null it was assigned pre-await,
+      // even though playback callbacks can repopulate it across awaits.)
+      (playbackRef.current as PlaybackHandle | null)?.stop();
+      playbackRef.current = null;
       recordingStartTimeRef.current = Date.now();
       recorder.record();
       recorderPreparedRef.current = false;
       setPhase('recording');
       hapticMedium();
-      // Guard: if the finger was lifted while async startup was in flight,
-      // stop immediately so recording never outlasts the hold gesture.
+      // R6 leg 2: if the release landed in the record() startup window,
+      // abort and DISCARD - never stop-and-submit a clip the learner did
+      // not actually hold for.
       if (!isPressingRef.current) {
-        void handleStopRecording();
+        void abortRecording();
       }
     } catch {
       recorderPreparedRef.current = false;
@@ -512,8 +546,37 @@ export default function ChatScreen() {
     }
   };
 
+  /**
+   * R6 (32.1): discard a live recording without submitting anything - stop
+   * the recorder, drop the clip, settle back to idle. Used when the hold
+   * ended before recording meaningfully started (grant-after-release, a tap
+   * instead of a hold, or a release inside the record() startup window).
+   */
+  const abortRecording = async () => {
+    finishingRef.current = true;
+    try {
+      await recorder.stop();
+    } catch {
+      // Nothing to salvage - the clip is being discarded anyway.
+    }
+    // The recorder is consumed by stop(); every abort caller runs after
+    // record() already cleared this flag, but keep the invariant local so
+    // the idle pre-warm always re-prepares before the next hold.
+    recorderPreparedRef.current = false;
+    finishingRef.current = false;
+    setPhase('idle');
+  };
+
   const handleStopRecording = async () => {
     if (finishingRef.current) return;
+    // R6 (32.1) leg 2: minimum-duration guard. A sub-300ms hold is a tap,
+    // not an utterance - abort and discard instead of submitting a garbage
+    // clip. (Silence auto-stop can never fire this early, so only real taps
+    // land here.)
+    if (Date.now() - recordingStartTimeRef.current < MIN_RECORDING_MS) {
+      void abortRecording();
+      return;
+    }
     finishingRef.current = true;
     // Capture this turn's ID before any await — only apply the result if the
     // ID still matches when the server responds.

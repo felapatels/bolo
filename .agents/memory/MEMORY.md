@@ -110,3 +110,7 @@
 - [Pronunciation scoring signal audit](pronunciation-scoring-signal.md) — transcript-centric pipeline is accent-blind; STT logprobs don't discriminate; gpt-audio hears accent but needs 3-run median; Azure PA covers only hi/ta of 22.
 - [Pronunciation pilot findings](pronunciation-pilot-findings.md) — gpt-audio works on clean clips; WAV→MP3 required; recording contamination (phone speaker via mic) invalidated most clips; re-run with earphones.
 - [Plan-filtered rollups](plan-filtered-rollups.md) — tallies aggregated over ALL rows desync from plan-filtered payloads (journey "8/10 mastered" vs all-mastered Free session); probe the real payload before touching derivation code.
+- [Pilot capture upload verification](pilot-capture-r2-creds.md) — WARN-swallowed storage tees can fail 100% silently; verify a real upload round-trip before any capture session.
+- [Journey premium-empty stations](journey-premium-empty-stations.md) — position-2+ stations are all-premium; non-extendedLibrary callers get 200 [] ("No phrases found here") while the map shows them unlocked.
+- [Mobile hold-to-talk guards](mobile-hold-to-talk.md) — re-verify press after EVERY startup await, abort-not-submit, 300ms min duration, pre-warm never prompts; Date.now-spy jest pattern.
+- [Floating pill phantom-bar](floating-pill-phantom-bar.md) — "bar peeking under tab bar" = the screen's own scroll content behind the pill; fix is an in-screen bottom fade mask.

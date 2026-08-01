@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { track, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   FadeIn,
@@ -1571,13 +1571,20 @@ export default function PracticeScreen() {
     );
   }
   if (list.length === 0) {
+    // S2 map honesty: a plain practice session with zero phrases means the
+    // caller reached a stop their plan cannot see (the listing now reports
+    // such groups planLocked, so this is defensive). Send them back to the
+    // journey map, where the station renders locked with the Plus upsell,
+    // instead of stranding them on a dead-end empty state. Sentence sessions
+    // keep their legitimate empty state.
+    if (!isSentences) {
+      return <Redirect href="/(app)/journey" />;
+    }
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="Practice" />
         <Text style={[styles.note, { color: colors.mutedForeground }]}>
-          {isSentences
-            ? 'No sentences to practice here yet.'
-            : 'No phrases to practice here yet.'}
+          No sentences to practice here yet.
         </Text>
       </Screen>
     );

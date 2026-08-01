@@ -17,14 +17,15 @@ import {
 //     persistent, unlike the old empty-state tip that disappeared when the
 //     pending learner bubble made messages.length > 0.
 //
-// Interaction under test — a quick hold-and-release on the Bolo mascot:
-//   1. pressIn  → handleStartRecording fires (async recorder startup).
-//   2. pressOut → isPressingRef.current = false; phase is still 'idle' so
-//                 handleStopRecording is NOT called directly.
-//   3. When startup finishes, the guard `if (!isPressingRef.current)` is true
-//      and handleStopRecording is called automatically. It synchronously calls
-//      setMessages([{ role:'learner', pending:true }]) before any further
-//      awaits, making messages.length === 1 and hiding the hint.
+// Interaction under test — a REAL hold-and-release on the Bolo mascot
+// (R6, 32.1: a quick tap or a release-during-startup now aborts and discards
+// instead of submitting, so the hint test must hold through startup and
+// release only after the minimum recording duration):
+//   1. pressIn  → handleStartRecording fires; startup completes with the
+//                 finger still down, so the recorder goes live.
+//   2. Date.now advances past MIN_RECORDING_MS (spied).
+//   3. pressOut → handleStopRecording submits and synchronously adds the
+//      pending learner bubble, making messages.length === 1.
 // ---------------------------------------------------------------------------
 
 // ── Mutable state ──────────────────────────────────────────────────────────
@@ -78,6 +79,8 @@ jest.mock('expo-audio', () => ({
 }));
 
 jest.mock('@/lib/audio', () => ({
+  // R6: pre-warm gate - granted by default so suites keep their warm-mic setup.
+  hasRecordingPermission: jest.fn(async () => true),
   prepareRecordingSession: (...args: unknown[]) =>
     mockState.prepareRecordingSession(...args),
   prepareRecorderInSession: jest.fn(async () => undefined),
@@ -85,6 +88,7 @@ jest.mock('@/lib/audio', () => ({
   stopAndReadRecording: (...args: unknown[]) =>
     mockState.stopAndReadRecording(...args),
   playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),
+  playStreamingAudio: jest.fn(async () => ({ stop: jest.fn() })),
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
@@ -226,22 +230,29 @@ describe('bilingual hint on the Bolo chat screen', () => {
   });
 
   test('hint stays visible after the first recording attempt begins', async () => {
+    // Control the clock so the release clears the R6 minimum-duration guard.
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+
     render(<ChatScreen />);
 
     // Sanity: hint is present in the initial render.
     expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
 
-    // Simulate a quick hold-and-release on the mascot.
-    // pressIn starts async recorder startup; pressOut sets isPressingRef to
-    // false while startup is still in flight. When startup finishes, it
-    // detects the finger is already up and calls handleStopRecording itself.
-    // handleStopRecording synchronously adds the pending learner bubble
-    // (setMessages) before any further awaits, making messages.length === 1.
+    // Press and HOLD: startup completes with the finger still down, so the
+    // recorder goes live and the button flips to "Release to send".
     await act(async () => {
-      const mascot = screen.getByRole('button', { name: 'Hold to speak' });
-      fireEvent(mascot, 'pressIn');
-      fireEvent(mascot, 'pressOut');
+      fireEvent(screen.getByRole('button', { name: 'Hold to speak' }), 'pressIn');
     });
+
+    // Release after a hold longer than the minimum duration — the stop path
+    // submits, synchronously adding the pending learner bubble (setMessages)
+    // before any further awaits, making messages.length === 1.
+    now += 500;
+    await act(async () => {
+      fireEvent(screen.getByRole('button', { name: 'Release to send' }), 'pressOut');
+    });
+    nowSpy.mockRestore();
 
     // The empty-state greeting bubble disappears once a message exists…
     await waitFor(() =>

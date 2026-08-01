@@ -27,6 +27,14 @@ export interface EvaluationClaims {
   // Time in ms between phrase audio ending and the learner tapping Record.
   // Null means the client did not report it (older app version).
   latencyMs?: number | null;
+  // ── S1 scoring honesty additions (optional so pre-dual-pass tokens stay valid) ──
+  // Transcript from the fast STT pass (gpt-4o-mini-transcribe).
+  sttTranscriptMini?: string;
+  // Transcript from the high-quality STT pass, run on every scored attempt.
+  sttTranscriptHq?: string;
+  // True when the passes disagreed after normalization; the band was computed
+  // from the transcript farther from the target (the conservative reading).
+  sttDisagreement?: boolean;
 }
 
 interface SignedPayload extends EvaluationClaims {

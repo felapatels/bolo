@@ -6,6 +6,8 @@
 //     the tear, re-presses during the tear are swallowed, and the pass
 //     restores (re-pressable) after the reset window.
 //   - Reduced motion activates instantly with zero theatrics.
+//   - R4: the paper-tear SFX fires exactly once per tear (fire-and-forget,
+//     never on reduced motion, never on swallowed re-presses).
 
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
@@ -75,7 +77,15 @@ jest.mock('@/lib/useJourneyProgress', () => ({
   useJourneyProgress: () => mockState.journey,
 }));
 
+// R4: the SFX layer is fire-and-forget; the card must call it at tear start
+// and NEVER await it. The mock keeps jsdom free of expo-audio natives.
+jest.mock('@/lib/tearAudio', () => ({
+  preloadTearAudio: jest.fn(),
+  playTearSfx: jest.fn(),
+}));
+
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { playTearSfx } from '@/lib/tearAudio';
 
 const CURRENT = {
   geoName: 'New Delhi',
@@ -126,6 +136,16 @@ describe('progress-aware CTA copy (web home.tsx parity)', () => {
     mockState.journey = { current: null, doneCount: 3 };
     render(<JourneyPassCard onPress={() => {}} />);
     expect(screen.getByText('Continue your journey')).toBeOnTheScreen();
+  });
+
+  // S2 map honesty: when the only stops ahead are plan-gated (planLocked
+  // groups, or sentence stops for a Free learner), the pass upsells instead
+  // of promising a ride it cannot deliver.
+  it('planBlocked with nothing boardable: All-Access nudge', () => {
+    mockState.journey = { current: null, doneCount: 3, planBlocked: true };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('Unlock your next stop with All-Access')).toBeOnTheScreen();
+    expect(screen.queryByText('Continue your journey')).toBeNull();
   });
 });
 
@@ -226,8 +246,38 @@ describe('stub tear-off activation', () => {
       // No idle theatrics either: glow and shimmer never mount.
       expect(screen.queryByTestId('pass-glow')).toBeNull();
       expect(screen.queryByTestId('pass-shimmer')).toBeNull();
+      // R4: reduced motion is silent — no tear, no tear sound.
+      expect(playTearSfx).not.toHaveBeenCalled();
     } finally {
       spy.mockRestore();
     }
+  });
+
+  // R4: the recorded tear SFX plays at tear start (before the 500ms nav
+  // mark), exactly once per tear — swallowed re-presses stay silent, and a
+  // fresh activation after the reset window plays it again.
+  it('plays the tear SFX once per tear, at tear start', () => {
+    const onPress = jest.fn();
+    render(<JourneyPassCard onPress={onPress} />);
+    const card = screen.getByTestId('journey-pass-card');
+
+    fireEvent.press(card);
+    // Fires synchronously with the tear start, ahead of navigation.
+    expect(playTearSfx).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
+
+    // Swallowed mid-tear re-press: no second sound.
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    fireEvent.press(card);
+    expect(playTearSfx).toHaveBeenCalledTimes(1);
+
+    // Past the reset window the pass restores; a new tear plays a new sound.
+    act(() => {
+      jest.advanceTimersByTime(1300);
+    });
+    fireEvent.press(card);
+    expect(playTearSfx).toHaveBeenCalledTimes(2);
   });
 });

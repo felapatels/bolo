@@ -48,6 +48,14 @@ export const attemptsTable = pgTable("attempts", {
   xpAwarded: integer("xp_awarded"),
   // Comma-separated guard/flag tags for observability (e.g. 'fast_path,near_match_floor').
   flags: text("flags"),
+  // ── S1 scoring honesty columns (nullable; null = attempt predates dual-pass STT) ──
+  // Transcript from the fast STT pass (gpt-4o-mini-transcribe).
+  sttTranscriptMini: text("stt_transcript_mini"),
+  // Transcript from the high-quality STT pass, run on every scored attempt.
+  sttTranscriptHq: text("stt_transcript_hq"),
+  // True when the two passes disagreed after normalization; the band was then
+  // computed from the transcript farther from the target (conservative reading).
+  sttDisagreement: boolean("stt_disagreement"),
 });
 
 export const insertAttemptSchema = createInsertSchema(attemptsTable).omit({
