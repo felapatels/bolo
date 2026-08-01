@@ -22,6 +22,7 @@
 
 .gv {
   --gv-delay: 0s;
+  --gv-tempo: 2.2; /* ambient idle; hover/press restores 1 (full energy) */
   position: relative;
   display: flex;
   align-items: center;
@@ -43,7 +44,7 @@
   border-radius: 4px;
   background: hsl(var(--primary));
   box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
-  animation-duration: 4.8s;
+  animation-duration: calc(4.8s * var(--gv-tempo, 1));
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-delay: var(--gv-delay);
@@ -134,7 +135,7 @@
   border-radius: 1px;
   background: hsl(var(--secondary));
   transform: scaleY(0.55);
-  animation: gv-wave 4.8s ease-in-out infinite;
+  animation: gv-wave calc(4.8s * var(--gv-tempo, 1)) ease-in-out infinite;
   animation-delay: var(--gv-delay);
 }
 
@@ -167,7 +168,7 @@
 
 .gv-chip--pick {
   background: hsl(var(--primary));
-  animation: gv-pick 4.8s ease-in-out infinite;
+  animation: gv-pick calc(4.8s * var(--gv-tempo, 1)) ease-in-out infinite;
   animation-delay: var(--gv-delay);
 }
 
@@ -201,7 +202,7 @@
   height: 9px;
   border-radius: 2.5px;
   background: hsl(var(--primary) / 0.85);
-  animation-duration: 5.2s;
+  animation-duration: calc(5.2s * var(--gv-tempo, 1));
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-delay: var(--gv-delay);
@@ -274,7 +275,7 @@
   stroke-linecap: round;
   stroke-dasharray: 88; /* 2 * pi * r=14, rounded */
   stroke-dashoffset: 26; /* settled/static frame: most of the time left */
-  animation: gv-timer 3.8s linear infinite;
+  animation: gv-timer calc(3.8s * var(--gv-tempo, 1)) linear infinite;
   animation-delay: var(--gv-delay);
 }
 
@@ -301,7 +302,7 @@
   height: 3px;
   border-radius: 1.5px;
   background: hsl(var(--muted-foreground) / 0.3);
-  animation-duration: 1.9s;
+  animation-duration: calc(1.9s * var(--gv-tempo, 1));
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-delay: var(--gv-delay);
@@ -342,7 +343,7 @@
   height: 4px;
   border-radius: 2px;
   background: hsl(var(--muted-foreground) / 0.3);
-  animation-duration: 5.4s;
+  animation-duration: calc(5.4s * var(--gv-tempo, 1));
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-delay: var(--gv-delay);
@@ -397,7 +398,7 @@
   background: hsl(var(--accent));
   clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
   opacity: 0.9;
-  animation: gv-sparkle 5.4s ease-in-out infinite;
+  animation: gv-sparkle calc(5.4s * var(--gv-tempo, 1)) ease-in-out infinite;
   animation-delay: var(--gv-delay);
 }
 
@@ -406,4 +407,40 @@
   14%, 50% { opacity: 0; transform: scale(0.4); }
   58% { opacity: 1; transform: scale(1.3) rotate(20deg); }
   68%, 100% { opacity: 0.9; transform: none; }
+}
+
+/* ----- Energy model (task 986): ambient idle, full-energy wake ------------ */
+
+/* Idle tempo: every loop plays at its authored duration multiplied by
+   --gv-tempo. The hub idles slow and quiet (2.2x duration); hovering or
+   pressing the card (the .group wrapper) restores full energy (1x, the
+   authored preview behavior). Switching tempo mid-cycle jumps the loop
+   phase; on these abstract 48px shapes the snap reads as the vignette
+   waking up. Under prefers-reduced-motion the global index.css rule forces
+   duration to ~0 with !important, which beats any tempo set here, so
+   vignettes stay on their authored static base frames. */
+.group:hover .gv,
+.group:active .gv {
+  --gv-tempo: 1;
+}
+
+/* Locked cards do not idle: their vignette holds a static mid-cycle frame
+   (paused at the card's negative --gv-delay phase offset) and plays only
+   while hovered — look-but-locked. */
+.gv--locked,
+.gv--locked * {
+  animation-play-state: paused;
+}
+
+.group:hover .gv--locked,
+.group:hover .gv--locked * {
+  animation-play-state: running;
+}
+
+/* Off-screen cards pause their loops entirely (IntersectionObserver in
+   GamePreview toggles this class). Hover cannot realistically coexist with
+   off-screen, so rule order alone is enough. */
+.gv--offscreen,
+.gv--offscreen * {
+  animation-play-state: paused;
 }

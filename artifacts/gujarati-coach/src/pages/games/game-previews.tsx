@@ -7,8 +7,16 @@
  * vignette settles to its base styles, which are authored as a meaningful
  * static frame (matched pair lit, picked chip highlighted, tiles in order,
  * timer ring mostly full, correct answer lit with its sparkle).
+ *
+ * Energy model (task 986): vignettes idle at a slow ambient tempo and wake
+ * to full energy on card hover/press (--gv-tempo in game-previews.css).
+ * Locked cards render `gv--locked` (paused until hovered) and off-screen
+ * vignettes pause entirely via an IntersectionObserver toggling
+ * `gv--offscreen`.
  */
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ComponentType, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import "./game-previews.css";
 
 /** Two mini tiles slide together and light up as a matched pair. */
@@ -92,22 +100,42 @@ const VIGNETTES: Record<string, ComponentType> = {
  * no vignette exists (defensive; every current hub game has one).
  *
  * `delay` staggers the loop phase per card (negative values start mid-cycle)
- * so the grid never pulses in unison.
+ * so the grid never pulses in unison. `locked` renders the paused
+ * look-but-locked treatment (plays only on card hover). Off-screen vignettes
+ * pause their loops (IntersectionObserver; jsdom without IO simply never
+ * pauses, which is the safe default).
  */
 export function GamePreview({
   gameId,
   delay,
+  locked,
   fallback,
 }: {
   gameId: string;
   delay?: string;
+  locked?: boolean;
   fallback?: ReactNode;
 }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [offscreen, setOffscreen] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setOffscreen(!entry.isIntersecting),
+      { rootMargin: "64px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const Vignette = VIGNETTES[gameId];
   if (!Vignette) return <>{fallback}</>;
   return (
     <div
-      className="gv"
+      ref={ref}
+      className={cn("gv", locked && "gv--locked", offscreen && "gv--offscreen")}
       style={{ "--gv-delay": delay ?? "0s" } as CSSProperties}
       aria-hidden="true"
       data-testid={`game-preview-${gameId}`}

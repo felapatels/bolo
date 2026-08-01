@@ -1,4 +1,5 @@
-import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
@@ -93,6 +94,11 @@ type GameColor = {
   lockedBg: string;
   /** Icon color when locked — same hue, reduced opacity. */
   lockedIconColor: string;
+  /**
+   * Press bloom (task 986): a brief border glow in the card's own hue while
+   * pressed. motion-safe so reduced motion never flashes it.
+   */
+  pressGlow: string;
 };
 
 const GAME_COLORS: Record<string, GameColor> = {
@@ -103,6 +109,7 @@ const GAME_COLORS: Record<string, GameColor> = {
     iconColor: "text-sky-600 dark:text-sky-400",
     lockedBg: "bg-sky-100/50 dark:bg-sky-900/25",
     lockedIconColor: "text-sky-600/60 dark:text-sky-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(56,189,248,0.45)]",
   },
   "listen-and-pick": {
     bg: "bg-emerald-50/70 dark:bg-emerald-950/25",
@@ -112,6 +119,7 @@ const GAME_COLORS: Record<string, GameColor> = {
     iconColor: "text-emerald-600 dark:text-emerald-400",
     lockedBg: "bg-emerald-100/50 dark:bg-emerald-900/25",
     lockedIconColor: "text-emerald-600/60 dark:text-emerald-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(52,211,153,0.45)]",
   },
   "phrase-builder": {
     bg: "bg-amber-50/70 dark:bg-amber-950/25",
@@ -121,6 +129,7 @@ const GAME_COLORS: Record<string, GameColor> = {
     iconColor: "text-amber-600 dark:text-amber-400",
     lockedBg: "bg-amber-100/50 dark:bg-amber-900/25",
     lockedIconColor: "text-amber-600/60 dark:text-amber-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,191,36,0.45)]",
   },
   "speed-round": {
     bg: "bg-rose-50/70 dark:bg-rose-950/25",
@@ -130,6 +139,7 @@ const GAME_COLORS: Record<string, GameColor> = {
     iconColor: "text-rose-600 dark:text-rose-400",
     lockedBg: "bg-rose-100/50 dark:bg-rose-900/25",
     lockedIconColor: "text-rose-600/60 dark:text-rose-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,113,133,0.45)]",
   },
   "bolo-quiz": {
     bg: "bg-violet-50/70 dark:bg-violet-950/25",
@@ -139,6 +149,7 @@ const GAME_COLORS: Record<string, GameColor> = {
     iconColor: "text-violet-600 dark:text-violet-400",
     lockedBg: "bg-violet-100/50 dark:bg-violet-900/25",
     lockedIconColor: "text-violet-600/60 dark:text-violet-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(167,139,250,0.45)]",
   },
 };
 
@@ -150,6 +161,7 @@ const FALLBACK_COLOR: GameColor = {
   iconColor: "text-primary",
   lockedBg: "bg-muted",
   lockedIconColor: "text-muted-foreground",
+  pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(148,163,184,0.35)]",
 };
 
 const DIFFICULTY_CLASSES: Record<GameDef["difficulty"], string> = {
@@ -164,6 +176,11 @@ export default function GamesPage() {
   // Fail closed: while entitlements are loading (or undefined), Plus-only
   // tiles render locked rather than briefly unlocked.
   const plusReady = isPlus === true && !isLoading;
+  // Task 986 step-in: the card being navigated into scales slightly toward
+  // the viewer while the route transitions. State only ever selects the
+  // animate target — navigation itself is the Link's default behavior and is
+  // never delayed or intercepted.
+  const [enteredId, setEnteredId] = useState<string | null>(null);
 
   return (
     <div className="min-h-[100dvh] bg-background pb-28 lg:pb-8">
@@ -178,7 +195,16 @@ export default function GamesPage() {
             <p className="text-sm text-muted-foreground">Play your way to fluency</p>
           </div>
           <div className="ml-auto">
-            <Mascot pose="cheer" size={52} />
+            {/* Task 986: Bolo reacts to the hub opening — one whole-image
+                bounce timed to the cascade start, once per mount, never
+                looping (canonical mascot rule: whole-image transforms only).
+                Reduced motion renders the mascot perfectly still. */}
+            <motion.div
+              animate={reduceMotion ? undefined : { y: [0, -9, 0], rotate: [0, -7, 4, 0] }}
+              transition={reduceMotion ? undefined : { duration: 0.55, delay: 0.08, ease: "easeOut" }}
+            >
+              <Mascot pose="cheer" size={52} />
+            </motion.div>
           </div>
         </div>
       </div>
@@ -189,28 +215,46 @@ export default function GamesPage() {
         <div className="grid gap-3 min-[480px]:grid-cols-2">
           {GAMES.map((game, index) => {
             const locked = game.plusOnly && !plusReady;
+            const entered = enteredId === game.id;
             const Card = (
               <motion.div
                 className="h-full"
-                // Staggered entrance cascade: one quick sweep across the grid.
+                // Staggered entrance cascade (task 986: pronounced — larger
+                // rise, scale from 0.9, springs.poppy overshoot; 5 cards at
+                // 0.07s stagger settle in ~0.65s, under the 700ms budget).
                 // Cards stay interactive throughout (no pointer-events gate).
                 // Under reduced motion this collapses to an instant fade and
                 // the hover/tap transforms are dropped entirely.
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
-                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28, scale: 0.9 }}
+                animate={
+                  reduceMotion
+                    ? { opacity: 1 }
+                    : entered
+                      ? { opacity: 1, y: 0, scale: 1.05 }
+                      : { opacity: 1, y: 0, scale: 1 }
+                }
                 transition={
                   reduceMotion
                     ? { duration: 0.001 }
-                    : { ...springs.bouncy, delay: index * 0.06 }
+                    : entered
+                      ? springs.snappy
+                      : { ...springs.poppy, delay: index * 0.07 }
                 }
                 // Gesture transitions live on the targets so they never
-                // inherit the entrance's stagger delay.
+                // inherit the entrance's stagger delay. Hover lifts and
+                // slightly enlarges; press is a deeper squash whose release
+                // springs back naturally (squash-and-release).
                 whileHover={
-                  reduceMotion ? undefined : { y: -2, transition: springs.snappy }
+                  reduceMotion
+                    ? undefined
+                    : { y: -4, scale: 1.02, transition: springs.snappy }
                 }
                 whileTap={
-                  reduceMotion ? undefined : { scale: 0.96, transition: springs.snappy }
+                  reduceMotion ? undefined : { scale: 0.93, transition: springs.snappy }
                 }
+                // Step-in fires only when actually navigating into a game
+                // (unlocked cards); the upgrade route keeps the plain press.
+                onClick={locked || reduceMotion ? undefined : () => setEnteredId(game.id)}
               >
                 <GameCard
                   game={game}
@@ -261,16 +305,22 @@ function GameCard({
         // Hover lift + press compress are handled by the framer-motion wrapper
         // in GamesPage (whileHover / whileTap) so transform feedback lives in
         // ONE place — the CSS here only transitions the non-transform hover
-        // affordances (shadow + border tint), replacing the old `card-lift`.
-        "group relative flex h-full cursor-pointer flex-col gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color] duration-200 hover:shadow-md",
+        // affordances (shadow + border tint + saturation), replacing the old
+        // `card-lift`. Press adds the per-game border glow (pressGlow).
+        "group relative flex h-full cursor-pointer flex-col gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color,filter] duration-200 hover:shadow-md",
         colors.bg,
         colors.border,
+        colors.pressGlow,
+        // Hover saturates the color identity slightly (unlocked only; locked
+        // cards keep their washed look-but-locked treatment).
+        !locked && "motion-safe:hover:saturate-[1.15]",
         // Locked: same hue, washed out — colorful but obviously gated.
         locked && "opacity-80 saturate-[0.85]"
       )}
     >
       {/* Preview vignette + badges row. Locked cards keep the dimmed tile
-          treatment but still play their preview: it sells the game. */}
+          treatment; their vignette holds a static frame and plays only on
+          hover (gv--locked) — look-but-locked. */}
       <div className="flex items-start justify-between gap-2">
         <div
           className={cn(
@@ -281,6 +331,7 @@ function GameCard({
           <GamePreview
             gameId={game.id}
             delay={previewDelay}
+            locked={locked}
             fallback={
               <Icon
                 className={cn("h-6 w-6", locked ? colors.lockedIconColor : colors.iconColor)}
