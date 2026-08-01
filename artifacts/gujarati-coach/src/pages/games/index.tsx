@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
+import { motion, useReducedMotion } from "framer-motion";
 import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
+import { springs } from "@/lib/motion";
 import { GamePreview } from "./game-previews";
 
 type GameDef = {
@@ -73,6 +75,83 @@ const GAMES: GameDef[] = [
   },
 ];
 
+/**
+ * Per-game color identity (one distinct hue per game, drawn from the Tailwind
+ * palette). Locked (Plus-only) cards keep the SAME hue at reduced opacity so
+ * the hub stays colorful while the gate stays obvious — no gray boxes.
+ */
+type GameColor = {
+  /** Card background tint. */
+  bg: string;
+  /** Card border accent (incl. hover deepen). */
+  border: string;
+  /** Icon bubble background when unlocked. */
+  iconBg: string;
+  /** Icon color when unlocked. */
+  iconColor: string;
+  /** Icon bubble background when locked — same hue, washed out. */
+  lockedBg: string;
+  /** Icon color when locked — same hue, reduced opacity. */
+  lockedIconColor: string;
+};
+
+const GAME_COLORS: Record<string, GameColor> = {
+  "word-match": {
+    bg: "bg-sky-50/70 dark:bg-sky-950/25",
+    border: "border-sky-200/80 hover:border-sky-300 dark:border-sky-900/60 dark:hover:border-sky-700",
+    iconBg: "bg-sky-100 dark:bg-sky-900/50",
+    iconColor: "text-sky-600 dark:text-sky-400",
+    lockedBg: "bg-sky-100/50 dark:bg-sky-900/25",
+    lockedIconColor: "text-sky-600/60 dark:text-sky-400/50",
+  },
+  "listen-and-pick": {
+    bg: "bg-emerald-50/70 dark:bg-emerald-950/25",
+    border:
+      "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/60 dark:hover:border-emerald-700",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    lockedBg: "bg-emerald-100/50 dark:bg-emerald-900/25",
+    lockedIconColor: "text-emerald-600/60 dark:text-emerald-400/50",
+  },
+  "phrase-builder": {
+    bg: "bg-amber-50/70 dark:bg-amber-950/25",
+    border:
+      "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/60 dark:hover:border-amber-700",
+    iconBg: "bg-amber-100 dark:bg-amber-900/50",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    lockedBg: "bg-amber-100/50 dark:bg-amber-900/25",
+    lockedIconColor: "text-amber-600/60 dark:text-amber-400/50",
+  },
+  "speed-round": {
+    bg: "bg-rose-50/70 dark:bg-rose-950/25",
+    border:
+      "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/60 dark:hover:border-rose-700",
+    iconBg: "bg-rose-100 dark:bg-rose-900/50",
+    iconColor: "text-rose-600 dark:text-rose-400",
+    lockedBg: "bg-rose-100/50 dark:bg-rose-900/25",
+    lockedIconColor: "text-rose-600/60 dark:text-rose-400/50",
+  },
+  "bolo-quiz": {
+    bg: "bg-violet-50/70 dark:bg-violet-950/25",
+    border:
+      "border-violet-200/80 hover:border-violet-300 dark:border-violet-900/60 dark:hover:border-violet-700",
+    iconBg: "bg-violet-100 dark:bg-violet-900/50",
+    iconColor: "text-violet-600 dark:text-violet-400",
+    lockedBg: "bg-violet-100/50 dark:bg-violet-900/25",
+    lockedIconColor: "text-violet-600/60 dark:text-violet-400/50",
+  },
+};
+
+/** Neutral fallback so an unmapped future game still renders sensibly. */
+const FALLBACK_COLOR: GameColor = {
+  bg: "bg-card",
+  border: "border-border hover:border-primary/30",
+  iconBg: "bg-primary/10",
+  iconColor: "text-primary",
+  lockedBg: "bg-muted",
+  lockedIconColor: "text-muted-foreground",
+};
+
 const DIFFICULTY_CLASSES: Record<GameDef["difficulty"], string> = {
   Beginner: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40",
   Intermediate: "text-amber-600 bg-amber-50 dark:bg-amber-950/40",
@@ -81,6 +160,7 @@ const DIFFICULTY_CLASSES: Record<GameDef["difficulty"], string> = {
 
 export default function GamesPage() {
   const { isPlus, isLoading } = useEntitlements();
+  const reduceMotion = useReducedMotion();
   // Fail closed: while entitlements are loading (or undefined), Plus-only
   // tiles render locked rather than briefly unlocked.
   const plusReady = isPlus === true && !isLoading;
@@ -103,20 +183,43 @@ export default function GamesPage() {
         </div>
       </div>
 
-      {/* Game grid */}
+      {/* Game grid — 2 columns from small-phone widths up (min-[480px]), a
+          single column only on very narrow screens so titles never truncate. */}
       <div className="mx-auto max-w-2xl px-4 pt-6 lg:px-6">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 min-[480px]:grid-cols-2">
           {GAMES.map((game, index) => {
             const locked = game.plusOnly && !plusReady;
             const Card = (
-              <GameCard
-                key={game.id}
-                game={game}
-                locked={locked}
-                // Negative delays start each loop mid-phase so the five
-                // previews never pulse in unison.
-                previewDelay={`${-(index * 1.1)}s`}
-              />
+              <motion.div
+                className="h-full"
+                // Staggered entrance cascade: one quick sweep across the grid.
+                // Cards stay interactive throughout (no pointer-events gate).
+                // Under reduced motion this collapses to an instant fade and
+                // the hover/tap transforms are dropped entirely.
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0.001 }
+                    : { ...springs.bouncy, delay: index * 0.06 }
+                }
+                // Gesture transitions live on the targets so they never
+                // inherit the entrance's stagger delay.
+                whileHover={
+                  reduceMotion ? undefined : { y: -2, transition: springs.snappy }
+                }
+                whileTap={
+                  reduceMotion ? undefined : { scale: 0.96, transition: springs.snappy }
+                }
+              >
+                <GameCard
+                  game={game}
+                  locked={locked}
+                  // Negative delays start each loop mid-phase so the five
+                  // previews never pulse in unison.
+                  previewDelay={`${-(index * 1.1)}s`}
+                />
+              </motion.div>
             );
 
             if (locked) {
@@ -150,12 +253,20 @@ function GameCard({
   previewDelay?: string;
 }) {
   const { Icon } = game;
+  const colors = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
 
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-border bg-card p-4 card-lift hover:border-primary/30 hover:bg-muted/40",
-        locked && "opacity-80"
+        // Hover lift + press compress are handled by the framer-motion wrapper
+        // in GamesPage (whileHover / whileTap) so transform feedback lives in
+        // ONE place — the CSS here only transitions the non-transform hover
+        // affordances (shadow + border tint), replacing the old `card-lift`.
+        "group relative flex h-full cursor-pointer flex-col gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color] duration-200 hover:shadow-md",
+        colors.bg,
+        colors.border,
+        // Locked: same hue, washed out — colorful but obviously gated.
+        locked && "opacity-80 saturate-[0.85]"
       )}
     >
       {/* Preview vignette + badges row. Locked cards keep the dimmed tile
@@ -164,7 +275,7 @@ function GameCard({
         <div
           className={cn(
             "flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl",
-            locked ? "bg-muted" : "bg-primary/10"
+            locked ? colors.lockedBg : colors.iconBg
           )}
         >
           <GamePreview
@@ -172,7 +283,7 @@ function GameCard({
             delay={previewDelay}
             fallback={
               <Icon
-                className={cn("h-6 w-6", locked ? "text-muted-foreground" : "text-primary")}
+                className={cn("h-6 w-6", locked ? colors.lockedIconColor : colors.iconColor)}
                 strokeWidth={1.75}
               />
             }
