@@ -104,9 +104,6 @@ vi.mock("@workspace/api-client-react", async () => ({
       this.data = data;
     }
   },
-  useListCategories: () => ({ data: undefined, isLoading: false }),
-  useListZoneStamps: () => ({ data: [], isLoading: false }),
-  useGetScenario: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock("@/components/mascot", () => ({
@@ -252,12 +249,13 @@ describe("chat mic permission & released-before-start guard", () => {
       fireEvent.pointerDown(micButton());
     });
 
-    // The permission prompt steals focus entirely: no pointerup is ever
-    // dispatched anywhere, only a window blur. The hold must end.
+    // The permission prompt steals the pointer: the release is delivered to
+    // the window, never to the button element.
     await act(async () => {
-      fireEvent.blur(window);
+      fireEvent.pointerUp(window);
     });
 
+    // The grant lands later ("Allow" clicked) — no recording may start.
     await act(async () => {
       resolveGrant();
     });
@@ -265,13 +263,14 @@ describe("chat mic permission & released-before-start guard", () => {
     await waitFor(() => expect(h.abortRecording).toHaveBeenCalledTimes(1));
     expect(document.querySelector('[aria-label="Release to send"]')).toBeNull();
     expect(h.stopRecording).not.toHaveBeenCalled();
+    // Typing still works after the discarded grant.
     const input = textInput();
     expect(input.disabled).toBe(false);
-    fireEvent.change(input, { target: { value: "typing works" } });
-    expect(input.value).toBe("typing works");
+    fireEvent.change(input, { target: { value: "hello bolo" } });
+    expect(input.value).toBe("hello bolo");
   });
 
-  test("a held press still records normally after the grant resolves", async () => {
+  test("grant with no live hold (focus stolen, release unobservable) never starts recording", async () => {
     stubMicPermission("prompt");
     let resolveGrant!: () => void;
     h.startRecording.mockReturnValue(

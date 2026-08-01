@@ -1,5 +1,3 @@
-<<<<<<< ours — interstitial `file_header` (T+S+F, confidence: low)
-// hint: All three dimensions conflict. Manual review required.
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { Router } from "wouter";
@@ -25,23 +23,6 @@ import type { ReactElement } from "react";
 // the expected phrase — never for generic chrome.
 // ---------------------------------------------------------------------------
 
-=======
-import React from "react";
-import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { Router } from "wouter";
-import { memoryLocation } from "wouter/memory-location";
-import type { ReactElement } from "react";
-
-// ---------------------------------------------------------------------------
-// framer-motion: AnimatePresence as a passthrough so that the key-change cycle
-// (old phrase exits, new phrase enters) resolves synchronously in jsdom.
-// Without this, AnimatePresence mode="wait" defers the new phrase's mount
-// until the exit animation completes — which never fires in jsdom.
-// ---------------------------------------------------------------------------
-vi.mock("framer-motion", () => ({
-  motion: new Proxy({} as Record<string, unknown>, {
->>>>>>> theirs — interstitial `file_header` (T+S+F, confidence: low)
 const h = vi.hoisted(() => ({
   groupPhrases: {} as Record<string, unknown>,
   categoryPhrases: {} as Record<string, unknown>,
@@ -232,25 +213,3 @@ describe("practice start position (Task 954: station resume)", () => {
     expect(document.querySelector('a[href="/journey"]')).not.toBeNull();
   });
 });
-
-    get(_t, tag: string) {
-      return function MotionEl({
-        children,
-        initial: _i,
-        animate: _a,
-        exit: _e,
-        transition: _t2,
-        whileHover: _wh,
-        whileTap: _wt,
-        layout: _l,
-        layoutId: _lid,
-        style,
-        ...rest
-      }: Record<string, unknown>) {
-        return React.createElement(
-          tag as string,
-          { ...(rest as React.HTMLAttributes<HTMLElement>), style: style as React.CSSProperties },
-          children as React.ReactNode,
-        );
-      };
-    },

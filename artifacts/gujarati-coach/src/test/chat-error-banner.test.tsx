@@ -109,9 +109,6 @@ vi.mock("@workspace/api-client-react", async () => ({
       this.data = data;
     }
   },
-  useListCategories: () => ({ data: undefined, isLoading: false }),
-  useListZoneStamps: () => ({ data: [], isLoading: false }),
-  useGetScenario: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock("@/components/mascot", () => ({

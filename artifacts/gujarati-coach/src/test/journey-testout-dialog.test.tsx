@@ -45,7 +45,6 @@ vi.mock("@workspace/api-client-react", async () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
-  useListZoneStamps: () => ({ data: [], isLoading: false, isError: false, isFetching: false, refetch: vi.fn() }),
   // Every zone renders the same two-stop line: stop 1 open, stop 2 locked.
   useListCategoryLessonGroups: () => ({
     data: {

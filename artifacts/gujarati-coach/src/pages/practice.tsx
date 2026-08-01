@@ -517,15 +517,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (startPhraseId != null) {
         const idx = phrases.findIndex(p => p.id === parseInt(startPhraseId, 10));
         if (idx >= 0) startIdx = idx;
-      } else if (skipMastered || (isGroup && !isTestout)) {
+      } else if (skipMastered) {
         // Advance past already-mastered phrases so the session starts where
         // the learner actually has work to do. Falls back to index 0 if
-        // every phrase is mastered (deliberate review — avoids an empty
-        // session). This applies automatically in group mode so tapping a
-        // partly-completed station resumes at the first unmastered phrase
-        // without requiring an explicit URL param. Teaser stations are
-        // naturally inert: their phrases have no attempts so mastered=false
-        // for all, making firstUnmastered=0 and leaving startIdx unchanged.
+        // every phrase is mastered (avoids an empty session).
         const firstUnmastered = phrases.findIndex(p => !p.mastered);
         if (firstUnmastered > 0) startIdx = firstUnmastered;
       } else if (isGroup && !isTestout && !polishMode && !phraseIdsParam) {
