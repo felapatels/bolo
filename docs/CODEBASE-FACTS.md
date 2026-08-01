@@ -723,3 +723,25 @@ D1b direction decided: **Gujarat Express (Mockup C) merged** — rail-line layou
 **Tests:** mobile suite 69 suites / 437 tests green (baseline 68/422). New `games-hub-vignettes.test.tsx`; extended `practice-start-phrase.test.tsx` (5 group-resume pins + 4 chevron tests), `practice-testout.test.tsx` (chevrons hidden), `home-pull-refresh.test.tsx` (band pill; its partial `@/lib/ui` mock now spreads `jest.requireActual`, the initial run failed on the missing `scoreColor` export), `journey-map.test.tsx` (`rail-pulse-dot` counts replace `rail-pulse`, planZoneScenery pins, scenery-layer render). `jest-setup.js` reanimated mock gained `useAnimatedScrollHandler` and `cancelAnimation`.
 
 **Suite state after this work:** mobile 69/437 green; web 52 files / 370 tests green (unchanged); typecheck clean; boot smokes 2/2 (standalone run); api canonical run exits 1 with ONLY the documented pilot-capture "unlisted userId" env fence visible, byte-identical by name, consistent with the certified 682/681/1 baseline (no api files touched by this work).
+
+### Brief B: Build 32 release verification — web section W1-W8 (August 1, 2026)
+
+**Scope:** web-only verification pass against the Brief A commit (build 32 lineage). Mobile items M1-M12 submitted by device owner separately.
+
+**W1 — Boarding pass tear SFX:** `qa/task984-tear-sfx-probe.mjs` PASS. `public/sounds/tear-sfx.m4a` md5 987df1bb confirmed (13,080 bytes). Preload: single fetch, decoded 0.985s mono 44.1kHz. Tap: AudioBufferSourceNode created with correct buffer, gain 0.4, no re-fetch, `tearing=true`, navigation to /journey fires. Reduced-motion: `if (reduceMotion || tearing) return;` path skips SFX silently. Human feel-check for actual speaker audio/haptic.
+
+**W2 — Journey map (comet / scenery / 2.5D depth / parallax):** `qa/task985-depth-probe.mjs` PASS (phone+desktop). 539 map SVG elements; scroll frame p50 16.7ms, p95 16.8ms (unchanged from certified baseline); zero console errors. Screenshots confirm zone header with India gate scenery, station locks, zone 1 open. Comet is animated and won't appear in a static shot. Human feel-check for parallax scroll and comet continuity.
+
+**W3 — Practice prev/next (chevrons + arrow keys):** PASS. Screenshot confirms ← → chevrons at 1280px. Code: arrow key listener (lines 1156-1175) guards on recording/evaluating state and testout mode (`if (isTestout) return undefined`); `goToPhrase()` bounds-checks and is inert during takes. Human feel-check for feel.
+
+**W4 — Station resume at first unmastered phrase:** PASS. `practice.tsx` lines 527-535: the `isGroup && !isTestout && !polishMode && !phraseIdsParam` branch fires unconditionally on `?group=...` navigation, scanning to first phrase with `bestScore < 80`. No `?skipMastered` param needed (that param is now the mobile-legacy path). Human feel-check: enter a started station mid-session.
+
+**W5 — Games hub energy model:** PASS. `qa/task986-behavior-probe.mjs` — 6/6 checks: free cards idle at 10.56s (authored 4.8s × 2.2), locked cards paused until hover, hover wakes to authored 4.8s/5.2s, off-screen pauses, back-on-screen resumes. `qa/task967-shots.mjs` — all four viewport widths PASS (5 cards, no clipped titles, 1-col@320, 2-col@480+, distinct hues, no overflow).
+
+**W6 — Entitlement gates:** PASS. Screenshots confirm: Free user sees "Go All-Access" nav + upsell card + All-Access locks on journey stations. Practice `UpgradeScreen` handles daily_lesson_limit / teaser_exhausted / feature_locked reasons. Language-locked 402 on home is rendered as the banner showroom overlay (not retry). Human feel-check for the full upgrade checkout flow.
+
+**W7 — Band labels, no raw numeric scores (web home recent plays):** FOUND and FIXED. `home.tsx` was rendering `{Math.round(attempt.score)}` in a colored circle for each recent play. API does return `band` (normalized five-band at read). Fix: imported `BandPill` and `normalizeBand` from `@/components/ui/band-pill`; replaced the circle with `<BandPill band={normalizeBand(attempt.band, attempt.score)} />`. Typecheck clean after fix. Practice result card was already correct (uses `result.band` label copy).
+
+**W8 — Core loop smoke:** PASS. Dev server and API both running (all routes 200/304). Practice page loads (1/8 phrase, coach audio, record button). No console errors. Human feel-check for the full hold→evaluate→band→XP→journey loop.
+
+**Net code change this session:** `artifacts/gujarati-coach/src/pages/home.tsx` — recent plays circle replaced with BandPill (−8 lines, +3 lines net). Typecheck clean; no suite re-run needed (no test file touches a raw score in the home section).

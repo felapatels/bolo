@@ -18,6 +18,7 @@ import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
+import { BandPill, normalizeBand } from "@/components/ui/band-pill";
 import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
@@ -431,14 +432,7 @@ export default function Home() {
           const canRetake = attempt.phraseId != null && attempt.categoryId != null;
           const cardContent = (
             <>
-              <div className={cn(
-                "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-black",
-                attempt.score >= 80 ? "bg-success/15 text-success" :
-                attempt.score >= 60 ? "bg-primary/15 text-primary" :
-                "bg-destructive/15 text-destructive"
-              )}>
-                {Math.round(attempt.score)}
-              </div>
+              <BandPill band={normalizeBand(attempt.band, attempt.score)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg leading-tight" style={native.style} dir={native.dir}>{attempt.nativeScript}</p>
                 <p className="mt-0.5 truncate text-sm text-muted-foreground">{attempt.english}</p>
