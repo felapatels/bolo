@@ -384,11 +384,10 @@ export default function PracticeScreen() {
   const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId, stage, skipMastered, group, mode } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage, group, mode } = useLocalSearchParams<{
     id: string;
     phrase?: string;
     stage?: string;
-    skipMastered?: string;
     group?: string;
     mode?: string;
   }>();
@@ -603,6 +602,11 @@ export default function PracticeScreen() {
   // immediately calls stopRecording itself.
   const isPressingRef = React.useRef(false);
 
+  // Chevron navigation (#976): set for exactly one phrase change so the
+  // auto-play effect stays silent - manual navigation must fire no coach
+  // playback. The effect clears it the first time it observes it.
+  const suppressAutoPlayRef = React.useRef(false);
+
   const celebrateTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -630,11 +634,26 @@ export default function PracticeScreen() {
     if (startPhraseId != null) {
       const idx = list.findIndex((p) => p.id === Number(startPhraseId));
       if (idx > 0) { startIdx = idx; setIndex(idx); }
-    } else if (skipMastered === 'true') {
-      const idx = list.findIndex(
-        (p) => !p.mastered || p.bestScore == null,
-      );
-      if (idx > 0) { startIdx = idx; setIndex(idx); }
+    } else if (isGroup && !isTestout) {
+      // #966 (web Task 954 parity): a station session ALWAYS resumes at the
+      // first phrase whose bestScore is null or below the 80 credit edge (the
+      // same threshold lesson-group completion uses). There is no query-param
+      // gate: every route into a plain station session runs this same scan,
+      // and station status (completed / tested_out) never short-circuits it.
+      // Index 0 is the fallback only when the scan finds nothing: every
+      // phrase at 80+ means a deliberate review visit replays from phrase 1,
+      // and a tested-out station without per-phrase attempts is all-null so
+      // the scan itself lands on index 0.
+      //
+      // Teaser taste sets are INERT to resume: the fixed free taste set must
+      // always play from the top, or the taste-then-upsell flow shortens.
+      const isTeaserSet = list.some((p) => p.teaser != null);
+      if (!isTeaserSet) {
+        const idx = list.findIndex(
+          (p) => p.bestScore == null || p.bestScore < 80,
+        );
+        if (idx > 0) { startIdx = idx; setIndex(idx); }
+      }
     }
     // Pre-warm the starting phrase's coach audio as soon as the list loads,
     // before playCoach() runs — gpt-audio synthesis takes 1–2 s and without
@@ -841,6 +860,15 @@ export default function PracticeScreen() {
   // recording begins on its own once coach playback finishes (see onCoachDone).
   React.useEffect(() => {
     if (!phrase) return;
+    // Chevron navigation (#976) lands silently in idle: suppress the one
+    // auto-play this phrase change would fire. Manual "Hear it" still works,
+    // and the next auto-advance plays the coach as usual.
+    if (suppressAutoPlayRef.current) {
+      suppressAutoPlayRef.current = false;
+      return () => {
+        stopPlayback();
+      };
+    }
     let cancelled = false;
     void (async () => {
       const silent = await loadSilentMode();
@@ -1444,6 +1472,31 @@ export default function PracticeScreen() {
     })();
   };
 
+  // ── Manual phrase navigation (#976, web Task #973 parity) ───────────────
+  // Moving between phrases is FREE, never attempt-gated: bands, xpData, and
+  // session feedback are keyed by phrase index, so no visit order can lose
+  // progress. Navigation always lands in idle and fires no recording,
+  // playback, or scoring side effect - the auto-play effect is suppressed for
+  // this one phrase change, and the result-audio effect's cleanup already
+  // stops any in-flight readout when phase flips away. Milestone toasts stay
+  // exclusive to auto-advance (next()). Test-out is one take per phrase,
+  // forward only: the chevrons do not render there and this is never called.
+  const goToPhrase = (target: number) => {
+    if (target < 0 || target >= list.length) return;
+    // Never yank the phrase out from under an in-flight take or evaluation.
+    if (phase === 'recording' || phase === 'evaluating') return;
+    suppressAutoPlayRef.current = true;
+    stopPlayback();
+    stopSelfPlayback();
+    lastRecordingBase64Ref.current = null;
+    feedbackAudioRef.current = null;
+    setResult(null);
+    setEvalError(null);
+    setSaveFailed(false);
+    setIndex(target);
+    setPhaseSync('idle');
+  };
+
   // Leaving the error card returns to the mic, ready to record again.
   const retryAfterError = () => {
     setEvalError(null);
@@ -1848,6 +1901,50 @@ export default function PracticeScreen() {
       >
         {/* Reacting mascot */}
         <View style={styles.mascotRow}>
+          {/* Manual prev/next phrase navigation (#976, web Task #973 parity).
+              Free, never attempt-gated. Absolutely positioned at the row
+              edges so the mascot, record button, and waveform never shift.
+              Edge phrases disable their button; recording and evaluating
+              disable both. Hidden in test-out mode (one take per phrase,
+              forward only). */}
+          {!isTestout && (
+            <>
+              <Pressable
+                onPress={() => goToPhrase(index - 1)}
+                disabled={index === 0 || phase === 'recording' || phase === 'evaluating'}
+                accessibilityRole="button"
+                accessibilityLabel="Go to previous phrase"
+                hitSlop={8}
+                testID="button-prev-phrase"
+                style={[
+                  styles.phraseNavBtn,
+                  styles.phraseNavLeft,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  (index === 0 || phase === 'recording' || phase === 'evaluating') &&
+                    styles.phraseNavDisabled,
+                ]}
+              >
+                <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+              </Pressable>
+              <Pressable
+                onPress={() => goToPhrase(index + 1)}
+                disabled={index >= list.length - 1 || phase === 'recording' || phase === 'evaluating'}
+                accessibilityRole="button"
+                accessibilityLabel="Go to next phrase"
+                hitSlop={8}
+                testID="button-next-phrase"
+                style={[
+                  styles.phraseNavBtn,
+                  styles.phraseNavRight,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  (index >= list.length - 1 || phase === 'recording' || phase === 'evaluating') &&
+                    styles.phraseNavDisabled,
+                ]}
+              >
+                <Feather name="chevron-right" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </>
+          )}
           <Animated.View style={mascotAmpStyle}>
             <Mascot
               pose={mascotPose}
@@ -2560,6 +2657,24 @@ const styles = StyleSheet.create({
   },
   body: { padding: 20, paddingBottom: 24 },
   mascotRow: { alignItems: 'center', marginBottom: 4 },
+  // #976 chevrons: absolute at the row edges - zero layout shift for the
+  // mascot, record button, and waveform. Disabled state dims via opacity
+  // (the Pressable disabled prop also reports it to accessibility).
+  phraseNavBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  phraseNavLeft: { left: 0 },
+  phraseNavRight: { right: 0 },
+  phraseNavDisabled: { opacity: 0.3 },
   phraseCard: {
     borderRadius: 18,
     borderWidth: 1,

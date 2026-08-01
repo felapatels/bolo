@@ -19,7 +19,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
@@ -29,12 +28,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Path, G, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, G, Rect } from 'react-native-svg';
 import Animated, {
   interpolate,
   useAnimatedProps,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
+  useSharedValue,
+  type SharedValue,
 } from 'react-native-reanimated';
 import {
   useListCategories,
@@ -57,7 +59,14 @@ import {
   ZoneStamp,
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
-import { Bunting, TracksideDoodad, ZoneVista, SCENERY_GRAY } from '@/components/journey/Scenery';
+import {
+  Bunting,
+  SceneryElement,
+  ZoneVista,
+  SCENERY_GRAY,
+  SCENERY_PLACEMENT,
+  planZoneScenery,
+} from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
 import { useThemePrefValue } from '@/contexts/ThemeContext';
 import { useLoopProgress } from '@/lib/useLoopProgress';
@@ -136,33 +145,115 @@ function StopGlowPulse({ color }: { color: string }) {
   );
 }
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-// One dash period of the rail pulse: 6px dash + 18px gap. The offset animates
-// from one full period down to zero, so the dashes march in the direction of
-// increasing path length — every segment path is drawn top-down toward the
-// next stop, which is exactly "toward the next station".
-const RAIL_PULSE_PERIOD = 24;
+// Rail comet tuning, mirroring the web source of truth (RAIL_PULSE in
+// lib/motion.tsx plus the --rail-pulse-* custom properties in index.css):
+// 10 bezier samples per segment, r=4 dots, one 3.4s traversal of the run.
+const RAIL_PULSE = {
+  dotsPerSegment: 10,
+  dotRadius: 4,
+} as const;
+const RAIL_PULSE_CYCLE_MS = 3400;
 
-/** Directional energy on the rail segment(s) leaving the current station:
- *  accent dashes flowing toward the next stop (~900ms per period). Mobile
- *  defines this pattern (task #917); the web map's segments are static. */
-function RailPulse({ d, color }: { d: string; color: string }) {
-  const progress = useLoopProgress(900, true);
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: (1 - progress.value) * RAIL_PULSE_PERIOD,
+// 2.5D depth pass tuning (web Task 985, DEPTH_2_5D in lib/motion.tsx): the
+// scenery layer's scroll parallax factor and the rail-bed underlay offset.
+const DEPTH_2_5D = {
+  parallaxFactor: 0.03,
+  railBedDy: 2.5,
+  railBedOpacity: 0.18,
+} as const;
+const RAIL_BED_INK = '#0f172a';
+
+/** One comet dot: opacity follows the web keyframes (invisible at 0%, sharp
+ *  attack to full strength at 4%, slow decay back to zero through 22%),
+ *  phase-shifted by the dot's order along the run so one bright head with a
+ *  fading tail travels from the current stop toward the next station. The
+ *  larger soft circle underneath stands in for the web's currentColor
+ *  drop-shadow glow (rn-svg has no CSS filters). */
+function RailPulseDot({
+  x,
+  y,
+  delayFrac,
+  color,
+  progress,
+}: {
+  x: number;
+  y: number;
+  delayFrac: number;
+  color: string;
+  progress: SharedValue<number>;
+}) {
+  const headProps = useAnimatedProps(() => ({
+    opacity: interpolate(
+      (progress.value - delayFrac + 1) % 1,
+      [0, 0.04, 0.22, 1],
+      [0, 1, 0, 0],
+    ),
+  }));
+  const haloProps = useAnimatedProps(() => ({
+    opacity:
+      0.35 *
+      interpolate(
+        (progress.value - delayFrac + 1) % 1,
+        [0, 0.04, 0.22, 1],
+        [0, 1, 0, 0],
+      ),
   }));
   return (
-    <AnimatedPath
-      d={d}
-      stroke={color}
-      strokeWidth={4}
-      strokeLinecap="round"
-      strokeDasharray="6 18"
-      fill="none"
-      animatedProps={animatedProps}
-      testID="rail-pulse"
-    />
+    <>
+      <AnimatedCircle
+        cx={x}
+        cy={y}
+        r={RAIL_PULSE.dotRadius + 3}
+        fill={color}
+        animatedProps={haloProps}
+      />
+      <AnimatedCircle
+        testID="rail-pulse-dot"
+        cx={x}
+        cy={y}
+        r={RAIL_PULSE.dotRadius}
+        fill={color}
+        animatedProps={headProps}
+      />
+    </>
+  );
+}
+
+/** Comet sweep on the active run (web tasks #917/#973 port): dots sampled on
+ *  the same cubic beziers the rail draws, delay fraction growing with sample
+ *  order from the current stop toward the next station. One shared clock per
+ *  Svg slice keeps that slice's dots in phase; slices start their clocks on
+ *  the same mount pass, so the sweep stays continuous across postcard seams.
+ *  Callers gate on reduced motion (the dot list is empty). */
+function RailPulseDots({
+  dots,
+  start,
+  end,
+  color,
+}: {
+  dots: { x: number; y: number }[];
+  start: number;
+  end: number;
+  color: string;
+}) {
+  const progress = useLoopProgress(RAIL_PULSE_CYCLE_MS, true);
+  return (
+    <>
+      {dots.map((d, i) =>
+        d.y >= start && d.y < end ? (
+          <RailPulseDot
+            key={i}
+            x={d.x}
+            y={d.y}
+            delayFrac={i / dots.length}
+            color={color}
+            progress={progress}
+          />
+        ) : null,
+      )}
+    </>
   );
 }
 
@@ -249,6 +340,19 @@ export default function JourneyScreen() {
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   const reduceMotion = useReducedMotion();
+  // Task 985 port: light scroll parallax on the scenery layer. ONE
+  // scroll-linked transform on the scenery wrapper, so it drifts slightly
+  // slower than the rail and reads as sitting behind it. Entirely absent
+  // under reduced motion (transform pinned to 0).
+  const scrollY = useSharedValue(0);
+  const onMapScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  const sceneryParallaxStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: reduceMotion ? 0 : scrollY.value * DEPTH_2_5D.parallaxFactor },
+    ],
+  }));
   // Web --station-surface (index.css): warm off-white in light mode, deep
   // navy in dark — the current stop's signboard card stock. Resolved the
   // same way useColors picks its palette.
@@ -459,12 +563,36 @@ export default function JourneyScreen() {
 
   const stationPts = pts.filter((p) => p.kind === 'station');
 
-  // Rail pulse (#917): the segment(s) leaving the current station toward the
-  // next stop (any postcard midpoint between them included), so the accent
-  // dashes flow from the train toward wherever Bolo goes next. A locked next
-  // stop still pulses — the energy points at it either way. No current
-  // station (fresh line, showroom, all done) means no pulse.
-  const pulseSegIdxs = new Set<number>();
+  // Trackside scenery plan (Task 985 port): deterministic per-zone placement
+  // in the free strip beside a station row, same side as the marker
+  // (opposite its card), on the same edge inset and ground line the web map
+  // uses. Locked showroom zones gray out with their postcards.
+  const sceneryPlacements = zones.flatMap((zone, zi) => {
+    const zonePts = stationPts.filter((p) => p.station!.zoneIndex === zi);
+    const zoneAccessible = zone.stations.some(
+      (st) => isStatusAccessible(st.status) || st.teaserStation,
+    );
+    return planZoneScenery(zi, zonePts.length).map(({ kind, row }, i) => {
+      const p = zonePts[row]!;
+      return {
+        key: `${zi}-${i}`,
+        kind,
+        x: p.x < mapW / 2 ? SCENERY_PLACEMENT.edgeX : mapW - SCENERY_PLACEMENT.edgeX,
+        y: p.y + SCENERY_PLACEMENT.groundDy,
+        gray: showroom && !zoneAccessible,
+      };
+    });
+  });
+
+  // Rail comet (#917/#973 web port): dots sampled on the segment(s) leaving
+  // the current station toward the next stop (any postcard midpoint between
+  // them included), lit in order so the bright head travels from the train
+  // toward wherever Bolo goes next. A locked next stop still gets the comet,
+  // the energy points at it either way. The terminus is never a target on
+  // its own (a current station always exists when the comet runs). No
+  // current station (fresh line, showroom, all done) or reduced motion means
+  // no dots at all.
+  const pulseDots: { x: number; y: number }[] = [];
   if (currentId && !reduceMotion) {
     const curPtIdx = pts.findIndex(
       (p) => p.kind === 'station' && p.station?.id === currentId,
@@ -478,7 +606,29 @@ export default function JourneyScreen() {
         }
       }
       if (nextStopIdx > curPtIdx) {
-        for (let i = curPtIdx; i < nextStopIdx; i++) pulseSegIdxs.add(i);
+        // Sample the same cubic beziers segs[] draws: control points sit at
+        // half the vertical gap, x pinned to each endpoint.
+        for (let i = curPtIdx; i < nextStopIdx; i++) {
+          const a = pts[i]!;
+          const b = pts[i + 1]!;
+          const dy = (b.y - a.y) / 2;
+          for (let s = 0; s < RAIL_PULSE.dotsPerSegment; s++) {
+            const t = (s + 0.5) / RAIL_PULSE.dotsPerSegment;
+            const mt = 1 - t;
+            pulseDots.push({
+              x:
+                mt * mt * mt * a.x +
+                3 * mt * mt * t * a.x +
+                3 * mt * t * t * b.x +
+                t * t * t * b.x,
+              y:
+                mt * mt * mt * a.y +
+                3 * mt * mt * t * (a.y + dy) +
+                3 * mt * t * t * (b.y - dy) +
+                t * t * t * b.y,
+            });
+          }
+        }
       }
     }
   }
@@ -572,9 +722,11 @@ export default function JourneyScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={onMapScroll}
+        scrollEventThrottle={16}
       >
         {access === 'exhausted' && (
           <View style={[styles.exhaustedCard, { borderColor: line.accent, backgroundColor: colors.card }]}>
@@ -600,7 +752,48 @@ export default function JourneyScreen() {
 
         {/* Serpentine railway: track + zone postcards + stations. */}
         <View style={[styles.map, { width: mapW, height: totalH }]}>
-          {/* Track + scenery, one Svg block per fare zone */}
+          {/* India-flavored trackside scenery (Task 985 port): zone-themed
+              dimensional flat scenes in the free strip beside station rows,
+              anchored to the same serpentine geometry the stations use.
+              Rendered FIRST so the whole layer sits below the rail (depth
+              order: scenery < rail < stations). The wrapper carries the
+              single scroll-linked parallax transform; the Svg blocks inside
+              reuse the per-zone slice geometry for scroll perf. */}
+          <Animated.View
+            testID="journey-scenery-layer"
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, sceneryParallaxStyle]}
+          >
+            {slices.map(({ start, end }, si) => {
+              const local = sceneryPlacements.filter(
+                (sp) => sp.y >= start && sp.y < end,
+              );
+              if (local.length === 0) return null;
+              return (
+                <Svg
+                  key={si}
+                  pointerEvents="none"
+                  style={{ position: 'absolute', left: 0, top: start }}
+                  width={mapW}
+                  height={end - start}
+                  viewBox={`0 ${start} ${mapW} ${end - start}`}
+                >
+                  {local.map((sp) => (
+                    <SceneryElement
+                      key={sp.key}
+                      kind={sp.kind}
+                      x={sp.x}
+                      y={sp.y}
+                      accent={line.accent}
+                      gray={sp.gray}
+                    />
+                  ))}
+                </Svg>
+              );
+            })}
+          </Animated.View>
+
+          {/* Track, one Svg block per fare zone */}
           {slices.map(({ start, end }, si) => (
             <Svg
               key={si}
@@ -615,33 +808,35 @@ export default function JourneyScreen() {
                 const railColor = s.lit ? line.accent : GRAY;
                 return (
                   <G key={i} opacity={s.lit ? 1 : 0.5}>
+                    {/* Rail-bed underside (Task 985): the tie band duplicated
+                        once, offset down in ink at low opacity, so every tie
+                        shows a bottom edge and the track reads as a raised
+                        bed. The rail geometry itself is untouched. */}
+                    <Path
+                      d={s.d}
+                      transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
+                      stroke={RAIL_BED_INK}
+                      strokeWidth={15}
+                      strokeDasharray="3 11"
+                      opacity={DEPTH_2_5D.railBedOpacity}
+                      fill="none"
+                    />
                     <Path d={s.d} stroke={railColor} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
                     <Path d={s.d} stroke={railColor} strokeWidth={8.5} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
                     <Path d={s.d} stroke={colors.background} strokeWidth={4} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
-                    {pulseSegIdxs.has(i) && <RailPulse d={s.d} color={line.accent} />}
                   </G>
                 );
               })}
-              {/* Trackside scenery: one small scene in the free strip beside
-                  each station (opposite its card), cycling by station index. */}
-              {stationPts.map((p, i) => {
-                if (p.y < start || p.y >= end) return null;
-                const s = p.station!;
-                const zone = zones[s.zoneIndex]!;
-                const zoneAccessible = zone.stations.some(
-                  (st) => isStatusAccessible(st.status) || st.teaserStation,
-                );
-                return (
-                  <TracksideDoodad
-                    key={s.id}
-                    variant={i}
-                    x={i % 2 === 0 ? 42 : mapW - 42}
-                    y={p.y + 22}
-                    accent={line.accent}
-                    gray={showroom && !zoneAccessible}
-                  />
-                );
-              })}
+              {/* Comet sweep on the active run: above the rail strokes, in
+                  whichever slice(s) the sampled dots fall. */}
+              {pulseDots.some((d) => d.y >= start && d.y < end) && (
+                <RailPulseDots
+                  dots={pulseDots}
+                  start={start}
+                  end={end}
+                  color={line.accent}
+                />
+              )}
               {/* Festival bunting over the terminus (last slice only) */}
               {si === slices.length - 1 && (
                 <Bunting x1={20} x2={mapW - 20} y={termY - 34} accent={line.accent} />
@@ -958,7 +1153,7 @@ export default function JourneyScreen() {
           Tap any lit station to practice it. The {line.lineName} only stops at
           the next station once you finish the one before it.
         </Text>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Lock dialogs: entitlement locks and progression locks read
           differently — a true mirror of the shipped web dialogs, including

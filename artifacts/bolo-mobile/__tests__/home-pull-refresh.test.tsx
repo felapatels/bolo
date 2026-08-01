@@ -150,6 +150,10 @@ jest.mock('@/constants/fonts', () => ({
 }));
 
 jest.mock('@/lib/ui', () => ({
+  // Keep the real band helpers (the recent-plays pill test exercises the
+  // real normalizeBand/BAND_LABEL/scoreColor chain); only the icon lookup is
+  // stubbed out.
+  ...jest.requireActual('@/lib/ui'),
   categoryIcon: () => 'book',
 }));
 
@@ -206,6 +210,55 @@ beforeEach(() => {
   mockState.summary = makeQuery();
   mockState.categories = makeListQuery();
   mockState.recent = makeListQuery();
+});
+
+// ---------------------------------------------------------------------------
+// Brief A item 8 (#978 web parity): the recent-plays badge speaks the band
+// vocabulary instead of a raw score number, with the same defensive
+// normalization the result card uses for legacy rows that never stored a
+// band.
+// ---------------------------------------------------------------------------
+
+describe('HomeScreen - recent plays band pill', () => {
+  it('renders the band label, never the raw score number', () => {
+    mockState.recent = makeListQuery({
+      data: [
+        {
+          id: 1,
+          phraseId: 11,
+          categoryId: 2,
+          nativeScript: 'નમસ્તે',
+          english: 'Hello',
+          score: 85,
+          band: 'great',
+        },
+      ],
+    });
+    render(<HomeScreen />);
+
+    expect(screen.getByText('Great')).toBeOnTheScreen();
+    expect(screen.queryByText('85')).toBeNull();
+  });
+
+  it('derives the band from the score for legacy rows without one', () => {
+    mockState.recent = makeListQuery({
+      data: [
+        {
+          id: 2,
+          phraseId: 12,
+          categoryId: 2,
+          nativeScript: 'આભાર',
+          english: 'Thank you',
+          score: 95,
+          band: null,
+        },
+      ],
+    });
+    render(<HomeScreen />);
+
+    expect(screen.getByText('Perfect')).toBeOnTheScreen();
+    expect(screen.queryByText('95')).toBeNull();
+  });
 });
 
 describe('HomeScreen - pull-to-refresh spinner', () => {

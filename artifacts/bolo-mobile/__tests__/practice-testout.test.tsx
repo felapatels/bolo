@@ -257,6 +257,11 @@ describe('test-out run mechanics', () => {
       screen.getByText('Express check: one take per phrase. Say 2 of 2 well to skip this stop.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('નમસ્તે')).toBeOnTheScreen();
+
+    // Brief A item 1: the free prev/next chevrons are hidden in test-out
+    // mode (one take per phrase, forward only).
+    expect(screen.queryByTestId('button-prev-phrase')).toBeNull();
+    expect(screen.queryByTestId('button-next-phrase')).toBeNull();
   });
 
   test('a scored phrase saves no attempt and offers no retry control', async () => {

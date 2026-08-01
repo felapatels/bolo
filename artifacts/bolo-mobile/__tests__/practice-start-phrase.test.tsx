@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -34,7 +34,10 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
   useSubmitLessonGroupTestout: () => ({ mutate: jest.fn(), data: undefined, isError: false, error: null, isPending: false }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
-  useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // Driven by mockState so the group-resume tests (Brief A item 4) can feed
+  // station phrase lists with bestScore history.
+  useListLessonGroupPhrases: () =>
+    mockState.groupPhrases ?? { data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() },
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useReportPhrase: () => ({ mutate: jest.fn() }),
@@ -61,8 +64,9 @@ jest.mock('@workspace/api-client-react', () => ({
   getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({
     // Never settles: the auto-play coach effect stays pending so it can't
-    // trigger state updates outside act() after a test finishes.
-    mutateAsync: jest.fn(() => new Promise(() => {})),
+    // trigger state updates outside act() after a test finishes. Shared
+    // across renders so the chevron tests (Brief A item 1) can count calls.
+    mutateAsync: mockState.synthMutate,
   }),
   useEvaluatePronunciation: () => ({ mutateAsync: jest.fn() }),
   useCreateAttempt: () => ({ mutateAsync: jest.fn() }),
@@ -178,6 +182,8 @@ beforeEach(() => {
   mockState.push = jest.fn();
   mockState.back = jest.fn();
   mockState.phrases = successQuery(PHRASES);
+  mockState.groupPhrases = undefined;
+  mockState.synthMutate = jest.fn(() => new Promise(() => {}));
   mockState.params = { id: '5' };
 });
 
@@ -250,5 +256,100 @@ describe('practice deep link via ?phrase=', () => {
 
     expect(screen.getByText('native-13')).toBeOnTheScreen();
     expect(screen.getByText('3 of 4')).toBeOnTheScreen();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Brief A item 4 (web parity, Task 966): opening a station (?group=) with no
+// explicit ?phrase= resumes at the first phrase whose bestScore has not
+// reached the 80-point credit line. The scan stays put when it lands on the
+// first phrase, finds nothing unmastered, or sees a curated teaser list.
+// ---------------------------------------------------------------------------
+
+function setGroup(
+  scores: (number | null)[],
+  extra: Record<string, unknown> = {},
+) {
+  mockState.params = { id: '5', group: '77' };
+  mockState.groupPhrases = successQuery(
+    scores.map((s, i) => ({ ...phrase(21 + i), bestScore: s, ...extra })),
+  );
+}
+
+describe('station resume at first unmastered phrase (?group=)', () => {
+  test('skips phrases already at or above the 80-point line', () => {
+    setGroup([90, 85, 70, 88, null]);
+    render(<PracticeScreen />);
+    expect(screen.getByText('3 of 5')).toBeOnTheScreen();
+    expect(screen.getByText('native-23')).toBeOnTheScreen();
+  });
+
+  test('an unmastered first phrase starts the run at phrase 1', () => {
+    setGroup([40, 90, null]);
+    render(<PracticeScreen />);
+    expect(screen.getByText('1 of 3')).toBeOnTheScreen();
+  });
+
+  test('a fresh station (no scores yet) starts at phrase 1', () => {
+    setGroup([null, null, null]);
+    render(<PracticeScreen />);
+    expect(screen.getByText('1 of 3')).toBeOnTheScreen();
+  });
+
+  test('a fully mastered station starts at phrase 1 rather than scanning past the end', () => {
+    setGroup([95, 90, 85]);
+    render(<PracticeScreen />);
+    expect(screen.getByText('1 of 3')).toBeOnTheScreen();
+  });
+
+  test('teaser lists never scan (curated showcase runs are not resumable)', () => {
+    setGroup([90, 85, 70], { teaser: true });
+    render(<PracticeScreen />);
+    expect(screen.getByText('1 of 3')).toBeOnTheScreen();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Brief A item 1 (web parity, Task #976/#973): free prev/next chevrons on
+// the practice card. Browsing is silent (no coach auto-play), edge phrases
+// disable their chevron, and the labels stay distinct from the post-attempt
+// "Next phrase" CTA so screen readers never hear two identical buttons.
+// ---------------------------------------------------------------------------
+
+describe('phrase chevron navigation', () => {
+  test('the next chevron moves forward without triggering coach playback', () => {
+    render(<PracticeScreen />);
+    expect(screen.getByText('1 of 4')).toBeOnTheScreen();
+    const callsAfterMount = mockState.synthMutate.mock.calls.length;
+
+    fireEvent.press(screen.getByTestId('button-next-phrase'));
+    expect(screen.getByText('2 of 4')).toBeOnTheScreen();
+    expect(screen.getByText('native-12')).toBeOnTheScreen();
+    expect(mockState.synthMutate.mock.calls.length).toBe(callsAfterMount);
+  });
+
+  test('the previous chevron is inert on the first phrase', () => {
+    render(<PracticeScreen />);
+    fireEvent.press(screen.getByTestId('button-prev-phrase'));
+    expect(screen.getByText('1 of 4')).toBeOnTheScreen();
+  });
+
+  test('the next chevron is inert on the last phrase', () => {
+    mockState.params = { id: '5', phrase: '14' };
+    render(<PracticeScreen />);
+    expect(screen.getByText('4 of 4')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('button-next-phrase'));
+    expect(screen.getByText('4 of 4')).toBeOnTheScreen();
+  });
+
+  test('chevrons round-trip and carry labels distinct from the Next phrase CTA', () => {
+    render(<PracticeScreen />);
+    expect(screen.getByLabelText('Go to previous phrase')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Go to next phrase')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('button-next-phrase'));
+    fireEvent.press(screen.getByTestId('button-prev-phrase'));
+    expect(screen.getByText('1 of 4')).toBeOnTheScreen();
+    expect(screen.getByText('native-11')).toBeOnTheScreen();
   });
 });

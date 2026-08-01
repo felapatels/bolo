@@ -327,90 +327,416 @@ export function ZoneVista({
   );
 }
 
-/** Small trackside scene beside a station row (rendered inside a map SVG
- *  block, anchored at ground level — draws upward from y=0). Variant cycles
- *  with the global station index. */
-export function TracksideDoodad({
-  variant,
+// ---------------------------------------------------------------------------
+// India-flavored dimensional trackside scenery (web Task 985 port): a FLAT
+// set with depth cues. Every asset shows a front face plus a right-hand face
+// in exactly ONE darker palette step (its shade tone), lit from a single
+// shared upper-left light, standing on a soft ground-contact ellipse. Purely
+// decorative: no tap targets, no motion, always visually subordinate to
+// stations, postcards, the train, Bolo, and the rail comet.
+//
+// Grayscale note: the web grays locked showroom zones with a CSS
+// `filter: grayscale(1)`; react-native has no such filter, so the same
+// treatment swaps the fixed palette for gray tones plus a gray accent,
+// matching how the vistas above handle it.
+// ---------------------------------------------------------------------------
+
+const INK = '#0f172a'; // ground shadows + wheel rubber (both palettes)
+
+type SceneryPalette = {
+  amber: string;
+  amberShade: string;
+  leaf: string;
+  leafShade: string;
+  trunk: string;
+  trunkShade: string;
+  slate: string;
+  slateShade: string;
+  pink: string;
+  pinkShade: string;
+  stone: string;
+  stoneShade: string;
+  river: string;
+  headlight: string;
+};
+
+const SCENERY_COLORS: SceneryPalette = {
+  amber: '#f59e0b',
+  amberShade: '#b45309',
+  leaf: '#10b981',
+  leafShade: '#047857',
+  trunk: '#92400e',
+  trunkShade: '#713f12',
+  slate: '#64748b',
+  slateShade: '#475569',
+  pink: '#ec4899',
+  pinkShade: '#be185d',
+  stone: '#e7e5e4',
+  stoneShade: '#a8a29e',
+  river: '#7dd3fc',
+  headlight: '#fef9c3',
+};
+
+// Approximate grayscale of the palette above (luminance-matched by eye,
+// shades one visible step darker than their base tone).
+const SCENERY_GRAYS: SceneryPalette = {
+  amber: '#b3b7bd',
+  amberShade: '#8e939a',
+  leaf: '#a2a7b0',
+  leafShade: '#7d8288',
+  trunk: '#7d8288',
+  trunkShade: '#666b72',
+  slate: '#9aa0ab',
+  slateShade: '#7d838d',
+  pink: '#adb1b9',
+  pinkShade: '#8b9098',
+  stone: '#d4d7dc',
+  stoneShade: '#a5a9b0',
+  river: '#c3c7cd',
+  headlight: '#e5e7eb',
+};
+
+/** Shared ground-contact ellipse: every scenery element sits on one. The
+ *  center shifts slightly right (down-light from upper-left), matching the
+ *  web's --depth-shadow-* CSS tokens and DEPTH_2_5D in lib/motion.tsx. */
+export const SCENERY_GROUND_SHADOW = { dx: 2, ryRatio: 0.24, opacity: 0.13 } as const;
+
+function GroundShadow({ rx, cx = 0 }: { rx: number; cx?: number }) {
+  return (
+    <Ellipse
+      cx={cx + SCENERY_GROUND_SHADOW.dx}
+      cy={1.2}
+      rx={rx}
+      ry={Math.max(2.2, rx * SCENERY_GROUND_SHADOW.ryRatio)}
+      fill={INK}
+      opacity={SCENERY_GROUND_SHADOW.opacity}
+    />
+  );
+}
+
+/** Auto-rickshaw: green cabin, amber canopy, parked. */
+function TukTuk({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={17} />
+      {/* cabin side face (right, shaded) */}
+      <Path d="M8 -3.2 l4.5 -1.4 v-14.4 l-4.5 -1.8 Z" fill={p.leafShade} />
+      {/* cabin front face */}
+      <Rect x={-13} y={-20.8} width={21} height={17.6} rx={2.5} fill={p.leaf} />
+      {/* canopy front + side */}
+      <Rect x={-15} y={-27} width={25} height={6.4} rx={2} fill={p.amber} />
+      <Path d="M10 -26.6 l4 1.4 v4.6 l-4 -0.2 Z" fill={p.leafShade} />
+      {/* windshield */}
+      <Rect x={-10.5} y={-18.6} width={8} height={6.6} rx={1} fill="#ffffff" opacity={0.92} />
+      {/* wheels: rear-right first so the front pair overlaps it */}
+      <Circle cx={11} cy={-2.6} r={2.6} fill={p.slateShade} />
+      <Circle cx={-6.5} cy={-1.8} r={3.2} fill={INK} opacity={0.8} />
+      <Circle cx={5.5} cy={-1.8} r={3.2} fill={INK} opacity={0.8} />
+      {/* headlight */}
+      <Circle cx={-12.8} cy={-11.5} r={1.5} fill={p.headlight} />
+    </G>
+  );
+}
+
+/** Standing zebu cow: stone hide, shoulder hump, gentle horns. */
+function CowStanding({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={15} />
+      {/* legs (far pair sits in the shade tone) */}
+      <Rect x={-6.2} y={-8} width={2.2} height={8} rx={1} fill={p.stoneShade} />
+      <Rect x={5.2} y={-8} width={2.2} height={8} rx={1} fill={p.stoneShade} />
+      <Rect x={-8.6} y={-8} width={2.2} height={8} rx={1} fill={p.stone} />
+      <Rect x={2.8} y={-8} width={2.2} height={8} rx={1} fill={p.stone} />
+      {/* body + zebu hump */}
+      <Rect x={-10} y={-16.5} width={20.5} height={10} rx={4.5} fill={p.stone} />
+      <Path d="M1 -16.2 q3.4 -3.6 6.8 0 Z" fill={p.stone} />
+      {/* shaded hindquarter (right) */}
+      <Path d="M4 -16.4 q6.6 0.4 6.5 5.2 q0 4.6 -5 4.7 Z" fill={p.stoneShade} />
+      {/* tail */}
+      <Path d="M10.4 -14.5 q3 1.5 2.4 7.5" stroke={p.stoneShade} strokeWidth={1.3} fill="none" strokeLinecap="round" />
+      {/* head, ear, horns, muzzle */}
+      <Rect x={-16.5} y={-19} width={7.6} height={7} rx={2.8} fill={p.stone} />
+      <Ellipse cx={-9.6} cy={-17.6} rx={2.4} ry={1.3} fill={p.stoneShade} />
+      <Path d="M-15.8 -19.2 q-1.4 -3 1.2 -4.2 M-10.8 -19.2 q1.4 -3 -1.2 -4.2" stroke={p.trunkShade} strokeWidth={1.2} fill="none" strokeLinecap="round" />
+      <Rect x={-16.5} y={-14} width={4.4} height={2} rx={1} fill={p.pink} opacity={0.55} />
+    </G>
+  );
+}
+
+/** Wooden fruit cart on one big wheel, mounded with produce. */
+function FruitCart({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={16} />
+      {/* handles */}
+      <Path d="M-13 -9.6 l-6 2.4" stroke={p.trunk} strokeWidth={1.6} strokeLinecap="round" />
+      {/* bed front + side */}
+      <Rect x={-14} y={-12} width={24} height={5} rx={1} fill={p.trunk} />
+      <Path d="M10 -7 l4 -1.6 v-4.4 l-4 -1 Z" fill={p.trunkShade} />
+      {/* prop leg + wheel */}
+      <Rect x={6.4} y={-7} width={2} height={7} rx={1} fill={p.trunkShade} />
+      <Circle cx={-6} cy={-3.4} r={4} fill="none" stroke={p.trunkShade} strokeWidth={2} />
+      <Circle cx={-6} cy={-3.4} r={1.1} fill={p.trunkShade} />
+      {/* fruit mounds */}
+      <Circle cx={-9} cy={-13.6} r={2.4} fill={p.amber} />
+      <Circle cx={-4.2} cy={-14.4} r={2.4} fill={p.amber} />
+      <Circle cx={-6.6} cy={-17.2} r={2.2} fill={p.amberShade} />
+      <Circle cx={1.6} cy={-13.8} r={2.3} fill={p.leaf} />
+      <Circle cx={6.4} cy={-13.4} r={2.2} fill={p.pink} />
+      <Circle cx={4} cy={-16.4} r={2} fill={p.leaf} />
+    </G>
+  );
+}
+
+/** Chai stall per the token-economy spec's stall description: striped awning,
+ *  wooden counter, kettle and glasses. Deliberately unmanned, the Chaiwala
+ *  character (separate task) steps in behind this counter later. */
+function ChaiStallTrackside({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={18} />
+      {/* posts */}
+      <Rect x={-14} y={-21} width={2} height={21} fill={p.trunk} />
+      <Rect x={10.5} y={-21} width={2} height={21} fill={p.trunk} />
+      {/* counter front + side */}
+      <Rect x={-13} y={-13} width={24} height={9.5} rx={1} fill={p.trunk} />
+      <Path d="M11 -3.5 l4 -1.7 v-7.6 l-4 -0.7 Z" fill={p.amberShade} />
+      {/* counter skirt panel */}
+      <Rect x={-11} y={-11} width={20} height={5.5} rx={1} fill={p.amber} opacity={0.35} />
+      {/* striped awning front + side */}
+      {[0, 1, 2, 3].map((i) => (
+        <Rect key={i} x={-16 + i * 7} y={-26.5} width={7} height={6} fill={i % 2 === 0 ? p.amber : '#ffffff'} />
+      ))}
+      <Path d="M12 -26.5 l3.6 1.3 v4.7 h-3.6 Z" fill={p.amberShade} />
+      <Rect x={-16.5} y={-27.6} width={29} height={1.6} rx={0.8} fill={p.amberShade} />
+      {/* kettle + glasses (steam wisp deferred to the motion pass) */}
+      <Circle cx={-6} cy={-15.4} r={2.8} fill={p.slate} />
+      <Rect x={-10.2} y={-16.6} width={2.2} height={1.6} rx={0.8} fill={p.slate} />
+      <Rect x={1} y={-16} width={3} height={3} rx={0.8} fill="#ffffff" opacity={0.95} />
+      <Rect x={5.6} y={-16} width={3} height={3} rx={0.8} fill="#ffffff" opacity={0.95} />
+    </G>
+  );
+}
+
+/** Roadside temple: curved shikhara over a small sanctum, accent pennant. */
+function TempleSilhouette({ p, accent }: { p: SceneryPalette; accent: string }) {
+  return (
+    <G>
+      <GroundShadow rx={14} />
+      {/* sanctum front + side */}
+      <Rect x={-11} y={-8.5} width={19} height={8.5} fill={p.amber} />
+      <Path d="M8 0 l4 -1.6 v-6.2 l-4 -0.7 Z" fill={p.amberShade} />
+      {/* shikhara tower, right half shaded */}
+      <Path d="M-7 -8.5 Q-5 -24 0 -26.5 Q5 -24 7 -8.5 Z" fill={p.amber} />
+      <Path d="M0 -26.5 Q5 -24 7 -8.5 L0 -8.5 Z" fill={p.amberShade} />
+      {/* amalaka + mast + pennant */}
+      <Circle cx={0} cy={-27.5} r={1.5} fill={p.amberShade} />
+      <Line x1={0} y1={-29} x2={0} y2={-33.5} stroke={p.trunkShade} strokeWidth={1.1} />
+      <Path d="M0 -33.5 l5.5 1.9 -5.5 1.9 Z" fill={accent} />
+      {/* doorway */}
+      <Path d="M-4.6 0 v-4.6 q2.3 -2.2 4.6 0 V0 Z" fill={p.trunk} />
+    </G>
+  );
+}
+
+/** Banyan tree: broad canopy with a shaded right lobe and prop roots. */
+function BanyanTree({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={14} />
+      {/* prop roots + trunk */}
+      <Rect x={-7.4} y={-9} width={1.8} height={9} rx={0.9} fill={p.trunk} opacity={0.85} />
+      <Rect x={5.6} y={-8} width={1.8} height={8} rx={0.9} fill={p.trunk} opacity={0.85} />
+      <Path d="M-2.6 0 h5.2 l1.2 -12.5 h-7.6 Z" fill={p.trunk} />
+      {/* canopy: main mass + shaded right lobe */}
+      <Ellipse cx={-2.5} cy={-19} rx={13} ry={8} fill={p.leaf} />
+      <Ellipse cx={7} cy={-16} rx={8.5} ry={5.8} fill={p.leafShade} />
+      {/* hanging aerial root */}
+      <Line x1={9.5} y1={-12} x2={9.5} y2={-5.5} stroke={p.trunk} strokeWidth={1.2} opacity={0.8} />
+    </G>
+  );
+}
+
+/** String of marigolds (toran) sagging between two posts. */
+function MarigoldString({ p }: { p: SceneryPalette }) {
+  const blooms = [0.1, 0.24, 0.38, 0.5, 0.62, 0.76, 0.9];
+  const x1 = -15;
+  const x2 = 15;
+  const yTop = -15;
+  const at = (t: number) => {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * x1 + 2 * mt * t * 0 + t * t * x2,
+      y: mt * mt * yTop + 2 * mt * t * (yTop + 9) + t * t * yTop,
+    };
+  };
+  return (
+    <G>
+      <GroundShadow rx={4} cx={x1 + 1} />
+      <GroundShadow rx={4} cx={x2 + 1} />
+      {/* left post lit, right post in the shade tone (upper-left light) */}
+      <Rect x={x1 - 1} y={yTop} width={2.2} height={15} rx={1} fill={p.trunk} />
+      <Rect x={x2 - 1} y={yTop} width={2.2} height={15} rx={1} fill={p.trunkShade} />
+      <Path d={`M${x1} ${yTop} Q0 ${yTop + 9 * 2} ${x2} ${yTop}`} fill="none" stroke={p.slate} strokeWidth={1} opacity={0.7} />
+      {blooms.map((t, i) => {
+        const pt = at(t);
+        return <Circle key={t} cx={pt.x} cy={pt.y + 1.6} r={2.1} fill={i % 2 === 0 ? p.amber : p.pink} />;
+      })}
+    </G>
+  );
+}
+
+/** Cycle rickshaw: two spoked wheels, pink folding canopy, parked. */
+function CycleRickshaw({ p }: { p: SceneryPalette }) {
+  return (
+    <G>
+      <GroundShadow rx={15} />
+      {/* wheels */}
+      <Circle cx={-9} cy={-4.2} r={4.4} fill="none" stroke={p.slateShade} strokeWidth={1.6} />
+      <Circle cx={7.5} cy={-4.2} r={4.4} fill="none" stroke={p.slateShade} strokeWidth={1.6} />
+      <Circle cx={-9} cy={-4.2} r={1} fill={p.slateShade} />
+      <Circle cx={7.5} cy={-4.2} r={1} fill={p.slateShade} />
+      {/* frame + handlebar + saddle */}
+      <Path d="M-9 -4.2 L-3.5 -10 L2 -4.2" stroke={p.slateShade} strokeWidth={1.4} fill="none" />
+      <Path d="M-13.5 -11.5 l3 1.8" stroke={p.slateShade} strokeWidth={1.4} strokeLinecap="round" />
+      <Rect x={-5.6} y={-12} width={4} height={1.8} rx={0.9} fill={p.slateShade} />
+      {/* passenger bench front + canopy (right half shaded) */}
+      <Rect x={2} y={-12.5} width={12} height={8.5} rx={2} fill={p.pink} />
+      <Path d="M14 -4 l2.5 -1.2 v-6 l-2.5 -1.3 Z" fill={p.pinkShade} />
+      <Path d="M2 -13 Q8 -21.5 15 -13 Z" fill={p.pink} />
+      <Path d="M8.5 -17.6 Q12.5 -16.6 15 -13 L8.5 -13 Z" fill={p.pinkShade} />
+    </G>
+  );
+}
+
+/** River ghat: stone steps down to the water with a small wooden boat and a
+ *  chhatri crowning the top step, the Varanasi-approach finale. */
+function RiverGhat({ p, accent }: { p: SceneryPalette; accent: string }) {
+  return (
+    <G>
+      <GroundShadow rx={19} />
+      {/* water + ripple */}
+      <Rect x={-21} y={-2.6} width={17} height={2.6} rx={1.2} fill={p.river} opacity={0.75} />
+      <Path d="M-18 -1.2 q2 -1 4 0 q2 1 4 0" stroke="#ffffff" strokeWidth={0.8} fill="none" opacity={0.7} />
+      {/* boat */}
+      <Path d="M-19 -3.4 h8.5 q-1.4 2.8 -4.2 2.8 q-2.9 0 -4.3 -2.8 Z" fill={p.trunk} />
+      {/* steps rising rightward, right slab shaded */}
+      <Path d="M-4 0 v-2.7 h5 v-2.7 h5 v-2.7 h5 v-2.7 h5 V0 Z" fill={p.slate} opacity={0.9} />
+      <Rect x={13} y={-10.8} width={3} height={10.8} fill={p.slateShade} />
+      {/* chhatri on the top step */}
+      <Line x1={11} y1={-10.8} x2={11} y2={-14.6} stroke={p.slateShade} strokeWidth={1.1} />
+      <Path d="M7.6 -14.6 q3.4 -3 6.8 0 Z" fill={accent} />
+    </G>
+  );
+}
+
+export type SceneryKind =
+  | 'tuktuk'
+  | 'cow'
+  | 'fruitCart'
+  | 'chaiStall'
+  | 'temple'
+  | 'banyan'
+  | 'marigolds'
+  | 'cycleRickshaw'
+  | 'ghat';
+
+const SCENERY_ASSETS: Record<
+  SceneryKind,
+  (args: { p: SceneryPalette; accent: string }) => React.ReactElement
+> = {
+  tuktuk: ({ p }) => <TukTuk p={p} />,
+  cow: ({ p }) => <CowStanding p={p} />,
+  fruitCart: ({ p }) => <FruitCart p={p} />,
+  chaiStall: ({ p }) => <ChaiStallTrackside p={p} />,
+  temple: ({ p, accent }) => <TempleSilhouette p={p} accent={accent} />,
+  banyan: ({ p }) => <BanyanTree p={p} />,
+  marigolds: ({ p }) => <MarigoldString p={p} />,
+  cycleRickshaw: ({ p }) => <CycleRickshaw p={p} />,
+  ghat: ({ p, accent }) => <RiverGhat p={p} accent={accent} />,
+};
+
+/** Approximate half-width of each asset (SVG px, including its ground
+ *  shadow), used by placement geometry tests to prove no overlap with
+ *  station markers, cards, postcards, or the rail at supported widths. */
+export const SCENERY_HALF_W: Record<SceneryKind, number> = {
+  tuktuk: 19,
+  cow: 17,
+  fruitCart: 20,
+  chaiStall: 20,
+  temple: 16,
+  banyan: 16,
+  marigolds: 19,
+  cycleRickshaw: 18,
+  ghat: 21,
+};
+
+/** Tallest asset extent above its ground line (SVG px, the temple's pennant
+ *  mast), used by placement tests to prove scenery stays inside its station
+ *  row band and never bleeds into postcard rows. */
+export const SCENERY_MAX_H = 40;
+
+/** Placement anchors relative to the serpentine geometry: scenery centers in
+ *  the free strip beside a station row (same side as the marker, opposite
+ *  its card), at the same edge inset and ground line the old doodads used,
+ *  so future layout changes move scenery together with the stations. */
+export const SCENERY_PLACEMENT = {
+  /** Distance from the map edge to a scenery element's center x. */
+  edgeX: 42,
+  /** Ground line offset below a station row's center y. */
+  groundDy: 22,
+} as const;
+
+/** Zone themes progress Delhi-urban toward Varanasi-riverine: early zones
+ *  urban-weighted, middle zones market-and-town, final zones river-and-temple.
+ *  Keyed by zone INDEX (fixed across all 22 lines). */
+export const ZONE_SCENERY_THEMES: readonly (readonly SceneryKind[])[] = [
+  ['tuktuk', 'chaiStall', 'banyan'],
+  ['cycleRickshaw', 'tuktuk', 'chaiStall'],
+  ['fruitCart', 'cow', 'marigolds'],
+  ['cow', 'fruitCart', 'cycleRickshaw'],
+  ['temple', 'banyan', 'marigolds'],
+  ['ghat', 'temple', 'marigolds'],
+];
+
+/** Deterministic per-zone plan: 1-3 elements depending on how many stations
+ *  the zone has, spread evenly across its station rows (`row` is the 0-based
+ *  station index within the zone). Pure function of the zone layout, no
+ *  per-render randomness, so screenshots and tests are stable. */
+export function planZoneScenery(
+  zoneIndex: number,
+  stationCount: number,
+): { kind: SceneryKind; row: number }[] {
+  if (stationCount <= 0) return [];
+  const theme = ZONE_SCENERY_THEMES[Math.min(zoneIndex, ZONE_SCENERY_THEMES.length - 1)]!;
+  const count = Math.max(1, Math.min(3, Math.floor(stationCount / 3)));
+  return Array.from({ length: count }, (_, i) => ({
+    kind: theme[i % theme.length]!,
+    row: Math.min(stationCount - 1, Math.floor(((i + 0.5) * stationCount) / count)),
+  }));
+}
+
+/** One placed scenery element (rendered inside a map SVG block, anchored at
+ *  ground level, drawing upward from y=0). Locked showroom zones gray out
+ *  via the palette swap, matching the postcards. */
+export function SceneryElement({
+  kind,
   x,
   y,
   accent,
   gray,
 }: {
-  variant: number;
+  kind: SceneryKind;
   x: number;
   y: number;
   accent: string;
   gray: boolean;
 }) {
-  const v = ((variant % 6) + 6) % 6;
-  const p = gray ? GRAYS : COLORS;
-  const a = gray ? SCENERY_GRAY : accent;
-  let art: React.ReactNode;
-  if (v === 0) {
-    // shade tree
-    art = (
-      <G>
-        <Rect x={-2} y={-14} width={4} height={14} rx={1} fill={p.trunk} />
-        <Circle cx={0} cy={-20} r={9} fill={p.leaf} />
-        <Circle cx={7} cy={-15} r={6} fill={p.leaf2} opacity={0.9} />
-        <Circle cx={-7} cy={-15} r={5.5} fill={p.leaf2} opacity={0.8} />
-      </G>
-    );
-  } else if (v === 1) {
-    // drifting cloud + birds
-    art = (
-      <G>
-        <Cloud x={0} y={-26} fill={p.cloud} o={0.8} />
-        <Birds x={-10} y={-11} p={p} />
-      </G>
-    );
-  } else if (v === 2) {
-    // railway signal
-    art = (
-      <G>
-        <Rect x={-1.5} y={-26} width={3} height={26} fill={p.slate} />
-        <Rect x={-5} y={-38} width={10} height={14} rx={2} fill={p.dark} />
-        <Circle cx={0} cy={-34} r={2.6} fill={p.signalRed} />
-        <Circle cx={0} cy={-28} r={2.6} fill={p.signalGreen} />
-      </G>
-    );
-  } else if (v === 3) {
-    // bushes + accent milestone
-    art = (
-      <G>
-        <Ellipse cx={-8} cy={-4} rx={8} ry={5} fill={p.leaf} />
-        <Ellipse cx={3} cy={-3} rx={6} ry={4} fill={p.leaf2} />
-        <Rect x={10} y={-11} width={9} height={11} rx={2.5} fill="#ffffff" stroke={p.slate} strokeWidth={1} />
-        <Rect x={10} y={-11} width={9} height={5} rx={2.5} fill={a} />
-      </G>
-    );
-  } else if (v === 4) {
-    // wayside hut
-    art = (
-      <G>
-        <Rect x={-10} y={-14} width={20} height={14} fill={p.amber} opacity={0.8} />
-        <Path d="M-13 -14 h26 l-13 -9 Z" fill={p.trunk} />
-        <Rect x={-3} y={-8} width={6} height={8} fill={p.door} />
-      </G>
-    );
-  } else {
-    // telegraph pole with drooping wires
-    art = (
-      <G>
-        <Rect x={-1.5} y={-30} width={3} height={30} fill={p.trunk} opacity={0.85} />
-        <Rect x={-8} y={-28} width={16} height={2.5} rx={1} fill={p.trunk} opacity={0.85} />
-        <Rect x={-6} y={-23} width={12} height={2.5} rx={1} fill={p.trunk} opacity={0.85} />
-        <G stroke={p.slate} strokeWidth={1} fill="none" opacity={0.6}>
-          <Path d="M-8 -27 q-8 6 -14 7" />
-          <Path d="M8 -27 q8 6 14 7" />
-        </G>
-      </G>
-    );
-  }
+  const p = gray ? SCENERY_GRAYS : SCENERY_COLORS;
   return (
-    <G transform={`translate(${x} ${y})`} opacity={gray ? 0.45 : 1}>
-      {art}
+    <G testID="scenery-item" transform={`translate(${x} ${y})`} opacity={gray ? 0.45 : 0.95}>
+      {SCENERY_ASSETS[kind]({ p, accent: gray ? SCENERY_GRAY : accent })}
     </G>
   );
 }

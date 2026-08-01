@@ -421,11 +421,12 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
     expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
   });
 
-  it('pulses exactly the rail segment from the current stop to the next one', () => {
+  it('runs the comet dots on exactly the segment from the current stop to the next one', () => {
     threeStopZone();
     render(<JourneyScreen />);
-    // b -> c is one within-zone segment; a -> b must NOT pulse.
-    expect(screen.getAllByTestId('rail-pulse').length).toBe(1);
+    // b -> c is one within-zone segment (10 sampled dots); a -> b must NOT
+    // carry the comet.
+    expect(screen.getAllByTestId('rail-pulse-dot').length).toBe(10);
   });
 
   it('shows no pulse and no signboard when there is no current stop', () => {
@@ -438,7 +439,7 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
       [],
     ]);
     render(<JourneyScreen />);
-    expect(screen.queryAllByTestId('rail-pulse').length).toBe(0);
+    expect(screen.queryAllByTestId('rail-pulse-dot').length).toBe(0);
     expect(screen.queryByTestId('signboard-bar')).toBeNull();
     expect(screen.queryByTestId('stop-glow')).toBeNull();
   });
@@ -449,13 +450,51 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
     try {
       threeStopZone();
       render(<JourneyScreen />);
-      expect(screen.queryAllByTestId('rail-pulse').length).toBe(0);
+      expect(screen.queryAllByTestId('rail-pulse-dot').length).toBe(0);
       expect(screen.queryByTestId('stop-glow')).toBeNull();
       expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
       expect(screen.getAllByTestId('station-sign-glyph').length).toBe(1);
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+// Brief A item 7: web Task 985 scenery port. The plan is deterministic per
+// zone (planZoneScenery), rendered inside the scroll-parallax scenery layer
+// below the rail, and grays out with locked showroom zones via the palette
+// swap (react-native has no CSS grayscale filter).
+describe('journey map - trackside scenery (web Task 985 port)', () => {
+  it('plans 1-3 elements per zone, spread across rows with theme cycling', () => {
+    const { planZoneScenery } = require('@/components/journey/Scenery');
+    expect(planZoneScenery(0, 0)).toEqual([]);
+    expect(planZoneScenery(0, 2)).toEqual([{ kind: 'tuktuk', row: 1 }]);
+    expect(planZoneScenery(0, 9)).toEqual([
+      { kind: 'tuktuk', row: 1 },
+      { kind: 'chaiStall', row: 4 },
+      { kind: 'banyan', row: 7 },
+    ]);
+    // Final zone leads with the river ghat, the Varanasi-approach finale.
+    expect(planZoneScenery(5, 3)).toEqual([{ kind: 'ghat', row: 1 }]);
+  });
+
+  it('renders the planned scenery inside the parallax layer', () => {
+    setZones([
+      [
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+        grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 }),
+        grp({ status: 'locked' }),
+      ],
+      [grp({ status: 'locked' })],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+    expect(screen.getByTestId('journey-scenery-layer')).toBeOnTheScreen();
+    // The 3-station zone plans one element, the 1-station zone plans one.
+    expect(screen.getAllByTestId('scenery-item').length).toBe(2);
   });
 });
 

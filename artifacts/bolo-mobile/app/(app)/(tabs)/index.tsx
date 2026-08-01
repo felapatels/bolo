@@ -45,7 +45,7 @@ import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
-import { scoreColor } from '@/lib/ui';
+import { BAND_LABEL, normalizeBand, scoreColor } from '@/lib/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
@@ -636,8 +636,13 @@ export default function HomeScreen() {
                                 : colors.destructiveForeground,
                           },
                         ]}
+                        numberOfLines={1}
                       >
-                        {a.score}
+                        {/* #978 (item 8): recent plays speak the band
+                            vocabulary, not raw numbers - same defensive
+                            normalization the result card uses, so legacy
+                            rows without a band still land on a rung. */}
+                        {BAND_LABEL[normalizeBand(a.band, Number(a.score))]}
                       </Text>
                     </View>
                     {canRetake ? (
@@ -1142,14 +1147,17 @@ const styles = StyleSheet.create({
   },
   recentNative: { fontSize: 16 },
   recentEng: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
+  // Band-label pill (was a 48px numeric circle): band words need width, so
+  // the badge is a compact pill sized to its label.
   scoreBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    minHeight: 30,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
+  scoreText: { fontFamily: AppFonts.extrabold, fontSize: 12 },
   retakeLabel: { fontFamily: AppFonts.bold, fontSize: 13 },
   // Locked-language showroom banner (rendered inside the stats gradient).
   lockedStats: {
