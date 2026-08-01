@@ -1,0 +1,73 @@
+SPEC: Journey map India scenery + 2.5D depth pass (web first)
+
+CONTEXT
+The journey map's landmark decorations (generic tree, traffic light, steam puffs) are sparse and placeless, and the map overall reads flat and diagrammatic. This spec does two things in one coordinated pass: (1) replaces and expands the decorations with a cohesive set of India-flavored roadside scenery, themed by zone so the scenery progresses from Delhi urban toward Varanasi riverine, and (2) gives the whole map a gentle 2.5D depth treatment: dimensional flat art, consistent soft shadows, a rail-bed thickness treatment, and light scroll parallax. This is dimensional FLAT art, not real 3D: no three.js, no perspective cameras, no 3D assets. The existing visual system (flat train-world style, palette tokens, SVG serpentine geometry, canonical Bolo PNG rule) is evolved, not replaced.
+
+Scenery is decorative only: no tap targets, no progress meaning, never competing with stations, the boarding flow, or the rail comet. Web only in this pass; mobile parity follows as its own task. Consult docs/CODEBASE-FACTS.md at task start. No em dashes anywhere in code, comments, or copy.
+
+SEQUENCING (verify before starting)
+1. journey.tsx must be free: do not run concurrently with Task #972 (journey open sweep) or any other task touching journey surfaces. This spec runs FIRST and #972 composes with the result.
+2. The rail comet (RAIL_PULSE, Task #973, landed at ad22dfe) must not be altered: geometry, timing, and visibility stay exactly as landed.
+3. A prior instance of this task (#980) was cancelled mid-Step-0; no partial work from it exists on main. Start fresh.
+
+STEP 0: INVENTORY (report before building anything)
+1. Locate how current decorations (tree, traffic light, steam) are placed: inline SVG in journey.tsx, positioned elements, or assets. Report the positioning system relative to the serpentine geometry (LEFT_X, PC_H rhythm, zone postcards).
+2. Report the zone list and theme names for the active language's line (fare zone titles) and stations per zone, so scenery density can be planned per zone.
+3. Report the established flat-art conventions: palette tokens, stroke style, the canonical-mascot whole-image rule, and how the Chaiwala asset spec (monetization doc section 4.5) describes the train-world character style.
+4. Report existing shadow treatments across the map (stations, postcards, train, cards): what exists, what is inconsistent, and what the shared light direction should unify.
+5. Report reduced-motion handling on the map, current element counts, and a rough paint-cost baseline, since scenery and shadows add nodes to an already large SVG/DOM and parallax adds a scroll-linked transform.
+6. Report how map scrolling works today (window scroll vs container scroll), which determines the parallax mechanism.
+
+STORY 1: Dimensional scenery asset set
+As a learner scrolling the journey, I want the roadside to feel like India passing by, drawn with gentle depth, so that the map reads as a physical place, not a diagram.
+
+Acceptance criteria:
+1. The system shall include a scenery set covering at least: auto-rickshaw (tuk-tuk), cow (resting or standing), fruit cart, chai stall (per the monetization spec's stall description, without the Chaiwala character), roadside temple silhouette, banyan or neem tree variant, string of marigolds or bunting, cycle rickshaw, and a river ghat or boat for the final zone approach.
+2. The system shall draw all scenery assets in a dimensional flat style: a consistent 3/4 viewing angle with two visible faces and exactly one shading tone per asset (a single darker palette step for the shaded side), plus a soft ground-contact shadow ellipse under each element.
+3. The system shall use one shared light direction (upper-left) across the entire scenery set and every shadow this spec touches.
+4. The system shall render all scenery with palette tokens from the existing theme, consistent stroke and detail level with the current train-world style.
+5. The system shall keep every scenery element visually subordinate to stations, postcards, the train, Bolo, and the rail comet: smaller scale, standard or muted palette, no glow, no idle motion in v1.
+6. The system shall not attach any interaction, navigation, or progress semantics to scenery.
+7. The system shall not depict any copyrighted or branded material; generic vehicles, stalls, and structures only.
+
+STORY 2: Zone-themed placement
+As a learner progressing down the line, I want the scenery to change as zones pass, so that progress toward Varanasi is felt ambiently.
+
+Acceptance criteria:
+1. The system shall assign scenery per zone from a single themed placement config: early zones urban-weighted (tuk-tuk, chai stall, traffic elements), middle zones market-and-town weighted (fruit cart, cow, cycle rickshaw, bunting), final zones river-and-temple weighted (ghat or boat, temple silhouette, marigolds).
+2. The system shall place 1 to 3 scenery elements per zone segment, alternating sides of the serpentine, never overlapping stations, postcards, labels, the rail path, or each other at supported widths.
+3. The system shall keep placement deterministic for a given zone layout (no per-render randomness), so screenshots and tests are stable.
+4. The system shall anchor placement to the same serpentine geometry constants the stations use, offset outward, so future layout changes move scenery coherently.
+
+STORY 3: Map depth pass (2.5D)
+As a learner viewing the journey, I want the map to read with gentle, consistent depth, so that the world feels physical rather than diagrammatic.
+
+Acceptance criteria:
+1. The system shall apply a consistent soft shadow treatment (shared upper-left light direction, small vertical offset, low opacity) to stations, the train, postcards, and scenery, replacing any inconsistent existing shadows found in Step 0 item 4.
+2. The system shall give the rail bed a subtle thickness treatment consistent with the dimensional style, without altering the rail path geometry the comet samples.
+3. The system shall implement a light parallax on scroll for the scenery layer relative to the rail line, implemented as a single scroll-linked transform on the scenery group, and disabled entirely under reduced motion.
+4. The system shall keep Bolo assets untouched: canonical PNG, whole-image transforms only; Bolo may receive the shared ground-contact shadow beneath him but the asset itself is never redrawn or filtered.
+5. The system shall preserve text readability everywhere; no shadow or depth treatment may reduce label or postcard text contrast.
+6. The system shall define depth ordering as documented tokens (scenery below rail, rail below stations, stations below train, train below postcards, postcards below overlays) so future features slot in consistently, and shall document these tokens in CODEBASE-FACTS as the shared 2.5D language for later surfaces (games hub, home).
+7. The system shall not measurably degrade scroll performance on the map; report before/after element counts and an honest paint-cost comparison against the Step 0 baseline.
+
+Implementation notes (all stories):
+- Assets as inline SVG components or a sprite module, whichever matches the existing decoration approach found in Step 0; keep each asset simple (target well under 1KB of path data each) to bound render cost.
+- Shadows via a shared SVG filter or a shared shadow-ellipse component, not per-element ad hoc CSS; one definition, reused.
+- Parallax gated by the existing reduced-motion hook; if Step 0 item 6 shows container scroll, bind to that container, not window.
+- The Chaiwala character is NOT drawn in this task (his asset belongs to the monetization vignette task); the chai stall appears unmanned, designed to accept the character later.
+- Idle micro-motion (steam wisp on the chai stall, cow ear flick) is explicitly deferred; note candidate spots in the report for a later motion pass so v1 ships static and cheap.
+- Any new tuning values (shadow offset/opacity, parallax factor, shading-step token) are named constants joining the shared motion/visual tuning conventions, not magic numbers inline.
+
+TESTS (minimum)
+1. Scenery config renders the expected element set per zone theme (deterministic, count- or snapshot-based).
+2. No scenery element intersects station marker or postcard bounding boxes at standard widths (geometry assertion against the placement config).
+3. Reduced motion: scenery renders static and identical, parallax transform absent, comet behavior unchanged (existing pin).
+4. Depth-order tokens applied: scenery group renders below the rail group, stations above rail (structural assertion on layer order).
+5. Existing journey suites (rail pulse/comet, zone titles, testout dialog) pass unchanged.
+
+GATE
+Typecheck clean, both boot smoke tests pass, full web suite green at its then-current baseline plus the new tests, api canonical unchanged (682 tests / 681 pass / 1 fail pilot-capture fence). Manual verification on dev at phone and desktop widths: scroll the full line; scenery reads as one coherent dimensional world with a single light source, zone themes progress Delhi to Varanasi, nothing competes with stations or the comet, parallax is subtle and absent under reduced motion, text everywhere stays crisp, and scrolling stays smooth. Report by name, including the Story 3 item 7 performance comparison and the deferred micro-motion candidate list, and WAIT for confirmation before commit.
+
+MOBILE NOTE
+Mobile parity is a separate follow-up task. The scenery asset set, placement config themes, depth tokens, and tuning constants from this task are its spec inputs; document all of them in the new CODEBASE-FACTS section so the mobile task inherits them without re-derivation.
