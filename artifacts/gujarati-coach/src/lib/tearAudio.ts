@@ -1,19 +1,34 @@
 /**
- * Paper-tear SFX for the boarding-pass tear animation (Task 905).
+ * Paper-tear SFX for the boarding-pass tear animation (Task 905 / Task 984).
  *
- * Synthesized via Web Audio API -- no file to fetch, no loading delay, works
- * offline. The sound is a filtered white-noise burst with an exponential decay
- * envelope, shaped to sit in the crinkle-frequency range of thin paper (~2 kHz)
- * rather than the low thud of cardboard -- subtle, not cartoonish.
+ * Plays the recorded paper-tear asset (`public/sounds/tear-sfx.m4a`, 0.985s,
+ * mono, 44.1kHz, loudness-normalized) through Web Audio. The clip is fetched
+ * and decoded ONCE at screen mount (preloadTearAudio) into a module-cached
+ * AudioBuffer, so the first play has zero fetch or decode lag.
  *
  * Constraints:
  *   - Never delays or gates the animation. Both exports return immediately.
  *   - Fails silently on browsers without AudioContext or when autoplay is
  *     blocked (common on mobile until a user gesture has occurred).
  *   - preloadTearAudio() should be called once at screen mount. It pre-warms
- *     the AudioContext so the first play has zero startup lag.
+ *     the AudioContext and decodes the clip so the first play is instant.
+ *   - If the buffer is not ready (preload failed or never ran), playTearSfx()
+ *     stays SILENT -- never a fetch-then-play that would lag the tap.
  */
+
+// Playback gain for the recorded clip. The asset is loudness-normalized
+// (~-2 dB peak, -21 dB RMS), far hotter than the old synthesized burst
+// (-16.5 dB peak, -33 dB RMS), so this sits well below unity. 0.40 (-8 dB)
+// lands the tear ~4 dB more present than the old burst without being
+// startling: peak ~-10 dBFS, RMS ~-29 dBFS at normal volume.
+export const TEAR_SFX_GAIN = 0.4;
+
 let warmCtx: AudioContext | null = null;
+/** Decoded clip, cached at preload. Null until decode succeeds. */
+let tearBuffer: AudioBuffer | null = null;
+/** Guards against duplicate fetch+decode on repeated mounts. */
+let loadStarted = false;
+
 function getCtorOrNull(): typeof AudioContext | null {
   if (typeof window === "undefined") return null;
   return (
@@ -23,32 +38,58 @@ function getCtorOrNull(): typeof AudioContext | null {
       null)
   );
 }
+
 /**
- * Pre-warm the AudioContext at screen mount so the first playback has zero
- * startup lag. No-ops silently on unsupported browsers.
+ * Pre-warm the AudioContext AND fetch + decode the tear clip at screen mount
+ * so the first playback has zero startup, fetch, or decode lag. No-ops
+ * silently on unsupported browsers; any fetch/decode failure is silent
+ * (playTearSfx then simply stays quiet).
  */
 export function preloadTearAudio(): void {
   try {
     const Ctor = getCtorOrNull();
-    if (!Ctor || warmCtx) return;
-    warmCtx = new Ctor();
-    // Suspend immediately -- we just want the context object to exist,
-    // not an active audio graph sitting idle.
-    void warmCtx.suspend().catch(() => {});
+    if (!Ctor) return;
+    if (!warmCtx) {
+      warmCtx = new Ctor();
+      // Suspend immediately -- we just want the context object to exist,
+      // not an active audio graph sitting idle.
+      void warmCtx.suspend().catch(() => {});
+    }
+    if (loadStarted || tearBuffer) return;
+    loadStarted = true;
+    const base: string = import.meta.env.BASE_URL ?? "/";
+    const ctx = warmCtx;
+    void fetch(`${base}sounds/tear-sfx.m4a`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`tear sfx fetch ${res.status}`);
+        return res.arrayBuffer();
+      })
+      // decodeAudioData works on a suspended context.
+      .then((bytes) => ctx.decodeAudioData(bytes))
+      .then((decoded) => {
+        tearBuffer = decoded;
+      })
+      .catch(() => {
+        // Allow a later mount to retry the load.
+        loadStarted = false;
+      });
   } catch {
     // Pre-warming is best-effort; any failure is silent.
   }
 }
+
 /**
- * Play a short (~350 ms), subtle paper-tear noise burst. Fire-and-forget:
- * returns immediately and never throws.
+ * Play the recorded paper-tear clip. Fire-and-forget: returns immediately and
+ * never throws. Silent when the decoded buffer is not ready (preload failed
+ * or never ran) -- a late fetch would lag the tap, so silence is the fallback.
  */
 export function playTearSfx(): void {
   try {
+    if (!tearBuffer) return; // not decoded (yet) -- stay silent, never lag
     const Ctor = getCtorOrNull();
     if (!Ctor) return;
-    // Re-use the pre-warmed context when available; create a fresh one on
-    // first call if preloadTearAudio() was not called.
+    // Re-use the pre-warmed context when available; create a fresh one if it
+    // was closed out from under us (AudioBuffers are context-independent).
     let ctx: AudioContext;
     if (warmCtx && warmCtx.state !== "closed") {
       ctx = warmCtx;
@@ -57,32 +98,11 @@ export function playTearSfx(): void {
     } else {
       ctx = new Ctor();
     }
-    const sampleRate = ctx.sampleRate;
-    // Target ~350 ms -- comfortably under the 500 ms spec limit.
-    const duration = 0.35;
-    const bufferSize = Math.floor(sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
-    const data = buffer.getChannelData(0);
-    // White noise with an exponential-decay amplitude envelope.
-    // Decay constant 9 gives near-silence at ~350 ms (e^(-9*0.35) ~ 0.04).
-    for (let i = 0; i < bufferSize; i++) {
-      const t = i / sampleRate;
-      const envelope = Math.exp(-t * 9);
-      data[i] = (Math.random() * 2 - 1) * envelope;
-    }
     const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    // Bandpass centred at ~2.2 kHz -- thin-paper crinkle range.
-    // Low Q (0.7) keeps the spectrum broad and natural, not "electronic".
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = "bandpass";
-    bpf.frequency.value = 2200;
-    bpf.Q.value = 0.7;
-    // Subtle gain -- present but not startling.
+    source.buffer = tearBuffer;
     const gain = ctx.createGain();
-    gain.gain.value = 0.22;
-    source.connect(bpf);
-    bpf.connect(gain);
+    gain.gain.value = TEAR_SFX_GAIN;
+    source.connect(gain);
     gain.connect(ctx.destination);
     source.start(0);
     // Close a freshly created context after playback to free resources.
