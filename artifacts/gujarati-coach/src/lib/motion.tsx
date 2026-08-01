@@ -64,6 +64,51 @@ export const RAIL_PULSE = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// 2.5D depth pass tuning (Task 985). The journey map's shared dimensional
+// language: one upper-left key light, soft down-right shadows, a rail-bed
+// thickness offset, light scroll parallax on the scenery layer, and the
+// depth-order tokens later surfaces (games hub, home) should reuse. CSS-side
+// shadow constants live as the --depth-shadow-* custom properties in the
+// :root tuning block in index.css; these are the geometry/behavior values.
+// ---------------------------------------------------------------------------
+
+export const DEPTH_2_5D = {
+  /**
+   * Scroll-linked parallax factor for the journey scenery layer: the scenery
+   * group translates down by scrollY * factor, so it travels slightly slower
+   * than the rail and reads as sitting behind it. Kept small on purpose; over
+   * a full-line scroll (~6000px) the total drift stays around one station row.
+   * Applied as ONE transform on the scenery group, and not at all under
+   * reduced motion.
+   */
+  parallaxFactor: 0.03,
+  /**
+   * Rail-bed thickness: the sleeper-tie stroke is duplicated once per segment,
+   * offset down by this many SVG px in ink at low opacity, so every tie shows
+   * an underside edge and the track reads as a raised bed. The rail path
+   * geometry (`d`) itself is untouched — the comet samples the same beziers.
+   */
+  railBedDy: 2.5,
+  railBedOpacity: 0.18,
+  /**
+   * Depth-order tokens: scenery below rail, rail below station cards, cards
+   * below station markers, markers below the train, train below postcards,
+   * postcards below overlays (dialogs, z-50). Scenery and rail are SVG groups
+   * (paint order inside the map svg, which underlies all HTML overlays); the
+   * rest are the z-indexes of the absolutely positioned HTML layers.
+   */
+  layers: {
+    scenery: 0,
+    rail: 1,
+    stationCard: 4,
+    station: 6,
+    train: 7,
+    postcard: 8,
+    overlay: 50,
+  },
+} as const;
+
+// ---------------------------------------------------------------------------
 // Entrance / idle helpers — return props you can spread onto a motion element.
 // ---------------------------------------------------------------------------
 

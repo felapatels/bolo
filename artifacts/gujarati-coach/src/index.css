@@ -288,6 +288,17 @@
   --gust-rotate: 9deg;           /* extra rotation range as pieces blow away */
   --gust-duration: 420ms;        /* gust exit run time per half */
   --gust-stagger: 120ms;         /* body half lags the stub into the gust */
+  /* 2.5D depth pass (Task 985): ONE shared soft shadow for every dimensional
+     surface on the journey map (postcards, station markers, the train pill,
+     the active card, the Bolo ground contact). The light source is upper-left,
+     so the offset points down-right. Scenery ground ellipses and the rail-bed
+     offset reuse the same direction via DEPTH_2_5D in lib/motion.tsx. */
+  --depth-shadow-x: 2px;
+  --depth-shadow-y: 3px;
+  --depth-shadow-blur: 6px;
+  --depth-shadow-color: rgba(15, 23, 42, 0.16);
+  --depth-shadow: var(--depth-shadow-x) var(--depth-shadow-y)
+    var(--depth-shadow-blur) var(--depth-shadow-color);
   /* Brand splash: cold-load launch moment (brand-splash.tsx). */
   --splash-duration: 1800ms;     /* full beat while home data still loads. MUST
                                     be in ms: brand-splash.tsx parses this */
@@ -303,6 +314,25 @@
 }
 .dark {
   --station-surface: hsl(222 30% 15%);
+}
+/* 2.5D depth pass (Task 985): shared shadow utilities. `.depth-shadow` is the
+   ONE soft box shadow for dimensional HTML surfaces (light upper-left, offset
+   down-right). `.ground-contact-shadow` is the soft floor ellipse rendered
+   under characters standing on the map (Bolo at the active stop); the
+   canonical mascot PNG itself is never filtered or redrawn. */
+.depth-shadow {
+  box-shadow: var(--depth-shadow);
+}
+.ground-contact-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 70%;
+  height: 7px;
+  transform: translateX(-50%) translateX(var(--depth-shadow-x));
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, var(--depth-shadow-color), transparent);
+  pointer-events: none;
 }
 @keyframes ticket-breathe {
   0%, 100% {

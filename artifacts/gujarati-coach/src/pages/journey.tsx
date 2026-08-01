@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Mascot } from "@/components/mascot";
-import { RAIL_PULSE } from "@/lib/motion";
+import { DEPTH_2_5D, RAIL_PULSE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
 import { LessonErrorScreen } from "@/components/lesson-states";
@@ -49,7 +49,13 @@ import {
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import { TicketPerforationV, TicketStripes, ZoneStamp } from "@/components/ticket";
-import { Bunting, TracksideDoodad, ZoneVista } from "@/components/journey-scenery";
+import {
+  Bunting,
+  SCENERY_PLACEMENT,
+  SceneryElement,
+  ZoneVista,
+  planZoneScenery,
+} from "@/components/journey-scenery";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
@@ -73,6 +79,28 @@ const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
+const RIGHT_INSET = 94; // mirror inset of LEFT_X for odd-index stations
+const CARD_GAP = 28; // gap between a marker and its station card
+const EDGE_PAD = 16; // station card / postcard inset from the map edge
+const MARKER_HALF_W = 23; // widest marker (the 46px current-stop train pill) / 2
+
+/** Serpentine geometry constants shared with the scenery placement tests
+ *  (Task 985), so the no-overlap assertions can never drift from the layout
+ *  the page actually renders. */
+export const SERPENTINE = {
+  MAP_MAX_W,
+  STATION_H,
+  PC_H,
+  TERM_H,
+  TOP_PAD,
+  LEFT_X,
+  RIGHT_INSET,
+  CARD_GAP,
+  EDGE_PAD,
+  MARKER_HALF_W,
+  /** Half of the rail's widest stroke (the 15px sleeper-tie band). */
+  RAIL_HALF_W: 7.5,
+} as const;
 // Task #917 / #973: comet samples per active-run segment come from the shared
 // RAIL_PULSE tuning export in lib/motion.tsx (geometry density, not timing;
 // the timing constants live in the :root block in index.css).
@@ -144,7 +172,10 @@ function StationMarker({
     return (
       <div
         className="w-[46px] h-8 rounded-full bg-white flex items-center justify-center px-1"
-        style={{ boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33`, color }}
+        style={{
+          boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33, var(--depth-shadow)`,
+          color,
+        }}
         title="Your current stop"
       >
         {/* Soft idle bob on the parked train, whole-element transform only.
@@ -162,7 +193,7 @@ function StationMarker({
     return (
       <div
         className={cn("w-5 h-5 border-4 border-white", shapeClass)}
-        style={{ background: color, boxShadow: `0 0 0 2px ${color}` }}
+        style={{ background: color, boxShadow: `0 0 0 2px ${color}, var(--depth-shadow)` }}
       />
     );
   }
@@ -171,8 +202,8 @@ function StationMarker({
       className={cn("w-5 h-5 bg-background", shapeClass)}
       style={{
         boxShadow: accessible
-          ? `inset 0 0 0 3px ${color}`
-          : "inset 0 0 0 3px hsl(var(--border))",
+          ? `inset 0 0 0 3px ${color}, var(--depth-shadow)`
+          : "inset 0 0 0 3px hsl(var(--border)), var(--depth-shadow)",
       }}
     />
   );
@@ -208,7 +239,7 @@ function ZonePostcard({
   return (
     <div className={cn(grayed && "grayscale opacity-80")}>
       {/* postcard frame — outer 2px border */}
-      <div className="rounded-lg border-2 bg-white shadow-sm overflow-hidden" style={{ borderColor: color }}>
+      <div className="rounded-lg border-2 bg-white depth-shadow overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
         <div className="m-1 rounded-md border border-dashed overflow-hidden" style={{ borderColor: `${color}66` }}>
           {/* picture side: the zone's landmark vista */}
@@ -319,7 +350,7 @@ function StationCard({
     <div
       className={cn(
         "relative min-w-0 rounded-lg px-3 py-2 transition-colors",
-        isCurrent ? "border pt-3 shadow-sm" : "group-hover:bg-accent",
+        isCurrent ? "border pt-3 depth-shadow" : "group-hover:bg-accent",
       )}
       style={
         isCurrent
@@ -445,11 +476,19 @@ function StationCard({
           "cheer" idle is whole-image motion on the canonical PNG and already
           collapses to static under reduced motion. */}
       {side === "left" && isCurrent && (
-        <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
+        <span className="relative shrink-0">
+          {/* Shared ground-contact shadow (Task 985): sits under the canonical
+              mascot PNG, which itself stays untouched. */}
+          <span className="ground-contact-shadow" aria-hidden />
+          <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
+        </span>
       )}
       {card}
       {side === "right" && isCurrent && (
-        <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
+        <span className="relative shrink-0">
+          <span className="ground-contact-shadow" aria-hidden />
+          <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
+        </span>
       )}
     </>
   );
@@ -479,6 +518,19 @@ function RailSegment({ d, lit, accent }: { d: string; lit: boolean; accent: stri
   const color = lit ? accent : GRAY;
   return (
     <g opacity={lit ? 1 : 0.5}>
+      {/* Rail-bed thickness (Task 985): the tie band repeated once in ink,
+          offset down by the shared depth step, so every sleeper shows an
+          underside edge and the track reads as a raised bed. Same `d` and
+          dash rhythm — the rail geometry the comet samples is untouched. */}
+      <path
+        d={d}
+        transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
+        stroke="#0f172a"
+        strokeWidth={15}
+        strokeDasharray="3 11"
+        opacity={DEPTH_2_5D.railBedOpacity}
+        fill="none"
+      />
       <path d={d} stroke={color} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
       <path d={d} stroke={color} strokeWidth={8.5} fill="none" strokeDasharray={lit ? undefined : "9 7"} />
       <path
@@ -508,6 +560,36 @@ export default function Journey() {
   const [lock, setLock] = useState<LockInfo | null>(null);
   const { ref: mapRef, w: mapW } = useMapWidth();
   const reduceMotion = useReducedMotion();
+
+  // Task 985: light scroll parallax on the scenery layer — ONE scroll-linked
+  // transform on the scenery group, so it drifts slightly slower than the
+  // rail and reads as sitting behind it. Page scrolling is window scroll
+  // (sticky header, no overflow container), so the listener binds to window.
+  // Entirely absent under reduced motion. The ref is read lazily inside the
+  // handlers because the map SVG mounts after the loading state clears.
+  const sceneryLayerRef = useRef<SVGGElement | null>(null);
+  useEffect(() => {
+    if (reduceMotion) {
+      sceneryLayerRef.current?.removeAttribute("transform");
+      return;
+    }
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      sceneryLayerRef.current?.setAttribute(
+        "transform",
+        `translate(0 ${(window.scrollY * DEPTH_2_5D.parallaxFactor).toFixed(1)})`,
+      );
+    };
+    const onScroll = () => {
+      if (raf === 0) raf = requestAnimationFrame(apply);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
+  }, [reduceMotion]);
 
   // One language's map never fetches another language's data (behavior 9):
   // exactly six fixed zone queries for the active language.
@@ -812,30 +894,44 @@ export default function Journey() {
               viewBox={`0 0 ${mapW} ${totalH}`}
               aria-hidden
             >
-              {segs.map((s, i) => (
-                <RailSegment key={i} d={s.d} lit={s.lit} accent={line.accent} />
-              ))}
-              {/* Trackside scenery: one small scene in the free strip beside
-                  each station (opposite its card), cycling by station index. */}
-              {pts
-                .filter((p) => p.kind === "station")
-                .map((p, i) => {
-                  const s = p.station!;
-                  const zone = zones[s.zoneIndex]!;
+              {/* India-flavored trackside scenery (Task 985): zone-themed
+                  dimensional flat scenes in the free strip beside station
+                  rows, anchored to the same serpentine geometry the stations
+                  use. Painted FIRST so the whole layer sits below the rail
+                  (depth order: scenery < rail < stations). The group carries
+                  the single scroll-linked parallax transform. */}
+              <g data-testid="journey-scenery-layer" ref={sceneryLayerRef}>
+                {zones.map((zone, zi) => {
+                  const zonePts = pts.filter(
+                    (p) => p.kind === "station" && p.station!.zoneIndex === zi,
+                  );
                   const zoneAccessible = zone.stations.some(
                     (st) => isStatusAccessible(st.status) || st.teaserStation,
                   );
-                  return (
-                    <TracksideDoodad
-                      key={s.id}
-                      variant={i}
-                      x={i % 2 === 0 ? 42 : mapW - 42}
-                      y={p.y + 22}
-                      accent={line.accent}
-                      gray={showroom && !zoneAccessible}
-                    />
-                  );
+                  return planZoneScenery(zi, zonePts.length).map(({ kind, row }, i) => {
+                    const p = zonePts[row]!;
+                    return (
+                      <SceneryElement
+                        key={`${zone.id}-${i}`}
+                        kind={kind}
+                        x={
+                          p.x < mapW / 2
+                            ? SCENERY_PLACEMENT.edgeX
+                            : mapW - SCENERY_PLACEMENT.edgeX
+                        }
+                        y={p.y + SCENERY_PLACEMENT.groundDy}
+                        accent={line.accent}
+                        gray={showroom && !zoneAccessible}
+                      />
+                    );
+                  });
                 })}
+              </g>
+              <g data-testid="journey-rail-layer">
+                {segs.map((s, i) => (
+                  <RailSegment key={i} d={s.d} lit={s.lit} accent={line.accent} />
+                ))}
+              </g>
               {/* Task #917 / #973: comet sweep on the active run. Delay
                   fraction grows with sample order (current stop to next), and
                   the sharp-attack / slow-decay keyframes light one bright head
@@ -875,7 +971,15 @@ export default function Journey() {
               const diamondColor = grayed ? GRAY : line.accent;
               return (
                 <div key={zone.id}>
-                  <div className="absolute" style={{ left: 16, right: 16, top: py + 10 }}>
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 16,
+                      right: 16,
+                      top: py + 10,
+                      zIndex: DEPTH_2_5D.layers.postcard,
+                    }}
+                  >
                     <ZonePostcard
                       zoneIndex={zoneIndex}
                       zoneTitle={zone.title}
@@ -897,8 +1001,8 @@ export default function Journey() {
                       top: py + 10,
                       transform: "translate(-50%, -50%) rotate(45deg)",
                       background: diamondColor,
-                      boxShadow: `0 0 0 2px ${diamondColor}`,
-                      zIndex: 5,
+                      boxShadow: `0 0 0 2px ${diamondColor}, var(--depth-shadow)`,
+                      zIndex: DEPTH_2_5D.layers.postcard,
                     }}
                     aria-hidden
                   />
@@ -936,7 +1040,10 @@ export default function Journey() {
                         left: p.x,
                         top: p.y,
                         transform: "translate(-50%, -50%)",
-                        zIndex: 6,
+                        zIndex:
+                          s.id === currentId
+                            ? DEPTH_2_5D.layers.train
+                            : DEPTH_2_5D.layers.station,
                       }}
                       aria-hidden
                     >
@@ -954,7 +1061,7 @@ export default function Journey() {
                         width: boxWidth,
                         top: p.y,
                         transform: "translateY(-50%)",
-                        zIndex: 4,
+                        zIndex: DEPTH_2_5D.layers.stationCard,
                       }}
                     >
                       <StationCard
@@ -1007,8 +1114,8 @@ export default function Journey() {
                 top: termY,
                 transform: "translate(-50%, -50%)",
                 background: allDone ? line.accent : GRAY,
-                boxShadow: `0 0 0 2px ${allDone ? line.accent : GRAY}`,
-                zIndex: 5,
+                boxShadow: `0 0 0 2px ${allDone ? line.accent : GRAY}, var(--depth-shadow)`,
+                zIndex: DEPTH_2_5D.layers.station,
               }}
               aria-hidden
             />
