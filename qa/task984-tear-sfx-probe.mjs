@@ -9,8 +9,10 @@
 //
 //   CHROME_BIN=$(which chromium) node qa/task984-tear-sfx-probe.mjs
 import { chromium } from "playwright-core";
+
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const EMAIL = "d1bm+clerk_test@example.com";
+
 async function clerkUserId(email) {
   const res = await fetch(
     `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}`,
@@ -20,6 +22,7 @@ async function clerkUserId(email) {
   if (!res.ok || !users.length) throw new Error("user lookup failed");
   return users[0].id;
 }
+
 async function signInToken(userId) {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
     method: "POST",
@@ -33,12 +36,14 @@ async function signInToken(userId) {
   if (!res.ok) throw new Error(`sign-in token: ${JSON.stringify(tk)}`);
   return tk.token;
 }
+
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_BIN,
   args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
 });
 const ctx = await browser.newContext({ viewport: { width: 412, height: 900 } });
 const page = await ctx.newPage();
+
 // Instrument Web Audio BEFORE any app code runs.
 await page.addInitScript(() => {
   const probe = { decodes: [], starts: [], gains: [], fetches: [] };
@@ -87,12 +92,14 @@ await page.addInitScript(() => {
     return g;
   };
 });
+
 const userId = await clerkUserId(EMAIL);
 await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await signInToken(userId)}`, {
   waitUntil: "networkidle",
   timeout: 120000,
 });
 await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle", timeout: 60000 });
+
 // Preload happens at home mount; give the fetch+decode a beat.
 await page.waitForTimeout(1500);
 const preloadState = await page.evaluate(() => ({
@@ -100,6 +107,7 @@ const preloadState = await page.evaluate(() => ({
   decodes: window.__tearProbe.decodes,
 }));
 console.log("PRELOAD:", JSON.stringify(preloadState, null, 2));
+
 // Tap the boarding pass (the /journey link with the boarding-pass h2).
 const clicked = await page.evaluate(() => {
   const pass = Array.from(
@@ -111,6 +119,7 @@ const clicked = await page.evaluate(() => {
 });
 if (!clicked) throw new Error("boarding pass not found");
 await page.waitForTimeout(300);
+
 const afterTap = await page.evaluate(() => ({
   starts: window.__tearProbe.starts,
   fetchCount: window.__tearProbe.fetches.length,
@@ -118,8 +127,10 @@ const afterTap = await page.evaluate(() => ({
   tearing: !!document.querySelector(".animate-stub-tear"),
 }));
 console.log("AFTER TAP:", JSON.stringify(afterTap, null, 2));
+
 await page.waitForTimeout(700);
 console.log("URL AFTER TEAR:", page.url());
+
 const start = afterTap.starts[0];
 const ok =
   preloadState.fetches.length === 1 &&
