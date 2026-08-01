@@ -1,0 +1,339 @@
+All requested details as text follows. Standing down after this — no further applies, edits, or completion calls.
+
+Base commit: 8c9d129ae083c89f93fde8a8a04245c4b1905524 → my commit: 1fae296c16b1805108dc5024c6413b43a1d72134 Changed files (4): artifacts/gujarati-coach/src/lib/tearAudio.ts (modified), artifacts/gujarati-coach/public/sounds/tear-sfx.m4a (new, binary), qa/task984-tear-sfx-probe.mjs (new), docs/CODEBASE-FACTS.md (modified).
+
+(1) Full unified diff
+artifacts/gujarati-coach/src/lib/tearAudio.ts
+diff --git a/artifacts/gujarati-coach/src/lib/tearAudio.ts b/artifacts/gujarati-coach/src/lib/tearAudio.ts
+index 0a90c50..e99fba8 100644
+--- a/artifacts/gujarati-coach/src/lib/tearAudio.ts
++++ b/artifacts/gujarati-coach/src/lib/tearAudio.ts
+@@ -1,19 +1,34 @@
+ /**
+- * Paper-tear SFX for the boarding-pass tear animation (Task 905).
++ * Paper-tear SFX for the boarding-pass tear animation (Task 905 / Task 984).
+  *
+- * Synthesized via Web Audio API -- no file to fetch, no loading delay, works
+- * offline. The sound is a filtered white-noise burst with an exponential decay
+- * envelope, shaped to sit in the crinkle-frequency range of thin paper (~2 kHz)
+- * rather than the low thud of cardboard -- subtle, not cartoonish.
++ * Plays the recorded paper-tear asset (`public/sounds/tear-sfx.m4a`, 0.985s,
++ * mono, 44.1kHz, loudness-normalized) through Web Audio. The clip is fetched
++ * and decoded ONCE at screen mount (preloadTearAudio) into a module-cached
++ * AudioBuffer, so the first play has zero fetch or decode lag.
+  *
+  * Constraints:
+  *   - Never delays or gates the animation. Both exports return immediately.
+  *   - Fails silently on browsers without AudioContext or when autoplay is
+  *     blocked (common on mobile until a user gesture has occurred).
+  *   - preloadTearAudio() should be called once at screen mount. It pre-warms
+- *     the AudioContext so the first play has zero startup lag.
++ *     the AudioContext and decodes the clip so the first play is instant.
++ *   - If the buffer is not ready (preload failed or never ran), playTearSfx()
++ *     stays SILENT -- never a fetch-then-play that would lag the tap.
+  */
++
++// Playback gain for the recorded clip. The asset is loudness-normalized
++// (~-2 dB peak, -21 dB RMS), far hotter than the old synthesized burst
++// (-16.5 dB peak, -33 dB RMS), so this sits well below unity. 0.40 (-8 dB)
++// lands the tear ~4 dB more present than the old burst without being
++// startling: peak ~-10 dBFS, RMS ~-29 dBFS at normal volume.
++export const TEAR_SFX_GAIN = 0.4;
++
+ let warmCtx: AudioContext | null = null;
++/** Decoded clip, cached at preload. Null until decode succeeds. */
++let tearBuffer: AudioBuffer | null = null;
++/** Guards against duplicate fetch+decode on repeated mounts. */
++let loadStarted = false;
++
+ function getCtorOrNull(): typeof AudioContext | null {
+   if (typeof window === "undefined") return null;
+   return (
+@@ -23,32 +38,58 @@ function getCtorOrNull(): typeof AudioContext | null {
+       null)
+   );
+ }
++
+ /**
+- * Pre-warm the AudioContext at screen mount so the first playback has zero
+- * startup lag. No-ops silently on unsupported browsers.
++ * Pre-warm the AudioContext AND fetch + decode the tear clip at screen mount
++ * so the first playback has zero startup, fetch, or decode lag. No-ops
++ * silently on unsupported browsers; any fetch/decode failure is silent
++ * (playTearSfx then simply stays quiet).
+  */
+ export function preloadTearAudio(): void {
+   try {
+     const Ctor = getCtorOrNull();
+-    if (!Ctor || warmCtx) return;
+-    warmCtx = new Ctor();
+-    // Suspend immediately -- we just want the context object to exist,
+-    // not an active audio graph sitting idle.
+-    void warmCtx.suspend().catch(() => {});
++    if (!Ctor) return;
++    if (!warmCtx) {
++      warmCtx = new Ctor();
++      // Suspend immediately -- we just want the context object to exist,
++      // not an active audio graph sitting idle.
++      void warmCtx.suspend().catch(() => {});
++    }
++    if (loadStarted || tearBuffer) return;
++    loadStarted = true;
++    const base: string = import.meta.env.BASE_URL ?? "/";
++    const ctx = warmCtx;
++    void fetch(`${base}sounds/tear-sfx.m4a`)
++      .then((res) => {
++        if (!res.ok) throw new Error(`tear sfx fetch ${res.status}`);
++        return res.arrayBuffer();
++      })
++      // decodeAudioData works on a suspended context.
++      .then((bytes) => ctx.decodeAudioData(bytes))
++      .then((decoded) => {
++        tearBuffer = decoded;
++      })
++      .catch(() => {
++        // Allow a later mount to retry the load.
++        loadStarted = false;
++      });
+   } catch {
+     // Pre-warming is best-effort; any failure is silent.
+   }
+ }
++
+ /**
+- * Play a short (~350 ms), subtle paper-tear noise burst. Fire-and-forget:
+- * returns immediately and never throws.
++ * Play the recorded paper-tear clip. Fire-and-forget: returns immediately and
++ * never throws. Silent when the decoded buffer is not ready (preload failed
++ * or never ran) -- a late fetch would lag the tap, so silence is the fallback.
+  */
+ export function playTearSfx(): void {
+   try {
++    if (!tearBuffer) return; // not decoded (yet) -- stay silent, never lag
+     const Ctor = getCtorOrNull();
+     if (!Ctor) return;
+-    // Re-use the pre-warmed context when available; create a fresh one on
+-    // first call if preloadTearAudio() was not called.
++    // Re-use the pre-warmed context when available; create a fresh one if it
++    // was closed out from under us (AudioBuffers are context-independent).
+     let ctx: AudioContext;
+     if (warmCtx && warmCtx.state !== "closed") {
+       ctx = warmCtx;
+@@ -57,32 +98,11 @@ export function playTearSfx(): void {
+     } else {
+       ctx = new Ctor();
+     }
+-    const sampleRate = ctx.sampleRate;
+-    // Target ~350 ms -- comfortably under the 500 ms spec limit.
+-    const duration = 0.35;
+-    const bufferSize = Math.floor(sampleRate * duration);
+-    const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+-    const data = buffer.getChannelData(0);
+-    // White noise with an exponential-decay amplitude envelope.
+-    // Decay constant 9 gives near-silence at ~350 ms (e^(-9*0.35) ~ 0.04).
+-    for (let i = 0; i < bufferSize; i++) {
+-      const t = i / sampleRate;
+-      const envelope = Math.exp(-t * 9);
+-      data[i] = (Math.random() * 2 - 1) * envelope;
+-    }
+     const source = ctx.createBufferSource();
+-    source.buffer = buffer;
+-    // Bandpass centred at ~2.2 kHz -- thin-paper crinkle range.
+-    // Low Q (0.7) keeps the spectrum broad and natural, not "electronic".
+-    const bpf = ctx.createBiquadFilter();
+-    bpf.type = "bandpass";
+-    bpf.frequency.value = 2200;
+-    bpf.Q.value = 0.7;
+-    // Subtle gain -- present but not startling.
++    source.buffer = tearBuffer;
+     const gain = ctx.createGain();
+-    gain.gain.value = 0.22;
+-    source.connect(bpf);
+-    bpf.connect(gain);
++    gain.gain.value = TEAR_SFX_GAIN;
++    source.connect(gain);
+     gain.connect(ctx.destination);
+     source.start(0);
+     // Close a freshly created context after playback to free resources.
+
+(The lines after that hunk — fresh-context source.onended → ctx.close() self-close, warm-context left alive, outer silent catch — are unchanged context, byte-identical to the pre-task file.)
+
+artifacts/gujarati-coach/public/sounds/tear-sfx.m4a (new, binary)
+Bin 0 -> 13080 bytes — see section (2) for identity proof.
+
+qa/task984-tear-sfx-probe.mjs (new file — complete contents via git show HEAD:qa/task984-tear-sfx-probe.mjs)
+// Task #984: recorded tear SFX replaces synthesis (web).
+// Real-browser probe: sign in, land on home, verify
+//   (1) preloadTearAudio fetched + decoded the recorded clip at mount
+//       (decodeAudioData resolves with ~0.985s mono 44.1kHz buffer),
+//   (2) tapping the boarding pass starts an AudioBufferSourceNode whose
+//       buffer IS the decoded clip, routed through a GainNode at
+//       TEAR_SFX_GAIN, with zero fetch after the tap,
+//   (3) the tear animation classes still land and navigation still fires.
+//
+//   CHROME_BIN=$(which chromium) node qa/task984-tear-sfx-probe.mjs
+import { chromium } from "playwright-core";
+const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+const EMAIL = "d1bm+clerk_test@example.com";
+async function clerkUserId(email) {
+  const res = await fetch(
+    `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}`,
+    { headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` } },
+  );
+  const users = await res.json();
+  if (!res.ok || !users.length) throw new Error("user lookup failed");
+  return users[0].id;
+}
+async function signInToken(userId) {
+  const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  const tk = await res.json();
+  if (!res.ok) throw new Error(`sign-in token: ${JSON.stringify(tk)}`);
+  return tk.token;
+}
+const browser = await chromium.launch({
+  executablePath: process.env.CHROME_BIN,
+  args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
+});
+const ctx = await browser.newContext({ viewport: { width: 412, height: 900 } });
+const page = await ctx.newPage();
+// Instrument Web Audio BEFORE any app code runs.
+await page.addInitScript(() => {
+  const probe = { decodes: [], starts: [], gains: [], fetches: [] };
+  window.__tearProbe = probe;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = (...args) => {
+    const url = String(args[0]);
+    if (url.includes("tear-sfx"))
+      probe.fetches.push({ url, t: performance.now() });
+    return origFetch(...args);
+  };
+  const Ctor = window.AudioContext;
+  const origDecode = Ctor.prototype.decodeAudioData;
+  Ctor.prototype.decodeAudioData = function (...args) {
+    const p = origDecode.apply(this, args);
+    Promise.resolve(p).then(
+      (buf) =>
+        probe.decodes.push({
+          duration: buf.duration,
+          channels: buf.numberOfChannels,
+          sampleRate: buf.sampleRate,
+          t: performance.now(),
+        }),
+      (e) => probe.decodes.push({ error: String(e), t: performance.now() }),
+    );
+    return p;
+  };
+  const origCreateSource = Ctor.prototype.createBufferSource;
+  Ctor.prototype.createBufferSource = function (...args) {
+    const src = origCreateSource.apply(this, args);
+    const origStart = src.start.bind(src);
+    src.start = (...a) => {
+      probe.starts.push({
+        duration: src.buffer ? src.buffer.duration : null,
+        ctxState: this.state,
+        t: performance.now(),
+      });
+      return origStart(...a);
+    };
+    return src;
+  };
+  const origCreateGain = Ctor.prototype.createGain;
+  Ctor.prototype.createGain = function (...args) {
+    const g = origCreateGain.apply(this, args);
+    probe.gains.push(g);
+    return g;
+  };
+});
+const userId = await clerkUserId(EMAIL);
+await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await signInToken(userId)}`, {
+  waitUntil: "networkidle",
+  timeout: 120000,
+});
+await page.goto(`${ORIGIN}/app`, { waitUntil: "networkidle", timeout: 60000 });
+// Preload happens at home mount; give the fetch+decode a beat.
+await page.waitForTimeout(1500);
+const preloadState = await page.evaluate(() => ({
+  fetches: window.__tearProbe.fetches,
+  decodes: window.__tearProbe.decodes,
+}));
+console.log("PRELOAD:", JSON.stringify(preloadState, null, 2));
+// Tap the boarding pass (the /journey link with the boarding-pass h2).
+const clicked = await page.evaluate(() => {
+  const pass = Array.from(
+    document.querySelectorAll('a[href="/journey"]'),
+  ).find((a) => a.querySelector("h2"));
+  if (!pass) return false;
+  pass.click();
+  return true;
+});
+if (!clicked) throw new Error("boarding pass not found");
+await page.waitForTimeout(300);
+const afterTap = await page.evaluate(() => ({
+  starts: window.__tearProbe.starts,
+  fetchCount: window.__tearProbe.fetches.length,
+  gainValues: window.__tearProbe.gains.map((g) => g.gain.value),
+  tearing: !!document.querySelector(".animate-stub-tear"),
+}));
+console.log("AFTER TAP:", JSON.stringify(afterTap, null, 2));
+await page.waitForTimeout(700);
+console.log("URL AFTER TEAR:", page.url());
+const start = afterTap.starts[0];
+const ok =
+  preloadState.fetches.length === 1 &&
+  preloadState.decodes.length === 1 &&
+  Math.abs((preloadState.decodes[0].duration ?? 0) - 0.985) < 0.02 &&
+  afterTap.starts.length === 1 &&
+  Math.abs((start.duration ?? 0) - 0.985) < 0.02 &&
+  afterTap.fetchCount === 1 && // no fetch at tap time
+  afterTap.gainValues.some((v) => Math.abs(v - 0.4) < 0.001) &&
+  afterTap.tearing &&
+  page.url().includes("/journey");
+console.log(ok ? "PROBE PASS" : "PROBE FAIL");
+await browser.close();
+process.exit(ok ? 0 : 1);
+
+docs/CODEBASE-FACTS.md
+diff --git a/docs/CODEBASE-FACTS.md b/docs/CODEBASE-FACTS.md
+index c87060a..3fd3775 100644
+--- a/docs/CODEBASE-FACTS.md
++++ b/docs/CODEBASE-FACTS.md
+@@ -648,6 +648,18 @@ (after Task #967's Verification paragraph, before the Task #985 section)
++
++### Recorded tear SFX replaces synthesis (Task #984, August 1, 2026, web only)
++
++**What changed (`src/lib/tearAudio.ts` internals only):** the Web Audio noise-synthesis burst (white noise + exp decay + 2.2kHz bandpass, read as a cymbal, not paper) is DELETED. `playTearSfx()` now plays the recorded clip `public/sounds/tear-sfx.m4a` (0.985s, mono, 44.1kHz AAC-LC, loudness-normalized, 13KB; copied from the attached asset) via `AudioBufferSourceNode` → `GainNode` at the named constant **`TEAR_SFX_GAIN = 0.4`**. Exported interface (`preloadTearAudio`, `playTearSfx`), home.tsx wiring, silent-failure contract, fire-and-forget guarantee, tear timing, haptics, and navigation are all byte-unchanged in behavior.
++
++**Preload path:** `preloadTearAudio()` keeps the suspended-context pre-warm AND now fetches + `decodeAudioData`s the clip into a module-cached `AudioBuffer` at home mount (`${BASE_URL}sounds/tear-sfx.m4a`, same URL convention as sound.ts/band-audio.ts). A `loadStarted` latch dedups repeated mounts; a failed fetch/decode resets the latch so a later mount retries. **If the buffer is not ready (preload failed/never ran/tap raced the decode), `playTearSfx()` stays SILENT** — never a fetch-then-play that would lag the tap. Warm-context reuse and fresh-context self-close (`source.onended → ctx.close()`, only when the warm ctx was closed out from under us) preserved.
++
++**Gain rationale (measured, not guessed):** asset peak −2.2 dBFS / RMS −21.0 dBFS vs the old synthesis at peak −16.5 / RMS −33.3 (reproduced offline with the same RBJ bandpass). Brief's starting 0.55 would land ~7–9 dB hotter than the old effect; 0.4 (−8 dB) → peak ≈ −10 dBFS, RMS ≈ −29 dBFS, ~4 dB more present than the old too-subtle burst without being startling.
++
++**Tests/verification:** the 2 SFX pins in `home-boarding-pass.test.tsx` pass unchanged (module mocked there); no module-level jsdom test added (jsdom has no `decodeAudioData` — mock-heavy, skipped per brief). New real-browser probe `qa/task984-tear-sfx-probe.mjs` (sign-in-token harness): asserts exactly one fetch+decode at mount (decode 0.985s/mono/44.1k), tap starts a buffer source with the decoded clip at gain 0.4 with ZERO additional fetch, tear classes land, navigation reaches /journey. PASS.
++
++**Suite state after this work:** web 50 files / 348 tests all pass. Typecheck clean (all packages — the openai.ts syntax error noted under #967 is fixed on this HEAD). Boot smokes 2/2 (standalone run). api canonical run: 682 tests, 681 pass / 1 fail — solely the documented pilot-capture "unlisted userId" env fence (`PILOT_CAPTURE_USER_IDS` set workspace-wide), byte-identical by name; baseline unchanged. NOTE (pre-existing log noise, not a failure): several openai voice-preference tests print `TypeError: Cannot read properties of undefined (reading 'warn')` from `openai.ts` (~line 401 `req.log.warn` in the TTS cache-read catch) — the test harness's stub req has no `.log`; tests still pass.
+
+No other files changed. home.tsx and home-boarding-pass.test.tsx are untouched.
+
+(2) Bundled asset
+Path referenced by code: artifacts/gujarati-coach/public/sounds/tear-sfx.m4a, fetched at runtime as ${import.meta.env.BASE_URL}sounds/tear-sfx.m4a (i.e. /sounds/tear-sfx.m4a under the artifact base path).
+Byte-identical to the provided asset: yes. md5 987df1bb895dba926f04db31f5b5952f for both attached_assets/tear-sfx_1785549912859.m4a and the bundled copy; size exactly 13,080 bytes. No transcoding, trimming, or reprocessing — the m4a decoded cleanly in the target browser (probe confirmed 0.985s/mono/44.1kHz), so the mp3 fallback was never needed.
+(3) Final gain constant and tuning notes
+TEAR_SFX_GAIN = 0.4 (exported named constant in tearAudio.ts). Tuning was measured, not guessed: the asset sits at peak −2.2 dBFS / RMS −21.0 dBFS; the old synthesis (reproduced offline with the same RBJ bandpass at its 0.22 gain) measured peak −16.5 / RMS −33.3 dBFS. The brief's starting 0.55 would have landed ~7–9 dB hotter than the old effect; 0.4 (−8 dB) yields peak ≈ −10 dBFS / RMS ≈ −29 dBFS — ~4 dB more present than the old too-subtle burst, still subtle-not-startling. User ear-checked on dev and confirmed "Sounds right" at 0.4.
+
+(4) Gate results by name
+Gate	Result
+typecheck (pnpm run typecheck)	✅ clean, all packages
+web suite (@workspace/gujarati-coach test)	✅ 50 files / 348 tests, all pass
+boarding-pass test pins	✅ both pass unchanged (module mocked there; file untouched)
+boot smokes (server-boot.test.ts)	✅ 2/2
+api canonical (@workspace/api-server test)	✅ baseline unchanged: 682 tests, 681 pass / 1 fail — solely the documented pilot-capture PILOT_CAPTURE_USER_IDS env fence (one validation run also showed the documented intermittent /openai/tts prewarm-join race from #954, passes standalone)
+db-drift / db-migrations / mobile suite / trace-sync / code_review	✅ all passed in the completion validation run
+manual dev check	✅ real paper tear, onset synced, user-approved volume
+real-browser probe (qa/task984-tear-sfx-probe.mjs)	✅ PASS — 1 fetch + 1 decode at mount, 0 fetch on tap, buffer source = 0.985s clip, gain 0.4, tear classes land, navigation reaches /journey
+Standing down now — no further apply, no completion calls, no edits. The by-intent landing supersedes my checkout.

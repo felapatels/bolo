@@ -1,0 +1,65 @@
+BRIEF: Monetization Slice 1, Token economy (server + web client)
+
+SEQUENCING: Starts only after build 32 ships and is approved. Web first; mobile port and RevenueCat purchases are explicitly OUT of this slice (see exclusions). Consult docs/CODEBASE-FACTS.md and the monetization spec document (including section 4.5 Chaiwala vignette and build-slice item (h)) at start; section 4.5 is BINDING for the vignette and is not restated here. No em dashes anywhere.
+
+COST RULE, BINDING: No full suite runs during implementation. While authoring, run typecheck and targeted vitest on NEW test files only. Exactly ONE gate at the end of the entire slice: one full web suite run, one api canonical run, boot smokes, one real-browser vignette probe. Hard cap: 1 web + 1 api full run total. Write tests throughout; execute them at the gate.
+
+HARD RULES (from the approved plan, restated as constraints):
+- Never monetize attempts or failures. No hearts, no limited tries. Paywall gates content only; Tokens gate conveniences only.
+- Every grant commits server-side BEFORE any animation; the vignette is decorative and can never block, delay, or condition a grant (section 4.5 failure contract).
+- Balance is server-authoritative; the client never computes it.
+
+ALL DESIGN DECISIONS, MADE (implement as named constants in one config, artifacts/api-server/src/lib/tokenEconomy.ts, mirrored to the client via the generated API types, never hardcoded at call sites):
+- Currency name in UI: "Tokens" with the coin/fare visual language from section 4.5.
+- Earning: TOKEN_EARN_STREAK_DAY = 1 (per new streak day); TOKEN_EARN_ZONE_COMPLETE = 10; TOKEN_EARN_EXPRESS_STAMP = 3; TOKEN_EARN_QUIZ = 2 (quiz completion at or above the existing pass threshold); TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 25, granted lazily on GET /entitlements per the pattern already described in the monetization doc (refId = YYYY-MM).
+- Spends: STATION_PAUSE_COST = 5, max equipped 2, auto-consume; EXPRESS_MULTIPLIER_COST = 8, duration 20 minutes, 2x XP, no stacking (spend while active returns 409).
+- Slice 33 items (test-out retries, streak repair) and cosmetics: OUT. Purchases (RevenueCat consumables, pricing tiers): OUT, deferred to slice 1b to keep the App Store consumable review surface off this slice's critical path.
+- Daily lesson limit removal: OUT of this slice; it is already specced as monetization doc item (g) and runs separately.
+
+STORY 1: Token ledger and state (server)
+As the system owner, I want every Token movement recorded in an auditable ledger with a denormalized balance, so that balances are provable and grants are idempotent.
+Acceptance criteria:
+1. The system shall record every Token movement as a ledger row: userId, signed delta, balanceAfter, reason (enum: earn_streak_day, earn_zone_complete, earn_express_stamp, earn_quiz, earn_allowance_monthly, spend_station_pause, spend_express_multiplier, station_pause_consumed), refId, createdAt.
+2. The system shall enforce idempotency via a unique constraint on (userId, reason, refId); a duplicate grant or spend attempt shall be a silent no-op returning current state, never a double-credit or double-charge.
+3. The system shall maintain a user token state row (userId, balance, stationPausesEquipped, expressMultiplierExpiresAt, lastAllowanceMonth) updated atomically in the same transaction as each ledger row.
+4. The system shall never allow balance below zero; an insufficient-balance spend returns 402 with { balance, cost } and writes nothing.
+Implementation notes: two new drizzle tables (token_ledger, user_token_state); migration generated properly (run generate; the 0033 snapshot lesson applies: never hand-write SQL without the snapshot); add both tables to the canonical dbMock (typecheck-enforced completeness makes this one line). station_pause_consumed rows carry delta 0 (the pause was paid at equip; consumption is state decrement plus audit).
+
+STORY 2: Earning hooks (server)
+As a learner, I want Tokens to arrive automatically from the things I already do, so that the economy rewards engagement without new chores.
+Acceptance criteria:
+1. The system shall grant TOKEN_EARN_STREAK_DAY when a day newly extends the streak (refId = date), inside the existing streak update path.
+2. The system shall grant TOKEN_EARN_ZONE_COMPLETE when a zone first reaches complete (refId = category id), inside the existing completion detection.
+3. The system shall grant TOKEN_EARN_EXPRESS_STAMP on Express stamp award (refId = stamp identity) and TOKEN_EARN_QUIZ on passing quiz completion (refId = completion id), inside those existing paths.
+4. The system shall grant the All-Access monthly allowance lazily on GET /entitlements exactly once per calendar month per user (refId = YYYY-MM).
+5. The system shall attach no earning to attempt outcomes; failed or low-scoring attempts shall never reduce, and shall not directly grant, Tokens.
+Implementation notes: hooks call one grantTokens(userId, reason, refId, amount) service; no duplicated ledger logic at call sites. Locate each hook site from the existing code (streak calc, zone completion, stamp award, quiz completion, entitlements reconcile); list the exact sites in the report.
+
+STORY 3: Spends (server)
+As a learner, I want to spend Tokens on Station Pause and Express Multiplier, so that Tokens buy real convenience.
+Acceptance criteria:
+1. The system shall expose GET /tokens returning { balance, stationPausesEquipped, expressMultiplierActiveUntil } for the authenticated user.
+2. The system shall expose POST /tokens/spend { item: "station_pause" | "express_multiplier" } which, in one transaction: validates balance, writes the spend ledger row, updates state, and returns { balance, granted } on 200.
+3. The system shall return 409 for station_pause when 2 are already equipped, and for express_multiplier while one is active; 402 for insufficient balance per Story 1.4.
+4. The system shall auto-consume one equipped Station Pause, instead of resetting the streak, when the streak calculation encounters a missed day; consumption writes the station_pause_consumed audit row and decrements equipped count, at most one per missed day.
+5. The system shall apply 2x XP to all XP writes while expressMultiplierExpiresAt is in the future, implemented at the XP engine write path so every XP source is covered uniformly, with the multiplier recorded on the xp_ledger row metadata.
+Implementation notes: openapi.yaml gains the two endpoints and schemas; regenerate api-client-react and api-zod; the generated hooks land in the shared web mock automatically (runtime-derived surface).
+
+STORY 4: Web client, balance and spend surfaces
+As a learner on web, I want to see my Tokens and spend them where they matter, so that the economy is visible and usable.
+Acceptance criteria:
+1. The system shall display the Token balance as a compact chip on the home screen, sourced from GET /tokens, updating after any spend or a completed session.
+2. The system shall offer Station Pause from the streak display surface: a small action showing cost, current equipped count (n/2), and a confirm step showing balance-after before spending.
+3. The system shall offer Express Multiplier at the practice result card and at zone completion (the two surfaces named in the approved plan): cost, duration, and balance-after confirm; while active, the offer is replaced by a remaining-time indicator.
+4. The system shall render every spend confirmation with the grant-first contract: the request completes, then the vignette plays, then the result chip appears, per section 4.5.
+5. The system shall disable (not hide) spend actions when balance is insufficient, showing the shortfall.
+Implementation notes: keep surfaces minimal; no new navigation destinations in this slice; the balance chip has no tap destination yet (ledger history UI is out of scope).
+
+STORY 5: Chaiwala vignette and asset (web)
+Implement section 4.5 exactly as written: new ChaiwalaVignette.tsx (web), the coin arc with per-spend coin counts, counter goods per spend item, balance tick-down, result chip spring, skippable on tap, reduced-motion instant receipt, error-fallback static receipt, and the named timing constants joining the shared motion tuning conventions. The Chaiwala character asset is drawn IN THIS TASK per section 4.5's style contract (flat train-world character matching the Gujarat Express style, proper noun Chaiwala), and additionally seated at the existing unmanned chai stall in the journey scenery (Task 985's stall was built to accept him; whole-asset placement only, no scenery restructuring). Bolo in the vignette uses a canonical PNG with whole-image transforms only.
+
+TESTS TO WRITE (executed once at the gate): ledger idempotency (duplicate refId no-ops), balance-never-negative, atomic state+ledger consistency, each earning hook grants once with correct refId, allowance grants once per month across repeated entitlements reads, spend success/402/409 paths, station pause auto-consume (one per missed day, audit row written, streak preserved), express multiplier applied at XP write and expires, client: balance chip renders from GET /tokens, spend confirm shows balance-after, vignette mocked as pass-through with grant-before-vignette pinned, reduced-motion receipt pinned, disabled-when-insufficient pinned.
+
+GATE (ONE PASS, at the very end): typecheck clean, tripwire clean, both boot smokes, ONE full web suite run (baseline 370 plus all new tests), ONE api canonical run (682 baseline plus new server tests, the pilot-capture fence still the only expected failure), one real-browser probe: perform a real Express Multiplier spend on dev, observe grant-commit before vignette, coin arc, tick-down, result chip, skip path, and reduced-motion receipt. Report by name with the earning-hook site list and WAIT before commit.
+
+EXCLUSIONS RESTATED: RevenueCat consumable purchases and pricing (slice 1b), test-out retries and streak repair (slice 33 per plan), cosmetics (parked), mobile client (post-slice parity task), ledger history UI, daily-limit removal (item (g), separate).
