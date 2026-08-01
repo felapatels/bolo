@@ -1,0 +1,15 @@
+READ-ONLY DIAGNOSTIC: script tracing game. No edits, no commits; report only. This feature was flagged off after repeated failed implementation attempts; the goal is a complete picture of what exists, what is wrong with it, and why attempts kept failing, so a correct rebuild can be specced.
+
+1. INVENTORY: locate every file involved in the tracing game on both platforms (components, screens, routes, game registry entries, canvas/gesture code, scoring/completion logic, assets, tests). Include the schema side: scriptTraceProgressTable and anything else tracing-related in @workspace/db. Report the feature flag name, where it is checked, and current state per environment.
+
+2. INTENDED BEHAVIOR: from code, comments, specs in docs/, CODEBASE-FACTS, and git history, reconstruct what the game is supposed to do: which scripts/languages it covers, what a single trace exercise consists of (guide strokes, stroke order, direction, tolerance), how correctness is judged, what completion writes, and how it connects to progression/XP if at all.
+
+3. CURRENT DEFECTS: run or read the flagged-off implementation and enumerate concretely what is wrong. Distinguish: (a) rendering issues (glyph outlines, guide paths, scaling, viewBox), (b) input issues (pointer/touch capture, stroke sampling, palm rejection, mobile vs web divergence), (c) judging issues (tolerance too strict/loose, stroke order enforcement, direction detection), (d) data issues (wrong or missing stroke path data for glyphs), (e) structural issues (state machine, retry flow, completion writes).
+
+4. THE STROKE DATA QUESTION, answer with specifics: where do glyph stroke paths come from today (hardcoded SVG paths, a font-derived pipeline, a data file per script)? Which scripts have data and what quality? This is the load-bearing question: tracing games live or die on stroke-path data quality, and repeated implementation failures usually trace to bad or missing source data rather than bad game code.
+
+5. GIT ARCHAEOLOGY: list the commits/tasks that attempted this feature, in order, with one line each on what the attempt changed and, where discernible from messages or follow-up commits, why it was insufficient. If prior task briefs or agent reports about it exist in attached_assets or docs, cite them.
+
+6. TESTS: what test coverage exists, what it pins, and whether tests pass with the flag on.
+
+Report all six sections. Do not propose a fix yet; the rebuild will be specced separately after this report is reviewed.

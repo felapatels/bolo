@@ -1,0 +1,45 @@
+BRIEF: Completed-station revisit resumes at first unmastered phrase (web)
+
+CONTEXT
+Reported on dev: a station at 8/10 mastered with status Completed, when revisited from the journey map, starts the session at phrase 1 instead of the first unmastered phrase. The station-resume feature (Task #954, landed at e3972fe) defines auto-start at the first phrase with bestScore < 80, with an all-mastered fallback to phrase 1 as a review visit. A completed-but-not-perfect station (completion threshold met, some phrases unmastered) appears to take the review-visit branch instead of the first-unmastered branch.
+
+RULING (made, implement as stated): revisiting ANY station lands on the first unmastered phrase when one exists, regardless of station completion status. Phrase 1 is the start only when every phrase in the session is mastered (bestScore >= 80). The reason a learner reopens a completed station is the phrases they have not mastered; this also aligns with the checkpoint-polish direction (target weak phrases). If Step 0 reveals the current behavior was a deliberate spec choice with a documented rationale, STOP and report before changing it.
+
+Consult docs/CODEBASE-FACTS.md at start (the Task #954 station-resume section documents the loader-side locus). No em dashes anywhere. Do not run until the current repair commits are landed and gated on main, and do not run concurrently with any task touching practice.tsx.
+
+STEP 0: DIAGNOSIS (report before editing)
+1. Locate the start-position derivation in the practice loader (per the #954 CODEBASE-FACTS entry). Report the exact branch structure: how firstUnmastered is computed, and whether station status (completed / tested_out) short-circuits to index 0 before the unmastered scan runs.
+2. Reproduce in a test or by reading: for a phrase set where mastered state is [true, true, false, true, false, ...] (unmastered at positions 3 and 5), what index does the current code produce when the station status is completed? Report the mechanism of the wrong answer: status short-circuit, stale/absent bestScore data on the revisit path, a different entry route (journey map revisit vs primary entry) bypassing the loader, or the completion rollup masking per-phrase scores.
+3. Report whether tested_out stations share the same path, and what data exists for them (a tested-out station may legitimately lack per-phrase bestScores; define behavior: if no per-phrase data exists, start at phrase 1).
+4. Confirm the existing #954 test file (practice-start-position tests at e3972fe) and #973's practice-phrase-navigation tests both still pass before your change, so the delta is attributable.
+
+STORY: Resume at first unmastered on every revisit
+As a learner reopening a station where I have unmastered phrases,
+I want the session to start at my first unmastered phrase,
+So that returning to a station targets exactly the work I came back for.
+
+Acceptance criteria:
+1. The system shall start a practice session at the first phrase whose bestScore is null or below the mastery threshold, regardless of the station's completion status.
+2. The system shall start at the first phrase only when every phrase in the session meets the mastery threshold, or when no per-phrase score data exists for the session (including tested-out stations without per-phrase attempts).
+3. The system shall preserve the full phrase set in the session; earlier mastered phrases remain reachable via back-navigation and the manual prev/next controls.
+4. The system shall apply identical behavior on every entry route into the session (journey map tap, direct link, any revisit path); entry route shall not change the start position.
+5. The system shall leave teaser/taste sessions and test-out mode start behavior unchanged.
+
+Implementation notes:
+- Expected fix shape: remove or reorder the status short-circuit so the firstUnmastered scan runs first, with the index-0 fallback applying only when the scan finds nothing. If Step 0 finds the cause is instead missing score data on a revisit route, fix the data plumbing on that route rather than the branch order, and say so.
+- Mastery threshold: use the existing constant/derivation the loader already uses (bestScore >= 80 as documented); do not introduce a second definition.
+- Keep the derivation loader-side per the documented locus, so the mobile parity twin (#966/#976 scope) can mirror the same rule; append the ruling and the fix to the CODEBASE-FACTS section so the mobile task inherits it as spec.
+
+TESTS (minimum)
+1. Completed station, unmastered at interior positions (e.g. mastered pattern [T,T,F,T,F]): session starts at index 2. This is the regression pin for the reported bug.
+2. Completed station, all mastered: starts at index 0 (existing behavior, re-pinned).
+3. Unmastered at position 0: starts at 0 (scan and fallback agree; no off-by-one).
+4. Tested-out station with no per-phrase scores: starts at 0.
+5. Entry-route parity: the same phrase data produces the same start index via the journey revisit path used in the repro (whatever Step 0 identifies as that path).
+6. Existing #954 and #973 practice test suites pass unchanged.
+
+GATE
+Typecheck clean, both boot smoke tests pass, full web suite green at its then-current baseline plus the new pins, api canonical unchanged (documented fence only). Report by name, including the Step 0 mechanism finding, and WAIT for confirmation before commit.
+
+MOBILE NOTE
+The mobile station-resume port (#966/#976 scope) must implement the ruled behavior, not the pre-fix web behavior. If the mobile parity brief has already been pasted when this fix lands, send the ruling as an amendment to that task; if not, the updated CODEBASE-FACTS section carries it.
