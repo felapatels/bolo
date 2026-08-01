@@ -5,6 +5,7 @@ import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, us
 import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
+import { preloadTearAudio, playTearSfx } from "@/lib/tearAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
 import { UpgradeCard } from "@/components/plus";
@@ -166,6 +167,8 @@ export default function Home() {
     },
     [],
   );
+  // Pre-warm the AudioContext for the tear SFX so the first play has zero lag.
+  useEffect(() => { preloadTearAudio(); }, []);
   // Pass activation: analytics, then the stub tear, then the journey.
   // Navigation is NEVER blocked: reduced motion returns early so the Link
   // navigates natively and instantly, and any animation-path failure falls
@@ -176,6 +179,10 @@ export default function Home() {
     if (reduceMotion || tearing) return; // instant native Link navigation
     try {
       e.preventDefault();
+      // Haptic + SFX fire immediately -- both are fire-and-forget and never
+      // delay the animation or navigation regardless of browser support.
+      webHaptic("light");
+      playTearSfx();
       setTearing(true);
       const raw = getComputedStyle(document.documentElement).getPropertyValue(
         "--tear-nav-delay",

@@ -27,7 +27,19 @@ const h = vi.hoisted(() => ({
   groupsError: false,
   reduceMotion: false,
   track: vi.fn(),
+  playTearSfx: vi.fn(),
+  webHaptic: vi.fn(),
 }));
+
+// Task #978: tear SFX + haptic. Mock both modules so jsdom never touches
+// AudioContext / navigator.vibrate. The haptics mock keeps webHaptic callable
+// for every call type (home.tsx also fires 'success' elsewhere), so the pins
+// assert the call TYPE, not just the call count.
+vi.mock("@/lib/tearAudio", () => ({
+  preloadTearAudio: vi.fn(),
+  playTearSfx: h.playTearSfx,
+}));
+vi.mock("@/lib/haptics", () => ({ webHaptic: h.webHaptic }));
 
 // Home renders BottomNav -> XpCounter; stub it so this suite does not need a
 // react-query provider.
@@ -156,6 +168,8 @@ beforeEach(() => {
   h.groupsError = false;
   h.reduceMotion = false;
   h.track.mockClear();
+  h.playTearSfx.mockClear();
+  h.webHaptic.mockClear();
 });
 
 afterEach(() => {
@@ -363,5 +377,30 @@ describe("home boarding pass tear hand-off overlay (task 905)", () => {
     }
     expect(history).toContain("/journey");
     expect(overlay()).toBeNull();
+  });
+});
+
+// Task #978: the tear SFX + light haptic fire at the exact moment the tear
+// starts (inside the try, after the reduceMotion || tearing early-return,
+// before setTearing) so haptic, sound onset, and tear start land as one
+// simultaneous beat. Reduced motion stays instant and completely silent.
+describe("home boarding pass tear SFX + haptic (task 978)", () => {
+  const getPass = () =>
+    screen.getByText("Start your journey").closest("a") as HTMLElement;
+
+  test("activation fires playTearSfx once and a light webHaptic", async () => {
+    renderHome();
+    await userEvent.setup().click(getPass());
+    expect(h.playTearSfx).toHaveBeenCalledTimes(1);
+    expect(h.webHaptic).toHaveBeenCalledWith("light");
+  });
+
+  test("reduced-motion activation fires neither sound nor haptic", async () => {
+    h.reduceMotion = true;
+    const { history } = renderHome();
+    await userEvent.setup().click(getPass());
+    expect(history).toContain("/journey");
+    expect(h.playTearSfx).not.toHaveBeenCalled();
+    expect(h.webHaptic).not.toHaveBeenCalledWith("light");
   });
 });
