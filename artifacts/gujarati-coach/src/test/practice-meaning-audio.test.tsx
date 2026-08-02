@@ -358,14 +358,17 @@ describe("per-session meaning cache", () => {
     expect(meaningCalls()).toHaveLength(1);
 
     // Replay via the speaker affordance: state re-enters playing_coach; both
-    // segments come from the session caches.
+    // segments come from the session caches and replay through the SAME
+    // blessed singleton elements. No new Audio instances may EVER appear
+    // (WebKit element blessing; a fresh element would be unblessed).
     const speaker = screen.getByLabelText("Hear the phrase again");
     fireEvent.click(speaker);
-    await waitFor(() => expect(audioInstances.length).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(audioInstances[0].play).toHaveBeenCalledTimes(2));
     await act(async () => {
-      audioInstances[2].onended?.();
+      audioInstances[0].onended?.();
     });
-    await waitFor(() => expect(audioInstances.length).toBeGreaterThanOrEqual(4));
+    await waitFor(() => expect(audioInstances[1].play).toHaveBeenCalledTimes(2));
+    expect(audioInstances).toHaveLength(2);
     expect(meaningCalls()).toHaveLength(1);
   });
 });

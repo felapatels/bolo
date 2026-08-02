@@ -1,5 +1,5 @@
 import { useParams, Link } from "wouter";
-import { primeAudioUnlock } from "@/lib/iosAudio";
+import { blessAudioPlayback } from "@/lib/iosAudio";
 import { useEffect, useState } from "react";
 import {
   useListCategoryPhrases,
@@ -201,7 +201,7 @@ export default function CategoryDetail() {
 
             <Link
               href={canResume ? `/practice/${id}?skipMastered=true` : `/practice/${id}`}
-              onClick={primeAudioUnlock}
+              onClick={blessAudioPlayback}
               className="w-full bg-primary text-primary-foreground font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
             >
               <Play className="w-6 h-6 fill-current" />
@@ -221,7 +221,7 @@ export default function CategoryDetail() {
             >
               <Link
                 href={`/practice/${id}?phrase=${phrase.id}`}
-                onClick={primeAudioUnlock}
+                onClick={blessAudioPlayback}
                 className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-primary/50"
               >
                 <div className="mt-1 shrink-0">
@@ -350,7 +350,7 @@ export default function CategoryDetail() {
                     >
                       <Link
                         href={`/practice/${id}?stage=sentences&phrase=${sentence.id}`}
-                        onClick={primeAudioUnlock}
+                        onClick={blessAudioPlayback}
                         className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-secondary/60"
                       >
                         <div className="mt-1 shrink-0">
@@ -373,7 +373,7 @@ export default function CategoryDetail() {
                   ))}
                   <Link
                     href={`/practice/${id}?stage=sentences`}
-                    onClick={primeAudioUnlock}
+                    onClick={blessAudioPlayback}
                     className="w-full bg-secondary text-white font-bold text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-sm active:scale-[0.98] transition-all button-spring"
                   >
                     <Play className="w-5 h-5 fill-current" />

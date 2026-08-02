@@ -6,7 +6,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { preloadTearAudio, playTearSfx } from "@/lib/tearAudio";
-import { primeAudioUnlock } from "@/lib/iosAudio";
+import { blessAudioPlayback } from "@/lib/iosAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
 import { UpgradeCard } from "@/components/plus";
@@ -233,7 +233,7 @@ export default function Home() {
   const handlePassActivate = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Chunk 1 item 4a: unlock programmatic audio inside this entry gesture so
     // the first coach phrase can autoplay once the learner reaches practice.
-    primeAudioUnlock();
+    blessAudioPlayback();
     track(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, { language: activeLang });
     if (reduceMotion || tearing) return; // instant native Link navigation
     try {
@@ -414,7 +414,7 @@ export default function Home() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={springs.gentle}>
           <Link
             href="/review"
-            onClick={primeAudioUnlock}
+            onClick={blessAudioPlayback}
             className="relative flex items-center gap-4 overflow-hidden rounded-3xl border-2 border-secondary bg-secondary/5 p-5 shadow-[0_6px_0_hsl(var(--secondary-shadow))] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_hsl(var(--secondary-shadow))]"
           >
             <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary opacity-10" />
@@ -510,7 +510,7 @@ export default function Home() {
             <Link
               key={attempt.id}
               href={`/practice/${attempt.categoryId}?phrase=${attempt.phraseId}`}
-              onClick={primeAudioUnlock}
+              onClick={blessAudioPlayback}
               className="flex items-center gap-4 rounded-2xl border border-card-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:translate-y-0"
             >
               {cardContent}

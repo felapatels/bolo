@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { MEANING_AUDIO_STORAGE_KEY } from "@/lib/meaning-audio";
+import { __resetBlessedAudioElementsForTests } from "@/lib/iosAudio";
 
 // React Testing Library leaves rendered trees in the jsdom document between
 // tests; tear them down so each test starts from a clean slate.
@@ -15,6 +16,10 @@ afterEach(() => {
 // defaults the preference OFF here to keep them deterministic. Tests that
 // exercise the meaning segment re-enable it explicitly.
 beforeEach(() => {
+  // The coach/meaning audio elements are module-scope singletons (WebKit
+  // element blessing); reset per test so each test's Audio mock captures its
+  // own instances and counts stay deterministic.
+  __resetBlessedAudioElementsForTests();
   try {
     localStorage.setItem(MEANING_AUDIO_STORAGE_KEY, "off");
   } catch {

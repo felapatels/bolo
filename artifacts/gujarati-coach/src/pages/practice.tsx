@@ -55,6 +55,7 @@ import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, isFullCreditBand, isPassingBand, normalizeBand, type Band } from "@/components/ui/band-pill";
+import { getCoachAudioElement, getFeedbackAudioElement, getMeaningAudioElement } from "@/lib/iosAudio";
 import { BandLadder } from "@/components/ui/band-ladder";
 import { PhraseReportButton } from "@/components/phrase-report";
 import { playCue } from "@/lib/sound";
@@ -772,7 +773,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             new Promise((resolve) => setTimeout(resolve, MEANING_SEGMENT_PAUSE_MS)),
           ]);
           if (cancelled) return;
-          const meaningEl = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          // Blessed singleton: WebKit only allows this programmatic play()
+          // because the same element played inside the entry gesture.
+          const meaningEl = getMeaningAudioElement();
+          meaningEl.src = `data:audio/${res.format};base64,${res.audioBase64}`;
           meaningAudioElRef.current = meaningEl;
           meaningEl.onended = () => {
             if (!cancelled) setState("idle");
@@ -797,7 +801,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           const res = cached ?? prewarm ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } });
           coachAudioCacheRef.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
           if (cancelled) return;
-          audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          // Blessed singleton (never per-phrase new Audio(): a fresh element
+          // carries no WebKit blessing and first-phrase autoplay regresses).
+          audio = getCoachAudioElement();
+          audio.src = `data:audio/${res.format};base64,${res.audioBase64}`;
           audioRef.current = audio;
           audio.onended = () => {
             void playMeaning();
@@ -844,10 +851,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       return () => {
         cancelled = true;
         if (audioRef.current) {
+          // The element persists (blessed singleton); drop the session's
+          // handler so it can never fire on a later silent blessing play.
+          audioRef.current.onended = null;
           audioRef.current.pause();
           audioRef.current = null;
         }
         if (meaningAudioElRef.current) {
+          meaningAudioElRef.current.onended = null;
           meaningAudioElRef.current.pause();
           meaningAudioElRef.current = null;
         }
@@ -897,7 +908,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           // Sequence: let the band call-out finish before the sentence starts.
           if (clip) await clip.finished;
           if (!res || cancelled) return;
-          const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          // Blessed singleton (never per-play new Audio(): WebKit element
+          // blessing, see iosAudio.ts).
+          const audio = getFeedbackAudioElement();
+          audio.src = `data:audio/${res.format};base64,${res.audioBase64}`;
           feedbackAudioRef.current = audio;
           await audio.play();
         } catch {

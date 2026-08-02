@@ -17,7 +17,7 @@
 // functionally unchanged; only path geometry, connector art and the header
 // pass chrome changed.
 import { Link } from "wouter";
-import { primeAudioUnlock } from "@/lib/iosAudio";
+import { blessAudioPlayback } from "@/lib/iosAudio";
 import { useEffect, useRef, useState } from "react";
 import {
   useListCategories,
@@ -505,7 +505,7 @@ function StationCard({
   );
   if (accessible) {
     return (
-      <Link href={href} aria-label={aria} className={rowClass} onClick={primeAudioUnlock}>
+      <Link href={href} aria-label={aria} className={rowClass} onClick={blessAudioPlayback}>
         {body}
       </Link>
     );
@@ -1107,7 +1107,7 @@ export default function Journey() {
                         !s.allTopBand && (
                           <Link
                             href={`/practice/${zone.id}?group=${s.id}&polish=1`}
-                            onClick={primeAudioUnlock}
+                            onClick={blessAudioPlayback}
                             className="mt-0.5 flex w-full items-center justify-center rounded-lg border border-border py-1 text-[10px] font-bold text-primary transition-colors hover:bg-accent"
                           >
                             Polish phrases
@@ -1188,7 +1188,7 @@ export default function Journey() {
               {lock.zoneId !== undefined && lock.groupId !== undefined && (
                 <Link
                   href={`/practice/${lock.zoneId}?group=${lock.groupId}&mode=testout`}
-                  onClick={() => { primeAudioUnlock(); setLock(null); }}
+                  onClick={() => { blessAudioPlayback(); setLock(null); }}
                   data-testid="link-test-out"
                   className="flex w-full items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
                 >

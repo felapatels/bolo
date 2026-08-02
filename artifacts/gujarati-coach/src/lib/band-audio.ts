@@ -12,6 +12,7 @@
  * sound-effects preference used by playCue.
  */
 import type { Band } from "@/components/ui/band-pill";
+import { getBandAudioElement } from "./iosAudio";
 
 const BAND_CLIP_FILES: Record<Band, string> = {
   perfect: "perfect.mp3",
@@ -61,7 +62,11 @@ export type BandClipHandle = {
  */
 export function playBandClip(band: Band): BandClipHandle | null {
   try {
-    const audio = new Audio(clipUrl(band));
+    // Blessed singleton (never per-play new Audio(...): WebKit blesses
+    // playback per element, see iosAudio.ts). Src swaps per band. The
+    // preload path above is exempt: its elements never call play().
+    const audio = getBandAudioElement();
+    audio.src = clipUrl(band);
     let done!: () => void;
     const finished = new Promise<void>((resolve) => {
       done = resolve;

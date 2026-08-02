@@ -3,39 +3,90 @@
  * Integration notes at bottom. No em dashes.
  */
 
-// ---------- 4a: audio unlock priming ----------
-// Browsers block programmatic audio until a user gesture "unlocks" the page.
-// Call primeAudioUnlock() from the SESSION ENTRY gesture handler (the tap that
-// starts a practice session, e.g. station tap / topic tap / Start button),
-// BEFORE navigation. It plays a silent buffer inside the gesture, which
-// unlocks subsequent programmatic playback (the first coach phrase).
+// ---------- 4a: audio element blessing ----------
+// WebKit (iPhone Safari / WKWebView) gates audible playback PER MECHANISM and
+// PER ELEMENT: a gesture that unlocks a WebAudio context blesses only
+// WebAudio, and an HTMLAudioElement is only blessed by having ITS OWN play()
+// called inside a user gesture. The previous approach here (a silent WebAudio
+// buffer, primeAudioUnlock) was a no-op for coach playback, which uses audio
+// elements: the on-device trace (Aug 2, 2026) showed the unlock context reach
+// "running" while the coach element's play() rejected NotAllowedError 132ms
+// after the gesture, with userActivation already consumed.
 //
-// Re-primes on EVERY call, deliberately no once-flag: iOS can deactivate the
-// page's audio session between practice sessions (e.g. after the last clip
-// of a lesson finishes), so a re-entry gesture must replay the silent buffer
-// or the first coach autoplay on back-navigation rejects. The context is
-// closed right after the one-sample buffer, so repeated calls stay ~free.
+// The mechanism that works: every programmatic voice surface routes through
+// the persistent singleton elements below (coach phrase, meaning segment,
+// band call-out, spoken feedback), and every SESSION ENTRY gesture (station
+// tap, topic tap, Start/Retake link) calls blessAudioPlayback(), which plays
+// a ~1ms silent WAV through EACH singleton inside the gesture. WebKit
+// remembers the blessing per element, so the later programmatic src-swap +
+// play() on the same element is allowed without a fresh gesture.
+//
+// NEVER refactor playback back to per-play `new Audio(...)`: a fresh element
+// carries no blessing and programmatic playback regresses on iOS. (Elements
+// that only preload and never play, and elements played directly inside
+// their own gesture, are exempt.)
 
-export function primeAudioUnlock(): void {
-  try {
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctor) return;
-    const ctx = new Ctor();
-    // A one-sample silent buffer played inside the gesture satisfies the
-    // autoplay policy for the page.
-    const buffer = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.connect(ctx.destination);
-    src.start(0);
-    src.onended = () => {
-      void ctx.close();
-    };
-  } catch {
-    // Best effort; the tap-to-hear affordance remains the fallback.
+// ~1ms of 16-bit mono silence at 8kHz; ends on its own, so no pause() needed
+// (an immediate pause can abort the pending blessing play).
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+let coachEl: HTMLAudioElement | null = null;
+let meaningEl: HTMLAudioElement | null = null;
+let bandEl: HTMLAudioElement | null = null;
+let feedbackEl: HTMLAudioElement | null = null;
+
+export function getCoachAudioElement(): HTMLAudioElement {
+  if (!coachEl) coachEl = new Audio();
+  return coachEl;
+}
+
+export function getMeaningAudioElement(): HTMLAudioElement {
+  if (!meaningEl) meaningEl = new Audio();
+  return meaningEl;
+}
+
+export function getBandAudioElement(): HTMLAudioElement {
+  if (!bandEl) bandEl = new Audio();
+  return bandEl;
+}
+
+export function getFeedbackAudioElement(): HTMLAudioElement {
+  if (!feedbackEl) feedbackEl = new Audio();
+  return feedbackEl;
+}
+
+// Test-only: the singletons otherwise persist across tests within a file,
+// which would leak instances across each test's Audio mock.
+export function __resetBlessedAudioElementsForTests(): void {
+  coachEl = null;
+  meaningEl = null;
+  bandEl = null;
+  feedbackEl = null;
+}
+
+export function blessAudioPlayback(): void {
+  const targets = [
+    getCoachAudioElement(),
+    getMeaningAudioElement(),
+    getBandAudioElement(),
+    getFeedbackAudioElement(),
+  ];
+  for (const el of targets) {
+    try {
+      // Never interrupt a clip that is actually playing (entry gestures fire
+      // outside sessions, so this is belt and braces).
+      if (el.paused === false) continue;
+      // Drop any stale session handlers so they cannot fire on the silent
+      // blessing play.
+      el.onended = null;
+      el.onerror = null;
+      el.src = SILENT_WAV;
+      const p = el.play();
+      if (p) p.catch(() => {});
+    } catch {
+      // Best effort; the tap-to-hear affordance remains the fallback.
+    }
   }
 }
 
@@ -87,9 +138,11 @@ export function markIosAudioHintShown(): void {
 // calls markIosAudioHintShown().
 
 /* INTEGRATION NOTES
-1. primeAudioUnlock: call in the onClick/onPress of every entry point into a
+1. blessAudioPlayback: call in the onClick/onPress of every entry point into a
    practice or chat session (station tap, phrasebook topic tap, chat open).
-   Idempotent and ~free; call liberally from gesture handlers only.
+   Idempotent and ~free; call liberally from gesture handlers only. Playback
+   code must fetch the elements via the get*AudioElement accessors and swap
+   src, never construct its own.
 2. The coach playback code adds a .catch that flips a needsTapToHear state,
    rendering the existing speaker button with a subtle attention treatment.
 3. The hint component mounts on the practice screen; gate on
