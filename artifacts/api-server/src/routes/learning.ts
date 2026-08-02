@@ -1125,10 +1125,14 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     const phraseRow = await db.query.phrasesTable.findFirst({
       where: (t, { eq: eqFn }) => eqFn(t.id, claims.phraseId!),
     });
-    // Only apply the sequential-unlock gate when the token language matches
-    // the phrase's own language. A mismatch means an anomalous token (e.g. a
-    // test that signs a token for LANG_A and submits a production phrase from
-    // LANG_B); those are caught by other validations, not this gate.
+    // Sequential-unlock gate is scoped per-language: only fire when the
+    // token's claimed language matches the phrase's own language. This keeps
+    // the guard meaningful (unlock state is language-scoped) and avoids
+    // false rejections when a token was signed for one language but resolves
+    // against a production phrase row in a different language. Whether
+    // cross-language token minting should be an explicit hard error is an
+    // open question tracked outside this commit; for now those combinations
+    // fall through to the existing per-field validation layers.
     if (
       phraseRow &&
       phraseRow.lessonGroupId != null &&
@@ -2697,7 +2701,7 @@ async function loadZoneTestout(
   };
 }
 
-// GET /zones/:categoryId/test-out?lang=xx : a fresh random sample, one phrase
+// GET /zones/:categoryId/test-out/:lang : a fresh random sample, one phrase
 // per station. No sample persistence; the POST validates station-distinct
 // membership, not that this exact sample was used (stop-level philosophy).
 router.get(
