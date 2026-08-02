@@ -961,3 +961,54 @@ Web only (`artifacts/gujarati-coach`); api-server, bolo-mobile, lib/, schema, an
 **journey.tsx entries.** (1) Progression-lock dialog second action `link-test-out-zone` below the stop-level link: "Test out of this whole zone" / "One phrase from each stop. Pass to unlock everything here.", href `/practice/{zoneId}?mode=testout&scope=zone`. (2) `ZonePostcard` optional `testOutHref` prop rendering a "Test out of this zone" link (`link-zone-test-out-{zoneIndex}`), passed only when the zone is gate-locked: `stations.length > 0 && every status === "locked" && !some planLocked`. Dormant pre-flip by construction (every zone's first stop is unlocked pre-flip; showroom zones carry planLocked stops), activates when `CROSS_ZONE_GATE_ENABLED` flips.
 
 **Suite state after Chunk 4B:** web 412 tests / 58 files, all pass (`journey-testout-dialog.test.tsx` gained the zone-action test). Web typecheck clean. Note: journey test fixtures that mock all-locked stations without planLocked (scenery, rail-pulse) now render the dormant postcard link; their assertions target other testids and are unaffected.
+
+### Chunk 5A: Chai token economy server, earn-only slice (August 2, 2026)
+
+Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk. The UI spend vignette is a separate follow-on task.
+
+**New DB tables (lib/db/src/schema/).**
+- `tokenLedgerTable` (`token_ledger`): append-only, columns `id`, `userId` (FK→users ON DELETE CASCADE), `delta` (integer, pos=earn neg=spend 0=consume), `balanceAfter`, `reason` (`TokenReason` union), `refId` (arbitrary string), `createdAt`. Unique index on `(userId, reason, refId)` — idempotency rides this index; every grant/spend is a silent no-op on duplicate.
+- `userTokenStateTable` (`user_token_state`): one row per user, columns `userId` (PK via FK→users ON DELETE CASCADE), `balance`, `stationPausesEquipped`, `expressMultiplierExpiresAt` (nullable), `updatedAt`. Insert-or-ignore on first use.
+- Both tables use `ON DELETE CASCADE` on the users FK (migration 0038 fixed the original NO ACTION in 0037) to let test teardown delete the test user without FK violations.
+
+**Constants and types (`artifacts/api-server/src/lib/tokenEconomy.ts`).**
+- `TOKEN_EARN_STREAK_DAY = 1`, `TOKEN_EARN_ZONE_COMPLETE = 5`, `TOKEN_EARN_EXPRESS_STAMP = 3`, `TOKEN_EARN_QUIZ = 2`, `TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 30`.
+- `STATION_PAUSE_COST = 10`, `STATION_PAUSE_MAX_EQUIPPED = 2`, `EXPRESS_MULTIPLIER_COST = 20`, `EXPRESS_MULTIPLIER_MINUTES = 30`.
+- `EXPRESS_MULTIPLIER_FACTOR = 2` (doubles XP during the window).
+- `TokenReason` union of all earn/spend/consume reason strings.
+- `SpendItem = "station_pause" | "express_multiplier"`.
+
+**Token service (`artifacts/api-server/src/lib/tokenService.ts`).**
+- `grantTokens(userId, reason, refId, amount)`: idempotent via ON CONFLICT DO NOTHING on the ledger unique index.
+- `spendTokens(userId, item, refId)`: throws `InsufficientTokensError` (409) or `SpendConflictError` (409, codes `pause_max_equipped` | `multiplier_active`). Spend 409 is NEVER 402 — that status is reserved for the UpgradeRequired entitlement envelope.
+- `consumePausesForGap(userId, missedDates)`: consumes equipped pauses to bridge missed streak days. Partial coverage is a no-op (all-or-nothing: can't cover N dates with fewer than N pauses). Returns `Set<string>` of dates covered (including previously covered).
+- `getOrCreateTokenState(userId)`: read-or-create, idempotent.
+- `listPausedDayKeys(userId)`: returns `Set<string>` of YYYY-MM-DD keys from `station_pause_consumed` rows, for streak derivation.
+
+**Token routes (`artifacts/api-server/src/routes/tokens.ts`).**
+- `GET /tokens`: returns `{ balance, stationPausesEquipped, expressMultiplierExpiresAt }`.
+- `POST /tokens/spend`: body `{ item, refId }` (body schema exported as `SpendTokensBody`, deviation from spec's `TokensSpendBody` — imported correctly in the route). Returns spend result or 409 with `{ error: "insufficient_tokens"|"pause_max_equipped"|"multiplier_active", ... }`.
+- Both routes require authentication (Clerk session).
+- `maybeGrantAllowance(req)` is exported for use in other routes (currently unused; monthly allowance hook is wired for Plus users via the attempts path).
+
+**Earn hook wiring.**
+- HOOK 1a/1b: `POST /attempts` — `getOrCreateTokenState` in the Promise.all; `effectiveXp` uses `EXPRESS_MULTIPLIER_FACTOR` when multiplier is active (used for XP ledger write and XP state update).
+- HOOK 1c: `POST /attempts` — streak-day grant (`earn_streak_day`, refId = local YYYY-MM-DD) in side-effects block.
+- HOOK 1d: `POST /attempts` — `consumePausesForGap` after side-effects, bridges 1-2 missed days between attempts.
+- HOOK 2a: `POST /zones/:categoryId/test-out` pass path — fire-and-forget `earn_zone_complete` grant.
+- HOOK 2b+3: `POST /lesson-groups/:id/test-out` pass path (in `learning.ts`) — fire-and-forget express stamp + zone-complete check.
+- HOOK 2c: `lessonGroupAccess.ts` — after zone-complete latch write, fire-and-forget `earn_zone_complete` grant.
+- HOOK 4: `games.ts` — fire-and-forget `earn_quiz` after quiz completion insert.
+- HOOK 6: `GET /progress/summary` — `listPausedDayKeys` added to the big Promise.all; passed to `computeProgressMetrics` and `computeSpeakingStreakDays`.
+
+**Streak integration.** `computeProgressMetrics`, `computeStreakDays`, `computeSpeakingStreakDays`, `computeExtendedProgressMetrics` all gained optional `pausedDayKeys?: Set<string>` param. `badgeAward.ts` calls `listPausedDayKeys` and passes it to `computeExtendedProgressMetrics`.
+
+**OpenAPI additions.** `GET /tokens`, `POST /tokens/spend`, schemas `TokenBalance`, `SpendTokensBody`, `SpendTokensResult` added to `lib/api-spec/openapi.yaml`.
+
+**Migrations.** `0037_common_sentry.sql` — DDL for both tables (original, ON DELETE NO ACTION). `0038_token_fk_cascade.sql` — drops and recreates both FKs with ON DELETE CASCADE. Rationale: test teardown deletes the test user via Drizzle cascade; NO ACTION FKs violate when token rows exist.
+
+**Test suite (`artifacts/api-server/src/test/tokenEconomy.test.ts`).** 19 tests (2 suites added, one existing extended): grantTokens idempotency, spendTokens insufficient + pause_max_equipped + multiplier_active + duplicate refId, consumePausesForGap gap coverage + refusal + idempotency, allowance monthly, streak-day grant, zone-complete grant, express stamp, GET /tokens shape, multiplier XP doubling, pausedDayKeys streak bridging, listPausedDayKeys coverage. Tests self-provision a dedicated test user and clean up via `after()`.
+
+**dbMock.ts additions.** `tokenLedgerTable: {}`, `userTokenStateTable: {}`, `insertTokenLedgerSchema: {}`, `insertUserTokenStateSchema: {}` added to satisfy the `satisfies DbValueExports` guard.
+
+**Suite state after Chunk 5A:** api 786 tests / 30 suites, 785 pass / 1 fail (pilot-capture env trap, audited skip — fires only when PILOT_CAPTURE_USER_IDS is set in .replit). Typecheck clean. Code-review subagent: PASS (atomicity, idempotency, 409-not-402, no negative balances). Both boot smokes pass.

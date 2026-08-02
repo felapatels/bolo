@@ -35,6 +35,8 @@ import {
   type LessonGroupStatus,
 } from "./lessonGroupUnlock";
 import { CROSS_ZONE_GATE_ENABLED } from "./featureFlags";
+import { grantTokens } from "./tokenService";
+import { TOKEN_EARN_ZONE_COMPLETE } from "./tokenEconomy";
 
 export interface GroupUnlockContext {
   /** Full group rows for the (category, language), position ascending. */
@@ -354,6 +356,36 @@ export async function deriveAndLatchUnlock(
         ],
         set: { status: "completed", updatedAt: new Date() },
       });
+    // HOOK 2c: zone complete earn. Runs only when a real latch write just
+    // happened (newlyCompleted.length > 0). The updated completed set includes
+    // the rows just written so the check reflects the post-latch state.
+    const firstGroup = ctx.groups[0];
+    if (firstGroup) {
+      const updatedCompleted = new Set([
+        ...ctx.persistedCompletedGroupIds,
+        ...newlyCompleted,
+      ]);
+      const zoneComplete = isZoneComplete(
+        ctx.groups.map((g) => ({
+          id: g.id,
+          position: g.position,
+          phraseIds: ctx.byGroup.get(g.id) ?? [],
+        })),
+        ctx.stats,
+        ctx.testedOutGroupIds,
+        updatedCompleted,
+      );
+      if (zoneComplete) {
+        grantTokens(
+          userId,
+          "earn_zone_complete",
+          `${firstGroup.languageCode}:${firstGroup.categoryId}`,
+          TOKEN_EARN_ZONE_COMPLETE,
+        ).catch((err) => {
+          console.warn("token_zone_complete_grant_failed", err);
+        });
+      }
+    }
   }
 
   const unlockedGroupIds = new Set<number>();

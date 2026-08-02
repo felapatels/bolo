@@ -11,6 +11,7 @@ import stripeRouter from "./stripe";
 import familyRouter from "./family";
 import contactRouter from "./contact";
 import phraseReportsRouter from "./phraseReports";
+import tokensRouter from "./tokens";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -54,6 +55,7 @@ router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every
 // authenticated learner — joining must work for Free users.
 router.use(familyRouter);
+router.use(tokensRouter);
 router.use(learningRouter);
 router.use(gamesRouter);
 router.use(openaiRouter);

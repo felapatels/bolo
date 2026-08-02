@@ -27,6 +27,7 @@ import {
   computeExtendedProgressMetrics,
   type GameSessionSummary,
 } from "./progressMetrics";
+import { listPausedDayKeys } from "./tokenService";
 
 export interface NewlyEarnedBadge {
   key: string;
@@ -187,6 +188,7 @@ export async function loadExtendedMetrics(
   const sessions: GameSessionSummary[] = gameSessions;
   const quizDates = quizCompletions.map((c) => c.quizDate);
 
+  const pausedDayKeys = await listPausedDayKeys(userId);
   return computeExtendedProgressMetrics(
     attempts,
     sessions,
@@ -194,5 +196,6 @@ export async function loadExtendedMetrics(
     scriptTraceChaptersCompleted,
     quizDates,
     timeZone,
+    pausedDayKeys,
   );
 }

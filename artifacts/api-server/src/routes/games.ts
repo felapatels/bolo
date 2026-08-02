@@ -13,6 +13,8 @@ import {
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { denyLockedFeature } from "../lib/gating";
+import { grantTokens } from "../lib/tokenService";
+import { TOKEN_EARN_QUIZ } from "../lib/tokenEconomy";
 import type { QuizQuestion } from "@workspace/db";
 import {
   awardNewlyEarnedBadges,
@@ -738,6 +740,12 @@ router.post(
           })
           .onConflictDoNothing();
       }
+
+      // HOOK 4: quiz earn (2 Chai). refId = String(completion.id) is unique per
+      // completion row (PK), making the grant naturally idempotent.
+      grantTokens(userId, "earn_quiz", String(completion.id), TOKEN_EARN_QUIZ).catch((err) => {
+        req.log.warn({ err }, "token_quiz_earn_failed");
+      });
 
       const timezone = getUserTimezone(req);
       const [metrics, quizStreak] = await Promise.all([

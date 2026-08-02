@@ -1906,6 +1906,43 @@ paths:
                 items:
                   $ref: "#/components/schemas/ZoneStamp"
 
+  /tokens:
+    get:
+      operationId: getTokens
+      tags: [tokens]
+      summary: Current Chai balance and convenience-item state
+      responses:
+        "200":
+          description: The caller's token state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenState"
+  /tokens/spend:
+    post:
+      operationId: spendTokens
+      tags: [tokens]
+      summary: Spend Chai on a convenience item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokensSpendInput"
+      responses:
+        "200":
+          description: Spend applied (or duplicate refId no-op)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSpendResult"
+        "409":
+          description: insufficient_tokens, pause_max_equipped, or multiplier_active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     Ok:
@@ -3994,6 +4031,38 @@ components:
         - xpAwarded
         - perfect
         - quizStreak
+
+    TokenState:
+      type: object
+      required: [balance, stationPausesEquipped]
+      properties:
+        balance: { type: integer }
+        stationPausesEquipped: { type: integer }
+        expressMultiplierActiveUntil:
+          type: string
+          format: date-time
+          nullable: true
+    TokensSpendInput:
+      type: object
+      required: [item]
+      properties:
+        item:
+          type: string
+          enum: [station_pause, express_multiplier]
+        refId:
+          type: string
+          description: optional client idempotency key
+    TokenSpendResult:
+      type: object
+      required: [balance, granted, stationPausesEquipped]
+      properties:
+        balance: { type: integer }
+        granted: { type: string }
+        stationPausesEquipped: { type: integer }
+        expressMultiplierActiveUntil:
+          type: string
+          format: date-time
+          nullable: true
 
     LeaderboardEntry:
       type: object

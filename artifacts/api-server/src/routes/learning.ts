@@ -94,6 +94,7 @@ import {
 } from "../lib/entitlements";
 import {
   deriveGroupStatuses,
+  isZoneComplete,
   testoutRequiredCorrect,
   TESTOUT_SAMPLE_SIZE,
   ZONE_TESTOUT_SAMPLE_CAP,
@@ -118,6 +119,19 @@ import {
 } from "../lib/scoreBands";
 import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
 import { POLISH_ENABLED, CROSS_ZONE_GATE_ENABLED } from "../lib/featureFlags";
+import {
+  grantTokens,
+  getOrCreateTokenState,
+  consumePausesForGap,
+  listPausedDayKeys,
+} from "../lib/tokenService";
+import {
+  TOKEN_EARN_STREAK_DAY,
+  TOKEN_EARN_ZONE_COMPLETE,
+  TOKEN_EARN_EXPRESS_STAMP,
+  EXPRESS_MULTIPLIER_FACTOR,
+} from "../lib/tokenEconomy";
+import { maybeGrantAllowance } from "./tokens";
 import {
   getUnlockedGroupIds,
   isPhraseServable,
@@ -1182,8 +1196,10 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   const band: PronunciationBand = claims.band ?? bandFromScore(claims.score);
   const xpAwarded = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
-  // Load current FSRS memory and learner ability in parallel (only when phraseId is known).
-  const [memoryRow, abilityRow] = await Promise.all([
+  // Load current FSRS memory, learner ability, and token state in parallel.
+  // HOOK 1a: token state read (one PK lookup) feeds the multiplier and
+  // streak-day grant below.
+  const [memoryRow, abilityRow, tokenState] = await Promise.all([
     claims.phraseId != null
       ? db.query.userItemMemoryTable.findFirst({
           where: (t, { and: andFn, eq: eqFn }) =>
@@ -1194,6 +1210,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       where: (t, { and: andFn, eq: eqFn }) =>
         andFn(eqFn(t.userId, userId), eqFn(t.languageCode, claims.languageCode)),
     }),
+    getOrCreateTokenState(userId),
   ]);
 
   // Elo update: learner ability (theta) and phrase difficulty offset (beta).
@@ -1215,6 +1232,14 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // FSRS rating and next card state (only when a catalog phrase is attached,
   // and never for nocatch — a system miss is not evidence about memory).
   const now = new Date();
+  // HOOK 1b: XP multiplier. When the express multiplier is active, effectiveXp
+  // doubles xpAwarded server-side. Server authority is deliberate and upward-only.
+  // Game-session XP is NOT multiplied in slice 1 (noted debt).
+  const effectiveXp =
+    tokenState.expressMultiplierExpiresAt != null &&
+    tokenState.expressMultiplierExpiresAt > now
+      ? xpAwarded * EXPRESS_MULTIPLIER_FACTOR
+      : xpAwarded;
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
   if (claims.phraseId != null && !isNocatch) {
@@ -1250,7 +1275,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     passed: claims.passed,
     feedback: claims.feedback,
     band,
-    xpAwarded,
+    xpAwarded: effectiveXp,
     fsrsRating,
     thetaDelta,
     latencyMs: claims.latencyMs ?? null,
@@ -1317,10 +1342,12 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // ── Side effects: xp_ledger + FSRS memory + Elo ability + exposure count ──
   // These are non-critical to the response (failure is logged but never 500s
   // the caller) — fire-and-await in parallel.
+  const timezone = getUserTimezone(req);
   await Promise.all([
-    // XP ledger (idempotent: ON CONFLICT DO NOTHING)
-    xpAwarded > 0
-      ? writeAttemptXp(userId, claims.languageCode, row.id, xpAwarded)
+    // XP ledger (idempotent: ON CONFLICT DO NOTHING). Uses effectiveXp so the
+    // ledger row reflects the multiplier when active.
+    effectiveXp > 0
+      ? writeAttemptXp(userId, claims.languageCode, row.id, effectiveXp)
       : Promise.resolve(),
     // FSRS memory upsert (only new rows; live data beats backfill state)
     fsrsUpdate != null && claims.phraseId != null
@@ -1379,7 +1406,54 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })
           .where(eq(phrasesTable.id, claims.phraseId))
       : Promise.resolve(),
+    // HOOK 1c: streak-day earn (1 Chai). Nocatch included for parity with
+    // streak counting — a system miss never costs the learner their daily Chai.
+    grantTokens(userId, "earn_streak_day", localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY).catch((err) => {
+      req.log?.warn({ err }, "token_streak_day_grant_failed");
+    }),
+    // HOOK 5: lazy monthly allowance for active subscribers.
+    maybeGrantAllowance(req).catch((err) => {
+      req.log?.warn({ err }, "token_allowance_grant_failed");
+    }),
   ]);
+
+  // HOOK 1d: pause consumption (latch-on-attempt). Finds the most recent prior
+  // attempt day and covers any missed days the learner equipped pauses for.
+  // The helper refuses partial covers (gap > equipped count), preserving pauses
+  // when a full bridge is not possible. Skip entirely when no prior attempt.
+  try {
+    const [priorAttempt] = await db
+      .select({ createdAt: attemptsTable.createdAt })
+      .from(attemptsTable)
+      .where(
+        and(
+          eq(attemptsTable.userId, userId),
+          eq(attemptsTable.languageCode, claims.languageCode),
+          ne(attemptsTable.id, row.id),
+        ),
+      )
+      .orderBy(desc(attemptsTable.createdAt))
+      .limit(1);
+    if (priorAttempt) {
+      const lastDay = localDayKey(priorAttempt.createdAt, timezone);
+      const todayKey = localDayKey(now, timezone);
+      if (lastDay !== todayKey) {
+        const missedDates: string[] = [];
+        const lastDate = new Date(`${lastDay}T12:00:00.000Z`);
+        const todayDate = new Date(`${todayKey}T12:00:00.000Z`);
+        let cursor = new Date(lastDate.getTime() + 86_400_000);
+        while (cursor.getTime() < todayDate.getTime()) {
+          missedDates.push(cursor.toISOString().slice(0, 10));
+          cursor = new Date(cursor.getTime() + 86_400_000);
+        }
+        if (missedDates.length >= 1 && missedDates.length <= 2) {
+          await consumePausesForGap(userId, missedDates);
+        }
+      }
+    }
+  } catch (err) {
+    req.log?.warn({ err }, "token_pause_consumption_failed");
+  }
 
   // Re-evaluate the badge catalog against this user's now-current per-language
   // progress (the attempt above is already persisted, so it's included) and
@@ -1570,7 +1644,7 @@ router.get(
     // candidate; we then bucket by local calendar day using localDayKey().
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
-    const [attempts, phrases, [gameXpRow], [userRow], recentXpRows] =
+    const [attempts, phrases, [gameXpRow], [userRow], recentXpRows, pausedDayKeys] =
       await Promise.all([
         db
           .select()
@@ -1618,10 +1692,13 @@ router.get(
               gte(xpLedgerTable.createdAt, twoDaysAgo),
             ),
           ),
+        // HOOK 6: paused day keys for streak derivation. A user-level pause
+        // covers the gap in every language's streak (deliberately generous).
+        listPausedDayKeys(userId),
       ]);
 
     const totalPhrases = phrases.length;
-    const metrics = computeProgressMetrics(attempts, timezone);
+    const metrics = computeProgressMetrics(attempts, timezone, pausedDayKeys);
     const totalXp = Number(gameXpRow?.total ?? 0);
     const dailyGoal = userRow?.dailyGoal ?? 50;
 
@@ -1655,7 +1732,7 @@ router.get(
       // Spec D2: consecutive days with at least one passing-band attempt.
       // Derived at query time from the same attempts rows; optional field
       // for installed-client back-compat.
-      speakingStreakDays: computeSpeakingStreakDays(attempts, timezone),
+      speakingStreakDays: computeSpeakingStreakDays(attempts, timezone, pausedDayKeys),
       attemptsToday,
       xp: totalXp,
       todayXp,
@@ -2539,6 +2616,36 @@ router.post(
       }
     });
 
+    // HOOK 3: express stamp earn (3 Chai) on stop-level pass. Zone passes do
+    // not grant per-group stamps; only stop-level passes do. refId = String(groupId).
+    // HOOK 2b: zone complete check if this latch completed the zone. Runs
+    // asynchronously after the latch commits (loadGroupUnlockContext re-reads
+    // the DB and sees the just-written tested_out row).
+    if (passed) {
+      const firstPhrase = loaded.phrases[0];
+      if (firstPhrase) {
+        const { categoryId, languageCode: lang } = firstPhrase;
+        grantTokens(userId, "earn_express_stamp", String(loaded.groupId), TOKEN_EARN_EXPRESS_STAMP)
+          .catch((err) => { req.log?.warn({ err }, "token_express_stamp_grant_failed"); });
+        loadGroupUnlockContext(userId, categoryId, lang)
+          .then((zoneCtx) => {
+            const zoneComplete = isZoneComplete(
+              zoneCtx.groups.map((g) => ({
+                id: g.id,
+                position: g.position,
+                phraseIds: zoneCtx.byGroup.get(g.id) ?? [],
+              })),
+              zoneCtx.stats,
+              zoneCtx.testedOutGroupIds,
+              zoneCtx.persistedCompletedGroupIds,
+            );
+            if (!zoneComplete) return;
+            return grantTokens(userId, "earn_zone_complete", `${lang}:${categoryId}`, TOKEN_EARN_ZONE_COMPLETE);
+          })
+          .catch((err) => { req.log?.warn({ err }, "token_zone_complete_check_failed"); });
+      }
+    }
+
     res.json({
       passed,
       correctCount: fullCredit,
@@ -2929,6 +3036,15 @@ router.post(
           retryAfterSeconds: rateLimitRetryAfter,
         });
       return;
+    }
+
+    // HOOK 2a: earn zone-complete tokens on a zone pass. A zone pass does NOT
+    // grant per-group express stamps; the 10-Chai zone grant is the reward.
+    // deduped by refId = `${languageCode}:${categoryId}` across all three
+    // zone-complete sites.
+    if (passed) {
+      grantTokens(userId, "earn_zone_complete", `${ctx.languageCode}:${ctx.categoryId}`, TOKEN_EARN_ZONE_COMPLETE)
+        .catch((err) => { req.log?.warn({ err }, "token_zone_complete_grant_failed"); });
     }
 
     res.json({

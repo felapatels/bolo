@@ -1502,3 +1502,29 @@ export const ListZoneStampsResponseItem = zod.object({
 export const ListZoneStampsResponse = zod.array(ListZoneStampsResponseItem)
 
 
+/**
+ * @summary Current Chai balance and convenience-item state
+ */
+export const GetTokensResponse = zod.object({
+  "balance": zod.number(),
+  "stationPausesEquipped": zod.number(),
+  "expressMultiplierActiveUntil": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Spend Chai on a convenience item
+ */
+export const SpendTokensBody = zod.object({
+  "item": zod.enum(['station_pause', 'express_multiplier']),
+  "refId": zod.string().optional().describe('optional client idempotency key')
+})
+
+export const SpendTokensResponse = zod.object({
+  "balance": zod.number(),
+  "granted": zod.string(),
+  "stationPausesEquipped": zod.number(),
+  "expressMultiplierActiveUntil": zod.coerce.date().nullish()
+})
+
+

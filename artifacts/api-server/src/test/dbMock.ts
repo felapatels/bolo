@@ -83,6 +83,10 @@ export function createDbMockExports(
     xpLedgerTable: {},
     zoneConversationStampsTable: {},
     zoneTestoutsTable: {},
+    tokenLedgerTable: {},
+    userTokenStateTable: {},
+    insertTokenLedgerSchema: {},
+    insertUserTokenStateSchema: {},
 
     // Insert schemas and misc consts exported by the barrel.
     insertAttemptSchema: {},

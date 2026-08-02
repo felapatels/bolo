@@ -90,6 +90,9 @@ import type {
   SpeechInput,
   SpeechResult,
   SubscriptionDetails,
+  TokenSpendResult,
+  TokenState,
+  TokensSpendInput,
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
@@ -4982,4 +4985,152 @@ export function useListZoneStamps<TData = Awaited<ReturnType<typeof listZoneStam
 
 
 
+
+export const getGetTokensUrl = () => {
+
+
+
+
+  return `/api/tokens`
+}
+
+/**
+ * @summary Current Chai balance and convenience-item state
+ */
+export const getTokens = async ( options?: RequestInit): Promise<TokenState> => {
+
+  return customFetch<TokenState>(getGetTokensUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTokensQueryKey = () => {
+    return [
+    `/api/tokens`
+    ] as const;
+    }
+
+
+export const getGetTokensQueryOptions = <TData = Awaited<ReturnType<typeof getTokens>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTokensQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTokens>>> = ({ signal }) => getTokens({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTokens>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTokensQueryResult = NonNullable<Awaited<ReturnType<typeof getTokens>>>
+export type GetTokensQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Current Chai balance and convenience-item state
+ */
+
+export function useGetTokens<TData = Awaited<ReturnType<typeof getTokens>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSpendTokensUrl = () => {
+
+
+
+
+  return `/api/tokens/spend`
+}
+
+/**
+ * @summary Spend Chai on a convenience item
+ */
+export const spendTokens = async (tokensSpendInput: TokensSpendInput, options?: RequestInit): Promise<TokenSpendResult> => {
+
+  return customFetch<TokenSpendResult>(getSpendTokensUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tokensSpendInput)
+  }
+);}
+
+
+
+
+
+export const getSpendTokensMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof spendTokens>>, TError,{data: BodyType<TokensSpendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof spendTokens>>, TError,{data: BodyType<TokensSpendInput>}, TContext> => {
+
+const mutationKey = ['spendTokens'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof spendTokens>>, {data: BodyType<TokensSpendInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  spendTokens(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SpendTokensMutationResult = NonNullable<Awaited<ReturnType<typeof spendTokens>>>
+    export type SpendTokensMutationBody = BodyType<TokensSpendInput>
+    export type SpendTokensMutationError = ErrorType<Error>
+
+    /**
+ * @summary Spend Chai on a convenience item
+ */
+export const useSpendTokens = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof spendTokens>>, TError,{data: BodyType<TokensSpendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof spendTokens>>,
+        TError,
+        {data: BodyType<TokensSpendInput>},
+        TContext
+      > => {
+      return useMutation(getSpendTokensMutationOptions(options));
+    }
 

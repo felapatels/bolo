@@ -1184,6 +1184,33 @@ export interface DailyQuizResult {
   quizStreak: number;
 }
 
+export interface TokenState {
+  balance: number;
+  stationPausesEquipped: number;
+  expressMultiplierActiveUntil?: string | null;
+}
+
+export type TokensSpendInputItem = typeof TokensSpendInputItem[keyof typeof TokensSpendInputItem];
+
+
+export const TokensSpendInputItem = {
+  station_pause: 'station_pause',
+  express_multiplier: 'express_multiplier',
+} as const;
+
+export interface TokensSpendInput {
+  item: TokensSpendInputItem;
+  /** optional client idempotency key */
+  refId?: string;
+}
+
+export interface TokenSpendResult {
+  balance: number;
+  granted: string;
+  stationPausesEquipped: number;
+  expressMultiplierActiveUntil?: string | null;
+}
+
 /**
  * One learner's standing on the friends leaderboard.
  */

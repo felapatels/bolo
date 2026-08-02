@@ -132,14 +132,16 @@ function previousDayKey(key: string): string {
 export function computeStreakDays(
   createdAts: Date[],
   timeZone?: string | null,
+  pausedDayKeys?: Set<string>,
 ): number {
   const days = new Set(createdAts.map((d) => localDayKey(d, timeZone)));
+  const paused = pausedDayKeys ?? new Set<string>();
   let streak = 0;
   let cursor = localDayKey(new Date(), timeZone);
-  if (!days.has(cursor)) {
+  if (!days.has(cursor) && !paused.has(cursor)) {
     cursor = previousDayKey(cursor);
   }
-  while (days.has(cursor)) {
+  while (days.has(cursor) || paused.has(cursor)) {
     streak += 1;
     cursor = previousDayKey(cursor);
   }
@@ -169,12 +171,14 @@ const SPEAKING_STREAK_QUALIFYING_BANDS = new Set([
 export function computeSpeakingStreakDays(
   attempts: { createdAt: Date; band: string | null }[],
   timeZone?: string | null,
+  pausedDayKeys?: Set<string>,
 ): number {
   return computeStreakDays(
     attempts
       .filter((a) => a.band != null && SPEAKING_STREAK_QUALIFYING_BANDS.has(a.band))
       .map((a) => a.createdAt),
     timeZone,
+    pausedDayKeys,
   );
 }
 
@@ -210,6 +214,7 @@ export function computeDailyQuizStreak(
 export function computeProgressMetrics(
   attempts: { phraseId: number | null; score: number; createdAt: Date }[],
   timeZone?: string | null,
+  pausedDayKeys?: Set<string>,
 ): ProgressMetrics {
   const stats = buildPhraseStats(attempts);
   let phrasesMastered = 0;
@@ -230,6 +235,7 @@ export function computeProgressMetrics(
     currentStreakDays: computeStreakDays(
       attempts.map((a) => a.createdAt),
       timeZone,
+      pausedDayKeys,
     ),
   };
 }
@@ -253,8 +259,9 @@ export function computeExtendedProgressMetrics(
   scriptTraceChaptersCompleted: number,
   quizDates: string[],
   timeZone?: string | null,
+  pausedDayKeys?: Set<string>,
 ): ExtendedProgressMetrics {
-  const base = computeProgressMetrics(attempts, timeZone);
+  const base = computeProgressMetrics(attempts, timeZone, pausedDayKeys);
 
   // Game XP supplements pronunciation XP in the total shown on the progress
   // screen, so XP-milestone badges reflect all earning activity.
