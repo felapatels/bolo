@@ -1,0 +1,13 @@
+CALIBRATION RULING: the failure pattern is accepted as diagnosed. Apply the following, then ONE approved re-run (single re-run authorized; nothing beyond it without a new ruling):
+
+1. RUBRIC FIX (your proposal 1): add the explicit line: "If the speaker sounds like a fluent native, score 95-100; do not reserve scores above 92 for flawlessness." The 92 ceiling is a prompt artifact; fix it at the source. The promotion cut STAYS at 93 for this re-run; proposal 2 (dropping to 88) is NOT applied: the two changes must not be blind-stacked. If native reachability still fails after the rubric fix, the 88 cut gets considered against the american-promotion tradeoff on the new data.
+
+2. MONOSYLLABLE EXCLUSION (your proposal 3, extended into product design): ha and na (and any single-phoneme phrase) are excluded from gate criteria AND, as a v2 design ruling, excluded from promotion eligibility entirely: in production, monosyllabic phrases keep their text-path result and are never judge-promoted; one phoneme cannot evidence Perfect. Record this in the v2 brief as binding.
+
+3. CRITERIA RESTRUCTURE (replaces the subtle floor and softens the wrong floor without losing safety teeth):
+   a. BINDING safety: no wrong_attempt clip scores >= 68 (good band) and none promotes; ADVISORY target: all < 55 (report the count above 55, non-gating). The observed 57-58s are ugly but non-promoting; the rubric fix may push them down.
+   b. BINDING: no subtle_error clip promotes (median < 93). ADVISORY: proportion of subtle below 55 reported per language with a 25 percent target, non-gating: the protocol's final-vowel change is a large distortion on short words and harshness toward real errors is not a safety failure.
+   c. UNCHANGED BINDING: no american_accent promotes; native promotion >= 80 percent; per-clip spread <= 30 (re-evaluate after the rubric fix reduces ambiguity; report any violations).
+   d. The 4 unscoreable clips are excluded from all denominators; note that production fail-closed behavior (judge failure keeps great) already covers their class.
+
+4. RE-RUN: with 1-3 applied, re-run the full corpus once (resume-safe JSONL lets you skip re-grading only if scores are rubric-dependent, which they are: full re-run). Post the new table in the same format with pass/fail per criterion per language, and STOP. If it passes: scoring v2 build is released against the passing rubric verbatim. If native reachability alone still fails: post the 88-cut simulation from the new data (how many natives promote at 88, how many americans would) as text, no third run.
