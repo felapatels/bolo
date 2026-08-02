@@ -96,6 +96,10 @@ vi.mock("@workspace/api-client-react", async () => ({
 }));
 
 import Practice from "@/pages/practice";
+// Not mocked: the singleton audio elements (WebKit blessing architecture,
+// ca8fe04) are created lazily through the stubbed global Audio below, and
+// setup.ts resets them per test.
+import { getCoachAudioElement } from "@/lib/iosAudio";
 
 // ---------------------------------------------------------------------------
 // Fake Audio — tracks all instances so tests can trigger `onended`.
@@ -339,11 +343,18 @@ describe("silent mode — retry", () => {
     await renderNormal();
     await scorePhrase();
 
-    audioInstances.length = 0;
+    // Singleton architecture (ca8fe04): the coach re-play reuses the SAME
+    // blessed element (src swap plus another play() call), never a fresh
+    // Audio instance, so pin the play() count on the singleton.
+    const coach = getCoachAudioElement() as unknown as FakeAudio;
+    const coachPlaysBefore = coach.play.mock.calls.length;
     fireEvent.click(screen.getByText("Retry"));
 
-    // A new Audio element must appear for the coach re-play.
-    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
+    // The coach re-play must start: the singleton plays again with a clip src.
+    await waitFor(() =>
+      expect(coach.play.mock.calls.length).toBeGreaterThan(coachPlaysBefore),
+    );
+    expect(coach.src).toContain("data:audio");
   });
 });
 
@@ -468,14 +479,19 @@ describe("audio prefetch", () => {
     await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
 
     // Reset synth call count so we can count only what happens during phrase1's
-    // coach play.
+    // coach play. Singleton architecture (ca8fe04): the coach plays phrase1 on
+    // the SAME blessed element (src swap plus another play() call), never a
+    // fresh Audio instance, so pin the play() count on the singleton.
     h.synth.mockClear();
-    audioInstances.length = 0;
+    const coach = getCoachAudioElement() as unknown as FakeAudio;
+    const coachPlaysBefore = coach.play.mock.calls.length;
 
     fireEvent.click(screen.getByText("Next"));
 
-    // Coach for phrase1 starts playing (new Audio instance).
-    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
+    // Coach for phrase1 starts playing on the singleton element.
+    await waitFor(() =>
+      expect(coach.play.mock.calls.length).toBeGreaterThan(coachPlaysBefore),
+    );
 
     // synth should NOT have been called again for phrase1 because the cache hit.
     const phrase1FreshCalls = h.synth.mock.calls.filter(

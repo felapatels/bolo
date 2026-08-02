@@ -106,6 +106,10 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 // Imported after the mocks are declared.
 import Practice from "@/pages/practice";
+// Not mocked: the singleton audio elements (WebKit blessing architecture,
+// ca8fe04) are created lazily through the stubbed global Audio below, and
+// setup.ts resets them per test.
+import { getCoachAudioElement } from "@/lib/iosAudio";
 
 // jsdom's Audio can't actually play; capture instances so tests can end
 // playback deterministically.
@@ -217,14 +221,21 @@ describe("web practice retry", () => {
     await driveToResult();
     expect(coachCalls()).toBe(1);
 
-    const audioCountBefore = audioInstances.length;
+    // Singleton architecture (ca8fe04): the coach replay reuses the SAME
+    // blessed element (src swap plus another play() call), never a fresh
+    // Audio instance, so pin the play() count on the singleton.
+    const coach = getCoachAudioElement() as unknown as FakeAudio;
+    const coachPlaysBefore = coach.play.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     // The retry returns through playing_coach: the phrase is spoken again
-    // (replayed from the per-phrase audio cache, not re-synthesized — so the
+    // (replayed from the per-phrase audio cache, not re-synthesized, so the
     // model can never read a different phrase on replay) and the result card
     // is gone.
-    await waitFor(() => expect(audioInstances.length).toBeGreaterThan(audioCountBefore));
+    await waitFor(() =>
+      expect(coach.play.mock.calls.length).toBeGreaterThan(coachPlaysBefore),
+    );
+    expect(coach.src).toContain("data:audio/mp3;base64,AAA");
     expect(coachCalls()).toBe(1);
     // AnimatePresence may keep the card mounted briefly during exit; wait for it.
     await waitFor(() => expect(screen.queryByText(/Score:/)).not.toBeInTheDocument());
