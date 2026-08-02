@@ -436,7 +436,12 @@ function StationCard({
         style={isCurrent ? { color } : undefined}
       >
         {statusCopy}
-        {!station.attemptedCount && ` · ${station.phraseCount} phrases`}
+        {/* Plan-locked stops serve a plan-visible count of zero, so the count
+            segment is omitted there: "Locked" plus the lock icon only.
+            Progression-locked stops keep their real counts. */}
+        {!station.attemptedCount &&
+          station.planLocked !== true &&
+          ` · ${station.phraseCount} phrases`}
         {isCurrent && " · Bolo is waiting here"}
       </div>
       {/* Progress as a small filled track once the stop has attempts; the

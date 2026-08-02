@@ -12,8 +12,11 @@ import { usersTable } from "./users";
 // email_sent = false so nothing is silently lost.
 export const contactSubmissionsTable = pgTable("contact_submissions", {
   id: serial("id").primaryKey(),
-  // Nullable: unauthenticated submissions are not currently possible via the
-  // UI but the column stays nullable so future public forms can reuse the table.
+  // Nullable: the contact form is public, so anonymous submissions are
+  // accepted and stored with user_id = null; signed-in submitters get their
+  // user id attached best-effort by the route handler. Abuse control is the
+  // in-memory sliding-window limiter (createRateLimit in the api-server)
+  // pending the DB-backed limiter migration.
   userId: text("user_id").references(() => usersTable.id),
   name: text("name").notNull(),
   email: text("email").notNull(),
