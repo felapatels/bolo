@@ -35,6 +35,12 @@ export interface EvaluationClaims {
   // True when the passes disagreed after normalization; the band was computed
   // from the transcript farther from the target (the conservative reading).
   sttDisagreement?: boolean;
+  // ── Scoring v2 groundwork ──
+  // True ONLY when an audio-aware judge actually listened to the clip and
+  // certified the score (the scoring v2 promotion gate, test-out included).
+  // Exempt from the verify-time honesty clamp below: the cap exists because a
+  // transcript-only pipeline cannot hear accent; an audio judge can.
+  audioJudged?: boolean;
 }
 
 interface SignedPayload extends EvaluationClaims {
@@ -46,6 +52,12 @@ interface SignedPayload extends EvaluationClaims {
 // than the practice round-trip (evaluate -> show result -> save attempt) while
 // still bounding replay.
 const TOKEN_TTL_MS = 15 * 60 * 1000;
+
+// S1 global honesty cap: until audio-aware scoring v2 exists, no
+// transcript-scored attempt may exceed this score (or band 'perfect').
+// Exported so the scoring paths in openai.ts cap against the SAME constant
+// this module clamps against — they can never drift apart.
+export const HONESTY_SCORE_CAP = 92;
 
 function getSigningKey(): string {
   const secret = process.env.SESSION_SECRET;
@@ -129,5 +141,26 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
   );
   const safeXp: number = typeof claims.xpAwarded === "number" ? claims.xpAwarded : 0;
 
-  return { ...claims, band: safeband, xpAwarded: safeXp };
+  // Honesty cap enforced at VERIFY time, not only at signing: tokens outlive
+  // deploys by TOKEN_TTL_MS, so a token signed by a pre-cap binary can be
+  // replayed against a capped one and its claims written verbatim (proven
+  // live 2026-08-01: attempt 14097 wrote score=100/band=perfect nineteen
+  // minutes after the cap shipped). This is the single choke point covering
+  // every consumer of evaluation tokens (/attempts and test-out).
+  //  - nocatch passes through untouched: a system miss carries no credit and
+  //    its score is not a pronunciation claim.
+  //  - audioJudged tokens are EXEMPT: scoring v2's promotion gate certifies
+  //    scores above the cap only after an audio judge has heard the clip.
+  let safeScore = claims.score;
+  let clampedBand = safeband;
+  if (
+    !claims.audioJudged &&
+    safeband !== "nocatch" &&
+    safeScore > HONESTY_SCORE_CAP
+  ) {
+    safeScore = HONESTY_SCORE_CAP;
+    clampedBand = "great";
+  }
+
+  return { ...claims, score: safeScore, band: clampedBand, xpAwarded: safeXp };
 }

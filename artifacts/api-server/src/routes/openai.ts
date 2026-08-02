@@ -17,7 +17,7 @@ import {
 } from "@workspace/api-zod";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
-import { signEvaluation } from "../lib/evaluationToken";
+import { HONESTY_SCORE_CAP, signEvaluation } from "../lib/evaluationToken";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { teeAudioToPilot, isPilotCaptureUser, discardLastCapture } from "../lib/pilotCapture";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
@@ -941,8 +941,8 @@ router.post(
 
       if (!fastPathWrongPhrase) {
         const rawFastScore = simToScore(targetSim.sim, 0.90);
-        // Global honesty cap: no attempt scores above 92 until scoring v2.
-        const score = Math.min(rawFastScore, 92);
+        // Global honesty cap: no attempt scores above the cap until scoring v2.
+        const score = Math.min(rawFastScore, HONESTY_SCORE_CAP);
 
         // Pool of varied warm feedback strings so repeat excellent attempts each
         // feel fresh. All strings are read-aloud friendly: no emojis or special
@@ -1204,10 +1204,10 @@ router.post(
       }
       let { score } = guarded;
       const { passed } = guarded;
-      // Global honesty cap: no attempt scores above 92 regardless of path
+      // Global honesty cap: no attempt scores above the cap regardless of path
       // (short targets, wrong-phrase fallthrough, near-match, exact match).
-      if (score > 92) {
-        score = 92;
+      if (score > HONESTY_SCORE_CAP) {
+        score = HONESTY_SCORE_CAP;
       }
       // Band derives from score only (Spec 0 rule 40) via the five-band config
       // in scoreBands.ts. Never derive it from `passed` — a trusted LLM `passed`
