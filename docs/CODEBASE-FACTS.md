@@ -850,9 +850,9 @@ Additionally `PILOT_CAPTURE_USER_IDS` contains only the owner's DEV Clerk id, so
 
 **Dark-mode result-card contrast:** `bg-white` -> `bg-card` on the result/error/compare cards and their secondary buttons in `practice.tsx` (bg-white + dark-mode `--foreground` was white-on-white labels). Known residue (NOT fixed, same pattern): test-out verdict button (~line 1274), session summary card (~1377), phrase card container (~1717), prev/next chevrons (bg-white/90) — cosmetic, queued behind the session.
 
-### Capture mode (TEMPORARY scaffolding, BRIEF 32.1 respin, August 2, 2026)
+### Capture mode (STANDING pilot tool, BRIEF 32.1 respin, August 2, 2026; made permanent by owner ruling August 2, 2026)
 
-**Purpose:** the pilot calibration-corpus capture protocol made explicit in the web practice page, replacing the item-1 layout fix (superseded above). Every touch point is comment-tagged "TEMPORARY capture mode" for removal once the corpus is complete.
+**Purpose:** the pilot calibration-corpus capture protocol made explicit in the web practice page, replacing the item-1 layout fix (superseded above). PERMANENT scaffolding (owner ruling post-Round-1, Aug 2, 2026): additional language capture rounds will run over time, so this is NOT removed after the first corpus. It stays dev-only, param-gated, and server-checked by allowlist exactly as built. The "TEMPORARY capture mode" comment tags in code remain as touch-point locators only; they no longer imply scheduled removal.
 
 **Activation:** `?mode=capture` on web practice (`practice.tsx`), allowlisted users only. The client asks `GET /pilot-capture/eligibility` (new openapi op `getPilotCaptureEligibility`, backed by `isPilotCaptureUser()` = membership in `PILOT_CAPTURE_USER_IDS`); without a server-confirmed yes the param is inert and the session is normal. Review/test-out modes never combine with capture.
 

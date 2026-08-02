@@ -38,6 +38,12 @@ export function getR2Client(): S3Client | null {
       accessKeyId: R2_ACCESS_KEY_ID,
       secretAccessKey: R2_SECRET_ACCESS_KEY,
     },
+    // Cloudflare R2 rejects the AWS SDK's automatic CRC32 trailing checksum
+    // on binary bodies with InvalidArgument (400). WHEN_REQUIRED restricts
+    // checksum injection to operations that mandate it, which PutObject does
+    // not — without this, every real-sized clip upload fails while small
+    // string-body probes pass.
+    requestChecksumCalculation: "WHEN_REQUIRED",
   });
   return _client;
 }

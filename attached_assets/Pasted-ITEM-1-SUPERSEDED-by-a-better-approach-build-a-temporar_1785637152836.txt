@@ -1,0 +1,13 @@
+ITEM 1 SUPERSEDED by a better approach: build a temporary CAPTURE MODE instead of fixing the result-card mutation. Dev-only, behind a query param, minimal and disposable:
+
+CAPTURE MODE (web practice, ?mode=capture, allowlisted users only):
+1. Entering a practice session with ?mode=capture runs the pilot protocol explicitly: for each phrase, exactly 4 attempts in fixed order, with a persistent on-screen banner stating the current expectation: attempt 1 "YOUR BEST PRONUNCIATION" (with a note: listen first if this is not your language), attempt 2 "DELIBERATE AMERICAN ACCENT", attempt 3 "SUBTLE ERROR: change the final vowel", attempt 4 "WRONG WORD: say a completely different word".
+2. After each scored attempt: NO result card, no score, no band, no feedback: a brief minimal confirmation (checkmark + "attempt N saved") and automatic advance to the next expectation; after attempt 4, automatic advance to the next phrase. Keep ONE small "redo this attempt" affordance that discards the just-made attempt (marks its clip discarded in the sidecar) and repeats the same expectation, for genuine fumbles.
+3. The evaluation pipeline runs UNCHANGED underneath (real STT, real scoring, real tee): we suppress only the display. Attempts in capture mode must not award XP or write lesson progress if that is cheap to suppress; if not cheap, leave it and say so (test accounts, harmless).
+4. SIDECAR EXTENSION (the real win): in capture mode, the tee sidecar gains label: one of native | american_accent | subtle_error | wrong_attempt, plus captureMode: true and attemptOfFour: N. Explicit labels make the harvest's order-reconstruction the fallback, not the mechanism.
+5. Coach audio: plays automatically at each NEW PHRASE (attempt 1) and via a replay button; attempts 2-4 do not re-play it. Handle the first-phrase autoplay-policy failure by priming the audio context on the session-entry gesture or showing tap-to-hear.
+6. Normal mode is byte-identical: no behavior change outside ?mode=capture. This is temporary scaffolding; mark it clearly for removal after the calibration corpus is complete.
+
+ITEMS 2 and 3 stand as sent (grant junk-attempt fix per the chat pattern; dark-mode Retry visibility): the grant fix matters in capture mode too.
+
+GATE: typecheck, targeted tests (one cheap test that capture mode labels the sidecar correctly), tripwire, one commit, hash. Restart only if server files changed (the sidecar extension will change the server): then the MANDATORY re-verification: live environ contains all five allowlist IDs, and one realistic-size probe confirms the tee, now ALSO confirming the label field lands in the sidecar. Report DONE; freeze re-seals; session restarts in capture mode.

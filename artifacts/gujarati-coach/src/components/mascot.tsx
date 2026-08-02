@@ -161,6 +161,15 @@ export function Mascot({
               src={MASCOT_BASE + POSE_SRC[pose]}
               alt=""
               draggable={false}
+              // iOS long-press image callout + drag ghost suppression: the
+              // save/copy sheet was interrupting hold-to-speak on phones.
+              style={
+                {
+                  WebkitTouchCallout: "none",
+                  WebkitUserDrag: "none",
+                  userSelect: "none",
+                } as React.CSSProperties
+              }
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

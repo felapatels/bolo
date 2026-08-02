@@ -1,0 +1,100 @@
+BOLO SPEC: Public Homepage Redesign (Pre-Login), v2 reconstruction, COMPLETE (supersedes the truncated paste)
+
+SCOPE: Web only. The unauthenticated marketing surface. No changes to the authenticated app, the mobile builds, the api-server's learning routes, or any learning surface. Consult docs/CODEBASE-FACTS.md at start. No em dashes anywhere in code, comments, or copy.
+
+DRIVER: Repositioning from "Indian languages" to "South Asian languages" (the 22-language catalog already serves Pakistani, Bangladeshi, and Sri Lankan diaspora; the copy should stop excluding them) plus a conversion rebuild of the pre-login page.
+
+COST RULE: no full suite runs mid-implementation; typecheck and targeted tests while building, ONE full web gate at the end. The api canonical run is required only if any server file is touched (Story 6 may touch route registration); otherwise skip it and say so.
+
+STEP 0: INVENTORY BEFORE BUILDING (report, then STOP for confirmation)
+1. List every route that renders without authentication, including the root route, and state which component file serves each.
+2. Report the current homepage component tree: file paths, section order, and which sections are static versus data-driven.
+3. Report every place in the public surface where the strings "India", "Indian", "22 official languages", or "bolo-india" appear: page copy, metadata, Open Graph tags, structured data, alt text, and hardcoded URLs.
+4. Report how the language list is currently sourced on the public site: hardcoded, read from the database, or absent.
+5. Report the current head metadata setup: title, description, canonical, Open Graph, Twitter card, and whether any structured data exists.
+6. Report whether any per-language public route exists today (for example /learn/gujarati).
+7. Report the current signup entry points from the public page and where each one leads.
+8. Report which analytics events, if any, fire on the public homepage today.
+9. Confirm docs/CODEBASE-FACTS.md is current for the public surface, and update it as part of this work.
+
+STORY 1: Hero and positioning
+As a heritage learner landing on the site, I want to instantly understand that BOLO teaches me to SPEAK my family's language, so that I know this is not another tap-the-tiles app.
+Business value: The hero is the conversion moment; speaking-first is the differentiator and the repositioning widens the addressable audience to the full South Asian diaspora.
+Acceptance criteria:
+1. The system shall present a hero headline positioning BOLO as speaking-first for South Asian languages (direction: "Actually speak your family's language." with the 22-language breadth as supporting copy, final wording per implementation with owner sign-off at the gate).
+2. The system shall replace every public-surface use of "Indian languages" and "22 official Indian languages" with South Asian framing; the count 22 may remain as "22 languages" where it serves credibility.
+3. The system shall keep the "Talk, don't tap" tagline element, repositioned or restyled as needed.
+4. The system shall render the canonical Bolo mascot per the canonical-mascot rule (whole-image PNG only, gentle idle motion, reduced-motion static, never mounted twice).
+5. The system shall present exactly two primary actions above the fold: Get started free and I have an account / Sign in, with no competing CTAs.
+6. The system shall keep the hero fully rendered and interactive within the existing home-load performance budget (re-run the existing qa home-load timing probe; no regression against its current numbers).
+
+STORY 2: Language showcase
+As a visitor from any South Asian background, I want to see MY language named on the page, so that I know BOLO is for me specifically.
+Business value: Named-language recognition is the single strongest relevance signal for diaspora visitors and the SEO backbone.
+Acceptance criteria:
+1. The system shall display all supported languages by name (English name plus native script) in a browsable showcase section.
+2. The system shall source the language list from the same canonical source the app uses (not a second hardcoded list); if the public page cannot query the database, generate the list at build time from the canonical config and document the sync mechanism.
+3. The system shall order the showcase to lead with the highest-demand diaspora languages (Hindi, Punjabi, Urdu, Bengali, Tamil, Telugu, Gujarati, Marathi) followed by the rest.
+4. The system shall render each language entry with its native script correctly (no tofu, correct fonts per the app's existing native-text handling).
+5. The system shall link each language entry to its per-language route (Story 6) when those exist, else to signup.
+
+STORY 3: How it works
+As a skeptical visitor, I want to see what using BOLO is actually like, so that I believe the speaking-first claim before signing up.
+Business value: Concrete product depiction converts better than adjectives; the app finally has real surfaces worth showing.
+Acceptance criteria:
+1. The system shall present a sequenced how-it-works section covering, in order: speak and get coached (the practice loop with band feedback), chat with Bolo, ride the journey map, play the games arcade, and spaced review.
+2. The system shall depict each step with real product imagery or lightweight live components, not stock art; screenshots must show current surfaces (the 32-era journey map with scenery, the current games hub, the band result card) and carry no raw numeric scores anywhere (band labels only, per the standing rule).
+3. The system shall keep total added page weight for this section under a stated budget (report the number); images lazy-load below the fold.
+4. The system shall include the free-tier taste honestly: copy states that every locked language offers free starter phrases (the M1 teaser), consistent with the actual current free tier, without overpromising.
+
+STORY 4: For families
+As a parent, I want to see that BOLO works for my kids and for me, so that one subscription can serve the whole family's language recovery.
+Business value: The heritage-family framing is BOLO's emotional core and the Family plan's justification.
+Acceptance criteria:
+1. The system shall include a families section speaking to both kids and adults finding their way back to the family's language, consistent with the existing description copy.
+2. The system shall mention the Family plan by name with its seat count, consistent with the live pricing configuration.
+3. The system shall avoid any claims about children's data or COPPA-adjacent statements beyond what existing policy pages support; link to the existing privacy page rather than restating.
+
+STORY 5: Pricing preview
+As a visitor deciding whether to start, I want honest pricing before I sign up, so that the paywall never feels like a trap.
+Business value: Pre-login price transparency filters for quality signups and reduces refund and rating risk.
+Acceptance criteria:
+1. The system shall present the current tiers (Free with its honest limits, All-Access, Family) with live-accurate prices sourced from or verified against the canonical pricing configuration, not hardcoded copy.
+2. The system shall describe the free tier accurately per Story 3.4 and mention the daily limit only if it is actually enforced (verify against the current daily-limit state; if its removal has landed by build time, no limit copy appears).
+3. The system shall route every pricing CTA to signup, not to an in-app paywall.
+
+STORY 6: SEO, metadata, and per-language routes
+As search traffic looking for "learn Gujarati speaking" (and 21 siblings), I want a relevant landing page, so that BOLO captures intent the homepage alone cannot.
+Business value: Per-language pages are the highest-leverage organic acquisition asset available at zero media cost.
+Acceptance criteria:
+1. The system shall provide a public per-language route for every supported language (for example /learn/gujarati) rendering: language name in English and native script, the speaking-first value proposition localized to that language's name, 2 to 3 sample phrases with romanization drawn from the real free starter content, and the signup CTA.
+2. The system shall generate correct head metadata per page: unique title and description, canonical URL, Open Graph and Twitter cards with an appropriate image, for the homepage and every per-language page.
+3. The system shall include structured data (Organization plus a suitable product or app schema) on the homepage, valid per a schema validator run reported at the gate.
+4. The system shall update every stale metadata string found in Step 0 item 3 to the South Asian positioning.
+5. The system shall emit a sitemap covering the homepage and all per-language routes, and reference it from robots.txt.
+6. The system shall keep all per-language pages statically renderable or cheaply server-rendered (state which, and the mechanism) so they carry no auth or app-bundle weight.
+
+STORY 7: Conversion instrumentation and accessibility
+As the owner, I want to measure what the new page does, so that the redesign's effect is knowable rather than assumed.
+Business value: Without instrumentation the rebuild is a coin flip; with it, iteration is possible.
+Acceptance criteria:
+1. The system shall fire analytics events (existing PostHog setup) for: homepage view, each section reaching viewport, language-entry click, per-language page view, each CTA click by placement, and signup-started attribution from the public surface.
+2. The system shall pass an accessibility pass at the gate: semantic headings in order, alt text on all imagery, visible focus states, color contrast at AA for all text over the new palette, reduced-motion respected for every animated element.
+3. The system shall render correctly at 320, 768, and 1280 widths; screenshots at all three at the gate.
+4. The system shall not regress the home-load timing probe numbers (Story 1.6) with all sections and instrumentation in place.
+
+IMPLEMENTATION NOTES
+- The authenticated app's home and all learning surfaces are out of scope; shared components may be reused but not modified.
+- Copy tone: warm, direct, second person, zero jargon; the emotional register is family recovery, not exam prep. No em dashes.
+- The domain remains bolo-india.app for now; do not introduce copy that hardcodes the domain into prose. Support email references follow the existing contact-form-first reality (do not surface support@ addresses that do not receive mail yet).
+- Mascot: canonical PNGs only, whole-image transforms, per the standing rule; no new Bolo artwork by any means.
+- Screenshots for Story 3 should be captured fresh from dev at the release lineage so the marketing depicts the shipped product.
+
+OPEN QUESTIONS / ASSUMPTIONS
+- Assumption: "South Asian languages" is the confirmed positioning; the language catalog itself is unchanged.
+- Assumption: pricing displays All-Access and Family at their current live values; verify against the canonical config at build time rather than trusting this spec.
+- Open: whether the daily limit still exists at build time (Story 5.2 resolves it empirically).
+- Open: final hero headline wording; implementation proposes, owner approves at the gate.
+
+GATE
+Typecheck clean, tripwire clean, both boot smokes, ONE full web suite run at the then-current certified baseline plus any new tests, api canonical only if server files were touched. Deliverables at the gate: screenshots of the homepage at 320, 768, and 1280, two sample per-language pages, the schema validator result, the home-load timing before and after, and the Step 0 item 3 sweep confirmed empty of stale Indian-languages strings. Report by name and WAIT for confirmation before commit.
