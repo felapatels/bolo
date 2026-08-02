@@ -1033,7 +1033,11 @@ export default function JourneyScreen() {
                         >
                           {stopLabel}
                         </Text>
-                        {s.stage === 'sentence' && (
+                        {/* Entitlement chip only where the server actually serves
+                            the stop plan-locked — on stops the caller can ride free
+                            (Hindi Zone 1 carve-out) or already owns (Plus/Family),
+                            the badge is noise. Mirrors the web condition. */}
+                        {s.stage === 'sentence' && s.planLocked === true && (
                           <View style={[styles.allAccessChip, { backgroundColor: `${colors.secondary}1a` }]}>
                             <Feather name="star" size={9} color={colors.secondary} />
                             <Text style={[styles.allAccessChipText, { color: colors.secondary }]}>

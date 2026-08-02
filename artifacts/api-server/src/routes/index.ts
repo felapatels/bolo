@@ -34,6 +34,10 @@ router.use(gamesPublicRouter);
 // Everything below requires an authenticated user. loadEntitlements resolves the
 // caller's effective plan onto the request so every gated route reads it from a
 // single place.
+// Contact Us form submissions — public: the web /privacy and /terms pages link
+// signed-out visitors straight to the form; the route attributes signed-in
+// callers itself via getAuth (clerkMiddleware runs app-wide).
+router.use(contactRouter);
 router.use(requireAuth);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);
@@ -43,8 +47,6 @@ router.use(accountRouter);
 // Friends & the friends leaderboard stay available to all authenticated
 // learners (not gated behind Bolo! Plus), so this sits before the gated routers.
 router.use(friendsRouter);
-// Contact Us form submissions.
-router.use(contactRouter);
 // Spec B2: phrase incorrectness reports (fire-and-forget, silently throttled).
 router.use(phraseReportsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.

@@ -2,7 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db, contactSubmissionsTable } from "@workspace/db";
-import type { AuthedRequest } from "../middlewares/requireAuth";
+import { getAuth } from "@clerk/express";
+import { ensureLocalUser } from "../lib/userIdentity";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendContactNotification } from "../lib/resendClient";
 
@@ -48,9 +49,18 @@ router.post(
     }
 
     const { name, email, category, message } = parsed.data;
-    // requireAuth runs before this route, so userId is always set for
-    // authenticated callers. The cast is safe here.
-    const userId = (req as AuthedRequest).userId ?? null;
+    // Mounted BEFORE the barrel-wide requireAuth so signed-out visitors from
+    // the public /privacy and /terms pages can reach the form. clerkMiddleware
+    // runs app-wide, so getAuth() still surfaces the caller id when a session
+    // is present; ensureLocalUser keeps the userId FK satisfiable. Attribution
+    // is best-effort — never block a contact message on it.
+    let userId: string | null = null;
+    try {
+      userId = getAuth(req)?.userId ?? null;
+      if (userId) await ensureLocalUser(userId);
+    } catch {
+      userId = null;
+    }
 
     // Insert the row first — if this fails we propagate a 500 so the client
     // knows the message was NOT saved.

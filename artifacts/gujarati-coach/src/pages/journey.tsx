@@ -401,7 +401,10 @@ function StationCard({
         >
           {stopLabel}
         </span>
-        {station.stage === "sentence" && (
+        {/* Entitlement chip only where the server actually serves the stop
+            plan-locked — on stops the caller can ride free (Hindi Zone 1
+            carve-out) or already owns (Plus/Family), the badge is noise. */}
+        {station.stage === "sentence" && station.planLocked === true && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
             title="First-class sentence stop — All-Access"

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { hapticNotify } from '@/lib/haptics';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { appear, useAppearSkip } from '@/lib/entrance';
@@ -96,7 +97,10 @@ export function BadgeUnlock({
           ))}
         </View>
 
-        <Animated.View entering={skipEnter ? undefined : FadeIn.delay(400 + badges.length * 160)}>
+        <Animated.View
+          entering={skipEnter ? undefined : FadeIn.delay(400 + badges.length * 160)}
+          style={styles.actions}
+        >
           <Pressable
             onPress={onDismiss}
             style={[styles.button, { backgroundColor: colors.primary }]}
@@ -105,6 +109,21 @@ export function BadgeUnlock({
               style={[styles.buttonText, { color: colors.primaryForeground }]}
             >
               Awesome!
+            </Text>
+          </Pressable>
+          {/* Secondary escape hatch: the freshly earned badge lives on the
+              Progress tab — link there instead of dead-ending at dismiss.
+              Mirrors the web BadgeUnlock's "See progress" action. */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              onDismiss();
+              router.push('/(app)/(tabs)/progress');
+            }}
+            style={styles.seeProgress}
+          >
+            <Text style={[styles.seeProgressText, { color: colors.mutedForeground }]}>
+              See progress
             </Text>
           </Pressable>
         </Animated.View>
@@ -157,6 +176,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 20,
   },
+  actions: {
+    alignItems: 'center',
+  },
   button: {
     marginTop: 32,
     paddingHorizontal: 44,
@@ -164,4 +186,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   buttonText: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  seeProgress: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  seeProgressText: { fontFamily: AppFonts.bold, fontSize: 14 },
 });

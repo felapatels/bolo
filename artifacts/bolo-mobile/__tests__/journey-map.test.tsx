@@ -207,7 +207,7 @@ describe('journey map — station state rendering', () => {
       ],
       [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 })],
       [grp({ status: 'unlocked', stage: 'sentence' })],
-      [grp({ status: 'locked' })],
+      [grp({ status: 'locked', planLocked: true, stage: 'sentence' })],
       [grp({ status: 'locked' })],
       [grp({ status: 'locked' })],
     ]);
@@ -227,7 +227,11 @@ describe('journey map — station state rendering', () => {
     expect(screen.getByText(/In progress/)).toBeOnTheScreen();
     expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
     expect(screen.getByText(/Bolo is waiting here/)).toBeOnTheScreen(); // current stop
-    expect(screen.getByText('ALL-ACCESS')).toBeOnTheScreen(); // sentence diamond chip
+    // The ALL-ACCESS chip renders ONLY where the server serves the stop
+    // plan-locked; a served-unlocked sentence stop (Plus caller, or the Hindi
+    // Zone 1 carve-out) shows no entitlement chip. Exactly one chip here: the
+    // planLocked sentence stop in zone 4, not the open one in zone 3.
+    expect(screen.getAllByText('ALL-ACCESS').length).toBe(1);
     expect(screen.getByText(/Now boarding/)).toBeOnTheScreen(); // Plus sentence stop is open
     expect(screen.getAllByText(/Locked · 8 phrases/).length).toBe(3);
   });

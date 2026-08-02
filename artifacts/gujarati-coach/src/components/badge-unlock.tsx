@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Link } from "wouter";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { EarnedBadge } from "@workspace/api-client-react";
 import { Confetti } from "@/components/ui/confetti";
@@ -97,6 +98,25 @@ export function BadgeUnlock({
           >
             Awesome!
           </motion.button>
+
+          {/* Secondary escape hatch: the freshly earned badge lives on the
+              Progress page — link there instead of dead-ending at dismiss. */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: reduceMotion ? 0 : 0.4 + badges.length * 0.18 }}
+          >
+            <Link
+              href="/progress"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className="mt-4 inline-block px-4 py-2 text-sm font-black text-muted-foreground transition-colors hover:text-foreground"
+            >
+              See progress
+            </Link>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

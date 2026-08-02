@@ -402,11 +402,9 @@ function AppRouter() {
           <Account />
         </Guard>
       </Route>
-      <Route path="/contact">
-        <Guard>
-          <Contact />
-        </Guard>
-      </Route>
+      {/* Public: the /privacy and /terms pages link signed-out readers here.
+          The API route is likewise mounted before requireAuth. */}
+      <Route path="/contact" component={Contact} />
       <Route path="/account/subscription">
         <Guard>
           <Subscription />
