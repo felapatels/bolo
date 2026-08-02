@@ -1,0 +1,33 @@
+TASK: Chunk 4B: zone test-out web entry + verdict. One commit to main.
+
+HARD RULE, READ FIRST: ZERO git commits before the owner's approval message arrives in this pane. You produce ONE report, then STOP. If you find yourself having committed anything, stop everything and report that fact first.
+
+SESSION RULES (binding):
+1. Web only: artifacts/gujarati-coach. Do NOT touch artifacts/api-server, artifacts/bolo-mobile, lib/, or any schema, migration, or openapi file. The server side shipped in 8cf0d2f/97c82da and is authoritative.
+2. This is a parameterization task, not a redesign. The existing practice test-out mode (mode=testout) is the flow; zone test-out reuses it with a different data source. Do not fork the recorder, the verdict screen, or the persistence-suppression logic.
+3. Any divergence from the items below appears in the report under a DEVIATIONS heading with a one-line rationale each. Unlabeled divergence is a violation even when the change is good.
+4. No Suggested or draft task cards. No em dashes anywhere: code, comments, copy, or reports.
+5. No new test files, no browser probe scripts, no speculative tests. Testing is governed solely by the GATE section.
+
+STEP 0 (verify, do not explore; fold confirmations into the end report; any miss = hard stop and report only the miss):
+A. The web practice page's testout branch exists: confirm the file path and the four reuse points: phrase source swap on mode=testout, per-phrase persistence suppression, one-take (retry controls hidden), verdict driven off the submit mutation with resubmit reusing collected tokens.
+B. The generated client (lib/api-client-react) exports zone functions from the 4A codegen: the GET for /zones/{categoryId}/test-out/{lang} and the POST for /zones/{categoryId}/test-out (names approximately getZoneTestout / submitZoneTestout; confirm exact exported names and signatures). Read-only confirmation; lib/ stays untouched.
+C. The ZonePostcard component file exists in gujarati-coach, and the component that renders the progression-lock dialog (the lesson_group_locked handler offering stop-level test-out) exists; confirm both file paths.
+D. The react-query key shapes used by (i) the category lesson-group listing and (ii) group phrases, so invalidation in item 1 targets real keys. Quote them in the report.
+
+ITEM 1: Zone scope on the practice testout flow.
+Accept scope=zone alongside mode=testout on the practice route (stop-level keeps using group=<id>; zone-level uses the route's category id plus scope=zone, no group param). When scope=zone:
+- Phrase source: the zone GET from Step 0 B, with the current language as the path segment. Envelope is identical ({ phrases, sampleSize, requiredCorrect }); feed it through the exact same code path the group testout envelope uses, including the shared error seam so 402 renders the existing UpgradeScreen unchanged.
+- Submit: the zone POST from Step 0 B with body { languageCode, attempts: [{ phraseId, evaluationToken }] }, from the same collected-token ref. Verdict screen, pending/pass/fail/error-with-resubmit states, and resubmit-reuses-tokens behavior identical to stop-level.
+- Fail path: return to the journey via back-navigation, never an in-place session reset (established trap).
+- Pass path: before navigating back, invalidate (a) the category lesson-group listing query for this category and language, and (b) group-phrases queries for the zone's member groups (prefix invalidation of the group-phrases key family is acceptable if per-group targeting is awkward; state which you did). The returning map must show unlocked stops with Express stamps from the fresh listing.
+- 403 handling: if either zone call returns { error: "zone_locked" }, render the shared error state with copy: "Finish the previous zone first, or test out of it." then back-navigation. No new screen.
+
+ITEM 2: Entry point on the progression-lock dialog.
+Add a second action to the existing dialog, below the stop-level option, navigating to the practice route with mode=testout&scope=zone for the dialog's category. Exact strings:
+- Action label: "Test out of this whole zone"
+- Supporting line: "One phrase from each stop. Pass to unlock everything here."
+Stop-level action, layout, and all existing copy unchanged.
+
+ITEM 3: Entry point on the ZonePostcard.
+Render a zone test-out affordance on a postcard only when its zone is gate-locked: every group in the zone has status locked and none of them is planLocked. (Pre-flip this state cannot occur, so the affordance is dormant by construction; it activates when

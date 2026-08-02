@@ -1,0 +1,21 @@
+TASK: Read-only file retrieval for spec drafting. ZERO edits, ZERO commits, no typecheck, no tests, no suite runs. The working tree must be byte-identical when you finish. No Suggested or draft task cards. No em dashes anywhere.
+
+Retrieve and paste the following, VERBATIM and IN FULL, each in a fenced code block preceded by its exact file path. No summaries, no analysis, no commentary, no truncation, no "contents omitted for brevity". If a named item cannot be found with the stated search, report the search you ran and list the nearest candidate paths instead; do not explore beyond that.
+
+1. GATE BRIEF: the file in attached_assets/ whose name begins "Pasted-BRIEF-Cross-zone-progression-gate". Full contents.
+
+2. SCHEMA INVENTORY: the output of listing all filenames in lib/db/src/schema/ (names only, one per line).
+
+3. TEST-OUT LATCH TABLE: grep lib/db/src/schema/ for "testedOut" or "tested_out"; paste the full contents of each matching table file.
+
+4. THROTTLE OR ATTEMPT-LOG TABLE: the schema file(s) in lib/db/src/schema/ that back the stop-level test-out rate limit (max 3 per rolling hour) or its attempt log. Find via the imports of the route file in item 5 if grep is ambiguous. Full contents of each.
+
+5. STOP-LEVEL TEST-OUT ROUTES: grep the api-server source for "test-out" and "testout"; paste the full contents of each route file containing those handlers, plus the full contents of any imported helper module that implements the throttle check or the tested_out latch write. Do not paste files that merely mention the strings in comments or tests.
+
+6. CONFIG PATTERN: grep the api-server source for "FREE_LANGUAGE"; paste the full file where it is read into config (or the full section if that file exceeds 300 lines, in which case include the file path and line range).
+
+7. OPENAPI + CODEGEN: state the path of the OpenAPI spec file that lib/api-zod/src/generated is generated from. Paste verbatim the path definitions in that spec for the stop-level test-out endpoints (the GET envelope route and the submit route). Paste the package.json script line(s) that run the codegen.
+
+8. WEB ENTRY SURFACES: paste the full contents of (a) the ZonePostcard component in artifacts/gujarati-coach, and (b) the component that renders the progression-lock dialog, found by grepping artifacts/gujarati-coach/src for "lesson_group_locked" (the component that handles that error and offers test-out; not test files).
+
+REPORT: one single message containing sections numbered 1 through 8 exactly as above, then STOP. You are done after the report. Confirm at the end of the report that no files were modified and nothing was staged.
