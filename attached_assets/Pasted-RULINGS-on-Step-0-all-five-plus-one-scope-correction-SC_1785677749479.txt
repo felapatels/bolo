@@ -1,0 +1,13 @@
+RULINGS on Step 0, all five, plus one scope correction:
+
+SCOPE CORRECTION (policy 3's true meaning): "first stop free in every language" means free callers can PLAY the position-1 group of ANY language, not merely that its rows carry free flags. Implement as a first-stop carve-out in the language gate: for free callers, serving/practice/evaluation of a language's position-1 Greetings group is allowed even when the language is otherwise locked; everything beyond Stop 1 keeps the existing 402 language_locked. The journey listing for a locked language shows Stop 1 open (true plan-visible counts) and Stop 2+ locked-with-upsell; the teaser taste-set remains byte-identical for surfaces that use it. If the carve-out's smallest implementation differs from a per-group check at the gate sites, report the alternative before building.
+
+1. Policy 1: as-is, no change. Free = full Hindi tier only; no hi-plus-active-language expansion. The carve-out above gives every language its Stop 1 toe-hold; Hindi remains the only full-zone free line.
+2. Policy 3 reading: STRICT. Flip all 37 rows so every language's first stop is fully free (10/10 where 10 exist; ml's 0 confirms it needs nothing). The first stop is the product's calling card; 1-2 premium stragglers in it are seed accidents.
+3. Sentence-gate carve-out: APPROVED as you specified: premium-filter cached sentence serving like phrases (feature gate stays for generation and premium rows), drop the web client's stage-based boarding-pass skip in favor of planLocked, and check mobile's journey surfaces for the same stage-skip in this pass.
+4. Data path: BOTH: dev migration (generated, reversible) plus the idempotent seeder reconciliation so production converges on publish. The seeder is authoritative for prod; the migration keeps dev truthful now.
+5. Mobile parity: IN SCOPE for the client-side pieces this touches (boarding-pass derivation, stage-skip, locked-language listing rendering); the server changes flip for all clients regardless, so shipping web-only would desync mobile by design.
+
+PINS (in addition to the brief's originals): free caller plays a locked language's Stop 1 end-to-end (serve + evaluate) and 402s on its Stop 2; hi Zone 1 stops 5-9 serve premium-filtered to free and the map agrees (no unlocked-but-402 desync); teaser byte-identity; strict-flip leaves no premium rows in any position-1 group.
+Capstone note accepted as report-only: free weekly chat cap applies as designed.
+Gate: typecheck plus targeted tests, no full suite. Report the build, WAIT, commit on my confirm.
