@@ -6,6 +6,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { primeAudioUnlock } from "@/lib/iosAudio";
 import { BandPill, bandFromScore, bandLabel, bandTextClass } from "@/components/ui/band-pill";
 import { BadgesGallery } from "@/components/badges-gallery";
 import { NextBadgeSpotlight } from "@/components/next-badge-spotlight";
@@ -124,6 +125,7 @@ export default function Progress() {
                     {attempt.categoryId != null && attempt.phraseId != null && (
                       <Link
                         href={`/practice/${attempt.categoryId}?phrase=${attempt.phraseId}`}
+                        onClick={primeAudioUnlock}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors self-start"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />

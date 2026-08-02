@@ -9,10 +9,14 @@
 // starts a practice session, e.g. station tap / topic tap / Start button),
 // BEFORE navigation. It plays a silent buffer inside the gesture, which
 // unlocks subsequent programmatic playback (the first coach phrase).
-let audioUnlocked = false;
+//
+// Re-primes on EVERY call, deliberately no once-flag: iOS can deactivate the
+// page's audio session between practice sessions (e.g. after the last clip
+// of a lesson finishes), so a re-entry gesture must replay the silent buffer
+// or the first coach autoplay on back-navigation rejects. The context is
+// closed right after the one-sample buffer, so repeated calls stay ~free.
 
 export function primeAudioUnlock(): void {
-  if (audioUnlocked) return;
   try {
     const Ctor =
       window.AudioContext ??
@@ -30,7 +34,6 @@ export function primeAudioUnlock(): void {
     src.onended = () => {
       void ctx.close();
     };
-    audioUnlocked = true;
   } catch {
     // Best effort; the tap-to-hear affordance remains the fallback.
   }
