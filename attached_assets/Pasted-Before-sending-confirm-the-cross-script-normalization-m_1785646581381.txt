@@ -1,0 +1,32 @@
+Before sending: confirm the cross-script normalization module and INTEGRATION-MANIFEST are uploaded to the workspace (from bolo-prebuilt-package.zip). Then paste:
+
+TASK: Chunk 2 Stage A. Two parts: A1 integrates the pre-built cross-script normalization module into transcript matching, A2 adds nocatch cause diagnostics for allowlisted accounts. One gate at the end, one commit. Stage B (scoring v2 promotion gate) is rejected and struck; nothing in this task references or prepares for it beyond what already exists. Do not touch band thresholds, the global 92 cap, capture mode UI, or the calibration harness.
+
+PRE-WORK EXISTS, CONSUME IT, DO NOT RE-DERIVE: I have uploaded the pre-built cross-script normalization module to the workspace. Read it and the INTEGRATION-MANIFEST first. The manifest is authoritative for the module's intended integration points and for what belongs to Chunk 2 Stage A. If the manifest lists a Stage A item this paste does not cover, report it in Step 0 and wait for my ruling on that item only. Do not rewrite the module; integrate it as-is. If integration genuinely requires a change to the module itself, report the exact change and reason in Step 0 and wait.
+
+STEP 0, REPORT FIRST, DO NOT EDIT YET. Report in a numbered list:
+
+Confirm the module file is present and readable; state its path, exported functions, and which languages/scripts it covers per its own documentation.
+Locate every place transcript comparison or match acceptance happens in the scoring path (server-side), with file paths and line references: where the STT transcript is compared against the expected phrase, where dual-pass results are reconciled, and where a nocatch (no usable match) is decided.
+Report what normalization exists there today (case folding, punctuation stripping, transliteration, anything) so we know what the module replaces versus adds.
+Report where the module should be called per the manifest, and whether any current normalization must be removed to avoid double-normalizing.
+For A2: locate where a nocatch outcome is finalized server-side, whether the raw STT transcripts (both passes), the expected phrase, the language, and any confidence values are all in scope at that point, and where the capture-mode allowlist check (the two owner dev IDs) is implemented so the same mechanism can gate A2.
+Report the current api test baseline (canonical 700 after capture-mode tests) and confirm it passes before you begin. If the pilot-capture test fails solely due to the documented PILOT_CAPTURE_USER_IDS env trap in .replit, state that explicitly and treat the baseline as otherwise green.
+Then STOP and wait for my confirmation before building.
+
+PART A1, CROSS-SCRIPT NORMALIZATION: Integrate the module at the match points identified in Step 0 so that transcript-versus-expected comparison is script-robust (native script and romanized forms of the same utterance match equivalently) per the module's design. Rules:
+
+Normalization applies to comparison only. Never mutate what is stored, displayed, or sent to the client; raw transcripts stay raw everywhere except inside the match decision.
+Remove superseded ad hoc normalization at those points per your Step 0 item 4 finding, so there is exactly one normalization path.
+Scoring semantics are otherwise unchanged: this can only convert false nocatches and false mismatches into correct matches; it must not change how scores are computed for attempts that already matched. State in the done report how you satisfied yourself of that (targeted tests on touched files while building are expected; the full gate stays at the end).
+Languages the module does not cover pass through unchanged; no fallback improvisation.
+
+PART A2, NOCATCH CAUSE DIAGNOSTICS: For allowlisted accounts only (the same two owner dev IDs, reusing the existing allowlist mechanism, not a new list), when an attempt finalizes as a nocatch, write a diagnostic sidecar capturing: timestamp, user ID, language, expected phrase, both raw STT pass transcripts, both normalized forms as the matcher saw them, any confidence values in scope, and a cause classification per what the code can determine (for example: empty audio, no transcript from either pass, transcripts present but no match after normalization). Rules:
+
+Write sidecars to the same R2 destination pattern as the capture infrastructure, under a distinct prefix (nocatch-diagnostics/), never into the repo. Reuse the existing R2 client and the WHEN_REQUIRED checksum fix; do not build a second client.
+Fail open: a sidecar write failure must never affect the user-facing scoring result or add user-visible latency. Fire-and-forget with error logging.
+Non-allowlisted accounts: zero behavior change, zero writes, and the check must short-circuit before any diagnostic payload is assembled.
+No analysis code, no dashboards, no reports. Analysis happens later on my command as a separate read-only task.
+Add targeted tests: allowlisted nocatch writes a sidecar with the expected fields; non-allowlisted nocatch writes nothing; sidecar write failure does not alter the scoring response.
+
+GATE, ONE, AT THE END: typecheck clean; full web suite green against baseline 391/55; full api suite green against baseline 700, report new counts for both; one realistic tee probe confirming a nocatch sidecar lands under nocatch-diagnostics/ with correct fields (delete the probe object after); explicit statement of which verifications are device-only or environment-only and were not performed. Then STOP, report done, wait for my confirmation, and commit ONCE with message: "Chunk 2 Stage A: cross-script transcript normalization + allowlisted nocatch diagnostics". Because api-server files changed: after the commit is confirmed and the server restarts, run the mandatory post-restart verification: the live process environ contains the owner allowlist IDs, and one tee probe per the established pattern confirms R2 writes still work, probe deleted after. No suggested or draft task cards. No em dashes anywhere.

@@ -1,0 +1,19 @@
+Do not commit yet; two ruled edits are missing from the report. Diagnosis first, then the paste.
+
+The gap: my last rulings paste (the card 2/4 follow-ups) contained three privacy.tsx items: the mailto swap, the "Your rights" phrase fix, and the Card 4 sharing-section qualifier. The done report shows the mailto swap landed (before/after quoted), but the rights bullet is explicitly reported as left stale "out of scope," and the Card 4 qualifier appears nowhere in "What changed." Either that paste went out before I added those rulings, or the agent applied it partially. Net result if committed as-is: the page tells users to use "the email below" when no email exists below, and the sharing section still makes the unqualified "not retained" claim one screen from the new dual-path disclosure. Both were ruled; both must land in this commit.
+
+PASTE:
+
+Hold the commit. Two ruled edits are absent from your done report; verify whether they were applied, and if not, apply them now inside this same batch:
+
+YOUR RIGHTS BULLET: the phrase referencing "the email below" was ruled in scope, not out. Update it minimally so it points to the contact form instead of an email, for example "using the contact form linked below" (adjust below/above to match actual page order). With no email left on the page, this bullet as it stands is a broken promise, which is exactly the class of defect this batch exists to fix.
+SHARING SECTION QUALIFIER (Card 4, ruled option b): in the "How we share information" speech-scoring provider bullet, replace the sentence "Audio is sent only for scoring and is not retained by us beyond the request." with exactly: "In normal use, audio is sent only for scoring and is not retained by us beyond the request. Recordings made through our invited voice contribution mode are retained as described in Data retention below." Adjust "below" to "above" if the sharing section renders after Data retention.
+
+RULINGS ON YOUR OPEN ITEMS:
+
+Dark-mode contrast pass (manifest item 1): accepted as satisfied by construction since all new surfaces use existing token pairings only. No bespoke check required now; I will eyeball the new error surfaces in dark mode during my own pass. Record it on the deferred list, not as a debt row.
+Deck-unmapped strings: your leave-alone list is approved as-is, including UPGRADE-REQUIRED staying untouched (server-driven shared component, ruling deferred to a later batch). Except the "email below" bullet, which is item 1 above.
+Test baseline: 391/55 is accepted as the new canonical web baseline; the delta predating this batch is noted. Record 391/55 in CODEBASE-FACTS.
+4b: accepted, no change needed, HTMLAudioElement confirmed.
+
+After items 1 and 2 are in: re-run typecheck, re-verify /privacy in the browser (both new sentences present, zero occurrences of "email below", zero email addresses), then report the two before/after sentence pairs and commit with the agreed message and explicit paths. Deferred iOS-device list stands as you wrote it, plus dark-mode eyeball, for my device pass.
