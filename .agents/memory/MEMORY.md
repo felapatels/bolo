@@ -115,4 +115,5 @@
 - [Mobile hold-to-talk guards](mobile-hold-to-talk.md) — re-verify press after EVERY startup await, abort-not-submit, 300ms min duration, pre-warm never prompts; Date.now-spy jest pattern.
 - [Floating pill phantom-bar](floating-pill-phantom-bar.md) — "bar peeking under tab bar" = the screen's own scroll content behind the pill; fix is an in-screen bottom fade mask.
 - [Token replay across deploys](token-replay-across-deploys.md) — signed eval tokens outlive deploys by TTL; enforce score policy at verify time too; NULL dual-pass columns fingerprint pre-respin tokens.
+- [gpt-audio grading quirks](gpt-audio-grading-quirks.md) — input_audio is wav/mp3 ONLY (webm 400s); proxy 429s under burst (concurrency 2 + backoff); ~2% clips permanently refused as "no audio", pad 0.4s silence first.
 - [Pilot corpus label protocol](pilot-corpus-protocol.md) — clip labels = attempt order per (user,phrase): native, american_accent, subtle_error, wrong_attempt; R2-only, never commit recordings.

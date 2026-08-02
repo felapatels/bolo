@@ -20,3 +20,5 @@ Do NOT use the v2 spec's generic names (mild_accent/heavy_accent) — American I
 **Storage rule (ratified):** recordings live in R2 only, NEVER committed to the repo; local caches gitignored.
 
 **Why:** for pre-capture-mode clips, labels reconstruct solely from attempt order — nothing in those sidecars encodes the clip type, so this protocol fact is unrecoverable if lost. Capture-mode clips carry explicit labels and don't depend on it.
+
+**Harvest outcome (2026-08-02, Round 1):** 237 labeled clips (197 explicit, 40 order-reconstructed), gu/hi/mr; the owner-flagged fumbled quads surfaced as 2-member groups (not the predicted 3) — match discards on (user, language, normalized romanization), not group size. Tools: `qa/harvest-pilot-corpus.mjs` → `qa/pilot-results/manifest.json` (gitignored), `qa/calibrate-promotion-gate.mjs` (resume-safe JSONL, retryable failures).
