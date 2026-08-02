@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PronunciationInputCaptureLabel } from './pronunciationInputCaptureLabel';
 
 export interface PronunciationInput {
   /**
@@ -22,4 +23,12 @@ export interface PronunciationInput {
   mimeType?: string;
   /** Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard. */
   latencyMs?: number | null;
+  /** TEMPORARY (pilot capture mode): the capture protocol label for this attempt. Recorded in the R2 tee sidecar for allowlisted capture users; ignored for everyone else. Remove with capture mode once the calibration corpus is complete. */
+  captureLabel?: PronunciationInputCaptureLabel;
+  /**
+     * TEMPORARY (pilot capture mode): which of the four protocol attempts this is (1-4). Recorded in the sidecar alongside captureLabel.
+     * @minimum 1
+     * @maximum 4
+     */
+  captureAttemptOfFour?: number;
 }

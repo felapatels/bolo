@@ -49,6 +49,66 @@ export interface TeeAudioOptions {
   targetRomanized: string;
   transcript: string;
   score: number;
+  /**
+   * TEMPORARY (capture mode, BRIEF 32.1 respin): when the attempt was made in
+   * the web practice page's ?mode=capture flow, the explicit protocol label
+   * and attempt position land in the sidecar so the harvest reads labels
+   * directly (order-reconstruction becomes the fallback, not the mechanism).
+   * Remove with capture mode once the calibration corpus is complete.
+   */
+  capture?: {
+    label: "native" | "american_accent" | "subtle_error" | "wrong_attempt";
+    attemptOfFour: number;
+  };
+}
+
+/** True when the userId is in the PILOT_CAPTURE_USER_IDS allowlist. */
+export function isPilotCaptureUser(userId: string): boolean {
+  return _pilotCaptureUserIds.has(userId);
+}
+
+// TEMPORARY (capture mode): the most recent capture-mode sidecar per user,
+// kept in memory so "redo this attempt" can mark it discarded. Single-process
+// dev-only scaffolding — a restart forgets it (acceptable: redo is for
+// immediate fumbles). Only capture-mode uploads are tracked.
+const lastCaptureSidecarByUser = new Map<
+  string,
+  { sidecarKey: string; sidecar: Record<string, unknown> }
+>();
+
+/**
+ * TEMPORARY (capture mode): rewrite the caller's most recent capture-mode
+ * sidecar with discarded=true so the harvest skips that clip. Returns false
+ * when there is nothing to discard or the rewrite fails (logged, never
+ * thrown).
+ */
+export async function discardLastCapture(userId: string): Promise<boolean> {
+  const entry = lastCaptureSidecarByUser.get(userId);
+  if (!entry) return false;
+  const r2 = getR2Client();
+  if (!r2) return false;
+  try {
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: entry.sidecarKey,
+        Body: Buffer.from(
+          JSON.stringify({ ...entry.sidecar, discarded: true }),
+          "utf-8",
+        ),
+        ContentType: "application/json",
+      }),
+    );
+    lastCaptureSidecarByUser.delete(userId);
+    console.log(`[pilot-capture] sidecar ${entry.sidecarKey} marked discarded`);
+    return true;
+  } catch (err) {
+    console.error(
+      `[pilot-capture] FAILED to mark sidecar ${entry.sidecarKey} discarded:`,
+      err,
+    );
+    return false;
+  }
 }
 
 /**
@@ -79,7 +139,7 @@ export async function teeAudioToPilot(
 
   const bucket = process.env.R2_BUCKET_NAME!;
   const clipId = crypto.randomUUID();
-  const { userId, languageCode, phraseId, targetNative, targetRomanized, transcript, score } = opts;
+  const { userId, languageCode, phraseId, targetNative, targetRomanized, transcript, score, capture } = opts;
 
   const clipKey = `pilot-clips/${languageCode}/${clipId}.m4a`;
   const sidecarKey = `pilot-clips/${languageCode}/${clipId}.json`;
@@ -98,6 +158,13 @@ export async function teeAudioToPilot(
   // No band values in the sidecar (band is a display layer with provisional
   // thresholds; it must not enter the pilot's data — see task spec).
 
+  // TEMPORARY (capture mode): explicit protocol labels in the sidecar.
+  if (capture) {
+    sidecar.label = capture.label;
+    sidecar.captureMode = true;
+    sidecar.attemptOfFour = capture.attemptOfFour;
+  }
+
   try {
     await r2.send(
       new PutObjectCommand({
@@ -115,6 +182,10 @@ export async function teeAudioToPilot(
         ContentType: "application/json",
       }),
     );
+    // TEMPORARY (capture mode): remember the sidecar so a redo can discard it.
+    if (capture) {
+      lastCaptureSidecarByUser.set(userId, { sidecarKey, sidecar });
+    }
     // Success is logged with the clip key so a capture session can be
     // verified from server logs alone (and each clip located in R2).
     uploadSuccessCount++;

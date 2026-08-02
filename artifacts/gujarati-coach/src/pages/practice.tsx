@@ -25,7 +25,14 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+// TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
+// with the ?mode=capture scaffolding once the calibration corpus is complete.
+import {
+  useGetPilotCaptureEligibility,
+  getGetPilotCaptureEligibilityQueryKey,
+  useDiscardLastPilotCapture,
+} from "@workspace/api-client-react";
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { springs, SoundWavePulse } from "@/lib/motion";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
@@ -53,7 +60,25 @@ import { XpArc } from "@/components/XpArc";
 import { CountUp } from "@/components/ui/count-up";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
-type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare";
+type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare" | "capture_saved";
+
+// ── TEMPORARY capture mode (BRIEF 32.1 respin) ──────────────────────────────
+// The pilot corpus protocol, made explicit: each phrase gets exactly 4
+// attempts in this fixed order, and the banner states the current
+// expectation. The labels are recorded verbatim in the R2 tee sidecar so the
+// harvest reads them directly (attempt-order reconstruction is the fallback).
+// Remove with the rest of the capture-mode scaffolding after the calibration
+// corpus is complete.
+const CAPTURE_STEPS = [
+  {
+    label: "native",
+    title: "YOUR BEST PRONUNCIATION",
+    note: "Not your language? Listen to the coach first, then give it your best.",
+  },
+  { label: "american_accent", title: "DELIBERATE AMERICAN ACCENT", note: null },
+  { label: "subtle_error", title: "SUBTLE ERROR: change the final vowel", note: null },
+  { label: "wrong_attempt", title: "WRONG WORD: say a completely different word", note: null },
+] as const;
 
 // How long the result-speak sequence waits for feedback synthesis before
 // degrading to band-clip-only (Task 903). The result card never blocks.
@@ -146,6 +171,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // over the server's sampled phrase set; per-phrase attempts are NOT saved.
   // The batch of evaluation tokens is judged in one shot at the end.
   const isTestout = isGroup && searchParams.get("mode") === "testout";
+  // TEMPORARY capture mode: ?mode=capture, allowlisted users only (the server
+  // checks PILOT_CAPTURE_USER_IDS). Anyone else with the param gets a normal
+  // session — the flag never activates without a server-confirmed yes.
+  const captureRequested = !isReview && !isTestout && searchParams.get("mode") === "capture";
+  const captureEligibility = useGetPilotCaptureEligibility({
+    query: {
+      enabled: captureRequested,
+      queryKey: getGetPilotCaptureEligibilityQueryKey(),
+    },
+  });
+  const isCapture = captureRequested && captureEligibility.data?.eligible === true;
   // Polish mode: only practice sub-top-band phrases (POLISH_ENABLED flag required).
   // phraseIds=<csv> overrides which phrases to run; polish=1 computes the sub-top
   // set client-side from the bestBand field the server now returns per phrase.
@@ -279,6 +315,28 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Server-signed evaluation tokens collected during a test-out run, keyed by
   // phrase id (a retaken phrase would overwrite, but test-out has no retakes).
   const testoutTokensRef = useRef<Record<number, string>>({});
+
+  // TEMPORARY capture mode state: which of the 4 protocol attempts is next
+  // (0-based), the last saved attempt (for "redo"), and the auto-advance
+  // timer. Refs mirror values that finishRecording's useCallback closure
+  // must read fresh.
+  const [captureStep, setCaptureStep] = useState(0);
+  const captureStepRef = useRef(0);
+  const setCaptureStepBoth = (n: number) => {
+    captureStepRef.current = n;
+    setCaptureStep(n);
+  };
+  const isCaptureRef = useRef(isCapture);
+  isCaptureRef.current = isCapture;
+  const [lastCapture, setLastCapture] = useState<{ phraseId: number; step: number } | null>(null);
+  const captureAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (captureAdvanceTimerRef.current) clearTimeout(captureAdvanceTimerRef.current);
+  }, []);
+  // finishRecording's timer reaches handleNext through this ref because
+  // handleNext is redefined per render (it is not a useCallback).
+  const handleNextRef = useRef<(() => void) | null>(null);
+  const discardLastCaptureMutation = useDiscardLastPilotCapture();
   const recorder = useVoiceRecorder();
   
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -770,13 +828,45 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           targetEnglish: phrase!.english,
           languageName: activeLanguage?.name,
           audioBase64,
-          mimeType: blob.type
+          mimeType: blob.type,
+          // TEMPORARY capture mode: explicit protocol label for the tee
+          // sidecar. The server ignores these fields for non-allowlisted
+          // users, so they are inert outside the pilot.
+          ...(isCaptureRef.current
+            ? {
+                captureLabel: CAPTURE_STEPS[captureStepRef.current]!.label,
+                captureAttemptOfFour: captureStepRef.current + 1,
+              }
+            : {}),
         }
       });
       // Normalize defensively: a stale/mixed-version server may still emit
       // legacy band names, which would leave the ladder with no highlighted
       // rung and fall through every band branch below.
       const evalRes = { ...evalRaw, band: normalizeBand(evalRaw.band, evalRaw.score) };
+
+      // TEMPORARY capture mode: the pipeline above (real STT, real scoring,
+      // real tee) ran UNCHANGED — only the display and progress writes are
+      // suppressed. No result card, no cues/confetti/XP, and no
+      // createAttempt below (so no XP and no lesson progress). A brief
+      // "attempt N saved" confirmation shows, then the protocol advances
+      // automatically: next expectation, or next phrase after attempt 4.
+      if (isCaptureRef.current) {
+        const step = captureStepRef.current;
+        setLastCapture({ phraseId: phrase!.id, step });
+        setState("capture_saved");
+        if (captureAdvanceTimerRef.current) clearTimeout(captureAdvanceTimerRef.current);
+        captureAdvanceTimerRef.current = setTimeout(() => {
+          if (step < CAPTURE_STEPS.length - 1) {
+            setCaptureStepBoth(step + 1);
+            setState("idle");
+          } else {
+            setCaptureStepBoth(0);
+            handleNextRef.current?.();
+          }
+        }, 900);
+        return;
+      }
 
       setResult({
         band: evalRes.band,
@@ -1090,6 +1180,28 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       });
       setState("summary");
     }
+  };
+
+  // TEMPORARY capture mode: keep the ref pointing at this render's handleNext
+  // so the auto-advance timer never calls a stale closure.
+  handleNextRef.current = handleNext;
+
+  // TEMPORARY capture mode: "redo this attempt" for genuine fumbles — marks
+  // the just-saved clip discarded in its sidecar, then repeats the SAME
+  // expectation. Steps back even when the server had nothing to discard
+  // (e.g. a restart forgot its in-memory pointer): the tester still redoes
+  // the take, and the harvest prefers explicit labels over order anyway.
+  const handleCaptureRedo = () => {
+    if (!lastCapture || !phrases) return;
+    discardLastCaptureMutation.mutate(undefined, {
+      onSettled: () => {
+        const idx = phrases.findIndex((p) => p.id === lastCapture.phraseId);
+        if (idx >= 0 && idx !== currentIndex) setCurrentIndex(idx);
+        setCaptureStepBoth(lastCapture.step);
+        setLastCapture(null);
+        setState("idle");
+      },
+    });
   };
 
   const handleRetry = () => {
@@ -1664,6 +1776,38 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </div>
         )}
 
+        {/* ── TEMPORARY capture mode: persistent protocol banner. (The
+               summary screen early-returns above, so this renders for every
+               in-session state.) ───────────────────────────────────────────── */}
+        {isCapture && (
+          <div
+            data-testid="capture-banner"
+            className="mb-2 shrink-0 rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-center"
+          >
+            <p className="text-[11px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              Capture mode — attempt {captureStep + 1} of 4
+            </p>
+            <p className="mt-0.5 text-sm font-black text-foreground leading-snug">
+              {CAPTURE_STEPS[captureStep]!.title}
+            </p>
+            {CAPTURE_STEPS[captureStep]!.note && (
+              <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
+                {CAPTURE_STEPS[captureStep]!.note}
+              </p>
+            )}
+            {lastCapture && state === "idle" && (
+              <button
+                onClick={handleCaptureRedo}
+                disabled={discardLastCaptureMutation.isPending}
+                data-testid="button-capture-redo"
+                className="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300 underline underline-offset-2 disabled:opacity-50"
+              >
+                Redo previous attempt
+              </button>
+            )}
+          </div>
+        )}
+
         {/* ── Approximate-feedback notice (degraded languages, spec 1) ────── */}
         <AnimatePresence>
           {showApproxNotice && (
@@ -1892,8 +2036,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 shift. Edge phrases disable their button; recording and
                 evaluating disable both. Hidden in test-out mode (one take per
                 phrase, forward only). Rendered after the belly hit zone so
-                they sit above it in the stacking order. */}
-            {!isTestout && (
+                they sit above it in the stacking order. Also hidden in
+                capture mode: free navigation would desync the 4-attempt
+                protocol position. */}
+            {!isTestout && !isCapture && (
               <>
                 <button
                   type="button"
@@ -2022,6 +2168,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             </AnimatePresence>
           </div>
         </div>
+
+        {/* ── TEMPORARY capture mode: brief save confirmation (no scores,
+               no bands, no feedback — display is suppressed by design) ───── */}
+        {state === "capture_saved" && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={springs.snappy}
+            data-testid="capture-saved"
+            className="shrink-0 mt-2 bg-card rounded-2xl p-4 border border-card-border shadow-sm text-center"
+          >
+            <Check className="w-8 h-8 mx-auto text-secondary" />
+            <p className="mt-1 font-black text-foreground">Attempt {captureStep + 1} saved</p>
+          </motion.div>
+        )}
 
         {/* ── Compare panel: ear-training playback + advance (spec 2) ───── */}
         {state === "compare" && (
@@ -2177,31 +2338,46 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 >
                   <RefreshCcw className="w-5 h-5" /> Record again
                 </button>
-              ) : (
-                /* ONE constant action row for every band (capture-protocol
-                   mis-tap fix): the retry control is ALWAYS the bordered
-                   secondary on the LEFT and Next is ALWAYS the filled primary
-                   on the RIGHT — identical position, size, and treatment
-                   regardless of band or attempt count. The old retry-band
-                   branch swapped both position and primacy, so learners
-                   tapping the accustomed Retry slot advanced by accident.
-                   Retry-band encouragement is copy-only now ("Try again"
-                   label plus the shake above), never a layout mutation. */
+              ) : state === "result" && result?.band === "retry" && !isTestout ? (
+                /* Retry band (batch 1 addendum, mobile parity): another take is
+                   the productive default, so "Try again" gets the primary
+                   treatment and "Next phrase" drops to a quieter bordered
+                   secondary. Hard evaluation failures (state "error" above)
+                   keep their own "Record again" primary. (The capture-session
+                   mis-tap concern is handled by capture mode, which never
+                   shows this card at all.) */
                 <div className="flex gap-3">
-                  {/* Test-out is one take per phrase: no retry, only forward. */}
+                  <button
+                    onClick={handleNext}
+                    className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    Next phrase <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleRetry}
+                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+                  >
+                    <RefreshCcw className="w-5 h-5" /> Try again
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  {/* Test-out is one take per phrase: no retry, only forward.
+                      (The retry-band branch above is also bypassed in
+                      test-out mode for the same reason.) */}
                   {!isTestout && (
-                    <button
+                    <button 
                       onClick={handleRetry}
                       className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                     >
-                      <RefreshCcw className="w-5 h-5" /> {result?.band === "retry" ? "Try again" : "Retry"}
+                      <RefreshCcw className="w-5 h-5" /> Retry
                     </button>
                   )}
                   <button 
                     onClick={handleNext}
                     className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
                   >
-                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : result?.band === "retry" ? "Next phrase" : "Next"} <ArrowRight className="w-5 h-5" />
+                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : "Next"} <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               )}

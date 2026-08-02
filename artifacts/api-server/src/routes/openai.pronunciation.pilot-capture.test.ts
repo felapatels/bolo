@@ -18,7 +18,7 @@
 //   openai.pronunciation.language-hint.test.ts      9
 //   openai.pronunciation.sibling-cache.test.ts      6
 //   TOTAL before                                   34
-//   + 3 new tests here                             37 total
+//   + 4 tests here (3 original + capture labels)   38 total
 
 import { test, before, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -166,6 +166,11 @@ test("pilot-capture: listed userId → PutObjectCommand called twice with correc
     const sidecarJson = JSON.parse((sidecarCall!.Body as Buffer).toString("utf-8"));
     assert.equal(sidecarJson.score, 88, "sidecar must include score");
     assert.ok(!("band" in sidecarJson), "sidecar must NOT contain a band field");
+    // Non-capture attempts must not carry capture-mode fields.
+    assert.ok(
+      !("label" in sidecarJson) && !("captureMode" in sidecarJson) && !("attemptOfFour" in sidecarJson),
+      "non-capture sidecars must not carry capture-mode fields",
+    );
     assert.equal(sidecarJson.userId, TEST_USER);
     assert.equal(sidecarJson.languageCode, "gu");
     assert.equal(sidecarJson.phraseId, 7);
@@ -178,6 +183,57 @@ test("pilot-capture: listed userId → PutObjectCommand called twice with correc
       "sidecar must have a timestamp string");
   } finally {
     // Always clean up so other tests in this file are not affected.
+    pilotCaptureUserIds.delete(TEST_USER);
+  }
+});
+
+test("pilot-capture: capture-mode labels land in the sidecar; discardLastCapture rewrites it", async () => {
+  // TEMPORARY (capture mode, BRIEF 32.1 respin): the web practice page's
+  // ?mode=capture flow sends explicit protocol labels; they must land in the
+  // sidecar verbatim so the harvest reads labels directly. The "redo this
+  // attempt" affordance rewrites the SAME sidecar with discarded=true.
+  const { teeAudioToPilot, pilotCaptureUserIds, discardLastCapture } = await import("../lib/pilotCapture");
+  const { _resetR2ClientForTest } = await import("../lib/r2Client");
+  _resetR2ClientForTest();
+
+  const TEST_USER = "user_pilot_capture_label";
+  pilotCaptureUserIds.add(TEST_USER);
+  try {
+    resetSendState();
+
+    await teeAudioToPilot(Buffer.from("labelled-audio"), {
+      userId: TEST_USER,
+      languageCode: "gu",
+      phraseId: 9,
+      targetNative: "પાણી",
+      targetRomanized: "paani",
+      transcript: "pani",
+      score: 72,
+      capture: { label: "subtle_error", attemptOfFour: 3 },
+    });
+
+    assert.equal(sendCallCount, 2, "clip + sidecar uploads expected");
+    const sidecarCall = sendCalls[1]!;
+    const sidecarJson = JSON.parse((sidecarCall.Body as Buffer).toString("utf-8"));
+    assert.equal(sidecarJson.label, "subtle_error", "sidecar must carry the explicit protocol label");
+    assert.equal(sidecarJson.captureMode, true, "sidecar must be flagged captureMode");
+    assert.equal(sidecarJson.attemptOfFour, 3, "sidecar must carry the attempt position");
+    assert.ok(!("band" in sidecarJson), "capture sidecars must still NOT contain a band field");
+    assert.ok(!("discarded" in sidecarJson), "a fresh sidecar must not be pre-discarded");
+
+    // Redo: the most recent capture sidecar is rewritten with discarded=true.
+    const discarded = await discardLastCapture(TEST_USER);
+    assert.equal(discarded, true, "discardLastCapture must report success");
+    assert.equal(sendCallCount, 3, "discard must issue exactly one more PutObject");
+    const rewrite = sendCalls[2]!;
+    assert.equal(rewrite.Key, sidecarCall.Key, "discard must rewrite the SAME sidecar key");
+    const rewriteJson = JSON.parse((rewrite.Body as Buffer).toString("utf-8"));
+    assert.equal(rewriteJson.discarded, true, "rewritten sidecar must be marked discarded");
+    assert.equal(rewriteJson.label, "subtle_error", "rewritten sidecar must keep its label");
+
+    // A second discard has nothing left to discard.
+    assert.equal(await discardLastCapture(TEST_USER), false, "second discard must be a no-op");
+  } finally {
     pilotCaptureUserIds.delete(TEST_USER);
   }
 });

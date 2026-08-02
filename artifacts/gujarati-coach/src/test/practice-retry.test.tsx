@@ -241,24 +241,19 @@ describe("web practice retry", () => {
     await waitFor(() => expect(screen.queryByText(/Score:/)).not.toBeInTheDocument());
   });
 
-  test("retry band keeps the identical layout: retry secondary LEFT, Next primary RIGHT", async () => {
-    // Capture-protocol mis-tap fix: the action row is IDENTICAL for every
-    // band and attempt count. On band "retry" the retry control keeps its
-    // left slot and bordered-secondary treatment (the encouragement is
-    // copy-only: the "Try again" label plus the shake), and "Next phrase"
-    // keeps the filled primary on the right — Next never occupies Retry's
-    // position.
+  test("retry band flips the CTA emphasis: Try again primary, Next phrase secondary", async () => {
+    // Batch 1 addendum (web CTA parity with mobile): on band "retry" another
+    // take is the productive default, so "Try again" carries the filled
+    // primary treatment and "Next phrase" drops to the bordered secondary.
+    // (The capture protocol's mis-tap concern is handled by capture mode,
+    // which never renders this card — the flip stays for normal learners.)
     await driveToResult();
 
     const tryAgainBtn = screen.getByRole("button", { name: "Try again" });
     const nextPhraseBtn = screen.getByRole("button", { name: "Next phrase" });
-    expect(tryAgainBtn.className).toContain("border-border");
-    expect(tryAgainBtn.className).not.toContain("bg-primary");
-    expect(nextPhraseBtn.className).toContain("bg-primary");
-    // Retry renders BEFORE Next in the row (left slot), same as every band.
-    expect(
-      tryAgainBtn.compareDocumentPosition(nextPhraseBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(tryAgainBtn.className).toContain("bg-primary");
+    expect(nextPhraseBtn.className).toContain("border-border");
+    expect(nextPhraseBtn.className).not.toContain("bg-primary");
   });
 });
 

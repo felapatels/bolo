@@ -1200,6 +1200,8 @@ export const SynthesizeSpeechResponse = zod.object({
  */
 
 
+export const evaluatePronunciationBodyCaptureAttemptOfFourMax = 4;
+
 
 
 export const EvaluatePronunciationBody = zod.object({
@@ -1210,7 +1212,9 @@ export const EvaluatePronunciationBody = zod.object({
   "languageName": zod.string().optional(),
   "audioBase64": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "latencyMs": zod.number().nullish().describe('Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard.')
+  "latencyMs": zod.number().nullish().describe('Client-measured milliseconds between the phrase finishing and the learner tapping Record. When present and < 250 ms the server rejects the attempt as a tap-spam guard.'),
+  "captureLabel": zod.enum(['native', 'american_accent', 'subtle_error', 'wrong_attempt']).optional().describe('TEMPORARY (pilot capture mode): the capture protocol label for this attempt. Recorded in the R2 tee sidecar for allowlisted capture users; ignored for everyone else. Remove with capture mode once the calibration corpus is complete.'),
+  "captureAttemptOfFour": zod.number().min(1).max(evaluatePronunciationBodyCaptureAttemptOfFourMax).optional().describe('TEMPORARY (pilot capture mode): which of the four protocol attempts this is (1-4). Recorded in the sidecar alongside captureLabel.')
 })
 
 export const EvaluatePronunciationResponse = zod.object({
@@ -1224,6 +1228,24 @@ export const EvaluatePronunciationResponse = zod.object({
   "feedback": zod.string(),
   "tip": zod.string(),
   "evaluationToken": zod.string().describe('Server-signed token capturing this evaluation. Pass it to \/attempts to record the attempt with the authoritative score and feedback.')
+})
+
+
+/**
+ * TEMPORARY scaffolding for the pilot calibration corpus: reports whether the signed-in user is in the PILOT_CAPTURE_USER_IDS allowlist. The web practice page only activates ?mode=capture when this returns true. Remove with capture mode.
+ * @summary Whether the caller may use capture mode (TEMPORARY, pilot capture)
+ */
+export const GetPilotCaptureEligibilityResponse = zod.object({
+  "eligible": zod.boolean().describe('True when the caller is in the pilot capture allowlist.')
+})
+
+
+/**
+ * TEMPORARY scaffolding for the pilot calibration corpus: rewrites the sidecar of the caller's most recent capture-mode clip with discarded=true so the harvest skips it (capture mode's "redo this attempt"). Remove with capture mode.
+ * @summary Mark the caller's most recent capture-mode clip discarded (TEMPORARY)
+ */
+export const DiscardLastPilotCaptureResponse = zod.object({
+  "discarded": zod.boolean().describe('True when the caller\'s most recent capture-mode clip was marked discarded in its sidecar; false when there was nothing to discard.')
 })
 
 

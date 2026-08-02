@@ -73,6 +73,8 @@ import type {
   PhraseReportInput,
   PhraseReportResult,
   PhraseRequest,
+  PilotCaptureDiscardResult,
+  PilotCaptureEligibility,
   ProgressAnalytics,
   ProgressSummary,
   PronunciationInput,
@@ -3860,6 +3862,156 @@ export const useEvaluatePronunciation = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getEvaluatePronunciationMutationOptions(options));
+    }
+
+export const getGetPilotCaptureEligibilityUrl = () => {
+
+
+
+
+  return `/api/pilot-capture/eligibility`
+}
+
+/**
+ * TEMPORARY scaffolding for the pilot calibration corpus: reports whether the signed-in user is in the PILOT_CAPTURE_USER_IDS allowlist. The web practice page only activates ?mode=capture when this returns true. Remove with capture mode.
+ * @summary Whether the caller may use capture mode (TEMPORARY, pilot capture)
+ */
+export const getPilotCaptureEligibility = async ( options?: RequestInit): Promise<PilotCaptureEligibility> => {
+
+  return customFetch<PilotCaptureEligibility>(getGetPilotCaptureEligibilityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPilotCaptureEligibilityQueryKey = () => {
+    return [
+    `/api/pilot-capture/eligibility`
+    ] as const;
+    }
+
+
+export const getGetPilotCaptureEligibilityQueryOptions = <TData = Awaited<ReturnType<typeof getPilotCaptureEligibility>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPilotCaptureEligibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPilotCaptureEligibilityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPilotCaptureEligibility>>> = ({ signal }) => getPilotCaptureEligibility({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPilotCaptureEligibility>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPilotCaptureEligibilityQueryResult = NonNullable<Awaited<ReturnType<typeof getPilotCaptureEligibility>>>
+export type GetPilotCaptureEligibilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Whether the caller may use capture mode (TEMPORARY, pilot capture)
+ */
+
+export function useGetPilotCaptureEligibility<TData = Awaited<ReturnType<typeof getPilotCaptureEligibility>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPilotCaptureEligibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPilotCaptureEligibilityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDiscardLastPilotCaptureUrl = () => {
+
+
+
+
+  return `/api/pilot-capture/discard-last`
+}
+
+/**
+ * TEMPORARY scaffolding for the pilot calibration corpus: rewrites the sidecar of the caller's most recent capture-mode clip with discarded=true so the harvest skips it (capture mode's "redo this attempt"). Remove with capture mode.
+ * @summary Mark the caller's most recent capture-mode clip discarded (TEMPORARY)
+ */
+export const discardLastPilotCapture = async ( options?: RequestInit): Promise<PilotCaptureDiscardResult> => {
+
+  return customFetch<PilotCaptureDiscardResult>(getDiscardLastPilotCaptureUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDiscardLastPilotCaptureMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof discardLastPilotCapture>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof discardLastPilotCapture>>, TError,void, TContext> => {
+
+const mutationKey = ['discardLastPilotCapture'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof discardLastPilotCapture>>, void> = () => {
+
+
+          return  discardLastPilotCapture(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DiscardLastPilotCaptureMutationResult = NonNullable<Awaited<ReturnType<typeof discardLastPilotCapture>>>
+
+    export type DiscardLastPilotCaptureMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the caller's most recent capture-mode clip discarded (TEMPORARY)
+ */
+export const useDiscardLastPilotCapture = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof discardLastPilotCapture>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof discardLastPilotCapture>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDiscardLastPilotCaptureMutationOptions(options));
     }
 
 export const getGeneratePhraseUrl = () => {

@@ -19,7 +19,7 @@ import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { signEvaluation } from "../lib/evaluationToken";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
-import { teeAudioToPilot } from "../lib/pilotCapture";
+import { teeAudioToPilot, isPilotCaptureUser, discardLastCapture } from "../lib/pilotCapture";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreBands";
 import { computePronunciationXp, writeZoneCapstoneXp } from "../lib/xpEngine";
@@ -623,8 +623,15 @@ router.post(
       res.status(400).json({ error: "Invalid pronunciation payload" });
       return;
     }
-    const { phraseId, audioBase64, languageName, latencyMs } = parsed.data;
+    const { phraseId, audioBase64, languageName, latencyMs, captureLabel, captureAttemptOfFour } = parsed.data;
     const userId = (req as AuthedRequest).userId;
+    // TEMPORARY (capture mode): explicit protocol label for the tee sidecar.
+    // Only honoured for allowlisted users (teeAudioToPilot returns early for
+    // everyone else, so the fields are inert outside the pilot).
+    const captureOpts =
+      captureLabel != null && captureAttemptOfFour != null
+        ? { label: captureLabel, attemptOfFour: captureAttemptOfFour }
+        : undefined;
 
     // Rule 47: Discard attempts where the recording started under 250 ms after
     // the phrase finished playing — the learner cannot have said it that fast.
@@ -1060,6 +1067,7 @@ router.post(
           targetRomanized,
           transcript,
           score,
+          capture: captureOpts,
         });
         return;
       }
@@ -1253,11 +1261,31 @@ router.post(
         targetRomanized,
         transcript,
         score,
+        capture: captureOpts,
       });
     } catch (err) {
       req.log.error({ err }, "Pronunciation scoring failed");
       res.status(502).json({ error: "Could not score the recording" });
     }
+  },
+);
+
+// ─── TEMPORARY pilot capture-mode endpoints (BRIEF 32.1 respin) ──────────────
+// Scaffolding for the calibration-corpus capture sessions; remove together
+// with the web practice page's ?mode=capture flow once the corpus is done.
+
+// GET /pilot-capture/eligibility — whether the caller may use capture mode.
+router.get("/pilot-capture/eligibility", (req: Request, res: Response): void => {
+  res.json({ eligible: isPilotCaptureUser((req as AuthedRequest).userId) });
+});
+
+// POST /pilot-capture/discard-last — mark the caller's most recent
+// capture-mode clip discarded in its sidecar (capture mode's "redo").
+router.post(
+  "/pilot-capture/discard-last",
+  async (req: Request, res: Response): Promise<void> => {
+    const discarded = await discardLastCapture((req as AuthedRequest).userId);
+    res.json({ discarded });
   },
 );
 

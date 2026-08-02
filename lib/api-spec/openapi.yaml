@@ -1442,6 +1442,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/PronunciationResult"
 
+  /pilot-capture/eligibility:
+    get:
+      operationId: getPilotCaptureEligibility
+      tags: [openai]
+      summary: Whether the caller may use capture mode (TEMPORARY, pilot capture)
+      description: >-
+        TEMPORARY scaffolding for the pilot calibration corpus: reports
+        whether the signed-in user is in the PILOT_CAPTURE_USER_IDS
+        allowlist. The web practice page only activates ?mode=capture when
+        this returns true. Remove with capture mode.
+      responses:
+        "200":
+          description: Eligibility flag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotCaptureEligibility"
+
+  /pilot-capture/discard-last:
+    post:
+      operationId: discardLastPilotCapture
+      tags: [openai]
+      summary: Mark the caller's most recent capture-mode clip discarded (TEMPORARY)
+      description: >-
+        TEMPORARY scaffolding for the pilot calibration corpus: rewrites the
+        sidecar of the caller's most recent capture-mode clip with
+        discarded=true so the harvest skips it (capture mode's "redo this
+        attempt"). Remove with capture mode.
+      responses:
+        "200":
+          description: Discard outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotCaptureDiscardResult"
+
   /openai/generate-phrase:
     post:
       operationId: generatePhrase
@@ -2866,11 +2902,45 @@ components:
             Client-measured milliseconds between the phrase finishing and the
             learner tapping Record. When present and < 250 ms the server
             rejects the attempt as a tap-spam guard.
+        captureLabel:
+          type: string
+          enum: [native, american_accent, subtle_error, wrong_attempt]
+          description: >-
+            TEMPORARY (pilot capture mode): the capture protocol label for
+            this attempt. Recorded in the R2 tee sidecar for allowlisted
+            capture users; ignored for everyone else. Remove with capture
+            mode once the calibration corpus is complete.
+        captureAttemptOfFour:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: >-
+            TEMPORARY (pilot capture mode): which of the four protocol
+            attempts this is (1-4). Recorded in the sidecar alongside
+            captureLabel.
       required:
         - targetNative
         - targetRomanized
         - targetEnglish
         - audioBase64
+
+    PilotCaptureEligibility:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+          description: True when the caller is in the pilot capture allowlist.
+      required: [eligible]
+
+    PilotCaptureDiscardResult:
+      type: object
+      properties:
+        discarded:
+          type: boolean
+          description: >-
+            True when the caller's most recent capture-mode clip was marked
+            discarded in its sidecar; false when there was nothing to discard.
+      required: [discarded]
 
     PronunciationResult:
       type: object
