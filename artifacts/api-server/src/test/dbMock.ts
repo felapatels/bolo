@@ -82,6 +82,7 @@ export function createDbMockExports(
     usersTable: {},
     xpLedgerTable: {},
     zoneConversationStampsTable: {},
+    zoneTestoutsTable: {},
 
     // Insert schemas and misc consts exported by the barrel.
     insertAttemptSchema: {},
@@ -90,6 +91,7 @@ export function createDbMockExports(
     insertLessonGroupProgressSchema: {},
     insertLessonGroupSchema: {},
     insertLessonGroupTestoutSchema: {},
+    insertZoneTestoutSchema: {},
     insertLessonSchema: {},
     insertPhraseReportSchema: {},
     insertPhraseSchema: {},

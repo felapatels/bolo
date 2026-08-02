@@ -128,3 +128,5 @@ export * from './voiceCatalogEntryGender';
 export * from './voiceListResult';
 export * from './weeklyChatAllowance';
 export * from './zoneStamp';
+export * from './zoneTestoutInput';
+export * from './zoneTestoutInputAttemptsItem';

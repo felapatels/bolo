@@ -253,6 +253,13 @@
       "when": 1785678569605,
       "tag": "0035_free_tier_content_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785689491421,
+      "tag": "0036_calm_blue_shield",
+      "breakpoints": true
     }
   ]
 }

@@ -22,16 +22,19 @@
 import {
   db,
   attemptsTable,
+  categoriesTable,
   lessonGroupsTable,
   lessonGroupProgressTable,
   phrasesTable,
 } from "@workspace/db";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { buildPhraseStats, type PhraseStats } from "./progressMetrics";
 import {
   deriveGroupStatuses,
+  isZoneComplete,
   type LessonGroupStatus,
 } from "./lessonGroupUnlock";
+import { CROSS_ZONE_GATE_ENABLED } from "./featureFlags";
 
 export interface GroupUnlockContext {
   /** Full group rows for the (category, language), position ascending. */
@@ -172,6 +175,116 @@ export async function loadGroupUnlockContext(
 }
 
 /**
+ * Chunk 4 cross-zone gate (dark behind CROSS_ZONE_GATE_ENABLED).
+ * May (userId, languageCode) enter categoryId at all? True when the flag is
+ * off, when the category is first in global sortOrder, or when the preceding
+ * category's zone is complete for this (user, language). Read-only: never
+ * latches. Predecessor latch sets are user-wide, so a caller holding a
+ * GroupUnlockContext can hand them over and skip requerying; stats are
+ * language-scoped and reusable the same way.
+ */
+export async function zoneGateAllows(
+  userId: string,
+  categoryId: number,
+  languageCode: string,
+  opts: {
+    stats?: Map<number, PhraseStats>;
+    testedOutGroupIds?: Set<number>;
+    persistedCompletedGroupIds?: Set<number>;
+  } = {},
+): Promise<boolean> {
+  if (!CROSS_ZONE_GATE_ENABLED) return true;
+  const current = await db.query.categoriesTable.findFirst({
+    where: (t, { eq: eqFn }) => eqFn(t.id, categoryId),
+  });
+  // Unknown category is not this gate's concern; the route 404s elsewhere.
+  if (!current) return true;
+  const [prev] = await db
+    .select()
+    .from(categoriesTable)
+    .where(lt(categoriesTable.sortOrder, current.sortOrder))
+    .orderBy(desc(categoriesTable.sortOrder))
+    .limit(1);
+  if (!prev) return true; // first zone is always eligible
+  const [prevGroups, prevMembers, progressRows, attempts] = await Promise.all([
+    db
+      .select()
+      .from(lessonGroupsTable)
+      .where(
+        and(
+          eq(lessonGroupsTable.languageCode, languageCode),
+          eq(lessonGroupsTable.categoryId, prev.id),
+        ),
+      )
+      .orderBy(asc(lessonGroupsTable.position)),
+    db
+      .select({ id: phrasesTable.id, lessonGroupId: phrasesTable.lessonGroupId })
+      .from(phrasesTable)
+      .where(
+        and(
+          eq(phrasesTable.languageCode, languageCode),
+          eq(phrasesTable.categoryId, prev.id),
+        ),
+      ),
+    opts.testedOutGroupIds && opts.persistedCompletedGroupIds
+      ? Promise.resolve(null)
+      : db
+          .select({
+            lessonGroupId: lessonGroupProgressTable.lessonGroupId,
+            status: lessonGroupProgressTable.status,
+          })
+          .from(lessonGroupProgressTable)
+          .where(eq(lessonGroupProgressTable.userId, userId)),
+    opts.stats
+      ? Promise.resolve(null)
+      : db
+          .select({
+            phraseId: attemptsTable.phraseId,
+            score: attemptsTable.score,
+          })
+          .from(attemptsTable)
+          .where(
+            and(
+              eq(attemptsTable.userId, userId),
+              eq(attemptsTable.languageCode, languageCode),
+            ),
+          ),
+  ]);
+  const stats = opts.stats ?? buildPhraseStats(attempts ?? []);
+  const testedOut =
+    opts.testedOutGroupIds ??
+    new Set(
+      (progressRows ?? [])
+        .filter((r) => r.status === "tested_out")
+        .map((r) => r.lessonGroupId),
+    );
+  const completedLatch =
+    opts.persistedCompletedGroupIds ??
+    new Set(
+      (progressRows ?? [])
+        .filter((r) => r.status === "completed")
+        .map((r) => r.lessonGroupId),
+    );
+  const byGroup = new Map<number, number[]>();
+  for (const m of prevMembers) {
+    if (m.lessonGroupId == null) continue;
+    const list = byGroup.get(m.lessonGroupId) ?? [];
+    list.push(m.id);
+    byGroup.set(m.lessonGroupId, list);
+  }
+  return isZoneComplete(
+    prevGroups.map((g) => ({
+      id: g.id,
+      position: g.position,
+      phraseIds: byGroup.get(g.id) ?? [],
+    })),
+    stats,
+    testedOut,
+    completedLatch,
+  );
+}
+
+/**
  * Derives every group's unlock status and latches newly observed completions.
  * Latch rationale: replenishment grows a group's denominator with fresh
  * phrases, which could dilute a completed ratio below the threshold and
@@ -182,6 +295,30 @@ export async function deriveAndLatchUnlock(
   userId: string,
   ctx: GroupUnlockContext,
 ): Promise<UnlockDerivation> {
+  // Chunk 4 cross-zone gate (dark): when enabled and the preceding zone is
+  // incomplete, every group here is locked. No derivation, no latch writes
+  // (a fully locked zone can never observe a new completion). Teaser and
+  // showroom callers never reach this function (CALLER CONTRACT above), so
+  // the gate is structurally inert for them. Flag off: zero added queries.
+  const firstGroup = ctx.groups[0];
+  if (CROSS_ZONE_GATE_ENABLED && firstGroup) {
+    const allowed = await zoneGateAllows(
+      userId,
+      firstGroup.categoryId,
+      firstGroup.languageCode,
+      {
+        stats: ctx.stats,
+        testedOutGroupIds: ctx.testedOutGroupIds,
+        persistedCompletedGroupIds: ctx.persistedCompletedGroupIds,
+      },
+    );
+    if (!allowed) {
+      const statuses = new Map<number, LessonGroupStatus>();
+      for (const g of ctx.groups) statuses.set(g.id, "locked");
+      return { statuses, unlockedGroupIds: new Set<number>() };
+    }
+  }
+
   const statuses = deriveGroupStatuses(
     ctx.groups.map((g) => ({
       id: g.id,

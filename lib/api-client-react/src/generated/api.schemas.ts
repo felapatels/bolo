@@ -371,6 +371,22 @@ export interface LessonGroupTestoutInput {
   attempts: LessonGroupTestoutInputAttemptsItem[];
 }
 
+export type ZoneTestoutInputAttemptsItem = {
+  phraseId: number;
+  /** @minLength 1 */
+  evaluationToken: string;
+};
+
+export interface ZoneTestoutInput {
+  /** @minLength 1 */
+  languageCode: string;
+  /**
+     * @minItems 1
+     * @maxItems 10
+     */
+  attempts: ZoneTestoutInputAttemptsItem[];
+}
+
 export type LessonGroupTestoutResultStatus = typeof LessonGroupTestoutResultStatus[keyof typeof LessonGroupTestoutResultStatus];
 
 

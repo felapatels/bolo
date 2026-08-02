@@ -98,3 +98,26 @@ export const TESTOUT_PASS_RATIO = 0.8;
 export function testoutRequiredCorrect(sampleSize: number): number {
   return Math.ceil(TESTOUT_PASS_RATIO * sampleSize);
 }
+
+// Chunk 4: zone test-out sizing. Distinct from the stop-level constant: a
+// zone assessment samples one phrase per contributing station, capped here.
+// The stop-level TESTOUT_SAMPLE_SIZE stays 5 and is untouched.
+export const ZONE_TESTOUT_SAMPLE_CAP = 10;
+
+// Chunk 4 cross-zone gate: a zone (one category in one language) is complete
+// when EVERY group in it is completed or tested_out. Latch rows are honored
+// first, the live ratio second, exactly like deriveGroupStatuses. Pure.
+export function isZoneComplete(
+  groups: GroupForUnlock[],
+  stats: Map<number, PhraseStats>,
+  testedOutGroupIds: Set<number>,
+  completedGroupIds: Set<number>,
+): boolean {
+  if (groups.length === 0) return false;
+  return groups.every(
+    (g) =>
+      completedGroupIds.has(g.id) ||
+      testedOutGroupIds.has(g.id) ||
+      isGroupCompleted(g.phraseIds, stats),
+  );
+}

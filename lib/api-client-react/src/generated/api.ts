@@ -95,7 +95,8 @@ import type {
   UpgradeRequired,
   UserSummary,
   VoiceListResult,
-  ZoneStamp
+  ZoneStamp,
+  ZoneTestoutInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -593,6 +594,160 @@ export const useSubmitLessonGroupTestout = <TError = ErrorType<Error | UpgradeRe
         TContext
       > => {
       return useMutation(getSubmitLessonGroupTestoutMutationOptions(options));
+    }
+
+export const getGetZoneTestoutUrl = (categoryId: number,
+    lang: string,) => {
+
+
+
+
+  return `/api/zones/${categoryId}/test-out/${lang}`
+}
+
+/**
+ * @summary Sample one phrase per station for a zone test-out assessment
+ */
+export const getZoneTestout = async (categoryId: number,
+    lang: string, options?: RequestInit): Promise<LessonGroupTestoutSample> => {
+
+  return customFetch<LessonGroupTestoutSample>(getGetZoneTestoutUrl(categoryId,lang),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetZoneTestoutQueryKey = (categoryId: number,
+    lang: string,) => {
+    return [
+    `/api/zones/${categoryId}/test-out/${lang}`
+    ] as const;
+    }
+
+
+export const getGetZoneTestoutQueryOptions = <TData = Awaited<ReturnType<typeof getZoneTestout>>, TError = ErrorType<UpgradeRequired | Error>>(categoryId: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getZoneTestout>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetZoneTestoutQueryKey(categoryId,lang);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getZoneTestout>>> = ({ signal }) => getZoneTestout(categoryId,lang, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: categoryId !== null && categoryId !== undefined && lang !== null && lang !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getZoneTestout>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetZoneTestoutQueryResult = NonNullable<Awaited<ReturnType<typeof getZoneTestout>>>
+export type GetZoneTestoutQueryError = ErrorType<UpgradeRequired | Error>
+
+
+/**
+ * @summary Sample one phrase per station for a zone test-out assessment
+ */
+
+export function useGetZoneTestout<TData = Awaited<ReturnType<typeof getZoneTestout>>, TError = ErrorType<UpgradeRequired | Error>>(
+ categoryId: number,
+    lang: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getZoneTestout>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetZoneTestoutQueryOptions(categoryId,lang,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitZoneTestoutUrl = (categoryId: number,) => {
+
+
+
+
+  return `/api/zones/${categoryId}/test-out`
+}
+
+/**
+ * @summary Submit a zone test-out (server-signed evaluation tokens only)
+ */
+export const submitZoneTestout = async (categoryId: number,
+    zoneTestoutInput: ZoneTestoutInput, options?: RequestInit): Promise<LessonGroupTestoutResult> => {
+
+  return customFetch<LessonGroupTestoutResult>(getSubmitZoneTestoutUrl(categoryId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(zoneTestoutInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitZoneTestoutMutationOptions = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitZoneTestout>>, TError,{categoryId: number;data: BodyType<ZoneTestoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitZoneTestout>>, TError,{categoryId: number;data: BodyType<ZoneTestoutInput>}, TContext> => {
+
+const mutationKey = ['submitZoneTestout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitZoneTestout>>, {categoryId: number;data: BodyType<ZoneTestoutInput>}> = (props) => {
+          const {categoryId,data} = props ?? {};
+
+          return  submitZoneTestout(categoryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitZoneTestoutMutationResult = NonNullable<Awaited<ReturnType<typeof submitZoneTestout>>>
+    export type SubmitZoneTestoutMutationBody = BodyType<ZoneTestoutInput>
+    export type SubmitZoneTestoutMutationError = ErrorType<Error | UpgradeRequired>
+
+    /**
+ * @summary Submit a zone test-out (server-signed evaluation tokens only)
+ */
+export const useSubmitZoneTestout = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitZoneTestout>>, TError,{categoryId: number;data: BodyType<ZoneTestoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitZoneTestout>>,
+        TError,
+        {categoryId: number;data: BodyType<ZoneTestoutInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitZoneTestoutMutationOptions(options));
     }
 
 export const getListLessonGroupPhrasesUrl = (id: number,) => {

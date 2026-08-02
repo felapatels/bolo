@@ -152,6 +152,69 @@ export const SubmitLessonGroupTestoutResponse = zod.object({
 
 
 /**
+ * @summary Sample one phrase per station for a zone test-out assessment
+ */
+export const GetZoneTestoutParams = zod.object({
+  "categoryId": zod.coerce.number(),
+  "lang": zod.coerce.string()
+})
+
+export const GetZoneTestoutResponse = zod.object({
+  "phrases": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "languageCode": zod.string(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string(),
+  "hint": zod.string().nullable(),
+  "difficulty": zod.number(),
+  "sortOrder": zod.number(),
+  "bestScore": zod.number().nullable(),
+  "mastered": zod.boolean(),
+  "attemptCount": zod.number(),
+  "bestBand": zod.string().nullish().describe('The best band the learner has achieved on this phrase (derived from bestScore). One of \"perfect\", \"great\", \"good\", \"almost\", \"retry\". Null when the phrase has never been attempted. Optional\/additive.'),
+  "teaser": zod.object({
+  "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
+  "limit": zod.number().describe('Total teaser phrases available (currently 3).')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
+})).optional(),
+  "sampleSize": zod.number().optional(),
+  "requiredCorrect": zod.number().optional()
+})
+
+
+/**
+ * @summary Submit a zone test-out (server-signed evaluation tokens only)
+ */
+export const SubmitZoneTestoutParams = zod.object({
+  "categoryId": zod.coerce.number()
+})
+
+
+
+export const submitZoneTestoutBodyAttemptsMax = 10;
+
+
+
+export const SubmitZoneTestoutBody = zod.object({
+  "languageCode": zod.string().min(1),
+  "attempts": zod.array(zod.object({
+  "phraseId": zod.number(),
+  "evaluationToken": zod.string().min(1)
+})).min(1).max(submitZoneTestoutBodyAttemptsMax)
+})
+
+export const SubmitZoneTestoutResponse = zod.object({
+  "passed": zod.boolean().optional(),
+  "correctCount": zod.number().optional(),
+  "requiredCorrect": zod.number().optional(),
+  "sampleSize": zod.number().optional(),
+  "status": zod.enum(['tested_out']).optional()
+})
+
+
+/**
  * @summary List the ordered phrases of one lesson group (same phrase shape as the category listing)
  */
 export const ListLessonGroupPhrasesParams = zod.object({

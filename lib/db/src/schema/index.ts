@@ -23,3 +23,4 @@ export * from "./userItemMemory";
 export * from "./userAbility";
 export * from "./xpLedger";
 export * from "./zoneConversationStamps";
+export * from "./zoneTestouts";

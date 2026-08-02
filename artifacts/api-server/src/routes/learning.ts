@@ -15,6 +15,7 @@ import {
   xpLedgerTable,
   usersTable,
   zoneConversationStampsTable,
+  zoneTestoutsTable,
 } from "@workspace/db";
 import { asc, desc, eq, and, ne, inArray, sql, gte, isNull } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
@@ -95,6 +96,7 @@ import {
   deriveGroupStatuses,
   testoutRequiredCorrect,
   TESTOUT_SAMPLE_SIZE,
+  ZONE_TESTOUT_SAMPLE_CAP,
 } from "../lib/lessonGroupUnlock";
 import {
   phraseKey,
@@ -115,12 +117,13 @@ import {
   normalizeBand,
 } from "../lib/scoreBands";
 import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
-import { POLISH_ENABLED } from "../lib/featureFlags";
+import { POLISH_ENABLED, CROSS_ZONE_GATE_ENABLED } from "../lib/featureFlags";
 import {
   getUnlockedGroupIds,
   isPhraseServable,
   loadGroupUnlockContext,
   deriveAndLatchUnlock,
+  zoneGateAllows,
 } from "../lib/lessonGroupAccess";
 
 const router: IRouter = Router();
@@ -1104,6 +1107,67 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     if (!inFirstStop) {
       sendLockedLanguageDenial(req, res, langAccess);
       return;
+    }
+  }
+
+  // Chunk 4 attempt-time hardening (Story 3, live regardless of the gate
+  // flag): the serve-time sequential lock is now enforced at the ledger
+  // write too, so the gate holds even if phrase text reached the client by
+  // any path. Ungrouped phrases and prior-attempt retakes stay admitted; the
+  // teaser and first-stop branches above are byte-identical (they only admit
+  // taste-set and Stop 1 phrases, which are never progression-locked). The
+  // client test-out flow never calls this route (it suppresses per-phrase
+  // persistence), so test-outs on locked groups are unaffected. When the
+  // cross-zone flag is on, getUnlockedGroupIds inherits the zone gate
+  // automatically. Cost: one indexed phrase lookup per grouped attempt, one
+  // prior-attempt probe, and the shared guard only on a first-ever attempt.
+  if (langAccess.state === "allowed" && claims.phraseId != null) {
+    const phraseRow = await db.query.phrasesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, claims.phraseId!),
+    });
+    // Only apply the sequential-unlock gate when the token language matches
+    // the phrase's own language. A mismatch means an anomalous token (e.g. a
+    // test that signs a token for LANG_A and submits a production phrase from
+    // LANG_B); those are caught by other validations, not this gate.
+    if (
+      phraseRow &&
+      phraseRow.lessonGroupId != null &&
+      phraseRow.languageCode === claims.languageCode
+    ) {
+      const [prior] = await db
+        .select({ id: attemptsTable.id })
+        .from(attemptsTable)
+        .where(
+          and(
+            eq(attemptsTable.userId, userId),
+            eq(attemptsTable.phraseId, claims.phraseId),
+          ),
+        )
+        .limit(1);
+      if (!prior) {
+        const { unlockedGroupIds } = await getUnlockedGroupIds(
+          userId,
+          phraseRow.categoryId,
+          phraseRow.languageCode,
+        );
+        if (!unlockedGroupIds.has(phraseRow.lessonGroupId)) {
+          req.log?.info(
+            {
+              userId,
+              phraseId: claims.phraseId,
+              groupId: phraseRow.lessonGroupId,
+              gate: "attempt_write",
+            },
+            "lesson_group_locked attempt write denial",
+          );
+          res.status(403).json({
+            error: "lesson_group_locked",
+            groupId: phraseRow.lessonGroupId,
+            status: "locked",
+          });
+          return;
+        }
+      }
     }
   }
 
@@ -2272,6 +2336,22 @@ async function loadTestoutGroup(
   // Entitlements evaluate first — before any unlock/test-out logic.
   if (await denyLockedLanguage(req, res, group.languageCode)) return null;
 
+  // Chunk 4 cross-zone gate: entitlements above, gate here, THEN the
+  // deliberate sequential-unlock exemption this path carries. This ordering
+  // closes stop-by-stop tunneling into a gated zone (ruling 5). Distinct
+  // error, never a 402: upgrading does not open a gated zone.
+  if (
+    CROSS_ZONE_GATE_ENABLED &&
+    !(await zoneGateAllows(getUserId(req), group.categoryId, group.languageCode))
+  ) {
+    req.log?.info(
+      { userId: getUserId(req), categoryId: group.categoryId, gate: "cross_zone" },
+      "zone_locked denial",
+    );
+    res.status(403).json({ error: "zone_locked", categoryId: group.categoryId });
+    return null;
+  }
+
   const { resolvedPlan } = req as EntitledRequest;
   const canAccessPremium = featuresForPlan(resolvedPlan.plan).extendedLibrary;
   const rows = await db
@@ -2460,6 +2540,398 @@ router.post(
       correctCount: fullCredit,
       requiredCorrect: required,
       sampleSize,
+      status: passed ? "tested_out" : undefined,
+    });
+  },
+);
+
+// ── Chunk 4: ZONE test-out assessment ─────────────────────────────────────
+// A learner may skip an entire zone by passing one assessment: GET samples
+// one plan-visible phrase per contributing station (capped at
+// ZONE_TESTOUT_SAMPLE_CAP, stations chosen at random past the cap); POST
+// grades server-signed evaluation tokens, one per DISTINCT station. A pass
+// latches tested_out for EVERY member group in one transaction. Entitlement
+// gates run first; the cross-zone gate (when enabled) runs second; the
+// throttle reads the append-only zone_testouts log, mirroring stop-level.
+// No XP is awarded and no capstone stamp is written by the assessment.
+
+interface ZoneTestoutContext {
+  categoryId: number;
+  languageCode: string;
+  allGroupIds: number[];
+  // Contributing stations in position order: group id plus the caller's
+  // plan-visible members (full rows, for sampling and serialization).
+  stations: { groupId: number; visible: (typeof phrasesTable.$inferSelect)[] }[];
+  visibleById: Map<number, typeof phrasesTable.$inferSelect>;
+  sampleSize: number;
+}
+
+// Shared loader for both zone routes: 404s, entitlements, cross-zone gate,
+// plan-visibility eligibility (ruling 3: never a degraded sample), and the
+// station composition. Returns null after responding on any denial.
+async function loadZoneTestout(
+  req: Request,
+  res: Response,
+  languageCode: string,
+): Promise<ZoneTestoutContext | null> {
+  const categoryId = Number(req.params.categoryId);
+  if (!Number.isInteger(categoryId)) {
+    res.status(400).json({ error: "Invalid category id" });
+    return null;
+  }
+  if (!languageCode) {
+    res.status(400).json({ error: "Missing language" });
+    return null;
+  }
+  const [category, language] = await Promise.all([
+    db.query.categoriesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.id, categoryId),
+    }),
+    db.query.languagesTable.findFirst({
+      where: (t, { eq: eqFn }) => eqFn(t.code, languageCode),
+    }),
+  ]);
+  if (!category) {
+    res.status(404).json({ error: "Category not found" });
+    return null;
+  }
+  if (!language) {
+    res.status(404).json({ error: "Language not found" });
+    return null;
+  }
+  // Entitlements evaluate first, before any assessment logic (ruling 9).
+  if (await denyLockedLanguage(req, res, languageCode)) return null;
+  // Cross-zone gate second (ruling 5 ordering), same denial as stop-level.
+  if (
+    CROSS_ZONE_GATE_ENABLED &&
+    !(await zoneGateAllows(getUserId(req), categoryId, languageCode))
+  ) {
+    req.log?.info(
+      { userId: getUserId(req), categoryId, gate: "cross_zone" },
+      "zone_locked denial",
+    );
+    res.status(403).json({ error: "zone_locked", categoryId });
+    return null;
+  }
+  const { resolvedPlan } = req as EntitledRequest;
+  const features = featuresForPlan(resolvedPlan.plan);
+  const canAccessPremium = features.extendedLibrary;
+  const hasSentences = features.sentences;
+  const [groups, rows] = await Promise.all([
+    db
+      .select()
+      .from(lessonGroupsTable)
+      .where(
+        and(
+          eq(lessonGroupsTable.languageCode, languageCode),
+          eq(lessonGroupsTable.categoryId, categoryId),
+        ),
+      )
+      .orderBy(asc(lessonGroupsTable.position)),
+    db
+      .select()
+      .from(phrasesTable)
+      .where(
+        and(
+          eq(phrasesTable.languageCode, languageCode),
+          eq(phrasesTable.categoryId, categoryId),
+        ),
+      )
+      .orderBy(asc(phrasesTable.lessonGroupPosition), asc(phrasesTable.id)),
+  ]);
+  if (groups.length === 0) {
+    res.status(404).json({ error: "This zone has no stations yet" });
+    return null;
+  }
+  // Plan visibility is per-stage, mirroring /lesson-groups/:id/phrases:
+  // phrase rows key on the extended library, sentence rows on "sentences".
+  const membersByGroup = new Map<number, (typeof phrasesTable.$inferSelect)[]>();
+  for (const p of rows) {
+    if (p.lessonGroupId == null) continue;
+    const list = membersByGroup.get(p.lessonGroupId) ?? [];
+    list.push(p);
+    membersByGroup.set(p.lessonGroupId, list);
+  }
+  const stations: ZoneTestoutContext["stations"] = [];
+  let phraseStageBlocked = false;
+  for (const g of groups) {
+    const members = membersByGroup.get(g.id) ?? [];
+    if (members.length === 0) continue;
+    const stage = members.some((p) => p.stage === "sentence")
+      ? "sentence"
+      : "phrase";
+    const visible = members.filter((p) =>
+      !p.premium ? true : stage === "sentence" ? hasSentences : canAccessPremium,
+    );
+    if (stage === "phrase" && visible.length === 0) {
+      // Ruling 3: a phrase-stage station with zero plan-visible phrases makes
+      // the whole zone assessment upgrade-gated. Never a degraded sample.
+      phraseStageBlocked = true;
+      break;
+    }
+    // Sentence stations contribute only when plan-visible (ruling 2); when
+    // hidden they are skipped, and the pass still latches them (latch is not
+    // access: entitlements always run first on every serving route).
+    if (visible.length > 0) stations.push({ groupId: g.id, visible });
+  }
+  if (phraseStageBlocked || stations.length === 0) {
+    sendUpgradeRequired(
+      res,
+      upgradeRequired(
+        "feature_locked",
+        "This zone's phrases are part of the extended library. Upgrade to Bolo! Plus to test out of it.",
+        "extendedLibrary",
+      ),
+    );
+    return null;
+  }
+  const visibleById = new Map<number, typeof phrasesTable.$inferSelect>();
+  for (const s of stations) for (const p of s.visible) visibleById.set(p.id, p);
+  return {
+    categoryId,
+    languageCode,
+    allGroupIds: groups.map((g) => g.id),
+    stations,
+    visibleById,
+    sampleSize: Math.min(ZONE_TESTOUT_SAMPLE_CAP, stations.length),
+  };
+}
+
+// GET /zones/:categoryId/test-out?lang=xx : a fresh random sample, one phrase
+// per station. No sample persistence; the POST validates station-distinct
+// membership, not that this exact sample was used (stop-level philosophy).
+router.get(
+  "/zones/:categoryId/test-out/:lang",
+  async (req: Request, res: Response): Promise<void> => {
+    const ctx = await loadZoneTestout(req, res, String(req.params.lang ?? ""));
+    if (!ctx) return;
+    const userId = getUserId(req);
+    const attempts = await fetchUserAttempts(userId, ctx.languageCode);
+    const stats = buildPhraseStats(attempts);
+    const pool = [...ctx.stations];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+    const chosen = pool.slice(0, ctx.sampleSize);
+    const sample = chosen.map((s) => {
+      const p = s.visible[Math.floor(Math.random() * s.visible.length)]!;
+      return p;
+    });
+    res.json({
+      phrases: sample.map((p) => ({
+        ...serializePhrase(p, stats),
+        lessonGroupId: p.lessonGroupId,
+      })),
+      sampleSize: ctx.sampleSize,
+      requiredCorrect: testoutRequiredCorrect(ctx.sampleSize),
+    });
+  },
+);
+
+const ZoneTestoutBody = z.object({
+  languageCode: z.string().min(1),
+  attempts: z
+    .array(
+      z.object({
+        phraseId: z.number().int(),
+        evaluationToken: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(ZONE_TESTOUT_SAMPLE_CAP),
+});
+
+// Zone submission throttle: same shape and constants as stop-level, keyed
+// per (user, language, category) against the zone_testouts log. Zone
+// attempts never consume stop-level budgets (ruling 7).
+const ZONE_TESTOUT_MAX_PER_WINDOW = 3;
+const ZONE_TESTOUT_WINDOW_MS = 60 * 60 * 1000;
+
+// POST /zones/:categoryId/test-out : grade a submitted zone assessment.
+// TOKEN HOOK (economy slice): retry pricing gates here when the token
+// economy lands; the first attempt per cooldown stays free. No numeric
+// price is encoded in this build (ruling 4).
+router.post(
+  "/zones/:categoryId/test-out",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsedBody = ZoneTestoutBody.safeParse(req.body);
+    if (!parsedBody.success) {
+      res.status(400).json({ error: "Invalid zone test-out submission" });
+      return;
+    }
+    const ctx = await loadZoneTestout(req, res, parsedBody.data.languageCode);
+    if (!ctx) return;
+    const userId = getUserId(req);
+
+    // Throttle before any token verification: a rate-limited caller learns
+    // nothing about sample validity. Retry-After from the oldest in-window
+    // submission, mirroring stop-level.
+    const windowStart = new Date(Date.now() - ZONE_TESTOUT_WINDOW_MS);
+    const recent = await db
+      .select({ createdAt: zoneTestoutsTable.createdAt })
+      .from(zoneTestoutsTable)
+      .where(
+        and(
+          eq(zoneTestoutsTable.userId, userId),
+          eq(zoneTestoutsTable.languageCode, ctx.languageCode),
+          eq(zoneTestoutsTable.categoryId, ctx.categoryId),
+          gte(zoneTestoutsTable.createdAt, windowStart),
+        ),
+      )
+      .orderBy(asc(zoneTestoutsTable.createdAt));
+    if (recent.length >= ZONE_TESTOUT_MAX_PER_WINDOW) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(
+          (recent[0].createdAt.getTime() + ZONE_TESTOUT_WINDOW_MS - Date.now()) /
+            1000,
+        ),
+      );
+      res
+        .status(429)
+        .set("Retry-After", String(retryAfterSeconds))
+        .json({
+          error:
+            "Too many test-out attempts for this zone. Practice a bit and try again later.",
+          retryAfterSeconds,
+        });
+      return;
+    }
+
+    // Sample size is recomputed from CURRENT zone composition (AC 4), and
+    // every token must be valid, this caller's, phrase-matching, plan-visible
+    // in this zone, unique, and from a DISTINCT station (ruling 2: no passing
+    // a zone with two phrases from one easy station).
+    const required = testoutRequiredCorrect(ctx.sampleSize);
+    const seenPhrases = new Set<number>();
+    const seenStations = new Set<number>();
+    let verified = 0;
+    let fullCredit = 0;
+    for (const a of parsedBody.data.attempts) {
+      const claims = verifyEvaluation(a.evaluationToken);
+      const phrase = ctx.visibleById.get(a.phraseId);
+      if (
+        !claims ||
+        claims.userId !== userId ||
+        claims.phraseId !== a.phraseId ||
+        !phrase ||
+        phrase.lessonGroupId == null ||
+        seenPhrases.has(a.phraseId) ||
+        seenStations.has(phrase.lessonGroupId)
+      ) {
+        res.status(400).json({
+          error:
+            "Zone test-out attempts must carry valid evaluation tokens for distinct phrases from distinct stations of this zone",
+        });
+        return;
+      }
+      seenPhrases.add(a.phraseId);
+      seenStations.add(phrase.lessonGroupId);
+      verified++;
+      if (claims.band !== undefined && isFullCreditBand(claims.band)) fullCredit++;
+    }
+    if (verified !== ctx.sampleSize) {
+      res.status(400).json({
+        error: `A test-out for this zone requires ${ctx.sampleSize} distinct station attempts`,
+      });
+      return;
+    }
+
+    const passed = fullCredit >= required;
+
+    // Authoritative rate-limit + log insert, serialised with a
+    // transaction-scoped advisory lock keyed to (user, category, language).
+    // The non-authoritative SELECT above is a cheap fast-path; this is the
+    // real guard that prevents concurrent bursts from bypassing the cap.
+    let rateLimited = false;
+    let rateLimitRetryAfter = 0;
+    await db.transaction(async (tx) => {
+      // pg_advisory_xact_lock takes two int4 args; the lock is released at
+      // commit/rollback. Concurrent zone test-outs for the SAME tuple block
+      // here and recheck atomically; different tuples run in parallel.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(
+          hashtext(${userId} || ':zone_ratelimit'),
+          hashtext(${String(ctx.categoryId)} || ':' || ${ctx.languageCode})
+        )`,
+      );
+      // Authoritative recheck inside the critical section.
+      const freshRecent = await tx
+        .select({ createdAt: zoneTestoutsTable.createdAt })
+        .from(zoneTestoutsTable)
+        .where(
+          and(
+            eq(zoneTestoutsTable.userId, userId),
+            eq(zoneTestoutsTable.languageCode, ctx.languageCode),
+            eq(zoneTestoutsTable.categoryId, ctx.categoryId),
+            gte(zoneTestoutsTable.createdAt, windowStart),
+          ),
+        )
+        .orderBy(asc(zoneTestoutsTable.createdAt));
+      if (freshRecent.length >= ZONE_TESTOUT_MAX_PER_WINDOW) {
+        rateLimited = true;
+        rateLimitRetryAfter = Math.max(
+          1,
+          Math.ceil(
+            (freshRecent[0]!.createdAt.getTime() +
+              ZONE_TESTOUT_WINDOW_MS -
+              Date.now()) /
+              1000,
+          ),
+        );
+        return; // commit releases the lock; no insert
+      }
+      await tx.insert(zoneTestoutsTable).values({
+        userId,
+        languageCode: ctx.languageCode,
+        categoryId: ctx.categoryId,
+        passed,
+      });
+      if (passed) {
+        // Latch tested_out for EVERY member group (ruling 8) in one
+        // transaction, keyed by group id. completed is never downgraded:
+        // the completion latch exists to survive replenisher dilution, so a
+        // zone pass must not overwrite it.
+        await tx
+          .insert(lessonGroupProgressTable)
+          .values(
+            ctx.allGroupIds.map((gid) => ({
+              userId,
+              lessonGroupId: gid,
+              status: "tested_out",
+            })),
+          )
+          .onConflictDoUpdate({
+            target: [
+              lessonGroupProgressTable.userId,
+              lessonGroupProgressTable.lessonGroupId,
+            ],
+            set: {
+              status: sql`CASE WHEN ${lessonGroupProgressTable.status} = 'completed' THEN 'completed' ELSE 'tested_out' END`,
+              updatedAt: new Date(),
+            },
+          });
+      }
+    });
+
+    if (rateLimited) {
+      res
+        .status(429)
+        .set("Retry-After", String(rateLimitRetryAfter))
+        .json({
+          error:
+            "Too many test-out attempts for this zone. Practice a bit and try again later.",
+          retryAfterSeconds: rateLimitRetryAfter,
+        });
+      return;
+    }
+
+    res.json({
+      passed,
+      correctCount: fullCredit,
+      requiredCorrect: required,
+      sampleSize: ctx.sampleSize,
       status: passed ? "tested_out" : undefined,
     });
   },
