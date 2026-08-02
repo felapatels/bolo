@@ -130,10 +130,13 @@ export function LessonErrorScreen({
   backHref,
   onRetry,
   isRetrying,
+  message,
 }: {
   backHref: string;
   onRetry: () => void;
   isRetrying: boolean;
+  /** Optional replacement body copy (defaults to the generic loading-failure line). */
+  message?: string;
 }) {
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -155,8 +158,8 @@ export function LessonErrorScreen({
               The train's running a little late
             </h2>
             <p className="text-muted-foreground font-medium mt-1">
-              This stop didn't load. Give it another go and we'll get you
-              boarded.
+              {message ??
+                "This stop didn't load. Give it another go and we'll get you boarded."}
             </p>
           </div>
           <button

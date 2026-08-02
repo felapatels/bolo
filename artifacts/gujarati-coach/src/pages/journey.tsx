@@ -229,6 +229,7 @@ function ZonePostcard({
   zoneAllDone,
   scenarioId,
   hasStamp,
+  testOutHref,
 }: {
   zoneIndex: number;
   zoneTitle: string;
@@ -239,6 +240,9 @@ function ZonePostcard({
   zoneAllDone?: boolean;
   scenarioId?: string;
   hasStamp?: boolean;
+  /** Present only when the zone is gate-locked (Chunk 4B): links into the
+   *  zone-level test-out flow. Dormant pre-flip by construction. */
+  testOutHref?: string;
 }) {
   const color = grayed ? GRAY : accent;
   return (
@@ -295,6 +299,17 @@ function ZonePostcard({
               </div>
             </div>
           </div>
+          {testOutHref && (
+            <Link
+              href={testOutHref}
+              onClick={blessAudioPlayback}
+              data-testid={`link-zone-test-out-${zoneIndex}`}
+              className="mx-1.5 mb-1.5 flex items-center justify-center rounded-md border-2 bg-white py-2 text-xs font-bold active:scale-[0.98] transition-transform"
+              style={{ borderColor: color, color }}
+            >
+              Test out of this zone
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -983,6 +998,20 @@ export default function Journey() {
               );
               const grayed = showroom && !zoneAccessible;
               const diamondColor = grayed ? GRAY : line.accent;
+              // Zone gate-lock (Chunk 4B, owner-corrected): every stop locked
+              // by progression, none by plan, and the listing is NOT a
+              // showroom payload (no top-level access field). Showroom forces
+              // every station locked with planLocked unset, so without the
+              // access check the affordance would render for teaser and
+              // exhausted callers; they keep the postcard's existing behavior
+              // unchanged. Pre-flip the first stop of every zone is unlocked,
+              // so this stays dormant until CROSS_ZONE_GATE_ENABLED flips
+              // server-side.
+              const zoneGateLocked =
+                access === null &&
+                zone.stations.length > 0 &&
+                zone.stations.every((s) => s.status === "locked") &&
+                !zone.stations.some((s) => s.planLocked === true);
               return (
                 <div key={zone.id}>
                   <div
@@ -1004,6 +1033,11 @@ export default function Journey() {
                       zoneAllDone={zone.zoneAllDone}
                       scenarioId={scenarioIdForZone(zoneIndex)}
                       hasStamp={stampedZoneIndices.has(zoneIndex)}
+                      testOutHref={
+                        zoneGateLocked
+                          ? `/practice/${zone.id}?mode=testout&scope=zone`
+                          : undefined
+                      }
                     />
                   </div>
                   {/* interchange diamond pinned where the track meets the zone
@@ -1200,6 +1234,20 @@ export default function Journey() {
                   className="flex w-full items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
                 >
                   Test out of this stop
+                </Link>
+              )}
+              {/* Zone-level express (Chunk 4B): one sampled phrase from each
+                  stop in the zone, judged in one shot by the zone endpoint.
+                  Same quiet secondary styling, below the stop-level action. */}
+              {lock.zoneId !== undefined && (
+                <Link
+                  href={`/practice/${lock.zoneId}?mode=testout&scope=zone`}
+                  onClick={() => { blessAudioPlayback(); setLock(null); }}
+                  data-testid="link-test-out-zone"
+                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 active:scale-[0.98] transition-transform"
+                >
+                  <span className="text-sm font-bold text-foreground">Test out of this whole zone</span>
+                  <span className="mt-0.5 text-xs font-medium text-muted-foreground">One phrase from each stop. Pass to unlock everything here.</span>
                 </Link>
               )}
             </>

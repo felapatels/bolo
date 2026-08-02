@@ -9,6 +9,9 @@ import {
   useGetLessonGroupTestout,
   getGetLessonGroupTestoutQueryKey,
   useSubmitLessonGroupTestout,
+  useGetZoneTestout,
+  getGetZoneTestoutQueryKey,
+  useSubmitZoneTestout,
   useSynthesizeSpeech, 
   useEvaluatePronunciation, 
   useCreateAttempt,
@@ -156,6 +159,18 @@ function describeEvaluationError(error: unknown): EvalErrorContent {
   };
 }
 
+// Zone test-out 403 guard: both zone endpoints answer { error: "zone_locked" }
+// when the previous zone is neither finished nor tested out yet.
+function isZoneLockedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 403 &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    (error.data as { error?: unknown }).error === "zone_locked"
+  );
+}
+
 // Pulsing glow ring that appears around the parrot zone while recording.
 function RecordingGlow({ active }: { active: boolean }) {
   const reduceMotion = useReducedMotion();
@@ -207,7 +222,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Test-out mode (journey progression dialog): the same session flow runs
   // over the server's sampled phrase set; per-phrase attempts are NOT saved.
   // The batch of evaluation tokens is judged in one shot at the end.
-  const isTestout = isGroup && searchParams.get("mode") === "testout";
+  const isGroupTestout = isGroup && searchParams.get("mode") === "testout";
+  // Zone scope (mode=testout&scope=zone, no group param): the identical flow
+  // over the zone-level sample for the route's category id. Only the phrase
+  // source and the submit endpoint differ; every other isTestout behavior
+  // (one take per phrase, token collection, verdict screen) is shared.
+  const isZoneTestout =
+    !isReview &&
+    !isGroup &&
+    searchParams.get("mode") === "testout" &&
+    searchParams.get("scope") === "zone";
+  const isTestout = isGroupTestout || isZoneTestout;
   // TEMPORARY capture mode: ?mode=capture, allowlisted users only (the server
   // checks PILOT_CAPTURE_USER_IDS). Anyone else with the param gets a normal
   // session — the flag never activates without a server-confirmed yes.
@@ -238,7 +263,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Where "back" goes: the review session lives off the Home dashboard, while a
   // normal lesson belongs to its category.
-  const backHref = isReview ? "/app" : isGroup ? "/journey" : `/learn/${id}`;
+  const backHref = isReview ? "/app" : isGroup || isZoneTestout ? "/journey" : `/learn/${id}`;
 
   const categoryQuery = useListCategoryPhrases(id, activeLang, {
     query: {
@@ -271,12 +296,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // group list. The endpoint enforces the same entitlement and progression
   // gates as the group endpoint, so the upgrade/locked handling below applies
   // to it unchanged.
-  const testoutQuery = useGetLessonGroupTestout(isTestout ? groupId : 0, {
+  const testoutQuery = useGetLessonGroupTestout(isGroupTestout ? groupId : 0, {
     query: {
-      enabled: isTestout,
-      queryKey: getGetLessonGroupTestoutQueryKey(isTestout ? groupId : 0),
+      enabled: isGroupTestout,
+      queryKey: getGetLessonGroupTestoutQueryKey(isGroupTestout ? groupId : 0),
     },
   });
+  // Zone-scope test-out sessions load the zone-level sample instead. The
+  // envelope is identical ({ phrases, sampleSize, requiredCorrect }) and the
+  // endpoint enforces the same entitlement and progression gates, so it rides
+  // the exact same seam below (including the 402 upgrade screen).
+  const zoneTestoutQuery = useGetZoneTestout(isZoneTestout ? id : 0, activeLang, {
+    query: {
+      enabled: isZoneTestout,
+      queryKey: getGetZoneTestoutQueryKey(isZoneTestout ? id : 0, activeLang),
+    },
+  });
+  const activeTestoutQuery = isZoneTestout ? zoneTestoutQuery : testoutQuery;
   const {
     data: listData,
     isLoading: listLoading,
@@ -293,7 +329,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         : categoryQuery;
   // The test-out sample wraps its phrases in an envelope (with sampleSize and
   // requiredCorrect), so its query cannot join the destructure above.
-  const rawPhrases = isTestout ? testoutQuery.data?.phrases : listData;
+  const rawPhrases = isTestout ? activeTestoutQuery.data?.phrases : listData;
   // Apply phraseIds or polish filter. Filtering here means all downstream code
   // (session loop, summary) automatically operates on the filtered set.
   // Safety: when the filter would produce an empty list (e.g. all top-band),
@@ -317,13 +353,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
     return rawPhrases;
   }, [rawPhrases, phraseIdsParam, polishMode]);
-  const loadingPhrases = isTestout ? testoutQuery.isLoading : listLoading;
-  const isError = isTestout ? testoutQuery.isError : listIsError;
-  const error = isTestout ? testoutQuery.error : listError;
-  const isFetching = isTestout ? testoutQuery.isFetching : listFetching;
-  const refetch = isTestout ? testoutQuery.refetch : refetchList;
-  const testoutSampleSize = testoutQuery.data?.sampleSize ?? 5;
-  const testoutRequiredCorrect = testoutQuery.data?.requiredCorrect ?? 4;
+  const loadingPhrases = isTestout ? activeTestoutQuery.isLoading : listLoading;
+  const isError = isTestout ? activeTestoutQuery.isError : listIsError;
+  const error = isTestout ? activeTestoutQuery.error : listError;
+  const isFetching = isTestout ? activeTestoutQuery.isFetching : listFetching;
+  const refetch = isTestout ? activeTestoutQuery.refetch : refetchList;
+  const testoutSampleSize = activeTestoutQuery.data?.sampleSize ?? 5;
+  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 4;
   // Polish feature flag: read from the categories listing (already cached from
   // the journey map in most sessions; adds no extra network request).
   const categoriesForFlag = useListCategories({ lang: activeLang });
@@ -349,6 +385,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       },
     },
   });
+  // Zone-scope judgment: the same one-shot POST shape against the zone
+  // endpoint. A pass latches tested_out on every member group, so refresh the
+  // category's lesson-group listing and sweep the group-phrases key family by
+  // string prefix (the zone sample does not carry its member group ids).
+  const submitZoneTestoutMutation = useSubmitZoneTestout({
+    mutation: {
+      onSuccess: (res) => {
+        if (res.passed) {
+          playCue('session_complete');
+          webHaptic('success');
+          queryClient.invalidateQueries({ queryKey: getListCategoryLessonGroupsQueryKey(id, activeLang) });
+          queryClient.invalidateQueries({
+            predicate: (q) => {
+              const k = q.queryKey[0];
+              return typeof k === "string" && k.startsWith("/api/lesson-groups/") && k.endsWith("/phrases");
+            },
+          });
+        } else {
+          webHaptic('warning');
+        }
+      },
+    },
+  });
+  // The verdict screen reads whichever mutation this session's scope drives.
+  const activeTestoutSubmit = isZoneTestout ? submitZoneTestoutMutation : submitTestout;
   // Server-signed evaluation tokens collected during a test-out run, keyed by
   // phrase id (a retaken phrase would overwrite, but test-out has no retakes).
   const testoutTokensRef = useRef<Record<number, string>>({});
@@ -1320,7 +1381,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       .map(p => ({ phraseId: p.id, evaluationToken: testoutTokensRef.current[p.id] }))
       .filter((a): a is { phraseId: number; evaluationToken: string } => Boolean(a.evaluationToken));
     if (attempts.length === 0) return;
-    submitTestout.mutate({ id: groupId, data: { attempts } });
+    if (isZoneTestout) {
+      submitZoneTestoutMutation.mutate({ categoryId: id, data: { languageCode: activeLang, attempts } });
+    } else {
+      submitTestout.mutate({ id: groupId, data: { attempts } });
+    }
   };
 
   const handleNext = () => {
@@ -1505,6 +1570,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         backHref={backHref}
         onRetry={() => { void refetch(); }}
         isRetrying={isFetching}
+        message={
+          isZoneTestout && isZoneLockedError(error)
+            ? "Finish the previous zone first, or test out of it."
+            : undefined
+        }
       />
     );
   }
@@ -1544,8 +1614,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // collected tokens), pass (stop unlocked, Express stamp on the map), or
   // fail (encouraging copy, back to practicing via the journey).
   if (state === "summary" && isTestout) {
-    const outcome = submitTestout.data;
-    const throttled = submitTestout.error instanceof ApiError && submitTestout.error.status === 429;
+    const outcome = activeTestoutSubmit.data;
+    const throttled = activeTestoutSubmit.error instanceof ApiError && activeTestoutSubmit.error.status === 429;
+    const zoneLocked = isZoneTestout && isZoneLockedError(activeTestoutSubmit.error);
     return (
       <div className="app-surface min-h-[100dvh] flex flex-col bg-background" data-testid="testout-summary">
         <Confetti active={outcome?.passed === true} />
@@ -1555,17 +1626,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </Link>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center px-6 pb-12 text-center mx-auto w-full max-w-md">
-          {submitTestout.isError ? (
+          {activeTestoutSubmit.isError ? (
             <>
               <Mascot pose="tryagain" size={140} />
               <h2 className="mt-6 text-xl font-black">Couldn't check your run</h2>
               <p className="mt-2 text-sm text-muted-foreground leading-snug">
-                {throttled
-                  ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
-                  : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
+                {zoneLocked
+                  ? "Finish the previous zone first, or test out of it."
+                  : throttled
+                    ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
+                    : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
               </p>
               <div className="mt-8 w-full space-y-3">
-                {!throttled && (
+                {!throttled && !zoneLocked && (
                   <button
                     type="button"
                     onClick={submitTestoutRun}

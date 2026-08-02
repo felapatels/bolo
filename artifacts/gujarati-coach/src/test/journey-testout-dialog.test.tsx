@@ -11,6 +11,8 @@ import type { ReactElement } from "react";
 //  - the corrected dialog copy ("before this one", not "before it")
 //  - exactly ONE close control (DialogContent's built-in X; the manual
 //    duplicate that used to stack on top of it is gone)
+// Chunk 4B adds a second action below the stop-level one: the zone-level
+// test-out deep link (mode=testout&scope=zone, no group param).
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -119,6 +121,24 @@ describe("journey progression lock dialog (build 31 test-out)", () => {
     expect(testOut.getAttribute("href")).toContain("/practice/1?group=901&mode=testout");
     // Keep practicing stays the primary action.
     expect(screen.getByText("Keep practicing")).toBeInTheDocument();
+  });
+
+  test("offers the zone-level test-out action below the stop-level one", () => {
+    openProgressionDialog();
+    const zoneTestOut = screen.getByTestId("link-test-out-zone");
+    expect(zoneTestOut).toHaveTextContent("Test out of this whole zone");
+    expect(zoneTestOut).toHaveTextContent(
+      "One phrase from each stop. Pass to unlock everything here.",
+    );
+    expect(zoneTestOut.getAttribute("href")).toContain(
+      "/practice/1?mode=testout&scope=zone",
+    );
+    // Ordering: the stop-level action stays first in the DOM.
+    const stopTestOut = screen.getByTestId("link-test-out");
+    expect(
+      stopTestOut.compareDocumentPosition(zoneTestOut) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   test("dialog copy reads 'finish the stop before this one to board here'", () => {
