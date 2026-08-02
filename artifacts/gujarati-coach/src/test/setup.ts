@@ -1,11 +1,25 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { MEANING_AUDIO_STORAGE_KEY } from "@/lib/meaning-audio";
 
 // React Testing Library leaves rendered trees in the jsdom document between
 // tests; tear them down so each test starts from a clean slate.
 afterEach(() => {
   cleanup();
+});
+
+// The spoken English meaning segment (Task 1003) defaults to ON for learners.
+// The pre-existing practice tests drive the coach chain by firing a single
+// Audio onended and were written for the phrase-only flow, so the suite
+// defaults the preference OFF here to keep them deterministic. Tests that
+// exercise the meaning segment re-enable it explicitly.
+beforeEach(() => {
+  try {
+    localStorage.setItem(MEANING_AUDIO_STORAGE_KEY, "off");
+  } catch {
+    // Environments without localStorage just fall back to the code default.
+  }
 });
 
 // jsdom is missing a handful of browser APIs that Radix primitives (Dialog) and

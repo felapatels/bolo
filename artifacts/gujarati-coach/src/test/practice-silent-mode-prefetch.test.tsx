@@ -144,6 +144,10 @@ function bellyButton(): HTMLButtonElement {
 
 beforeEach(() => {
   localStorage.clear();
+  // clear() above wipes the suite-wide default from setup.ts, so restore it:
+  // this file drives the phrase-only coach chain and must keep the spoken
+  // English meaning segment (Task 1003) off.
+  localStorage.setItem("bolo.meaningAudio", "off");
   audioInstances.length = 0;
 
   h.categoryPhrases = {

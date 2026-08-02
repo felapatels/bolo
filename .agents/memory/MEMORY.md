@@ -120,3 +120,4 @@
 - [pilot-capture env test trap](pilot-capture-env-test-trap.md) — api-server pilot-capture test fails whenever PILOT_CAPTURE_USER_IDS is set via .replit; audited skip, not a task regression.
 - [Cross-script bridge](cross-script-bridge.md) — rescue-only max(raw,bridged) in compareToTarget (0.93 skip / 0.45 floor); siblings never bridge; nocatch sidecar fail-open boundary.
 - [Headless Clerk API auth](clerk-headless-api-auth.md) — sign_in_tokens + FAPI _is_native flow mints a Bearer JWT; DEV + OWNER ACCOUNT + MANUAL USE ONLY (owner restriction).
+- [Suite-wide localStorage defaults in web tests](web-test-localstorage-defaults.md) — setup.ts beforeEach pins prefs; any file calling localStorage.clear() wipes the pin and must re-set it.

@@ -25,7 +25,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 // TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
 // with the ?mode=capture scaffolding once the calibration corpus is complete.
 import {
@@ -49,6 +49,7 @@ import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial } from "@/lib/enti
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { playBandClip, preloadBandClips, type BandClipHandle } from "@/lib/band-audio";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
+import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from "@/lib/meaning-audio";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
@@ -84,6 +85,10 @@ const CAPTURE_STEPS = [
 // How long the result-speak sequence waits for feedback synthesis before
 // degrading to band-clip-only (Task 903). The result card never blocks.
 const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
+
+// Beat between the phrase clip and the spoken English meaning segment
+// (Task 1003). Two separate audio elements with a short breath between them.
+const MEANING_SEGMENT_PAUSE_MS = 400;
 
 // localStorage key that records the learner has already seen the "feedback is
 // approximate" notice for a given (degraded) language, so it shows only once.
@@ -580,6 +585,18 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     saveSpokenFeedback(enabled);
   };
 
+  // Meaning audio preference: whether the coach speaks the English meaning
+  // right after each phrase clip. Ref mirror so the playCoach chain reads the
+  // live value at play time, applying a toggle flip to the very next play
+  // without a reload.
+  const [meaningAudio, setMeaningAudio] = useState<boolean>(loadMeaningAudio);
+  const meaningAudioPrefRef = useRef(meaningAudio);
+  const changeMeaningAudio = (enabled: boolean) => {
+    meaningAudioPrefRef.current = enabled;
+    setMeaningAudio(enabled);
+    saveMeaningAudio(enabled);
+  };
+
   // Warm up the microphone as soon as the practice session mounts, so the
   // first hold starts capturing immediately and the first syllable isn't
   // clipped — but only when permission is already granted, so first-time
@@ -595,6 +612,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every "hear it again" sometimes yields a different (wrong) reading.
   const coachAudioCacheRef = useRef(new Map<number, { audioBase64: string; format: string }>());
+  // The English meaning segment currently playing (second element in the
+  // phrase, pause, meaning chain). Kept separate from audioRef so the phrase
+  // clip pipeline stays untouched.
+  const meaningAudioElRef = useRef<HTMLAudioElement | null>(null);
+  // Per-session cache of synthesized meaning audio, parallel to
+  // coachAudioCacheRef, so repeated plays never re-synthesize the meaning.
+  const meaningAudioCacheRef = useRef(new Map<number, { audioBase64: string; format: string }>());
   // Pre-warmed audio for the starting phrase — kicked off when phrases first
   // load so the coach voice plays instantly instead of waiting 1–2 s for
   // gpt-audio synthesis after state flips to "playing_coach".
@@ -700,6 +724,58 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       let cancelled = false;
       // A fresh attempt is starting; clear any stale failure surface.
       setCoachAudioFailed(null);
+
+      // Second segment of the play chain (Task 1003): after the phrase clip
+      // ends, a short pause, then the English meaning in an English voice.
+      // Best-effort by design: any synthesis or playback failure here falls
+      // back silently to the phrase-only behavior and never touches the
+      // coachAudioFailed card. The element inherits the user-gesture blessing
+      // of the play that started the chain, so no autoplay priming is needed.
+      const playMeaning = async () => {
+        if (cancelled) return;
+        // Read the preference fresh at play time so a toggle flip applies to
+        // the very next play without a reload.
+        if (!meaningAudioPrefRef.current || !phrase.english) {
+          setState("idle");
+          return;
+        }
+        try {
+          const synthMeaning = async () => {
+            const cachedMeaning = meaningAudioCacheRef.current.get(phrase.id);
+            if (cachedMeaning) return cachedMeaning;
+            const fresh = await synthesize.mutateAsync({
+              data: {
+                text: meaningSpeechText(phrase.english, { sentence: isSentences }),
+                languageName: "English",
+                languageCode: "en",
+              },
+            });
+            meaningAudioCacheRef.current.set(phrase.id, {
+              audioBase64: fresh.audioBase64,
+              format: fresh.format,
+            });
+            return fresh;
+          };
+          // Synthesis (on a cache miss) runs during the pause so the gap
+          // between the two segments stays close to the intended beat.
+          const [res] = await Promise.all([
+            synthMeaning(),
+            new Promise((resolve) => setTimeout(resolve, MEANING_SEGMENT_PAUSE_MS)),
+          ]);
+          if (cancelled) return;
+          const meaningEl = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          meaningAudioElRef.current = meaningEl;
+          meaningEl.onended = () => {
+            if (!cancelled) setState("idle");
+          };
+          await meaningEl.play();
+        } catch {
+          // Fail silent to phrase-only: the phrase clip already played in
+          // full, so simply return to idle as if the meaning were off.
+          if (!cancelled) setState("idle");
+        }
+      };
+
       const playCoach = async () => {
         let audio: HTMLAudioElement;
         try {
@@ -714,7 +790,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           if (cancelled) return;
           audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           audioRef.current = audio;
-          audio.onended = () => setState("idle");
+          audio.onended = () => {
+            void playMeaning();
+          };
         } catch (error) {
           if (!cancelled) {
             console.error("Failed to synthesize speech", error);
@@ -748,6 +826,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current = null;
+        }
+        if (meaningAudioElRef.current) {
+          meaningAudioElRef.current.pause();
+          meaningAudioElRef.current = null;
         }
       };
     }
@@ -1096,6 +1178,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // flags so a late-resolving synthesis can never start playing.
       audioRef.current?.pause();
       feedbackAudioRef.current?.pause();
+      meaningAudioElRef.current?.pause();
       // Discard any pre-synthesized feedback audio so nothing resumes later.
       feedbackAudioPendingRef.current = null;
       setState("idle");
@@ -1841,6 +1924,30 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           )}
           <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
             Feedback
+          </span>
+        </button>
+        {/* Meaning toggle, same convention: teal filled pill = the English
+            meaning is spoken right after each phrase clip, gray = phrase
+            only. Read fresh at play time, so a flip applies to the very next
+            play (Task 1003). */}
+        <button
+          onClick={() => changeMeaningAudio(!meaningAudio)}
+          aria-pressed={meaningAudio}
+          title={
+            meaningAudio
+              ? "Meaning aloud on, the English meaning is spoken after each phrase. Tap to turn off"
+              : "Meaning aloud off, tap to hear the English meaning after each phrase"
+          }
+          className={cn(
+            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
+            meaningAudio
+              ? "bg-secondary text-white shadow-sm"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Languages className="w-4 h-4" />
+          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
+            Meaning
           </span>
         </button>
       </header>

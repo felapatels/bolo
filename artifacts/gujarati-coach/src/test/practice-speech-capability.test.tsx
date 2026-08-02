@@ -158,6 +158,10 @@ beforeEach(() => {
   h.createAttempt.mockReset().mockResolvedValue({ newlyEarnedBadges: [] });
   try {
     localStorage.clear();
+    // clear() wipes the suite-wide setup.ts default, so restore it: these tests
+    // drive the phrase-only coach chain and must keep the spoken English
+    // meaning segment (Task 1003) off.
+    localStorage.setItem("bolo.meaningAudio", "off");
   } catch {
     /* ignore */
   }
