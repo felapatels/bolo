@@ -6,7 +6,7 @@
 // rating — there are no in-session micro-steps to track.
 //
 // Rating → score band mapping (five-band display, legacy credit groups frozen):
-//   perfect/great (score ≥ 80, legacy 'nailed') → Good (3) or Easy (4) at ≥ 93
+//   perfect/great (score ≥ 80, legacy 'nailed') → Good (3) or Easy (4) at ≥ 91
 //   good/almost   (55–79, legacy 'close')       → Hard (2)
 //   retry         (score < 55)                  → Again (1)
 //   nocatch                                     → Again (1)  (lapse for scheduling)
@@ -46,11 +46,14 @@ export function bandToRating(band: PronunciationBand): Rating {
 }
 
 // When a score is available we can upgrade a full-credit band to Easy for
-// near-perfect attempts. Deliberately pinned to the SCORE (≥ 93, same as the
-// fast-path) rather than band === 'perfect', so recalibrating the provisional
-// perfect/great display split can never change FSRS behavior.
+// near-perfect attempts. Deliberately COINCIDENT with the Perfect band
+// threshold (91) and kept as a separate literal on purpose: it moves ONLY by
+// owner ruling, never as a side effect of display tuning. The Aug 2, 2026
+// ruling moved it 93 -> 91 together with the band threshold, because an Easy
+// rating that cannot fire under the honesty cap (92) left the scheduler
+// running without its top rating.
 export function scoreAndBandToRating(score: number, band: PronunciationBand): Rating {
-  if (isFullCreditBand(band) && score >= 93) return Rating.Easy;
+  if (isFullCreditBand(band) && score >= 91) return Rating.Easy;
   return bandToRating(band);
 }
 

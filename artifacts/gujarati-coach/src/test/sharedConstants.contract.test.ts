@@ -24,9 +24,9 @@ const FREE_DAILY_NEW_LESSON_CAP = 3;
 const FREE_WEEKLY_CHAT_SECONDS_CAP = 120;
 
 // Five-band thresholds — must match artifacts/api-server/src/lib/scoreBands.ts
-// (BAND_THRESHOLDS). 80/55 are FROZEN legacy behavioral boundaries; 93/68 are
-// TUNING PENDING display splits.
-const BAND_THRESHOLDS = { perfect: 93, great: 80, good: 68, almost: 55 };
+// (BAND_THRESHOLDS). 80/55 are FROZEN legacy behavioral boundaries; 91 was set
+// by owner ruling (Aug 2, 2026); 68 is a TUNING PENDING display split.
+const BAND_THRESHOLDS = { perfect: 91, great: 80, good: 68, almost: 55 };
 
 describe("shared constants contract", () => {
   test("MASTERY_THRESHOLD = 80", () => {
@@ -45,8 +45,8 @@ describe("shared constants contract", () => {
     expect(FREE_WEEKLY_CHAT_SECONDS_CAP).toBe(120);
   });
 
-  test("BAND_THRESHOLDS = { perfect: 93, great: 80, good: 68, almost: 55 }", () => {
-    expect(BAND_THRESHOLDS).toEqual({ perfect: 93, great: 80, good: 68, almost: 55 });
+  test("BAND_THRESHOLDS = { perfect: 91, great: 80, good: 68, almost: 55 }", () => {
+    expect(BAND_THRESHOLDS).toEqual({ perfect: 91, great: 80, good: 68, almost: 55 });
   });
 
   test("client bandFromScore matches the server thresholds at every boundary", () => {

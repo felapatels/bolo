@@ -342,7 +342,8 @@ test("records an attempt and persists progress + newly-earned badges", async () 
   // first_phrase (>=1 attempt), mastery_1 (a mastered phrase), and perfect_100
   // (a best score of 100) — a good check that metrics feed badge awarding.
   // audioJudged: since #998, verifyEvaluation clamps transcript-scored tokens
-  // above HONESTY_SCORE_CAP (92) to 92/'great'; an audio-judged token is the
+  // above HONESTY_SCORE_CAP (92) to 92 (band re-derived from the capped
+  // score); an audio-judged token is the
   // only legitimate way a 100 reaches /attempts, and this doubles as the
   // exemption's end-to-end coverage through the route.
   const token = signEvaluation({
@@ -510,8 +511,9 @@ test("a second attempt persists but re-awards no already-earned badge", async ()
       score: 100,
       passed: true,
       feedback: "Great",
-      // audioJudged: a raw 100 would clamp to 92/'great' at verify time
-      // (#998); perfect_100 requires the audio-judged exemption.
+      // audioJudged: a raw 100 would clamp to 92 at verify time (#998);
+      // perfect_100 requires a stored 100, so it needs the audio-judged
+      // exemption.
       audioJudged: true,
     });
 

@@ -282,11 +282,13 @@ test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", a
   assert.ok(json.score < 80, `wrong word score must be < 80, got ${json.score}`);
 });
 
-test("fast-path: sim = 1.0 (exact match) → S1 honesty cap holds score at 92 / band 'great'", async () => {
+test("fast-path: sim = 1.0 (exact match) → S1 honesty cap holds score at 92; band derives 'perfect' at the 91 threshold", async () => {
   // An exact transcript match normalises to sim = 1.0. simToScore would give
   // 100, but the S1 honesty cap fires: transcript equals the normalized target
-  // and both STT passes agree, so the score caps at 92 and the band at 'great'.
-  // 'Perfect' is unreachable for a target-equal transcript until scoring v2.
+  // and both STT passes agree, so the score caps at 92. The cap is a SCORE
+  // ceiling; the band derives from the capped score, and since the perfect
+  // threshold moved to 91 (owner ruling, Aug 2, 2026) a capped 92 bands
+  // 'perfect'.
   stubbedTranscript = "kem chho";
   llmCallCount = 0;
 
@@ -295,7 +297,7 @@ test("fast-path: sim = 1.0 (exact match) → S1 honesty cap holds score at 92 / 
   assert.equal(status, 200);
   assert.equal(json.passed, true);
   assert.equal(json.score, 92, `expected capped score 92 for sim = 1.0, got ${json.score}`);
-  assert.equal(json.band, "great", `expected band 'great' under the honesty cap, got ${json.band}`);
+  assert.equal(json.band, "perfect", `expected band 'perfect' for capped 92 at the 91 threshold, got ${json.band}`);
   assert.equal(llmCallCount, 0, "must not call the LLM");
 });
 

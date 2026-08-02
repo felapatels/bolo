@@ -65,7 +65,7 @@
 - [Script Trace glyph guides](script-trace-glyph-guides.md) — outlines are M/L/Q/C only; Z→closing L unconditionally; curve samplers must hit t=1 exactly or winding leaks phantom geometry.
 - [Script Trace coverage scoring](script-trace-coverage-scoring.md) — score = coverage×precision×spread (40 pass); adaptive-res skeleton + hairline outline fallback, loop-safe RDP; RN demo on UI thread.
 - [Real-browser Stripe checkout E2E](stripe-checkout-browser-e2e.md) — no testing subagent here; use Nix chromium + Clerk __clerk_ticket sign-in; Stripe card fields need force-selecting Card radio + Link opt-out; dev webhook endpoint URL drifts from dev domain.
-- [Pronunciation band derivation](band-derivation.md) — five-band ladder is display-only (93/68 tunable, 80/55 FROZEN credit-group edges); band is score-only, never from LLM `passed`; legacy rows normalize at read.
+- [Pronunciation band derivation](band-derivation.md) — five-band ladder is display-only (perfect >=91 since Aug 2026 ruling, 80/55 FROZEN credit-group edges); band is score-only, never from LLM `passed`; clamps re-derive via bandFromScore.
 - [Codebase facts doc](codebase-facts-doc.md) — docs/CODEBASE-FACTS.md must be updated at the end of every task (changes, debt); section numbering never changes.
 - [@workspace/db mock completeness](db-mock-completeness.md) — mock.module namedExports must track the schema barrel; a missing name fails the whole file at ESM link time, not at an assertion.
 - [Motion & Feedback Engine](motion-feedback-engine.md) — nocatch = system miss (nothing negative); session confetti needs half good; count-up chips are animated TextInputs (assert via label).
@@ -118,3 +118,5 @@
 - [gpt-audio grading quirks](gpt-audio-grading-quirks.md) — input_audio is wav/mp3 ONLY (webm 400s); proxy 429s under burst (concurrency 2 + backoff); "no audio" refusals are conversion-specific — ladder 0.4s pad/unpadded/1s pad scores everything.
 - [Pilot corpus label protocol](pilot-corpus-protocol.md) — clip labels = attempt order per (user,phrase): native, american_accent, subtle_error, wrong_attempt; R2-only, never commit recordings.
 - [pilot-capture env test trap](pilot-capture-env-test-trap.md) — api-server pilot-capture test fails whenever PILOT_CAPTURE_USER_IDS is set via .replit; audited skip, not a task regression.
+- [Cross-script bridge](cross-script-bridge.md) — rescue-only max(raw,bridged) in compareToTarget (0.93 skip / 0.45 floor); siblings never bridge; nocatch sidecar fail-open boundary.
+- [Headless Clerk API auth](clerk-headless-api-auth.md) — sign_in_tokens + FAPI _is_native flow mints a Bearer JWT; DEV + OWNER ACCOUNT + MANUAL USE ONLY (owner restriction).

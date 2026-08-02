@@ -22,8 +22,9 @@ export function categoryIcon(iconName: string): FeatherName {
 
 // ── Five-band pronunciation ladder (display layer) ──────────────────────────
 // Thresholds mirror the server config in api-server/src/lib/scoreBands.ts and
-// are pinned by the sharedConstants contract tests: >=93 perfect, >=80 great,
-// >=68 good, >=55 almost, <55 retry. 93/68 are TUNING PENDING display splits;
+// are pinned by the sharedConstants contract tests: >=91 perfect, >=80 great,
+// >=68 good, >=55 almost, <55 retry. 91 set by owner ruling (Aug 2026); 68 is
+// a TUNING PENDING display split;
 // 80/55 are the frozen legacy nailed/close boundaries. `nocatch` is a
 // separate system outcome, never derived from score.
 
@@ -69,7 +70,7 @@ export function normalizeBand(
 
 /** Score-only five-band derivation (Spec 0 rule 40) for rows without a band. */
 export function bandFromScore(score: number): ScoredBand {
-  if (score >= 93) return 'perfect';
+  if (score >= 91) return 'perfect';
   if (score >= 80) return 'great';
   if (score >= 68) return 'good';
   if (score >= 55) return 'almost';

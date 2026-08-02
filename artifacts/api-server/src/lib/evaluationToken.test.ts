@@ -31,8 +31,11 @@ function baseClaims(overrides: Partial<EvaluationClaims>): EvaluationClaims {
 // #998 pin 1: the honesty cap is enforced at VERIFY time, not only at signing.
 // A token signed by a pre-cap binary (score 100 / band 'perfect') stays valid
 // for the TTL across a deploy; replaying it must yield the capped claims, so
-// no consumer (/attempts, test-out) can ever write an above-cap score.
-test("verify-time honesty clamp: replayed above-cap token verifies to 92/'great'", () => {
+// no consumer (/attempts, test-out) can ever write an above-cap score. The
+// band re-derives from the capped score via bandFromScore (owner ruling,
+// Aug 2, 2026): with the perfect threshold at 91, a clamped 92 bands 'perfect'
+// exactly like a fresh 92.
+test("verify-time honesty clamp: replayed above-cap token clamps the score to 92 and re-derives the band", () => {
   assert.equal(HONESTY_SCORE_CAP, 92);
   const token = signEvaluation(
     baseClaims({ score: 100, band: "perfect", xpAwarded: 15 }),
@@ -40,7 +43,7 @@ test("verify-time honesty clamp: replayed above-cap token verifies to 92/'great'
   const claims = verifyEvaluation(token);
   assert.ok(claims, "token must verify");
   assert.equal(claims.score, HONESTY_SCORE_CAP);
-  assert.equal(claims.band, "great");
+  assert.equal(claims.band, "perfect");
 });
 
 // #998 pin 2: nocatch passes through untouched. A system miss is not a

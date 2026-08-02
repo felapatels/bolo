@@ -898,10 +898,12 @@ router.post(
     // path can reuse it without a second call.
     const targetSim = compareToTarget(transcript, targetNative, targetRomanized);
 
-    // S1 honesty cap (global, amended): no scored attempt bands 'perfect' or
-    // scores above 92 until audio-aware scoring v2 exists. A transcript-only
-    // pipeline cannot hear accent, so even a near-miss scored highly by the LLM
-    // must cap at 92 / 'great'. The cap fires unconditionally on all paths.
+    // S1 honesty cap (global, amended): no scored attempt exceeds 92 until
+    // audio-aware scoring v2 exists. A transcript-only pipeline cannot hear
+    // accent, so even a near-miss scored highly by the LLM caps at 92. The cap
+    // is a SCORE ceiling only and fires unconditionally on all paths; the band
+    // always re-derives from the capped score, so at the 91 perfect threshold
+    // (owner ruling, Aug 2, 2026) a capped 92 bands 'perfect' by design.
     //
     // honestyCapApplies is kept for copy selection only: the "our ears could
     // verify everything" pool applies when the transcript exactly equals the
@@ -1008,7 +1010,7 @@ router.post(
           },
           {
             feedback:
-              "Excellent work! Your pronunciation was spot on. You are making this look easy, and that is exactly the kind of practice that pays off.",
+              "Excellent work! Every sound was spot on. You are making this look easy, and that is exactly the kind of practice that pays off.",
             tip: "Now try closing your eyes and saying it from memory to really lock it in.",
           },
           {

@@ -6,10 +6,12 @@
 //  2. No toward-target tie-break: when the passes disagree, sttDisagreement is
 //     flagged and band computation uses the transcript FARTHER from the target.
 //  3. Honesty cap: a transcript that equals the normalized target with agreeing
-//     passes caps at score 92 / band 'great'. 'Perfect' is unreachable for a
-//     target-equal transcript until an audio-aware scoring v2 exists to earn it.
-//     (The "Namasto" regression pin, by construction: STT normalizing a wrong
-//     pronunciation into the target transcript can no longer band perfect.)
+//     passes caps at score 92. The cap is a SCORE ceiling: since the perfect
+//     threshold moved to 91 (owner ruling, Aug 2, 2026) a capped 92 bands
+//     'perfect', but no transcript-scored attempt can exceed 92 until an
+//     audio-aware scoring v2 exists. (The "Namasto" regression pin, by
+//     construction: STT normalizing a wrong pronunciation into the target
+//     transcript can never score above the cap.)
 //
 // Part A unit-tests chooseConservativeTranscript; Part B exercises the real
 // Express route with the audio module mocked (same harness as the fast-path
@@ -175,7 +177,7 @@ test("both passes empty: bothEmpty, no disagreement", () => {
 // Part B — Route integration tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test("honesty cap: transcript equals target with agreeing passes → score 92, band 'great' (Namasto pin)", async () => {
+test("honesty cap: transcript equals target with agreeing passes → score 92, band 'perfect' at the 91 threshold (Namasto pin)", async () => {
   stubbedTranscript = "namaste"; // both passes agree at sim = 1.0
   sttQueue = [];
   sttCallCount = 0;
@@ -185,7 +187,7 @@ test("honesty cap: transcript equals target with agreeing passes → score 92, b
 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
   assert.equal(json.score, 92, `target-equal transcript must cap at 92, got ${json.score}`);
-  assert.equal(json.band, "great", `band must cap at 'great', got ${json.band}`);
+  assert.equal(json.band, "perfect", `capped 92 must band 'perfect' at the 91 threshold, got ${json.band}`);
   assert.equal(json.passed, true);
   assert.equal(sttCallCount, 2, "both STT passes must run on every scored attempt");
   // Capped copy owns the uncertainty: it must not claim flawlessness.
@@ -238,17 +240,18 @@ test("non-matching transcripts band normally through the existing ladder", async
   assert.equal(claims!.sttTranscriptHq, "nama");
 });
 
-test("global honesty cap: near-match (sim < 1.0) with high LLM score → capped at 92, cannot band perfect", async () => {
+test("global honesty cap: near-match (sim < 1.0) with high LLM score → score capped at 92", async () => {
   // S1 amendment: the cap is now unconditional on all scored paths. A
-  // near-miss that the LLM rates at 95 still cannot band 'perfect' (≥ 93);
-  // it is capped to 92 / 'great'. Previously honestyCapApplies required
-  // sim = 1.0 exactly, leaving a residual gap where a near-match could reach
-  // 'perfect' if the LLM was generous. That gap is closed here.
+  // near-miss that the LLM rates at 95 cannot keep that score; it is capped
+  // to 92. Previously honestyCapApplies required sim = 1.0 exactly, leaving a
+  // residual gap where a near-match could keep an above-cap LLM score. That
+  // gap is closed here. The band derives from the capped score ('perfect' at
+  // the 91 threshold per the Aug 2, 2026 owner ruling).
   //
   // "namast" against target "namaste": sim ≈ 0.86 (one char short), goes
   // through the LLM path. The near-match-floor sim threshold is 0.90, which
   // "namast" does not clear, so the guard does not rescue it. LLM returns 95.
-  // Global cap fires: score = 92, band = 'great', not 'perfect'.
+  // Global cap fires: score = 92, band = bandFromScore(92) = 'perfect'.
   stubbedTranscript = "namast";
   sttQueue = [];
   llmCallCount = 0;
@@ -259,8 +262,8 @@ test("global honesty cap: near-match (sim < 1.0) with high LLM score → capped 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
   assert.ok(llmCallCount >= 1, "near-miss must go through the LLM path");
   assert.equal(json.score, 92, `near-match with LLM score 95 must be capped at 92, got ${json.score}`);
-  assert.equal(json.band, "great", `near-match must band 'great', not 'perfect', got ${json.band}`);
-  assert.ok(json.band !== "perfect", "perfect is unreachable until scoring v2");
+  assert.equal(json.band, "perfect", `capped 92 must band 'perfect' at the 91 threshold, got ${json.band}`);
+  assert.ok(json.score <= 92, "no transcript-scored attempt may exceed the cap until scoring v2");
 });
 
 test("token carries both transcripts and the disagreement flag on the capped fast path", async () => {
@@ -276,7 +279,7 @@ test("token carries both transcripts and the disagreement flag on the capped fas
   assert.equal(claims!.sttTranscriptHq, "namaste");
   assert.equal(claims!.sttDisagreement, false);
   assert.equal(claims!.score, 92, "the signed score must be the capped score");
-  assert.equal(claims!.band, "great");
+  assert.equal(claims!.band, "perfect");
 });
 
 test("one empty pass resolves as a system miss (nocatch), never a score", async () => {

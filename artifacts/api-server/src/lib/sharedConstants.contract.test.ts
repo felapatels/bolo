@@ -32,11 +32,13 @@ test("FREE_WEEKLY_CHAT_SECONDS_CAP = 120", () => {
 });
 
 // Five-band ladder thresholds (display layer). The 80/55 edges are FROZEN
-// behavioral boundaries (legacy nailed/close); 93/68 are TUNING PENDING
-// display splits. Clients mirror these in their bandFromScore fallbacks.
-test("BAND_THRESHOLDS = { perfect: 93, great: 80, good: 68, almost: 55 }", () => {
+// behavioral boundaries (legacy nailed/close); 91 was set by owner ruling
+// (Aug 2, 2026) so 'perfect' is reachable under the honesty cap (92); 68 is a
+// TUNING PENDING display split. Clients mirror these in their bandFromScore
+// fallbacks.
+test("BAND_THRESHOLDS = { perfect: 91, great: 80, good: 68, almost: 55 }", () => {
   assert.deepStrictEqual(BAND_THRESHOLDS, {
-    perfect: 93,
+    perfect: 91,
     great: 80,
     good: 68,
     almost: 55,

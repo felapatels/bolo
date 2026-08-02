@@ -5,18 +5,19 @@
 // Elo, FSRS, XP amounts, and mastery thresholds are untouched by banding.
 //
 // Ladder, top to bottom:
-//   perfect  score >= 93
-//   great    score 80-92
+//   perfect  score >= 91
+//   great    score 80-90
 //   good     score 68-79
 //   almost   score 55-67
 //   retry    score < 55
 //   nocatch  (separate upstream outcome: the SYSTEM failed to capture usable
 //            audio — never derived from score, never a learner error)
 //
-// TUNING PENDING: the perfect/great split (93) and the good/almost split (68)
-// are provisional — each legacy passing band was split near its midpoint
-// (93 also coincides with the pre-existing FSRS Easy fast-path threshold).
-// They may be recalibrated freely in a later pass.
+// TUNING: the perfect/great split moved 93 -> 91 by owner ruling (Aug 2, 2026)
+// so the top band is reachable under HONESTY_SCORE_CAP (92). It remains
+// deliberately coincident with the FSRS Easy threshold, which moved with it
+// by the same ruling (see fsrsScheduler.ts). The good/almost split (68) is
+// still TUNING PENDING and may be recalibrated in a later pass.
 //
 // FROZEN boundaries: great's lower edge (80) and almost's lower edge (55) are
 // the legacy nailed/close/retry boundaries. Every behavioral consumer (XP,
@@ -26,7 +27,7 @@
 // FSRS, streaks, test-out) and requires a scoring review — do not fold them
 // into the display tuning pass.
 export const BAND_THRESHOLDS = {
-  perfect: 93,
+  perfect: 91,
   great: 80, // FROZEN — legacy 'nailed' lower edge; equals MASTERY_THRESHOLD
   good: 68,
   almost: 55, // FROZEN — legacy 'close' lower edge

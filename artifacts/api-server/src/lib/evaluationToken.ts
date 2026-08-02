@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PronunciationBand } from "./fsrsScheduler";
-import { normalizeBand } from "./scoreBands";
+import { bandFromScore, normalizeBand } from "./scoreBands";
 
 // The authoritative evaluation the server computed for a single spoken attempt.
 // It is signed by the server at pronunciation time and later replayed, verbatim,
@@ -159,7 +159,10 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
     safeScore > HONESTY_SCORE_CAP
   ) {
     safeScore = HONESTY_SCORE_CAP;
-    clampedBand = "great";
+    // Band re-derives from the capped score through the single derivation
+    // path (owner ruling, Aug 2, 2026): a clamped replayed 92 and a fresh 92
+    // must always show the same band.
+    clampedBand = bandFromScore(safeScore);
   }
 
   return { ...claims, score: safeScore, band: clampedBand, xpAwarded: safeXp };

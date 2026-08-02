@@ -26,7 +26,7 @@ test("BAND_LADDER lists the five scored bands top to bottom", () => {
 });
 
 test("bandFromScore boundary edges at every threshold", () => {
-  // perfect edge (93)
+  // perfect edge (91, owner ruling Aug 2, 2026)
   assert.strictEqual(bandFromScore(100), "perfect");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.perfect), "perfect");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.perfect - 1), "great");

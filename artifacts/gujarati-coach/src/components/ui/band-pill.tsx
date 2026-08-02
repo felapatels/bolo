@@ -35,8 +35,8 @@ export function bandLabel(band: Band): string {
 
 /**
  * Derive the quality band from a raw 0–100 score using the canonical
- * five-band thresholds (>=93 perfect, >=80 great, >=68 good, >=55 almost,
- * <55 retry; 93/68 are TUNING PENDING display splits, 80/55 are frozen legacy
+ * five-band thresholds (>=91 perfect, >=80 great, >=68 good, >=55 almost,
+ * <55 retry; 91 set by owner ruling Aug 2026, 68 TUNING PENDING, 80/55 frozen legacy
  * boundaries). Only for rows recorded before the server started persisting
  * `band` — when the API provides a band, always prefer it (it can also encode
  * `nocatch`, which a score alone can't).
@@ -61,7 +61,7 @@ export function normalizeBand(
 }
 
 export function bandFromScore(score: number): ScoredBand {
-  if (score >= 93) return "perfect";
+  if (score >= 91) return "perfect";
   if (score >= 80) return "great";
   if (score >= 68) return "good";
   if (score >= 55) return "almost";
