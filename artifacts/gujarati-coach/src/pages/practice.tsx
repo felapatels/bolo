@@ -88,6 +88,8 @@ const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 
 // Beat between the phrase clip and the spoken English meaning segment
 // (Task 1003). Two separate audio elements with a short breath between them.
+// Synthesis is pre-warmed during the phrase clip, so this constant IS the
+// felt gap on cache hits and cold caches alike.
 const MEANING_SEGMENT_PAUSE_MS = 400;
 
 // localStorage key that records the learner has already seen the "feedback is
@@ -731,6 +733,29 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // back silently to the phrase-only behavior and never touches the
       // coachAudioFailed card. The element inherits the user-gesture blessing
       // of the play that started the chain, so no autoplay priming is needed.
+      // Synthesizes (or reuses the cached) English meaning clip. Hoisted out
+      // of playMeaning so playCoach can PRE-WARM it while the phrase clip is
+      // still playing: on a cold cache, synthesis used to start only after
+      // the phrase ended, stretching the felt gap to the network latency
+      // instead of the intended MEANING_SEGMENT_PAUSE_MS beat.
+      const synthMeaning = async () => {
+        const cachedMeaning = meaningAudioCacheRef.current.get(phrase.id);
+        if (cachedMeaning) return cachedMeaning;
+        const fresh = await synthesize.mutateAsync({
+          data: {
+            text: meaningSpeechText(phrase.english, { sentence: isSentences }),
+            languageName: "English",
+            languageCode: "en",
+          },
+        });
+        meaningAudioCacheRef.current.set(phrase.id, {
+          audioBase64: fresh.audioBase64,
+          format: fresh.format,
+        });
+        return fresh;
+      };
+      let meaningPrewarm: ReturnType<typeof synthMeaning> | null = null;
+
       const playMeaning = async () => {
         if (cancelled) return;
         // Read the preference fresh at play time so a toggle flip applies to
@@ -740,26 +765,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           return;
         }
         try {
-          const synthMeaning = async () => {
-            const cachedMeaning = meaningAudioCacheRef.current.get(phrase.id);
-            if (cachedMeaning) return cachedMeaning;
-            const fresh = await synthesize.mutateAsync({
-              data: {
-                text: meaningSpeechText(phrase.english, { sentence: isSentences }),
-                languageName: "English",
-                languageCode: "en",
-              },
-            });
-            meaningAudioCacheRef.current.set(phrase.id, {
-              audioBase64: fresh.audioBase64,
-              format: fresh.format,
-            });
-            return fresh;
-          };
-          // Synthesis (on a cache miss) runs during the pause so the gap
-          // between the two segments stays close to the intended beat.
+          // The pause and the (pre-warmed or fresh) synthesis overlap so the
+          // gap between the two segments stays close to the intended beat.
           const [res] = await Promise.all([
-            synthMeaning(),
+            meaningPrewarm ?? synthMeaning(),
             new Promise((resolve) => setTimeout(resolve, MEANING_SEGMENT_PAUSE_MS)),
           ]);
           if (cancelled) return;
@@ -793,6 +802,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           audio.onended = () => {
             void playMeaning();
           };
+          // Pre-warm the meaning segment while the phrase clip plays so the
+          // beat after it stays at ~MEANING_SEGMENT_PAUSE_MS even on a cold
+          // cache. On failure the handle resets so playMeaning retries fresh
+          // and keeps owning the fail-silent fallback.
+          if (meaningAudioPrefRef.current && phrase.english) {
+            const prewarm = synthMeaning();
+            meaningPrewarm = prewarm;
+            prewarm.catch(() => {
+              if (meaningPrewarm === prewarm) meaningPrewarm = null;
+            });
+          }
         } catch (error) {
           if (!cancelled) {
             console.error("Failed to synthesize speech", error);
@@ -1853,7 +1873,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
       
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="mx-auto w-full max-w-2xl px-4 py-3 flex items-center justify-between gap-3 shrink-0">
+      {/* flex-wrap + the grouped pill row below: at large accessibility text
+          sizes the pills outgrow one 320px row; the group then wraps to a
+          second header row as a unit instead of clipping off-screen under the
+          page wrapper's overflow-hidden. Normal text stays on one row. */}
+      <header className="mx-auto w-full max-w-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 sm:gap-3 shrink-0">
         <Link href={backHref} className="text-muted-foreground hover:text-foreground shrink-0">
           <ArrowLeft className="w-7 h-7" />
         </Link>
@@ -1875,7 +1899,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             active states: the mute button lit up when sound was OFF while
             Read Aloud lit up when sound was ON — confusing.) Labels name what
             each controls: PHRASE = the coach reads the phrase before you
-            speak; FEEDBACK = your score result is read aloud. */}
+            speak; FEEDBACK = your score result is read aloud. Below the sm
+            breakpoint the text labels collapse to sr-only so all three pills
+            fit at 320px as icon-only controls; titles, aria-pressed, and the
+            sr-only text keep them fully identifiable. */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
           onClick={() => changeSilentMode(!silentMode)}
           aria-pressed={!silentMode}
@@ -1896,7 +1924,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ) : (
             <Volume2 className="w-4 h-4" />
           )}
-          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
+          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
             Phrase
           </span>
         </button>
@@ -1922,7 +1950,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           ) : (
             <HeadphoneOff className="w-4 h-4" />
           )}
-          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
+          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
             Feedback
           </span>
         </button>
@@ -1946,10 +1974,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           )}
         >
           <Languages className="w-4 h-4" />
-          <span className="text-[10px] font-bold uppercase tracking-wide leading-none">
+          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
             Meaning
           </span>
         </button>
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 flex flex-col px-4 pb-4 min-h-0">

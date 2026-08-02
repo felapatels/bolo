@@ -248,15 +248,19 @@ describe("meaning segment after the phrase clip", () => {
       coachClip.onended?.();
     });
 
-    // Phrase-only behavior: straight to idle, no English synthesis, no
-    // second audio element.
+    // Phrase-only behavior: straight to idle and no second audio element.
+    // One English synthesis call IS still recorded: the pre-warm fired at
+    // clip start while the pill was still on. It only fills the cache;
+    // playMeaning reads the preference fresh at clip end and never plays it,
+    // so the "applies to the very next play" contract is about what is
+    // heard, not about the cache warm-up.
     await waitFor(() =>
       expect(screen.getByText(/Hold Bolo to speak/)).toBeInTheDocument(),
     );
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     });
-    expect(meaningCalls()).toHaveLength(0);
+    expect(meaningCalls()).toHaveLength(1);
     expect(audioInstances).toHaveLength(1);
   });
 
