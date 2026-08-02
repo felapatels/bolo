@@ -47,7 +47,7 @@ export default function Terms() {
           <p>
             These Terms of Service ("Terms") govern your access to and use of Bolo!
             ("we", "us", or "the app"), a language-learning app that helps you learn
-            to speak Indian languages out loud. They apply to both the Bolo! website
+            to speak South Asian languages out loud. They apply to both the Bolo! website
             and the Bolo! Mobile app. By creating an account or using the app, you
             agree to these Terms. If you do not agree, please do not use the app.
           </p>

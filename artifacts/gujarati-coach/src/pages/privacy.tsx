@@ -46,7 +46,7 @@ export default function Privacy() {
         <div className="mt-8 text-muted-foreground font-medium leading-relaxed space-y-3">
           <p>
             Bolo! ("we", "us", or "the app") is a language-learning app that helps you
-            learn to speak Indian languages out loud. This policy explains what
+            learn to speak South Asian languages out loud. This policy explains what
             information we collect, how we use it, and the choices you have. It applies
             to both the Bolo! website and the Bolo! Mobile app.
           </p>

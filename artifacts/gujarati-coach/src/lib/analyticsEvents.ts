@@ -22,6 +22,28 @@ export const ANALYTICS_EVENTS = {
   // (No topic-open event existed before this; both names are new.)
   PHRASEBOOK_OPENED: "phrasebook_opened",
   TOPIC_OPENED: "topic_opened",
+  // Public marketing surface (Task 997 South Asian repositioning). These are
+  // the ONLY events that fire pre-auth; autocapture and pageviews stay off.
+  // Web-only for now: the mobile twin has no public marketing surface, so
+  // these have no mobile mirror (note kept per this file's convention).
+  // homepage_view: landing page mount.
+  HOMEPAGE_VIEW: "homepage_view",
+  // section_in_viewport: a named landing section first enters the viewport
+  // (property: section).
+  SECTION_IN_VIEWPORT: "section_in_viewport",
+  // language_entry_click: a language chip in the showcase was clicked
+  // (property: language = English name).
+  LANGUAGE_ENTRY_CLICK: "language_entry_click",
+  // per_language_page_view: a /languages/<slug> page mounted (property: language).
+  PER_LANGUAGE_PAGE_VIEW: "per_language_page_view",
+  // cta_click: any public-surface CTA (property: placement = hero-primary,
+  // hero-secondary, bottom-cta, pricing-free, pricing-allaccess,
+  // pricing-family, per-language-cta).
+  CTA_CLICK: "cta_click",
+  // signup_started: a public-surface CTA routed the visitor to /sign-up
+  // (property: source = the placement). Distinct from sign_up_completed,
+  // which App.tsx fires post-account-creation.
+  SIGNUP_STARTED: "signup_started",
 } as const;
 
 export type AnalyticsEvent =

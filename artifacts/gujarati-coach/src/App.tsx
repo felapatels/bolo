@@ -78,6 +78,8 @@ const Family = lazyRoute(() => import('@/pages/family'));
 const FamilyJoin = lazyRoute(() => import('@/pages/family-join'));
 const Privacy = lazyRoute(() => import('@/pages/privacy'));
 const Terms = lazyRoute(() => import('@/pages/terms'));
+// Public per-language SEO pages (/languages/<slug>), no auth required.
+const LearnLanguage = lazyRoute(() => import('@/pages/learn-language'));
 const NotFound = lazyRoute(() => import('@/pages/not-found'));
 
 // Most-likely-next pages first; long tail after. Order matters because the
@@ -105,6 +107,7 @@ const PREFETCH_ORDER = [
   Contact,
   Privacy,
   Terms,
+  LearnLanguage,
   NotFound,
 ];
 
@@ -299,6 +302,9 @@ function AppRouter() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      {/* Public per-language marketing/SEO pages. The /languages prefix is
+          deliberate: /learn/:categoryId is the authenticated CategoryDetail. */}
+      <Route path="/languages/:slug" component={LearnLanguage} />
       <Route path="/choose-language">
         <Guard>
           <ChooseLanguage />

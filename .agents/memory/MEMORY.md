@@ -117,3 +117,4 @@
 - [Token replay across deploys](token-replay-across-deploys.md) — signed eval tokens outlive deploys by TTL; enforce score policy at verify time too; NULL dual-pass columns fingerprint pre-respin tokens.
 - [gpt-audio grading quirks](gpt-audio-grading-quirks.md) — input_audio is wav/mp3 ONLY (webm 400s); proxy 429s under burst (concurrency 2 + backoff); "no audio" refusals are conversion-specific — ladder 0.4s pad/unpadded/1s pad scores everything.
 - [Pilot corpus label protocol](pilot-corpus-protocol.md) — clip labels = attempt order per (user,phrase): native, american_accent, subtle_error, wrong_attempt; R2-only, never commit recordings.
+- [pilot-capture env test trap](pilot-capture-env-test-trap.md) — api-server pilot-capture test fails whenever PILOT_CAPTURE_USER_IDS is set via .replit; audited skip, not a task regression.

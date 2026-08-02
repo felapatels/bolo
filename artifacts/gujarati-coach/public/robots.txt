@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://bolo-india.app/sitemap.xml

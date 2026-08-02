@@ -88,7 +88,7 @@ export default function ChooseLanguage() {
             Choose your language
           </h1>
           <p className="mt-2 text-muted-foreground">
-            All 22 official Indian languages, ready to learn. You can switch
+            All 22 South Asian languages, ready to learn. You can switch
             anytime.
           </p>
         </header>

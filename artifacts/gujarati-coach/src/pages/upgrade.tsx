@@ -30,51 +30,14 @@ import {
 
 // The tiers selectable on this page: All-Access and the Family plan (one
 // subscription covering up to 4 people). One Language is not sold on web.
-type SelectableTier = "plus" | "family";
+// Pricing display strings live in the shared canonical config (lib/pricing)
+// so the public pricing preview and this paywall can never drift apart.
+import { TIER_PRICING, type SelectableTier } from "@/lib/pricing";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
-// Per-tier pricing for each billing interval. These display strings mirror the
-// store pricing ladder; the REAL charge comes from the Stripe price ids the
-// server holds (STRIPE_*_PRICE_ID env vars) — keep both in sync, and keep
-// scripts/seedStripeProducts.ts in sync too.
-const TIER_PRICING: Record<
-  SelectableTier,
-  Record<
-    PlusInterval,
-    { price: string; per: string; note: string; badge?: string }
-  >
-> = {
-  plus: {
-    monthly: {
-      price: "$12.99",
-      per: "/mo",
-      note: "Billed monthly. Cancel anytime.",
-    },
-    annual: {
-      price: "$89.99",
-      per: "/yr",
-      note: "Just $7.50/mo — billed yearly.",
-      badge: "Save 42%",
-    },
-  },
-  family: {
-    monthly: {
-      price: "$19.99",
-      per: "/mo",
-      note: "One bill covers up to 4 people. Billed monthly. Cancel anytime.",
-    },
-    annual: {
-      price: "$139.99",
-      per: "/yr",
-      note: "Just $11.67/mo for up to 4 people — billed yearly.",
-      badge: "Save 42%",
-    },
-  },
-};
-
 const ALL_ACCESS_BENEFITS = [
-  { icon: Globe, text: "All 22 official Indian languages" },
+  { icon: Globe, text: "All 22 South Asian languages" },
   { icon: InfinityIcon, text: "Full phrase library, sentences & every game" },
   { icon: Target, text: "Review your weakest phrases" },
   { icon: BarChart3, text: "Advanced progress analytics" },
@@ -83,7 +46,7 @@ const ALL_ACCESS_BENEFITS = [
 
 const FAMILY_BENEFITS = [
   { icon: Users, text: "Everything in All-Access, for up to 4 people" },
-  { icon: Globe, text: "All 22 official Indian languages" },
+  { icon: Globe, text: "All 22 South Asian languages" },
   { icon: InfinityIcon, text: "Every premium feature, for everyone" },
   { icon: Target, text: "Each person's progress stays their own" },
 ];
