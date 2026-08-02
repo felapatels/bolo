@@ -704,9 +704,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // The pointerId of the live hold gesture, or null when no hold is active.
   // Release is detected by WINDOW-level listeners installed at hold start, so
   // a pointerup the button never sees (permission prompt steals it, relayout
-  // under the finger, tab switch) still ends the hold. Unlike chat (which
-  // discards), practice routes every hold-end through its release semantic:
-  // release means "done speaking", so it finishes and sends.
+  // under the finger, tab switch) still ends the hold. A release while the
+  // recorder is LIVE finishes and sends ("done speaking"); a release before
+  // the recorder resolved (permission prompt open) discards like chat — a
+  // permission grant alone must never produce an attempt or a result card.
   const activeHoldPointerRef = useRef<number | null>(null);
   // Removes the window listeners WITHOUT firing release semantics (used when
   // a new hold replaces a stale one, and on unmount so an unmount can never
@@ -721,10 +722,6 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // True once recorder.startRecording() has resolved — lets finishRecording
   // guard without capturing stale React state in a closure.
   const isRecordingRef = useRef(false);
-  // True when pointerUp fires before startRecording resolves (quick tap / slow
-  // permission grant). startRecording checks this after it resolves and calls
-  // finishRecording immediately so the release is never silently dropped.
-  const isPendingStopRef = useRef(false);
 
   const finishRecording = useCallback(async () => {
     if (finishingRef.current) return;
@@ -936,7 +933,6 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // is on screen. Recording/evaluating are still excluded — a hold there is
     // either the live gesture itself or an in-flight evaluation.
     if (state !== "idle" && state !== "playing_coach" && state !== "result") return;
-    isPendingStopRef.current = false;
     setEvalError(null);
     if (state !== "idle") {
       // Stop whatever is playing RIGHT NOW, on the same gesture. Pausing here
@@ -954,20 +950,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // Hold-to-talk always uses manual stop — the learner releases their
       // finger to finish, so silence detection is not needed.
       await recorder.startRecording(undefined);
-      // Positive hold-confirmation: if the hold that started this recording
-      // is no longer live (released or replaced while the mic was being
-      // granted), treat it as a release — practice's release semantic is
-      // "done speaking", so it finishes and sends rather than discarding.
-      if (holdPointerId !== null && activeHoldPointerRef.current !== holdPointerId) {
-        isPendingStopRef.current = true;
+      // Positive hold-confirmation (chat.tsx grant-guard pattern): a
+      // permission grant by itself must never produce an attempt or a result
+      // card. Continue only if the exact pointer that started this press is
+      // verifiably still held — otherwise (released while the prompt was
+      // open, or the prompt's focus steal fired the blur release) abort and
+      // discard. Nothing was captured before the recorder resolved, so there
+      // is no audio to honour; the next press starts a fresh recording.
+      if (holdPointerId === null || activeHoldPointerRef.current !== holdPointerId) {
+        recorder.abortRecording();
+        setState("idle");
+        return;
       }
       isRecordingRef.current = true;
       setState("recording");
-      // Race: if the learner released before startRecording resolved (quick tap
-      // or slow permission grant), honour that release immediately now.
-      if (isPendingStopRef.current) {
-        void finishRecording();
-      }
     } catch {
       setEvalError("We couldn't access your microphone. Allow mic access in your browser, then try again.");
       setState("error");
@@ -977,11 +973,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const handleBellyRelease = () => {
     if (isRecordingRef.current) {
       void finishRecording();
-    } else {
-      // Recording hasn't started yet — flag it so startRecording stops
-      // immediately once the recorder resolves (quick-tap / permission lag).
-      isPendingStopRef.current = true;
     }
+    // Release before the recorder resolved (quick tap, or the permission
+    // prompt stealing pointer/focus): nothing to do here. The hold is no
+    // longer live, so startRecording's hold-confirmation guard aborts the
+    // just-granted recorder without producing an attempt or a result card.
   };
 
   // Marks a hold gesture as live and installs window-level release listeners.
@@ -2043,14 +2039,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               <div className="flex gap-3">
                 <button
                   onClick={playAgain}
-                  className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                   <Volume2 className="w-5 h-5" /> Hear the phrase
                 </button>
                 <button
                   onClick={playOwnRecording}
                   disabled={!ownRecordingUrl}
-                  className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 disabled:opacity-40 transition-all"
+                  className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 disabled:opacity-40 transition-all"
                 >
                   <Headphones className="w-5 h-5" /> Hear yourself
                 </button>
@@ -2059,7 +2055,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             <div className="flex gap-3">
               <button
                 onClick={handleRetry}
-                className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
               >
                 <RefreshCcw className="w-5 h-5" /> Practice again
               </button>
@@ -2095,7 +2091,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               >
               {state === "error" && evalError && (
                 <div
-                  className="bg-white rounded-2xl p-4 border border-destructive/30 shadow-sm text-center"
+                  className="bg-card rounded-2xl p-4 border border-destructive/30 shadow-sm text-center"
                   role="alert"
                 >
                   <p className="text-lg font-black mb-1 text-destructive">Oops, that didn't work</p>
@@ -2104,7 +2100,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               )}
 
               {state === "result" && result && (
-                <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
+                <div className="bg-card rounded-2xl p-4 border border-card-border shadow-sm text-center">
                   <p className={cn(
                     "text-xl font-black mb-1",
                     result.band === "perfect" ? "text-success" :
@@ -2181,44 +2177,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 >
                   <RefreshCcw className="w-5 h-5" /> Record again
                 </button>
-              ) : state === "result" && result?.band === "retry" && !isTestout ? (
-                /* Retry band (batch 1 addendum, mobile parity): another take is
-                   the productive default, so "Try again" gets the primary
-                   treatment and "Next phrase" drops to a quieter bordered
-                   secondary. Hard evaluation failures (state "error" above)
-                   keep their own "Record again" primary. */
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleNext}
-                    className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    Next phrase <ArrowRight className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleRetry}
-                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-                  >
-                    <RefreshCcw className="w-5 h-5" /> Try again
-                  </button>
-                </div>
               ) : (
+                /* ONE constant action row for every band (capture-protocol
+                   mis-tap fix): the retry control is ALWAYS the bordered
+                   secondary on the LEFT and Next is ALWAYS the filled primary
+                   on the RIGHT — identical position, size, and treatment
+                   regardless of band or attempt count. The old retry-band
+                   branch swapped both position and primacy, so learners
+                   tapping the accustomed Retry slot advanced by accident.
+                   Retry-band encouragement is copy-only now ("Try again"
+                   label plus the shake above), never a layout mutation. */
                 <div className="flex gap-3">
-                  {/* Test-out is one take per phrase: no retry, only forward.
-                      (The retry-band branch above is also bypassed in
-                      test-out mode for the same reason.) */}
+                  {/* Test-out is one take per phrase: no retry, only forward. */}
                   {!isTestout && (
-                    <button 
+                    <button
                       onClick={handleRetry}
-                      className="flex-1 bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                     >
-                      <RefreshCcw className="w-5 h-5" /> Retry
+                      <RefreshCcw className="w-5 h-5" /> {result?.band === "retry" ? "Try again" : "Retry"}
                     </button>
                   )}
                   <button 
                     onClick={handleNext}
                     className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
                   >
-                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : "Next"} <ArrowRight className="w-5 h-5" />
+                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : result?.band === "retry" ? "Next phrase" : "Next"} <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               )}

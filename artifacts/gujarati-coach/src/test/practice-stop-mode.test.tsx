@@ -214,8 +214,14 @@ describe("hold-to-talk recording mechanics", () => {
     expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 
-  test("quick release before startRecording resolves still triggers evaluation (race condition)", async () => {
-    // Simulate permission latency: startRecording hangs until we resolve it.
+  test("release before startRecording resolves aborts — no attempt, no result card (race condition)", async () => {
+    // Capture-session grant-guard fix: a release that lands while the
+    // recorder is still starting (permission prompt open, or plain
+    // permission latency) captured NOTHING — the recorder wasn't running.
+    // The old behavior finished-and-sent, producing an empty junk attempt
+    // (surfacing as a "didn't capture any audio" error card the user never
+    // earned). Now the resolve-time hold-confirmation aborts and returns to
+    // idle; the next press starts a fresh, normal recording.
     let resolveStart!: () => void;
     h.startRecording.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
 
@@ -230,15 +236,20 @@ describe("hold-to-talk recording mechanics", () => {
     // pointerUp fires before startRecording resolves — this is the race.
     fireEvent.pointerUp(belly);
 
-    // startRecording finally resolves — it should honour the pending release
-    // and call stopRecording → evaluate immediately.
+    // startRecording finally resolves — the hold is no longer live, so the
+    // recorder is aborted and no evaluation is ever sent.
     await act(async () => {
       resolveStart();
     });
 
-    await waitFor(() => expect(h.stopRecording).toHaveBeenCalled());
-    await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    expect(h.stopRecording).not.toHaveBeenCalled();
+    expect(h.evaluate).not.toHaveBeenCalled();
+    expect(screen.queryByText("Amazing!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Oops, that didn't work")).not.toBeInTheDocument();
+    // Back to idle, ready for a fresh press.
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
   });
 });
 
