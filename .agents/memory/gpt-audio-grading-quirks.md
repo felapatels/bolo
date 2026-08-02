@@ -7,6 +7,6 @@ description: Real-API constraints for gpt-audio input_audio grading via the AI-i
 
 **Rate limits:** the AI-integrations proxy 429s (RATELIMIT_EXCEEDED) under bursts — 12 concurrent calls collapsed a whole run. Use clip-concurrency 2 (≤6 in-flight), retry-on-429 with 3s/8s/15s backoff.
 
-**"I need to hear the audio" refusals:** gpt-audio intermittently responds as if no audio was attached, ~5-8% of short clips per pass. Padding 0.4s silence on both ends rescues most; a residual ~2% of clips are PERMANENTLY refused across formats and many retries — treat as unscoreable, don't loop forever.
+**"I need to hear the audio" refusals:** gpt-audio intermittently responds as if no audio was attached, ~5-8% of short clips per pass. Refusals are CLIP+CONVERSION specific, not clip-permanent: uniform 0.4s padding rescued round-1 refusers but CAUSED refusals on other clips that scored fine unpadded. The fallback ladder 0.4s pad -> unpadded -> 1.0s pad scored 237/237 in round 2 (round 1's "permanent" refusals all yielded). Re-convert before declaring a clip unscoreable.
 
 **How to apply:** any batch gpt-audio scoring harness must be resume-safe (append-only JSONL keyed by clip, last record wins, failed records retryable) and run in foreground timeout chunks (background jobs die).

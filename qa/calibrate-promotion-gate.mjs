@@ -18,12 +18,20 @@
 //   node qa/calibrate-promotion-gate.mjs --limit 2   # smoke test
 //   node qa/calibrate-promotion-gate.mjs --report    # analysis only, no calls
 //
-// Ratified acceptance criteria (per language):
-//   - every wrong_attempt median < 55
+// Acceptance criteria (CALIBRATION RULING, August 2, 2026 — supersedes the
+// round-1 set; per language, monosyllabic targets excluded from all criteria):
+//   BINDING:
+//   - no wrong_attempt median >= 68 (good band), and none promotes (>= 93)
+//   - no subtle_error clip promotes (median < 93)
 //   - no american_accent clip promotes (all medians < 93)
 //   - native clips promote (median >= 93) at >= 80%
-//   - at most 1 subtle_error clip below 55
 //   - per-clip ensemble spread (max-min of raw scores) <= 30
+//   ADVISORY (reported, non-gating):
+//   - wrong_attempt medians >= 55 (count)
+//   - subtle_error below 55 (proportion, 25% target)
+// Monosyllables (ha/na/any single-syllable target) are excluded from gate
+// criteria AND (binding v2 design ruling) from production judge promotion.
+// Unscoreable (ensembleFailed) clips are excluded from all denominators.
 
 import { createRequire } from "node:module";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -75,6 +83,8 @@ Score bands:
 - 10-39: mostly a different word or phrase.
 - 0-9: unrelated speech or noise.
 
+If the speaker sounds like a fluent native, score 95-100; do not reserve scores above 92 for flawlessness.
+
 For very short targets (1-2 syllables), apply the same bands per sound. Within each band, pick a specific score that reflects exactly how close the attempt was -- avoid rounding to 5 or 10 unless the attempt truly sits at that boundary. For example, within 80-89 prefer 83 or 87 over always writing 85.
 
 Always be kind and motivating. This feedback will be READ ALOUD to the learner, so write it like you are talking to them face to face: friendly, playful, conversational. React to how they did first, name one specific thing they did well, and if it was not perfect, gently name the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm chatty sentences spoken directly), tip (one short friendly concrete pronunciation tip). Address them as "you". No emojis or special symbols.`;
@@ -91,7 +101,11 @@ const r2 = new S3Client({
 // 400 on 'webm'; the spec's webm/m4a passthrough does not survive the real
 // API). Convert every clip to 16kHz mono MP3 with ffmpeg; the manifest sniff
 // field names the temp input extension so ffmpeg demuxes correctly.
-const CLIP_TMP_DIR = "/tmp/pilot-corpus-mp3";
+// 0.4s of silence is padded on BOTH ends of every clip uniformly: in round 1
+// gpt-audio intermittently refused short clips as "no audio" and padding
+// rescued 10 of 14 (round 1 did this ad hoc in the tmp cache; it is now baked
+// in, with a fresh cache dir so no unpadded round-1 file is ever reused).
+const CLIP_TMP_DIR = "/tmp/pilot-corpus-mp3-padded";
 mkdirSync(CLIP_TMP_DIR, { recursive: true });
 
 async function fetchClipMp3B64(clipKey, sniff) {
@@ -101,7 +115,7 @@ async function fetchClipMp3B64(clipKey, sniff) {
   if (!existsSync(outPath)) {
     const res = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: clipKey }));
     writeFileSync(inPath, Buffer.from(await res.Body.transformToByteArray()));
-    const r = spawnSync("ffmpeg", ["-y", "-i", inPath, "-ar", "16000", "-ac", "1", outPath], {
+    const r = spawnSync("ffmpeg", ["-y", "-i", inPath, "-ar", "16000", "-ac", "1", "-af", "adelay=400|400,apad=pad_dur=0.4", outPath], {
       encoding: "buffer",
       maxBuffer: 64 * 1024 * 1024,
     });
@@ -273,33 +287,55 @@ console.log(`\n══ ANALYSIS ══ scored ${scored.length}/${manifest.clips.l
 if (remaining > 0) console.log("RE-RUN the harness to score remaining clips before treating this as final.");
 
 const PROMOTE = 93;
+const GOOD_BAND = 68;
+
+// Monosyllable exclusion (calibration ruling Aug 2, 2026): single-word target
+// with at most one vowel group, e.g. "ha", "na". Excluded from all gate
+// criteria; ALSO a binding v2 design ruling — monosyllables are never
+// judge-promoted in production (text-path result stands).
+function isMonosyllabic(rom) {
+  const w = String(rom).toLowerCase().replace(/[^a-z\s]/g, "").trim();
+  if (!w || /\s/.test(w)) return false;
+  return (w.match(/[aeiou]+/g)?.length ?? 0) <= 1;
+}
+
 const langs = [...new Set(scored.map((r) => r.languageCode))].sort();
 for (const lang of langs) {
-  const L = scored.filter((r) => r.languageCode === lang);
+  const all = scored.filter((r) => r.languageCode === lang);
+  const mono = all.filter((r) => isMonosyllabic(r.targetRomanized));
+  const L = all.filter((r) => !isMonosyllabic(r.targetRomanized));
   const by = (label) => L.filter((r) => r.label === label);
   const wrong = by("wrong_attempt");
   const american = by("american_accent");
   const native = by("native");
   const subtle = by("subtle_error");
 
-  const wrongBad = wrong.filter((r) => r.median >= 55);
+  // BINDING
+  const wrongGood = wrong.filter((r) => r.median >= GOOD_BAND);
+  const subtlePromoted = subtle.filter((r) => r.median >= PROMOTE);
   const americanBad = american.filter((r) => r.median >= PROMOTE);
   const nativePromoted = native.filter((r) => r.median >= PROMOTE);
   const nativeRate = native.length ? nativePromoted.length / native.length : 0;
-  const subtleLow = subtle.filter((r) => r.median < 55);
   const spreadBad = L.filter((r) => r.spread > 30);
+  // ADVISORY (non-gating)
+  const wrong55 = wrong.filter((r) => r.median >= 55);
+  const subtleLow = subtle.filter((r) => r.median < 55);
+  const subtleLowPct = subtle.length ? (subtleLow.length / subtle.length) * 100 : 0;
 
-  console.log(`\n── ${LANG_NAMES[lang] ?? lang} (${lang}) — clips: native ${native.length}, american ${american.length}, subtle ${subtle.length}, wrong ${wrong.length}`);
+  console.log(`\n── ${LANG_NAMES[lang] ?? lang} (${lang}) — gated clips: native ${native.length}, american ${american.length}, subtle ${subtle.length}, wrong ${wrong.length} (monosyllables excluded: ${mono.length})`);
   const line = (okFlag, txt) => console.log(`  ${okFlag ? "PASS" : "FAIL"}  ${txt}`);
-  line(wrongBad.length === 0, `wrong_attempt medians < 55 (violations: ${wrongBad.length})`);
-  line(americanBad.length === 0, `no american_accent promotes, medians < ${PROMOTE} (violations: ${americanBad.length})`);
-  line(nativeRate >= 0.8, `native promotes >= 80% (actual ${(nativeRate * 100).toFixed(0)}%: ${nativePromoted.length}/${native.length})`);
-  line(subtleLow.length <= 1, `at most 1 subtle_error below 55 (actual ${subtleLow.length})`);
-  line(spreadBad.length === 0, `per-clip 3-run spread <= 30 (violations: ${spreadBad.length})`);
-  for (const [name, list] of [["wrong_attempt >= 55", wrongBad], ["american_accent >= 93", americanBad], ["subtle_error < 55", subtleLow], ["spread > 30", spreadBad]]) {
+  line(wrongGood.length === 0, `BINDING no wrong_attempt >= ${GOOD_BAND} (good band) nor promoting (violations: ${wrongGood.length})`);
+  line(subtlePromoted.length === 0, `BINDING no subtle_error promotes, medians < ${PROMOTE} (violations: ${subtlePromoted.length})`);
+  line(americanBad.length === 0, `BINDING no american_accent promotes, medians < ${PROMOTE} (violations: ${americanBad.length})`);
+  line(nativeRate >= 0.8, `BINDING native promotes >= 80% (actual ${(nativeRate * 100).toFixed(0)}%: ${nativePromoted.length}/${native.length})`);
+  line(spreadBad.length === 0, `BINDING per-clip 3-run spread <= 30 (violations: ${spreadBad.length})`);
+  console.log(`  ADVISORY wrong_attempt >= 55 (target 0): ${wrong55.length}`);
+  console.log(`  ADVISORY subtle_error < 55 (target <= 25%): ${subtleLow.length}/${subtle.length} (${subtleLowPct.toFixed(0)}%)`);
+  for (const [name, list] of [["wrong_attempt >= 68", wrongGood], ["subtle_error >= 93", subtlePromoted], ["american_accent >= 93", americanBad], ["spread > 30", spreadBad], ["advisory wrong >= 55", wrong55.filter((r) => r.median < GOOD_BAND)], ["advisory subtle < 55", subtleLow]]) {
     for (const r of list) console.log(`     ${name}: ${r.clipKey} (${r.tester} "${r.targetRomanized}") median ${r.median} raw [${r.raw.join(",")}] spread ${r.spread}`);
   }
   const nativeMisses = native.filter((r) => r.median < PROMOTE);
   if (nativeRate < 0.8) for (const r of nativeMisses) console.log(`     native not promoted: ${r.clipKey} (${r.tester} "${r.targetRomanized}") median ${r.median} raw [${r.raw.join(",")}]`);
+  for (const r of mono) console.log(`     [mono, excluded] ${r.label}: ${r.clipKey} (${r.tester} "${r.targetRomanized}") median ${r.median}`);
 }
 for (const r of failedClips) console.log(`ensembleFailed: ${r.clipKey} (${r.tester} ${r.languageCode} "${r.targetRomanized}" ${r.label}) errors: ${(r.errors ?? []).join(" | ")}`);

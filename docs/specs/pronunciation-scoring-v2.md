@@ -85,12 +85,20 @@ Score bands:
 - 10-39: mostly a different word or phrase.
 - 0-9: unrelated speech or noise.
 
+If the speaker sounds like a fluent native, score 95-100; do not reserve scores above 92 for flawlessness.
+
 For very short targets (1-2 syllables), apply the same bands per sound. Within each band, pick a specific score that reflects exactly how close the attempt was -- avoid rounding to 5 or 10 unless the attempt truly sits at that boundary. For example, within 80-89 prefer 83 or 87 over always writing 85.
 
 Always be kind and motivating. This feedback will be READ ALOUD to the learner, so write it like you are talking to them face to face: friendly, playful, conversational. React to how they did first, name one specific thing they did well, and if it was not perfect, gently name the one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm chatty sentences spoken directly), tip (one short friendly concrete pronunciation tip). Address them as "you". No emojis or special symbols.
 ```
 
 **Why `response_format: json_object` is absent:** gpt-audio rejects it. Prompt-enforced JSON is the only path. Parse defensively (same `JSON.parse` with fallback as the current text-judge path).
+
+**Prompt amendment (calibration ruling, August 2, 2026):** the "If the speaker sounds like a fluent native, score 95-100" line above was added by owner ruling after calibration round 1 showed a de-facto 92 ceiling on genuine native clips (native medians clustered 82-92 in all three pilot languages). The 92 ceiling was a prompt artifact of the strict 90-100 band text; it is fixed here at the source. The promotion cut remains 93.
+
+### BINDING design ruling: monosyllable promotion exclusion (August 2, 2026)
+
+Monosyllabic phrases (ha, na, and any other single-syllable target) are **excluded from judge promotion entirely**. In production, a monosyllabic phrase keeps its text-path result and is never judge-promoted above it: one phoneme cannot evidence Perfect. Calibration round 1 evidence: monosyllables were the dominant failure locus on both tails (3 of 4 american_accent promotions and a wrong_attempt scored 92 were all "ha"/"na"). These clips are likewise excluded from all calibration gate criteria (they are still scored and reported for visibility).
 
 ### Ensemble: 3 parallel calls
 

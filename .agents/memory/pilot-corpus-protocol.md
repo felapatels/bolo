@@ -15,7 +15,7 @@ Do NOT use the v2 spec's generic names (mild_accent/heavy_accent) — American I
 
 **Harvest (fallback for clips WITHOUT explicit labels — pre-capture-mode uploads):** group clips by (userId, languageCode, phraseId) from R2 sidecars, sort by timestamp, map position→label only for exact quads; flag incomplete groups (expected: uploads before the 14:39 UTC checksum fix were lost) and >4 groups for manual review. Clips are webm bytes under .m4a keys (mobile-web MediaRecorder) — sniff EBML magic 1a45dfa3, never trust the extension.
 
-**v2 calibration acceptance (ratified, per language):** all wrong_attempt medians < 55; no american_accent clip promotes (median < 93); native promotes >= 80%; at most 1 subtle_error below 55; per-clip 3-run spread <= 30.
+**v2 calibration acceptance (RESTRUCTURED by owner ruling 2026-08-02, per language; monosyllabic targets excluded from all criteria):** BINDING: no wrong_attempt >= 68 nor promoting; no subtle_error promotes (< 93); no american_accent promotes (< 93); native promotes >= 80%; per-clip 3-run spread <= 30. ADVISORY (non-gating): wrong >= 55 count (target 0); subtle < 55 proportion (target <= 25%). BINDING v2 design ruling: monosyllables (ha/na etc.) are never judge-promoted in production — text-path result stands. Round-2 finding: the "fluent native, score 95-100" rubric line did NOT lift the ceiling; native medians still cluster 85-88 (promotion ~8% at 93, ~30% even at an 88 cut).
 
 **Storage rule (ratified):** recordings live in R2 only, NEVER committed to the repo; local caches gitignored.
 
