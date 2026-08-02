@@ -163,6 +163,10 @@ export function Mascot({
               draggable={false}
               // iOS long-press image callout + drag ghost suppression: the
               // save/copy sheet was interrupting hold-to-speak on phones.
+              // Chunk 1 Section C: also swallow the context menu on the
+              // mascot image only, so a long-press cannot open the system
+              // image save menu on iOS web.
+              onContextMenu={(e) => e.preventDefault()}
               style={
                 {
                   WebkitTouchCallout: "none",

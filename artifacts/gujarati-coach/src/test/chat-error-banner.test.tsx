@@ -219,7 +219,7 @@ describe("chat error banner", () => {
     // No banner visible at start.
     expect(screen.queryByRole("img", { hidden: true })).toBeDefined(); // just a sanity import
     expect(
-      screen.queryByText(/Bolo ran into a snag/),
+      screen.queryByText(/didn't get through/),
     ).not.toBeInTheDocument();
 
     // Act: hold mic → recording state.
@@ -236,7 +236,7 @@ describe("chat error banner", () => {
     // Assert: error banner must appear.
     await waitFor(() => {
       expect(
-        screen.getByText(/Bolo ran into a snag/),
+        screen.getByText(/didn't get through/),
       ).toBeInTheDocument();
     });
   });
@@ -270,7 +270,7 @@ describe("chat error banner", () => {
 
     // Wait for the error banner to appear.
     await waitFor(() => {
-      expect(screen.getByText(/Bolo ran into a snag/)).toBeInTheDocument();
+      expect(screen.getByText(/didn't get through/)).toBeInTheDocument();
     });
 
     // Now set up the next fetch to hang (so we can inspect the in-between state
@@ -288,7 +288,7 @@ describe("chat error banner", () => {
     // Assert: banner must be gone immediately after the pointer-down.
     await waitFor(() => {
       expect(
-        screen.queryByText(/Bolo ran into a snag/),
+        screen.queryByText(/didn't get through/),
       ).not.toBeInTheDocument();
     });
   });

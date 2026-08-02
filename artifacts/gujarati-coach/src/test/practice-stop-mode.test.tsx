@@ -245,7 +245,7 @@ describe("hold-to-talk recording mechanics", () => {
     expect(h.stopRecording).not.toHaveBeenCalled();
     expect(h.evaluate).not.toHaveBeenCalled();
     expect(screen.queryByText("Amazing!")).not.toBeInTheDocument();
-    expect(screen.queryByText("Oops, that didn't work")).not.toBeInTheDocument();
+    expect(screen.queryByText("Didn't catch that one")).not.toBeInTheDocument();
     // Back to idle, ready for a fresh press.
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
@@ -260,12 +260,12 @@ describe("evaluation error surfacing", () => {
     await recordAndStop();
 
     await waitFor(() =>
-      expect(screen.getByText("Oops, that didn't work")).toBeInTheDocument(),
+      expect(screen.getByText("Signal trouble on the line")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/snag/i)).toBeInTheDocument();
+    expect(screen.getByText(/hiccup on our end/i)).toBeInTheDocument();
 
     // Retry recovers cleanly back to the belly zone.
-    fireEvent.click(screen.getByText("Record again"));
+    fireEvent.click(screen.getByText("Try again"));
     await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument());
   });
 
@@ -275,7 +275,7 @@ describe("evaluation error surfacing", () => {
     await recordAndStop();
 
     await waitFor(() =>
-      expect(screen.getByText(/mango lassi/i)).toBeInTheDocument(),
+      expect(screen.getByText(/connection dropped/i)).toBeInTheDocument(),
     );
   });
 
@@ -285,7 +285,7 @@ describe("evaluation error surfacing", () => {
     await recordAndStop();
 
     await waitFor(() =>
-      expect(screen.getByText(/didn't capture any audio/i)).toBeInTheDocument(),
+      expect(screen.getByText(/didn't pick you up clearly/i)).toBeInTheDocument(),
     );
     expect(h.evaluate).not.toHaveBeenCalled();
   });

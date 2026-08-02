@@ -152,11 +152,11 @@ export function LessonErrorScreen({
           </div>
           <div>
             <h2 className="text-xl font-black text-foreground">
-              Bolo's chef is still cooking 🍳
+              The train's running a little late
             </h2>
             <p className="text-muted-foreground font-medium mt-1">
-              The lesson didn't come through — give it another try and Bolo
-              will whip up something fresh!
+              This stop didn't load. Give it another go and we'll get you
+              boarded.
             </p>
           </div>
           <button
@@ -173,7 +173,7 @@ export function LessonErrorScreen({
             href={backHref}
             className="text-muted-foreground font-bold text-sm py-2"
           >
-            Go back
+            Back to the journey
           </Link>
         </div>
       </div>

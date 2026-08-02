@@ -74,7 +74,7 @@ function getStatusLabel(
   if (phase === "recording") return "Release to send";
   if (phase === "processing") return PROCESSING_STEP_LABELS[processingStep];
   if (phase === "playing") return "Almost ready… 🎵";
-  if (phase === "error") return "Something went wrong";
+  if (phase === "error") return "A bump on the tracks";
   return "";
 }
 
@@ -1173,13 +1173,14 @@ export default function ChatPage() {
         return;
       }
 
-      let msg = "Bolo ran into a snag — hold to try again!";
+      // Deck copy (Chunk 1): CHAT TURN FAILED by default (a 502 is a failed
+      // turn too), NETWORK OFFLINE for an unreachable network, RATE LIMITED
+      // for 429.
+      let msg = "Your message didn't get through. Send it again and Bolo will pick it right up.";
       if (err instanceof TypeError) {
-        msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
-      } else if (err instanceof Error && /Chat API responded with 502/.test(err.message)) {
-        msg = "Bolo couldn't catch that 🦜 — give it another try!";
+        msg = "Looks like the connection dropped. Once you're back online, we'll pick up right where you left off.";
       } else if (err instanceof Error && /Chat API responded with 429/.test(err.message)) {
-        msg = "Slow down a bit! Wait a moment and try again.";
+        msg = "You've been moving fast. Take a short break; you can try this again in a few minutes.";
       }
       setErrorMsg(msg);
       setPhase("error");
@@ -1254,7 +1255,8 @@ export default function ChatPage() {
       }
       setPhase("recording");
     } catch {
-      setErrorMsg("We couldn't access your microphone. Allow mic access in your browser, then try again.");
+      // Deck MIC PERMISSION DENIED (Chunk 1).
+      setErrorMsg("Speaking practice needs the microphone. Turn it on in your browser or phone settings and come back; we'll be here.");
       setPhase("error");
     }
   }, [isPlus, isOneLanguage, secondsRemaining, recorder, finishRecording, setLocation]);
@@ -1466,8 +1468,10 @@ export default function ChatPage() {
         return;
       }
 
-      let msg = "Bolo ran into a snag — try again!";
-      if (err instanceof TypeError) msg = "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
+      // Deck copy (Chunk 1): CHAT TURN FAILED, or NETWORK OFFLINE for an
+      // unreachable network.
+      let msg = "Your message didn't get through. Send it again and Bolo will pick it right up.";
+      if (err instanceof TypeError) msg = "Looks like the connection dropped. Once you're back online, we'll pick up right where you left off.";
       setErrorMsg(msg);
       setPhase("error");
     } finally {

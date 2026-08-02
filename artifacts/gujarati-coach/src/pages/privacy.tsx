@@ -1,8 +1,7 @@
 import { Link } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
 
-const CONTACT_EMAIL = 'privacy@bolo-india.app';
-const LAST_UPDATED = 'July 13, 2026';
+const LAST_UPDATED = 'August 2, 2026';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -123,8 +122,10 @@ export default function Privacy() {
               <span className="font-bold text-foreground">
                 Speech and AI processing providers
               </span>{' '}
-              — used to transcribe and score your pronunciation. Audio is sent only for
-              scoring and is not retained by us beyond the request.
+              — used to transcribe and score your pronunciation. In normal use, audio is
+              sent only for scoring and is not retained by us beyond the request.
+              Recordings made through our invited voice contribution mode are retained
+              as described in Data retention below.
             </li>
           </ul>
           <p>
@@ -136,9 +137,26 @@ export default function Privacy() {
         <Section title="Data retention">
           <p>
             We keep your account information and learning progress for as long as your
-            account is active. Voice recordings are not retained beyond the pronunciation
-            scoring request. When you delete your account, we delete your associated
+            account is active. When you delete your account, we delete your associated
             personal data and learning progress.
+          </p>
+          <p>
+            <span className="font-bold text-foreground">Voice recordings.</span> In
+            normal use, your voice recordings are processed to score your pronunciation
+            and are not retained after the scoring request completes.
+          </p>
+          <p>
+            Separately, we run an optional voice contribution mode used to improve
+            BOLO's pronunciation scoring. This mode is clearly indicated on screen and
+            is only available to invited contributors. Recordings made in contribution
+            mode are retained, along with the phrase and language they belong to, and
+            are used solely to evaluate and improve our scoring system. If a
+            contributor re-records a phrase, the discarded take is deleted. Contributors
+            can request deletion of their contributed recordings at any time by{' '}
+            <Link href="/contact" className="font-bold text-primary hover:underline">
+              contacting us
+            </Link>
+            , and we delete them when the associated account is deleted.
           </p>
         </Section>
 
@@ -162,7 +180,7 @@ export default function Privacy() {
             <li>
               <span className="font-bold text-foreground">Access and deletion.</span>{' '}
               You can request a copy of your data or delete your account and associated
-              data by contacting us at the email below.
+              data by using the contact form linked below.
             </li>
           </ul>
         </Section>
@@ -178,13 +196,10 @@ export default function Privacy() {
         <Section title="Contact us">
           <p>
             If you have questions about this policy, or want to access or delete your
-            data, contact us at{' '}
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="font-bold text-primary hover:underline"
-            >
-              {CONTACT_EMAIL}
-            </a>
+            data, reach us through our{' '}
+            <Link href="/contact" className="font-bold text-primary hover:underline">
+              contact form
+            </Link>
             .
           </p>
         </Section>

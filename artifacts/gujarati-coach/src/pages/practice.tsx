@@ -39,6 +39,7 @@ import { prefersReducedMotion } from "@/lib/motionPrefs";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { Mascot, type MascotPose } from "@/components/mascot";
+import { isIosSafariWeb, markIosAudioHintShown, shouldShowIosAudioHint } from "@/lib/iosAudio";
 import { cn } from "@/lib/utils";
 import { prewarmMicIfGranted } from "@/lib/micPermission";
 import { useLanguage, useNativeText, useSpeechCapability } from "@/lib/language-context";
@@ -100,23 +101,51 @@ function bandCss(band: Band): string {
   return "hsl(var(--destructive))";
 }
 
-// Turns whatever the evaluation pipeline threw into a short, actionable
-// message for the learner.
-function describeEvaluationError(error: unknown): string {
+// Structured error card content. Copy comes verbatim from the Chunk 1
+// railway-voice error copy deck; do not edit strings here without a new deck.
+type EvalErrorContent = {
+  title: string;
+  body: string;
+  /** Optional tip line rendered under the body (deck NOCATCH entry). */
+  tip?: string;
+  /** Label for the recovery button; defaults to "Record again". */
+  action?: string;
+};
+
+// Turns whatever the evaluation pipeline threw into deck copy for the learner.
+function describeEvaluationError(error: unknown): EvalErrorContent {
   if (error instanceof ApiError) {
-    if (error.status === 502) {
-      return "Bolo hit a snag 🦜 — give it another try!";
-    }
     if (error.status === 429) {
-      return "Whoa, that's a lot of practice! Wait a moment, then try again.";
+      // Deck RATE LIMITED: no primary beyond dismiss; the card's single
+      // button already acts as a dismiss (returns to idle), so it keeps its
+      // existing label.
+      return {
+        title: "Catch your breath",
+        body: "You've been moving fast. Take a short break; you can try this again in a few minutes.",
+      };
     }
-    return "Something went wrong while scoring. Please try again.";
+    // Deck EVALUATION FAILED: covers 502 and any other scoring API error.
+    return {
+      title: "Signal trouble on the line",
+      body: "We couldn't check that one. Nothing wrong with what you said, just a hiccup on our end.",
+      action: "Try again",
+    };
   }
   if (error instanceof TypeError) {
     // fetch() rejects with a TypeError when the network is unreachable.
-    return "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
+    // Deck NETWORK OFFLINE.
+    return {
+      title: "We've lost the signal",
+      body: "Looks like the connection dropped. Once you're back online, we'll pick up right where you left off.",
+      action: "Retry",
+    };
   }
-  return "Something went wrong while scoring. Please try again.";
+  // Deck GENERIC UNKNOWN.
+  return {
+    title: "A bump on the tracks",
+    body: "Something went sideways on our end. It's not you. Try once more.",
+    action: "Try again",
+  };
 }
 
 // Pulsing glow ring that appears around the parrot zone while recording.
@@ -433,7 +462,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
-  const [evalError, setEvalError] = useState<string | null>(null);
+  const [evalError, setEvalError] = useState<EvalErrorContent | null>(null);
+  // Chunk 1 item 4a: how the last coach playback attempt failed, if it did.
+  // "play" = the browser rejected audio.play() (autoplay policy); recovery is
+  // a manual tap on the speaker button, which gets a visible attention
+  // treatment. "synthesis" = the audio never arrived; the deck's COACH AUDIO
+  // FAILED card renders with a Play phrase button.
+  const [coachAudioFailed, setCoachAudioFailed] = useState<null | "play" | "synthesis">(null);
+  // Chunk 1 item 4c: one-time iOS Safari silent-switch hint, checked on the
+  // first coach play attempt of this mount only.
+  const [showIosHint, setShowIosHint] = useState(false);
+  const iosHintCheckedRef = useRef(false);
   // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
@@ -659,7 +698,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   useEffect(() => {
     if (state === "playing_coach" && phrase) {
       let cancelled = false;
+      // A fresh attempt is starting; clear any stale failure surface.
+      setCoachAudioFailed(null);
       const playCoach = async () => {
+        let audio: HTMLAudioElement;
         try {
           const cached = coachAudioCacheRef.current.get(phrase.id);
           // Consume any pre-warmed synthesis promise that was started when
@@ -670,15 +712,33 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           const res = cached ?? prewarm ?? await synthesize.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } });
           coachAudioCacheRef.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
           if (cancelled) return;
-          const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+          audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
           audioRef.current = audio;
           audio.onended = () => setState("idle");
-          await audio.play();
         } catch (error) {
           if (!cancelled) {
             console.error("Failed to synthesize speech", error);
+            // Chunk 1 item 4a, synthesis path: keep the old behavior (drop to
+            // idle) and surface the deck's COACH AUDIO FAILED card.
+            setCoachAudioFailed("synthesis");
             setState("idle");
           }
+          return;
+        }
+        try {
+          await audio.play();
+        } catch (error) {
+          if (cancelled) return; // cleanup pause() aborts a pending play()
+          const name = error instanceof DOMException ? error.name : "";
+          if (name === "NotAllowedError" || name === "NotSupportedError") {
+            // Autoplay policy rejection (Chunk 1 ruling 6): light up the
+            // existing speaker button as a tap-to-hear affordance.
+            setCoachAudioFailed("play");
+          } else {
+            console.error("Coach audio failed to play", error);
+            setCoachAudioFailed("synthesis");
+          }
+          setState("idle");
         }
       };
       playCoach();
@@ -799,7 +859,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (blob.size === 0) {
         // The recorder produced no audio at all (mic went away, recorder
         // failed). Tell the learner rather than sending an empty payload.
-        setEvalError("We didn't capture any audio. Check your microphone and try again.");
+        // Deck NOCATCH: the recorder produced nothing usable.
+        setEvalError({
+          title: "Didn't catch that one",
+          body: "The mic didn't pick you up clearly that time. Same phrase, one more go.",
+          tip: "Get a little closer to the mic and speak at normal volume.",
+        });
         setState("error");
         return;
       }
@@ -1055,7 +1120,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       isRecordingRef.current = true;
       setState("recording");
     } catch {
-      setEvalError("We couldn't access your microphone. Allow mic access in your browser, then try again.");
+      // Deck MIC PERMISSION DENIED. (The deck's "How to enable" primary has no
+      // existing behavior to attach to; the card keeps its single recovery
+      // button.)
+      setEvalError({
+        title: "Bolo can't hear you yet",
+        body: "Speaking practice needs the microphone. Turn it on in your browser or phone settings and come back; we'll be here.",
+      });
       setState("error");
     }
   };
@@ -1216,8 +1287,19 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   const playAgain = () => {
+    setCoachAudioFailed(null);
     setState("playing_coach");
   };
+
+  // Chunk 1 item 4c: on the first coach play attempt of this mount, offer the
+  // one-time iOS Safari silent-switch hint. iOS Safari web only, never the
+  // native app; the storage key keeps it one-time and dismiss marks it shown
+  // (per the helpers module's integration notes).
+  useEffect(() => {
+    if (state !== "playing_coach" || iosHintCheckedRef.current) return;
+    iosHintCheckedRef.current = true;
+    if (isIosSafariWeb() && shouldShowIosAudioHint()) setShowIosHint(true);
+  }, [state]);
 
   // Ear-training mode (spec 2): replay the learner's own recording so they can
   // compare it to the coach. No evaluation is ever involved.
@@ -1862,7 +1944,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 onClick={playAgain}
                 disabled={state === "recording" || state === "evaluating"}
                 aria-label="Hear the phrase again"
-                className="shrink-0 w-11 h-11 bg-secondary text-white rounded-full flex items-center justify-center shadow-md active:scale-95 disabled:opacity-40 transition-all"
+                className={cn(
+                  "shrink-0 w-11 h-11 bg-secondary text-white rounded-full flex items-center justify-center shadow-md active:scale-95 disabled:opacity-40 transition-all",
+                  coachAudioFailed === "play" && "ring-4 ring-primary/50 animate-pulse",
+                )}
               >
                 <Volume2 className="w-5 h-5" />
               </button>
@@ -1884,6 +1969,47 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             </div>
           </motion.div>
         </AnimatePresence>
+
+        {/* Chunk 1 item 4c: one-time iOS silent-switch hint (copy from the
+            helpers module's notes). Dismiss marks it shown for this device. */}
+        {showIosHint && (
+          <div className="shrink-0 mt-2 bg-card rounded-2xl p-3 border border-card-border shadow-sm flex items-start gap-3" role="status">
+            <Volume2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="flex-1 text-left">
+              <p className="text-sm font-black text-foreground">Hearing nothing?</p>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                Check the silent switch on the side of your iPhone and raise the volume. Bolo has things to say.
+              </p>
+            </div>
+            <button
+              onClick={() => { markIosAudioHintShown(); setShowIosHint(false); }}
+              className="shrink-0 text-sm font-bold text-primary px-2 py-1 rounded-lg active:scale-95 transition-all"
+            >
+              Got it
+            </button>
+          </div>
+        )}
+
+        {/* Chunk 1 item 4a: coach audio failure surfaces (deck COACH AUDIO
+            FAILED TO PLAY). Autoplay rejection gets the lighter treatment: the
+            speaker button pulses and this caption points at it. */}
+        {coachAudioFailed === "synthesis" && (
+          <div className="shrink-0 mt-2 bg-card rounded-2xl p-3 border border-card-border shadow-sm text-center" role="alert">
+            <p className="text-sm font-black text-foreground">The announcer's mic cut out</p>
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">The phrase audio didn't play. Tap to hear it again.</p>
+            <button
+              onClick={playAgain}
+              className="mt-2 inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold text-sm px-4 py-2 rounded-xl active:scale-95 transition-all"
+            >
+              <Volume2 className="w-4 h-4" /> Play phrase
+            </button>
+          </div>
+        )}
+        {coachAudioFailed === "play" && (
+          <p className="shrink-0 mt-1 text-xs text-muted-foreground font-medium text-center" role="status">
+            The phrase audio didn't play. Tap to hear it again.
+          </p>
+        )}
 
         {/* ── Parrot zone ──────────────────────────────────────────────────── */}
         {/*
@@ -2255,8 +2381,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   className="bg-card rounded-2xl p-4 border border-destructive/30 shadow-sm text-center"
                   role="alert"
                 >
-                  <p className="text-lg font-black mb-1 text-destructive">Oops, that didn't work</p>
-                  <p className="text-foreground font-medium text-sm leading-snug">{evalError}</p>
+                  <p className="text-lg font-black mb-1 text-destructive">{evalError.title}</p>
+                  <p className="text-foreground font-medium text-sm leading-snug">{evalError.body}</p>
+                  {evalError.tip && (
+                    <p className="mt-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {evalError.tip}</p>
+                  )}
                 </div>
               )}
 
@@ -2336,7 +2465,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   onClick={handleErrorRetry}
                   className="w-full bg-primary text-primary-foreground font-black text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
                 >
-                  <RefreshCcw className="w-5 h-5" /> Record again
+                  <RefreshCcw className="w-5 h-5" /> {evalError?.action ?? "Record again"}
                 </button>
               ) : state === "result" && result?.band === "retry" && !isTestout ? (
                 /* Retry band (batch 1 addendum, mobile parity): another take is

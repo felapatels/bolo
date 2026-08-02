@@ -189,8 +189,8 @@ describe("practice mic grant guard", () => {
     await waitFor(() => expect(h.abortRecording).toHaveBeenCalledTimes(1));
     expect(h.stopRecording).not.toHaveBeenCalled();
     expect(h.evaluate).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Oops, that didn't work/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/didn't capture any audio/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Didn't catch that one/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/didn't pick you up clearly/)).not.toBeInTheDocument();
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
     );
