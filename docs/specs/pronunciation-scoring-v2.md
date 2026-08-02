@@ -414,3 +414,9 @@ All tasks are gated on: build 31 beta approved AND pilot (#928 equivalent) passi
 2. **Daily user limit:** the default of 200 audio-grading calls per user per UTC day (67 attempts) is a placeholder. Confirm the correct threshold based on expected power-user behavior.
 3. **Fast path for audio-graded languages:** the spec disables the fast path entirely for audio-graded languages. An alternative is to keep the fast path but treat it as a `fast_path` scoring path with a fixed score of 100 when sim >= 0.93, accepting that perfectly-transcribed attempts skip the audio quality check. Choose which behavior is preferred.
 4. **Pilot ownership:** who collects the recordings? If Aakesh or family is not available to record within the build-32 window, is there an acceptable synthetic-audio fallback for the first rollout (accepting degraded calibration), or does build 32 simply defer audio grading until recordings are available?
+
+---
+
+## Closing status note (August 2, 2026)
+
+Promotion gate rejected after calibration round 2 (13c314a). Judge score distribution does not separate native from american_accent clips (overlap through 82-92); native reachability 7-8% at cut 93 and ~30% at simulated cut 88 with increased american leakage. Global cap 92 remains in effect; Perfect band remains unreachable by design. Corpus (237 clips) and harness are retained as the standing evaluation gate for any future judge candidate.
