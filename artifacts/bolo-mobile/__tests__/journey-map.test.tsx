@@ -308,12 +308,12 @@ describe('journey map — group-scoped routing', () => {
     expect(screen.getByText(/GREETINGS & KINDNESS/)).toBeOnTheScreen();
   });
 
-  it('gates sentence stops behind the first-class dialog for Free learners', () => {
+  it('gates planLocked sentence stops behind the first-class dialog for Free learners', () => {
     mockState.isPlus = false;
     setZones([
       [
         grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
-        grp({ status: 'unlocked', stage: 'sentence' }),
+        grp({ status: 'locked', planLocked: true, stage: 'sentence' }),
       ],
       [],
       [],
@@ -334,6 +334,34 @@ describe('journey map — group-scoped routing', () => {
     // The paywall CTA is the only route out of the dialog.
     fireEvent.press(screen.getByText('Unlock with All-Access'));
     expect(mockState.push).toHaveBeenCalledWith('/(app)/paywall');
+  });
+
+  // Free-tier content policy: sentence stops gate on planLocked ONLY. A
+  // sentence stop the server reports unlocked (non-premium rows, e.g. Hindi
+  // Fare Zone 1 sentence stops) boards normally for Free learners.
+  it('lets Free learners board a non-planLocked sentence stop', () => {
+    mockState.isPlus = false;
+    const target = grp({ status: 'unlocked', stage: 'sentence' });
+    setZones([
+      [
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+        target,
+      ],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    fireEvent.press(
+      screen.getByLabelText('Stop 2 of 2 — Now boarding (sentence stop)'),
+    );
+    expect(mockState.push).toHaveBeenCalledWith({
+      pathname: '/(app)/practice/[id]',
+      params: { id: '1', group: String(target.id) },
+    });
   });
 
   // S2 map honesty: a planLocked group (every phrase premium, so the Free

@@ -386,10 +386,11 @@ test("showroom spans every category of the locked language; the teaser mark stay
 
 // ── Exhausted mode: everything locked, and no completion-latch writes ────────
 
-test("exhausted caller: everything locked (even a fully mastered group) and no latch rows written", async () => {
+test("exhausted caller: first stop stays open and marked, the rest locked, no latch rows written", async () => {
   // Master ALL of g1 directly in the attempts table: consumes all 3 teaser
-  // slots AND puts g1 at 100% mastery — which must still render locked, and
-  // must NOT be latched as completed for a plan-locked language.
+  // slots AND puts g1 at 100% mastery — the first stop keeps serving under
+  // the free-tier content policy, but nothing past it unlocks and nothing
+  // must be latched as completed for a plan-locked language.
   for (const pid of g1PhraseIds) {
     await db.insert(attemptsTable).values({
       userId: TEST_USER_ID,
@@ -412,9 +413,15 @@ test("exhausted caller: everything locked (even a fully mastered group) and no l
   assert.equal(json.access, "exhausted");
   assert.deepEqual(json.teaser, { consumed: TEASER_LIMIT, limit: TEASER_LIMIT });
 
-  for (const g of json.lessonGroups) {
+  // Free-tier content policy: the first stop stays open (and marked) even
+  // for exhausted callers; everything past it is forced locked.
+  const [x1, ...rest] = json.lessonGroups;
+  assert.equal(x1.status, "unlocked");
+  assert.equal(x1.teaserStation, true);
+  assertNoPhraseContent(x1);
+  for (const g of rest) {
     assert.equal(g.status, "locked", `group ${g.id} must be forced locked`);
-    assert.ok(!("teaserStation" in g), "no teaser mark in exhausted mode");
+    assert.ok(!("teaserStation" in g), "no teaser mark past the first stop");
     assertNoPhraseContent(g);
   }
   // The mastery still shows in the counts (the learner's own attempt data)...
@@ -464,15 +471,17 @@ test("allowed (Plus) caller keeps the original contract with stage, and latching
   assert.equal(latched[0]!.status, "completed");
 });
 
-// ── Sentence-stage groups are server-denied for non-Plus callers ─────────────
+// ── Sentence-stage groups: premium rows are server-denied for non-Plus ──────
 // The journey UI dialog-gates sentence stations, but a deep link
 // (?group=<sentence group id>) hits GET /lesson-groups/:id/phrases directly.
-// The sentence stage must deny exactly like /categories/:id/sentences/:lang —
-// 402 feature_locked, zero sentence text — never lean on client gating. The
-// fixture lives on the REAL free-allowed language so the language gate passes
-// and only the sentence gate can deny.
+// Free-tier content policy: non-premium sentence rows serve on every plan;
+// premium sentence rows stay behind the "sentences" feature, and when the
+// whole group is premium the caller gets the same 402 feature_locked as
+// /categories/:id/sentences/:lang — never client gating, zero premium text
+// leaks. The fixture lives on the REAL free-allowed language so the language
+// gate passes and only the sentence gate can deny.
 
-test("sentence-stage group phrases: 402 feature_locked for non-Plus, content for Plus", async () => {
+test("sentence-stage group phrases: premium-filtered for non-Plus, 402 only when all-premium", async () => {
   const [hiLesson] = await db
     .insert(lessonsTable)
     .values({ languageCode: "hi", categoryId: otherCategoryId, titleNative: "HG" })
@@ -484,35 +493,55 @@ test("sentence-stage group phrases: 402 feature_locked for non-Plus, content for
   const hiRows = await db
     .insert(phrasesTable)
     .values(
-      (["__test_hi_sentence_1", "__test_hi_sentence_2"] as const).map(
-        (english, i) => ({
-          lessonId: hiLesson!.id,
-          languageCode: "hi",
-          categoryId: otherCategoryId,
-          nativeScript: english,
-          romanized: english,
-          english,
-          sortOrder: i + 1,
-          stage: "sentence" as const,
-          lessonGroupId: hiGroup!.id,
-          lessonGroupPosition: i + 1,
-        }),
-      ),
+      (
+        [
+          ["__test_hi_sentence_1", true],
+          ["__test_hi_sentence_2", true],
+          ["__test_hi_sentence_free", false],
+        ] as const
+      ).map(([english, premium], i) => ({
+        lessonId: hiLesson!.id,
+        languageCode: "hi",
+        categoryId: otherCategoryId,
+        nativeScript: english,
+        romanized: english,
+        english,
+        sortOrder: i + 1,
+        stage: "sentence" as const,
+        premium,
+        lessonGroupId: hiGroup!.id,
+        lessonGroupPosition: i + 1,
+      })),
     )
     .returning();
+  const freeRowId = hiRows[2]!.id;
 
   try {
-    // Plus caller (tier flipped by the previous test) gets the sentences.
+    // Plus caller (tier flipped by the previous test) gets everything.
     let r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
     assert.equal(r.status, 200);
-    assert.equal(r.json.length, 2);
+    assert.equal(r.json.length, 3);
 
-    // Non-Plus caller: authoritative 402 mirroring the category sentences
-    // gate, and no sentence text in the body.
+    // Non-Plus caller: the non-premium sentence row serves (free-tier
+    // content policy); premium text never rides along.
     await db
       .update(usersTable)
       .set({ tier: "free", subscriptionStatus: null })
       .where(eq(usersTable.id, TEST_USER_ID));
+    r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
+    assert.equal(r.status, 200);
+    assert.deepEqual(
+      r.json.map((p: any) => p.id),
+      [freeRowId],
+    );
+    assert.ok(
+      !r.text.includes("__test_hi_sentence_1"),
+      "no premium sentence text may leak to a filtered caller",
+    );
+
+    // All-premium group: authoritative 402 mirroring the category sentences
+    // gate, and no sentence text in the body.
+    await db.delete(phrasesTable).where(eq(phrasesTable.id, freeRowId));
     r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
     assert.equal(r.status, 402);
     assert.equal(r.json.error, "upgrade_required");

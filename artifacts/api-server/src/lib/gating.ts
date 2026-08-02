@@ -9,6 +9,7 @@ import {
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import {
   countTeaserConsumed,
+  getFirstStopGroup,
   getTeaserPhraseIds,
   TEASER_LIMIT,
 } from "./teaser";
@@ -101,11 +102,20 @@ export function sendLockedLanguageDenial(
 // teaser set and the teaser isn't exhausted, access is granted — this is how
 // the phrase-scoped routes (GET /phrases/:id, POST /attempts) let exactly the
 // TEASER_LIMIT canonical phrases through with the full pipeline.
+// First-stop exception (free-tier content policy): when `firstStopPhraseId`
+// or `firstStopGroupId` names a resource inside the language's position-1
+// Greetings group, access is granted whatever the teaser state — every
+// language's FIRST stop is fully playable free. Everything past Stop 1 keeps
+// the 402.
 export async function denyLockedLanguage(
   req: Request,
   res: Response,
   lang: string,
-  opts?: { teaserPhraseId?: number | null },
+  opts?: {
+    teaserPhraseId?: number | null;
+    firstStopPhraseId?: number | null;
+    firstStopGroupId?: number | null;
+  },
 ): Promise<boolean> {
   const access = await getLanguageAccess(req, lang);
   if (access.state === "allowed") return false;
@@ -115,6 +125,18 @@ export async function denyLockedLanguage(
     access.teaserPhraseIds.includes(opts.teaserPhraseId)
   ) {
     return false;
+  }
+  if (opts?.firstStopPhraseId != null || opts?.firstStopGroupId != null) {
+    const firstStop = await getFirstStopGroup(lang);
+    if (
+      firstStop != null &&
+      ((opts.firstStopGroupId != null &&
+        firstStop.groupId === opts.firstStopGroupId) ||
+        (opts.firstStopPhraseId != null &&
+          firstStop.phraseIds.includes(opts.firstStopPhraseId)))
+    ) {
+      return false;
+    }
   }
   sendLockedLanguageDenial(req, res, access);
   return true;

@@ -46,7 +46,6 @@ import {
   asUpgradeRequired,
   upgradeHref,
   upgradeHrefForDenial,
-  useEntitlements,
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import {
@@ -561,7 +560,6 @@ type Pt = {
 
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
-  const { isAllAccess } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   const { ref: mapRef, w: mapW } = useMapWidth();
@@ -703,9 +701,7 @@ export default function Journey() {
   ).length;
   const totalCount = allStations.length;
   const currentId = allStations.find(
-    (s) =>
-      (s.status === "unlocked" || s.status === "in_progress") &&
-      !(s.stage === "sentence" && !isAllAccess),
+    (s) => s.status === "unlocked" || s.status === "in_progress",
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
@@ -742,12 +738,13 @@ export default function Journey() {
     });
     layoutY += PC_H;
     for (const s of zone.stations) {
-      const sentenceGated = s.stage === "sentence" && !isAllAccess;
+      // Free-tier content policy: a plan-gated sentence stop arrives
+      // status "locked" (planLocked) from the server, so unlocked means lit.
       const lit =
         s.status === "completed" ||
         s.status === "tested_out" ||
         s.status === "in_progress" ||
-        (s.status === "unlocked" && !sentenceGated);
+        s.status === "unlocked";
       pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: "station", lit, station: s });
       layoutY += STATION_H;
       k++;
@@ -1036,10 +1033,12 @@ export default function Journey() {
                 const boxWidth =
                   side === "right" ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
                 const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
-                // Behavior 4 + 6: a Free learner's sentence stop always routes
-                // through the entitlement presentation, even when progression
-                // says unlocked — its phrases are Plus content server-side.
-                const sentenceGated = s.stage === "sentence" && !isAllAccess;
+                // Free-tier content policy: sentence stops gate by the
+                // server's planLocked flag (all-premium groups), not by
+                // stage — Hindi Fare Zone 1's sentence stops serve free. A
+                // planLocked sentence stop keeps the first-class upsell.
+                const sentenceGated =
+                  s.stage === "sentence" && s.planLocked === true;
                 const accessible = isStatusAccessible(s.status) && !sentenceGated;
                 return (
                   <div key={s.id}>

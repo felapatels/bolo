@@ -193,7 +193,7 @@ after(async () => {
   await pool.end();
 });
 
-test("free caller gets 402 feature_locked with no sentence text", async () => {
+test("free caller gets 402 feature_locked when every cached sentence is premium", async () => {
   const { status, json } = await getJson(
     `/categories/${categoryId}/sentences/${LANG}`,
     FREE_USER_ID,
@@ -202,6 +202,45 @@ test("free caller gets 402 feature_locked with no sentence text", async () => {
   assert.equal(json.error, "upgrade_required");
   assert.equal(json.reason, "feature_locked");
   assert.ok(!JSON.stringify(json).includes("पूरा वाक्य"));
+});
+
+test("free caller gets non-premium cached sentences; premium rows never ride along", async () => {
+  // The two seeded sentence rows are premium — that is the byte-identical
+  // 402 pinned above. Add a free sentence row (free-tier content policy:
+  // Hindi Fare Zone 1 sentence stops are non-premium): the same caller now
+  // gets exactly that row, with no premium text leaking.
+  const lesson = await db.query.lessonsTable.findFirst({
+    where: (t, { eq: eqFn }) => eqFn(t.categoryId, categoryId),
+  });
+  assert.ok(lesson);
+  const [freeRow] = await db
+    .insert(phrasesTable)
+    .values({
+      lessonId: lesson.id,
+      languageCode: LANG,
+      categoryId,
+      nativeScript: "यह मुफ़्त वाक्य है।",
+      romanized: "yah muft vakya hai.",
+      english: "This is the free full sentence.",
+      sortOrder: 2,
+      premium: false,
+      stage: "sentence",
+    })
+    .returning();
+  try {
+    const { status, json } = await getJson(
+      `/categories/${categoryId}/sentences/${LANG}`,
+      FREE_USER_ID,
+    );
+    assert.equal(status, 200);
+    assert.deepEqual(
+      json.map((r: any) => r.id),
+      [freeRow.id],
+    );
+    assert.ok(!JSON.stringify(json).includes("पूरा वाक्य"));
+  } finally {
+    await db.delete(phrasesTable).where(eq(phrasesTable.id, freeRow.id));
+  }
 });
 
 test("Plus caller gets the cached sentences in order", async () => {

@@ -187,7 +187,11 @@ before(async () => {
   });
   app.use((_req: Request, _res: Response, next: NextFunction) => {
     (_req as any).userId = "test_lang_hint_user";
-    (_req as any).resolvedPlan = { plan: "free" };
+    // Plus, so the pronunciation entitlement gate resolves "allowed" without
+    // touching the (mocked-out) teaser/first-stop DB lookups. This suite
+    // exercises STT language hints, not gating — the gate has its own suite
+    // (openai.pronunciation.gating.test.ts).
+    (_req as any).resolvedPlan = { plan: "plus", chosenLanguage: null };
     next();
   });
 

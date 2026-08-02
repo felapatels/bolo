@@ -87,6 +87,67 @@ export async function getTeaserPhraseIds(lang: string): Promise<number[]> {
   return ids;
 }
 
+// ---------------------------------------------------------------------------
+// Free-tier content policy (owner ruling, Aug 2026): every language's FIRST
+// stop — the position-1 Greetings lesson group — is fully playable free, even
+// while the language itself is plan-locked. The teaser above remains the
+// accounting model for the 402 payloads (consumed/limit meters); this is the
+// serving carve-out's membership source. Same frozen-content reasoning as the
+// teaser cache: the replenisher only ever appends to the LAST group, so
+// group 1's membership never changes within a process lifetime.
+// ---------------------------------------------------------------------------
+
+export interface FirstStopGroup {
+  groupId: number;
+  phraseIds: number[];
+}
+
+const firstStopCache = new Map<string, FirstStopGroup>();
+
+export async function getFirstStopGroup(
+  lang: string,
+): Promise<FirstStopGroup | null> {
+  const cached = firstStopCache.get(lang);
+  if (cached) return cached;
+
+  const greetingsId = await getGreetingsCategoryId();
+  if (greetingsId == null) return null;
+
+  const [firstGroup] = await db
+    .select({ id: lessonGroupsTable.id })
+    .from(lessonGroupsTable)
+    .where(
+      and(
+        eq(lessonGroupsTable.languageCode, lang),
+        eq(lessonGroupsTable.categoryId, greetingsId),
+      ),
+    )
+    .orderBy(asc(lessonGroupsTable.position))
+    .limit(1);
+  if (!firstGroup) return null;
+
+  const rows = await db
+    .select({ id: phrasesTable.id })
+    .from(phrasesTable)
+    .where(
+      and(
+        eq(phrasesTable.lessonGroupId, firstGroup.id),
+        // First-stop groups are phrase-stage; the filter also guards against
+        // any future mixed-stage rows widening the carve-out.
+        eq(phrasesTable.stage, "phrase"),
+      ),
+    )
+    .orderBy(asc(phrasesTable.lessonGroupPosition), asc(phrasesTable.id));
+
+  const info: FirstStopGroup = {
+    groupId: firstGroup.id,
+    phraseIds: rows.map((r) => r.id),
+  };
+  // Only cache a plausibly complete set (same mid-seed guard as the teaser).
+  if (info.phraseIds.length >= TEASER_LIMIT) firstStopCache.set(lang, info);
+  return info;
+}
+
 // How many distinct teaser phrases this user has ever attempted in `lang`.
 // Attempts are append-only and only ever written through the server-signed
 // evaluation token path, so this derivation is durable and tamper-proof.
@@ -126,5 +187,6 @@ export async function listTeaserConsumedIds(
 // and categories never see another test's frozen teaser set.
 export function __resetTeaserCacheForTests(): void {
   teaserIdsCache.clear();
+  firstStopCache.clear();
   greetingsCategoryIdPromise = null;
 }

@@ -49,7 +49,6 @@ import { Mascot } from '@/components/Mascot';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { TrainEngine } from '@/components/journey/TrainEngine';
@@ -336,7 +335,6 @@ export default function JourneyScreen() {
   const headerTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const { activeLang, activeLanguage } = useLanguage();
   const railBrand = getRailBrand(activeLang);
-  const { isPlus } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   const reduceMotion = useReducedMotion();
@@ -472,9 +470,7 @@ export default function JourneyScreen() {
   ).length;
   const totalCount = allStations.length;
   const currentId = allStations.find(
-    (s) =>
-      (s.status === 'unlocked' || s.status === 'in_progress') &&
-      !(s.stage === 'sentence' && !isPlus),
+    (s) => s.status === 'unlocked' || s.status === 'in_progress',
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
@@ -524,12 +520,13 @@ export default function JourneyScreen() {
     });
     layoutY += PC_H;
     for (const s of zone.stations) {
-      const sentenceGated = s.stage === 'sentence' && !isPlus;
+      // Free-tier content policy: a plan-gated sentence stop arrives
+      // status "locked" (planLocked) from the server, so unlocked means lit.
       const lit =
         s.status === 'completed' ||
         s.status === 'tested_out' ||
         s.status === 'in_progress' ||
-        (s.status === 'unlocked' && !sentenceGated);
+        s.status === 'unlocked';
       pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: 'station', lit, station: s });
       layoutY += STATION_H;
       k++;
@@ -923,10 +920,12 @@ export default function JourneyScreen() {
             const boxWidth =
               side === 'right' ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
             const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
-            // A Free learner's sentence stop always routes through the
-            // entitlement presentation, even when progression says unlocked —
-            // its phrases are Plus content server-side.
-            const sentenceGated = s.stage === 'sentence' && !isPlus;
+            // Free-tier content policy: sentence stops gate by the server's
+            // planLocked flag (all-premium groups), not by stage — Hindi
+            // Fare Zone 1's sentence stops serve free. A planLocked sentence
+            // stop keeps the first-class upsell sheet.
+            const sentenceGated =
+              s.stage === 'sentence' && s.planLocked === true;
             const accessible = isStatusAccessible(s.status) && !sentenceGated;
             const isCurrent = s.id === currentId;
             const statusCopy =

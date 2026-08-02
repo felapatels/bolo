@@ -77,7 +77,11 @@ import {
   sendLockedLanguageDenial,
   sendUpgradeRequired,
 } from "../lib/gating";
-import { listTeaserConsumedIds, TEASER_LIMIT } from "../lib/teaser";
+import {
+  getFirstStopGroup,
+  listTeaserConsumedIds,
+  TEASER_LIMIT,
+} from "../lib/teaser";
 import {
   dailyLessonCapDenial,
   recordLessonGeneration,
@@ -453,39 +457,44 @@ router.get(
       return;
     }
 
-    // M1 teaser: a locked language serves exactly the teaser phrase set (the
-    // first TEASER_LIMIT phrases of Greetings group 1) while the teaser lasts,
-    // with progress attached to each row; everything else 402s.
+    // Free-tier content policy: a locked language is not a hard wall — its
+    // FIRST stop (the position-1 Greetings lesson group) serves in full, in
+    // the normal per-phrase shape, whatever the teaser state. The M1 teaser
+    // remains the accounting model for the 402 payloads (consumed/limit
+    // meters ride on every denial), but serving no longer stops at the taste
+    // set. Every other topic keeps today's denial byte-identical.
     const access = await getLanguageAccess(req, lang);
     if (access.state !== "allowed") {
-      if (access.state !== "teaser") {
+      const firstStop = await getFirstStopGroup(lang);
+      const firstStopRows =
+        firstStop == null
+          ? []
+          : await db
+              .select()
+              .from(phrasesTable)
+              .where(
+                and(
+                  eq(phrasesTable.lessonGroupId, firstStop.groupId),
+                  eq(phrasesTable.categoryId, id),
+                  eq(phrasesTable.stage, "phrase"),
+                ),
+              )
+              .orderBy(
+                asc(phrasesTable.lessonGroupPosition),
+                asc(phrasesTable.id),
+              );
+      // Premium rows never serve to a caller without the extended library.
+      // The policy migration leaves Stop 1 premium-free, so this filter is
+      // defense in depth, not a visible gate.
+      const served = firstStopRows.filter((p) => !p.premium);
+      if (served.length === 0) {
+        // Not the first-stop topic (or no Greetings group): plain denial.
         sendLockedLanguageDenial(req, res, access);
         return;
       }
-      const teaserRows = await db
-        .select()
-        .from(phrasesTable)
-        .where(
-          and(
-            inArray(phrasesTable.id, access.teaserPhraseIds),
-            eq(phrasesTable.categoryId, id),
-          ),
-        )
-        .orderBy(
-          asc(phrasesTable.lessonGroupPosition),
-          asc(phrasesTable.id),
-        );
-      if (teaserRows.length === 0) {
-        // Not the teaser topic (or no teaser set exists): plain denial.
-        sendLockedLanguageDenial(req, res, access);
-        return;
-      }
-      const teaserAttempts = await fetchUserAttempts(userId, lang);
-      const teaserStats = buildPhraseStats(teaserAttempts);
-      const teaser = { consumed: access.consumed, limit: TEASER_LIMIT };
-      res.json(
-        teaserRows.map((p) => ({ ...serializePhrase(p, teaserStats), teaser })),
-      );
+      const firstStopAttempts = await fetchUserAttempts(userId, lang);
+      const firstStopStats = buildPhraseStats(firstStopAttempts);
+      res.json(served.map((p) => serializePhrase(p, firstStopStats)));
       return;
     }
 
@@ -617,16 +626,15 @@ router.get(
 
     // Free is limited to Hindi; other languages require Bolo! Plus.
     if (await denyLockedLanguage(req, res, lang)) return;
-    // The sentence stage itself is Plus-only, whatever the language.
-    if (
-      denyLockedFeature(
-        req,
-        res,
-        "sentences",
-        "Full sentences are a Bolo! Plus feature. Upgrade to graduate from phrases to real sentences.",
-      )
-    )
-      return;
+
+    // Free-tier content policy: cached sentence rows are premium-filtered
+    // exactly like the phrase list — non-premium sentence rows (Hindi Fare
+    // Zone 1) serve on every plan. The "sentences" feature still gates every
+    // premium row and the generation path below, so no premium sentence text
+    // ever leaves the server to a caller without the feature.
+    const hasSentences = featuresForPlan(
+      (req as EntitledRequest).resolvedPlan.plan,
+    ).sentences;
 
     const lesson = await db.query.lessonsTable.findFirst({
       where: (t, { eq: eqFn, and: andFn }) =>
@@ -639,6 +647,20 @@ router.get(
         orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
       });
       if (cached.length > 0) {
+        const visible = hasSentences
+          ? cached
+          : cached.filter((p) => !p.premium);
+        if (visible.length === 0) {
+          // Every cached sentence is premium: the 402 stays byte-identical
+          // to the old blanket feature gate.
+          denyLockedFeature(
+            req,
+            res,
+            "sentences",
+            "Full sentences are a Bolo! Plus feature. Upgrade to graduate from phrases to real sentences.",
+          );
+          return;
+        }
         const attempts = await fetchUserAttempts(userId, lang);
         const stats = buildPhraseStats(attempts);
         // Sentence groups are lesson groups: the same sequential-unlock
@@ -651,7 +673,7 @@ router.get(
           lang,
           { stats },
         );
-        const served = cached.filter((p) =>
+        const served = visible.filter((p) =>
           isPhraseServable(p, unlockedGroupIds, stats),
         );
         res.json(served.map((p) => serializePhrase(p, stats)));
@@ -659,10 +681,21 @@ router.get(
       }
     }
 
-    // No sentence stage cached yet (a dynamically generated lesson). Build the
-    // phrase list first if needed — the sentences are grounded in the topic's
-    // vocabulary — then generate and cache the sentence stage. The caller is
-    // Plus (the gate above), so no daily-cap bookkeeping applies here.
+    // No sentence stage cached yet (a dynamically generated lesson): the
+    // generation path stays Plus-only, whatever the language.
+    if (
+      denyLockedFeature(
+        req,
+        res,
+        "sentences",
+        "Full sentences are a Bolo! Plus feature. Upgrade to graduate from phrases to real sentences.",
+      )
+    )
+      return;
+
+    // Build the phrase list first if needed — the sentences are grounded in
+    // the topic's vocabulary — then generate and cache the sentence stage. The
+    // caller is Plus (the gate above), so no daily-cap bookkeeping applies here.
     try {
       const phrases = await getOrCreateLessonPhrases(lang, id);
       if (phrases.length === 0) {
@@ -990,11 +1023,14 @@ router.get(
       return;
     }
 
-    // Locked languages: id-aware teaser exception — this exact phrase must be
-    // in the caller's teaser set; any other locked phrase keeps the 402.
+    // Locked languages: id-aware exceptions — the teaser set while the teaser
+    // lasts, plus (free-tier content policy) any phrase of the language's
+    // first stop, whatever the teaser state. Any other locked phrase keeps
+    // the 402.
     if (
       await denyLockedLanguage(req, res, phrase.languageCode, {
         teaserPhraseId: phrase.id,
+        firstStopPhraseId: phrase.id,
       })
     ) {
       return;
@@ -1045,16 +1081,27 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     return;
   }
 
-  // Locked languages: id-aware teaser exception. An attempt on a teaser phrase
-  // runs the full pipeline (FSRS, Elo, XP, badges) and is what consumes the
-  // teaser — regardless of score. Any other locked attempt keeps the 402.
+  // Locked languages: attempts are admitted for (a) the M1 teaser exception —
+  // a teaser-state attempt on a taste-set phrase, which is what consumes the
+  // teaser — and (b) the free-tier content policy's first stop: any phrase of
+  // the language's position-1 Greetings group, whatever the teaser state.
+  // Both run the full pipeline (FSRS, Elo, XP, badges). Any other locked
+  // attempt keeps the 402.
   const langAccess = await getLanguageAccess(req, claims.languageCode);
-  if (langAccess.state !== "allowed") {
-    const inTeaser =
-      langAccess.state === "teaser" &&
+  const inTeaserSet =
+    langAccess.state === "teaser" &&
+    claims.phraseId != null &&
+    langAccess.teaserPhraseIds.includes(claims.phraseId);
+  if (langAccess.state !== "allowed" && !inTeaserSet) {
+    const firstStop =
+      claims.phraseId != null
+        ? await getFirstStopGroup(claims.languageCode)
+        : null;
+    const inFirstStop =
+      firstStop != null &&
       claims.phraseId != null &&
-      langAccess.teaserPhraseIds.includes(claims.phraseId);
-    if (!inTeaser) {
+      firstStop.phraseIds.includes(claims.phraseId);
+    if (!inFirstStop) {
       sendLockedLanguageDenial(req, res, langAccess);
       return;
     }
@@ -1150,10 +1197,12 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   };
 
   let row: typeof attemptsTable.$inferSelect;
-  // Teaser progress reported on the response (teaser-state attempts only),
-  // computed under the same lock that admitted the insert.
+  // Teaser progress reported on the response (teaser-state attempts on
+  // taste-set phrases only), computed under the same lock that admitted the
+  // insert. First-stop attempts outside the taste set insert plainly below —
+  // they never consume or report the taste meter.
   let teaser: { consumed: number; limit: number } | undefined;
-  if (langAccess.state === "teaser") {
+  if (langAccess.state === "teaser" && inTeaserSet) {
     // The derived consumption count is raceable on its own: two concurrent
     // submissions for different teaser phrases could both read consumed < 3
     // and both insert. Serialize recount + insert per (user, language) with a
@@ -1966,19 +2015,14 @@ router.get(
     let teaserGroupId: number | null = null;
     let derived: ReturnType<typeof deriveGroupStatuses> | null = null;
     if (showroom) {
-      if (showroom.state === "teaser") {
-        // The teaser set lives in exactly one group (the first Greetings
-        // group, see lib/teaser.ts); when this category holds it, that
-        // station renders unlocked and visibly marked.
-        const firstTeaserId = showroom.teaserPhraseIds[0];
-        if (firstTeaserId != null) {
-          for (const [gid, ids] of byGroup) {
-            if (ids.includes(firstTeaserId)) {
-              teaserGroupId = gid;
-              break;
-            }
-          }
-        }
+      // Free-tier content policy: the FIRST stop (position-1 Greetings
+      // group, see lib/teaser.ts) is fully playable free, so the showroom
+      // marks it unlocked for BOTH teaser and exhausted callers — every
+      // locked language's map opens at Stop 1 and Stop 2+ stays
+      // locked-with-upsell.
+      const firstStop = await getFirstStopGroup(lang);
+      if (firstStop != null && groups.some((g) => g.id === firstStop.groupId)) {
+        teaserGroupId = firstStop.groupId;
       }
     } else {
       // Derivation + completion latch live in the shared guard — identical
@@ -2078,50 +2122,47 @@ router.get(
     }
 
     // Free is limited to Hindi; other languages require Bolo! Plus — with the
-    // same M1 teaser exception the category-phrases route implements (see the
-    // teaser branch on GET /categories/:id/phrases/:lang): a teaser-state
-    // caller asking for the designated taste group (the one the journey
-    // listing marks `teaserStation: true` — the group holding the teaser
-    // phrase set) gets exactly the teaser phrase rows, in the same per-phrase
-    // shape, instead of a 402. This branch MUST return before the
-    // sequential-unlock guard below so no lesson_group_progress latch rows
-    // are ever written for a language the caller's plan doesn't own
-    // (lib/lessonGroupAccess.ts CALLER CONTRACT). Exhausted callers and
-    // non-taste groups keep today's 402 byte-identical via
-    // sendLockedLanguageDenial.
+    // free-tier content policy carve-out the category-phrases route also
+    // implements: the language's FIRST stop (the position-1 Greetings group,
+    // the one the journey listing marks `teaserStation: true`) serves IN
+    // FULL, premium-filtered, in the same per-phrase shape, whatever the
+    // teaser state. This branch MUST return before the sequential-unlock
+    // guard below so no lesson_group_progress latch rows are ever written
+    // for a language the caller's plan doesn't own
+    // (lib/lessonGroupAccess.ts CALLER CONTRACT); Stop 1 is position 1, so
+    // skipping the guard can never skip a real progression lock. Every other
+    // group keeps today's 402 byte-identical via sendLockedLanguageDenial.
     const access = await getLanguageAccess(req, group.languageCode);
     if (access.state !== "allowed") {
-      if (access.state !== "teaser") {
+      const firstStop = await getFirstStopGroup(group.languageCode);
+      if (firstStop == null || firstStop.groupId !== id) {
         sendLockedLanguageDenial(req, res, access);
         return;
       }
-      const teaserRows = await db
+      const rows = await db
         .select()
         .from(phrasesTable)
         .where(
           and(
-            inArray(phrasesTable.id, access.teaserPhraseIds),
             eq(phrasesTable.lessonGroupId, id),
+            eq(phrasesTable.stage, "phrase"),
           ),
         )
         .orderBy(
           asc(phrasesTable.lessonGroupPosition),
           asc(phrasesTable.id),
         );
-      if (teaserRows.length === 0) {
-        // Not the taste group: plain denial, exactly like today.
+      const served = rows.filter((p) => !p.premium);
+      if (served.length === 0) {
         sendLockedLanguageDenial(req, res, access);
         return;
       }
-      const teaserAttempts = await fetchUserAttempts(
+      const firstStopAttempts = await fetchUserAttempts(
         userId,
         group.languageCode,
       );
-      const teaserStats = buildPhraseStats(teaserAttempts);
-      const teaser = { consumed: access.consumed, limit: TEASER_LIMIT };
-      res.json(
-        teaserRows.map((p) => ({ ...serializePhrase(p, teaserStats), teaser })),
-      );
+      const firstStopStats = buildPhraseStats(firstStopAttempts);
+      res.json(served.map((p) => serializePhrase(p, firstStopStats)));
       return;
     }
 
@@ -2137,12 +2178,18 @@ router.get(
       fetchUserAttempts(userId, group.languageCode),
     ]);
 
-    // The sentence stage is Plus-only, whatever the language. A sentence-stage
-    // group must be denied here exactly like /categories/:id/sentences/:lang —
-    // the journey UI's dialog gating is convenience, not authority, and a deep
-    // link (?group=<sentence group>) hits this route directly.
+    // Sentence-stage parity with /categories/:id/sentences/:lang under the
+    // free-tier content policy: non-premium sentence rows serve on every
+    // plan; premium sentence rows stay behind the "sentences" feature. When
+    // the whole group is premium and the caller lacks the feature, the 402
+    // stays byte-identical to the old blanket gate — the journey UI's dialog
+    // gating is convenience, not authority, and a deep link
+    // (?group=<sentence group>) hits this route directly.
+    const hasSentences = featuresForPlan(resolvedPlan.plan).sentences;
     if (
       phrases.some((p) => p.stage === "sentence") &&
+      !hasSentences &&
+      phrases.every((p) => p.premium) &&
       denyLockedFeature(
         req,
         res,
@@ -2175,9 +2222,16 @@ router.get(
       return;
     }
 
-    const accessible = canAccessPremium
-      ? phrases
-      : phrases.filter((p) => !p.premium);
+    // Premium access is per-stage: phrase rows key on the extended library,
+    // sentence rows on the "sentences" feature — so premium sentence text can
+    // never leak through an extended-library-only combination.
+    const accessible = phrases.filter((p) =>
+      !p.premium
+        ? true
+        : p.stage === "sentence"
+          ? hasSentences
+          : canAccessPremium,
+    );
     res.json(accessible.map((p) => serializePhrase(p, stats)));
   },
 );

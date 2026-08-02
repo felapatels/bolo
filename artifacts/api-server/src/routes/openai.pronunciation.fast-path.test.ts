@@ -136,6 +136,10 @@ before(async () => {
   // Stub userId so the route doesn't reject as unauthenticated.
   app.use((_req: Request, _res: Response, next: NextFunction) => {
     (_req as any).userId = "test_fast_path_user";
+    // Plus, so the pronunciation entitlement gate resolves "allowed" for the
+    // catalog-phrase (phraseId) tests without teaser/first-stop DB lookups.
+    // Gating has its own suite (openai.pronunciation.gating.test.ts).
+    (_req as any).resolvedPlan = { plan: "plus", chosenLanguage: null };
     next();
   });
 

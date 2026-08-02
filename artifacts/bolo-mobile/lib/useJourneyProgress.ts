@@ -6,16 +6,12 @@
 // presentation data: every failure mode (plain-locked 402, network error,
 // still loading) degrades to `current: null` and the caller falls back to
 // generic copy. Never throws, never gates anything.
-//
-// Entitlement note: the web hook reads `isAllAccess`; the mobile entitlements
-// context exposes the same plan bit as `isPlus` (plan === 'plus').
 import {
   useListCategoryLessonGroups,
   type LessonGroupList,
   type LessonGroupSummary,
 } from '@workspace/api-client-react';
 import { JOURNEY_ZONES } from '@/lib/journeyLines';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 function stageRank(g: LessonGroupSummary): number {
   return g.stage === 'sentence' ? 1 : 0;
@@ -43,9 +39,9 @@ export interface JourneyProgress {
   isLoading: boolean;
   /**
    * True when no boardable stop exists but the line continues into stops the
-   * caller's plan cannot see (planLocked groups, or sentence stops for a Free
-   * learner). The boarding pass renders an upgrade nudge instead of the
-   * generic "continue" copy. Mirrors the web hook.
+   * caller's plan cannot see (planLocked groups). The boarding pass renders
+   * an upgrade nudge instead of the generic "continue" copy. Mirrors the web
+   * hook.
    */
   planBlocked: boolean;
 }
@@ -54,7 +50,6 @@ export function useJourneyProgress(
   lang: string,
   zoneGeoNames: readonly string[],
 ): JourneyProgress {
-  const { isPlus } = useEntitlements();
   const q1 = useListCategoryLessonGroups(JOURNEY_ZONES[0].id, lang);
   const q2 = useListCategoryLessonGroups(JOURNEY_ZONES[1].id, lang);
   const q3 = useListCategoryLessonGroups(JOURNEY_ZONES[2].id, lang);
@@ -81,16 +76,16 @@ export function useJourneyProgress(
       if (g.status === 'completed' || g.status === 'tested_out') doneCount += 1;
       // S2 map honesty: a planLocked group has ZERO phrases the caller's plan
       // can practice (the server already reports it status "locked"); it can
-      // never be the boarding-pass target. Same for a Free learner's sentence
-      // stop. Both count toward planBlocked when nothing boardable remains.
-      if (g.planLocked === true || (g.stage === 'sentence' && !isPlus)) {
+      // never be the boarding-pass target. Free-tier content policy: sentence
+      // stops are no longer skipped by stage — Hindi Fare Zone 1's sentence
+      // stops serve free, so planLocked is the single plan authority here.
+      if (g.planLocked === true) {
         anyPlanGated = true;
       }
       if (
         current === null &&
         g.planLocked !== true &&
-        (g.status === 'unlocked' || g.status === 'in_progress') &&
-        !(g.stage === 'sentence' && !isPlus)
+        (g.status === 'unlocked' || g.status === 'in_progress')
       ) {
         current = {
           geoName: zoneGeoNames[i] ?? '',

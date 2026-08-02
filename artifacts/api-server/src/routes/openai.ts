@@ -33,7 +33,7 @@ import {
   simToScore,
 } from "../lib/pronunciationGuards";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
-import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
+import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario } from "../lib/scenarios";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
@@ -668,6 +668,36 @@ router.post(
         res.status(400).json({ error: "Unknown phrase" });
         return;
       }
+
+      // Evaluation is gated exactly like serving (GET /phrases/:id): the
+      // stored text below gets returned to the caller and signed into the
+      // evaluation token, so an ungated evaluate would leak content the
+      // serving routes deny. Locked languages keep the id-aware exceptions —
+      // the teaser set while it lasts, plus (free-tier content policy) the
+      // language's first stop, whatever the teaser state; every other locked
+      // phrase keeps the byte-identical 402.
+      if (
+        await denyLockedLanguage(req, res, phrase.languageCode, {
+          teaserPhraseId: phrase.id,
+          firstStopPhraseId: phrase.id,
+        })
+      ) {
+        return;
+      }
+      // A premium (Plus-only) phrase is never evaluated for a caller without
+      // the extended library — same denial as serving it by id.
+      if (
+        phrase.premium &&
+        denyLockedFeature(
+          req,
+          res,
+          "extendedLibrary",
+          "This phrase is part of the Bolo! Plus library. Upgrade to unlock it.",
+        )
+      ) {
+        return;
+      }
+
       resolvedPhraseId = phrase.id;
       targetNative = phrase.nativeScript;
       targetRomanized = phrase.romanized;

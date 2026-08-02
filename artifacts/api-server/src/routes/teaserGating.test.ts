@@ -27,11 +27,13 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 import { __resetTeaserCacheForTests, TEASER_LIMIT } from "../lib/teaser";
 import { FREE_LANGUAGE } from "../lib/entitlements";
 
-// M1 language teaser: drives the three-state access model (allowed / teaser /
-// exhausted) end to end through the real Express routers. A Free user in a
-// locked language may reach exactly the first TEASER_LIMIT phrase-stage
-// phrases of the first Greetings lesson group; attempting all of them flips
-// every locked-language surface to the distinguishable teaser_exhausted 402.
+// M1 language teaser + free-tier content policy: drives the three-state
+// access model (allowed / teaser / exhausted) end to end through the real
+// Express routers. A Free user in a locked language may reach the ENTIRE
+// first Greetings lesson group (non-premium phrase-stage rows — the
+// first-stop carve-out); attempting the first TEASER_LIMIT taste phrases
+// still flips every OTHER locked-language surface to the distinguishable
+// teaser_exhausted 402, while the first stop keeps serving.
 // Consumption is DERIVED from the attempts table, so "lifetime persistence"
 // is proven by the state surviving with no session/server-side cache at all.
 //
@@ -54,7 +56,8 @@ let group2Id: number;
 
 // Fixture phrase ids.
 let teaserIds: number[]; // the 3 canonical teaser phrases, in position order
-let fourthPhraseId: number; // group 1, position 4 — never teaser-accessible
+let fourthPhraseId: number; // group 1, position 4 — first-stop accessible, outside the taste set
+let premiumPhraseId: number; // premium phrase-stage row in group 1 — never serves to locked callers
 let sentencePhraseId: number; // sentence-stage row in group 1 — excluded
 let group2PhraseId: number; // first phrase of group 2 — never teaser-accessible
 let otherCategoryPhraseId: number; // phrase in a non-Greetings category
@@ -208,8 +211,9 @@ before(async () => {
     ...over,
   });
 
-  // Group 1: a sentence-stage row FIRST by position (must be excluded), then
-  // four phrase-stage rows — the teaser is exactly the first three.
+  // Group 1: a sentence-stage row FIRST by position (excluded from phrase
+  // serving), four free phrase-stage rows (the taste set is the first three),
+  // and a trailing premium row (excluded for locked callers).
   const rows = await db
     .insert(phrasesTable)
     .values([
@@ -220,6 +224,7 @@ before(async () => {
       phrase({ lessonGroupId: group1.id, lessonGroupPosition: 4, sortOrder: 4, english: "t4" }),
       phrase({ lessonGroupId: group2.id, lessonGroupPosition: 1, sortOrder: 5, english: "g2" }),
       phrase({ lessonId: otherLesson.id, categoryId: otherCategoryId, sortOrder: 0, english: "other" }),
+      phrase({ lessonGroupId: group1.id, lessonGroupPosition: 5, sortOrder: 6, english: "t5-premium", premium: true }),
     ])
     .returning();
   sentencePhraseId = rows[0].id;
@@ -227,6 +232,7 @@ before(async () => {
   fourthPhraseId = rows[4].id;
   group2PhraseId = rows[5].id;
   otherCategoryPhraseId = rows[6].id;
+  premiumPhraseId = rows[7].id;
 
   app = express();
   app.use(express.json({ limit: "1mb" }));
@@ -263,18 +269,19 @@ after(async () => {
   server?.close();
 });
 
-test("teaser state serves exactly the 3 canonical phrases, in order, with progress", async () => {
+test("teaser state serves the FULL first stop (non-premium phrase rows), no teaser fields", async () => {
   const { status, json } = await get(`/categories/${greetingsId}/phrases/${LANG}`);
   assert.equal(status, 200);
-  assert.deepEqual(json.map((p: any) => p.id), teaserIds);
-  // Sentence-stage and 4th/other-group phrases never leak.
+  // Free-tier content policy: the whole first Greetings group serves, in
+  // position order — not just the 3-phrase taste set.
+  assert.deepEqual(json.map((p: any) => p.id), [...teaserIds, fourthPhraseId]);
+  // Sentence-stage, premium, and other-group phrases never leak.
   const ids = json.map((p: any) => p.id);
-  for (const excluded of [sentencePhraseId, fourthPhraseId, group2PhraseId]) {
+  for (const excluded of [sentencePhraseId, premiumPhraseId, group2PhraseId]) {
     assert.ok(!ids.includes(excluded));
   }
-  for (const p of json) {
-    assert.deepEqual(p.teaser, { consumed: 0, limit: TEASER_LIMIT });
-  }
+  // Normal serving shape: no per-row teaser meter on the 200 path.
+  for (const p of json) assert.equal(p.teaser, undefined);
 });
 
 test("teaser state: non-teaser content in the locked language stays denied with teaser progress", async () => {
@@ -284,10 +291,16 @@ test("teaser state: non-teaser content in the locked language stays denied with 
   assert.equal(other.json.reason, "language_locked");
   assert.deepEqual(other.json.teaser, { consumed: 0, limit: TEASER_LIMIT });
 
-  // Direct phrase read is id-aware: teaser phrase allowed, 4th denied.
+  // Direct phrase read is id-aware: ANY first-stop phrase is allowed now.
   const allowed = await get(`/phrases/${teaserIds[0]}`);
   assert.equal(allowed.status, 200);
-  const denied = await get(`/phrases/${fourthPhraseId}`);
+  const fourth = await get(`/phrases/${fourthPhraseId}`);
+  assert.equal(fourth.status, 200);
+  // A premium first-stop row passes the language gate but keeps the premium
+  // 402; a group-2 phrase keeps the language 402.
+  const premium = await get(`/phrases/${premiumPhraseId}`);
+  assert.equal(premium.status, 402);
+  const denied = await get(`/phrases/${group2PhraseId}`);
   assert.equal(denied.status, 402);
   assert.equal(denied.json.reason, "language_locked");
 
@@ -323,55 +336,66 @@ test("attempts consume the teaser regardless of score, distinct phrases only, fu
   assert.equal(again.status, 201);
   assert.deepEqual(again.json.teaser, { consumed: 1, limit: TEASER_LIMIT });
 
-  // A non-teaser phrase id is denied even in teaser state (id-aware).
+  // A first-stop phrase outside the taste set is admitted (free-tier content
+  // policy) but never consumes or reports the taste meter.
   const outside = await postAttempt(fourthPhraseId, 90);
-  assert.equal(outside.status, 402);
-  assert.equal(outside.json.reason, "language_locked");
-  // A tokenless-phrase (null id) locked-language attempt is denied too.
+  assert.equal(outside.status, 201);
+  assert.equal(outside.json.teaser, undefined);
+  // A group-2 phrase keeps the language 402, as does a tokenless null id.
+  const g2 = await postAttempt(group2PhraseId, 90);
+  assert.equal(g2.status, 402);
+  assert.equal(g2.json.reason, "language_locked");
   const nullId = await postAttempt(null, 90);
   assert.equal(nullId.status, 402);
 });
 
-test("third distinct attempt exhausts the teaser everywhere, lifetime, derived from attempts", async () => {
+test("third distinct attempt exhausts the teaser; first stop keeps serving, other surfaces 402", async () => {
   await postAttempt(teaserIds[0], 30);
   await postAttempt(teaserIds[1], 90);
   const third = await postAttempt(teaserIds[2], 10);
   assert.equal(third.status, 201);
   assert.deepEqual(third.json.teaser, { consumed: 3, limit: TEASER_LIMIT });
 
-  // Every locked-language surface now returns the distinguishable reason.
+  // Free-tier content policy: the first stop stays fully practicable even
+  // after exhaustion — serving keeps the normal shape, attempts insert
+  // plainly with no meter riding along.
   const phrasesFetch = await get(`/categories/${greetingsId}/phrases/${LANG}`);
-  assert.equal(phrasesFetch.status, 402);
-  assert.equal(phrasesFetch.json.reason, "teaser_exhausted");
-  assert.deepEqual(phrasesFetch.json.teaser, { consumed: 3, limit: TEASER_LIMIT });
+  assert.equal(phrasesFetch.status, 200);
+  assert.deepEqual(phrasesFetch.json.map((p: any) => p.id), [...teaserIds, fourthPhraseId]);
+  for (const p of phrasesFetch.json) assert.equal(p.teaser, undefined);
 
   const phraseRead = await get(`/phrases/${teaserIds[0]}`);
-  assert.equal(phraseRead.status, 402);
-  assert.equal(phraseRead.json.reason, "teaser_exhausted");
+  assert.equal(phraseRead.status, 200);
 
   const attempt = await postAttempt(teaserIds[0], 90);
-  assert.equal(attempt.status, 402);
-  assert.equal(attempt.json.reason, "teaser_exhausted");
+  assert.equal(attempt.status, 201);
+  assert.equal(attempt.json.teaser, undefined);
 
+  // Every OTHER locked-language surface returns the distinguishable reason.
   const listing = await get(`/categories?lang=${LANG}`);
   assert.equal(listing.status, 402);
   assert.equal(listing.json.reason, "teaser_exhausted");
 
+  const otherCat = await get(`/categories/${otherCategoryId}/phrases/${LANG}`);
+  assert.equal(otherCat.status, 402);
+  assert.equal(otherCat.json.reason, "teaser_exhausted");
+  assert.deepEqual(otherCat.json.teaser, { consumed: 3, limit: TEASER_LIMIT });
+
   // Lifetime persistence: consumption is derived from the attempts table, so
-  // a "new session" (fresh request, caches reset) still sees exhausted.
+  // a "new session" (fresh request, caches reset) still sees exhausted on
+  // non-first-stop surfaces.
   __resetTeaserCacheForTests();
-  const stillExhausted = await get(`/categories/${greetingsId}/phrases/${LANG}`);
+  const stillExhausted = await get(`/categories/${otherCategoryId}/phrases/${LANG}`);
   assert.equal(stillExhausted.status, 402);
   assert.equal(stillExhausted.json.reason, "teaser_exhausted");
 
-  // Attempts on teaser phrases persisted normally (count toward later upgrade).
+  // Attempts on teaser phrases persisted normally (count toward later upgrade):
+  // the 3 consuming attempts plus the post-exhaustion first-stop attempt.
   const rows = await db
     .select()
     .from(attemptsTable)
     .where(inArray(attemptsTable.phraseId, teaserIds));
-  // Exactly the 3 consuming attempts persisted (the post-exhaustion attempt
-  // was 402'd before any insert).
-  assert.equal(rows.filter((r) => r.userId === TEST_USER_ID).length, 3);
+  assert.equal(rows.filter((r) => r.userId === TEST_USER_ID).length, 4);
 });
 
 test("concurrent teaser attempts cannot overshoot the limit (advisory-lock boundary)", async () => {
@@ -401,10 +425,11 @@ test("concurrent teaser attempts cannot overshoot the limit (advisory-lock bound
   const distinct = new Set(rows.map((r) => r.phraseId));
   assert.ok(distinct.size <= TEASER_LIMIT);
 
-  // Fully exhausted now: even a repeat of a consumed phrase is denied.
+  // Fully exhausted now: a repeat still lands via the first-stop carve-out
+  // (exhausted-state inserts are plain, no meter on the response).
   const after = await postAttempt(teaserIds[0], 90);
-  assert.equal(after.status, 402);
-  assert.equal(after.json.reason, "teaser_exhausted");
+  assert.equal(after.status, 201);
+  assert.equal(after.json.teaser, undefined);
 });
 
 test("covered languages are never teaser-limited; payload absent when allowed", async () => {
@@ -428,25 +453,23 @@ test("covered languages are never teaser-limited; payload absent when allowed", 
   assert.equal(attempt.json.teaser, undefined);
 });
 
-// ── Free-taste phrases on the journey taste station ─────────────────────────
-// GET /lesson-groups/:id/phrases mirrors the category-phrases teaser branch:
-// the designated taste group (the one the journey listing marks
-// teaserStation) serves exactly the teaser rows; every other group on the
-// locked language keeps today's 402; the teaser branch returns BEFORE the
-// sequential-unlock guard so no lesson_group_progress latch rows are ever
+// ── First-stop phrases on the journey taste station ─────────────────────────
+// GET /lesson-groups/:id/phrases mirrors the category-phrases first-stop
+// branch: the first Greetings group (the one the journey listing marks
+// teaserStation) serves its full non-premium phrase-stage set; every other
+// group on the locked language keeps today's 402; the branch returns BEFORE
+// the sequential-unlock guard so no lesson_group_progress latch rows are ever
 // written for an unowned language.
 
-test("teaser state: the taste group's phrases route serves exactly the teaser rows, and attempts on them work", async () => {
+test("teaser state: the first stop's phrases route serves the full non-premium set, and attempts work", async () => {
   const { status, json } = await get(`/lesson-groups/${group1Id}/phrases`);
   assert.equal(status, 200);
-  assert.deepEqual(json.map((p: any) => p.id), teaserIds);
+  assert.deepEqual(json.map((p: any) => p.id), [...teaserIds, fourthPhraseId]);
   const ids = json.map((p: any) => p.id);
-  for (const excluded of [sentencePhraseId, fourthPhraseId, group2PhraseId]) {
+  for (const excluded of [sentencePhraseId, premiumPhraseId, group2PhraseId]) {
     assert.ok(!ids.includes(excluded));
   }
-  for (const p of json) {
-    assert.deepEqual(p.teaser, { consumed: 0, limit: TEASER_LIMIT });
-  }
+  for (const p of json) assert.equal(p.teaser, undefined);
 
   // Byte-for-byte the same phrase set the category-phrases teaser branch
   // serves — one teaser contract, two scopes.
@@ -478,12 +501,12 @@ test("teaser state: a non-taste group on the locked language still 402s with tea
   assert.deepEqual(denied.json.teaser, { consumed: 0, limit: TEASER_LIMIT });
 });
 
-test("exhausted state: the taste group 402s teaser_exhausted and never latches, even at completion ratio", async () => {
-  // Master the 3 teaser phrases plus the 4th group-1 phrase directly in the
-  // attempts table: exhausts the teaser AND puts group 1 at 4/5 mastered,
-  // exactly the COMPLETION_RATIO (0.8) threshold — so if this 402 path ever
-  // reached the unlock derivation, it WOULD latch a completion row. It must
-  // not, for a language the caller's plan doesn't own.
+test("exhausted state: the first stop still serves via the carve-out and never latches", async () => {
+  // Master the 3 taste phrases plus the 4th group-1 phrase directly in the
+  // attempts table: exhausts the teaser AND puts group 1 at completion-ratio
+  // mastery — if the serving path ever reached the unlock derivation, it
+  // WOULD latch a completion row. It must not, for a language the caller's
+  // plan doesn't own.
   for (const pid of [...teaserIds, fourthPhraseId]) {
     await db.insert(attemptsTable).values({
       userId: TEST_USER_ID,
@@ -498,19 +521,16 @@ test("exhausted state: the taste group 402s teaser_exhausted and never latches, 
       feedback: "x",
     });
   }
-  const denied = await get(`/lesson-groups/${group1Id}/phrases`);
-  assert.equal(denied.status, 402);
-  assert.equal(denied.json.reason, "teaser_exhausted");
-  assert.deepEqual(denied.json.teaser, {
-    consumed: TEASER_LIMIT,
-    limit: TEASER_LIMIT,
-  });
+  const served = await get(`/lesson-groups/${group1Id}/phrases`);
+  assert.equal(served.status, 200);
+  assert.deepEqual(served.json.map((p: any) => p.id), [...teaserIds, fourthPhraseId]);
+  for (const p of served.json) assert.equal(p.teaser, undefined);
 
   const latched = await db
     .select()
     .from(lessonGroupProgressTable)
     .where(eq(lessonGroupProgressTable.userId, TEST_USER_ID));
-  assert.equal(latched.length, 0, "402 path must never write latch rows");
+  assert.equal(latched.length, 0, "first-stop serving must never write latch rows");
 });
 
 test("entitled caller behavior on the group-phrases route is unchanged", async () => {
@@ -524,7 +544,7 @@ test("entitled caller behavior on the group-phrases route is unchanged", async (
   // field anywhere — the pre-existing contract, byte-identical.
   assert.deepEqual(
     json.map((p: any) => p.id),
-    [sentencePhraseId, ...teaserIds, fourthPhraseId],
+    [sentencePhraseId, ...teaserIds, fourthPhraseId, premiumPhraseId],
   );
   for (const p of json) assert.equal(p.teaser, undefined);
 });
