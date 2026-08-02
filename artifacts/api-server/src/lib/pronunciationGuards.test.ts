@@ -54,10 +54,18 @@ test("native-script transcript compares against the native target", () => {
   assert.ok(cmp.sim >= 0.95);
 });
 
-test("cross-script transcript is not comparable (guards stay out)", () => {
-  // Devanagari transcript of Gujarati speech: sounds may match but scripts don't.
-  const cmp = compareToTarget("केम छो", TARGET.native, TARGET.romanized);
-  assert.equal(cmp.comparable, false);
+test("cross-script transcript: raw path stays incomparable, bridge rescues it (Chunk 2A)", () => {
+  // Devanagari transcript of Gujarati speech: sounds match but scripts don't.
+  // Pre-Chunk-2A this was incomparable (nocatch). The raw contract still
+  // holds (visible via noBridge), but the cross-script bridge now romanizes
+  // both sides and rescues the comparison ("kema cho" vs "kema cho" = 1.0).
+  const raw = compareToTarget("केम छो", TARGET.native, TARGET.romanized, { noBridge: true });
+  assert.equal(raw.comparable, false);
+
+  const bridged = compareToTarget("केम छो", TARGET.native, TARGET.romanized);
+  assert.equal(bridged.comparable, true);
+  assert.ok(bridged.sim >= 0.95, `bridged sim was ${bridged.sim}`);
+  assert.equal(bridged.bridge?.bridged, true);
 });
 
 test("near-exact match can never fail, even if the LLM lowballs it", () => {
@@ -147,10 +155,11 @@ test("mid-band close attempt: LLM score stands", () => {
   assert.equal(r.guard, undefined);
 });
 
-test("cross-script transcript resolves to nocatch — recognizer failure, not learner failure", () => {
-  // Devanagari transcript of Gujarati speech: the recognizer wrote the wrong
-  // script, so nothing about the learner's attempt is verifiable. Universal
-  // rule: script mismatch = nocatch in every language, even with a high LLM score.
+test("cross-script transcript that MATCHES after bridging is scoreable, no longer nocatch (Chunk 2A)", () => {
+  // Devanagari transcript of Gujarati speech, phonetically identical to the
+  // target. Pre-Chunk-2A this was the canonical false nocatch; the bridge now
+  // verifies the match in roman space (sim 1.0), so the near-match floor
+  // applies exactly as it would for a same-script perfect transcript.
   const r = applyScoreGuards({
     score: 90,
     passed: true,
@@ -159,13 +168,13 @@ test("cross-script transcript resolves to nocatch — recognizer failure, not le
     targetRomanized: TARGET.romanized,
     otherPhrases: OTHERS,
   });
-  assert.equal(r.score, 0);
-  assert.equal(r.passed, false);
-  assert.equal(r.guard, "script-mismatch-nocatch");
-  assert.equal(r.nocatch, true);
+  assert.equal(r.nocatch, undefined);
+  assert.equal(r.passed, true);
+  assert.equal(r.score, 100);
+  assert.equal(r.guard, "near-match-floor");
 });
 
-test("cross-script transcript with a low LLM score also resolves to nocatch", () => {
+test("cross-script transcript matching at a low LLM score is rescued the same way (Chunk 2A)", () => {
   const r = applyScoreGuards({
     score: 82,
     passed: true,
@@ -173,9 +182,28 @@ test("cross-script transcript with a low LLM score also resolves to nocatch", ()
     targetNative: TARGET.native,
     targetRomanized: TARGET.romanized,
   });
+  assert.equal(r.nocatch, undefined);
+  assert.equal(r.passed, true);
+  assert.equal(r.score, 100);
+  assert.equal(r.guard, "near-match-floor");
+});
+
+test("cross-script transcript that does NOT match after bridging still resolves to nocatch", () => {
+  // Unrelated Devanagari content against the Gujarati target: the bridge
+  // romanizes both sides but similarity stays far below the 0.45 evidence
+  // floor, so the universal script-mismatch nocatch rule still applies.
+  const r = applyScoreGuards({
+    score: 90,
+    passed: true,
+    transcript: "धन्यवाद",
+    targetNative: TARGET.native,
+    targetRomanized: TARGET.romanized,
+    otherPhrases: OTHERS,
+  });
   assert.equal(r.score, 0);
-  assert.equal(r.nocatch, true);
+  assert.equal(r.passed, false);
   assert.equal(r.guard, "script-mismatch-nocatch");
+  assert.equal(r.nocatch, true);
 });
 
 test("Latin transcript for a non-Latin phrase with low romanized similarity resolves to nocatch", () => {

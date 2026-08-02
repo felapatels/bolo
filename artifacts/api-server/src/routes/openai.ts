@@ -28,9 +28,11 @@ import {
   chooseConservativeTranscript,
   compareToTarget,
   isEffectivelyEmpty,
+  normalizeForAgreement,
   normalizeLatin,
   simToScore,
 } from "../lib/pronunciationGuards";
+import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
 import { denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario } from "../lib/scenarios";
@@ -739,6 +741,30 @@ router.post(
           latencyMs: latencyMs ?? null,
         }),
       });
+      // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
+      // assembled for non-allowlisted accounts. Fire-and-forget after res.json.
+      if (isPilotCaptureUser(userId)) {
+        void writeNocatchDiagnostic({
+          userId,
+          languageCode,
+          language,
+          phraseId: resolvedPhraseId,
+          targetNative,
+          targetRomanized,
+          targetEnglish: targetEnglish ?? null,
+          sttTranscriptMini: null,
+          sttTranscriptHq: null,
+          chosenTranscript: null,
+          normalizedTranscript: null,
+          normalizedTarget: null,
+          similarityValues: {},
+          cause: "unsupported_language",
+          sttDisagreement: null,
+          bridged: false,
+          transcriptComparable: null,
+          targetComparable: null,
+        });
+      }
       return;
     }
 
@@ -839,6 +865,32 @@ router.post(
           sttDisagreement,
         }),
       });
+      // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
+      // assembled for non-allowlisted accounts. Fire-and-forget after res.json.
+      if (isPilotCaptureUser(userId)) {
+        void writeNocatchDiagnostic({
+          userId,
+          languageCode,
+          language,
+          phraseId: resolvedPhraseId,
+          targetNative,
+          targetRomanized,
+          targetEnglish: targetEnglish ?? null,
+          sttTranscriptMini,
+          sttTranscriptHq,
+          chosenTranscript: transcript,
+          normalizedTranscript: normalizeForAgreement(transcript),
+          normalizedTarget: normalizeForAgreement(targetNative),
+          similarityValues: {},
+          cause: sttChosenEmptyWithEvidence
+            ? "dual_pass_uncorroborated"
+            : "empty_audio_or_silence",
+          sttDisagreement,
+          bridged: false,
+          transcriptComparable: null,
+          targetComparable: null,
+        });
+      }
       return;
     }
 
@@ -931,7 +983,7 @@ router.post(
         }
         for (const other of siblings) {
           if (other.id === resolvedPhraseId) continue;
-          const otherSim = compareToTarget(transcript, other.nativeScript, other.romanized);
+          const otherSim = compareToTarget(transcript, other.nativeScript, other.romanized, { noBridge: true });
           if (otherSim.comparable && otherSim.sim >= 0.8) {
             fastPathWrongPhrase = true;
             break;
@@ -1200,6 +1252,48 @@ router.post(
             sttDisagreement,
           }),
         });
+        // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
+        // assembled for non-allowlisted accounts. Fire-and-forget after
+        // res.json. Cause classification: a comparable raw result that still
+        // nocatched can only be guard 1b (Latin low sim); an incomparable one
+        // is script mismatch, split by whether the bridge achieved a shared
+        // space and similarity STILL failed (the module's residue).
+        if (isPilotCaptureUser(userId)) {
+          const bridge = targetSim.bridge;
+          const nocatchCause: NocatchCause = targetSim.comparable
+            ? "latin_low_sim"
+            : bridge?.bridged
+              ? "no_match_after_bridge"
+              : "script_mismatch";
+          void writeNocatchDiagnostic({
+            userId,
+            languageCode,
+            language,
+            phraseId: resolvedPhraseId,
+            targetNative,
+            targetRomanized,
+            targetEnglish: targetEnglish ?? null,
+            sttTranscriptMini,
+            sttTranscriptHq,
+            chosenTranscript: transcript,
+            normalizedTranscript: normalizeForAgreement(transcript),
+            normalizedTarget: normalizeForAgreement(targetNative),
+            similarityValues: {
+              rawSim: bridge
+                ? bridge.rawSim
+                : targetSim.comparable
+                  ? targetSim.sim
+                  : null,
+              bridgedSim: bridge?.bridgedSim ?? null,
+              finalSim: targetSim.comparable ? targetSim.sim : null,
+            },
+            cause: nocatchCause,
+            sttDisagreement,
+            bridged: bridge?.bridged ?? false,
+            transcriptComparable: bridge?.transcriptComparable ?? null,
+            targetComparable: bridge?.targetComparable ?? null,
+          });
+        }
         return;
       }
       let { score } = guarded;

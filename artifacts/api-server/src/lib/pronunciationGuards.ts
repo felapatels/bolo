@@ -14,6 +14,15 @@
 // romanized target, a native-script transcript against the native target. When
 // the scripts don't line up (e.g. the transcriber wrote Gujarati speech in
 // Devanagari), no deterministic verdict is possible and the LLM score stands.
+//
+// Chunk 2 Stage A: cross-script bridge. When the raw comparison is
+// incomparable or weak, compareToTarget additionally romanizes both sides via
+// the pre-built crossScript module and takes max(raw, bridged). Rescue-only:
+// the bridge can convert false nocatches and false mismatches into correct
+// matches; it never lowers a raw result (max) and sibling wrong-phrase checks
+// never bridge (a bridged sibling hit could only hurt the learner).
+
+import { normalizeForComparison } from "./crossScript";
 
 /**
  * Linearly maps a similarity value in [lo, 1.0] to an integer score in [80, 100].
@@ -149,15 +158,46 @@ function sameScriptAs(text: string, reference: string): boolean {
   return Math.floor(a / 128) === Math.floor(b / 128);
 }
 
+/** Cross-script bridge attempt metadata (present iff the bridge was attempted). */
+export interface BridgeAttempt {
+  /** True when the crossScript module achieved a shared comparable space. */
+  bridged: boolean;
+  /** Whether the RAW comparison (pre-bridge) was comparable. */
+  rawComparable: boolean;
+  /** Raw similarity when raw was comparable, else null. */
+  rawSim: number | null;
+  /** Similarity in the bridged roman space, null when not bridged. */
+  bridgedSim: number | null;
+  /** Both comparable strings as the matcher saw them, null when not bridged. */
+  transcriptComparable: string | null;
+  targetComparable: string | null;
+}
+
 export interface PhoneticComparison {
   /** Best similarity of the transcript to the target (0..1). */
   sim: number;
   /** False when transcript & target scripts don't line up — guards must not fire. */
   comparable: boolean;
+  /** Present when the cross-script bridge was attempted (A2 diagnostics). */
+  bridge?: BridgeAttempt;
 }
 
-/** Compares a transcript to the target phrase in whichever script lines up. */
-export function compareToTarget(
+// Ruling 2 (Chunk 2A): attempt the bridge only when raw is incomparable, or
+// comparable with sim below the fast-path threshold. At or above 0.93 the
+// attempt already fast-passes; bridging there is pure waste.
+const BRIDGE_SKIP_THRESHOLD = 0.93;
+
+// When raw is INCOMPARABLE, the bridge may mark the pair comparable only with
+// real evidence of an attempt. 0.45 mirrors guard 1b's Latin rule exactly:
+// below it the transcript shares almost nothing with the target even in roman
+// space, indistinguishable from recognizer noise, so the attempt stays a
+// nocatch (cause: no_match_after_bridge). At or above it, cross-script
+// transcripts become scoreable on the same evidential bar Latin transcripts
+// have always had.
+const BRIDGE_EVIDENCE_FLOOR = 0.45;
+
+/** The pre-Chunk-2A comparison, unchanged: raw path only. */
+function rawCompareToTarget(
   transcript: string,
   targetNative: string,
   targetRomanized: string,
@@ -175,6 +215,79 @@ export function compareToTarget(
     return { sim: similarity(t, n), comparable: true };
   }
   return { sim: 0, comparable: false };
+}
+
+/**
+ * Compares a transcript to the target phrase in whichever script lines up,
+ * with the Chunk 2A cross-script bridge as a rescue-only second opinion.
+ *
+ * Pass { noBridge: true } for SIBLING (wrong-phrase) comparisons: bridging a
+ * sibling check can only ADD wrong-phrase caps, which would lower outcomes
+ * and violate the rescue-only contract.
+ */
+export function compareToTarget(
+  transcript: string,
+  targetNative: string,
+  targetRomanized: string,
+  opts?: { noBridge?: boolean },
+): PhoneticComparison {
+  const raw = rawCompareToTarget(transcript, targetNative, targetRomanized);
+  if (opts?.noBridge) return raw;
+  if (raw.comparable && raw.sim >= BRIDGE_SKIP_THRESHOLD) return raw;
+
+  let norm;
+  try {
+    norm = normalizeForComparison(transcript, targetNative);
+  } catch (err) {
+    // A transliteration failure must never break scoring; keep the raw result.
+    console.warn("[xscript] normalizeForComparison threw; keeping raw result:", err);
+    return raw;
+  }
+  const rawSim = raw.comparable ? raw.sim : null;
+  if (
+    !norm.bridged ||
+    !norm.transcriptComparable.length ||
+    !norm.targetComparable.length
+  ) {
+    return {
+      ...raw,
+      bridge: {
+        bridged: false,
+        rawComparable: raw.comparable,
+        rawSim,
+        bridgedSim: null,
+        transcriptComparable: null,
+        targetComparable: null,
+      },
+    };
+  }
+  const bridgedSim = similarity(norm.transcriptComparable, norm.targetComparable);
+  const bridge: BridgeAttempt = {
+    bridged: true,
+    rawComparable: raw.comparable,
+    rawSim,
+    bridgedSim,
+    transcriptComparable: norm.transcriptComparable,
+    targetComparable: norm.targetComparable,
+  };
+  if (raw.comparable) {
+    // max(raw, bridged): the bridge can only raise a comparable result.
+    if (bridgedSim > raw.sim) {
+      console.log(
+        `[xscript] rescued sim raw=${raw.sim.toFixed(3)} bridged=${bridgedSim.toFixed(3)}`,
+      );
+      return { sim: bridgedSim, comparable: true, bridge };
+    }
+    return { ...raw, bridge };
+  }
+  // Raw incomparable: rescue into scoreability only with real evidence.
+  if (bridgedSim >= BRIDGE_EVIDENCE_FLOOR) {
+    console.log(
+      `[xscript] rescued sim raw=incomparable bridged=${bridgedSim.toFixed(3)}`,
+    );
+    return { sim: bridgedSim, comparable: true, bridge };
+  }
+  return { sim: 0, comparable: false, bridge };
 }
 
 /** True when the transcript carries no letters at all (silence/garble). */
@@ -276,6 +389,7 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
         transcript,
         other.nativeScript,
         other.romanized,
+        { noBridge: true }, // sibling checks never bridge (rescue-only contract)
       );
       if (otherSim.comparable && otherSim.sim >= 0.8) {
         return {
@@ -329,8 +443,10 @@ export interface DualPassChoice {
 }
 
 /** Normalizes a transcript for pass-vs-pass agreement checks: Latin transcripts
- * fold through normalizeLatin, everything else through normalizeNative. */
-function normalizeForAgreement(text: string): string {
+ * fold through normalizeLatin, everything else through normalizeNative.
+ * Exported for the A2 nocatch diagnostics sidecar ("normalized forms as the
+ * matcher saw them"). */
+export function normalizeForAgreement(text: string): string {
   return isLatin(text) ? normalizeLatin(text) : normalizeNative(text);
 }
 
