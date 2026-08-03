@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
-import { Gamepad2, Link2, Headphones, Layers, Zap, Award, Lock, Star } from "lucide-react";
+import {
+  Gamepad2,
+  Link2,
+  Headphones,
+  Layers,
+  Zap,
+  Award,
+  Lock,
+  Star,
+  Ticket,
+  Shuffle,
+  Briefcase,
+  FastForward,
+  TrafficCone,
+} from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -73,6 +87,53 @@ const GAMES: GameDef[] = [
     difficulty: "Advanced",
     plusOnly: true,
     Icon: Award,
+  },
+  // Chunk 6B quick games: five free, fast rounds that also serve the
+  // journey's trackside signals and zone closeouts.
+  {
+    id: "ticket-check",
+    href: "/games/ticket-check",
+    title: "Ticket Check",
+    description: "Match each ticket to the right native script",
+    difficulty: "Beginner",
+    plusOnly: false,
+    Icon: Ticket,
+  },
+  {
+    id: "wrong-platform",
+    href: "/games/wrong-platform",
+    title: "Wrong Platform",
+    description: "Spot the phrase that boarded at the wrong platform",
+    difficulty: "Beginner",
+    plusOnly: false,
+    Icon: Shuffle,
+  },
+  {
+    id: "luggage-match",
+    href: "/games/luggage-match",
+    title: "Luggage Match",
+    description: "Pair native-script luggage tags with their English twins",
+    difficulty: "Beginner",
+    plusOnly: false,
+    Icon: Briefcase,
+  },
+  {
+    id: "express-listening",
+    href: "/games/express-listening",
+    title: "Express Listening",
+    description: "A faster Listen & Pick where the express waits for no one",
+    difficulty: "Intermediate",
+    plusOnly: false,
+    Icon: FastForward,
+  },
+  {
+    id: "signal-lights",
+    href: "/games/signal-lights",
+    title: "Signal Lights",
+    description: "Call true or false on flashing meanings before time runs out",
+    difficulty: "Beginner",
+    plusOnly: false,
+    Icon: TrafficCone,
   },
 ];
 
@@ -150,6 +211,56 @@ const GAME_COLORS: Record<string, GameColor> = {
     lockedBg: "bg-violet-100/50 dark:bg-violet-900/25",
     lockedIconColor: "text-violet-600/60 dark:text-violet-400/50",
     pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(167,139,250,0.45)]",
+  },
+  "ticket-check": {
+    bg: "bg-orange-50/70 dark:bg-orange-950/25",
+    border:
+      "border-orange-200/80 hover:border-orange-300 dark:border-orange-900/60 dark:hover:border-orange-700",
+    iconBg: "bg-orange-100 dark:bg-orange-900/50",
+    iconColor: "text-orange-600 dark:text-orange-400",
+    lockedBg: "bg-orange-100/50 dark:bg-orange-900/25",
+    lockedIconColor: "text-orange-600/60 dark:text-orange-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,146,60,0.45)]",
+  },
+  "wrong-platform": {
+    bg: "bg-fuchsia-50/70 dark:bg-fuchsia-950/25",
+    border:
+      "border-fuchsia-200/80 hover:border-fuchsia-300 dark:border-fuchsia-900/60 dark:hover:border-fuchsia-700",
+    iconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/50",
+    iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
+    lockedBg: "bg-fuchsia-100/50 dark:bg-fuchsia-900/25",
+    lockedIconColor: "text-fuchsia-600/60 dark:text-fuchsia-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(232,121,249,0.45)]",
+  },
+  "luggage-match": {
+    bg: "bg-teal-50/70 dark:bg-teal-950/25",
+    border:
+      "border-teal-200/80 hover:border-teal-300 dark:border-teal-900/60 dark:hover:border-teal-700",
+    iconBg: "bg-teal-100 dark:bg-teal-900/50",
+    iconColor: "text-teal-600 dark:text-teal-400",
+    lockedBg: "bg-teal-100/50 dark:bg-teal-900/25",
+    lockedIconColor: "text-teal-600/60 dark:text-teal-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(45,212,191,0.45)]",
+  },
+  "express-listening": {
+    bg: "bg-cyan-50/70 dark:bg-cyan-950/25",
+    border:
+      "border-cyan-200/80 hover:border-cyan-300 dark:border-cyan-900/60 dark:hover:border-cyan-700",
+    iconBg: "bg-cyan-100 dark:bg-cyan-900/50",
+    iconColor: "text-cyan-600 dark:text-cyan-400",
+    lockedBg: "bg-cyan-100/50 dark:bg-cyan-900/25",
+    lockedIconColor: "text-cyan-600/60 dark:text-cyan-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(34,211,238,0.45)]",
+  },
+  "signal-lights": {
+    bg: "bg-lime-50/70 dark:bg-lime-950/25",
+    border:
+      "border-lime-200/80 hover:border-lime-300 dark:border-lime-900/60 dark:hover:border-lime-700",
+    iconBg: "bg-lime-100 dark:bg-lime-900/50",
+    iconColor: "text-lime-600 dark:text-lime-400",
+    lockedBg: "bg-lime-100/50 dark:bg-lime-900/25",
+    lockedIconColor: "text-lime-600/60 dark:text-lime-400/50",
+    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(163,230,53,0.45)]",
   },
 };
 

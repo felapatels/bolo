@@ -105,6 +105,109 @@ export const INDIA_FACTS: readonly string[] = [
   "India's coastline stretches over 7,500 kilometers, dotted with beaches, ports, and fishing villages.",
 ] as const;
 
+// ---------------------------------------------------------------------------
+// Chunk 6B: region and line tags over the same 100 facts.
+//
+// Tagging is MECHANICAL: a fact gets a region tag only when its text names
+// exactly one state, city, or territory outright, matched by the literal
+// needle below. A fact gets a line tag only when it is explicitly about the
+// railways. Facts whose location is implied but never named (Taj Mahal,
+// Rann of Kutch, Ellora Caves, and friends) carry NO tag; they are flagged
+// for an owner ruling rather than guessed. INDIA_FACTS itself is untouched
+// so existing consumers keep working.
+// ---------------------------------------------------------------------------
+
+export type FactTags = { region?: string; line?: string };
+
+/** Literal text needle to region name, exactly as the fact spells it. */
+const REGION_TAG_RULES: ReadonlyArray<readonly [needle: string, region: string]> = [
+  ["Chail, Himachal Pradesh", "Himachal Pradesh"],
+  ["city of Varanasi", "Varanasi"],
+  ["based in Mumbai", "Mumbai"],
+  ["Dal Lake in Srinagar", "Srinagar"],
+  ["India's Meghalaya", "Meghalaya"],
+  ["Bihar's Nalanda", "Bihar"],
+  ["Konark Sun Temple in Odisha", "Odisha"],
+  ["Kerala backwaters", "Kerala"],
+  ["stands in Gujarat", "Gujarat"],
+  ["India's Jaipur", "Jaipur"],
+  ["city of Leh", "Leh"],
+  ["city of Hyderabad", "Hyderabad"],
+  ["Amber Fort in Rajasthan", "Rajasthan"],
+  ["skies of Gujarat", "Gujarat"],
+  ["city of Mumbai", "Mumbai"],
+  ["Rajasthan hosts the Pushkar", "Rajasthan"],
+  ["Andaman and Nicobar", "Andaman and Nicobar Islands"],
+  ["city of Chennai", "Chennai"],
+  ["Red Fort in Delhi", "Delhi"],
+  ["city of Mysore", "Mysore"],
+  ["India's Nagaland", "Nagaland"],
+  ["Kaziranga National Park in Assam", "Assam"],
+  ["Golden Temple in Amritsar", "Amritsar"],
+  ["city of Kolkata", "Kolkata"],
+  ["festival in Jaisalmer", "Jaisalmer"],
+];
+
+/** Facts explicitly about the railways apply to every journey line. */
+const LINE_TAG_RULES: ReadonlyArray<readonly [needle: string, line: string]> = [
+  ["The Indian Railways", "Indian Railways"],
+];
+
+/** Sparse map: fact index to its tags. Built once from the literal rules so
+ *  the tags can never drift from the fact wording. */
+export const INDIA_FACT_TAGS: ReadonlyMap<number, FactTags> = (() => {
+  const map = new Map<number, FactTags>();
+  INDIA_FACTS.forEach((fact, i) => {
+    const tags: FactTags = {};
+    for (const [needle, region] of REGION_TAG_RULES) {
+      if (fact.includes(needle)) tags.region = region;
+    }
+    for (const [needle, line] of LINE_TAG_RULES) {
+      if (fact.includes(needle)) tags.line = line;
+    }
+    if (tags.region || tags.line) map.set(i, tags);
+  });
+  return map;
+})();
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Deterministic rotating fact for a journey zone. Prefers facts whose region
+ * tag appears in the zone's gateway name or the line's name, then railway
+ * line-tagged facts, then the full set. Rotates daily; `salt` lets two
+ * surfaces on the same zone (postcard, signpost, arrival) show different
+ * facts. Pure lookup: zero network calls.
+ */
+export function factForZone(opts: {
+  zoneIndex: number;
+  geoName: string;
+  lineName: string;
+  salt?: number;
+  now?: number;
+}): string {
+  const { zoneIndex, geoName, lineName, salt = 0 } = opts;
+  const now = opts.now ?? Date.now();
+
+  const regionMatches: number[] = [];
+  const lineTagged: number[] = [];
+  for (const [i, tags] of INDIA_FACT_TAGS) {
+    if (tags.region && (geoName.includes(tags.region) || lineName.includes(tags.region))) {
+      regionMatches.push(i);
+    } else if (tags.line) {
+      lineTagged.push(i);
+    }
+  }
+
+  const preferred = [...regionMatches, ...lineTagged];
+  const pool =
+    preferred.length > 0 ? preferred : INDIA_FACTS.map((_, i) => i);
+
+  const day = Math.floor(now / DAY_MS);
+  const pick = pool[(day + zoneIndex * 7 + salt) % pool.length]!;
+  return INDIA_FACTS[pick];
+}
+
 /** Module-level last-picked index — prevents a fact from showing twice in a row. */
 let lastFactIndex = -1;
 

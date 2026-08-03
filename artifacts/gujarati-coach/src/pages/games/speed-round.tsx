@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
-import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
+import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer, Coffee } from "lucide-react";
 import { webHaptic } from "@/lib/haptics";
-import { useListCategories, useListCategoryPhrases, useRecordGameSession, useSynthesizeSpeech, getGetProgressSummaryQueryKey, type Category } from "@workspace/api-client-react";
+import { useListCategories, useListCategoryPhrases, useRecordGameSession, useSynthesizeSpeech, getGetProgressSummaryQueryKey, getGetTokensQueryKey, type Category } from "@workspace/api-client-react";
+import { useQuickLaunch } from "./quick-game-frame";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -510,7 +511,12 @@ function DoneScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const [chaiEarned, setChaiEarned] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  // Chunk 6B: zone closeouts launch Speed Round with ?ctx=closeout; the
+  // context rides along on the session POST so the server can grant Chai.
+  // Hub launches carry no context key at all (payload unchanged).
+  const launch = useQuickLaunch();
 
   useEffect(() => {
     if (submitted || results.length === 0) return;
@@ -522,12 +528,23 @@ function DoneScreen({
           game: "speed-round",
           categoryId,
           phraseResults: results,
+          ...(launch.context !== null
+            ? {
+                context: launch.context,
+                ...(launch.contextRef !== null ? { contextRef: launch.contextRef } : {}),
+              }
+            : {}),
         },
       },
       {
         onSuccess: (data) => {
           setXpEarned(data.xpEarned);
           queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
+          const granted = data.chaiGranted ?? 0;
+          if (granted > 0) {
+            setChaiEarned(granted);
+            queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+          }
         },
       },
     );
@@ -561,6 +578,16 @@ function DoneScreen({
         <p className="mt-4 text-sm text-amber-600 dark:text-amber-400">
           🔥 ×1.5 streak bonus applied!
         </p>
+      )}
+
+      {chaiEarned !== null && chaiEarned > 0 && (
+        <div
+          data-testid="chai-earn-beat"
+          className="mt-4 flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+        >
+          <Coffee className="h-4 w-4" />
+          +{chaiEarned} Chai earned
+        </div>
       )}
 
       {/* Actions */}

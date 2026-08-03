@@ -107,6 +107,14 @@ function delays(dots: Element[]) {
 beforeEach(() => {
   h.reduceMotion = false;
   setZones();
+  // Chunk 6B seats a trackside signal in the gap after every odd stop, and
+  // the train now HALTS at an active signal (the pulse run empties). These
+  // pulse tests predate signals, so wave every possible gap through up
+  // front; journey-signals.test.tsx owns the held-signal behavior.
+  sessionStorage.setItem(
+    "bolo-signal-waved:gu",
+    JSON.stringify(Array.from({ length: 12 }, (_, i) => i * 2 + 1)),
+  );
 });
 
 describe("journey rail directional pulse (task 917)", () => {

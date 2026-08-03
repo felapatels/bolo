@@ -58,9 +58,22 @@ import {
   Bunting,
   SCENERY_PLACEMENT,
   SceneryElement,
+  SignalGlyph,
+  SignpostGlyph,
   ZoneVista,
+  planTracksideSignals,
   planZoneScenery,
+  planZoneSignpost,
 } from "@/components/journey-scenery";
+import { factForZone } from "@/lib/india-facts";
+import {
+  gameForSignal,
+  isSignalCleared,
+  isSignalWaved,
+  markSignalWaved,
+  type QuickGameDef,
+} from "@/lib/quick-games";
+import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
@@ -80,7 +93,7 @@ function scenarioIdForZone(zoneIndex: number): string | undefined {
 // desktop — no separate desktop composition.
 const MAP_MAX_W = 390;
 const STATION_H = 100; // vertical rhythm per station row
-const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
+const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side + fact strip)
 const TERM_H = 92; // terminus row
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
@@ -230,6 +243,7 @@ function ZonePostcard({
   scenarioId,
   hasStamp,
   testOutHref,
+  fact,
 }: {
   zoneIndex: number;
   zoneTitle: string;
@@ -243,6 +257,8 @@ function ZonePostcard({
   /** Present only when the zone is gate-locked (Chunk 4B): links into the
    *  zone-level test-out flow. Dormant pre-flip by construction. */
   testOutHref?: string;
+  /** Chunk 6B Story 5: daily rotating India fact for the postcard strip. */
+  fact?: string;
 }) {
   const color = grayed ? GRAY : accent;
   return (
@@ -299,6 +315,21 @@ function ZonePostcard({
               </div>
             </div>
           </div>
+          {fact && (
+            <div
+              className="mx-1.5 mb-1.5 rounded-md border border-dashed px-2 py-1"
+              style={{ borderColor: `${color}55` }}
+              data-testid={`postcard-fact-${zoneIndex}`}
+            >
+              <span
+                className="block text-[8px] font-black uppercase tracking-widest"
+                style={{ color }}
+              >
+                Did you know?
+              </span>
+              <p className="line-clamp-2 text-[9px] leading-tight text-muted-foreground">{fact}</p>
+            </div>
+          )}
           {testOutHref && (
             <Link
               href={testOutHref}
@@ -581,10 +612,32 @@ type Pt = {
   zoneIndex?: number;
 };
 
+/** Chunk 6B Story 3: a trackside signal seated in the gap after an odd
+ *  global stop. State derives from progress + wave/clear memory each render. */
+type SignalSpot = {
+  /** Gap number N (signal sits after global stop N); contextRef is gap-N. */
+  gap: number;
+  signalIndex: number;
+  x: number;
+  y: number;
+  zoneIndex: number;
+  zoneId: number;
+  state: "upcoming" | "active" | "waved" | "cleared";
+  /** Rotation pick for this signal; null means auto-wave (roster empty). */
+  game: QuickGameDef | null;
+  /** True when the pulse run is held at this signal (train stopped). */
+  held: boolean;
+};
+
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
+  // Chunk 6B: trackside signal encounter + signpost fact dialogs. signalTick
+  // only forces a re-render after a wave so states re-derive from storage.
+  const [signalDlg, setSignalDlg] = useState<SignalSpot | null>(null);
+  const [factDlg, setFactDlg] = useState<{ geoName: string; fact: string } | null>(null);
+  const [signalTick, setSignalTick] = useState(0);
   const { ref: mapRef, w: mapW } = useMapWidth();
   const reduceMotion = useReducedMotion();
 
@@ -832,6 +885,80 @@ export default function Journey() {
     }
   }
 
+  // --- Chunk 6B Story 3: trackside signals seated in the gaps after odd
+  // global stops (gap-N sits after global stop N, 1-based; contextRef gap-N).
+  // Position is the rail midpoint between the stop and the next path point,
+  // nudged toward the outside edge. Showroom zones get no interactive
+  // signals. States re-derive from storage on every render; signalTick only
+  // forces that re-render after a wave.
+  void signalTick;
+  const stationPts = pts.filter((p) => p.kind === "station");
+  const visibleCountForZone = (zoneId: number) =>
+    categories?.find((c) => c.id === zoneId)?.phraseCount ?? 0;
+  // 0-based index of the boardable stop; the gap right behind it is gap-N
+  // with N === that index (N previous stops are done).
+  const currentGlobalIdx =
+    currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
+  const signals: SignalSpot[] = showroom
+    ? []
+    : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
+        const a = stationPts[afterStop - 1];
+        if (!a) return [];
+        const b = pts[pts.indexOf(a) + 1];
+        if (!b) return [];
+        const station = a.station!;
+        const zone = zones[station.zoneIndex]!;
+        const midX = (a.x + b.x) / 2;
+        const x = Math.min(mapW - 20, Math.max(20, midX < mapW / 2 ? midX - 34 : midX + 34));
+        const stopDone = station.status === "completed" || station.status === "tested_out";
+        const state: SignalSpot["state"] = isSignalCleared(activeLang, afterStop)
+          ? "cleared"
+          : isSignalWaved(activeLang, afterStop)
+            ? "waved"
+            : stopDone
+              ? "active"
+              : "upcoming";
+        return [
+          {
+            gap: afterStop,
+            signalIndex,
+            x,
+            y: (a.y + b.y) / 2,
+            zoneIndex: station.zoneIndex,
+            zoneId: zone.id,
+            state,
+            game: gameForSignal(signalIndex, visibleCountForZone(zone.id)),
+            held: state === "active" && afterStop === currentGlobalIdx,
+          },
+        ];
+      });
+  // "The train stops at the signal": an active signal in the gap right behind
+  // the boardable stop halts the pulse run (a visual hold, never a forced
+  // modal); the held signal pulses instead.
+  if (signals.some((s) => s.held)) pulseDots.length = 0;
+
+  // --- Chunk 6B Story 5: one tappable signpost per zone, seated on a station
+  // row the zone's scenery plan left free, on the marker's side of the track.
+  const signposts = zones.flatMap((zone, zi) => {
+    const zonePts = pts.filter((p) => p.kind === "station" && p.station!.zoneIndex === zi);
+    const spot = planZoneSignpost(zi, zonePts.length);
+    if (!spot) return [];
+    const p = zonePts[spot.row];
+    if (!p) return [];
+    const zoneAccessible = zone.stations.some(
+      (s) => isStatusAccessible(s.status) || s.teaserStation,
+    );
+    return [
+      {
+        zoneIndex: zi,
+        geoName: zone.geoName,
+        x: p.x < mapW / 2 ? SCENERY_PLACEMENT.edgeX : mapW - SCENERY_PLACEMENT.edgeX,
+        y: p.y + SCENERY_PLACEMENT.groundDy,
+        grayed: showroom && !zoneAccessible,
+      },
+    ];
+  });
+
   let stationIdx = 0;
 
   return (
@@ -1038,6 +1165,12 @@ export default function Journey() {
                           ? `/practice/${zone.id}?mode=testout&scope=zone`
                           : undefined
                       }
+                      fact={factForZone({
+                        zoneIndex,
+                        geoName: zone.geoName,
+                        lineName: line.lineName,
+                        salt: 1,
+                      })}
                     />
                   </div>
                   {/* interchange diamond pinned where the track meets the zone
@@ -1158,6 +1291,56 @@ export default function Journey() {
                   </div>
                 );
               })}
+
+            {/* Chunk 6B: trackside signals (HTML buttons; the SVG scenery
+                layer is pointer-events-none, so these stay tappable) */}
+            {signals.map((sig) => (
+              <button
+                key={`signal-${sig.gap}`}
+                type="button"
+                disabled={sig.state === "upcoming"}
+                data-testid={`trackside-signal-${sig.gap}`}
+                data-state={sig.state}
+                aria-label={`Trackside signal after stop ${sig.gap}`}
+                onClick={() => setSignalDlg(sig)}
+                className={cn(
+                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-lg p-1 transition-transform",
+                  sig.state === "upcoming" ? "cursor-default opacity-60" : "active:scale-95",
+                  sig.held && "motion-safe:animate-pulse",
+                )}
+                style={{ left: sig.x, top: sig.y, zIndex: DEPTH_2_5D.layers.station }}
+              >
+                <SignalGlyph state={sig.state} />
+              </button>
+            ))}
+
+            {/* Chunk 6B: zone signposts opening a daily line fact */}
+            {signposts.map((sp) => (
+              <button
+                key={`signpost-${sp.zoneIndex}`}
+                type="button"
+                data-testid={`zone-signpost-${sp.zoneIndex}`}
+                aria-label={`Line facts for ${sp.geoName}`}
+                onClick={() =>
+                  setFactDlg({
+                    geoName: sp.geoName,
+                    fact: factForZone({
+                      zoneIndex: sp.zoneIndex,
+                      geoName: sp.geoName,
+                      lineName: line.lineName,
+                      salt: 2,
+                    }),
+                  })
+                }
+                className={cn(
+                  "absolute -translate-x-1/2 -translate-y-full rounded-lg p-1 active:scale-95 transition-transform",
+                  sp.grayed && "grayscale opacity-70",
+                )}
+                style={{ left: sp.x, top: sp.y, zIndex: DEPTH_2_5D.layers.station }}
+              >
+                <SignpostGlyph accent={sp.grayed ? GRAY : line.accent} />
+              </button>
+            ))}
 
             {/* terminus */}
             <div
@@ -1331,6 +1514,103 @@ export default function Journey() {
               replaced) reads as a rendering glitch. */}
         </DialogContent>
       </Dialog>
+
+      {/* Chunk 6B Story 3: signal encounter. Never a forced modal: it only
+          opens from a tap, and waving through is always available. */}
+      <Dialog open={signalDlg !== null} onOpenChange={(open) => !open && setSignalDlg(null)}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          {signalDlg && signalDlg.game === null && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Green flag!</DialogTitle>
+                <DialogDescription data-testid="signal-autowave-quip">
+                  Not enough phrases here for a game yet. Green flag, straight through!
+                </DialogDescription>
+              </DialogHeader>
+              <button
+                type="button"
+                data-testid="signal-carry-on"
+                onClick={() => {
+                  markSignalWaved(activeLang, signalDlg.gap);
+                  setSignalTick((t) => t + 1);
+                  setSignalDlg(null);
+                }}
+                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground active:scale-[0.98] transition-transform"
+              >
+                Carry on
+              </button>
+            </>
+          )}
+          {signalDlg && signalDlg.game !== null && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {signalDlg.state === "cleared" ? "Signal already cleared" : "Signal ahead"}
+                </DialogTitle>
+                <DialogDescription>
+                  {signalDlg.state === "cleared"
+                    ? `You cleared this signal and pocketed the Chai. Fancy another round of ${signalDlg.game.title}?`
+                    : "The signalman steps out with his flag. Clear the signal with a quick game and earn a Chai token, or wave and roll on."}
+                </DialogDescription>
+              </DialogHeader>
+              <Link
+                href={`/games/${signalDlg.game.id}?cat=${signalDlg.zoneId}&ctx=signal&gap=${signalDlg.gap}`}
+                onClick={() => {
+                  blessAudioPlayback();
+                  setSignalDlg(null);
+                }}
+                data-testid="signal-play-game"
+                className="flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground active:scale-[0.98] transition-transform"
+              >
+                Play {signalDlg.game.title}
+              </Link>
+              {signalDlg.state !== "cleared" && (
+                <button
+                  type="button"
+                  data-testid="signal-wave-through"
+                  onClick={() => {
+                    markSignalWaved(activeLang, signalDlg.gap);
+                    setSignalTick((t) => t + 1);
+                    setSignalDlg(null);
+                  }}
+                  className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                >
+                  Wave me through
+                </button>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Chunk 6B Story 5: signpost fact dialog */}
+      <Dialog open={factDlg !== null} onOpenChange={(open) => !open && setFactDlg(null)}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Trackside signpost · {factDlg?.geoName}</DialogTitle>
+            <DialogDescription data-testid="signpost-fact">{factDlg?.fact}</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chunk 6B Story 4: zone closeout celebration (client-detected, never
+          gating). Showroom callers have no live progress to close out. */}
+      {!showroom && (
+        <ZoneCloseoutOverlay
+          lang={activeLang}
+          lineName={line.lineName}
+          accent={line.accent}
+          zones={zones.map((z, zi) => ({
+            zoneIndex: zi,
+            zoneId: z.id,
+            geoName: z.geoName,
+            title: z.title,
+            allDone: z.zoneAllDone,
+            scenarioId: scenarioIdForZone(zi),
+            hasStamp: stampedZoneIndices.has(zi),
+          }))}
+        />
+      )}
     </div>
   );
 }

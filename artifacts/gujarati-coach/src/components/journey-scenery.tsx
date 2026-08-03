@@ -599,6 +599,103 @@ export function planZoneScenery(
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Chunk 6B: trackside signals and zone signposts, seated by the same planner
+// so they inherit the serpentine geometry rules the scenery follows. Unlike
+// scenery these are INTERACTIVE surfaces, so the journey renders them as
+// absolutely positioned HTML (buttons) over the map, never inside the
+// pointer-events-none scenery SVG layer.
+// ---------------------------------------------------------------------------
+
+/**
+ * One trackside signal in every other inter-station gap: the gaps after
+ * global stops 1, 3, 5, and so on (1-based stop numbers across the whole
+ * flattened line). `afterStop` names the departed stop; `signalIndex` is the
+ * signal's 0-based ordinal used for the deterministic game rotation.
+ * Deterministic and pure, like planZoneScenery.
+ */
+export function planTracksideSignals(
+  totalStations: number,
+): { afterStop: number; signalIndex: number }[] {
+  const out: { afterStop: number; signalIndex: number }[] = [];
+  for (let stop = 1, i = 0; stop < totalStations; stop += 2, i += 1) {
+    out.push({ afterStop: stop, signalIndex: i });
+  }
+  return out;
+}
+
+/**
+ * One tappable signpost per zone (Story 5): picks a station row the zone's
+ * scenery plan left free so the two never share a strip, scanning from the
+ * last row backward (late rows read as "approaching the gateway"). Falls
+ * back to row 0 for tiny zones where scenery occupies every row; the journey
+ * hugs the map edge there so the two still cannot collide. The signpost
+ * ALWAYS renders for a non-empty zone.
+ */
+export function planZoneSignpost(
+  zoneIndex: number,
+  stationCount: number,
+): { row: number } | null {
+  if (stationCount <= 0) return null;
+  const taken = new Set(planZoneScenery(zoneIndex, stationCount).map((s) => s.row));
+  for (let row = stationCount - 1; row >= 0; row -= 1) {
+    if (!taken.has(row)) return { row };
+  }
+  return { row: 0 };
+}
+
+/** Semaphore-style trackside signal glyph. State drives the lamp: red for an
+ *  active unvisited signal, green once waved through or cleared, slate while
+ *  the line ahead has not reached it yet. Sized for a 28x40 button. */
+export function SignalGlyph({
+  state,
+}: {
+  state: "upcoming" | "active" | "waved" | "cleared";
+}) {
+  const lamp =
+    state === "active" ? "#ef4444" : state === "upcoming" ? SLATE : LEAF;
+  const lampDim = state === "upcoming" ? 0.45 : 1;
+  return (
+    <svg width={28} height={40} viewBox="0 0 28 40" aria-hidden focusable="false">
+      {/* post + base */}
+      <rect x={12.6} y={8} width={2.8} height={28} rx={1.2} fill={SLATE_SHADE} />
+      <rect x={8} y={35.4} width={12} height={3} rx={1.5} fill={SLATE_SHADE} />
+      {/* lamp head */}
+      <rect x={7.5} y={2} width={13} height={16} rx={4} fill={INK} opacity={0.85} />
+      <circle cx={14} cy={7.4} r={3.1} fill={lamp} opacity={lampDim} />
+      <circle
+        cx={14}
+        cy={13.6}
+        r={3.1}
+        fill={state === "waved" || state === "cleared" ? LEAF2 : SLATE}
+        opacity={state === "waved" || state === "cleared" ? 1 : 0.35}
+      />
+      {/* signal arm points back down the line */}
+      <rect x={2} y={9.4} width={7} height={2.6} rx={1.3} fill={AMBER} />
+    </svg>
+  );
+}
+
+/** Wooden signpost glyph for the zone line-fact marker: two boards on a post
+ *  with a marigold at the foot. Sized for a 30x38 button. */
+export function SignpostGlyph({ accent }: { accent: string }) {
+  return (
+    <svg width={30} height={38} viewBox="0 0 30 38" aria-hidden focusable="false">
+      <rect x={13.6} y={6} width={2.8} height={28} rx={1.2} fill={TRUNK} />
+      {/* boards: top points right, lower points left; right edges shaded */}
+      <path d="M6 7 h16 l4 3.5 -4 3.5 h-16 Z" fill={accent} opacity={0.92} />
+      <path d="M24 14 l-4 -3.5 4 -3.5 Z" fill={TRUNK_SHADE} opacity={0.5} />
+      <path d="M24 17 h-16 l-4 3.5 4 3.5 h16 Z" fill={AMBER} opacity={0.92} />
+      {/* board pins */}
+      <circle cx={15} cy={10.5} r={0.9} fill="#ffffff" opacity={0.85} />
+      <circle cx={15} cy={20.5} r={0.9} fill="#ffffff" opacity={0.85} />
+      {/* marigold at the foot */}
+      <circle cx={11} cy={33.4} r={2.1} fill={AMBER} />
+      <circle cx={11} cy={33.4} r={0.8} fill={AMBER_SHADE} />
+    </svg>
+  );
+}
+
 /** One placed scenery element (rendered inside the map SVG, anchored at
  *  ground level — draws upward from y=0). Locked showroom zones gray out via
  *  CSS filter, matching the postcards. */

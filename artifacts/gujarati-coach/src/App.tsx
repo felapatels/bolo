@@ -70,6 +70,11 @@ const GamesListenAndPick = lazyRoute(() => import('@/pages/games/listen-and-pick
 const GamesPhraseBuilder = lazyRoute(() => import('@/pages/games/phrase-builder'));
 const GamesScriptTrace = lazyRoute(() => import('@/pages/games/script-trace'));
 const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
+const GamesTicketCheck = lazyRoute(() => import('@/pages/games/ticket-check'));
+const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'));
+const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'));
+const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
+const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
 const Subscription = lazyRoute(() => import('@/pages/subscription'));
@@ -395,6 +400,31 @@ function AppRouter() {
       <Route path="/games/bolo-quiz">
         <Guard>
           <GamesBoloQuiz />
+        </Guard>
+      </Route>
+      <Route path="/games/ticket-check">
+        <Guard>
+          <GamesTicketCheck />
+        </Guard>
+      </Route>
+      <Route path="/games/wrong-platform">
+        <Guard>
+          <GamesWrongPlatform />
+        </Guard>
+      </Route>
+      <Route path="/games/luggage-match">
+        <Guard>
+          <GamesLuggageMatch />
+        </Guard>
+      </Route>
+      <Route path="/games/express-listening">
+        <Guard>
+          <GamesExpressListening />
+        </Guard>
+      </Route>
+      <Route path="/games/signal-lights">
+        <Guard>
+          <GamesSignalLights />
         </Guard>
       </Route>
       <Route path="/account">

@@ -26,6 +26,12 @@ const ALL_GAMES: Array<{ title: string; href: string; plusOnly: boolean }> = [
   { title: "Phrase Builder", href: "/games/phrase-builder", plusOnly: true },
   { title: "Speed Round", href: "/games/speed-round", plusOnly: true },
   { title: "Bolo Quiz", href: "/games/bolo-quiz", plusOnly: true },
+  // Chunk 6B: the five quick games, all free.
+  { title: "Ticket Check", href: "/games/ticket-check", plusOnly: false },
+  { title: "Wrong Platform", href: "/games/wrong-platform", plusOnly: false },
+  { title: "Luggage Match", href: "/games/luggage-match", plusOnly: false },
+  { title: "Express Listening", href: "/games/express-listening", plusOnly: false },
+  { title: "Signal Lights", href: "/games/signal-lights", plusOnly: false },
 ];
 
 function renderPage() {
@@ -70,6 +76,18 @@ describe("Games hub cards", () => {
     ]) {
       const preview = screen.getByTestId(`game-preview-${id}`);
       expect(preview.getAttribute("aria-hidden")).toBe("true");
+    }
+
+    // The Chunk 6B quick games have no vignettes (the animated preview loop
+    // stays the original five).
+    for (const id of [
+      "ticket-check",
+      "wrong-platform",
+      "luggage-match",
+      "express-listening",
+      "signal-lights",
+    ]) {
+      expect(screen.queryByTestId(`game-preview-${id}`)).toBeNull();
     }
   });
 

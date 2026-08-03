@@ -69,7 +69,9 @@ import {
   SCENERY_PLACEMENT,
   ZONE_SCENERY_THEMES,
   planZoneScenery,
+  planZoneSignpost,
 } from "@/components/journey-scenery";
+import { factForZone, INDIA_FACTS } from "@/lib/india-facts";
 
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
@@ -315,5 +317,43 @@ describe("depth order (story 3)", () => {
     expect(zs).toContain(String(DEPTH_2_5D.layers.station));
     expect(zs).toContain(String(DEPTH_2_5D.layers.stationCard));
     expect(zs).toContain(String(DEPTH_2_5D.layers.postcard));
+  });
+});
+
+describe("zone signposts + line facts (Chunk 6B story 5)", () => {
+  test("the signpost row is deterministic and never shares a row with scenery", () => {
+    for (let zi = 0; zi < 6; zi++) {
+      for (const n of [1, 3, 8, 10, 11]) {
+        const spot = planZoneSignpost(zi, n);
+        expect(spot).not.toBeNull();
+        expect(spot!.row).toBeGreaterThanOrEqual(0);
+        expect(spot!.row).toBeLessThan(n);
+        const taken = new Set(planZoneScenery(zi, n).map((s) => s.row));
+        // Only when a free row exists can the planner avoid scenery rows.
+        if (taken.size < n) expect(taken.has(spot!.row)).toBe(false);
+        // Pure function of the layout: same inputs, same row.
+        expect(planZoneSignpost(zi, n)).toEqual(spot);
+      }
+    }
+    expect(planZoneSignpost(0, 0)).toBeNull();
+  });
+
+  test("factForZone picks deterministically per day, rotates across days, and salts split surfaces", () => {
+    const base = Date.UTC(2026, 7, 3);
+    const opts = { zoneIndex: 2, geoName: "Vadodara", lineName: "Gujarat Express" };
+    const a = factForZone({ ...opts, now: base });
+    // Same day, same fact, no matter the hour.
+    expect(factForZone({ ...opts, now: base + 60_000 })).toBe(a);
+    expect(INDIA_FACTS).toContain(a);
+    // Daily rotation actually rotates over a week.
+    const week = new Set(
+      Array.from({ length: 7 }, (_, d) => factForZone({ ...opts, now: base + d * 86_400_000 })),
+    );
+    expect(week.size).toBeGreaterThan(1);
+    // The three surfaces (postcard salt 1, signpost salt 2, arrival salt 3)
+    // each draw a valid fact from the pool.
+    for (const salt of [1, 2, 3]) {
+      expect(INDIA_FACTS).toContain(factForZone({ ...opts, now: base, salt }));
+    }
   });
 });
