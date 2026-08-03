@@ -1,0 +1,19 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+MODE: POWER
+
+TASK: Signal polish batch (3 items + 1 ride-along). One commit to main.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. Tree stays UNSTAGED until approval. ONE report, then STOP. No task cards; suggestions bank as report lines.
+
+SESSION RULES: scope = artifacts/gujarati-coach, docs/CODEBASE-FACTS.md, and artifacts/api-server ONLY under item 1's build condition below. No lib/ edits except codegen if and only if an api change forces it (then generated dirs staged whole, zero strays). No em dashes anywhere. attached_assets never staged. New test files only for genuinely new surfaces (justify). Failure identity before re-runs; full-suite runs tee to a log first. Reuse-first Step 0 applies. Divergence goes under DEVIATIONS.
+
+STEP 0 (verify, quote, misses hard-stop):
+A. git log -1 --decorate. Acceptable HEAD: a4f3ff0, or exactly one "Published your App" commit atop it. Else STOP.
+B. OWNER EVIDENCE: a Ticket Check run finishing 1 of 8 correct displayed "+1 Chai earned" on the result beat. The frozen Chunk 6 spec says signal and closeout grants fire on PASSING sessions only. Quote the server's game-session grant condition verbatim (routes + any service logic): what, if anything, defines "passing" before a signal or closeout Chai grant fires. State in one sentence whether a pass condition exists and what it is.
+C. Quote Ticket Check's round render and answer-reveal flow, the phrase fields available to it (romanized line, English meaning), and the existing post-answer continue beat used by other games (the house pattern for a reveal moment).
+D. Quote the SignalGlyph's current lamp colors, glyph dimensions, and button hit-target sizing from the crossing implementation.
+E. Quote the current top-level section list of docs/CODEBASE-FACTS.md (headings only), for the ride-along's placement.
+
+ITEM 1, pass gate (two branches, owner-ruled):
+BRANCH A: if Step 0 B shows NO pass condition exists on signal/closeout grants (any completed session pays), that is a spec violation: implement the gate server-side with the spec's plain meaning, majority correct (score > half of rounds) counts as passing; grants below it do not fire; hub sessions unaffected; the encounter chip and result beat behavior unchanged on

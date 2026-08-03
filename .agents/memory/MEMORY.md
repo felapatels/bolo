@@ -125,4 +125,4 @@
 - [Map-stack tap swallowing](map-tap-swallowing.md) — full-width absolute wrappers above button layers eat taps (wrapper pointer-events-none, card auto); jsdom fireEvent skips hit-testing so tests stay green.
 - [CSS minifier time-unit trap](css-minified-time-units.md) — prod CSS rewrites 8000ms as 8s; bare parseFloat of computed timing vars reads 8 (ms!) — use cssTimeMs; dev/jsdom can't catch it.
 - [Signal wave persistence & LIKE-fed refs](signal-wave-persistence.md) — grammar-pin any user string feeding a LIKE scan (zod regex + openapi pattern); showroom envelope key-pins break on new response fields.
-- [Parallel suite flakes](parallel-suite-flakes.md) — never run api + web suites concurrently; timing tests (feedbackTts pending-join) flake under contention and burn suite budget.
+- [Parallel suite flakes](parallel-suite-flakes.md) — never run api + web suites concurrently; the feedbackTts pending-join timing test flakes under any load (even solo runs); settle via targeted file run.

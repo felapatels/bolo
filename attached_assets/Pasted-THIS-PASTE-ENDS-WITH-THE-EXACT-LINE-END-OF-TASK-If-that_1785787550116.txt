@@ -1,0 +1,33 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+MODE: POWER
+
+TASK: Signal polish batch (3 items + 1 ride-along). One commit to main.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. Tree stays UNSTAGED until approval. ONE report, then STOP. No task cards; suggestions bank as report lines.
+
+SESSION RULES: scope = artifacts/gujarati-coach, docs/CODEBASE-FACTS.md, and artifacts/api-server ONLY under item 1's build condition below. No lib/ edits except codegen if and only if an api change forces it (then generated dirs staged whole, zero strays). No em dashes anywhere. attached_assets never staged. New test files only for genuinely new surfaces (justify). Failure identity before re-runs; full-suite runs tee to a log first. Reuse-first Step 0 applies. Divergence goes under DEVIATIONS.
+
+STEP 0 (verify, quote, misses hard-stop):
+A. git log -1 --decorate. Acceptable HEAD: a4f3ff0, or exactly one "Published your App" commit atop it. Else STOP.
+B. OWNER EVIDENCE: a Ticket Check run finishing 1 of 8 correct displayed "+1 Chai earned" on the result beat. The frozen Chunk 6 spec says signal and closeout grants fire on PASSING sessions only. Quote the server's game-session grant condition verbatim (routes + any service logic): what, if anything, defines "passing" before a signal or closeout Chai grant fires. State in one sentence whether a pass condition exists and what it is.
+C. Quote Ticket Check's round render and answer-reveal flow, the phrase fields available to it (romanized line, English meaning), and the existing post-answer continue beat used by other games (the house pattern for a reveal moment).
+D. Quote the SignalGlyph's current lamp colors, glyph dimensions, and button hit-target sizing from the crossing implementation.
+E. Quote the current top-level section list of docs/CODEBASE-FACTS.md (headings only), for the ride-along's placement.
+
+ITEM 1, pass gate (two branches, owner-ruled):
+BRANCH A: if Step 0 B shows NO pass condition exists on signal/closeout grants (any completed session pays), that is a spec violation: implement the gate server-side with the spec's plain meaning, majority correct (score > half of rounds) counts as passing; grants below it do not fire; hub sessions unaffected; the encounter chip and result beat behavior unchanged on passes. Full api suite required in the gate. Codegen only if the response shape changes (it should not).
+BRANCH B: if a pass condition EXISTS but is set low enough that 1 of 8 passes, do NOT change it; report the exact condition and stop item 1 there; the owner rules the threshold at approval.
+
+ITEM 2, signal visibility polish (owner device feedback): brighter, more saturated amber and green lamp fills so states read at a glance on the map; the whole crossing glyph rendered a step larger; hit targets stay 44px minimum; the active pulse and state model unchanged.
+
+ITEM 3, Ticket Check learning reveal (owner-ruled): during play, choices stay native-script only (the challenge IS script recognition). After the learner answers, every ticket reveals its romanized line, and the correct ticket also shows its English meaning, riding the existing continue beat from Step 0 C. Languages without romanized support (ks, sd, ur, sat, mni) show the meaning reveal only, no empty romanized slot.
+
+RIDE-ALONG (labeled, docs only): add a "House Patterns" section to docs/CODEBASE-FACTS.md: a registry of reusable components and patterns with one line each (name, path, contract summary). Seed from the shelf built this weekend: quick-game frame, branded toast, layer-map scene kit (SPLASH_V2_ASSETS + useComposedReveal + hold lifecycle), cssTimeMs, FactStrip, earn chips, StatCell, countdown capability, audio-active treatment, session-memory helpers, scenery planners, inline-SVG character pattern, traffic-light state model, soft-stop auto-open, first-sight seeding, two-beat overlay, expiry-refetch hook, UpgradeCard + PlusPill, spend contract. VERIFY each path against the live code before writing it; correct any that drifted. Registry entries are one line each, no essays.
+
+GATE: typecheck all touched workspaces; targeted test files during development (enumerate); ONE full web suite (baseline 476/65) and, ONLY if Branch A built server changes, ONE full api suite (baseline 809/38 with the single documented PILOT_CAPTURE_USER_IDS env-trap failure permitted); all tee'd, runner lines verbatim, deltas by file. Any new failure: identity first, report, no commit.
+
+REPORT (one message, then STOP for approval): Step 0 A-E quotes; item 1 branch taken with the verbatim condition; per-item summary 2 lines max; every new or changed user-visible string verbatim; files changed one line each; RIDE-ALONG section listing the registry entry count and any corrected paths; DEVIATIONS or none; gate results with runner lines; git status with the exact proposed unstaged list; proposed commit message: "Signal polish: pass gate, brighter signals, Ticket Check reveal; RIDE-ALONG: House Patterns registry"
+END OF REPORT is the final line. After approval only: stage, commit, confirm with git log -1 --decorate, git show --stat HEAD, the commit message line echoed, DEVIATIONS or none, END OF REPORT, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

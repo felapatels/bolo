@@ -1,0 +1,33 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+MODE: POWER
+
+TASK: Build 34A, iOS parity batch 1 of 2. One commit to main. Mobile workspace only.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. Tree stays UNSTAGED until approval. ONE report, then STOP. No task cards; suggestions bank as report lines.
+
+SESSION RULES: scope = artifacts/bolo-mobile plus docs/CODEBASE-FACTS.md ONLY. No api server, no gujarati-coach edits (read web freely as the reference implementation), no lib/. No em dashes anywhere. attached_assets never staged. New test files only for genuinely new surfaces (justify). Failure identity before re-runs; full-suite runs tee to a log first. Reuse-first Step 0 applies against the House Patterns registry. Expo-web never proves native: any behavior only verifiable on a device is implemented per config and reported as "device-pass pending", never claimed verified. Ride-Along Check ran: no banked mobile-scope items qualify; none ride. Divergence goes under DEVIATIONS.
+
+ITEM 0, MUST-PASS GATE (blocks everything; due to the Bolo! Pro entitlement deletion in RevenueCat):
+Grep the entire bolo-mobile workspace (and any config it imports) for every entitlement identifier string the app reads or checks: expected identifiers are "plus" and "family" ONLY. Report every hit with file and line. If ANY code path checks a "Bolo! Pro" or "pro" entitlement identifier, STOP the entire task and report the hits; do not proceed to items 1+ without an owner ruling. If clean, state "ITEM 0 CLEAN" with the hit list and proceed.
+
+STEP 0 (verify, quote, misses hard-stop):
+A. git log -1 --decorate. Acceptable HEAD: 45d89ee, or exactly one "Published your App" commit atop it. Else STOP.
+B. For each parity item below, quote the WEB reference implementation (the behavior contract) and the current MOBILE state, briefly: pass energy beat, boarding-pass tear animation, canonical train art usage, rail pulse, practice barge-in (#913), review romanized line (#914), hold-to-talk circle, meaning audio, the Perfect band moment at 91, app icon source asset.
+C. Quote the mobile test setup for the surfaces above (which suites assert them today).
+
+ITEMS (port web behavior to mobile; web is the spec, deviations from web behavior go under DEVIATIONS):
+1. #898 batch: pass energy beat, boarding-pass tear animation (visual; the tear SOUND routing is 34B, do not touch audio sessions), canonical train art anywhere mobile still uses old art, rail pulse.
+2. #913: practice barge-in parity per the shipped web behavior.
+3. #914: review surface shows the romanized line for the 17 supported languages; ks, sd, ur, sat, mni render no empty slot.
+4. Hold-to-talk: the circle must not shift under the finger during the recording state.
+5. Meaning audio parity per web.
+6. Perfect moment at 91 parity per web, including any copy, verbatim in the report.
+7. App icon: swap to the current canonical icon asset; confirm adaptive/ios icon paths in app config.
+
+GATE: typecheck bolo-mobile; targeted suites during development (enumerate); ONE full mobile suite at the end, baseline 72 suites / 468 tests, tee'd, runner line verbatim, delta by file. Any new failure: identity first, report, no commit.
+
+REPORT (one message, docx, then STOP for approval): ITEM 0 verdict with the full hit list; Step 0 quotes; per-item summary 2 lines max with device-pass-pending flags where honest; every new or changed user-visible string verbatim; files changed one line each; DEVIATIONS or none; gate results with the runner line; git status with the exact proposed unstaged list; proposed commit message: "Build 34A: iOS parity batch 1: energy, tear, train art, rail pulse, barge-in, romanized review, hold-to-talk, meaning audio, Perfect 91, icon"
+END OF REPORT is the final line. After approval only: stage, commit, confirm with git log -1 --decorate, the message line echoed, git show --stat HEAD summary line, staged path count, DEVIATIONS or none, END OF REPORT, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.
