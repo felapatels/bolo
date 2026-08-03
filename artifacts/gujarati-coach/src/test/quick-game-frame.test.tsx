@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -92,6 +92,25 @@ function renderFrame(path: string) {
         <QuickGameShell
           def={DEF}
           instruction="Pick the right answer"
+          totalRounds={() => 2}
+          renderRound={(p) => <TestRound {...p} />}
+        />
+      </Router>
+    </QueryClientProvider>,
+  );
+}
+
+/** Same shell but timed, for the Hotfix 3 countdown and timer-urgency pins. */
+function renderTimedFrame(path: string) {
+  const { hook } = memoryLocation({ path });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <Router hook={hook}>
+        <QuickGameShell
+          def={DEF}
+          instruction="Pick the right answer"
+          secondsPerRound={4}
           totalRounds={() => 2}
           renderRound={(p) => <TestRound {...p} />}
         />
@@ -217,6 +236,57 @@ describe("closeout launch (?cat&ctx=closeout)", () => {
     expect(data.context).toBe("closeout");
     expect(data).not.toHaveProperty("contextRef");
     expect(isSignalCleared("gu", 0)).toBe(false);
+  });
+});
+
+describe("pre-round countdown + timer urgency (Hotfix 3 items 7c/7d)", () => {
+  test("a timed game counts 3-2-1 before round 1 and the round clock holds meanwhile", () => {
+    vi.useFakeTimers();
+    try {
+      renderTimedFrame("/games/signal-lights?cat=7");
+      // The countdown replaces the round surface entirely: no progress strip,
+      // no round, so round audio and the round timer cannot start early.
+      expect(screen.getByTestId("quick-countdown")).toHaveTextContent("3");
+      expect(screen.getByText("Get ready…")).toBeInTheDocument();
+      expect(screen.queryByTestId("quick-round-progress")).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(800));
+      expect(screen.getByTestId("quick-countdown")).toHaveTextContent("2");
+      act(() => vi.advanceTimersByTime(800));
+      expect(screen.getByTestId("quick-countdown")).toHaveTextContent("1");
+      act(() => vi.advanceTimersByTime(800));
+      expect(screen.queryByTestId("quick-countdown")).not.toBeInTheDocument();
+      expect(screen.getByText("Round 1 of 2")).toBeInTheDocument();
+      // 2.4s elapsed, yet the round clock still reads its full 4s: it held.
+      expect(screen.getByTestId("quick-timer")).toHaveTextContent("4s");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("an untimed game shows no countdown at all", () => {
+    renderFrame("/games/signal-lights?cat=7");
+    expect(screen.queryByTestId("quick-countdown")).not.toBeInTheDocument();
+    expect(screen.getByText("Round 1 of 2")).toBeInTheDocument();
+  });
+
+  test("the timer pill goes urgent (red + pulse) only inside the final 2 seconds", () => {
+    vi.useFakeTimers();
+    try {
+      renderTimedFrame("/games/signal-lights?cat=7");
+      // Countdown done (one act per step: each next timer comes from an
+      // effect that flushes only when the act scope closes).
+      for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(800));
+      act(() => vi.advanceTimersByTime(1000)); // 3s left
+      const timer = screen.getByTestId("quick-timer");
+      expect(timer).toHaveTextContent("3s");
+      expect(timer.className).not.toContain("text-red-600");
+      act(() => vi.advanceTimersByTime(1000)); // 2s left
+      expect(timer).toHaveTextContent("2s");
+      expect(timer.className).toContain("text-red-600");
+      expect(timer.className).toContain("motion-safe:animate-pulse");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Volume2, VolumeX } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { loadGameAudioPref, saveGameAudioPref } from "@/lib/gameAudioPref";
 
 /**
@@ -23,10 +24,15 @@ export function useGameAudio(): { soundOn: boolean; toggle: () => void } {
 export function GameMuteButton({
   soundOn,
   onToggle,
+  active,
   className,
 }: {
   soundOn: boolean;
   onToggle: () => void;
+  /** Hotfix 3 item 7b: true while a game clip is audibly playing; the button
+   *  wears the practice surfaces' green active treatment (bg-secondary,
+   *  white icon) so "sound is on AND playing" reads at a glance. */
+  active?: boolean;
   className?: string;
 }) {
   return (
@@ -35,10 +41,13 @@ export function GameMuteButton({
       onClick={onToggle}
       data-testid="game-mute-btn"
       aria-label={soundOn ? "Mute game audio" : "Unmute game audio"}
-      className={
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted " +
-        (className ?? "")
-      }
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+        active
+          ? "border-transparent bg-secondary text-white shadow-sm"
+          : "border-border bg-card text-muted-foreground hover:bg-muted",
+        className,
+      )}
     >
       {soundOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
     </button>

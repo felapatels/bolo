@@ -71,7 +71,7 @@ import {
   planZoneScenery,
   planZoneSignpost,
 } from "@/components/journey-scenery";
-import { factForZone, INDIA_FACTS } from "@/lib/india-facts";
+import { factForZone, factRotationForZone, INDIA_FACTS } from "@/lib/india-facts";
 
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
@@ -355,6 +355,27 @@ describe("zone signposts + line facts (Chunk 6B story 5)", () => {
     for (const salt of [1, 2, 3]) {
       expect(INDIA_FACTS).toContain(factForZone({ ...opts, now: base, salt }));
     }
+  });
+
+  test("factRotationForZone leads with today's pick and walks the daily stride (Hotfix 3 item 6)", () => {
+    const base = Date.UTC(2026, 7, 3);
+    const opts = {
+      zoneIndex: 2,
+      geoName: "Vadodara",
+      lineName: "Gujarat Express",
+      salt: 1,
+      now: base,
+    };
+    const rotation = factRotationForZone(opts);
+    // Parity pin: index 0 is exactly today's factForZone pick, so the live
+    // strip and the daily surface can never disagree on the lead fact.
+    expect(rotation[0]).toBe(factForZone(opts));
+    // The strip walks the same modular stride the daily rotation uses:
+    // tomorrow's daily pick is today's second entry.
+    expect(rotation[1]).toBe(factForZone({ ...opts, now: base + 86_400_000 }));
+    // Whole pool, no repeats, all real facts.
+    expect(new Set(rotation).size).toBe(rotation.length);
+    for (const f of rotation) expect(INDIA_FACTS).toContain(f);
   });
 
   test("untagged zones draw from the full pool and differ on the same day (prod hotfix item 4)", () => {

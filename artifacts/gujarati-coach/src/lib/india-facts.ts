@@ -188,7 +188,21 @@ export function factForZone(opts: {
 }): string {
   const { zoneIndex, geoName, lineName, salt = 0 } = opts;
   const now = opts.now ?? Date.now();
+  const pool = factPoolForZone(geoName, lineName);
+  const day = Math.floor(now / DAY_MS);
+  const pick = pool[(day + zoneIndex * 7 + salt) % pool.length]!;
+  return INDIA_FACTS[pick];
+}
 
+/** Prod hotfix Item 4: region-tagged matches keep their exclusive pool
+ *  (tagged preference unchanged). The old fallback let the line-tagged pool
+ *  stand alone; with a single railways fact that pool has length 1, so day,
+ *  zone index, and salt all vanish modulo 1 and every untagged zone showed
+ *  the same fact on every surface, every day. Untagged zones now rotate the
+ *  full set (which still contains the line-tagged facts), so the zoneIndex
+ *  stride separates zones again. Shared by the daily pick and the live-strip
+ *  rotation so the two can never disagree on pool membership. */
+function factPoolForZone(geoName: string, lineName: string): number[] {
   const regionMatches: number[] = [];
   const lineTagged: number[] = [];
   for (const [i, tags] of INDIA_FACT_TAGS) {
@@ -198,22 +212,30 @@ export function factForZone(opts: {
       lineTagged.push(i);
     }
   }
+  return regionMatches.length > 0
+    ? [...regionMatches, ...lineTagged]
+    : INDIA_FACTS.map((_, i) => i);
+}
 
-  // Prod hotfix Item 4: region-tagged matches keep their exclusive pool
-  // (tagged preference unchanged). The old fallback let the line-tagged pool
-  // stand alone; with a single railways fact that pool has length 1, so day,
-  // zone index, and salt all vanish modulo 1 and every untagged zone showed
-  // the same fact on every surface, every day. Untagged zones now rotate the
-  // full set (which still contains the line-tagged facts), so the zoneIndex
-  // stride separates zones again.
-  const pool =
-    regionMatches.length > 0
-      ? [...regionMatches, ...lineTagged]
-      : INDIA_FACTS.map((_, i) => i);
-
+/**
+ * Hotfix 3 item 6: the zone's whole fact rotation, ordered so index 0 is
+ * exactly today's factForZone pick and the rest follow the same modular
+ * stride the daily rotation walks. Feeds the postcard's live fact strip.
+ * Pure lookup: zero network calls.
+ */
+export function factRotationForZone(opts: {
+  zoneIndex: number;
+  geoName: string;
+  lineName: string;
+  salt?: number;
+  now?: number;
+}): string[] {
+  const { zoneIndex, geoName, lineName, salt = 0 } = opts;
+  const now = opts.now ?? Date.now();
+  const pool = factPoolForZone(geoName, lineName);
   const day = Math.floor(now / DAY_MS);
-  const pick = pool[(day + zoneIndex * 7 + salt) % pool.length]!;
-  return INDIA_FACTS[pick];
+  const start = (day + zoneIndex * 7 + salt) % pool.length;
+  return pool.map((_, k) => INDIA_FACTS[pool[(start + k) % pool.length]!]);
 }
 
 /** Module-level last-picked index — prevents a fact from showing twice in a row. */

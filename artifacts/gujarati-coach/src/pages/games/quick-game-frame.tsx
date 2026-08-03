@@ -109,6 +109,9 @@ export type QuickRoundProps = {
   soundOn: boolean;
   activeLang: string;
   activeLanguageName: string | undefined;
+  /** Hotfix 3 item 7b: rounds report live clip playback so the frame's mute
+   *  button can wear the green active treatment while audio plays. */
+  setAudioPlaying: (playing: boolean) => void;
 };
 
 // ─── Topic picker with a per-game floor ──────────────────────────────────────
@@ -261,6 +264,9 @@ function QuickEndScreen({
 
 type Phase = "picker" | "game" | "end";
 
+/** Hotfix 3 item 7c: milliseconds per step of the 3-2-1 pre-round countdown. */
+const COUNTDOWN_STEP_MS = 800;
+
 export function QuickGameShell({
   def,
   instruction,
@@ -290,6 +296,18 @@ export function QuickGameShell({
   );
   const [gameKey, setGameKey] = useState(0);
 
+  // Hotfix 3 item 7c: a 3-2-1 countdown before round 1 of a TIMED game
+  // (Signal Lights and Express Listening). While it runs, the round UI is
+  // held back, so the round timer and the round-start audio effect cannot
+  // fire early. Untimed games skip it entirely.
+  const [countdown, setCountdown] = useState<number | null>(
+    secondsPerRound != null ? 3 : null,
+  );
+  // Item 7b: true while a round clip is audibly playing (set by the round
+  // components through setAudioPlaying); drives the mute button's green
+  // active treatment.
+  const [roundAudioOn, setRoundAudioOn] = useState(false);
+
   const [roundIndex, setRoundIndex] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [locked, setLocked] = useState(false);
@@ -311,9 +329,10 @@ export function QuickGameShell({
   const phrases = phraseQuery.data ?? [];
   const total = phrases.length >= def.floor ? totalRounds(phrases) : 0;
 
-  // Per-round countdown for timed games; freezes once the round is locked.
+  // Per-round countdown for timed games; freezes once the round is locked,
+  // and holds entirely until the pre-round 3-2-1 countdown finishes (7c).
   useEffect(() => {
-    if (phase !== "game" || secondsPerRound == null || locked) return;
+    if (phase !== "game" || secondsPerRound == null || locked || countdown !== null) return;
     if (secondsLeft === null) return;
     if (secondsLeft <= 0) {
       setTimedOut(true);
@@ -322,7 +341,24 @@ export function QuickGameShell({
     }
     const t = setTimeout(() => setSecondsLeft((s) => (s === null ? null : s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [phase, secondsPerRound, locked, secondsLeft]);
+  }, [phase, secondsPerRound, locked, secondsLeft, countdown]);
+
+  // Item 7c: the 3-2-1 ticks only once the round surface is actually ready
+  // (phrases loaded and above the floor), so a slow fetch never eats the
+  // countdown before anything is visible.
+  const roundsReady =
+    phase === "game" &&
+    !!selectedCategory &&
+    !phraseQuery.isLoading &&
+    phrases.length >= def.floor;
+  useEffect(() => {
+    if (!roundsReady || countdown === null) return;
+    const t = setTimeout(
+      () => setCountdown((c) => (c === null || c <= 1 ? null : c - 1)),
+      COUNTDOWN_STEP_MS,
+    );
+    return () => clearTimeout(t);
+  }, [roundsReady, countdown]);
 
   const resetRun = () => {
     resultsRef.current = [];
@@ -331,6 +367,8 @@ export function QuickGameShell({
     setLocked(false);
     setTimedOut(false);
     setSecondsLeft(secondsPerRound ?? null);
+    setCountdown(secondsPerRound != null ? 3 : null);
+    setRoundAudioOn(false);
     setFinalXp(null);
     setChaiEarned(null);
   };
@@ -339,6 +377,7 @@ export function QuickGameShell({
     setFinalScore(score);
     setFinalTotal(roundTotal);
     setPhase("end");
+    setRoundAudioOn(false);
     if (!selectedCategory || results.length === 0) return;
     recordSession.mutate(
       {
@@ -445,7 +484,11 @@ export function QuickGameShell({
         )}
         <h1 className="text-lg font-extrabold text-foreground">{def.title}</h1>
         <div className="ml-auto">
-          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+          <GameMuteButton
+            soundOn={soundOn}
+            onToggle={toggleSound}
+            active={soundOn && roundAudioOn}
+          />
         </div>
       </div>
 
@@ -466,48 +509,74 @@ export function QuickGameShell({
           ) : null
         ) : (
           <div className="flex flex-1 flex-col gap-4 px-4 pb-4" key={gameKey}>
-            {/* Progress strip + optional timer */}
-            <div className="space-y-1.5 pt-3" data-testid="quick-round-progress">
-              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                <span>
-                  Round {Math.min(roundIndex + 1, total)} of {total}
+            {countdown !== null ? (
+              /* Item 7c: the pre-round-1 countdown holds the round UI (and
+                 with it the round-start audio effect and the round timer)
+                 until it finishes. */
+              <div
+                className="flex flex-1 flex-col items-center justify-center gap-3"
+                data-testid="quick-countdown"
+                aria-live="assertive"
+              >
+                <span
+                  key={countdown}
+                  className="quick-countdown-pop text-7xl font-black tabular-nums text-primary"
+                >
+                  {countdown}
                 </span>
-                <span className="flex items-center gap-3">
-                  {secondsPerRound != null && secondsLeft !== null && (
-                    <span
-                      data-testid="quick-timer"
-                      className={cn(
-                        "flex items-center gap-1",
-                        secondsLeft <= 2 ? "text-red-600" : "text-muted-foreground",
-                      )}
-                    >
-                      <Timer className="h-3.5 w-3.5" />
-                      {secondsLeft}s
+                <span className="text-sm font-semibold text-muted-foreground">Get ready…</span>
+              </div>
+            ) : (
+              <>
+                {/* Progress strip + optional timer */}
+                <div className="space-y-1.5 pt-3" data-testid="quick-round-progress">
+                  <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                    <span>
+                      Round {Math.min(roundIndex + 1, total)} of {total}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1 text-emerald-600">
-                    <Check className="h-3.5 w-3.5" />
-                    {correct} correct
-                  </span>
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${(roundIndex / Math.max(1, total)) * 100}%` }}
-                />
-              </div>
-            </div>
+                    <span className="flex items-center gap-3">
+                      {secondsPerRound != null && secondsLeft !== null && (
+                        <span
+                          data-testid="quick-timer"
+                          className={cn(
+                            // Item 7d: prominent pill timer; the final 2
+                            // seconds go red with a motion-safe urgency pulse.
+                            "flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-extrabold tabular-nums transition-colors",
+                            secondsLeft <= 2
+                              ? "border-red-300 bg-red-50 text-red-600 motion-safe:animate-pulse dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
+                              : "border-border bg-card text-foreground",
+                          )}
+                        >
+                          <Timer className="h-4 w-4" />
+                          {secondsLeft}s
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-emerald-600">
+                        <Check className="h-3.5 w-3.5" />
+                        {correct} correct
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${(roundIndex / Math.max(1, total)) * 100}%` }}
+                    />
+                  </div>
+                </div>
 
-            <p className="text-center text-sm font-semibold text-muted-foreground">{instruction}</p>
+                <p className="text-center text-sm font-semibold text-muted-foreground">{instruction}</p>
 
-            {renderRound({
-              phrases,
-              api,
-              soundOn,
-              activeLang,
-              activeLanguageName: activeLanguage?.name,
-            })}
+                {renderRound({
+                  phrases,
+                  api,
+                  soundOn,
+                  activeLang,
+                  activeLanguageName: activeLanguage?.name,
+                  setAudioPlaying: setRoundAudioOn,
+                })}
+              </>
+            )}
           </div>
         ))}
 

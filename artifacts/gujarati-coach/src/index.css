@@ -740,3 +740,23 @@
 .animate-splash-wordmark {
   animation: splash-wordmark-enter 0.45s ease-out var(--splash-wordmark-delay) backwards;
 }
+
+/* Hotfix 3 item 7c: quick-game 3-2-1 countdown pop. Decorative, so it only
+   animates when the user allows motion; reduced motion gets a plain swap.
+   (Plain class, not a Tailwind utility, so motion-safe: cannot gate it;
+   the media query does the same job.) */
+@keyframes quick-countdown-pop {
+  from {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .quick-countdown-pop {
+    animation: quick-countdown-pop 300ms ease-out backwards;
+  }
+}

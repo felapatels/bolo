@@ -52,6 +52,7 @@ function SignalLightsRound({
   soundOn,
   activeLang,
   activeLanguageName,
+  setAudioPlaying,
 }: QuickRoundProps) {
   const native = useNativeText();
   const synthesize = useSynthesizeSpeech();
@@ -59,6 +60,13 @@ function SignalLightsRound({
   // (soundOn arrived in props but was dead code for this game).
   const soundOnRef = useRef(soundOn);
   soundOnRef.current = soundOn;
+  // Hotfix 3 item 7a: playPhrase awaits synthesis, so by the time a clip is
+  // ready the round may have advanced or expired. These refs let the resumed
+  // async code check the CURRENT round state, not the captured one.
+  const roundRef = useRef(api.round);
+  roundRef.current = api.round;
+  const timedOutRef = useRef(api.timedOut);
+  timedOutRef.current = api.timedOut;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCache = useRef(
     new Map<Phrase["id"], { audioBase64: string; format: string }>(),
@@ -70,9 +78,11 @@ function SignalLightsRound({
 
   // House pattern (express-listening): synthesize once per phrase, cache the
   // clip, honor the toggle at play time. The clip runs alongside the
-  // countdown, so the 4s answer window is untouched.
+  // countdown, so the 4s answer window is untouched. Item 7a: the clip is
+  // pinned to the round it was requested for; if synthesis resolves after
+  // the round advanced or expired, it never plays.
   const playPhrase = useCallback(
-    async (phrase: Phrase) => {
+    async (phrase: Phrase, forRound: number) => {
       if (!soundOnRef.current) return;
       if (audioRef.current) {
         audioRef.current.pause();
@@ -90,19 +100,30 @@ function SignalLightsRound({
             },
           }));
         audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
+        // Item 7a: the round moved on (or timed out) while synthesis was in
+        // flight; a late clip must never fire at or after expiry.
+        if (roundRef.current !== forRound || timedOutRef.current) return;
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+        // Item 7b: report live playback so the frame's mute button lights up.
+        audio.onended = () => setAudioPlaying(false);
+        audio.onpause = () => setAudioPlaying(false);
         audioRef.current = audio;
+        setAudioPlaying(true);
         await audio.play();
       } catch {
+        setAudioPlaying(false);
         // Audio is a garnish on this game: a failed clip never blocks a round.
       }
     },
-    [synthesize, activeLanguageName, activeLang],
+    [synthesize, activeLanguageName, activeLang, setAudioPlaying],
   );
 
   useEffect(() => {
     setJudged(null);
-    if (q) playPhrase(q.phrase);
+    if (q) playPhrase(q.phrase, api.round);
+    // Item 7a: advancing the round silences any clip still playing for the
+    // previous one.
+    return () => audioRef.current?.pause();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api.round]);
 
@@ -111,7 +132,10 @@ function SignalLightsRound({
 
   // Timeout counts as a wrong judgment: brief flash, then submit the miss.
   useEffect(() => {
-    if (!api.timedOut || judged !== null || !q) return;
+    if (!api.timedOut) return;
+    // Item 7a: expiry silences the round clip immediately.
+    audioRef.current?.pause();
+    if (judged !== null || !q) return;
     webHaptic("warning");
     const t = setTimeout(
       () =>

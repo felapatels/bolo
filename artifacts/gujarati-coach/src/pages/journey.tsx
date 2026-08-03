@@ -18,7 +18,7 @@
 // pass chrome changed.
 import { Link } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useListCategories,
   useListCategoryLessonGroups,
@@ -26,7 +26,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Lock, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, Coffee, Lock, Sparkles, Star } from "lucide-react";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
 import {
@@ -65,7 +65,8 @@ import {
   planZoneScenery,
   planZoneSignpost,
 } from "@/components/journey-scenery";
-import { factForZone } from "@/lib/india-facts";
+import { factForZone, factRotationForZone } from "@/lib/india-facts";
+import { toast } from "@/hooks/use-toast";
 import {
   closeoutStateUnseeded,
   gameForSignal,
@@ -76,6 +77,7 @@ import {
   markSignalWaved,
   readCloseoutStages,
   type QuickGameDef,
+  type QuickGameId,
 } from "@/lib/quick-games";
 import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
 
@@ -231,6 +233,112 @@ function StationMarker({
   );
 }
 
+/** Hotfix 3 item 3: one fun blurb per quick game, shown under the play
+ *  action in the signal encounter dialog. */
+const GAME_BLURBS: Record<QuickGameId, string> = {
+  "ticket-check": "Punch tickets to their matching script before the whistle blows.",
+  "wrong-platform": "Spot the phrase that wandered onto the wrong platform.",
+  "luggage-match": "Pair up the luggage tags before the carousel moves on.",
+  "express-listening": "The express won't wait. Catch the meaning at full speed.",
+  "signal-lights": "Green for true, red for false. Call it before the gate drops.",
+};
+
+/** Hotfix 3 item 6: live fact strip timing. The cycle only counts continued
+ *  on-screen visibility; the fade is a JS-driven swap so the CSS minifier
+ *  time-unit trap (cssTimeMs) never applies. */
+const FACT_CYCLE_MS = 6000;
+const FACT_FADE_MS = 250;
+
+/** Hotfix 3 item 6: the postcard's live "Did you know?" strip. Cycles to the
+ *  next fact in the zone's rotation after roughly 6 seconds of continued
+ *  visibility with a gentle crossfade; tapping advances immediately. Reduced
+ *  motion: no auto-cycle, tap still advances with an instant swap. Facts are
+ *  a local lookup, so cycling makes zero network calls. */
+function FactStrip({
+  facts,
+  zoneIndex,
+  color,
+}: {
+  facts: string[];
+  zoneIndex: number;
+  color: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [idx, setIdx] = useState(0);
+  const [fading, setFading] = useState(false);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const visibleRef = useRef(true);
+  const fadeTimer = useRef<number | null>(null);
+
+  // Cycle only while the strip is actually on screen. jsdom and very old
+  // browsers lack IntersectionObserver; they simply count as always visible.
+  useEffect(() => {
+    const el = btnRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => {
+      visibleRef.current = entry?.isIntersecting ?? true;
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const advance = useCallback(() => {
+    if (facts.length < 2 || fadeTimer.current !== null) return;
+    if (reduceMotion) {
+      setIdx((i) => (i + 1) % facts.length);
+      return;
+    }
+    setFading(true);
+    fadeTimer.current = window.setTimeout(() => {
+      fadeTimer.current = null;
+      setFading(false);
+      setIdx((i) => (i + 1) % facts.length);
+    }, FACT_FADE_MS);
+  }, [facts.length, reduceMotion]);
+
+  useEffect(
+    () => () => {
+      if (fadeTimer.current !== null) window.clearTimeout(fadeTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (reduceMotion || facts.length < 2) return;
+    const t = window.setInterval(() => {
+      if (visibleRef.current) advance();
+    }, FACT_CYCLE_MS);
+    return () => window.clearInterval(t);
+  }, [advance, reduceMotion, facts.length]);
+
+  return (
+    <button
+      ref={btnRef}
+      type="button"
+      onClick={advance}
+      aria-label="Show the next India fact"
+      data-testid={`postcard-fact-${zoneIndex}`}
+      className="mx-1.5 mb-1.5 block w-[calc(100%-0.75rem)] rounded-md border border-dashed px-2 py-1 text-left"
+      style={{ borderColor: `${color}55` }}
+    >
+      <span
+        className="block text-[8px] font-black uppercase tracking-widest"
+        style={{ color }}
+      >
+        Did you know?
+      </span>
+      <p
+        className={cn(
+          "line-clamp-2 text-[9px] leading-tight text-muted-foreground transition-opacity duration-200",
+          fading ? "opacity-0" : "opacity-100",
+        )}
+      >
+        {facts[idx % facts.length]}
+      </p>
+    </button>
+  );
+}
+
 /** Fare-zone postcard: picture side on top (per-zone landmark vista, inline
  *  SVG in brand colors — no artwork is generated, acceptance 8), address side
  *  below with stamp + postmark. Locked showroom zones render grayscale.
@@ -247,7 +355,7 @@ function ZonePostcard({
   scenarioId,
   hasStamp,
   testOutHref,
-  fact,
+  facts,
 }: {
   zoneIndex: number;
   zoneTitle: string;
@@ -261,8 +369,9 @@ function ZonePostcard({
   /** Present only when the zone is gate-locked (Chunk 4B): links into the
    *  zone-level test-out flow. Dormant pre-flip by construction. */
   testOutHref?: string;
-  /** Chunk 6B Story 5: daily rotating India fact for the postcard strip. */
-  fact?: string;
+  /** Hotfix 3 item 6: the zone's rotating India facts for the live strip
+   *  (index 0 is today's daily pick, factForZone parity). */
+  facts?: string[];
 }) {
   const color = grayed ? GRAY : accent;
   return (
@@ -319,20 +428,8 @@ function ZonePostcard({
               </div>
             </div>
           </div>
-          {fact && (
-            <div
-              className="mx-1.5 mb-1.5 rounded-md border border-dashed px-2 py-1"
-              style={{ borderColor: `${color}55` }}
-              data-testid={`postcard-fact-${zoneIndex}`}
-            >
-              <span
-                className="block text-[8px] font-black uppercase tracking-widest"
-                style={{ color }}
-              >
-                Did you know?
-              </span>
-              <p className="line-clamp-2 text-[9px] leading-tight text-muted-foreground">{fact}</p>
-            </div>
+          {facts && facts.length > 0 && (
+            <FactStrip facts={facts} zoneIndex={zoneIndex} color={color} />
           )}
           {testOutHref && (
             <Link
@@ -922,10 +1019,12 @@ export default function Journey() {
 
   // --- Chunk 6B Story 3: trackside signals seated in the gaps after odd
   // global stops (gap-N sits after global stop N, 1-based; contextRef gap-N).
-  // Position is the rail midpoint between the stop and the next path point,
-  // nudged toward the outside edge. Showroom zones get no interactive
-  // signals. States re-derive from storage on every render; signalTick only
-  // forces that re-render after a wave.
+  // Hotfix 3 item 2: each crossing renders at the DEPARTURE EDGE of its
+  // preceding stop (visually adjacent, just past it), nudged to the opposite
+  // side of that stop's label card, instead of floating mid-gap. VISUAL ONLY:
+  // the gap-N seating data and contextRefs are untouched. Showroom zones get
+  // no interactive signals. States re-derive from storage on every render;
+  // signalTick only forces that re-render after a wave.
   void signalTick;
   const stationPts = pts.filter((p) => p.kind === "station");
   const visibleCountForZone = (zoneId: number) =>
@@ -939,12 +1038,16 @@ export default function Journey() {
     : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
         const a = stationPts[afterStop - 1];
         if (!a) return [];
-        const b = pts[pts.indexOf(a) + 1];
-        if (!b) return [];
         const station = a.station!;
         const zone = zones[station.zoneIndex]!;
-        const midX = (a.x + b.x) / 2;
-        const x = Math.min(mapW - 20, Math.max(20, midX < mapW / 2 ? midX - 34 : midX + 34));
+        // Station label cards alternate right/left by render order (k2 % 2),
+        // so the crossing takes the opposite flank of its preceding stop,
+        // just past it in the travel direction (the serpentine flows down).
+        const cardSide = (afterStop - 1) % 2 === 0 ? "right" : "left";
+        const x = Math.min(
+          mapW - 20,
+          Math.max(20, a.x + (cardSide === "right" ? -30 : 30)),
+        );
         const stopDone = station.status === "completed" || station.status === "tested_out";
         const state: SignalSpot["state"] = isSignalCleared(activeLang, afterStop)
           ? "cleared"
@@ -958,7 +1061,7 @@ export default function Journey() {
             gap: afterStop,
             signalIndex,
             x,
-            y: (a.y + b.y) / 2,
+            y: a.y + 30,
             zoneIndex: station.zoneIndex,
             zoneId: zone.id,
             state,
@@ -1205,7 +1308,7 @@ export default function Journey() {
                           ? `/practice/${zone.id}?mode=testout&scope=zone`
                           : undefined
                       }
-                      fact={factForZone({
+                      facts={factRotationForZone({
                         zoneIndex,
                         geoName: zone.geoName,
                         lineName: line.lineName,
@@ -1349,14 +1452,20 @@ export default function Journey() {
                   setSignalDlg(sig);
                 }}
                 className={cn(
-                  // p-2 lifts the hit target to 44x56 (Item 1); every active
-                  // signal carries the attention pulse, motion-safe only
-                  // (Item 2).
+                  // p-2 on the 32x40 glyph keeps the hit target at 48x56
+                  // (44px minimum, Item 1); every active signal carries the
+                  // attention pulse, motion-safe only. RED FUTURE renders
+                  // full color, non-tappable, with no dead-feeling cursor
+                  // affordance (STATE MODEL).
                   "absolute -translate-x-1/2 -translate-y-1/2 rounded-lg p-2 transition-transform",
-                  sig.state === "upcoming" ? "cursor-default opacity-60" : "active:scale-95",
+                  sig.state === "upcoming" ? "cursor-default" : "active:scale-95",
                   sig.state === "active" && "motion-safe:animate-pulse",
                 )}
-                style={{ left: sig.x, top: sig.y, zIndex: DEPTH_2_5D.layers.station }}
+                // Item 1: sit ABOVE the postcard layer. The residual tap
+                // occluder was the ZonePostcard's own pointer-events-auto
+                // card (z8) recapturing the taps its pass-through wrapper
+                // released, wherever the card overlapped a signal.
+                style={{ left: sig.x, top: sig.y, zIndex: DEPTH_2_5D.layers.postcard + 1 }}
               >
                 <SignalGlyph state={sig.state} />
               </button>
@@ -1592,6 +1701,25 @@ export default function Journey() {
           )}
           {signalDlg && signalDlg.game !== null && (
             <>
+              {/* Hotfix 3 item 3: compact scene header from existing art
+                  only, the TrainEngine pulling up to the crossing glyph. */}
+              <div
+                aria-hidden
+                data-testid="signal-scene"
+                className="flex items-end gap-2 rounded-2xl bg-muted/60 px-4 pb-2 pt-4"
+              >
+                <TrainEngine className="w-16 shrink-0" />
+                <div className="mb-1 flex-1 border-b-2 border-dashed border-border" />
+                <SignalGlyph
+                  state={
+                    signalDlg.state === "cleared"
+                      ? "cleared"
+                      : signalDlg.state === "waved"
+                        ? "waved"
+                        : "active"
+                  }
+                />
+              </div>
               <DialogHeader>
                 <DialogTitle>
                   {signalDlg.state === "cleared" ? "Signal already cleared" : "Signal ahead"}
@@ -1599,9 +1727,23 @@ export default function Journey() {
                 <DialogDescription>
                   {signalDlg.state === "cleared"
                     ? `You cleared this signal and pocketed the Chai. Fancy another round of ${signalDlg.game.title}?`
-                    : "The signalman steps out with his flag. Clear the signal with a quick game and earn a Chai token, or wave and roll on."}
+                    : signalDlg.state === "waved"
+                      ? "The gate is up for you, and the signalman kept your Chai. Clear the signal whenever you like."
+                      : "The crossing gate is down and the signalman steps out. Clear the signal with a quick game, or wave and roll on."}
                 </DialogDescription>
               </DialogHeader>
+              {/* Item 3 reward chip: what clearing pays, shown BEFORE playing,
+                  and ONLY while the first-clear grant is unclaimed (red active
+                  and yellow reopen). A green replay never promises Chai. */}
+              {signalDlg.state !== "cleared" && (
+                <div
+                  data-testid="signal-chai-chip"
+                  className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                >
+                  <Coffee className="h-3.5 w-3.5" />
+                  +1 Chai
+                </div>
+              )}
               <Link
                 href={`/games/${signalDlg.game.id}?cat=${signalDlg.zoneId}&ctx=signal&gap=${signalDlg.gap}`}
                 onClick={() => {
@@ -1613,6 +1755,12 @@ export default function Journey() {
               >
                 Play {signalDlg.game.title}
               </Link>
+              <p
+                data-testid="signal-game-blurb"
+                className="text-center text-xs font-medium text-muted-foreground"
+              >
+                {GAME_BLURBS[signalDlg.game.id]}
+              </p>
               {signalDlg.state !== "cleared" && (
                 <button
                   type="button"
@@ -1621,6 +1769,12 @@ export default function Journey() {
                     markSignalWaved(activeLang, signalDlg.gap);
                     setSignalTick((t) => t + 1);
                     setSignalDlg(null);
+                    // Item 4: skip receipt, never-shamed voice, and the open
+                    // invitation to come back for the unclaimed Chai.
+                    toast({
+                      description:
+                        "Waved through. The signalman kept your Chai warm, come back anytime.",
+                    });
                   }}
                   className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
                 >

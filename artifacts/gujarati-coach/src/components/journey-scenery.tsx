@@ -276,6 +276,9 @@ const AMBER_SHADE = "#b45309"; // darker step of AMBER
 const LEAF_SHADE = "#047857"; // darker step of LEAF
 const TRUNK_SHADE = "#713f12"; // darker step of TRUNK
 const SLATE_SHADE = "#475569"; // darker step of SLATE
+const INDIGO = "#5048e5"; // brand primary ink (crossing crossbuck trim)
+const TEAL = "#0d9488"; // brand secondary (crossing hardware)
+const SIGNAL_RED = "#ef4444"; // crossing stop lamp + gate-arm stripes
 const PINK_SHADE = "#be185d"; // darker step of PINK
 const STONE = "#e7e5e4"; // cow hide
 const STONE_SHADE = "#a8a29e"; // darker step of STONE
@@ -644,44 +647,59 @@ export function planZoneSignpost(
   return { row: 0 };
 }
 
-/** Semaphore-style trackside signal glyph. State drives the lamp: red for an
- *  active unvisited signal, green once waved through or cleared, slate while
- *  the line ahead has not reached it yet. Sized for a 28x40 button. */
+/** Railroad-crossing trackside signal glyph (Hotfix 3 item 2): crossbuck,
+ *  lamp, and a striped gate arm on a slate post, flat playful style in the
+ *  established palette. The STATE MODEL drives it: red lamp + bar DOWN while
+ *  the signal is not yet cleared (active and future both render FULL COLOR,
+ *  never dimmed); amber caution lamp + bar UP once waved through; green lamp
+ *  + bar UP once cleared. Sized for a 32x40 button. */
 export function SignalGlyph({
   state,
 }: {
   state: "upcoming" | "active" | "waved" | "cleared";
 }) {
-  const lamp =
-    state === "active" ? "#ef4444" : state === "upcoming" ? SLATE : LEAF;
-  const lampDim = state === "upcoming" ? 0.45 : 1;
+  const barDown = state === "upcoming" || state === "active";
+  const lamp = barDown ? SIGNAL_RED : state === "waved" ? AMBER : LEAF;
+  // The striped gate arm, drawn pointing left from its pivot on the post.
+  // The bar-up states rotate this same group about the pivot, so the arm's
+  // geometry is identical in every state.
+  const arm = (
+    <g>
+      <rect x={1} y={20.9} width={16.4} height={3} rx={1.5} fill="#ffffff" stroke={SLATE} strokeWidth={0.6} />
+      <rect x={2.4} y={21.4} width={3.4} height={2} rx={0.6} fill={SIGNAL_RED} />
+      <rect x={8.2} y={21.4} width={3.4} height={2} rx={0.6} fill={SIGNAL_RED} />
+      <rect x={14} y={21.4} width={2.4} height={2} rx={0.6} fill={SIGNAL_RED} />
+    </g>
+  );
   return (
-    <svg width={28} height={40} viewBox="0 0 28 40" aria-hidden focusable="false">
+    <svg width={32} height={40} viewBox="0 0 32 40" aria-hidden focusable="false">
       {/* post + base */}
-      <rect x={12.6} y={8} width={2.8} height={28} rx={1.2} fill={SLATE_SHADE} />
-      <rect x={8} y={35.4} width={12} height={3} rx={1.5} fill={SLATE_SHADE} />
-      {/* lamp head */}
-      <rect x={7.5} y={2} width={13} height={16} rx={4} fill={INK} opacity={0.85} />
-      {/* Prod hotfix Item 2: an active signal reads unmissable, with an amber
-          halo ring plus a red glow behind the lit lamp. The attention pulse
-          lives on the button (motion-safe:animate-pulse), so reduced motion
-          suppresses it there. */}
+      <rect x={15} y={7} width={2.8} height={29} rx={1.2} fill={SLATE_SHADE} />
+      <rect x={10.4} y={35.4} width={12} height={3} rx={1.5} fill={TEAL} />
+      {/* crossbuck (X sign) */}
+      <g transform="rotate(26 16.4 5.4)">
+        <rect x={8.4} y={4} width={16} height={2.9} rx={1.45} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+      </g>
+      <g transform="rotate(-26 16.4 5.4)">
+        <rect x={8.4} y={4} width={16} height={2.9} rx={1.45} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+      </g>
+      {/* lamp box */}
+      <rect x={12.2} y={10.4} width={8.4} height={8.4} rx={2.6} fill={INK} opacity={0.85} />
+      {/* RED ACTIVE blocking emphasis: amber halo ring plus a red glow behind
+          the lit lamp. The attention pulse lives on the button
+          (motion-safe:animate-pulse), so reduced motion suppresses it there.
+          RED FUTURE gets the same full-color lamp with no halo. */}
       {state === "active" && (
         <>
-          <circle cx={14} cy={7.4} r={6.6} fill="none" stroke={AMBER} strokeWidth={1.6} opacity={0.9} />
-          <circle cx={14} cy={7.4} r={5.2} fill="#ef4444" opacity={0.35} />
+          <circle cx={16.4} cy={14.6} r={6.6} fill="none" stroke={AMBER} strokeWidth={1.6} opacity={0.9} />
+          <circle cx={16.4} cy={14.6} r={5.2} fill={SIGNAL_RED} opacity={0.35} />
         </>
       )}
-      <circle cx={14} cy={7.4} r={3.1} fill={lamp} opacity={lampDim} />
-      <circle
-        cx={14}
-        cy={13.6}
-        r={3.1}
-        fill={state === "waved" || state === "cleared" ? LEAF2 : SLATE}
-        opacity={state === "waved" || state === "cleared" ? 1 : 0.35}
-      />
-      {/* signal arm points back down the line */}
-      <rect x={2} y={9.4} width={7} height={2.6} rx={1.3} fill={AMBER} />
+      <circle cx={16.4} cy={14.6} r={3} fill={lamp} />
+      {/* gate arm: down blocks the track, up clears it */}
+      {barDown ? arm : <g transform="rotate(75 16.4 22.4)">{arm}</g>}
+      {/* pivot hub */}
+      <circle cx={16.4} cy={22.4} r={1.7} fill={TEAL} />
     </svg>
   );
 }

@@ -29,6 +29,12 @@ vi.mock("framer-motion", async (importOriginal) => ({
   useReducedMotion: () => h.reduceMotion,
 }));
 
+// Hotfix 3 item 4: the wave receipt goes through the house toast; spy on it.
+vi.mock("@/hooks/use-toast", () => ({
+  toast: vi.fn(),
+  useToast: () => ({ toasts: [], toast: vi.fn(), dismiss: vi.fn() }),
+}));
+
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({
     languages: [{ code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" }],
@@ -76,7 +82,11 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
+import { DEPTH_2_5D } from "@/lib/motion";
 import { isSignalStopSeen, isSignalWaved } from "@/lib/quick-games";
+import { toast } from "@/hooks/use-toast";
+
+const toastMock = vi.mocked(toast);
 
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
@@ -110,6 +120,7 @@ beforeEach(() => {
   h.access = null;
   h.phraseCount = 5;
   h.reduceMotion = false;
+  toastMock.mockReset();
   setZones();
   sessionStorage.removeItem("bolo-signal-waved:gu");
   sessionStorage.removeItem("bolo-signal-stop-shown:gu");
@@ -133,6 +144,11 @@ describe("signal seating (story 3)", () => {
       const btn = screen.getByTestId(`trackside-signal-${gap}`);
       expect(btn).toHaveAttribute("data-state", "upcoming");
       expect(btn).toBeDisabled();
+      // Hotfix 3 STATE MODEL: RED FUTURE renders full color, never dimmed.
+      expect(btn.className).not.toContain("opacity-60");
+      // Hotfix 3 item 1: signals sit above the postcard layer, so the
+      // postcard's pointer-events-auto card can never recapture their taps.
+      expect(btn.style.zIndex).toBe(String(DEPTH_2_5D.layers.postcard + 1));
     }
     expect(screen.queryByTestId("trackside-signal-2")).not.toBeInTheDocument();
     expect(screen.queryByTestId("trackside-signal-18")).not.toBeInTheDocument();
@@ -160,6 +176,28 @@ describe("signal encounter (story 3)", () => {
       "href",
       "/games/ticket-check?cat=1&ctx=signal&gap=1",
     );
+    // Hotfix 3 item 3: scene header, claimable Chai chip, and the game blurb.
+    expect(screen.getByTestId("signal-scene")).toBeInTheDocument();
+    expect(screen.getByTestId("signal-chai-chip")).toHaveTextContent("+1 Chai");
+    expect(screen.getByTestId("signal-game-blurb")).toHaveTextContent(
+      "Punch tickets to their matching script before the whistle blows.",
+    );
+  });
+
+  test("a waved signal reopens the FULL encounter: waved body, chip still on offer", () => {
+    sessionStorage.setItem("bolo-signal-waved:gu", "[1]");
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    renderJourney();
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    expect(screen.getByText("Signal ahead")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The gate is up for you, and the signalman kept your Chai. Clear the signal whenever you like.",
+      ),
+    ).toBeInTheDocument();
+    // The Chai is still unclaimed, so the chip stays (STATE MODEL: yellow).
+    expect(screen.getByTestId("signal-chai-chip")).toHaveTextContent("+1 Chai");
+    expect(screen.getByTestId("signal-play-game")).toBeInTheDocument();
   });
 
   test("gap 3 rotates to the second eligible game", () => {
@@ -186,6 +224,11 @@ describe("signal encounter (story 3)", () => {
     expect(btn).toHaveAttribute("data-state", "waved");
     // Waved signals stay tappable: the unclaimed Chai stays claimable later.
     expect(btn).toBeEnabled();
+    // Hotfix 3 item 4: the wave receipt lands as a house toast.
+    expect(toastMock).toHaveBeenCalledWith({
+      description:
+        "Waved through. The signalman kept your Chai warm, come back anytime.",
+    });
   });
 
   test("a cleared signal reads cleared and offers a replay", () => {
@@ -198,6 +241,9 @@ describe("signal encounter (story 3)", () => {
     expect(screen.getByText("Signal already cleared")).toBeInTheDocument();
     expect(screen.getByTestId("signal-play-game")).toBeInTheDocument();
     expect(screen.queryByTestId("signal-wave-through")).not.toBeInTheDocument();
+    // Hotfix 3 STATE MODEL: a green replay dialog NEVER shows the Chai chip
+    // (the grant was already claimed; replays pay nothing).
+    expect(screen.queryByTestId("signal-chai-chip")).not.toBeInTheDocument();
   });
 
   test("a zone under the min floor auto-waves with the signalman quip", () => {
