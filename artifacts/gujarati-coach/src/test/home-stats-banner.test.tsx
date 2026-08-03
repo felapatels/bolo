@@ -141,6 +141,30 @@ describe("home stats banner", () => {
     expect(screen.queryByText(/couldn't load/i)).toBeNull();
   });
 
+  // Wallet polish item 4: Chai is a fifth full stat cell that opens the
+  // wallet sheet; the 5B corner chip is gone.
+  test("the Chai cell renders in the stats row and opens the wallet sheet", async () => {
+    h.summary = {
+      currentStreakDays: 3,
+      speakingStreakDays: 2,
+      xp: 120,
+      phrasesMastered: 8,
+      attemptsToday: 0,
+    };
+    renderHome();
+    const row = bannerRow();
+    const cell = within(row).getByTestId("stat-chai");
+    // Tokens are idle-mocked here, so the count renders the loading dash.
+    expect(within(cell).getByText("-")).toBeInTheDocument();
+    expect(within(cell).getByText("Chai")).toBeInTheDocument();
+    // The old corner chip must be gone.
+    expect(screen.queryByTestId("chai-balance-chip")).toBeNull();
+    // Tapping the cell opens the wallet sheet.
+    expect(screen.queryByTestId("chai-wallet-sheet")).toBeNull();
+    await userEvent.setup().click(cell);
+    expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
+  });
+
   test("keeps the reserved shell hidden while summary is pending", () => {
     renderHome();
     const row = bannerRow();

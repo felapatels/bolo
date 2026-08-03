@@ -57,6 +57,7 @@ export function useExpressCountdown(
   activeUntil: string | null | undefined,
 ): string | null {
   const target = activeUntil ? new Date(activeUntil).getTime() : null;
+  const queryClient = useQueryClient();
   const [now, setNow] = useState(() => Date.now());
   const active = target !== null && Number.isFinite(target) && target > now;
 
@@ -65,6 +66,19 @@ export function useExpressCountdown(
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [active]);
+
+  // Wallet polish item 3: when the multiplier expires, pull fresh token
+  // state so every surface returns to its default within a second, no
+  // reopen required. One timeout keyed on the expiry timestamp; no polling.
+  useEffect(() => {
+    if (target === null || !Number.isFinite(target)) return;
+    const delay = target - Date.now();
+    if (delay <= 0) return;
+    const id = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+    }, delay + 250);
+    return () => clearTimeout(id);
+  }, [queryClient, target]);
 
   if (!active || target === null) return null;
   const totalSeconds = Math.max(0, Math.floor((target - now) / 1000));
@@ -106,35 +120,6 @@ function useSpendWithRefresh() {
       },
     },
   });
-}
-
-/**
- * Small Chai balance chip for the stats banner. Loading renders a dash,
- * never a spinner. Tapping opens the wallet sheet.
- */
-export function ChaiBalanceChip({ className }: { className?: string }) {
-  const tokensQuery = useGetTokens();
-  const [open, setOpen] = useState(false);
-  const balance = tokensQuery.data?.balance;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Chai balance"
-        data-testid="chai-balance-chip"
-        className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-black transition-colors",
-          className,
-        )}
-      >
-        <Coffee className="h-4 w-4" aria-hidden="true" />
-        <span>{balance ?? "-"}</span>
-      </button>
-      <ChaiWalletSheet open={open} onOpenChange={setOpen} />
-    </>
-  );
 }
 
 /** Bottom sheet: balance, Station Pause row, Express Multiplier row. */
@@ -181,7 +166,7 @@ export function ChaiWalletSheet({
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Station Pause</p>
               <p className="text-xs leading-snug text-muted-foreground">
-                Covers a missed day so your streak rides on. 5 Chai.
+                Covers a missed day so your streak rides on.
               </p>
               <p className="mt-1 text-xs font-bold text-muted-foreground">
                 {tokens?.stationPausesEquipped ?? 0} of{" "}
@@ -193,9 +178,10 @@ export function ChaiWalletSheet({
               disabled={spend.isPending}
               onClick={() => spend.mutate({ data: { item: "station_pause" } })}
               data-testid="wallet-equip-pause"
-              className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
             >
-              Equip
+              <span>Equip · 5</span>
+              <Coffee className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
 
@@ -203,7 +189,7 @@ export function ChaiWalletSheet({
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Express Multiplier</p>
               <p className="text-xs leading-snug text-muted-foreground">
-                Double XP for 20 minutes. 10 Chai.
+                Double XP for 20 minutes.
               </p>
             </div>
             {countdown ? (
@@ -221,9 +207,10 @@ export function ChaiWalletSheet({
                   spend.mutate({ data: { item: "express_multiplier" } })
                 }
                 data-testid="wallet-start-express"
-                className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
               >
-                Start
+                <span>Start · 10</span>
+                <Coffee className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
           </div>

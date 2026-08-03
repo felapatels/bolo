@@ -1,8 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
-import { ChaiBalanceChip } from "@/components/chai-wallet";
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle, Coffee } from "lucide-react";
+import { ChaiWalletSheet } from "@/components/chai-wallet";
 import { Link, useLocation } from "wouter";
-import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
+import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
@@ -210,6 +210,11 @@ export default function Home() {
   const reduceMotion = useReducedMotion();
   const isDesktop = useIsDesktop();
   const [, navigate] = useLocation();
+  // Wallet polish item 4: Chai lives in the stats row as a fifth cell that
+  // opens the wallet sheet (the 5B corner chip is gone). Loading renders a
+  // dash, never a spinner (5B ruling).
+  const tokensQuery = useGetTokens();
+  const [walletOpen, setWalletOpen] = useState(false);
   // Boarding-pass stub tear (home pass only). `tearing` toggles the CSS
   // classes; the timer ref lets unmount cancel a pending delayed navigation.
   const [tearing, setTearing] = useState(false);
@@ -596,12 +601,6 @@ export default function Home() {
           <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
           <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
-          {/* Chai balance chip (Chunk 5B): its own header line above the stat
-              cells so the four-cell row keeps its exact reserved layout. */}
-          <div className="relative mb-3 flex justify-end">
-            <ChaiBalanceChip className="bg-white/15 text-white hover:bg-white/25" />
-          </div>
-
           <div
             key={summary ? "stats-ready" : "stats-pending"}
             className={`relative flex items-stretch ${summary ? "" : "invisible"}`}
@@ -633,6 +632,16 @@ export default function Home() {
             <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
             <div className="w-px self-stretch bg-white/25" />
             <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
+            <div className="w-px self-stretch bg-white/25" />
+            <StatCell
+              icon={<Coffee className="w-6 h-6" />}
+              value={tokensQuery.data?.balance ?? "-"}
+              label="Chai"
+              delay={0.4}
+              onClick={() => setWalletOpen(true)}
+              ariaLabel="Chai balance"
+              testId="stat-chai"
+            />
           </div>
 
           {/* Locked-language 402 (86ae84f restoration): an upgrade_required
@@ -681,6 +690,8 @@ export default function Home() {
             </div>
           )}
         </motion.div>
+
+        <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
       </header>
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
@@ -1015,9 +1026,32 @@ export default function Home() {
   );
 }
 
-function StatCell({ icon, value, label, delay = 0 }: { icon: React.ReactNode; value: number; label: string; delay?: number }) {
+function StatCell({
+  icon,
+  value,
+  label,
+  delay = 0,
+  onClick,
+  ariaLabel,
+  testId,
+}: {
+  icon: React.ReactNode;
+  value: number | string;
+  label: string;
+  delay?: number;
+  onClick?: () => void;
+  ariaLabel?: string;
+  testId?: string;
+}) {
+  // Same structure whether static or tappable; the Chai cell passes onClick
+  // so it renders as a button that opens the wallet sheet.
+  const Cell = onClick ? motion.button : motion.div;
   return (
-    <motion.div
+    <Cell
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      data-testid={testId}
       initial={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay, type: "spring", stiffness: 320, damping: 18 }}
@@ -1033,6 +1067,6 @@ function StatCell({ icon, value, label, delay = 0 }: { icon: React.ReactNode; va
       </motion.div>
       <div className="text-2xl font-black leading-none lg:text-3xl">{value}</div>
       <div className="text-[11px] font-bold uppercase tracking-wider text-white">{label}</div>
-    </motion.div>
+    </Cell>
   );
 }
