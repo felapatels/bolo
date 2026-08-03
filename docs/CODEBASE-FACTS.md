@@ -1176,3 +1176,39 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 **Test surface.** New: `api-server/src/test/signalWaves.test.ts` (wave insert idempotency, SignalWaveBody zod, grantTokensDetailed granted flag, reward accessor, signals-payload derivation — justified as a genuinely new server surface). Modified: `gameSessions.test.ts` (accessor replaces the removed flat const), `journey-signals.test.tsx` (server-truth states, payload-driven chip, wave persistence spies, Signalman pin), `practice-streak-xp.test.tsx` (Chai receipt pill sum + absent cases).
 
 **Known debt.** The web mock base (`api-client-mock.ts`) auto-covers new hooks, but per-file `useListCategoryLessonGroups` overrides that omit `signals` silently fall back to local-only derivation (rewardChai defaults to 1 client-side). Waves POSTed while offline are lost (fire-and-forget, no retry queue); the local mark still covers the session.
+
+---
+
+### Signal polish batch (Aug 3, 2026)
+
+**Game-session pass gate (`lib/tokenEconomy.ts` + `routes/learning.ts`).** `gameSessionPassed(correct, total)`: passing means strictly more than half the server-validated rounds. Signal and closeout Chai grants fire only on passing sessions; a failing run leaves the once-ever refId unspent, so a later passing run still pays. Hub sessions, XP, and badges are ungated; the response shape is unchanged (chaiGranted is simply absent on fails). The web frame marks a signal cleared only when the response carries a positive `chaiGranted` (a client-side majority mirror would drift on wrapped plans: the server counts deduplicated first attempts per phrase, rounds may repeat phrases); replays of an already-cleared signal are covered by the journey's server-truth clears list.
+
+**Signal lamp visibility (`components/journey-scenery.tsx`).** SignalGlyph renders 40x50 (was 32x40; viewBox unchanged so the geometry scales as one piece) with lamp-only brighter fills: `SIGNAL_AMBER #ffb300` (waved) and `SIGNAL_GREEN #22c55e` (cleared). Scenery-wide `AMBER`/`LEAF` are untouched. Hit target is now 56x66 via the existing p-2 wrapper (44px minimum still holds).
+
+**Ticket Check reveal (`pages/games/ticket-check.tsx`).** Choices stay native-script-only during play; after the answer every ticket reveals its own romanized line (skipped when the field is empty, which covers ks/sd/ur/sat/mni) and the correct ticket adds its English meaning. Both outcomes now hold on the house "Tap to continue" beat; correct answers no longer auto-advance after 700ms, so the reveal is readable.
+
+**Test surface.** Extended only, no new files: `gameSessions.test.ts` (pass-gate pins, including the 1-of-8 evidence run), `quick-game-frame.test.tsx` (failing run never marks cleared; Ticket Check reveal describe; the marks-cleared pin now plays a passing 2 of 2).
+
+## 11. House Patterns
+
+One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.
+
+- **Quick-game frame**: `pages/games/quick-game-frame.tsx`. QuickGameShell owns picker/countdown/rounds/result and the POST; rounds implement `QuickRoundProps` and report via `api.submitRound`, never their own persistence.
+- **Branded toast**: `components/ui/milestone-toast.tsx`. Milestone celebration toast used by home and practice; use it instead of raw sonner for branded moments.
+- **Layer-map scene kit**: `components/brand-splash.tsx`. `SPLASH_V2_ASSETS` path registry + `useComposedReveal` + ready-signal hold with the `--splash-max-hold` failsafe (a stuck signal can never trap the user).
+- **cssTimeMs**: `lib/utils.ts`. Minifier-safe parsing of computed CSS time vars to milliseconds (prod rewrites 8000ms as 8s; bare parseFloat reads 8).
+- **FactStrip**: `pages/journey.tsx`. Compact labeled fact row used in journey dialogs.
+- **Earn chips**: `pages/games/quick-game-frame.tsx` (`chai-earn-beat`) and `pages/practice.tsx` (`session-chai-pill`). Amber earn pills; render only when the server actually granted.
+- **StatCell**: `pages/home.tsx`. Uniform stat tile for dashboard grids.
+- **Countdown capability**: `pages/games/quick-game-frame.tsx` `secondsPerRound` prop. Opt-in 3-2-1 pre-round count plus a timer pill that goes urgent inside the final 2 seconds.
+- **Audio-active treatment**: `pages/games/quick-game-frame.tsx` `setAudioPlaying`. The mute control wears the active (green) treatment while a clip is playing.
+- **Session-memory helpers**: `lib/quick-games.ts`. Per-language keys: waves are session-scoped, cleared marks device-scoped, plus stop-seen and closeout-stage memory.
+- **Scenery planners**: `components/journey-scenery.tsx`. Deterministic per-zone scenery planning; seed-stable so the map never reshuffles between renders.
+- **Inline-SVG character pattern**: `components/journey-scenery.tsx` (TrainEngine, SignalmanGlyph). Hand-drawn flat shapes from brand palette consts; no gradients, no raster, whole-glyph motion only.
+- **Traffic-light state model**: `components/journey-scenery.tsx` SignalGlyph. One geometry, states upcoming/active/waved/cleared expressed by arm rotation and lamp fill only.
+- **Soft-stop auto-open**: `pages/journey.tsx` + `markSignalStopSeen`. Encounter auto-opens once per session; a manual open counts as seen, so nothing re-opens on the learner.
+- **First-sight seeding**: `lib/quick-games.ts` `seedCloseoutStages`/`closeoutStateUnseeded`. Already-done zones seed straight to done on first sight so nothing retro-celebrates.
+- **Two-beat overlay**: `components/zone-closeout.tsx`. Celebration overlay staged as two beats (result, then reward) instead of one dense card.
+- **Expiry-refetch hook**: `components/chai-wallet.tsx`. One timeout keyed on the expiry timestamp refetches token state when a multiplier lapses; no polling.
+- **UpgradeCard + PlusPill**: `components/plus.tsx`. The only sanctioned upsell card and Plus badge; reuse them rather than composing ad-hoc upgrade UI.
+- **Spend contract**: `components/chai-wallet.tsx` wrapper over `useSpendTokens`. Server-authoritative spends; the client never decrements a balance locally, it refetches on success.

@@ -136,6 +136,7 @@ import {
   TOKEN_EARN_EXPRESS_STAMP,
   EXPRESS_MULTIPLIER_FACTOR,
   signalFirstClearChai,
+  gameSessionPassed,
   CLOSEOUT_FIRST_CHAI,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
@@ -2111,8 +2112,14 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   // Once-ever Chai grants for signal and closeout contexts. Idempotency comes
   // from the ledger's unique (user, reason, refId) index — replays are silent
   // no-ops. Badge evaluation is unaffected regardless of context.
+  //
+  // Signal polish item 1 (Branch A): grants fire on PASSING sessions only
+  // (majority correct, per the frozen Chunk 6 spec). A failing run leaves the
+  // once-ever refId unspent, so a later passing run still pays. Hub sessions
+  // have no grant path and are unaffected; XP and badges are ungated.
+  const sessionPassed = gameSessionPassed(correctCount, totalCount);
   let chaiGranted: number | undefined;
-  if (context === "signal") {
+  if (context === "signal" && sessionPassed) {
     const reason = "earn_signal_first_clear" as const;
     const refId = `${languageCode}:${categoryId}:${contextRef}`;
     // Hotfix 3S Item 4: the amount comes from the single server-side reward
@@ -2127,7 +2134,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     } catch (err) {
       req.log.warn({ err }, "token_signal_grant_failed");
     }
-  } else if (context === "closeout") {
+  } else if (context === "closeout" && sessionPassed) {
     const reason = "earn_closeout_first" as const;
     const refId = `${languageCode}:${categoryId}`;
     try {

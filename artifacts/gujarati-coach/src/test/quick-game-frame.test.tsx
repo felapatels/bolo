@@ -55,6 +55,7 @@ import {
   QuickGameShell,
   type QuickRoundProps,
 } from "@/pages/games/quick-game-frame";
+import TicketCheckPage from "@/pages/games/ticket-check";
 import { quickGameById, isSignalCleared } from "@/lib/quick-games";
 import type { Phrase } from "@workspace/api-client-react";
 
@@ -204,7 +205,9 @@ describe("signal launch (?cat&ctx=signal&gap)", () => {
     h.chai = 1;
     renderFrame("/games/signal-lights?cat=7&ctx=signal&gap=3");
     expect(screen.queryByText("Choose a topic to play from")).not.toBeInTheDocument();
-    playRounds("hit", "miss");
+    // Signal polish item 1: the local cleared mark now rides the server
+    // grant (h.chai = 1 above), so this pin plays a clean passing 2 of 2.
+    playRounds("hit", "hit");
 
     const data = postedData();
     expect(data.context).toBe("signal");
@@ -225,6 +228,18 @@ describe("signal launch (?cat&ctx=signal&gap)", () => {
     playRounds("hit", "hit");
     expect(screen.getByTestId("quick-end")).toBeInTheDocument();
     expect(screen.queryByTestId("chai-earn-beat")).not.toBeInTheDocument();
+  });
+
+  test("a failing run never marks the signal cleared (pass gate, item 1)", () => {
+    h.chai = 0;
+    renderFrame("/games/signal-lights?cat=7&ctx=signal&gap=3");
+    // 1 of 2 is not a majority: the server's pass gate grants nothing
+    // (chaiGranted 0 mocked above), the session still POSTs (XP is ungated),
+    // and the cleared mark rides the absent grant, so it must stay unset.
+    playRounds("hit", "miss");
+    expect(screen.getByTestId("quick-end")).toBeInTheDocument();
+    expect(postedData().context).toBe("signal");
+    expect(isSignalCleared("gu", 3)).toBe(false);
   });
 });
 
@@ -305,5 +320,84 @@ describe("malformed launches", () => {
     expect(
       screen.getByText("Need at least 2 phrases for this game. Choose another topic."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("ticket check learning reveal (Signal polish item 3)", () => {
+  // Renders the REAL Ticket Check page (floor 4; category 7 has 5 phrases).
+  // The round plan is shuffled, so the correct ticket is identified from the
+  // prompt's English line ("word N") rather than a fixed index.
+  function renderTicket() {
+    const { hook } = memoryLocation({ path: "/games/ticket-check?cat=7" });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <Router hook={hook}>
+          <TicketCheckPage />
+        </Router>
+      </QueryClientProvider>,
+    );
+  }
+
+  function promptId(): number {
+    const prompt = screen.getByText(/^word \d+$/);
+    return Number(prompt.textContent!.replace("word ", ""));
+  }
+
+  function choiceButton(id: number) {
+    return screen.getByText(`ન${id}`).closest("button")!;
+  }
+
+  test("a wrong answer reveals every ticket's romanized line, the meaning on the correct one, and holds on the continue beat", () => {
+    renderTicket();
+    const correct = promptId();
+    const wrong = correct === 1 ? 2 : 1;
+    fireEvent.click(choiceButton(wrong));
+
+    // Every ticket shows its own romanized line (the prompt duplicates the
+    // correct one's, hence getAllByText).
+    for (const id of [1, 2, 3, 4]) {
+      expect(screen.getAllByText(`r${id}`).length).toBeGreaterThanOrEqual(1);
+    }
+    // Only the correct ticket carries the English meaning.
+    expect(choiceButton(correct)).toHaveTextContent(`word ${correct}`);
+    expect(choiceButton(wrong)).not.toHaveTextContent(/word \d/);
+
+    fireEvent.click(screen.getByTestId("ticket-check-continue"));
+    expect(screen.queryByTestId("ticket-check-continue")).not.toBeInTheDocument();
+  });
+
+  test("a correct answer holds on the same continue beat instead of auto-advancing", () => {
+    vi.useFakeTimers();
+    try {
+      renderTicket();
+      const correct = promptId();
+      fireEvent.click(choiceButton(correct));
+      expect(screen.getByTestId("ticket-check-continue")).toBeInTheDocument();
+      // The old flow auto-advanced 700ms after a correct pick; prove the
+      // timer is gone, not merely unelapsed.
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(screen.getByTestId("ticket-check-continue")).toBeInTheDocument();
+      expect(choiceButton(correct)).toHaveTextContent(`r${correct}`);
+      expect(choiceButton(correct)).toHaveTextContent(`word ${correct}`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("languages without romanization render no empty romanized slot", () => {
+    h.phrases = [1, 2, 3, 4].map((id) => ({ ...ph(id), romanized: "" }) as unknown as Phrase);
+    renderTicket();
+    const correct = promptId();
+    fireEvent.click(choiceButton(correct));
+    for (const id of [1, 2, 3, 4]) {
+      const spans = choiceButton(id).querySelectorAll("span");
+      // Plain tickets keep a single native-script span; the correct one adds
+      // the meaning span plus the check-icon wrapper. No empty romanized span
+      // may render anywhere.
+      expect(spans.length).toBe(id === correct ? 3 : 1);
+    }
   });
 });

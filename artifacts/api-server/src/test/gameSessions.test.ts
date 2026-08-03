@@ -34,6 +34,7 @@ import {
 import {
   signalFirstClearChai,
   CLOSEOUT_FIRST_CHAI,
+  gameSessionPassed,
 } from "../lib/tokenEconomy.js";
 
 // Mirrors the GameSessionBody zod additions in routes/learning.ts.
@@ -232,6 +233,21 @@ describe("closeout context: once-ever Chai grant", () => {
 });
 
 // ---- Item 6: contextRef + context validation --------------------------------
+
+describe("pass gate: majority correct (Signal polish item 1)", () => {
+  // The route gates BOTH the signal and closeout grant branches on this exact
+  // function, so pinning it here pins the grant condition. The owner evidence
+  // run (1 of 8 correct paying Chai) must be impossible under this rule.
+  it("gameSessionPassed: passing means strictly more than half the rounds", () => {
+    assert.strictEqual(gameSessionPassed(1, 8), false, "1 of 8 (the owner evidence run) must not pass");
+    assert.strictEqual(gameSessionPassed(4, 8), false, "exactly half is not a majority");
+    assert.strictEqual(gameSessionPassed(5, 8), true, "5 of 8 passes");
+    assert.strictEqual(gameSessionPassed(1, 3), false, "1 of 3 fails");
+    assert.strictEqual(gameSessionPassed(2, 3), true, "2 of 3 passes");
+    assert.strictEqual(gameSessionPassed(1, 1), true, "a perfect single-round run passes");
+    assert.strictEqual(gameSessionPassed(0, 1), false, "an all-miss run fails");
+  });
+});
 
 describe("contextRef / context payload validation", () => {
   // 6a: contextRef regex

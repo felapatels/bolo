@@ -1469,7 +1469,7 @@ export default function Journey() {
                   setSignalDlg(sig);
                 }}
                 className={cn(
-                  // p-2 on the 32x40 glyph keeps the hit target at 48x56
+                  // p-2 on the 40x50 glyph keeps the hit target at 56x66
                   // (44px minimum, Item 1); every active signal carries the
                   // attention pulse, motion-safe only. RED FUTURE renders
                   // full color, non-tappable, with no dead-feeling cursor

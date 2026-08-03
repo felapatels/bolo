@@ -22,6 +22,15 @@ export function signalFirstClearChai(languageCode: string): number {
 }
 export const CLOSEOUT_FIRST_CHAI = 2;
 
+// Signal polish item 1 (Branch A): the frozen Chunk 6 spec pays signal and
+// closeout Chai on PASSING sessions only. Passing means majority correct,
+// score strictly greater than half the server-validated rounds. The route is
+// the only caller; tests exercise this exact function so the rule cannot
+// drift between grant paths.
+export function gameSessionPassed(correctCount: number, totalCount: number): boolean {
+  return correctCount > totalCount / 2;
+}
+
 export const STATION_PAUSE_COST = 5;
 export const STATION_PAUSE_MAX_EQUIPPED = 2;
 export const EXPRESS_MULTIPLIER_COST = 10;

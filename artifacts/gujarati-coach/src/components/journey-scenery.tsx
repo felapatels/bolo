@@ -279,6 +279,10 @@ const SLATE_SHADE = "#475569"; // darker step of SLATE
 const INDIGO = "#5048e5"; // brand primary ink (crossing crossbuck trim)
 const TEAL = "#0d9488"; // brand secondary (crossing hardware)
 const SIGNAL_RED = "#ef4444"; // crossing stop lamp + gate-arm stripes
+// Signal polish item 2: lamp-only fills, a step brighter and more saturated
+// than the scenery AMBER/LEAF so the three states read at a glance on the map.
+const SIGNAL_AMBER = "#ffb300"; // waved lamp
+const SIGNAL_GREEN = "#22c55e"; // cleared lamp
 const PINK_SHADE = "#be185d"; // darker step of PINK
 const STONE = "#e7e5e4"; // cow hide
 const STONE_SHADE = "#a8a29e"; // darker step of STONE
@@ -659,7 +663,7 @@ export function SignalGlyph({
   state: "upcoming" | "active" | "waved" | "cleared";
 }) {
   const barDown = state === "upcoming" || state === "active";
-  const lamp = barDown ? SIGNAL_RED : state === "waved" ? AMBER : LEAF;
+  const lamp = barDown ? SIGNAL_RED : state === "waved" ? SIGNAL_AMBER : SIGNAL_GREEN;
   // The striped gate arm, drawn pointing left from its pivot on the post.
   // The bar-up states rotate this same group about the pivot, so the arm's
   // geometry is identical in every state.
@@ -671,8 +675,10 @@ export function SignalGlyph({
       <rect x={14} y={21.4} width={2.4} height={2} rx={0.6} fill={SIGNAL_RED} />
     </g>
   );
+  // Signal polish item 2: rendered a step larger (was 32x40); the viewBox is
+  // unchanged so the glyph geometry scales as one piece.
   return (
-    <svg width={32} height={40} viewBox="0 0 32 40" aria-hidden focusable="false">
+    <svg width={40} height={50} viewBox="0 0 32 40" aria-hidden focusable="false">
       {/* post + base */}
       <rect x={15} y={7} width={2.8} height={29} rx={1.2} fill={SLATE_SHADE} />
       <rect x={10.4} y={35.4} width={12} height={3} rx={1.5} fill={TEAL} />

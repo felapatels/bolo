@@ -409,7 +409,13 @@ export function QuickGameShell({
             setChaiEarned(granted);
             queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
           }
-          if (launch.context === "signal" && launch.gap !== null) {
+          // Signal polish item 1: the local cleared mark rides the server
+          // grant itself, so it can never outrun the ledger. A client-side
+          // majority mirror would drift on wrapped plans (the server counts
+          // deduplicated first attempts per phrase, rounds may repeat
+          // phrases). Replays of an already-cleared signal grant nothing, and
+          // the journey's server-truth clears list covers those.
+          if (launch.context === "signal" && launch.gap !== null && granted > 0) {
             markSignalCleared(activeLang, launch.gap);
           }
         },

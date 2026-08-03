@@ -61,12 +61,6 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
     setPicked(idx);
     const correct = idx === q.correctIdx;
     webHaptic(correct ? "success" : "warning");
-    if (correct) {
-      setTimeout(
-        () => api.submitRound({ phraseId: q.phrase.id, selectedPhraseId: q.choices[idx]!.id, correct: true }),
-        700,
-      );
-    }
   };
 
   return (
@@ -92,13 +86,25 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
               onClick={() => handlePick(idx)}
               disabled={answered}
               className={cn(
-                "relative flex min-h-[80px] items-center justify-center rounded-2xl border p-3 text-center font-semibold transition-all active:scale-[0.97]",
+                "relative flex min-h-[80px] flex-col items-center justify-center gap-1 rounded-2xl border p-3 text-center font-semibold transition-all active:scale-[0.97]",
                 cardClass,
               )}
             >
               <span style={native.style} dir={native.dir} className="text-base leading-snug text-foreground">
                 {choice.nativeScript}
               </span>
+              {/* Item 3 learning reveal: after the answer every ticket shows
+                  its romanized line; the correct ticket also shows its English
+                  meaning. Languages without romanization (empty romanized
+                  field) render no empty slot. */}
+              {answered && choice.romanized.trim() !== "" && (
+                <span className="text-xs font-medium text-muted-foreground">{choice.romanized}</span>
+              )}
+              {answered && idx === q.correctIdx && (
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  {choice.english}
+                </span>
+              )}
               {answered && idx === q.correctIdx && (
                 <span className="absolute right-2 top-2">
                   <Check className="h-4 w-4 text-emerald-600" />
@@ -114,13 +120,16 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
         })}
       </div>
 
-      {answered && !wasCorrect && (
+      {/* Item 3: the reveal rides the house continue beat for BOTH outcomes,
+          so the learner controls how long the romanized and meaning lines
+          stay up (correct answers used to auto-advance after 700ms). */}
+      {answered && (
         <button
           onClick={() =>
             api.submitRound({
               phraseId: q.phrase.id,
               selectedPhraseId: q.choices[picked!]!.id,
-              correct: false,
+              correct: wasCorrect,
             })
           }
           data-testid="ticket-check-continue"
