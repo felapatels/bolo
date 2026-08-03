@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/images/mascot/mascot-wave.png",
       "resizeMode": "contain",
-      "backgroundColor": "#fffdf0"
+      "backgroundColor": "#F8FAFC"
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",

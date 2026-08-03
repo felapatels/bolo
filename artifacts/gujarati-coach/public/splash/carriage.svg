@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140" fill="none">
+  <!-- Splash v2 PLACEHOLDER carriage (owner will swap final art via
+       SPLASH_V2_ASSETS in brand-splash.tsx). Simple shapes in the brand
+       train palette: white body, deep indigo roof/chassis, teal trim.
+       The CENTER WINDOW is a true transparent aperture (evenodd hole):
+       x 88..152, y 34..82 in this 240x140 viewBox. brand-splash.tsx
+       positions Bolo behind it using those same fractions. -->
+  <!-- roof vent: steam anchor, center x=195 -->
+  <rect x="186" y="0" width="18" height="12" rx="3" fill="#312E81"/>
+  <rect x="184" y="0" width="22" height="4" rx="2" fill="#0D9488"/>
+  <!-- roof -->
+  <rect x="14" y="8" width="212" height="16" rx="8" fill="#312E81"/>
+  <!-- body with the empty center window (aperture cut via evenodd) -->
+  <path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M26 20h188a16 16 0 0 1 16 16v52a16 16 0 0 1-16 16H26a16 16 0 0 1-16-16V36a16 16 0 0 1 16-16Zm72 14h44a10 10 0 0 1 10 10v28a10 10 0 0 1-10 10H98a10 10 0 0 1-10-10V44a10 10 0 0 1 10-10Z"/>
+  <!-- window frame ring around the aperture -->
+  <rect x="86" y="32" width="68" height="52" rx="12" stroke="#312E81" stroke-width="4"/>
+  <!-- flanking filled windows, glazed tint -->
+  <rect x="30" y="38" width="38" height="30" rx="8" fill="#C7D2FE" opacity="0.9"/>
+  <rect x="172" y="38" width="38" height="30" rx="8" fill="#C7D2FE" opacity="0.9"/>
+  <!-- teal trim stripe -->
+  <rect x="10" y="92" width="220" height="7" rx="3.5" fill="#0D9488"/>
+  <!-- chassis bar -->
+  <rect x="18" y="104" width="204" height="8" rx="4" fill="#312E81"/>
+  <!-- wheels -->
+  <circle cx="64" cy="122" r="13" fill="#1E293B"/>
+  <circle cx="64" cy="122" r="5" fill="#E2E8F0"/>
+  <circle cx="176" cy="122" r="13" fill="#1E293B"/>
+  <circle cx="176" cy="122" r="5" fill="#E2E8F0"/>
+</svg>

@@ -15,6 +15,28 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- Boot gap fix (splash v2, item 4): the document's first paint must
+         match the splash backdrop exactly so no white flash precedes the
+         splash. Keep in sync with the brand-splash.tsx overlay gradient
+         (bg-gradient-to-br from-primary via-[hsl(220,70%,52%)] to-secondary,
+         light :root palette). Once React mounts, body paints its normal
+         background beneath content as before. -->
+    <style>
+      html {
+        background: linear-gradient(
+          to bottom right,
+          hsl(243 75% 59%),
+          hsl(220 70% 52%),
+          hsl(174 84% 32%)
+        );
+      }
+      /* Until React mounts into #root, let the boot gradient show through
+         (in browsers without :has(), body simply paints its app background
+         once the stylesheet loads, exactly as before). */
+      body:has(> #root:empty) {
+        background: transparent;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

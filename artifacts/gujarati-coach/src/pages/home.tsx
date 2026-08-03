@@ -333,10 +333,11 @@ export default function Home() {
       },
     },
   );
-  // Cold-start brand splash (task 902): overlays the loading home on the
-  // first arrival of a page load. It never delays the queries above/below
-  // (they fire on this same render, exactly as before), cuts short the moment
-  // categories land, and skips for reduced motion, warm cache, navigation
+  // Cold-start brand splash v2: overlays the loading home on the first
+  // arrival of a page load. It never delays the queries above/below (they
+  // fire on this same render, exactly as before), HOLDS until categories
+  // land (the ready signal), releases with a max-hold failsafe, renders a
+  // static frame under reduced motion, and skips for warm cache, navigation
   // back, and any decision failure. Lifecycle lives in brand-splash.tsx;
   // timing constants in the index.css :root tuning block.
   const splash = useBrandSplash(!loadingCats);

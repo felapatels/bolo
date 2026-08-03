@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 44" fill="none">
+  <!-- Splash v2 PLACEHOLDER steam puff A (swap via SPLASH_V2_ASSETS). -->
+  <g fill="#FFFFFF">
+    <circle cx="18" cy="30" r="12" opacity="0.95"/>
+    <circle cx="34" cy="20" r="15" opacity="0.9"/>
+    <circle cx="47" cy="31" r="9" opacity="0.8"/>
+  </g>
+</svg>

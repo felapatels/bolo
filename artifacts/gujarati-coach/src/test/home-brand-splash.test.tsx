@@ -5,14 +5,15 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 import { PLUS_ENTITLEMENTS } from "./fixtures";
 
-// Cold-load brand splash + home skeleton (task 902). Pins the behavior
-// contract of useBrandSplash/BrandSplash and the skeleton handoff:
+// Cold-load brand splash v2 + home skeleton. Pins the behavior contract of
+// useBrandSplash/BrandSplash (ready-signal hold) and the skeleton handoff:
 // (1) a cold load with data still in flight shows the skeleton with the
-//     splash overlaying it, and data landing cuts the moment short (the
-//     handoff fires well before the 1800ms full beat);
-// (2) the moment retires on its own at the full beat even if data never
-//     lands, leaving the skeleton;
-// (3) reduced motion mounts no moment at all: straight to skeleton/content;
+//     splash (layered carriage/Bolo/steam composition) overlaying it, and
+//     the ready signal landing releases the hold immediately;
+// (2) the max-hold failsafe retires the moment even if the ready signal
+//     never lands, leaving the skeleton;
+// (3) reduced motion renders the STATIC composed frame (no animation
+//     classes, single wing frame), never a blank screen;
 // (4) warm cache (data ready at first paint) skips the moment entirely;
 // (5) a remount (client-side navigation back to home) never replays it;
 // (6) a failure inside the moment falls through to the normal loading home.
@@ -163,35 +164,44 @@ beforeEach(() => {
   __resetBrandSplashForTests();
 });
 
-describe("home brand splash (task 902)", () => {
-  test("cold load overlays the moment on the skeleton; data landing cuts it short and hands off", async () => {
+describe("home brand splash v2", () => {
+  test("cold load overlays the moment on the skeleton; the ready signal landing releases the hold", async () => {
       const { rerenderHome } = renderHome();
     // Splash overlays the ticket-and-card skeleton, never a bare spinner.
     expect(splash()).not.toBeNull();
     expect(skeleton()).not.toBeNull();
     expect(screen.queryByText("Phrasebook")).toBeNull();
-    // Mascot (canonical PNG), wordmark and train are all in the moment.
+    // Every SPLASH_V2_ASSETS layer is in the composition: carriage, both
+    // wing frames in the window clip box, both steam puffs, wordmark.
+    const overlay = splash() as HTMLElement;
+    expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
+    const windowBox = overlay.querySelector('[data-testid="splash-window"]');
+    expect(windowBox).not.toBeNull();
     expect(
-      (splash() as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
+      (windowBox as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
     ).not.toBeNull();
-    expect(splash()).toHaveTextContent("Bolo!");
-    expect((splash() as HTMLElement).querySelector(".animate-splash-train")).not.toBeNull();
+    expect(
+      (windowBox as HTMLElement).querySelector('img[src*="mascot-cheer.png"]'),
+    ).not.toBeNull();
+    expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
+    expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
+    expect(overlay).toHaveTextContent("Bolo!");
 
-    // Data lands mid-moment: the splash flips to its exit fade immediately...
+    // The ready signal lands: the splash flips to its exit fade immediately...
     h.catsLoading = false;
     rerenderHome();
     expect((splash() as HTMLElement).classList.contains("brand-splash-exiting")).toBe(true);
     // ...and unmounts after the short exit fade. waitFor's 1s default timeout
-    // is well under the 1800ms full-beat fallback, so this passing proves the
-    // data-ready cut-short, not the timer.
+    // is far under the 8s max-hold fallback, so this passing proves the
+    // ready-signal release, not the failsafe.
     await waitFor(() => expect(splash()).toBeNull());
     expect(screen.getByText("Phrasebook")).toBeInTheDocument();
     expect(skeleton()).toBeNull();
   });
 
-  test("the moment retires at the full beat even when data never lands, leaving the skeleton", async () => {
+  test("the max-hold failsafe retires the moment when the ready signal never lands, leaving the skeleton", async () => {
     // Feed tiny durations through the tuning-var reader so the test does not
-    // sit through the real 1800ms beat.
+    // sit through the real 8s max-hold cap.
     const original = window.getComputedStyle.bind(window);
     const spy = vi
       .spyOn(window, "getComputedStyle")
@@ -199,7 +209,7 @@ describe("home brand splash (task 902)", () => {
         if (el === document.documentElement) {
           return {
             getPropertyValue: (name: string) =>
-              name === "--splash-duration" ? "60" : name === "--splash-exit" ? "40" : "",
+              name === "--splash-max-hold" ? "60" : name === "--splash-exit" ? "40" : "",
           } as CSSStyleDeclaration;
         }
         return original(el, pseudo);
@@ -216,11 +226,25 @@ describe("home brand splash (task 902)", () => {
     }
   });
 
-  test("reduced motion mounts no moment: straight to the skeleton", () => {
+  test("reduced motion renders the static composed frame: no animation classes, never blank", async () => {
     h.reduceMotion = true;
-    renderHome();
-    expect(splash()).toBeNull();
+    const { rerenderHome } = renderHome();
+    // The splash still mounts (never a blank screen) over the skeleton...
+    const overlay = splash() as HTMLElement;
+    expect(overlay).not.toBeNull();
     expect(skeleton()).not.toBeNull();
+    // ...fully composed (carriage, ONE wing frame, steam) but static: the
+    // raised-wing frame is absent and no animate-splash2-* class is applied.
+    expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
+    expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
+    expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).toBeNull();
+    expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
+    expect(overlay.querySelector('[class*="animate-splash"]')).toBeNull();
+    // The ready-signal hold still releases it.
+    h.catsLoading = false;
+    rerenderHome();
+    await waitFor(() => expect(splash()).toBeNull());
+    expect(screen.getByText("Phrasebook")).toBeInTheDocument();
   });
 
   test("data ready at first paint (warm cache) skips the moment entirely", () => {

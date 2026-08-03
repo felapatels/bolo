@@ -2,15 +2,19 @@ import { Component, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { TrainEngine } from "@/components/train-svg";
 
-// Cold-load brand splash (task 902): a 1.5-2s launch moment that overlays the
-// loading home on the first arrival of a page load, then hands off to the
-// home skeleton / real content. Canonical mascot rule applies: the moment
-// renders mascot-wave.png as a WHOLE image (transforms/opacity only), the
-// text wordmark, and the redrawn TrainEngine sliding through, on the brand
-// gradient. All timing/scale constants live in index.css's :root tuning
-// constants block (--splash-*).
+// Splash v2 (layered motion boot with ready-signal hold): a cold-load boot
+// moment that overlays the loading home, HOLDS until home's real readiness
+// signal settles (categories loaded), then releases with a short fade. No
+// fixed-duration timer is the primary mechanism; a max-hold failsafe
+// (--splash-max-hold, ~8s) guarantees a stuck signal can never trap the user.
+//
+// Composition (all art enters ONLY through SPLASH_V2_ASSETS below): a train
+// carriage with an empty center window; Bolo composited into the window by
+// this app layer (canon: Bolo is never baked into scenes); wing-raised and
+// wing-lowered frames alternating in a gentle flap loop; two steam puffs
+// rising on offset loops above the roof vent. Reduced motion renders the
+// fully composed STATIC frame (no animation, never a blank screen).
 //
 // Behavior contract (pinned in src/test/home-brand-splash.test.tsx):
 // - Plays ONCE per page load, and only when the page load entered at a route
@@ -18,15 +22,44 @@ import { TrainEngine } from "@/components/train-svg";
 //   navigation back to home never replays it (module latch below).
 // - NEVER blocks or delays home's queries: home mounts and fetches exactly as
 //   before; the splash is a pointer-events-none overlay portaled to body.
-// - Cuts short the moment home data is ready; skipped entirely when data is
-//   already ready at first paint (warm cache) or reduced motion is on.
+// - Releases the moment home data is ready; skipped entirely when data is
+//   already ready at first paint (warm cache).
 // - Any failure (decision or render) falls through to the normal home render
 //   via try/catch + the error boundary.
+//
+// ONE-TOASTER-STYLE RULE for the boot gap (item 4): index.html carries a boot
+// <style> that paints the document background with this overlay's exact
+// gradient so no white flash precedes the splash. If the backdrop gradient
+// below changes, update index.html's boot style in the same commit.
 
-const MASCOT_SRC = `${import.meta.env.BASE_URL}mascot/mascot-wave.png`;
+/**
+ * Splash v2 asset map: paths only. The owner swaps in final art by editing
+ * these paths, zero code changes. Current values are placeholders derived
+ * from existing bundled art (canonical mascot PNGs and simple SVG shapes).
+ */
+export const SPLASH_V2_ASSETS = {
+  /** Carriage with a transparent center window aperture (see WINDOW below). */
+  carriage: `${import.meta.env.BASE_URL}splash/carriage.svg`,
+  /** Flap frame, wings up. Placeholder: canonical cheer pose, whole image. */
+  boloWingRaised: `${import.meta.env.BASE_URL}mascot/mascot-cheer.png`,
+  /** Flap frame, wings settled. Placeholder: canonical wave pose. */
+  boloWingLowered: `${import.meta.env.BASE_URL}mascot/mascot-wave.png`,
+  steamPuffA: `${import.meta.env.BASE_URL}splash/steam-a.svg`,
+  steamPuffB: `${import.meta.env.BASE_URL}splash/steam-b.svg`,
+} as const;
+
+// The carriage placeholder's empty window aperture in viewBox fractions
+// (240x140 viewBox, window x 88..152, y 34..82). If final carriage art moves
+// the window, update these fractions alongside the SPLASH_V2_ASSETS path.
+const WINDOW = {
+  left: "36.667%",
+  top: "24.286%",
+  width: "26.667%",
+  height: "34.286%",
+} as const;
 
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
-const SPLASH_DURATION_FALLBACK_MS = 1800;
+const SPLASH_MAX_HOLD_FALLBACK_MS = 8000;
 const SPLASH_EXIT_FALLBACK_MS = 260;
 
 // Play-once latch for this page load. Consumed by the FIRST home mount
@@ -78,22 +111,23 @@ type SplashPhase = "playing" | "exiting" | "done";
 
 /**
  * Drives the splash lifecycle. `dataReady` is home's first-paint condition
- * (categories loaded); flipping it true cuts the moment short. Returns
- * whether the overlay should mount and whether it is fading out.
+ * (categories loaded): the READY SIGNAL. The splash holds while it is false
+ * and releases when it settles true; the max-hold failsafe releases after
+ * --splash-max-hold even if the signal never lands. Returns whether the
+ * overlay should mount and whether it is fading out.
  */
 export function useBrandSplash(dataReady: boolean): {
   active: boolean;
   exiting: boolean;
 } {
-  const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<SplashPhase>(() => {
     try {
       if (coldStartConsumed || !bootQualifies) return "done";
-      // Reduced motion: no animated moment, straight to skeleton/content.
-      if (reduceMotion) return "done";
-      // Warm cache (data ready at first paint): skip the moment entirely -
+      // Warm cache (data ready at first paint): nothing to hold for -
       // a forced beat would delay content that is already renderable.
       if (dataReady) return "done";
+      // Reduced motion still mounts: it renders the static composed frame
+      // (never a blank screen) and follows the same hold/release lifecycle.
       return "playing";
     } catch {
       return "done";
@@ -106,18 +140,19 @@ export function useBrandSplash(dataReady: boolean): {
     coldStartConsumed = true;
   }, []);
 
-  // Full beat: the moment retires on its own even if data never lands.
+  // Max-hold failsafe: a stuck ready signal can never trap the user behind
+  // the splash. NOT the primary release mechanism.
   useEffect(() => {
     if (phase !== "playing") return;
     const t = window.setTimeout(
       () => setPhase("exiting"),
-      readTuningMs("--splash-duration", SPLASH_DURATION_FALLBACK_MS),
+      readTuningMs("--splash-max-hold", SPLASH_MAX_HOLD_FALLBACK_MS),
     );
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // Cut short: data ready before the beat finishes hands off immediately
-  // (the exit fade below is the handoff).
+  // Primary release: the ready signal settled. The exit fade below is the
+  // handoff (content/skeleton is already painted beneath, so no blank flash).
   useEffect(() => {
     if (phase === "playing" && dataReady) setPhase("exiting");
   }, [phase, dataReady]);
@@ -163,6 +198,10 @@ export function BrandSplash({ exiting }: { exiting: boolean }) {
 // would turn a fixed-position descendant into a container-relative one.
 // pointer-events-none so the overlay can never block interaction.
 function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
+  // Reduced motion: same composition, zero animation classes (static frame).
+  // The raised-wing frame is not rendered at all so exactly one composed
+  // frame shows.
+  const reduceMotion = useReducedMotion();
   return createPortal(
     <div
       data-testid="brand-splash"
@@ -172,24 +211,78 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
         exiting && "brand-splash-exiting",
       )}
     >
-      {/* Canonical mascot, whole-image entrance (scale + rise + settle). */}
-      <img
-        src={MASCOT_SRC}
-        alt=""
-        draggable={false}
-        className="animate-splash-mascot h-[clamp(120px,26vmin,190px)] w-auto object-contain drop-shadow-[0_18px_30px_rgba(0,0,0,0.25)]"
-      />
-      {/* Text wordmark, matching the desktop-nav brand row's treatment. */}
-      <div className="animate-splash-wordmark mt-4 text-5xl font-black tracking-tight text-white lg:text-6xl">
-        Bolo!
-      </div>
-      {/* The redrawn train slides through along the bottom. The wrapper class
-          re-tints the drawing's CSS vars for the indigo backdrop (white body,
-          deep-indigo chassis, teal trim) - pure CSS, no new artwork. */}
-      <div className="brand-splash-train absolute inset-x-0 bottom-[9vh]" aria-hidden>
-        <div className="animate-splash-train w-max">
-          <TrainEngine className="h-11 w-auto lg:h-14" />
+      {/* Layered scene. Sizing follows the composition (supersedes the old
+          fixed mascot clamp treatment). */}
+      <div
+        className="relative w-[min(72vw,380px)]"
+        style={{ aspectRatio: "240 / 140" }}
+        data-testid="splash-scene"
+      >
+        {/* Steam puffs rising from the roof vent on offset loops. Base
+            opacity keeps them visible in the static frame. */}
+        <img
+          src={SPLASH_V2_ASSETS.steamPuffA}
+          alt=""
+          draggable={false}
+          className={cn(
+            "absolute w-[14%] opacity-80",
+            !reduceMotion && "animate-splash2-steam-a",
+          )}
+          style={{ left: "70%", top: "-14%" }}
+        />
+        <img
+          src={SPLASH_V2_ASSETS.steamPuffB}
+          alt=""
+          draggable={false}
+          className={cn(
+            "absolute w-[11%] opacity-70",
+            !reduceMotion && "animate-splash2-steam-b",
+          )}
+          style={{ left: "79%", top: "-22%" }}
+        />
+        {/* Bolo composited into the empty window by the app layer. Two whole
+            canonical frames alternate in a gentle flap loop; the clip box
+            matches the carriage aperture so overflow never leaks past the
+            frame. */}
+        <div
+          className="absolute overflow-hidden"
+          style={{ ...WINDOW, borderRadius: "18%" }}
+          data-testid="splash-window"
+        >
+          <img
+            src={SPLASH_V2_ASSETS.boloWingLowered}
+            alt=""
+            draggable={false}
+            className={cn(
+              "absolute bottom-[-52%] left-1/2 w-[150%] max-w-none -translate-x-1/2",
+              !reduceMotion && "animate-splash2-frame-a",
+            )}
+          />
+          {!reduceMotion && (
+            <img
+              src={SPLASH_V2_ASSETS.boloWingRaised}
+              alt=""
+              draggable={false}
+              className="animate-splash2-frame-b absolute bottom-[-52%] left-1/2 w-[150%] max-w-none -translate-x-1/2"
+            />
+          )}
         </div>
+        {/* Carriage on top: its transparent aperture frames Bolo. */}
+        <img
+          src={SPLASH_V2_ASSETS.carriage}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
+      {/* Text wordmark, matching the desktop-nav brand row's treatment. */}
+      <div
+        className={cn(
+          "mt-6 text-5xl font-black tracking-tight text-white lg:text-6xl",
+          !reduceMotion && "animate-splash-wordmark",
+        )}
+      >
+        Bolo!
       </div>
     </div>,
     document.body,
