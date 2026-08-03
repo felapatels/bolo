@@ -435,6 +435,18 @@ export const GameSessionInputGame = {
 } as const;
 
 /**
+ * Optional origin context. "signal" and "closeout" trigger a once-ever Chai grant on the first clear. "hub" is accepted but grants nothing. Absent behaves identically to today.
+ */
+export type GameSessionInputContext = typeof GameSessionInputContext[keyof typeof GameSessionInputContext];
+
+
+export const GameSessionInputContext = {
+  hub: 'hub',
+  signal: 'signal',
+  closeout: 'closeout',
+} as const;
+
+/**
  * The learner's submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase's nativeScript.
  */
 export interface GamePhraseResult {
@@ -457,10 +469,17 @@ export interface GameSessionInput {
   /** The category the phrases were drawn from. Used for server-side phrase validation. */
   categoryId: number;
   /**
-     * One entry per question attempted during the game session. The server determines correctness from the submitted answer — clients never self-report a correct/incorrect flag.
+     * One entry per question attempted during the game session. The server determines correctness from the submitted answer; clients never self-report a correct/incorrect flag.
      * @maxItems 120
      */
   phraseResults: GamePhraseResult[];
+  /** Optional origin context. "signal" and "closeout" trigger a once-ever Chai grant on the first clear. "hub" is accepted but grants nothing. Absent behaves identically to today. */
+  context?: GameSessionInputContext;
+  /**
+     * Required when context is "signal"; forbidden otherwise. Identifies the gap that was cleared, forming part of the idempotency key.
+     * @pattern ^gap-[0-9]+$
+     */
+  contextRef?: string;
 }
 
 export interface GameSessionResult {
@@ -468,6 +487,8 @@ export interface GameSessionResult {
   xpEarned: number;
   /** Learner's cumulative XP for this language after the session. */
   totalXp: number;
+  /** Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted. */
+  chaiGranted?: number;
 }
 
 export interface AttemptInput {

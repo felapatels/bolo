@@ -1024,3 +1024,21 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 **Asset.** `artifacts/gujarati-coach/public/mascot/chachaji-wallet-vignette.png` — 512x512 quantized optimized PNG (39,385 bytes) downscaled from the 1024px original in attached_assets (original not committed). Chacha-ji is a distinct character; the canonical-mascot rule (five Bolo PNGs only) is unaffected.
 
 **Suite state after Chunk 5B:** see the 5B task report for the final full-suite line; typecheck clean; no new test files (mock base auto-derives `useGetTokens`/`useSpendTokens` as idle hooks, so existing suites were unaffected by the new imports).
+
+### Chunk 6A: game-session context + once-ever Chai grants (August 3, 2026, api-server only)
+
+**Scope:** `artifacts/api-server`, `lib/api-spec` + generated client output, `docs/CODEBASE-FACTS.md`. Zero schema changes, zero migrations, zero web/mobile file touches.
+
+**tokenEconomy.ts additions.** Two new constants: `SIGNAL_FIRST_CLEAR_CHAI = 1` and `CLOSEOUT_FIRST_CHAI = 2` (comment: "ruled Aug 2; once-ever per identity via the ledger index"). `TokenReason` union gains `"earn_signal_first_clear"` and `"earn_closeout_first"` — type-level change only; the `token_ledger.reason` column is `text` so no DDL required.
+
+**GameSessionBody extension.** Two optional fields added to the inline zod schema in `routes/learning.ts`: `context: z.enum(["hub","signal","closeout"]).optional()` and `contextRef: z.string().regex(/^gap-[0-9]+$/).optional()`. Post-parse validation enforces: `contextRef` is required when `context === "signal"` and forbidden otherwise; both violations return 400 "Invalid game session payload". Absent context is byte-identical to today in every respect.
+
+**Grant logic.** After the session insert + XP write succeed (the 422 path grants nothing): signal context calls `grantTokens(userId, "earn_signal_first_clear", \`${languageCode}:${categoryId}:${contextRef}\`, 1)`; closeout calls `grantTokens(userId, "earn_closeout_first", \`${languageCode}:${categoryId}\`, 2)`. Idempotency is the ledger's unique `(user_id, reason, ref_id)` index — replays are silent no-ops. Hub and absent context fire no grant. Errors are caught and logged (warn); response proceeds regardless.
+
+**chaiGranted response field.** The 201 body gains `chaiGranted` (optional integer) via `...(chaiGranted !== undefined && { chaiGranted })`. Presence detected by comparing `stateBefore` (from `getOrCreateTokenState`) to `stateAfter` (from `grantTokens`); no extra query needed. Absent-context responses carry no `chaiGranted` key at all.
+
+**OpenAPI + codegen.** `GameSessionInput` gains `context` (enum) and `contextRef` (pattern) as optional fields. `GameSessionResult` gains optional `chaiGranted` integer. Codegen ran cleanly; generated client files updated: `lib/api-client-react/src/generated/api.schemas.ts`, `lib/api-zod/src/generated/api.ts`, `lib/api-zod/src/generated/types/gameSessionInput.ts`, `lib/api-zod/src/generated/types/gameSessionResult.ts`, `lib/api-zod/src/generated/types/index.ts`.
+
+**New test file `artifacts/api-server/src/test/gameSessions.test.ts`.** 14 tests / 4 suites: absent/hub produce zero grant ledger rows; signal first-clear grants 1 Chai + ledger row with composed refId; signal replay leaves balance and row count unchanged; closeout grants 2 Chai once, replay no-ops; contextRef zod regex rejects bad patterns; post-parse check rejects contextRef with non-signal context and signal without contextRef. Items 7 (422 path) and 8 (plan gate) are route-layer and noted in the test file comment as covered by existing defense-in-depth.
+
+**Suite state after Chunk 6A:** api 800 tests / 34 suites, 799 pass / 1 fail (documented pilot-capture env trap). Typecheck clean across all workspaces. Boot smokes 2/2. Code-review subagent PASS on all four focus areas (idempotency, absent-context byte-identity, no schema drift, contextRef validation).

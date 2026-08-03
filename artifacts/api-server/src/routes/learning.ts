@@ -42,6 +42,8 @@ const GameSessionBody = z.object({
   game: z.enum(["speed-round", "phrase-builder", "word-match", "listen-and-pick"]),
   categoryId: z.number().int(),
   phraseResults: z.array(GamePhraseResult).min(1).max(120),
+  context: z.enum(["hub", "signal", "closeout"]).optional(),
+  contextRef: z.string().regex(/^gap-[0-9]+$/).optional(),
 });
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
@@ -130,6 +132,8 @@ import {
   TOKEN_EARN_ZONE_COMPLETE,
   TOKEN_EARN_EXPRESS_STAMP,
   EXPRESS_MULTIPLIER_FACTOR,
+  SIGNAL_FIRST_CLEAR_CHAI,
+  CLOSEOUT_FIRST_CHAI,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
 import {
@@ -1940,7 +1944,18 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     return;
   }
 
-  const { languageCode, game, categoryId, phraseResults } = parsed.data;
+  const { languageCode, game, categoryId, phraseResults, context, contextRef } = parsed.data;
+
+  // contextRef is required when context === "signal" and forbidden otherwise.
+  if (context === "signal" && !contextRef) {
+    res.status(400).json({ error: "Invalid game session payload" });
+    return;
+  }
+  if (context !== "signal" && contextRef !== undefined) {
+    res.status(400).json({ error: "Invalid game session payload" });
+    return;
+  }
+
   const userId = getUserId(req);
 
   // Free is limited to Hindi; other languages require Bolo! Plus.
@@ -2076,6 +2091,37 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
       .onConflictDoNothing();
   }
 
+  // Once-ever Chai grants for signal and closeout contexts. Idempotency comes
+  // from the ledger's unique (user, reason, refId) index — replays are silent
+  // no-ops. Badge evaluation is unaffected regardless of context.
+  let chaiGranted: number | undefined;
+  if (context === "signal") {
+    const reason = "earn_signal_first_clear" as const;
+    const refId = `${languageCode}:${categoryId}:${contextRef}`;
+    try {
+      const stateBefore = await getOrCreateTokenState(userId);
+      const stateAfter = await grantTokens(userId, reason, refId, SIGNAL_FIRST_CLEAR_CHAI);
+      if (stateAfter.balance > stateBefore.balance) {
+        chaiGranted = SIGNAL_FIRST_CLEAR_CHAI;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "token_signal_grant_failed");
+    }
+  } else if (context === "closeout") {
+    const reason = "earn_closeout_first" as const;
+    const refId = `${languageCode}:${categoryId}`;
+    try {
+      const stateBefore = await getOrCreateTokenState(userId);
+      const stateAfter = await grantTokens(userId, reason, refId, CLOSEOUT_FIRST_CHAI);
+      if (stateAfter.balance > stateBefore.balance) {
+        chaiGranted = CLOSEOUT_FIRST_CHAI;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "token_closeout_grant_failed");
+    }
+  }
+  // context "hub" or absent: no grant; absent-context response byte-identical to today.
+
   // Badge evaluation uses extended metrics so game-achievement badges unlock
   // as soon as the session that satisfies their condition is recorded.
   const metrics = await loadExtendedMetrics(userId, languageCode, getUserTimezone(req));
@@ -2085,6 +2131,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     xpEarned,
     totalXp: metrics.xp,
     newlyEarnedBadges,
+    ...(chaiGranted !== undefined && { chaiGranted }),
   });
 });
 

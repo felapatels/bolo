@@ -11,4 +11,6 @@ export interface GameSessionResult {
   xpEarned: number;
   /** Learner's cumulative XP for this language after the session. */
   totalXp: number;
+  /** Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted. */
+  chaiGranted?: number;
 }

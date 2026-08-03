@@ -51,6 +51,7 @@ export * from './friendInviteResult';
 export * from './friendRequest';
 export * from './gamePhraseResult';
 export * from './gameSessionInput';
+export * from './gameSessionInputContext';
 export * from './gameSessionInputGame';
 export * from './gameSessionResult';
 export * from './generatedPhrase';

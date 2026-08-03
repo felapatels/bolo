@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GamePhraseResult } from './gamePhraseResult';
+import type { GameSessionInputContext } from './gameSessionInputContext';
 import type { GameSessionInputGame } from './gameSessionInputGame';
 
 export interface GameSessionInput {
@@ -19,8 +20,15 @@ export interface GameSessionInput {
   /** The category the phrases were drawn from. Used for server-side phrase validation. */
   categoryId: number;
   /**
-     * One entry per question attempted during the game session. The server determines correctness from the submitted answer — clients never self-report a correct/incorrect flag.
+     * One entry per question attempted during the game session. The server determines correctness from the submitted answer; clients never self-report a correct/incorrect flag.
      * @maxItems 120
      */
   phraseResults: GamePhraseResult[];
+  /** Optional origin context. "signal" and "closeout" trigger a once-ever Chai grant on the first clear. "hub" is accepted but grants nothing. Absent behaves identically to today. */
+  context?: GameSessionInputContext;
+  /**
+     * Required when context is "signal"; forbidden otherwise. Identifies the gap that was cleared, forming part of the idempotency key.
+     * @pattern ^gap-[0-9]+$
+     */
+  contextRef?: string;
 }

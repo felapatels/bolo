@@ -444,6 +444,7 @@ export const CreateAttemptResponse = zod.object({
 
 export const recordGameSessionBodyPhraseResultsMax = 120;
 
+export const recordGameSessionBodyContextRefRegExp = new RegExp('^gap-[0-9]+$');
 
 
 export const RecordGameSessionBody = zod.object({
@@ -454,12 +455,15 @@ export const RecordGameSessionBody = zod.object({
   "phraseId": zod.number().describe('The database ID of the question phrase.'),
   "selectedPhraseId": zod.number().nullish().describe('Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId.'),
   "submittedText": zod.string().nullish().describe('Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase\'s nativeScript exactly.')
-}).describe('The learner\'s submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase\'s nativeScript.')).max(recordGameSessionBodyPhraseResultsMax).describe('One entry per question attempted during the game session. The server determines correctness from the submitted answer — clients never self-report a correct\/incorrect flag.')
+}).describe('The learner\'s submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase\'s nativeScript.')).max(recordGameSessionBodyPhraseResultsMax).describe('One entry per question attempted during the game session. The server determines correctness from the submitted answer; clients never self-report a correct\/incorrect flag.'),
+  "context": zod.enum(['hub', 'signal', 'closeout']).optional().describe('Optional origin context. \"signal\" and \"closeout\" trigger a once-ever Chai grant on the first clear. \"hub\" is accepted but grants nothing. Absent behaves identically to today.'),
+  "contextRef": zod.string().regex(recordGameSessionBodyContextRefRegExp).optional().describe('Required when context is \"signal\"; forbidden otherwise. Identifies the gap that was cleared, forming part of the idempotency key.')
 })
 
 export const RecordGameSessionResponse = zod.object({
   "xpEarned": zod.number().describe('XP earned in this game session.'),
-  "totalXp": zod.number().describe('Learner\'s cumulative XP for this language after the session.')
+  "totalXp": zod.number().describe('Learner\'s cumulative XP for this language after the session.'),
+  "chaiGranted": zod.number().optional().describe('Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted.')
 })
 
 

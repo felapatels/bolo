@@ -5,6 +5,9 @@ export const TOKEN_EARN_ZONE_COMPLETE = 10;
 export const TOKEN_EARN_EXPRESS_STAMP = 3;
 export const TOKEN_EARN_QUIZ = 2;
 export const TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 50;
+// ruled Aug 2; once-ever per identity via the ledger index
+export const SIGNAL_FIRST_CLEAR_CHAI = 1;
+export const CLOSEOUT_FIRST_CHAI = 2;
 
 export const STATION_PAUSE_COST = 5;
 export const STATION_PAUSE_MAX_EQUIPPED = 2;
@@ -23,6 +26,8 @@ export type TokenReason =
   | "earn_express_stamp"
   | "earn_quiz"
   | "earn_allowance_monthly"
+  | "earn_signal_first_clear"
+  | "earn_closeout_first"
   | "spend_station_pause"
   | "spend_express_multiplier"
   | "station_pause_consumed";
