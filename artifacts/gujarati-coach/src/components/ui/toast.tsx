@@ -13,7 +13,11 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      'fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]',
+      // Bottom-center on mobile, sitting above the fixed BottomNav (XP strip
+      // + h-14 icon row, about 5.5rem) plus the device safe area; bottom-right
+      // on desktop (lg:, where the BottomNav hides). z-[100] keeps toasts
+      // above the wallet sheet overlay (z-50).
+      'fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[100] flex max-h-screen w-full max-w-[420px] -translate-x-1/2 flex-col gap-3 p-4 lg:bottom-0 lg:left-auto lg:right-0 lg:translate-x-0',
       className,
     )}
     {...props}
@@ -22,13 +26,17 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName;
 
 const toastVariants = cva(
-  'group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full',
+  // House card vocabulary (mirrors the home badge card): border-2, rounded-3xl,
+  // hard offset shadow via the shadow tokens. Toasts always enter from the
+  // bottom now that the viewport is bottom-anchored on every breakpoint.
+  'group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-3xl border-2 p-5 pr-8 transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-bottom-full',
   {
     variants: {
       variant: {
-        default: 'border bg-background text-foreground',
+        default:
+          'border-secondary bg-card text-foreground shadow-[0_6px_0_hsl(var(--secondary-shadow))]',
         destructive:
-          'destructive group border-destructive bg-destructive text-destructive-foreground',
+          'destructive group border-destructive bg-destructive text-destructive-foreground shadow-[0_6px_0_hsl(0_72%_35%)]',
       },
     },
     defaultVariants: {
