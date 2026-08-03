@@ -6,24 +6,43 @@ import type { ReactElement } from "react";
 import { PLUS_ENTITLEMENTS } from "./fixtures";
 
 // Cold-load brand splash v2 + home skeleton. Pins the behavior contract of
-// useBrandSplash/BrandSplash (ready-signal hold) and the skeleton handoff:
+// useBrandSplash/BrandSplash (ready-signal hold with a minimum hold, and
+// compose-then-reveal) and the skeleton handoff:
 // (1) a cold load with data still in flight shows the skeleton with the
 //     splash (layered carriage/Bolo/steam composition) overlaying it, and
-//     the ready signal landing releases the hold immediately;
-// (2) the max-hold failsafe retires the moment even if the ready signal
-//     never lands, leaving the skeleton;
-// (3) reduced motion renders the STATIC composed frame (no animation
-//     classes, single wing frame), never a blank screen;
-// (4) warm cache (data ready at first paint) skips the moment entirely;
-// (5) a remount (client-side navigation back to home) never replays it;
-// (6) a failure inside the moment falls through to the normal loading home.
+//     the ready signal landing releases the hold;
+// (2) release fires at the LATER of the ready signal and the minimum hold
+//     (--splash-min-hold), so an instant signal cannot blink the moment;
+// (3) compose-then-reveal: the overlay renders no composition until all five
+//     layers decode, then one complete frame; a stalled decode is capped by
+//     --splash-decode-cap and never traps the user;
+// (4) the max-hold failsafe retires the moment even if the ready signal
+//     never lands (NOT gated on the minimum hold), leaving the skeleton;
+// (5) reduced motion follows the same gate, then renders the STATIC composed
+//     frame (no animation classes, single wing frame), never a blank screen;
+// (6) warm cache (data ready at first paint) skips the moment entirely;
+// (7) a remount (client-side navigation back to home) never replays it;
+// (8) a failure inside the moment falls through to the normal loading home.
 const h = vi.hoisted(() => ({
   groups: [] as unknown[],
   reduceMotion: false,
   catsLoading: true,
   portalThrows: false,
   track: vi.fn(),
+  decodeResolvers: [] as Array<() => void>,
 }));
+
+// Stand-in for the off-DOM Image objects the compose-then-reveal gate
+// decodes: each instance parks its decode() resolver on h.decodeResolvers so
+// tests control exactly when each of the five layers finishes decoding.
+class FakeImage {
+  src = "";
+  decode(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      h.decodeResolvers.push(resolve);
+    });
+  }
+}
 
 vi.mock("@/components/XpCounter", () => ({ XpCounter: () => null }));
 vi.mock("@/components/name-prompt-card", () => ({ NamePromptCard: () => null }));
@@ -155,48 +174,155 @@ function renderHome() {
 const splash = () => screen.queryByTestId("brand-splash");
 const skeleton = () => screen.queryByTestId("home-skeleton");
 
+/** Feeds test-sized durations through the tuning-var reader (readTuningMs
+ *  hits getComputedStyle on documentElement). Unpinned names return "", so
+ *  the component falls back to its real defaults; pin every var a test's
+ *  timing depends on. Callers must mockRestore() the returned spy. */
+function pinTuningVars(vars: Record<string, string>) {
+  const original = window.getComputedStyle.bind(window);
+  return vi
+    .spyOn(window, "getComputedStyle")
+    .mockImplementation((el: Element, pseudo?: string | null) => {
+      if (el === document.documentElement) {
+        return {
+          getPropertyValue: (name: string) => vars[name] ?? "",
+        } as CSSStyleDeclaration;
+      }
+      return original(el, pseudo);
+    });
+}
+
 beforeEach(() => {
   h.groups = [];
   h.reduceMotion = false;
   h.catsLoading = true;
   h.portalThrows = false;
   h.track.mockClear();
+  h.decodeResolvers = [];
   __resetBrandSplashForTests();
 });
 
 describe("home brand splash v2", () => {
   test("cold load overlays the moment on the skeleton; the ready signal landing releases the hold", async () => {
+    // Min-hold pinned tiny so this test isolates the ready-signal release.
+    const spy = pinTuningVars({ "--splash-min-hold": "40", "--splash-exit": "40" });
+    try {
       const { rerenderHome } = renderHome();
-    // Splash overlays the ticket-and-card skeleton, never a bare spinner.
-    expect(splash()).not.toBeNull();
-    expect(skeleton()).not.toBeNull();
-    expect(screen.queryByText("Phrasebook")).toBeNull();
-    // Every SPLASH_V2_ASSETS layer is in the composition: carriage, both
-    // wing frames in the window clip box, both steam puffs, wordmark.
-    const overlay = splash() as HTMLElement;
-    expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
-    const windowBox = overlay.querySelector('[data-testid="splash-window"]');
-    expect(windowBox).not.toBeNull();
-    expect(
-      (windowBox as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
-    ).not.toBeNull();
-    expect(
-      (windowBox as HTMLElement).querySelector('img[src*="mascot-cheer.png"]'),
-    ).not.toBeNull();
-    expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
-    expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
-    expect(overlay).toHaveTextContent("Bolo!");
+      // Splash overlays the ticket-and-card skeleton, never a bare spinner.
+      expect(splash()).not.toBeNull();
+      expect(skeleton()).not.toBeNull();
+      expect(screen.queryByText("Phrasebook")).toBeNull();
+      // Compose-then-reveal settles as soon as the decode promises resolve
+      // (immediately under jsdom); then every SPLASH_V2_ASSETS layer is in
+      // the composition: carriage, both wing frames in the window clip box,
+      // both steam puffs, wordmark.
+      const overlay = splash() as HTMLElement;
+      await waitFor(() =>
+        expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
+      );
+      expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
+      const windowBox = overlay.querySelector('[data-testid="splash-window"]');
+      expect(windowBox).not.toBeNull();
+      expect(
+        (windowBox as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
+      ).not.toBeNull();
+      expect(
+        (windowBox as HTMLElement).querySelector('img[src*="mascot-cheer.png"]'),
+      ).not.toBeNull();
+      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
+      expect(overlay).toHaveTextContent("Bolo!");
 
-    // The ready signal lands: the splash flips to its exit fade immediately...
-    h.catsLoading = false;
-    rerenderHome();
-    expect((splash() as HTMLElement).classList.contains("brand-splash-exiting")).toBe(true);
-    // ...and unmounts after the short exit fade. waitFor's 1s default timeout
-    // is far under the 8s max-hold fallback, so this passing proves the
-    // ready-signal release, not the failsafe.
-    await waitFor(() => expect(splash()).toBeNull());
-    expect(screen.getByText("Phrasebook")).toBeInTheDocument();
-    expect(skeleton()).toBeNull();
+      // The ready signal lands: the splash releases and unmounts after the
+      // short exit fade. waitFor's 1s default timeout is far under the 8s
+      // max-hold fallback, so this passing proves the ready-signal release,
+      // not the failsafe.
+      h.catsLoading = false;
+      rerenderHome();
+      await waitFor(() => expect(splash()).toBeNull());
+      expect(screen.getByText("Phrasebook")).toBeInTheDocument();
+      expect(skeleton()).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("an instantly-settling ready signal still holds the moment for the minimum hold", async () => {
+    const spy = pinTuningVars({ "--splash-min-hold": "300", "--splash-exit": "40" });
+    try {
+      const { rerenderHome } = renderHome();
+      // The signal settles at once...
+      h.catsLoading = false;
+      rerenderHome();
+      // ...but the minimum hold is pending: still playing, not exiting.
+      expect(splash()).not.toBeNull();
+      expect(
+        (splash() as HTMLElement).classList.contains("brand-splash-exiting"),
+      ).toBe(false);
+      // Release fires at the LATER of the two: here, the minimum elapsing.
+      await waitFor(() => expect(splash()).toBeNull());
+      expect(screen.getByText("Phrasebook")).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("compose-then-reveal: nothing renders until all five layers decode, then one complete frame", async () => {
+    vi.stubGlobal("Image", FakeImage);
+    const spy = pinTuningVars({
+      "--splash-decode-cap": "5000",
+      "--splash-min-hold": "40",
+      "--splash-exit": "40",
+    });
+    try {
+      renderHome();
+      const overlay = splash() as HTMLElement;
+      expect(overlay).not.toBeNull();
+      // The gate is holding: five decodes in flight, and the overlay is a
+      // gradient-only holding surface with no imgs and no wordmark.
+      expect(h.decodeResolvers.length).toBe(5);
+      expect(overlay.querySelector("img")).toBeNull();
+      expect(overlay.textContent).toBe("");
+      // Four of five decoded: STILL nothing (no piecemeal paint).
+      h.decodeResolvers.slice(0, 4).forEach((resolve) => resolve());
+      await new Promise((r) => setTimeout(r, 20));
+      expect(overlay.querySelector("img")).toBeNull();
+      // The fifth decode lands: the whole composed frame in a single reveal.
+      h.decodeResolvers[4]();
+      await waitFor(() =>
+        expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
+      );
+      expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
+      expect(overlay).toHaveTextContent("Bolo!");
+    } finally {
+      spy.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("a stalled decode never traps the user: the cap reveals whatever is ready", async () => {
+    // Decodes never resolve; only the cap can reveal.
+    vi.stubGlobal("Image", FakeImage);
+    const spy = pinTuningVars({
+      "--splash-decode-cap": "60",
+      "--splash-min-hold": "40",
+      "--splash-exit": "40",
+    });
+    try {
+      renderHome();
+      const overlay = splash() as HTMLElement;
+      expect(overlay.querySelector("img")).toBeNull();
+      await waitFor(() =>
+        expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
+      );
+    } finally {
+      spy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   test("the max-hold failsafe retires the moment when the ready signal never lands, leaving the skeleton", async () => {
@@ -228,23 +354,31 @@ describe("home brand splash v2", () => {
 
   test("reduced motion renders the static composed frame: no animation classes, never blank", async () => {
     h.reduceMotion = true;
-    const { rerenderHome } = renderHome();
-    // The splash still mounts (never a blank screen) over the skeleton...
-    const overlay = splash() as HTMLElement;
-    expect(overlay).not.toBeNull();
-    expect(skeleton()).not.toBeNull();
-    // ...fully composed (carriage, ONE wing frame, steam) but static: the
-    // raised-wing frame is absent and no animate-splash2-* class is applied.
-    expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
-    expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
-    expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).toBeNull();
-    expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
-    expect(overlay.querySelector('[class*="animate-splash"]')).toBeNull();
-    // The ready-signal hold still releases it.
-    h.catsLoading = false;
-    rerenderHome();
-    await waitFor(() => expect(splash()).toBeNull());
-    expect(screen.getByText("Phrasebook")).toBeInTheDocument();
+    const spy = pinTuningVars({ "--splash-min-hold": "40", "--splash-exit": "40" });
+    try {
+      const { rerenderHome } = renderHome();
+      // The splash still mounts (never a blank screen) over the skeleton...
+      const overlay = splash() as HTMLElement;
+      expect(overlay).not.toBeNull();
+      expect(skeleton()).not.toBeNull();
+      // ...and follows the same compose-then-reveal gate, then shows the
+      // fully composed STATIC frame (carriage, ONE wing frame, steam): the
+      // raised-wing frame is absent and no animate-splash2-* class applies.
+      await waitFor(() =>
+        expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull(),
+      );
+      expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
+      expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).toBeNull();
+      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
+      expect(overlay.querySelector('[class*="animate-splash"]')).toBeNull();
+      // The ready-signal hold still releases it.
+      h.catsLoading = false;
+      rerenderHome();
+      await waitFor(() => expect(splash()).toBeNull());
+      expect(screen.getByText("Phrasebook")).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("data ready at first paint (warm cache) skips the moment entirely", () => {

@@ -61,6 +61,15 @@ const WINDOW = {
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
 const SPLASH_MAX_HOLD_FALLBACK_MS = 8000;
 const SPLASH_EXIT_FALLBACK_MS = 260;
+// Minimum hold: a qualifying mount shows the moment for at least this long,
+// so an instantly-settling ready signal cannot blink the splash away. The
+// clock starts at overlay MOUNT (not at the compose-then-reveal below), so
+// the two mechanisms never compound into a longer total wait.
+const SPLASH_MIN_HOLD_FALLBACK_MS = 1500;
+// Compose-then-reveal: cap on waiting for all five layers to decode before
+// revealing whatever is ready (a stalled decode must never hold the blank
+// gradient indefinitely; the max-hold failsafe still governs total time).
+const SPLASH_DECODE_CAP_FALLBACK_MS = 1200;
 
 // Play-once latch for this page load. Consumed by the FIRST home mount
 // (in a mount effect, after the phase initializer reads it), whether or not
@@ -140,6 +149,21 @@ export function useBrandSplash(dataReady: boolean): {
     coldStartConsumed = true;
   }, []);
 
+  // Minimum hold (item 1): once the moment mounts, it plays for at least
+  // --splash-min-hold before the ready signal may release it. Applies ONLY
+  // to mounts: the warm-cache skip above never enters "playing", so skipped
+  // loads keep skipping. The max-hold failsafe below is NOT gated on this
+  // and always wins.
+  const [minHoldDone, setMinHoldDone] = useState(false);
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const t = window.setTimeout(
+      () => setMinHoldDone(true),
+      readTuningMs("--splash-min-hold", SPLASH_MIN_HOLD_FALLBACK_MS),
+    );
+    return () => window.clearTimeout(t);
+  }, [phase]);
+
   // Max-hold failsafe: a stuck ready signal can never trap the user behind
   // the splash. NOT the primary release mechanism.
   useEffect(() => {
@@ -151,11 +175,12 @@ export function useBrandSplash(dataReady: boolean): {
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // Primary release: the ready signal settled. The exit fade below is the
-  // handoff (content/skeleton is already painted beneath, so no blank flash).
+  // Primary release: fires at whichever is LATER, the ready signal settling
+  // or the minimum hold elapsing. The exit fade below is the handoff
+  // (content/skeleton is already painted beneath, so no blank flash).
   useEffect(() => {
-    if (phase === "playing" && dataReady) setPhase("exiting");
-  }, [phase, dataReady]);
+    if (phase === "playing" && dataReady && minHoldDone) setPhase("exiting");
+  }, [phase, dataReady, minHoldDone]);
 
   // Unmount once the exit fade has run.
   useEffect(() => {
@@ -193,6 +218,53 @@ export function BrandSplash({ exiting }: { exiting: boolean }) {
   );
 }
 
+// Compose-then-reveal (item 2): the composition stays unrendered until all
+// five SPLASH_V2_ASSETS layers are fetched AND decoded (image decode, not
+// merely onload), then the whole scene appears as one complete frame. While
+// the gate holds, the overlay paints only its gradient backdrop, which is
+// byte-identical to the index.html boot gradient, so the holding surface is
+// seamless (the boot <style> stops applying once React fills #root, which is
+// why the overlay must carry the gradient itself). A stalled or failed
+// decode can never trap the user: after --splash-decode-cap, whatever is
+// ready is revealed anyway, and the max-hold failsafe still bounds total
+// time. Decodes run on off-DOM Image objects; the same URLs are already in
+// cache when the real img tags mount, so the reveal paints in one frame.
+function useComposedReveal(): boolean {
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        setRevealed(true);
+      }
+    };
+    const cap = window.setTimeout(
+      finish,
+      readTuningMs("--splash-decode-cap", SPLASH_DECODE_CAP_FALLBACK_MS),
+    );
+    try {
+      Promise.allSettled(
+        Object.values(SPLASH_V2_ASSETS).map((src) => {
+          const img = new Image();
+          img.src = src;
+          return typeof img.decode === "function"
+            ? img.decode()
+            : Promise.resolve();
+        }),
+      ).then(finish, finish);
+    } catch {
+      // Failure-safe: reveal rather than hold a blank gradient.
+      finish();
+    }
+    return () => {
+      settled = true;
+      window.clearTimeout(cap);
+    };
+  }, []);
+  return revealed;
+}
+
 // Portaled to document.body: home's content wrapper runs animate-content-enter
 // and the app shell's PageTransition animates transforms, either of which
 // would turn a fixed-position descendant into a container-relative one.
@@ -200,8 +272,10 @@ export function BrandSplash({ exiting }: { exiting: boolean }) {
 function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
   // Reduced motion: same composition, zero animation classes (static frame).
   // The raised-wing frame is not rendered at all so exactly one composed
-  // frame shows.
+  // frame shows. Reduced motion follows the same compose-then-reveal gate,
+  // then shows the static composed frame.
   const reduceMotion = useReducedMotion();
+  const revealed = useComposedReveal();
   return createPortal(
     <div
       data-testid="brand-splash"
@@ -211,6 +285,8 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
         exiting && "brand-splash-exiting",
       )}
     >
+      {revealed && (
+        <>
       {/* Layered scene. Sizing follows the composition (supersedes the old
           fixed mascot clamp treatment). */}
       <div
@@ -284,6 +360,8 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
       >
         Bolo!
       </div>
+        </>
+      )}
     </div>,
     document.body,
   );

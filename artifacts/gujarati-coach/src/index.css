@@ -305,6 +305,12 @@
                                     signal is stuck. MUST be in ms:
                                     brand-splash.tsx parses this */
   --splash-exit: 260ms;          /* overlay fade on release. MUST be in ms */
+  --splash-min-hold: 1500ms;     /* minimum time a MOUNTED splash plays before
+                                    the ready signal may release it; clock
+                                    starts at overlay mount. MUST be in ms */
+  --splash-decode-cap: 1200ms;   /* compose-then-reveal decode wait cap; past
+                                    it, reveal whatever is ready. MUST be in
+                                    ms */
   --splash-wordmark-delay: 0.26s;/* wordmark entrance lag behind the scene */
   --splash-wordmark-rise: 14px;  /* wordmark entrance rise distance */
   --splash2-flap-cycle: 1.5s;    /* wing frame swap period (gentle flap) */
