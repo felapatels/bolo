@@ -356,4 +356,15 @@ describe("zone signposts + line facts (Chunk 6B story 5)", () => {
       expect(INDIA_FACTS).toContain(factForZone({ ...opts, now: base, salt }));
     }
   });
+
+  test("untagged zones draw from the full pool and differ on the same day (prod hotfix item 4)", () => {
+    const base = Date.UTC(2026, 7, 3);
+    // Neither name matches any region tag, so this exercises the fallback.
+    const opts = { geoName: "Zzz Junction", lineName: "Zzz Express" };
+    const picks = new Set(
+      [0, 1, 2, 3, 4, 5].map((zi) => factForZone({ zoneIndex: zi, ...opts, now: base })),
+    );
+    expect(picks.size).toBeGreaterThan(1);
+    for (const f of picks) expect(INDIA_FACTS).toContain(f);
+  });
 });

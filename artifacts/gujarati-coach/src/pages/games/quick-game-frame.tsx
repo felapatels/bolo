@@ -185,7 +185,7 @@ function QuickEndScreen({
       <Mascot pose={pose} size={100} />
       <div className="text-center">
         <h2 className="text-2xl font-extrabold text-foreground">
-          {isPerfect ? "Perfect Round! 🎉" : score >= total / 2 ? "Nice Work! 👍" : "Keep Practising! 💪"}
+          {isPerfect ? "Perfect Round! 🎉" : score >= total / 2 ? "Nice Work! 👍" : "Keep Practicing! 💪"}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {score} / {total} correct

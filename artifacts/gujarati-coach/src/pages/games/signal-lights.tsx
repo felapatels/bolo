@@ -4,8 +4,8 @@
 // category, and the wrong-judgment submission maps to the decoy's id, so
 // results stay in-category and ride the frozen listen-and-pick model.
 
-import { useEffect, useState } from "react";
-import { type Phrase } from "@workspace/api-client-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSynthesizeSpeech, type Phrase } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { webHaptic } from "@/lib/haptics";
 import { useNativeText } from "@/lib/language-context";
@@ -46,16 +46,68 @@ function buildPlan(phrases: Phrase[], count: number): LightsQuestion[] {
   return plan;
 }
 
-function SignalLightsRound({ phrases, api }: QuickRoundProps) {
+function SignalLightsRound({
+  phrases,
+  api,
+  soundOn,
+  activeLang,
+  activeLanguageName,
+}: QuickRoundProps) {
   const native = useNativeText();
+  const synthesize = useSynthesizeSpeech();
+  // Prod hotfix Item 5: the frame's mute toggle now drives real audio here
+  // (soundOn arrived in props but was dead code for this game).
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCache = useRef(
+    new Map<Phrase["id"], { audioBase64: string; format: string }>(),
+  );
   const [plan] = useState(() => buildPlan(phrases, ROUNDS));
   const [judged, setJudged] = useState<boolean | null>(null);
 
   const q = plan[api.round];
 
+  // House pattern (express-listening): synthesize once per phrase, cache the
+  // clip, honor the toggle at play time. The clip runs alongside the
+  // countdown, so the 4s answer window is untouched.
+  const playPhrase = useCallback(
+    async (phrase: Phrase) => {
+      if (!soundOnRef.current) return;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      try {
+        const cached = audioCache.current.get(phrase.id);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: {
+              text: phrase.nativeScript,
+              languageName: activeLanguageName,
+              languageCode: activeLang,
+            },
+          }));
+        audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
+        const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
+        audioRef.current = audio;
+        await audio.play();
+      } catch {
+        // Audio is a garnish on this game: a failed clip never blocks a round.
+      }
+    },
+    [synthesize, activeLanguageName, activeLang],
+  );
+
   useEffect(() => {
     setJudged(null);
+    if (q) playPhrase(q.phrase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api.round]);
+
+  // Stop any playing clip when the game unmounts.
+  useEffect(() => () => audioRef.current?.pause(), []);
 
   // Timeout counts as a wrong judgment: brief flash, then submit the miss.
   useEffect(() => {

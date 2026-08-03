@@ -1118,3 +1118,19 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 **Test surface.** New: `quick-games.test.tsx` (roster/rotation/storage units), `quick-game-frame.test.tsx` (launch-context POST contract), `journey-signals.test.tsx` (seating, states, encounter, auto-wave, held pulse), `zone-closeout.test.tsx` (seeding + two-beat machine). Modified: `games-hub.test.tsx` (10 cards, new games have no vignettes), `journey-scenery.test.tsx` (signpost planner + factForZone pins), `journey-rail-pulse.test.tsx` (its beforeEach now pre-waves every gap because the train halts at active signals; journey-signals owns the held behavior).
 
 **Known debt.** Cleared-signal display state is device-local (no server read endpoint), so a second device shows an already-cleared signal as active until replayed; the grant itself stays idempotent server-side. Mobile parity for all of Chunk 6B rides the standing row 8 audit.
+
+### Prod hotfix batch: signal taps, soft stop, fact variety, game audio, US English (August 3, 2026, web only)
+
+**Scope.** `artifacts/gujarati-coach` plus this doc. Six hotfix items against the Chunk 6B surfaces; no server changes.
+
+**US English ruling (owner-ruled, app-wide).** All user-facing copy is US English until localization lands: "Keep Practicing!", "canceled", "practice" as the verb. British spellings inside code identifiers, comments, CSS/API names (analyser, cancelled event fields) are exempt and stay. "Indian Space Research Organisation (ISRO)" keeps its official proper-noun spelling.
+
+**Signal taps (journey map).** The full-width zone-postcard wrappers paint at z-index 8, above the z-index 6 signal/signpost buttons, and swallowed taps on every zone-boundary gap signal (exactly the held signal a learner reaches; jsdom clicks bypass hit-testing, so tests stayed green). The wrappers and the interchange diamond are now pointer-events-none with the postcard card itself pointer-events-auto (it holds the zone test-out link). Signal and signpost buttons grew from p-1 to p-2: hit targets 44x56 and 46x54.
+
+**Signal visibility.** Active signals add an amber halo ring plus red glow behind the lit lamp (SignalGlyph); the button-level attention pulse now rides every active signal, motion-safe only, so reduced motion suppresses it.
+
+**Soft stop (owner-ruled).** Reaching a held signal (active, in the gap right behind the boardable stop) auto-opens the encounter dialog once per signal per session, remembered in sessionStorage `bolo-signal-stop-shown:{lang}` (helpers in src/lib/quick-games.ts). Never over an open dialog or a pending zone closeout; manual signal taps also mark the stop seen so closing never auto-reopens. Wave-through and the auto-wave quip are unchanged.
+
+**Fact variety.** `factForZone`'s fallback previously let the line-tagged pool stand alone; with a single railways fact that pool has length 1 and day, zone index, and salt all vanish modulo 1, so every untagged zone showed the same fact everywhere, every day. The fallback now rotates the full fact set; region-tagged preference is unchanged.
+
+**Signal Lights audio.** Rounds now synthesize and cache the phrase clip via the express-listening house pattern, honoring the frame's mute toggle (soundOn was dead code for this game); the 4s answer window is untouched (clip plays alongside the countdown).

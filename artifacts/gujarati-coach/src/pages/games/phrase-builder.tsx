@@ -545,7 +545,7 @@ function DoneScreen({
         size={100}
       />
       <h2 className="mt-4 text-2xl font-extrabold text-foreground">
-        {correctCount === total ? "Perfect!" : correctCount === 0 ? "Keep practising!" : "Well done!"}
+        {correctCount === total ? "Perfect!" : correctCount === 0 ? "Keep practicing!" : "Well done!"}
       </h2>
 
       <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">

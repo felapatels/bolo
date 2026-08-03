@@ -76,7 +76,7 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
-import { isSignalWaved } from "@/lib/quick-games";
+import { isSignalStopSeen, isSignalWaved } from "@/lib/quick-games";
 
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
@@ -112,6 +112,7 @@ beforeEach(() => {
   h.reduceMotion = false;
   setZones();
   sessionStorage.removeItem("bolo-signal-waved:gu");
+  sessionStorage.removeItem("bolo-signal-stop-shown:gu");
   localStorage.removeItem("bolo-signal-cleared:gu");
   localStorage.removeItem("bolo-zone-closeout:gu");
 });
@@ -228,5 +229,45 @@ describe("the train stops at the signal (story 3)", () => {
     expect(
       container.querySelectorAll('[data-testid="rail-pulse-dot"]').length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("soft stop (prod hotfix item 3)", () => {
+  test("reaching a held signal auto-opens the encounter once per session", () => {
+    // Closeout state seeded (returning learner): unseeded state suppresses
+    // the soft stop for that first render while the overlay seeds silently.
+    localStorage.setItem("bolo-zone-closeout:gu", JSON.stringify({}));
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    const first = renderJourney();
+    // Auto-opened without any tap.
+    expect(screen.getByText("Signal ahead")).toBeInTheDocument();
+    expect(isSignalStopSeen("gu", 1)).toBe(true);
+    first.unmount();
+    // Same session: the stop was already seen, so a fresh mount stays quiet.
+    renderJourney();
+    expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
+  });
+
+  test("a waved signal never auto-opens", () => {
+    localStorage.setItem("bolo-zone-closeout:gu", JSON.stringify({}));
+    sessionStorage.setItem("bolo-signal-waved:gu", "[1]");
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    renderJourney();
+    expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
+    expect(isSignalStopSeen("gu", 1)).toBe(false);
+  });
+
+  test("a pending zone closeout suppresses the auto-open", () => {
+    // Closeout state seeded but zone 1 not yet celebrated -> overlay pending;
+    // the held signal behind zone 2's first stop must stay quiet.
+    localStorage.setItem("bolo-zone-closeout:gu", JSON.stringify({}));
+    setZones(zoneOf(3, 100, "completed"), [
+      grp(201, "unlocked"),
+      grp(202, "locked"),
+      grp(203, "locked"),
+    ]);
+    renderJourney();
+    expect(screen.getByTestId("zone-closeout-overlay")).toBeInTheDocument();
+    expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
   });
 });

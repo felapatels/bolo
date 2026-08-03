@@ -137,7 +137,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     const outcome = params.get("checkout");
     if (!outcome) return;
     if (outcome === "cancel") {
-      setError("Checkout was cancelled — you haven't been charged.");
+      setError("Checkout was canceled. You haven't been charged.");
     }
     if (outcome === "success") {
       track(ANALYTICS_EVENTS.PURCHASE_COMPLETED);

@@ -775,7 +775,7 @@ function ChapterGrid({
               <h2 className="text-lg font-bold text-foreground">Coming soon</h2>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">
                 Script Trace for {activeLanguage?.name ?? activeLang} is on its way.
-                Switch to Gujarati or Hindi to practise now.
+                Switch to Gujarati or Hindi to practice now.
               </p>
             </div>
           </div>

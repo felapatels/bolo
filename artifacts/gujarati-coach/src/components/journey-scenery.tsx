@@ -662,6 +662,16 @@ export function SignalGlyph({
       <rect x={8} y={35.4} width={12} height={3} rx={1.5} fill={SLATE_SHADE} />
       {/* lamp head */}
       <rect x={7.5} y={2} width={13} height={16} rx={4} fill={INK} opacity={0.85} />
+      {/* Prod hotfix Item 2: an active signal reads unmissable, with an amber
+          halo ring plus a red glow behind the lit lamp. The attention pulse
+          lives on the button (motion-safe:animate-pulse), so reduced motion
+          suppresses it there. */}
+      {state === "active" && (
+        <>
+          <circle cx={14} cy={7.4} r={6.6} fill="none" stroke={AMBER} strokeWidth={1.6} opacity={0.9} />
+          <circle cx={14} cy={7.4} r={5.2} fill="#ef4444" opacity={0.35} />
+        </>
+      )}
       <circle cx={14} cy={7.4} r={3.1} fill={lamp} opacity={lampDim} />
       <circle
         cx={14}

@@ -199,9 +199,17 @@ export function factForZone(opts: {
     }
   }
 
-  const preferred = [...regionMatches, ...lineTagged];
+  // Prod hotfix Item 4: region-tagged matches keep their exclusive pool
+  // (tagged preference unchanged). The old fallback let the line-tagged pool
+  // stand alone; with a single railways fact that pool has length 1, so day,
+  // zone index, and salt all vanish modulo 1 and every untagged zone showed
+  // the same fact on every surface, every day. Untagged zones now rotate the
+  // full set (which still contains the line-tagged facts), so the zoneIndex
+  // stride separates zones again.
   const pool =
-    preferred.length > 0 ? preferred : INDIA_FACTS.map((_, i) => i);
+    regionMatches.length > 0
+      ? [...regionMatches, ...lineTagged]
+      : INDIA_FACTS.map((_, i) => i);
 
   const day = Math.floor(now / DAY_MS);
   const pick = pool[(day + zoneIndex * 7 + salt) % pool.length]!;

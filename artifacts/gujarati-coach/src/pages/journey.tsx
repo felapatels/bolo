@@ -67,10 +67,14 @@ import {
 } from "@/components/journey-scenery";
 import { factForZone } from "@/lib/india-facts";
 import {
+  closeoutStateUnseeded,
   gameForSignal,
   isSignalCleared,
+  isSignalStopSeen,
   isSignalWaved,
+  markSignalStopSeen,
   markSignalWaved,
+  readCloseoutStages,
   type QuickGameDef,
 } from "@/lib/quick-games";
 import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
@@ -262,7 +266,7 @@ function ZonePostcard({
 }) {
   const color = grayed ? GRAY : accent;
   return (
-    <div className={cn(grayed && "grayscale opacity-80")}>
+    <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
       {/* postcard frame — outer 2px border */}
       <div className="rounded-lg border-2 bg-white depth-shadow overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
@@ -628,6 +632,37 @@ type SignalSpot = {
   /** True when the pulse run is held at this signal (train stopped). */
   held: boolean;
 };
+
+/** Prod hotfix Item 3 (owner-ruled soft stop): reaching a held signal (the
+ *  active signal in the gap right behind the boardable stop) auto-opens the
+ *  encounter dialog once per signal per session. Never over an open dialog
+ *  or a pending zone closeout; waved and cleared signals are never held, so
+ *  they never qualify. Renders nothing. */
+function SignalSoftStop({
+  sig,
+  dialogOpen,
+  closeoutPending,
+  lang,
+  onOpen,
+}: {
+  sig: SignalSpot | null;
+  dialogOpen: boolean;
+  closeoutPending: boolean;
+  lang: string;
+  onOpen: (sig: SignalSpot) => void;
+}) {
+  const gap = sig?.gap;
+  useEffect(() => {
+    if (!sig || gap === undefined || dialogOpen || closeoutPending) return;
+    if (isSignalStopSeen(lang, gap)) return;
+    markSignalStopSeen(lang, gap);
+    onOpen(sig);
+    // The signal object is re-derived every render; keying on the gap (plus
+    // the suppressors) keeps this one-shot per arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gap, dialogOpen, closeoutPending, lang]);
+  return null;
+}
 
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
@@ -1141,8 +1176,13 @@ export default function Journey() {
                 !zone.stations.some((s) => s.planLocked === true);
               return (
                 <div key={zone.id}>
+                  {/* Prod hotfix Item 1: this full-width wrapper paints at
+                      z-index 8, above the z-index 6 signal buttons, and was
+                      swallowing taps on every zone-boundary gap signal. The
+                      wrapper now passes events through; the postcard itself
+                      re-enables them (it holds the zone test-out link). */}
                   <div
-                    className="absolute"
+                    className="absolute pointer-events-none"
                     style={{
                       left: 16,
                       right: 16,
@@ -1176,7 +1216,7 @@ export default function Journey() {
                   {/* interchange diamond pinned where the track meets the zone
                       card (top border) so it never collides with the card text */}
                   <div
-                    className="absolute w-4 h-4 border-4 border-white"
+                    className="absolute w-4 h-4 border-4 border-white pointer-events-none"
                     style={{
                       left: pt.x,
                       top: py + 10,
@@ -1302,11 +1342,19 @@ export default function Journey() {
                 data-testid={`trackside-signal-${sig.gap}`}
                 data-state={sig.state}
                 aria-label={`Trackside signal after stop ${sig.gap}`}
-                onClick={() => setSignalDlg(sig)}
+                onClick={() => {
+                  // A manual open counts as the session's soft stop too, so
+                  // closing it never triggers an auto reopen (Item 3).
+                  markSignalStopSeen(activeLang, sig.gap);
+                  setSignalDlg(sig);
+                }}
                 className={cn(
-                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-lg p-1 transition-transform",
+                  // p-2 lifts the hit target to 44x56 (Item 1); every active
+                  // signal carries the attention pulse, motion-safe only
+                  // (Item 2).
+                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-lg p-2 transition-transform",
                   sig.state === "upcoming" ? "cursor-default opacity-60" : "active:scale-95",
-                  sig.held && "motion-safe:animate-pulse",
+                  sig.state === "active" && "motion-safe:animate-pulse",
                 )}
                 style={{ left: sig.x, top: sig.y, zIndex: DEPTH_2_5D.layers.station }}
               >
@@ -1333,7 +1381,8 @@ export default function Journey() {
                   })
                 }
                 className={cn(
-                  "absolute -translate-x-1/2 -translate-y-full rounded-lg p-1 active:scale-95 transition-transform",
+                  // p-2 lifts the hit target to 46x54 (Item 1).
+                  "absolute -translate-x-1/2 -translate-y-full rounded-lg p-2 active:scale-95 transition-transform",
                   sp.grayed && "grayscale opacity-70",
                 )}
                 style={{ left: sp.x, top: sp.y, zIndex: DEPTH_2_5D.layers.station }}
@@ -1596,20 +1645,36 @@ export default function Journey() {
       {/* Chunk 6B Story 4: zone closeout celebration (client-detected, never
           gating). Showroom callers have no live progress to close out. */}
       {!showroom && (
-        <ZoneCloseoutOverlay
-          lang={activeLang}
-          lineName={line.lineName}
-          accent={line.accent}
-          zones={zones.map((z, zi) => ({
-            zoneIndex: zi,
-            zoneId: z.id,
-            geoName: z.geoName,
-            title: z.title,
-            allDone: z.zoneAllDone,
-            scenarioId: scenarioIdForZone(zi),
-            hasStamp: stampedZoneIndices.has(zi),
-          }))}
-        />
+        <>
+          <SignalSoftStop
+            sig={signals.find((s) => s.held) ?? null}
+            dialogOpen={lock !== null || signalDlg !== null || factDlg !== null}
+            closeoutPending={
+              closeoutStateUnseeded(activeLang) ||
+              zones.some(
+                (z, zi) =>
+                  z.zoneAllDone === true &&
+                  readCloseoutStages(activeLang)[zi] !== "done",
+              )
+            }
+            lang={activeLang}
+            onOpen={setSignalDlg}
+          />
+          <ZoneCloseoutOverlay
+            lang={activeLang}
+            lineName={line.lineName}
+            accent={line.accent}
+            zones={zones.map((z, zi) => ({
+              zoneIndex: zi,
+              zoneId: z.id,
+              geoName: z.geoName,
+              title: z.title,
+              allDone: z.zoneAllDone,
+              scenarioId: scenarioIdForZone(zi),
+              hasStamp: stampedZoneIndices.has(zi),
+            }))}
+          />
+        </>
       )}
     </div>
   );
