@@ -427,3 +427,42 @@ describe("session summary XP chip", () => {
     expect(screen.queryByText("PERFECT SESSION! 🏆")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Hotfix 3S Item 3: session Chai receipt pill
+// ---------------------------------------------------------------------------
+describe("session Chai receipt pill", () => {
+  test("sums server-reported chaiEarned across attempts and renders the pill", async () => {
+    // Each attempt response carries chaiEarned: 1 (e.g. the streak-day
+    // grant) -> two attempts sum to a "+2 Chai earned" receipt.
+    h.createAttempt
+      .mockReset()
+      .mockResolvedValue({ newlyEarnedBadges: [], chaiEarned: 1 });
+    await reachIdle(phrases.slice(0, 2));
+
+    await scoreAndNext("great", 8);
+    await scoreOnce("great", 8);
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+
+    await waitFor(
+      () => expect(screen.getByText(/\+2 Chai earned/i)).toBeInTheDocument(),
+      WT,
+    );
+    expect(screen.getByTestId("session-chai-pill")).toBeInTheDocument();
+  });
+
+  test("no pill when no attempt earned Chai", async () => {
+    // Default createAttempt mock has no chaiEarned field at all.
+    await reachIdle(phrases.slice(0, 2));
+
+    await scoreAndNext("great", 8);
+    await scoreOnce("great", 8);
+    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+
+    await waitFor(
+      () => expect(screen.getByText(/\+16 XP earned/i)).toBeInTheDocument(),
+      WT,
+    );
+    expect(screen.queryByTestId("session-chai-pill")).toBeNull();
+  });
+});

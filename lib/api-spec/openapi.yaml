@@ -1906,6 +1906,32 @@ paths:
                 items:
                   $ref: "#/components/schemas/ZoneStamp"
 
+  /journey/signal-waves:
+    post:
+      operationId: recordSignalWave
+      tags: [learning]
+      summary: Persist a signal wave-through for the caller
+      description: >-
+        Records that the caller waved through a trackside signal without
+        playing its quick game, so the gate-up state survives devices and
+        reinstalls. Idempotent — replaying the same signal is a silent no-op.
+        The ref is composed server-side as languageCode:categoryId:gap-N,
+        matching the first-clear ledger refId convention; a later clear
+        supersedes the wave for display, so waves are never deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalWaveInput"
+      responses:
+        "200":
+          description: Wave recorded (or already present)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalWaveResult"
+
   /tokens:
     get:
       operationId: getTokens
@@ -2674,6 +2700,66 @@ components:
             allowed language.
         teaser:
           $ref: "#/components/schemas/TeaserProgress"
+        signals:
+          $ref: "#/components/schemas/ZoneSignalStates"
+
+    ZoneSignalStates:
+      type: object
+      description: >-
+        Per-signal server truth for this zone's trackside signals, riding the
+        existing journey fetch. `waves` and `clears` are bare gap-N
+        contextRefs scoped to this category (stored server-side as
+        languageCode:categoryId:gap-N). Clears are derived from the
+        ledger-backed first-clear grants; a clear supersedes a wave for
+        display. `rewardChai` is the single-source first-clear amount the
+        server grants (config permits per-line values later) — clients must
+        render it, never a hardcoded number.
+      properties:
+        rewardChai:
+          type: integer
+        waves:
+          type: array
+          items:
+            type: string
+        clears:
+          type: array
+          items:
+            type: string
+      required:
+        - rewardChai
+        - waves
+        - clears
+
+    SignalWaveInput:
+      type: object
+      description: >-
+        Identifies the waved signal. The server composes the stored ref as
+        languageCode:categoryId:gap-N from these fields.
+      properties:
+        languageCode:
+          type: string
+          pattern: "^[a-z]{2,3}$"
+        categoryId:
+          type: integer
+          minimum: 1
+        gap:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Global gap number N — the signal sits after stop N.
+      required:
+        - languageCode
+        - categoryId
+        - gap
+
+    SignalWaveResult:
+      type: object
+      properties:
+        ref:
+          type: string
+          description: The stored ref, languageCode:categoryId:gap-N.
+      required:
+        - ref
 
     GameSessionInput:
       type: object
@@ -2907,6 +2993,12 @@ components:
             $ref: "#/components/schemas/EarnedBadge"
         teaser:
           $ref: "#/components/schemas/TeaserProgress"
+        chaiEarned:
+          type: integer
+          description: >-
+            Chai granted synchronously within this attempt request (today:
+            the streak-day earn). Omitted when zero. The Session Complete
+            receipt sums these server-authoritative amounts.
       required:
         - id
         - phraseId

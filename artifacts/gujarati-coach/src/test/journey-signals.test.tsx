@@ -22,6 +22,14 @@ const h = vi.hoisted(() => ({
   access: null as string | null,
   phraseCount: 5,
   reduceMotion: false as boolean | null,
+  // Hotfix 3S: per-zone server signal truth riding the lesson-groups payload.
+  // Tests that don't set a zone get the default (reward 1, nothing recorded).
+  signalsByZone: {} as Record<
+    number,
+    { rewardChai: number; waves: string[]; clears: string[] }
+  >,
+  // Hotfix 3S Item 1: spy for the wave-persistence mutation.
+  recordWaveMutate: vi.fn(),
 }));
 
 vi.mock("framer-motion", async (importOriginal) => ({
@@ -70,6 +78,11 @@ vi.mock("@workspace/api-client-react", async () => ({
   useListCategoryLessonGroups: (categoryId: number) => ({
     data: {
       lessonGroups: h.groupsByZone[categoryId] ?? [],
+      signals: h.signalsByZone[categoryId] ?? {
+        rewardChai: 1,
+        waves: [],
+        clears: [],
+      },
       ...(h.access !== null ? { access: h.access } : {}),
     },
     isLoading: false,
@@ -77,6 +90,12 @@ vi.mock("@workspace/api-client-react", async () => ({
     error: null,
     isFetching: false,
     refetch: vi.fn(),
+  }),
+  useRecordSignalWave: () => ({
+    mutate: h.recordWaveMutate,
+    mutateAsync: vi.fn(async () => ({ ref: "" })),
+    reset: vi.fn(),
+    isPending: false,
   }),
 }));
 
@@ -120,6 +139,8 @@ beforeEach(() => {
   h.access = null;
   h.phraseCount = 5;
   h.reduceMotion = false;
+  h.signalsByZone = {};
+  h.recordWaveMutate.mockReset();
   toastMock.mockReset();
   setZones();
   sessionStorage.removeItem("bolo-signal-waved:gu");
@@ -315,5 +336,100 @@ describe("soft stop (prod hotfix item 3)", () => {
     renderJourney();
     expect(screen.getByTestId("zone-closeout-overlay")).toBeInTheDocument();
     expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
+  });
+});
+
+// Hotfix 3S: server persistence rides the zone payload. Pins:
+// (1) server clears/waves render WITHOUT any local storage mark (cross-device
+//     truth), and a clear supersedes a wave;
+// (2) the reward chip derives from the served rewardChai, never a hardcoded
+//     number;
+// (3) both wave sites (wave-through and the auto-wave carry-on) fire the
+//     persistence mutation with the composed body;
+// (4) the Signalman stands in the encounter scene.
+describe("signal server truth (Hotfix 3S)", () => {
+  test("a server-recorded clear renders cleared with no local mark", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    h.signalsByZone[JOURNEY_ZONES[0].id] = {
+      rewardChai: 1,
+      waves: [],
+      clears: ["gap-1"],
+    };
+    renderJourney();
+    expect(screen.getByTestId("trackside-signal-1")).toHaveAttribute(
+      "data-state",
+      "cleared",
+    );
+  });
+
+  test("a server-recorded wave renders waved; a clear supersedes it", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    h.signalsByZone[JOURNEY_ZONES[0].id] = {
+      rewardChai: 1,
+      waves: ["gap-1"],
+      clears: [],
+    };
+    const first = renderJourney();
+    expect(screen.getByTestId("trackside-signal-1")).toHaveAttribute(
+      "data-state",
+      "waved",
+    );
+    first.unmount();
+    // Same gap in BOTH lists (waved earlier, cleared later): cleared wins.
+    h.signalsByZone[JOURNEY_ZONES[0].id] = {
+      rewardChai: 1,
+      waves: ["gap-1"],
+      clears: ["gap-1"],
+    };
+    renderJourney();
+    expect(screen.getByTestId("trackside-signal-1")).toHaveAttribute(
+      "data-state",
+      "cleared",
+    );
+  });
+
+  test("the reward chip renders the served rewardChai, not a hardcoded 1", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    h.signalsByZone[JOURNEY_ZONES[0].id] = {
+      rewardChai: 3,
+      waves: [],
+      clears: [],
+    };
+    renderJourney();
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    expect(screen.getByTestId("signal-chai-chip")).toHaveTextContent("+3 Chai");
+  });
+
+  test("wave me through persists the wave via the mutation", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    renderJourney();
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    fireEvent.click(screen.getByTestId("signal-wave-through"));
+    expect(h.recordWaveMutate).toHaveBeenCalledTimes(1);
+    expect(h.recordWaveMutate).toHaveBeenCalledWith({
+      data: { languageCode: "gu", categoryId: JOURNEY_ZONES[0].id, gap: 1 },
+    });
+    // Local optimistic mark still lands alongside the POST.
+    expect(isSignalWaved("gu", 1)).toBe(true);
+  });
+
+  test("the auto-wave carry-on persists the wave too", () => {
+    h.phraseCount = 1; // zone under the min floor -> no game, carry-on branch
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    renderJourney();
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    fireEvent.click(screen.getByTestId("signal-carry-on"));
+    expect(h.recordWaveMutate).toHaveBeenCalledTimes(1);
+    expect(h.recordWaveMutate).toHaveBeenCalledWith({
+      data: { languageCode: "gu", categoryId: JOURNEY_ZONES[0].id, gap: 1 },
+    });
+  });
+
+  test("the Signalman stands in the encounter scene", () => {
+    setZones([grp(101, "completed"), grp(102, "unlocked"), grp(103, "locked")]);
+    renderJourney();
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    const scene = screen.getByTestId("signal-scene");
+    expect(scene.querySelector('[data-testid="signalman-glyph"]')).not.toBeNull();
   });
 });

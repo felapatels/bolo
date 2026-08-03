@@ -704,6 +704,71 @@ export function SignalGlyph({
   );
 }
 
+/** Hotfix 3S Item 5: the Signalman — the friendly crossing keeper the copy
+ *  already talks about ("the signalman kept your Chai"). Hand-drawn inline
+ *  SVG in the brand palette, TrainEngine construction pattern: layered
+ *  rects/circles/paths, flat playful shapes, no gradients, no raster, no AI
+ *  art. Decorative only — always rendered inside an aria-hidden scene. */
+const SKIN = "#f5c99b"; // signalman face/hands (warm step of the AMBER family)
+
+export function SignalmanGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      width={26}
+      height={40}
+      viewBox="0 0 26 40"
+      aria-hidden
+      focusable="false"
+      className={className}
+      data-testid="signalman-glyph"
+    >
+      {/* ground shadow (shared scenery convention: down-light from upper-left) */}
+      <ellipse cx={13} cy={36.2} rx={8} ry={1.9} fill={INK} opacity={0.13} />
+      {/* flag pole, held high — drawn first so the hand overlaps the grip */}
+      <rect x={21.2} y={2.4} width={1.5} height={17} rx={0.75} fill={SLATE_SHADE} />
+      {/* red pennant, pointing back toward the track */}
+      <path d="M22.7 2.8 L22.7 8.8 L15.2 5.8 Z" fill={SIGNAL_RED} />
+      {/* legs + boots */}
+      <rect x={7.6} y={23.6} width={2.6} height={9.6} rx={1.2} fill={INK} />
+      <rect x={12.2} y={23.6} width={2.6} height={9.6} rx={1.2} fill={INK} />
+      <rect x={6.9} y={32.6} width={4} height={2.8} rx={1.3} fill={TRUNK_SHADE} />
+      <rect x={11.5} y={32.6} width={4} height={2.8} rx={1.3} fill={TRUNK_SHADE} />
+      {/* uniform jacket, belt, brass buttons */}
+      <rect x={6.4} y={12.8} width={9.4} height={11} rx={3} fill={INDIGO} />
+      <rect x={6.4} y={21.2} width={9.4} height={1.6} fill={TEAL} />
+      <circle cx={11.1} cy={16} r={0.7} fill={AMBER} />
+      <circle cx={11.1} cy={19} r={0.7} fill={AMBER} />
+      {/* resting arm + hand */}
+      <rect x={4.4} y={13.6} width={2.4} height={7.6} rx={1.2} fill={INDIGO} />
+      <circle cx={5.6} cy={21.8} r={1.1} fill={SKIN} />
+      {/* raised arm gripping the pole */}
+      <path
+        d="M15.2 15.2 L21.4 10"
+        stroke={INDIGO}
+        strokeWidth={2.6}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <circle cx={21.9} cy={9.6} r={1.2} fill={SKIN} />
+      {/* friendly face */}
+      <circle cx={11} cy={8.5} r={4.2} fill={SKIN} />
+      <circle cx={9.6} cy={8.4} r={0.55} fill={INK} />
+      <circle cx={12.5} cy={8.4} r={0.55} fill={INK} />
+      <path
+        d="M9.6 10.2 q1.4 1.3 2.9 0"
+        stroke={INK}
+        strokeWidth={0.8}
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* peaked cap with teal band */}
+      <rect x={6.6} y={2.8} width={8.8} height={3.4} rx={1.6} fill={INDIGO} />
+      <rect x={6.6} y={5.3} width={8.8} height={1.2} fill={TEAL} />
+      <rect x={5.4} y={6.1} width={7.2} height={1.2} rx={0.6} fill={INDIGO} />
+    </svg>
+  );
+}
+
 /** Wooden signpost glyph for the zone line-fact marker: two boards on a post
  *  with a marigold at the foot. Sized for a 30x38 button. */
 export function SignpostGlyph({ accent }: { accent: string }) {

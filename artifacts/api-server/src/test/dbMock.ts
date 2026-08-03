@@ -76,6 +76,7 @@ export function createDbMockExports(
     phraseReportsTable: {},
     phrasesTable: {},
     scriptTraceProgressTable: {},
+    signalWavesTable: {},
     ttsCacheTable: {},
     userAbilityTable: {},
     userItemMemoryTable: {},

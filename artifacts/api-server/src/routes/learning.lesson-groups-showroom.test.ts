@@ -336,9 +336,10 @@ test("teaser caller gets the showroom: all locked except the marked teaser stati
   assert.equal(status, 200);
 
   // Envelope: exactly the list contract plus the showroom fields.
+  // Hotfix 3S: every lesson-groups response now carries the signals payload.
   assert.deepEqual(
     Object.keys(json).sort(),
-    ["access", "lessonGroups", "teaser", "unassignedCount"].sort(),
+    ["access", "lessonGroups", "signals", "teaser", "unassignedCount"].sort(),
   );
   assert.equal(json.access, "teaser");
   assert.deepEqual(json.teaser, { consumed: 0, limit: TEASER_LIMIT });
@@ -448,9 +449,10 @@ test("allowed (Plus) caller keeps the original contract with stage, and latching
   );
   assert.equal(status, 200);
   // No showroom envelope for an allowed language.
+  // Hotfix 3S: the signals payload rides every lesson-groups response.
   assert.deepEqual(
     Object.keys(json).sort(),
-    ["lessonGroups", "unassignedCount"].sort(),
+    ["lessonGroups", "signals", "unassignedCount"].sort(),
   );
 
   const [s1, s2, s3] = json.lessonGroups;

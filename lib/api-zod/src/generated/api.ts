@@ -87,7 +87,12 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
-}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.'),
+  "signals": zod.object({
+  "rewardChai": zod.number(),
+  "waves": zod.array(zod.string()),
+  "clears": zod.array(zod.string())
+}).optional().describe('Per-signal server truth for this zone\'s trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.')
 })
 
 
@@ -434,7 +439,8 @@ export const CreateAttemptResponse = zod.object({
   "teaser": zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
-}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.')
+}).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.'),
+  "chaiEarned": zod.number().optional().describe('Chai granted synchronously within this attempt request (today: the streak-day earn). Omitted when zero. The Session Complete receipt sums these server-authoritative amounts.')
 })
 
 
@@ -1504,6 +1510,27 @@ export const ListZoneStampsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 }).describe('Record that a learner completed a zone capstone conversation.')
 export const ListZoneStampsResponse = zod.array(ListZoneStampsResponseItem)
+
+
+/**
+ * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent — replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
+ * @summary Persist a signal wave-through for the caller
+ */
+export const recordSignalWaveBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$');
+
+export const recordSignalWaveBodyGapMax = 999;
+
+
+
+export const RecordSignalWaveBody = zod.object({
+  "languageCode": zod.string().regex(recordSignalWaveBodyLanguageCodeRegExp),
+  "categoryId": zod.number().min(1),
+  "gap": zod.number().min(1).max(recordSignalWaveBodyGapMax).describe('Global gap number N — the signal sits after stop N.')
+}).describe('Identifies the waved signal. The server composes the stored ref as languageCode:categoryId:gap-N from these fields.')
+
+export const RecordSignalWaveResponse = zod.object({
+  "ref": zod.string().describe('The stored ref, languageCode:categoryId:gap-N.')
+})
 
 
 /**

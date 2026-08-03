@@ -23,6 +23,7 @@ import {
   useListCategories,
   useListCategoryLessonGroups,
   useListZoneStamps,
+  useRecordSignalWave,
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
@@ -59,6 +60,7 @@ import {
   SCENERY_PLACEMENT,
   SceneryElement,
   SignalGlyph,
+  SignalmanGlyph,
   SignpostGlyph,
   ZoneVista,
   planTracksideSignals,
@@ -724,6 +726,9 @@ type SignalSpot = {
   zoneIndex: number;
   zoneId: number;
   state: "upcoming" | "active" | "waved" | "cleared";
+  /** Hotfix 3S Item 4: first-clear Chai served by the zone payload — the
+   *  reward chip renders THIS value, never a hardcoded number. */
+  rewardChai: number;
   /** Rotation pick for this signal; null means auto-wave (roster empty). */
   game: QuickGameDef | null;
   /** True when the pulse run is held at this signal (train stopped). */
@@ -816,6 +821,10 @@ export default function Journey() {
   const q5 = useListCategoryLessonGroups(JOURNEY_ZONES[4].id, activeLang);
   const q6 = useListCategoryLessonGroups(JOURNEY_ZONES[5].id, activeLang);
   const zoneQueries = [q1, q2, q3, q4, q5, q6];
+  // Hotfix 3S Item 1: waves persist server-side; the sessionStorage mark stays
+  // as the optimistic cache so the gate lifts instantly even if the POST is
+  // still in flight (or fails — the server catches up on the next wave).
+  const recordSignalWave = useRecordSignalWave();
 
   // Plain-locked language (no teaser set): the API keeps its pre-M1 402 and
   // the map defers to the standard upgrade screen.
@@ -1049,13 +1058,20 @@ export default function Journey() {
           Math.max(20, a.x + (cardSide === "right" ? -30 : 30)),
         );
         const stopDone = station.status === "completed" || station.status === "tested_out";
-        const state: SignalSpot["state"] = isSignalCleared(activeLang, afterStop)
-          ? "cleared"
-          : isSignalWaved(activeLang, afterStop)
-            ? "waved"
-            : stopDone
-              ? "active"
-              : "upcoming";
+        // Hotfix 3S Item 2: server truth first (ledger-backed clears, persisted
+        // waves from the zone payload), local storage second as an optimistic
+        // cache for marks the server hasn't confirmed yet. Cleared is checked
+        // before waved on both sides, so a later clear supersedes a wave.
+        const zoneSignals = zoneQueries[station.zoneIndex]?.data?.signals;
+        const gapRef = `gap-${afterStop}`;
+        const state: SignalSpot["state"] =
+          zoneSignals?.clears.includes(gapRef) || isSignalCleared(activeLang, afterStop)
+            ? "cleared"
+            : zoneSignals?.waves.includes(gapRef) || isSignalWaved(activeLang, afterStop)
+              ? "waved"
+              : stopDone
+                ? "active"
+                : "upcoming";
         return [
           {
             gap: afterStop,
@@ -1065,6 +1081,7 @@ export default function Journey() {
             zoneIndex: station.zoneIndex,
             zoneId: zone.id,
             state,
+            rewardChai: zoneSignals?.rewardChai ?? 1,
             game: gameForSignal(signalIndex, visibleCountForZone(zone.id)),
             held: state === "active" && afterStop === currentGlobalIdx,
           },
@@ -1690,6 +1707,15 @@ export default function Journey() {
                 data-testid="signal-carry-on"
                 onClick={() => {
                   markSignalWaved(activeLang, signalDlg.gap);
+                  // Hotfix 3S Item 1: persist the auto-wave too (idempotent);
+                  // local mark above is the optimistic cache.
+                  recordSignalWave.mutate({
+                    data: {
+                      languageCode: activeLang,
+                      categoryId: signalDlg.zoneId,
+                      gap: signalDlg.gap,
+                    },
+                  });
                   setSignalTick((t) => t + 1);
                   setSignalDlg(null);
                 }}
@@ -1710,6 +1736,9 @@ export default function Journey() {
               >
                 <TrainEngine className="w-16 shrink-0" />
                 <div className="mb-1 flex-1 border-b-2 border-dashed border-border" />
+                {/* Hotfix 3S Item 5: the Signalman himself steps out beside
+                    his crossing. Decorative; the scene is aria-hidden. */}
+                <SignalmanGlyph className="shrink-0" />
                 <SignalGlyph
                   state={
                     signalDlg.state === "cleared"
@@ -1741,7 +1770,9 @@ export default function Journey() {
                   className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
                 >
                   <Coffee className="h-3.5 w-3.5" />
-                  +1 Chai
+                  {/* Hotfix 3S Item 4: served value from the zone payload,
+                      never a hardcoded amount. */}
+                  +{signalDlg.rewardChai} Chai
                 </div>
               )}
               <Link
@@ -1767,6 +1798,16 @@ export default function Journey() {
                   data-testid="signal-wave-through"
                   onClick={() => {
                     markSignalWaved(activeLang, signalDlg.gap);
+                    // Hotfix 3S Item 1: persist the wave server-side so the
+                    // gate-up state survives devices; the local mark above is
+                    // the optimistic cache (idempotent replays are no-ops).
+                    recordSignalWave.mutate({
+                      data: {
+                        languageCode: activeLang,
+                        categoryId: signalDlg.zoneId,
+                        gap: signalDlg.gap,
+                      },
+                    });
                     setSignalTick((t) => t + 1);
                     setSignalDlg(null);
                     // Item 4: skip receipt, never-shamed voice, and the open

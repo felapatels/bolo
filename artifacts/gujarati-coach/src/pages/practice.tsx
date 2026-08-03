@@ -28,7 +28,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Coffee, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 // TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
 // with the ?mode=capture scaffolding once the calibration corpus is complete.
 import {
@@ -456,6 +456,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }>>({});
   // Which phrase ring is expanded in the summary (index into orderedSummaryEntries).
   const [summarySelectedIdx, setSummarySelectedIdx] = useState<number | null>(null);
+  // Hotfix 3S Item 3: total session Chai from attempt-side-effect earns.
+  // Each attempt response carries a server-authoritative `chaiEarned`; the
+  // client sums them exactly like XP. The receipt pill renders only when > 0.
+  const [sessionChai, setSessionChai] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   // Spec 1: retry-band shake (increment retriggers), XP arc overlay state.
   const [shakeKey, setShakeKey] = useState(0);
@@ -1217,6 +1221,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           }
         });
 
+        // Hotfix 3S Item 3: aggregate the server-reported Chai earned by this
+        // attempt's side effects (today: the streak-day grant) for the
+        // Session Complete receipt. Absent/zero adds nothing.
+        if (attemptRes.chaiEarned) {
+          setSessionChai((c) => c + attemptRes.chaiEarned!);
+        }
+
         // Optimistic: increment todayXp immediately so the XpCounter reacts
         // before the background refetch resolves.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1763,6 +1774,21 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             {totalXp > 0 && (
               <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-4 py-1 text-sm font-black text-violet-600 dark:text-violet-400">
                 <CountUp value={totalXp} prefix="+" suffix=" XP earned" />
+              </div>
+            )}
+
+            {/* Hotfix 3S Item 3: Chai receipt — server-aggregated session
+                earns, directly under the XP pill as its sibling, only when
+                something was actually earned. */}
+            {sessionChai > 0 && (
+              <div>
+                <div
+                  data-testid="session-chai-pill"
+                  className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/40 px-4 py-1 text-sm font-black text-amber-700 dark:text-amber-400"
+                >
+                  <Coffee className="h-3.5 w-3.5" aria-hidden />
+                  <CountUp value={sessionChai} prefix="+" suffix=" Chai earned" />
+                </div>
               </div>
             )}
 

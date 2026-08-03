@@ -5,8 +5,21 @@ export const TOKEN_EARN_ZONE_COMPLETE = 10;
 export const TOKEN_EARN_EXPRESS_STAMP = 3;
 export const TOKEN_EARN_QUIZ = 2;
 export const TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 50;
-// ruled Aug 2; once-ever per identity via the ledger index
-export const SIGNAL_FIRST_CLEAR_CHAI = 1;
+// ruled Aug 2; once-ever per identity via the ledger index.
+// Hotfix 3S Item 4: the signal first-clear amount became a config object so
+// per-line values (keyed by language code, i.e. journey line) can land later
+// without touching grant or payload code. Grants AND the journey payload both
+// read signalFirstClearChai(); nothing may inline the number.
+export const SIGNAL_FIRST_CLEAR_REWARDS: {
+  default: number;
+  perLine: Record<string, number>;
+} = { default: 1, perLine: {} };
+export function signalFirstClearChai(languageCode: string): number {
+  return (
+    SIGNAL_FIRST_CLEAR_REWARDS.perLine[languageCode] ??
+    SIGNAL_FIRST_CLEAR_REWARDS.default
+  );
+}
 export const CLOSEOUT_FIRST_CHAI = 2;
 
 export const STATION_PAUSE_COST = 5;

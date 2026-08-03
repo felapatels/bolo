@@ -32,7 +32,7 @@ import {
   getOrCreateTokenState,
 } from "../lib/tokenService.js";
 import {
-  SIGNAL_FIRST_CLEAR_CHAI,
+  signalFirstClearChai,
   CLOSEOUT_FIRST_CHAI,
 } from "../lib/tokenEconomy.js";
 
@@ -122,15 +122,15 @@ describe("signal context: once-ever Chai grant", () => {
   const CONTEXT_REF = "gap-42";
   const REF_ID = `${LANG}:${CAT_ID}:${CONTEXT_REF}`;
 
-  it("first signal clear grants SIGNAL_FIRST_CLEAR_CHAI and creates a ledger row", async () => {
+  it("first signal clear grants the configured signal reward and creates a ledger row", async () => {
     const stateBefore = await getOrCreateTokenState(TEST_USER_ID);
     const stateAfter = await grantTokens(
       TEST_USER_ID,
       "earn_signal_first_clear",
       REF_ID,
-      SIGNAL_FIRST_CLEAR_CHAI,
+      signalFirstClearChai(LANG),
     );
-    assert.strictEqual(stateAfter.balance, stateBefore.balance + SIGNAL_FIRST_CLEAR_CHAI);
+    assert.strictEqual(stateAfter.balance, stateBefore.balance + signalFirstClearChai(LANG));
 
     const rows = await db
       .select({ refId: tokenLedgerTable.refId })
@@ -151,7 +151,7 @@ describe("signal context: once-ever Chai grant", () => {
       TEST_USER_ID,
       "earn_signal_first_clear",
       REF_ID,
-      SIGNAL_FIRST_CLEAR_CHAI,
+      signalFirstClearChai(LANG),
     );
     assert.strictEqual(
       stateAfterReplay.balance,

@@ -413,12 +413,43 @@ export const LessonGroupListAccess = {
   exhausted: 'exhausted',
 } as const;
 
+/**
+ * Per-signal server truth for this zone's trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.
+ */
+export interface ZoneSignalStates {
+  rewardChai: number;
+  waves: string[];
+  clears: string[];
+}
+
 export interface LessonGroupList {
   lessonGroups?: LessonGroupSummary[];
   unassignedCount?: number;
   /** Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone/station structure instead of a 402 so the journey map can render as the paywall's showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). "teaser" while free taster phrases remain, "exhausted" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language. */
   access?: LessonGroupListAccess;
   teaser?: TeaserProgress;
+  signals?: ZoneSignalStates;
+}
+
+/**
+ * Identifies the waved signal. The server composes the stored ref as languageCode:categoryId:gap-N from these fields.
+ */
+export interface SignalWaveInput {
+  /** @pattern ^[a-z]{2,3}$ */
+  languageCode: string;
+  /** @minimum 1 */
+  categoryId: number;
+  /**
+     * Global gap number N — the signal sits after stop N.
+     * @minimum 1
+     * @maximum 999
+     */
+  gap: number;
+}
+
+export interface SignalWaveResult {
+  /** The stored ref, languageCode:categoryId:gap-N. */
+  ref: string;
 }
 
 /**
@@ -577,6 +608,8 @@ export interface AttemptResult {
   createdAt: string;
   newlyEarnedBadges: EarnedBadge[];
   teaser?: TeaserProgress;
+  /** Chai granted synchronously within this attempt request (today: the streak-day earn). Omitted when zero. The Session Complete receipt sums these server-authoritative amounts. */
+  chaiEarned?: number;
 }
 
 export interface ProgressSummary {

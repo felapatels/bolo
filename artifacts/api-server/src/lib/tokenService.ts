@@ -49,6 +49,21 @@ export async function grantTokens(
   refId: string,
   amount: number,
 ): Promise<TokenStateRow> {
+  return (await grantTokensDetailed(userId, reason, refId, amount)).state;
+}
+
+/**
+ * Hotfix 3S: same idempotent grant, but reports whether THIS call inserted
+ * the ledger row. Callers that need to attribute Chai to a specific request
+ * (the attempt-response Chai receipt) use `granted`; a concurrent-balance
+ * compare cannot distinguish this grant from an unrelated one.
+ */
+export async function grantTokensDetailed(
+  userId: string,
+  reason: TokenReason,
+  refId: string,
+  amount: number,
+): Promise<{ state: TokenStateRow; granted: boolean }> {
   return db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
     const inserted = await tx
@@ -62,7 +77,7 @@ export async function grantTokens(
       })
       .onConflictDoNothing()
       .returning({ id: tokenLedgerTable.id });
-    if (inserted.length === 0) return state;
+    if (inserted.length === 0) return { state, granted: false };
     const [updated] = await tx
       .update(userTokenStateTable)
       .set({
@@ -71,7 +86,7 @@ export async function grantTokens(
       })
       .where(eq(userTokenStateTable.userId, userId))
       .returning();
-    return toState(updated);
+    return { state: toState(updated), granted: true };
   });
 }
 

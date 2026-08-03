@@ -87,6 +87,8 @@ import type {
   SendFriendInviteInput,
   SendFriendRequestInput,
   SetChosenLanguageInput,
+  SignalWaveInput,
+  SignalWaveResult,
   SpeechInput,
   SpeechResult,
   SubscriptionDetails,
@@ -4985,6 +4987,78 @@ export function useListZoneStamps<TData = Awaited<ReturnType<typeof listZoneStam
 
 
 
+
+export const getRecordSignalWaveUrl = () => {
+
+
+
+
+  return `/api/journey/signal-waves`
+}
+
+/**
+ * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent — replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
+ * @summary Persist a signal wave-through for the caller
+ */
+export const recordSignalWave = async (signalWaveInput: SignalWaveInput, options?: RequestInit): Promise<SignalWaveResult> => {
+
+  return customFetch<SignalWaveResult>(getRecordSignalWaveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(signalWaveInput)
+  }
+);}
+
+
+
+
+
+export const getRecordSignalWaveMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordSignalWave>>, TError,{data: BodyType<SignalWaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordSignalWave>>, TError,{data: BodyType<SignalWaveInput>}, TContext> => {
+
+const mutationKey = ['recordSignalWave'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordSignalWave>>, {data: BodyType<SignalWaveInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordSignalWave(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordSignalWaveMutationResult = NonNullable<Awaited<ReturnType<typeof recordSignalWave>>>
+    export type RecordSignalWaveMutationBody = BodyType<SignalWaveInput>
+    export type RecordSignalWaveMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Persist a signal wave-through for the caller
+ */
+export const useRecordSignalWave = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordSignalWave>>, TError,{data: BodyType<SignalWaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordSignalWave>>,
+        TError,
+        {data: BodyType<SignalWaveInput>},
+        TContext
+      > => {
+      return useMutation(getRecordSignalWaveMutationOptions(options));
+    }
 
 export const getGetTokensUrl = () => {
 

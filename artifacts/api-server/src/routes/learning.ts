@@ -16,8 +16,10 @@ import {
   usersTable,
   zoneConversationStampsTable,
   zoneTestoutsTable,
+  tokenLedgerTable,
+  signalWavesTable,
 } from "@workspace/db";
-import { asc, desc, eq, and, ne, inArray, sql, gte, isNull } from "drizzle-orm";
+import { asc, desc, eq, and, ne, inArray, sql, gte, isNull, like } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -123,6 +125,7 @@ import { writeAttemptXp, readLedgerXp } from "../lib/xpEngine";
 import { POLISH_ENABLED, CROSS_ZONE_GATE_ENABLED } from "../lib/featureFlags";
 import {
   grantTokens,
+  grantTokensDetailed,
   getOrCreateTokenState,
   consumePausesForGap,
   listPausedDayKeys,
@@ -132,7 +135,7 @@ import {
   TOKEN_EARN_ZONE_COMPLETE,
   TOKEN_EARN_EXPRESS_STAMP,
   EXPRESS_MULTIPLIER_FACTOR,
-  SIGNAL_FIRST_CLEAR_CHAI,
+  signalFirstClearChai,
   CLOSEOUT_FIRST_CHAI,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
@@ -1244,6 +1247,10 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     tokenState.expressMultiplierExpiresAt > now
       ? xpAwarded * EXPRESS_MULTIPLIER_FACTOR
       : xpAwarded;
+  // Hotfix 3S Item 3: Chai granted synchronously within THIS attempt request
+  // (today: the streak-day earn). Reported on the response as `chaiEarned` so
+  // the Session Complete receipt aggregates server-authoritative amounts.
+  let attemptChaiEarned = 0;
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
   if (claims.phraseId != null && !isNocatch) {
@@ -1412,9 +1419,16 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       : Promise.resolve(),
     // HOOK 1c: streak-day earn (1 Chai). Nocatch included for parity with
     // streak counting — a system miss never costs the learner their daily Chai.
-    grantTokens(userId, "earn_streak_day", localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY).catch((err) => {
-      req.log?.warn({ err }, "token_streak_day_grant_failed");
-    }),
+    // Hotfix 3S Item 3: the detailed variant reports whether THIS attempt's
+    // request inserted the grant, so the response can carry an authoritative
+    // per-attempt Chai receipt (client sums them like XP for the session pill).
+    grantTokensDetailed(userId, "earn_streak_day", localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY)
+      .then(({ granted }) => {
+        if (granted) attemptChaiEarned += TOKEN_EARN_STREAK_DAY;
+      })
+      .catch((err) => {
+        req.log?.warn({ err }, "token_streak_day_grant_failed");
+      }),
     // HOOK 5: lazy monthly allowance for active subscribers.
     maybeGrantAllowance(req).catch((err) => {
       req.log?.warn({ err }, "token_allowance_grant_failed");
@@ -1491,6 +1505,9 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // for plan-covered languages.
   res.status(201).json({
     ...(teaser ? { teaser } : {}),
+    // Hotfix 3S Item 3: omitted when zero — the receipt pill only renders
+    // when something was actually earned.
+    ...(attemptChaiEarned > 0 ? { chaiEarned: attemptChaiEarned } : {}),
     id: row.id,
     phraseId: row.phraseId,
     languageCode: row.languageCode,
@@ -2098,11 +2115,14 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   if (context === "signal") {
     const reason = "earn_signal_first_clear" as const;
     const refId = `${languageCode}:${categoryId}:${contextRef}`;
+    // Hotfix 3S Item 4: the amount comes from the single server-side reward
+    // config (per-line capable); the same accessor feeds the journey payload.
+    const amount = signalFirstClearChai(languageCode);
     try {
       const stateBefore = await getOrCreateTokenState(userId);
-      const stateAfter = await grantTokens(userId, reason, refId, SIGNAL_FIRST_CLEAR_CHAI);
+      const stateAfter = await grantTokens(userId, reason, refId, amount);
       if (stateAfter.balance > stateBefore.balance) {
-        chaiGranted = SIGNAL_FIRST_CLEAR_CHAI;
+        chaiGranted = amount;
       }
     } catch (err) {
       req.log.warn({ err }, "token_signal_grant_failed");
@@ -2223,7 +2243,45 @@ router.get(
       derived = statuses;
     }
 
+    // Hotfix 3S Items 1+2+4: per-signal server truth rides this existing
+    // journey fetch (zero new read requests). Waves come from signal_waves;
+    // clears are derived from the ledger-backed earn_signal_first_clear rows,
+    // so "cleared" is server truth, not client memory. Refs are stored as
+    // `${lang}:${categoryId}:gap-N`; the payload carries the bare gap-N
+    // contextRefs scoped to this category. A clear supersedes a wave for
+    // display (client checks clears first). rewardChai is the served
+    // single-source first-clear amount (per-line capable config).
+    const signalRefPrefix = `${lang}:${id}:`;
+    const [signalWaveRows, signalClearRows] = await Promise.all([
+      db
+        .select({ ref: signalWavesTable.ref })
+        .from(signalWavesTable)
+        .where(
+          and(
+            eq(signalWavesTable.userId, userId),
+            like(signalWavesTable.ref, `${signalRefPrefix}%`),
+          ),
+        ),
+      db
+        .select({ refId: tokenLedgerTable.refId })
+        .from(tokenLedgerTable)
+        .where(
+          and(
+            eq(tokenLedgerTable.userId, userId),
+            eq(tokenLedgerTable.reason, "earn_signal_first_clear"),
+            like(tokenLedgerTable.refId, `${signalRefPrefix}%`),
+          ),
+        ),
+    ]);
+
     res.json({
+      signals: {
+        rewardChai: signalFirstClearChai(lang),
+        waves: signalWaveRows.map((r) => r.ref.slice(signalRefPrefix.length)),
+        clears: signalClearRows.map((r) =>
+          r.refId.slice(signalRefPrefix.length),
+        ),
+      },
       lessonGroups: groups.map((g) => {
         const allIds = byGroup.get(g.id) ?? [];
         const phraseIds = canAccessPremium
@@ -3130,6 +3188,56 @@ router.get(
         ),
       );
     res.json(stamps);
+  },
+);
+
+// POST /journey/signal-waves — Hotfix 3S Item 1: persist a wave-through so
+// the gate-up state survives devices and reinstalls. The ref is composed
+// server-side to pin the `${languageCode}:${categoryId}:gap-N` convention
+// (identical to the earn_signal_first_clear ledger refId). Idempotent via the
+// (user, ref) unique constraint; rows are never deleted — a later first-clear
+// supersedes the wave for display.
+const SignalWaveBody = z.object({
+  // Strict grammar: bare 2-3 letter lowercase codes only. This is not just
+  // hygiene — stored refs feed the lesson-groups LIKE prefix scan, so LIKE
+  // metacharacters (% _) must never be able to enter a ref.
+  languageCode: z.string().regex(/^[a-z]{2,3}$/),
+  categoryId: z.number().int().positive(),
+  gap: z.number().int().positive().lte(999),
+});
+
+router.post(
+  "/journey/signal-waves",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = SignalWaveBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid signal wave" });
+      return;
+    }
+    const { languageCode, categoryId, gap } = parsed.data;
+    const userId = getUserId(req);
+    // Refs must point at real content: unknown language or category 404s
+    // instead of persisting junk display rows.
+    const [langRow, catRow] = await Promise.all([
+      db.query.languagesTable.findFirst({
+        where: (t, { eq: eqOp }) => eqOp(t.code, languageCode),
+        columns: { code: true },
+      }),
+      db.query.categoriesTable.findFirst({
+        where: (t, { eq: eqOp }) => eqOp(t.id, categoryId),
+        columns: { id: true },
+      }),
+    ]);
+    if (!langRow || !catRow) {
+      res.status(404).json({ error: "Unknown language or category" });
+      return;
+    }
+    const ref = `${languageCode}:${categoryId}:gap-${gap}`;
+    await db
+      .insert(signalWavesTable)
+      .values({ userId, ref })
+      .onConflictDoNothing();
+    res.json({ ref });
   },
 );
 

@@ -23,4 +23,6 @@ export interface AttemptResult {
   createdAt: Date;
   newlyEarnedBadges: EarnedBadge[];
   teaser?: TeaserProgress;
+  /** Chai granted synchronously within this attempt request (today: the streak-day earn). Omitted when zero. The Session Complete receipt sums these server-authoritative amounts. */
+  chaiEarned?: number;
 }
