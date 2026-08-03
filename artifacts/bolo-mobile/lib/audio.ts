@@ -151,6 +151,35 @@ function activatePlaybackMode(): Promise<void> {
   );
 }
 
+/**
+ * Route a one-shot UI SFX (the boarding-pass tear, 34B item 4) to the
+ * speaker. While the recording session is warm, iOS keeps the
+ * `playAndRecord` category and routes playback to the quiet earpiece; flip
+ * to playback-only mode first, serialized on the same session-op queue as
+ * every other flip so a recorder prepare can't interleave with it. The flip
+ * claims the playback-mode token so an older playback's deferred
+ * recording-mode restore can't land after it and re-route the SFX mid-clip.
+ * Nothing restores recording mode here — the next recorder prepare
+ * re-asserts it. No-op (but still serialized) off iOS, when the session was
+ * never configured for recording, or when the session is already
+ * playback-only.
+ */
+export function activateSfxPlaybackRoute(): Promise<void> {
+  if (Platform.OS !== 'ios' || !recordingSessionActive) {
+    // Still wait for any in-flight session op so play() never races one.
+    return sessionChain.then(() => undefined);
+  }
+  // Claim the token FIRST, even when the session is already playback-only:
+  // an older playback that just finished may still have a deferred
+  // recording-mode restore in flight, and without a newer claim it would
+  // land mid-clip and re-route the SFX to the earpiece.
+  ++playbackModeToken;
+  if (!modeIsRecording) {
+    return sessionChain.then(() => undefined);
+  }
+  return activatePlaybackMode();
+}
+
 /** Read a recorded file's contents as a base64 string (web + native). */
 export async function uriToBase64(uri: string): Promise<string> {
   if (Platform.OS === 'web') {

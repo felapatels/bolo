@@ -850,6 +850,19 @@ export default function JourneyScreen() {
             );
             const grayed = showroom && !zoneAccessible;
             const cardColor = grayed ? GRAY : line.accent;
+            // Zone gate-lock (web parity, owner-corrected): every stop locked
+            // by progression, none by plan, and the listing is NOT a showroom
+            // payload (no top-level access field). Showroom forces every
+            // station locked with planLocked unset, so without the access
+            // check the affordance would render for teaser and exhausted
+            // callers. Pre-flip the first stop of every zone is unlocked, so
+            // this stays dormant until CROSS_ZONE_GATE_ENABLED flips
+            // server-side.
+            const zoneGateLocked =
+              access === null &&
+              zone.stations.length > 0 &&
+              zone.stations.every((s) => s.status === 'locked') &&
+              !zone.stations.some((s) => s.planLocked === true);
             return (
               <View key={zone.id}>
                 <View style={[styles.postcardWrap, { top: py + 10 }]}>
@@ -885,6 +898,27 @@ export default function JourneyScreen() {
                           </View>
                         </View>
                       </View>
+                      {/* Zone test-out affordance (web parity:
+                          link-zone-test-out-{i}) — present only when the zone
+                          is gate-locked; dormant pre-flip by construction. */}
+                      {zoneGateLocked && (
+                        <Pressable
+                          testID={`link-zone-test-out-${zoneIndex}`}
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            router.push({
+                              pathname: '/(app)/practice/[id]',
+                              params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
+                            });
+                          }}
+                          style={[styles.postcardTestOut, { borderColor: cardColor }]}
+                        >
+                          <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
+                            Test out of this zone
+                          </Text>
+                        </Pressable>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -1213,6 +1247,32 @@ export default function JourneyScreen() {
                     </Text>
                   </Pressable>
                 )}
+                {/* Zone-scope express (web parity: link-test-out-zone): one
+                    phrase from each stop, judged in one shot. Same quiet
+                    secondary treatment so the default path stays "finish the
+                    stop before it". */}
+                {lock.zoneId !== undefined && (
+                  <Pressable
+                    testID="link-test-out-zone"
+                    accessibilityRole="button"
+                    onPress={() => {
+                      const { zoneId } = lock;
+                      setLock(null);
+                      router.push({
+                        pathname: '/(app)/practice/[id]',
+                        params: { id: String(zoneId), mode: 'testout', scope: 'zone' },
+                      });
+                    }}
+                    style={[styles.dialogSecondaryCta, styles.dialogSecondaryCtaCol, { borderColor: colors.border, backgroundColor: colors.card }]}
+                  >
+                    <Text style={[styles.dialogSecondaryCtaText, { color: colors.foreground }]}>
+                      Test out of this whole zone
+                    </Text>
+                    <Text style={[styles.dialogSecondarySubText, { color: colors.mutedForeground }]}>
+                      One phrase from each stop. Pass to unlock everything here.
+                    </Text>
+                  </Pressable>
+                )}
               </>
             )}
             {lock?.kind === 'sentence' && (
@@ -1451,6 +1511,16 @@ const styles = StyleSheet.create({
   postcardZoneLabel: { fontFamily: AppFonts.bold, fontSize: 9, letterSpacing: 1.5 },
   postcardGeoName: { fontFamily: AppFonts.extrabold, fontSize: 14, lineHeight: 17, color: '#1f2937' },
   postcardStops: { fontFamily: AppFonts.semibold, fontSize: 10, color: '#6b7280' },
+  // 34B: dormant whole-zone test-out affordance on a fully gate-locked zone.
+  postcardTestOut: {
+    marginHorizontal: 6,
+    marginBottom: 6,
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  postcardTestOutText: { fontFamily: AppFonts.bold, fontSize: 12 },
   postcardRule: { width: 1, alignSelf: 'stretch', marginVertical: 6 },
   postcardRight: {
     flexShrink: 0,
@@ -1672,6 +1742,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   dialogSecondaryCtaText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  dialogSecondaryCtaCol: { flexDirection: 'column', gap: 2 },
+  dialogSecondarySubText: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   dialogClose: {
     position: 'absolute',
     right: 14,

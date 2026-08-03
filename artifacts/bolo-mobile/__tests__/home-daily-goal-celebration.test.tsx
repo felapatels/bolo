@@ -62,6 +62,9 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetTokensQueryKey: () => ['tokens'],
+  useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],

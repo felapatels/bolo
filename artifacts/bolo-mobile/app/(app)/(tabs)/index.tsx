@@ -32,6 +32,7 @@ import {
   useGetAccount,
   useListReviewPhrases,
   useListIncomingFriendRequests,
+  useGetTokens,
   getGetDailyQuizQueryKey,
   getListReviewPhrasesQueryKey,
 } from '@workspace/api-client-react';
@@ -53,6 +54,7 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
@@ -90,6 +92,12 @@ export default function HomeScreen() {
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
   const recent = useListRecentAttempts({ lang: activeLang, limit: 5 });
+
+  // Chai wallet (Build 34B, web parity): balance rides in the stats banner as
+  // a fourth cell; tapping it opens the wallet sheet. Token state is
+  // language-independent, so it loads even when the summary 402s.
+  const tokensQuery = useGetTokens();
+  const [walletOpen, setWalletOpen] = useState(false);
 
   // R4: decode the boarding-pass tear SFX at home mount (web's
   // preload-at-mount pattern) so the first pass activation plays with zero
@@ -427,6 +435,20 @@ export default function HomeScreen() {
                   label="Mastered"
                   loading={summary.isLoading}
                 />
+                <View style={styles.statsDivider} />
+                <GradientStatCell
+                  index={3}
+                  icon="coffee"
+                  value={tokensQuery.data?.balance ?? '-'}
+                  label="Chai"
+                  loading={tokensQuery.isLoading}
+                  testID="stat-chai"
+                  accessibilityLabel="Chai balance"
+                  onPress={() => {
+                    hapticLight();
+                    setWalletOpen(true);
+                  }}
+                />
               </>
             )}
           </LinearGradient>
@@ -697,6 +719,8 @@ export default function HomeScreen() {
         colors={[`${colors.background}00`, colors.background]}
         style={styles.bottomFade}
       />
+      {/* Chai wallet sheet (Build 34B): opened from the Chai stat cell. */}
+      <ChaiWalletSheet visible={walletOpen} onClose={() => setWalletOpen(false)} />
     </Screen>
   );
 }
@@ -875,6 +899,9 @@ function GradientStatCell({
   loading,
   arcAttemptsToday,
   arcDailyGoal,
+  onPress,
+  testID,
+  accessibilityLabel,
 }: {
   index: number;
   icon: keyof typeof Feather.glyphMap;
@@ -883,6 +910,10 @@ function GradientStatCell({
   loading?: boolean;
   arcAttemptsToday?: number;
   arcDailyGoal?: number;
+  /** Makes the cell tappable (press state + chevron affordance). */
+  onPress?: () => void;
+  testID?: string;
+  accessibilityLabel?: string;
 }) {
   // createAnimatedComponent inside useMemo: avoids module-level Reanimated+SVG
   // evaluation on iOS New Architecture which can crash before any JS runs.
@@ -918,6 +949,17 @@ function GradientStatCell({
       entering={appear(entrance)}
       style={styles.gradientStatCell}
     >
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={accessibilityLabel}
+        testID={testID}
+        style={({ pressed }) => [
+          styles.gradientStatPress,
+          pressed && onPress != null && styles.gradientStatPressed,
+        ]}
+      >
       <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
       {loading ? (
         <ActivityIndicator color="rgba(255,255,255,0.7)" style={{ marginVertical: 4 }} />
@@ -959,7 +1001,19 @@ function GradientStatCell({
       ) : (
         <Text style={styles.gradientStatValue}>{value}</Text>
       )}
-      <Text style={styles.gradientStatLabel}>{label}</Text>
+      {onPress ? (
+        <View style={styles.gradientStatLabelRow}>
+          <Text style={styles.gradientStatLabel}>{label}</Text>
+          <Feather
+            name="chevron-right"
+            size={12}
+            color="rgba(255,255,255,0.6)"
+          />
+        </View>
+      ) : (
+        <Text style={styles.gradientStatLabel}>{label}</Text>
+      )}
+      </Pressable>
     </Animated.View>
   );
 }
@@ -1034,6 +1088,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 4,
+  },
+  gradientStatPress: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  gradientStatPressed: {
+    opacity: 0.7,
+  },
+  gradientStatLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   gradientStatValue: {
     fontFamily: AppFonts.extrabold,

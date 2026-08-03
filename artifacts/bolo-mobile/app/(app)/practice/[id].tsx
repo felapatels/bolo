@@ -54,6 +54,9 @@ import {
   useGetLessonGroupTestout,
   getGetLessonGroupTestoutQueryKey,
   useSubmitLessonGroupTestout,
+  useGetZoneTestout,
+  getGetZoneTestoutQueryKey,
+  useSubmitZoneTestout,
   getListCategoryLessonGroupsQueryKey,
   type PronunciationResult,
   type EarnedBadge,
@@ -384,17 +387,32 @@ function describeEvaluationError(error: unknown): string {
   return 'Something went wrong while scoring. Please try again.';
 }
 
+// Zone test-out 403 guard (web parity): both zone endpoints answer
+// { error: 'zone_locked' } when the previous zone is neither finished nor
+// tested out yet (stale map, deep link). That state is permanent for this
+// run, so it must read as guidance, never as a retryable transient.
+function isZoneLockedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 403 &&
+    typeof error.data === 'object' &&
+    error.data !== null &&
+    (error.data as { error?: unknown }).error === 'zone_locked'
+  );
+}
+
 export default function PracticeScreen() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, phrase: startPhraseId, stage, group, mode } = useLocalSearchParams<{
+  const { id, phrase: startPhraseId, stage, group, mode, scope } = useLocalSearchParams<{
     id: string;
     phrase?: string;
     stage?: string;
     group?: string;
     mode?: string;
+    scope?: string;
   }>();
   const categoryId = Number(id);
   // Spec D1b-M: `?group=` scopes the session to one journey stop (lesson
@@ -404,7 +422,14 @@ export default function PracticeScreen() {
   // Test-out mode (journey progression dialog): the same session flow runs
   // over the server's sampled phrase set; per-phrase attempts are NOT saved.
   // The batch of evaluation tokens is judged in one shot at the end.
-  const isTestout = isGroup && mode === 'testout';
+  const isGroupTestout = isGroup && mode === 'testout';
+  // Zone scope (mode=testout&scope=zone, no group param — web parity): the
+  // identical flow over the zone-level sample for the route's category id.
+  // Only the phrase source and the submit endpoint differ; every other
+  // test-out behavior (one take per phrase, token collection, verdict
+  // screen) is shared.
+  const isZoneTestout = !isGroup && mode === 'testout' && scope === 'zone';
+  const isTestout = isGroupTestout || isZoneTestout;
   const { activeLang, activeLanguage, speechCapability } = useLanguage();
   // Speech-recognition gating (server-classified, defaults to full scoring):
   //  • 'unsupported' → listen-record-compare only, never send an evaluation.
@@ -419,13 +444,13 @@ export default function PracticeScreen() {
   const isSentences = stage === 'sentences';
   const phraseQuery = useListCategoryPhrases(categoryId, activeLang, {
     query: {
-      enabled: !isSentences && !isGroup,
+      enabled: !isSentences && !isGroup && !isZoneTestout,
       queryKey: getListCategoryPhrasesQueryKey(categoryId, activeLang),
     },
   });
   const sentenceQuery = useListCategorySentences(categoryId, activeLang, {
     query: {
-      enabled: isSentences && !isGroup,
+      enabled: isSentences && !isGroup && !isZoneTestout,
       queryKey: getListCategorySentencesQueryKey(categoryId, activeLang),
     },
   });
@@ -442,16 +467,27 @@ export default function PracticeScreen() {
   // endpoint, so the 402 handling below applies to it unchanged. Its data is
   // an envelope (phrases + sampleSize + requiredCorrect), so the phrase list
   // is unwrapped separately below.
-  const testoutQuery = useGetLessonGroupTestout(isTestout ? groupId : 0, {
+  const testoutQuery = useGetLessonGroupTestout(isGroupTestout ? groupId : 0, {
     query: {
-      enabled: isTestout,
-      queryKey: getGetLessonGroupTestoutQueryKey(isTestout ? groupId : 0),
+      enabled: isGroupTestout,
+      queryKey: getGetLessonGroupTestoutQueryKey(isGroupTestout ? groupId : 0),
     },
   });
-  const phrases = isTestout ? testoutQuery : isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
-  const list = (isTestout ? testoutQuery.data?.phrases : (isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery).data) ?? [];
-  const testoutSampleSize = testoutQuery.data?.sampleSize ?? 5;
-  const testoutRequiredCorrect = testoutQuery.data?.requiredCorrect ?? 4;
+  // Zone-scope test-out sessions load the zone-level sample instead. The
+  // envelope is identical ({ phrases, sampleSize, requiredCorrect }) and the
+  // endpoint enforces the same entitlement and progression gates, so it rides
+  // the exact same seam below (including the 402 upgrade screen).
+  const zoneTestoutQuery = useGetZoneTestout(isZoneTestout ? categoryId : 0, activeLang, {
+    query: {
+      enabled: isZoneTestout,
+      queryKey: getGetZoneTestoutQueryKey(isZoneTestout ? categoryId : 0, activeLang),
+    },
+  });
+  const activeTestoutQuery = isZoneTestout ? zoneTestoutQuery : testoutQuery;
+  const phrases = isTestout ? activeTestoutQuery : isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
+  const list = (isTestout ? activeTestoutQuery.data?.phrases : (isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery).data) ?? [];
+  const testoutSampleSize = activeTestoutQuery.data?.sampleSize ?? 5;
+  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 4;
 
   // Read the learner's TTS voice preference so the client-side audio cache
   // key can include the voice ID. Without this, changing voice mid-session
@@ -487,6 +523,38 @@ export default function PracticeScreen() {
       },
     },
   });
+  // Zone-scope judgment (web parity): the same one-shot POST shape against
+  // the zone endpoint. A pass latches tested_out on every member group, so
+  // refresh the category's lesson-group listing and sweep the group-phrases
+  // key family by string prefix (the zone sample does not carry its member
+  // group ids).
+  const submitZoneTestout = useSubmitZoneTestout({
+    mutation: {
+      onSuccess: (res) => {
+        if (res.passed) {
+          playCue('session_complete');
+          hapticNotify(Haptics.NotificationFeedbackType.Success);
+          queryClient.invalidateQueries({
+            queryKey: getListCategoryLessonGroupsQueryKey(categoryId, activeLang),
+          });
+          queryClient.invalidateQueries({
+            predicate: (q) => {
+              const k = q.queryKey[0];
+              return (
+                typeof k === 'string' &&
+                k.startsWith('/api/lesson-groups/') &&
+                k.endsWith('/phrases')
+              );
+            },
+          });
+        } else {
+          hapticNotify(Haptics.NotificationFeedbackType.Warning);
+        }
+      },
+    },
+  });
+  // The verdict screen reads whichever mutation this session's scope drives.
+  const activeTestoutSubmit = isZoneTestout ? submitZoneTestout : submitTestout;
   // Server-signed evaluation tokens collected during a test-out run, keyed by
   // phrase id (test-out has no retakes, so each phrase writes exactly once).
   const testoutTokensRef = React.useRef<Record<number, string>>({});
@@ -511,6 +579,9 @@ export default function PracticeScreen() {
   const [comparedIdx, setComparedIdx] = React.useState<Set<number>>(new Set());
   // XP data per phrase index — xp earned and optional breakdown text.
   const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
+  // Build 34B: server-granted Chai summed across the session's attempt
+  // responses for the Session Complete receipt pill (web session-chai-pill).
+  const [sessionChai, setSessionChai] = React.useState(0);
   // Whether the XP breakdown panel in the summary is expanded.
   const [xpExpanded, setXpExpanded] = React.useState(false);
   // Feedback text per phrase index — used on the summary screen.
@@ -1511,6 +1582,10 @@ export default function PracticeScreen() {
         if (attempt.newlyEarnedBadges?.length) {
           setUnlockedBadges(attempt.newlyEarnedBadges);
         }
+        // Chai receipt: chaiEarned is optional and only present when > 0
+        // (streak-day grant is the only attempt-side earn today).
+        const chai = attempt.chaiEarned ?? 0;
+        if (chai > 0) setSessionChai((c) => c + chai);
       } catch {
         setSaveFailed(true);
       }
@@ -1572,7 +1647,11 @@ export default function PracticeScreen() {
       .map((p) => ({ phraseId: p.id, evaluationToken: testoutTokensRef.current[p.id] }))
       .filter((a): a is { phraseId: number; evaluationToken: string } => Boolean(a.evaluationToken));
     if (attempts.length === 0) return;
-    submitTestout.mutate({ id: groupId, data: { attempts } });
+    if (isZoneTestout) {
+      submitZoneTestout.mutate({ categoryId, data: { languageCode: activeLang, attempts } });
+    } else {
+      submitTestout.mutate({ id: groupId, data: { attempts } });
+    }
   };
 
   const tryAgain = () => {
@@ -1688,6 +1767,11 @@ export default function PracticeScreen() {
         onRetry={() => phrases.refetch()}
         isRetrying={phrases.isFetching}
         onBack={() => router.back()}
+        message={
+          isZoneTestout && isZoneLockedError(phrases.error)
+            ? 'Finish the previous zone first, or test out of it.'
+            : undefined
+        }
       />
     );
   }
@@ -1718,24 +1802,27 @@ export default function PracticeScreen() {
   // tokens), pass (stop unlocked, Express stamp on the map), or fail
   // (encouraging copy, back to practicing via the journey).
   if (phase === 'done' && isTestout) {
-    const outcome = submitTestout.data;
-    const throttled = submitTestout.error instanceof ApiError && submitTestout.error.status === 429;
+    const outcome = activeTestoutSubmit.data;
+    const throttled = activeTestoutSubmit.error instanceof ApiError && activeTestoutSubmit.error.status === 429;
+    const zoneLocked = isZoneTestout && isZoneLockedError(activeTestoutSubmit.error);
     return (
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="Express check" />
         <View style={styles.summaryWrap} testID="testout-summary">
-          {submitTestout.isError ? (
+          {activeTestoutSubmit.isError ? (
             <>
               <Mascot pose="tryagain" size={148} motion="none" />
               <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
                 Couldn't check your run
               </Text>
               <Text style={[styles.summarySub, { color: colors.mutedForeground }]}>
-                {throttled
-                  ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
-                  : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
+                {zoneLocked
+                  ? 'Finish the previous zone first, or test out of it.'
+                  : throttled
+                    ? "You've ridden the express recently. Catch your breath and try this stop again in a little while."
+                    : "Something went wrong sending your takes. They're still saved here, so just try submitting again."}
               </Text>
-              {!throttled && (
+              {!throttled && !zoneLocked && (
                 <ChunkyButton
                   title="Try again"
                   icon="refresh-cw"
@@ -1891,6 +1978,32 @@ export default function PracticeScreen() {
                 prefix="+"
                 suffix=" XP"
                 style={[styles.xpChipText, { color: '#7C3AED' }]}
+              />
+            </Animated.View>
+          )}
+          {/* Chai earned receipt (Build 34B): mirrors the web session-chai-pill
+              under the XP pill, shown only when the session actually granted
+              Chai (chaiEarned summed from attempt responses). */}
+          {sessionChai > 0 && (
+            <Animated.View
+              entering={skipEnter ? undefined : FadeInDown.delay(540).springify()}
+              testID="session-chai-pill"
+              style={[
+                styles.xpChip,
+                { backgroundColor: `${'#D97706'}18`, borderColor: '#D97706' },
+              ]}
+            >
+              <Feather
+                name="coffee"
+                size={16}
+                color="#D97706"
+                style={{ marginRight: 6 }}
+              />
+              <CountUpText
+                value={sessionChai}
+                prefix="+"
+                suffix=" Chai earned"
+                style={[styles.xpChipText, { color: '#D97706' }]}
               />
             </Animated.View>
           )}

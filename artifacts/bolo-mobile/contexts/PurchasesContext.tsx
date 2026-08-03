@@ -102,9 +102,17 @@ type PurchasesContextValue = {
   /** All-access Bolo! Plus packages (from the current offering). */
   allAccessMonthly: PurchasesPackage | null;
   allAccessAnnual: PurchasesPackage | null;
-  /** One Language ($6.99) packages (from the one-language offering). */
+  /** One Language packages (from the one-language offering). */
   oneLanguageMonthly: PurchasesPackage | null;
   oneLanguageAnnual: PurchasesPackage | null;
+  /**
+   * Family packages (custom packages on the current offering, identified by
+   * their RevenueCat lookup keys). Read-only price sources for family
+   * surfaces; the mobile paywall does not sell the family tier (family
+   * entitlement client handling is banked for future family-surfaces work).
+   */
+  familyMonthly: PurchasesPackage | null;
+  familyAnnual: PurchasesPackage | null;
   isPurchasing: boolean;
   isRestoring: boolean;
   purchase: (pkg: PurchasesPackage) => Promise<PurchaseOutcome>;
@@ -199,6 +207,16 @@ export function PurchasesProvider({
   const allAccessAnnual = allAccessOffering?.annual ?? null;
   const oneLanguageMonthly = oneLanguageOffering?.monthly ?? null;
   const oneLanguageAnnual = oneLanguageOffering?.annual ?? null;
+  // Custom packages don't map to the offering's monthly/annual convenience
+  // accessors; find them by their RevenueCat package lookup keys.
+  const familyMonthly =
+    allAccessOffering?.availablePackages.find(
+      (p) => p.identifier === 'family_monthly',
+    ) ?? null;
+  const familyAnnual =
+    allAccessOffering?.availablePackages.find(
+      (p) => p.identifier === 'family_annual',
+    ) ?? null;
 
   const purchase = useCallback(
     async (pkg: PurchasesPackage): Promise<PurchaseOutcome> => {
@@ -242,6 +260,8 @@ export function PurchasesProvider({
       allAccessAnnual,
       oneLanguageMonthly,
       oneLanguageAnnual,
+      familyMonthly,
+      familyAnnual,
       isPurchasing,
       isRestoring,
       purchase,
@@ -254,6 +274,8 @@ export function PurchasesProvider({
       allAccessAnnual,
       oneLanguageMonthly,
       oneLanguageAnnual,
+      familyMonthly,
+      familyAnnual,
       isPurchasing,
       isRestoring,
       purchase,

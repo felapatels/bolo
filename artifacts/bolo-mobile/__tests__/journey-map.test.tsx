@@ -131,6 +131,9 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetZoneTestoutQueryKey: () => ['zone-testout'],
+  useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;
@@ -298,6 +301,78 @@ describe('journey map — group-scoped routing', () => {
         params: expect.objectContaining({ mode: 'testout' }),
       }),
     );
+  });
+
+  it('offers the whole-zone express run from the lock dialog (34B)', () => {
+    setZones([
+      [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    const zoneLink = screen.getByTestId('link-test-out-zone');
+    expect(screen.getByText('Test out of this whole zone')).toBeOnTheScreen();
+    expect(
+      screen.getByText('One phrase from each stop. Pass to unlock everything here.'),
+    ).toBeOnTheScreen();
+
+    fireEvent.press(zoneLink);
+    expect(mockState.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(app)/practice/[id]',
+        params: { id: '1', mode: 'testout', scope: 'zone' },
+      }),
+    );
+  });
+
+  it('shows the dormant postcard zone test-out link only on a fully gate-locked zone (34B)', () => {
+    // Zone 1: every stop locked by progression, none by plan, no showroom
+    // envelope → the affordance renders. Zone 2 has an unlocked stop → none.
+    setZones([
+      [grp({ status: 'locked' }), grp({ status: 'locked' })],
+      [grp({ status: 'unlocked' })],
+      [],
+      [],
+      [],
+      [],
+    ]);
+    render(<JourneyScreen />);
+
+    const link = screen.getByTestId('link-zone-test-out-0');
+    expect(screen.getByText('Test out of this zone')).toBeOnTheScreen();
+    expect(screen.queryByTestId('link-zone-test-out-1')).toBeNull();
+
+    fireEvent.press(link);
+    expect(mockState.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(app)/practice/[id]',
+        params: { id: '1', mode: 'testout', scope: 'zone' },
+      }),
+    );
+  });
+
+  it('keeps the postcard zone test-out link dormant on showroom payloads (34B)', () => {
+    // Same all-locked shape, but the listing carries a top-level access
+    // envelope (teaser/exhausted showroom) → the affordance must not render.
+    setZones(
+      [
+        [grp({ status: 'locked' }), grp({ status: 'locked' })],
+        [],
+        [],
+        [],
+        [],
+        [],
+      ],
+      { access: { allowed: false, reason: 'plan' } },
+    );
+    render(<JourneyScreen />);
+
+    expect(screen.queryByTestId('link-zone-test-out-0')).toBeNull();
   });
 
   it('renders zone titles from the categories listing when it has loaded', () => {

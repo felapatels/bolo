@@ -28,6 +28,9 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetZoneTestoutQueryKey: () => ['zone-testout'],
+  useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),
   // Test-out mode is idle in these suites (no mode: testout param).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
@@ -533,5 +536,80 @@ describe('XP chip', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('+48 XP')).toBeOnTheScreen(),
     );
+  });
+});
+
+describe('Chai receipt pill (34B)', () => {
+  test('sums server-granted chaiEarned into "+n Chai earned" on the done screen', async () => {
+    // 3 attempts, each granting 1 Chai (server-authoritative) → "+3 Chai earned".
+    mockState.phrases = successQuery(PHRASES.slice(0, 3));
+    mockState.createAttempt = jest.fn(async () => ({
+      newlyEarnedBadges: [],
+      chaiEarned: 1,
+    }));
+    mockState.evaluateQueue = [
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+    ];
+
+    render(<PracticeScreen />);
+
+    await doRecordCycle({ resultLabel: 'Amazing!' });
+    await doRecordCycle({ resultLabel: 'Amazing!' });
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Amazing!')).toBeOnTheScreen(),
+    );
+    await act(async () => { fireEvent.press(screen.getByText('Finish')); });
+
+    await waitFor(() =>
+      // Same count-up pattern as the XP chip: assert via accessibility label.
+      expect(screen.getByLabelText('+3 Chai earned')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('session-chai-pill')).toBeOnTheScreen();
+  });
+
+  test('the pill stays hidden when no attempt granted Chai', async () => {
+    mockState.phrases = successQuery(PHRASES.slice(0, 1));
+    mockState.evaluateQueue = [
+      { score: 70, passed: true, band: 'great', xpAwarded: 8 },
+    ];
+    // Default createAttempt: no chaiEarned in the response.
+
+    render(<PracticeScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressIn');
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+    );
+    await act(async () => {
+      fireEvent(screen.getByTestId('record-button'), 'pressOut');
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Amazing!')).toBeOnTheScreen(),
+    );
+    await act(async () => { fireEvent.press(screen.getByText('Finish')); });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('+8 XP')).toBeOnTheScreen(),
+    );
+    expect(screen.queryByTestId('session-chai-pill')).toBeNull();
   });
 });

@@ -18,6 +18,7 @@
  */
 import { AppState } from 'react-native';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { activateSfxPlaybackRoute } from './audio';
 import { loadSoundPref } from './soundPref';
 
 /** Playback gain, matching the web port of the recorded asset (0.40). */
@@ -53,12 +54,21 @@ export function playTearSfx(): void {
       .then((on) => {
         const p = player;
         if (!on || !p) return;
-        // Rewind for repeat activations; a finished expo-audio player does
-        // not restart on play() alone.
-        void Promise.resolve(p.seekTo(0)).then(
-          () => p.play(),
-          () => {},
-        );
+        // 34B item 4: if the mic session is still warm (playAndRecord), iOS
+        // would route this clip to the quiet earpiece. Flip to playback-only
+        // mode first through the serialized session queue, then play. The
+        // flip is awaited only inside this fire-and-forget chain, so the
+        // tear animation and navigation are never delayed.
+        void activateSfxPlaybackRoute()
+          .catch(() => {})
+          .then(() =>
+            // Rewind for repeat activations; a finished expo-audio player
+            // does not restart on play() alone.
+            Promise.resolve(p.seekTo(0)).then(
+              () => p.play(),
+              () => {},
+            ),
+          );
       })
       .catch(() => {});
   } catch {

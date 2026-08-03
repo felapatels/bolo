@@ -49,7 +49,7 @@ const ALL_ACCESS_BENEFITS: Benefit[] = [
   {
     icon: 'zap',
     title: 'Full phrase library',
-    desc: 'Every phrase, sentence & game — no daily cap.',
+    desc: 'Every phrase, sentence & game, no daily cap.',
   },
   {
     icon: 'repeat',
@@ -78,7 +78,7 @@ function oneLanguageBenefits(chosenName: string | null): Benefit[] {
     {
       icon: 'zap',
       title: 'Full phrase library',
-      desc: 'Every phrase and sentence — no daily cap.',
+      desc: 'Every phrase and sentence, no daily cap.',
     },
   ];
 }
@@ -334,7 +334,7 @@ export default function PaywallScreen() {
         <Text style={[styles.subhead, { color: colors.mutedForeground }]}>
           {tier === 'all_access'
             ? 'Unlock the full Bolo! experience.'
-            : 'Learn Hindi and the language you choose — no daily cap.'}
+            : 'Learn Hindi and the language you choose, no daily cap.'}
         </Text>
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
@@ -352,7 +352,7 @@ export default function PaywallScreen() {
             <Text style={[styles.trialBannerText, { color: colors.success }]}>
               You qualify for a{' '}
               <Text style={{ fontFamily: AppFonts.bold }}>7-day free trial</Text>
-              {' '}— All-Access is pre-selected.
+              . All-Access is pre-selected.
             </Text>
           </View>
         )}
@@ -400,7 +400,7 @@ export default function PaywallScreen() {
                   priceHint={
                     oneLanguageMonthly
                       ? `${oneLanguageMonthly.product.priceString}/mo`
-                      : 'From $6.99/mo'
+                      : 'Your chosen language'
                   }
                   selected={tier === 'one_language'}
                   onPress={() => setTier('one_language')}

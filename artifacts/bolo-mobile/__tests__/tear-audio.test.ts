@@ -17,6 +17,17 @@ jest.mock('@/lib/soundPref', () => ({
   loadSoundPref: () => mockLoadSoundPref(),
 }));
 
+// 34B item 4: tearAudio now imports the serialized playback-only route flip
+// from lib/audio (speaker, not earpiece, while the mic session is warm). The
+// real lib/audio would crash under this file's minimal expo-audio mock, so
+// stub just the seam tearAudio uses.
+const mockActivateSfxPlaybackRoute = jest.fn<Promise<void>, []>(() =>
+  Promise.resolve(),
+);
+jest.mock('@/lib/audio', () => ({
+  activateSfxPlaybackRoute: () => mockActivateSfxPlaybackRoute(),
+}));
+
 import { AppState } from 'react-native';
 
 type TearAudio = typeof import('@/lib/tearAudio');
@@ -125,5 +136,59 @@ describe('playTearSfx', () => {
     expect(() => mod.playTearSfx()).not.toThrow();
     await flush();
     expect(player.play).not.toHaveBeenCalled(); // failed seek skips play, quietly
+  });
+});
+
+// 34B item 4: while the mic session is warm, iOS routes playback to the
+// earpiece; the tear must flip to playback-only mode (speaker) first, inside
+// the fire-and-forget chain — before play, but never gating the animation.
+describe('speaker reroute (34B)', () => {
+  it('runs the playback-only route flip before playing', async () => {
+    let resolveRoute!: () => void;
+    mockActivateSfxPlaybackRoute.mockImplementationOnce(
+      () => new Promise<void>((r) => { resolveRoute = r; }),
+    );
+    const player = makePlayer();
+    mockCreateAudioPlayer.mockReturnValue(player);
+    const mod = freshModule();
+    mod.preloadTearAudio();
+
+    mod.playTearSfx();
+    await flush();
+    // The flip has been requested but not settled: play must wait for it.
+    expect(mockActivateSfxPlaybackRoute).toHaveBeenCalledTimes(1);
+    expect(player.play).not.toHaveBeenCalled();
+
+    resolveRoute();
+    await flush();
+    expect(player.seekTo).toHaveBeenCalledWith(0);
+    expect(player.play).toHaveBeenCalledTimes(1);
+  });
+
+  it('a route-flip failure still plays the clip', async () => {
+    mockActivateSfxPlaybackRoute.mockImplementationOnce(() =>
+      Promise.reject(new Error('mode set failed')),
+    );
+    const player = makePlayer();
+    mockCreateAudioPlayer.mockReturnValue(player);
+    const mod = freshModule();
+    mod.preloadTearAudio();
+
+    expect(() => mod.playTearSfx()).not.toThrow();
+    await flush();
+    expect(player.play).toHaveBeenCalledTimes(1);
+  });
+
+  it('never touches the audio session when the sound preference is off', async () => {
+    const player = makePlayer();
+    mockCreateAudioPlayer.mockReturnValue(player);
+    mockLoadSoundPref.mockResolvedValue(false);
+    const mod = freshModule();
+    mod.preloadTearAudio();
+
+    mod.playTearSfx();
+    await flush();
+    expect(mockActivateSfxPlaybackRoute).not.toHaveBeenCalled();
+    expect(player.play).not.toHaveBeenCalled();
   });
 });

@@ -70,6 +70,7 @@ jest.mock('expo-file-system/legacy', () => ({
 
 import { createAudioPlayer } from 'expo-audio';
 import {
+  activateSfxPlaybackRoute,
   ensureRecordingMode,
   playBase64Audio,
   playStreamingAudio,
@@ -154,6 +155,29 @@ describe('playbackModeToken race', () => {
 
     // No mode:recording may appear after the newer playback's claim.
     expect(mockOpLog).toEqual(['mode:playback', 'play', 'mode:playback', 'play']);
+  });
+});
+
+describe('activateSfxPlaybackRoute (34B tear SFX reroute)', () => {
+  test('flips a warm recording session to playback-only, with no restore', async () => {
+    await activateSfxPlaybackRoute();
+    expect(mockOpLog).toEqual(['mode:playback']);
+
+    await flush();
+    // One-way flip: nothing schedules a recording-mode restore — the next
+    // recorder prepare re-asserts it.
+    expect(mockOpLog).toEqual(['mode:playback']);
+  });
+
+  test('claims the mode token so a stale finish cannot re-route the SFX to the earpiece', async () => {
+    await playBase64Audio('QUJD', 'mp3'); // mode is already playback-only
+    await activateSfxPlaybackRoute(); // no redundant set, but claims the token
+
+    // The older playback finishes late; its deferred recording-mode restore
+    // must be skipped or the tear clip would move to the earpiece mid-play.
+    mockPlayers[0].emitFinish();
+    await flush();
+    expect(mockOpLog).toEqual(['mode:playback', 'play']);
   });
 });
 

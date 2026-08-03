@@ -33,6 +33,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
+import { usePurchases } from '@/contexts/PurchasesContext';
 import { AppFonts } from '@/constants/fonts';
 
 /** Server-provided error string when present, otherwise a fallback. */
@@ -643,6 +644,10 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
   const router = useRouter();
   const qc = useQueryClient();
   const join = useJoinFamily();
+  // Build 34B price integrity: the family price comes from the RevenueCat
+  // offering's custom family package, never a hardcoded literal. When the
+  // package is absent the copy simply drops the price.
+  const { familyMonthly } = usePurchases();
 
   const [code, setCode] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
@@ -752,7 +757,10 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
             </View>
           </View>
           <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
-            Get full All-Access for up to 4 people with one $19.99/mo
+            Get full All-Access for up to 4 people with{' '}
+            {familyMonthly
+              ? `one ${familyMonthly.product.priceString}/mo`
+              : 'one family'}{' '}
             subscription, or join someone else's plan with their code below.
           </Text>
           <ChunkyButton

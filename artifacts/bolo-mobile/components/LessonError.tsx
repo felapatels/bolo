@@ -20,10 +20,13 @@ export function LessonError({
   onRetry,
   isRetrying,
   onBack,
+  message,
 }: {
   onRetry: () => void;
   isRetrying: boolean;
   onBack: () => void;
+  /** Optional override for the body copy (e.g. the zone test-out 403 guard). */
+  message?: string;
 }) {
   const colors = useColors();
   const skipEnter = useAppearSkip();
@@ -57,7 +60,8 @@ export function LessonError({
           entering={skipEnter ? undefined : FadeInDown.duration(450).delay(140)}
           style={[styles.message, { color: colors.mutedForeground }]}
         >
-          The lesson didn't come through — give it another try and Bolo will whip up something fresh!
+          {message ??
+            "The lesson didn't come through — give it another try and Bolo will whip up something fresh!"}
         </Animated.Text>
 
         <Animated.View

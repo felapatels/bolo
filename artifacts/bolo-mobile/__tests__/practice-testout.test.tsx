@@ -20,13 +20,51 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const mockState: Record<string, any> = {};
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: '1', group: '901', mode: 'testout' }),
+  // Defaults to the group-scope run; zone-scope tests (34B) override
+  // mockState.params with { id, mode: 'testout', scope: 'zone' } and NO group.
+  useLocalSearchParams: () => mockState.params ?? { id: '1', group: '901', mode: 'testout' },
   useRouter: () => mockState.router,
 }));
 
 jest.mock('@workspace/api-client-react', () => {
   const ReactActual = require('react');
   return {
+    useGetZoneTestout: () =>
+      mockState.zoneTestout ?? {
+        data: undefined,
+        isLoading: false,
+        isError: false,
+        error: null,
+        isFetching: false,
+        refetch: jest.fn(),
+      },
+    getGetZoneTestoutQueryKey: () => ['zone-testout'],
+    // Same stateful stub shape as useSubmitLessonGroupTestout below, backed
+    // by its own call log/result so the two endpoints are distinguishable.
+    useSubmitZoneTestout: (opts?: {
+      mutation?: { onSuccess?: (r: unknown) => void };
+    }) => {
+      const [state, setState] = ReactActual.useState({
+        data: undefined,
+        isError: false,
+        error: null,
+      });
+      return {
+        ...state,
+        isPending: false,
+        mutate: (vars: unknown) => {
+          mockState.zoneSubmitCalls.push(vars);
+          const result = mockState.zoneSubmitResult;
+          if (result === null) return;
+          if (result instanceof Error) {
+            setState({ data: undefined, isError: true, error: result });
+          } else {
+            setState({ data: result, isError: false, error: null });
+            opts?.mutation?.onSuccess?.(result);
+          }
+        },
+      };
+    },
     useListLessonGroupPhrases: () => ({
       data: undefined,
       isLoading: false,
@@ -196,8 +234,12 @@ beforeEach(async () => {
   await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
   mockState.router = { push: jest.fn(), back: jest.fn(), replace: jest.fn() };
   mockState.invalidateQueries = jest.fn();
+  mockState.params = undefined;
   mockState.submitCalls = [];
   mockState.submitResult = null;
+  mockState.zoneTestout = undefined;
+  mockState.zoneSubmitCalls = [];
+  mockState.zoneSubmitResult = null;
   mockState.testout = successQuery({
     phrases: [phraseA, phraseB],
     sampleSize: 2,
@@ -357,5 +399,113 @@ describe('test-out verdict', () => {
     mockState.submitResult = null; // mutate() never resolves
     await finishRun();
     expect(screen.getByTestId('testout-checking-title')).toBeOnTheScreen();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Build 34B item 3: zone-scope test-out (params { id, mode: 'testout',
+// scope: 'zone' } with NO group). The identical session flow runs over the
+// zone-level sample; only the phrase source and the submit endpoint differ.
+// A pass refreshes the category listing AND sweeps the whole group-phrases
+// key family by URL prefix (the zone sample carries no member group ids).
+// ---------------------------------------------------------------------------
+describe('zone-scope test-out (34B)', () => {
+  beforeEach(() => {
+    mockState.params = { id: '1', mode: 'testout', scope: 'zone' };
+    mockState.zoneTestout = successQuery({
+      phrases: [phraseA, phraseB],
+      sampleSize: 2,
+      requiredCorrect: 2,
+    });
+    // The group test-out endpoint must stay untouched in zone scope.
+    mockState.testout = successQuery(undefined);
+  });
+
+  test('runs over the zone sample and submits one batch to the zone endpoint', async () => {
+    mockState.zoneSubmitResult = { passed: true, correctCount: 2, requiredCorrect: 2, sampleSize: 2 };
+    await finishRun();
+
+    expect(mockState.submitCalls).toHaveLength(0); // group endpoint untouched
+    expect(mockState.zoneSubmitCalls).toHaveLength(1);
+    expect(mockState.zoneSubmitCalls[0]).toEqual({
+      categoryId: 1,
+      data: {
+        languageCode: 'gu', // web parity: zone submits carry the language
+        attempts: [
+          { phraseId: 10, evaluationToken: 'signed-token' },
+          { phraseId: 11, evaluationToken: 'signed-token' },
+        ],
+      },
+    });
+    expect(mockState.createAttempt).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId('testout-passed-title')).toBeOnTheScreen(),
+    );
+
+    // Pass refresh: the category listing plus the group-phrases prefix sweep.
+    expect(mockState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['category-lesson-groups'],
+    });
+    const predicate = mockState.invalidateQueries.mock.calls
+      .map((c: any[]) => c[0]?.predicate)
+      .find(Boolean);
+    expect(predicate).toBeDefined();
+    expect(predicate({ queryKey: ['/api/lesson-groups/901/phrases'] })).toBe(true);
+    expect(predicate({ queryKey: ['/api/lesson-groups/901/testout'] })).toBe(false);
+    expect(predicate({ queryKey: ['/api/tokens'] })).toBe(false);
+  });
+
+  test('a zone fail shows the encouraging verdict without any refresh', async () => {
+    mockState.zoneSubmitResult = { passed: false, correctCount: 1, requiredCorrect: 2, sampleSize: 2 };
+    await finishRun();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('testout-failed-title')).toBeOnTheScreen(),
+    );
+    expect(mockState.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  // Both zone endpoints answer 403 { error: 'zone_locked' } when the previous
+  // zone is neither finished nor tested out (stale map, deep link). That is
+  // permanent for this run: guidance copy, never a resubmit affordance.
+  function zoneLockedError() {
+    const { ApiError } = jest.requireMock('@workspace/api-client-react');
+    const err = new ApiError('zone locked');
+    err.status = 403;
+    err.data = { error: 'zone_locked' };
+    return err;
+  }
+
+  test('a zone_locked fetch failure shows the guidance copy on the load-error screen', async () => {
+    mockState.zoneTestout = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isSuccess: false,
+      isFetching: false,
+      error: zoneLockedError(),
+      refetch: jest.fn(),
+    };
+
+    render(<PracticeScreen />);
+
+    expect(
+      await screen.findByText('Finish the previous zone first, or test out of it.'),
+    ).toBeOnTheScreen();
+  });
+
+  test('a zone_locked submit rejection shows guidance and suppresses resubmit', async () => {
+    mockState.zoneSubmitResult = zoneLockedError();
+    await finishRun();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Finish the previous zone first, or test out of it.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(screen.queryByTestId('testout-resubmit-button')).toBeNull();
+    // Back to the journey stays available.
+    expect(screen.getByTestId('testout-back-journey')).toBeOnTheScreen();
+    expect(mockState.invalidateQueries).not.toHaveBeenCalled();
   });
 });

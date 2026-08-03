@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Guards the fail-closed quiz gate on the HomeScreen (Build 30 batch 3).
@@ -50,6 +50,9 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetTokensQueryKey: () => ['tokens'],
+  useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -227,5 +230,23 @@ describe('HomeScreen - Bolo Quiz card fails closed', () => {
 
     expect(screen.getByText('Bolo Quiz')).toBeOnTheScreen();
     expect(screen.queryByText('Daily Quiz')).toBeNull();
+  });
+});
+
+// Build 34B: the fourth stat cell surfaces the Chai balance and opens the
+// wallet sheet. The sheet Modal stays unmounted until the cell is pressed.
+describe('HomeScreen - Chai stat cell (34B)', () => {
+  it('shows the balance and opens the wallet sheet on press', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+    mockState.quiz = { data: undefined, isLoading: false };
+    render(<HomeScreen />);
+
+    const cell = screen.getByTestId('stat-chai');
+    expect(screen.getByText('Chai')).toBeOnTheScreen();
+    expect(screen.queryByTestId('chai-wallet-sheet')).toBeNull();
+
+    fireEvent.press(cell);
+    expect(screen.getByTestId('chai-wallet-sheet')).toBeOnTheScreen();
+    expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();
   });
 });

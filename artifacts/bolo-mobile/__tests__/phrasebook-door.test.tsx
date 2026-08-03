@@ -71,6 +71,9 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetTokensQueryKey: () => ['tokens'],
+  useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),

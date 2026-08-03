@@ -130,6 +130,9 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetZoneTestoutQueryKey: () => ['zone-testout'],
+  useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;

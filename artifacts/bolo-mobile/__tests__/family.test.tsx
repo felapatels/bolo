@@ -17,6 +17,7 @@ const mockState: Record<string, any> = {
   regenerate: undefined,
   join: undefined,
   params: {},
+  purchases: undefined,
 };
 
 const mockRouter = { push: jest.fn(), back: jest.fn() };
@@ -28,6 +29,14 @@ const mockQueryClient = {
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mockQueryClient,
+}));
+
+// Build 34B: JoinView reads the family package price from PurchasesContext.
+// The real context imports react-native-purchases (untransformed ESM), so it
+// must be stubbed here like in the paywall suites.
+jest.mock('@/contexts/PurchasesContext', () => ({
+  usePurchases: () =>
+    mockState.purchases ?? { familyMonthly: undefined, familyAnnual: undefined },
 }));
 
 jest.mock('expo-router', () => ({
