@@ -56,6 +56,7 @@ import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from "@/lib/mea
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
+import { ExpressOfferMoment } from "@/components/chai-wallet";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, isFullCreditBand, isPassingBand, normalizeBand, type Band } from "@/components/ui/band-pill";
 import { getCoachAudioElement, getFeedbackAudioElement, getMeaningAudioElement } from "@/lib/iosAudio";
@@ -2681,6 +2682,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   />
                 )}
               </motion.div>
+
+              {/* Express Multiplier offer moment (Chunk 5B): after the result
+                  card's primary content. Shows the one-line offer when the
+                  multiplier is idle and the balance covers it, a small 2x XP
+                  indicator while it runs, and nothing on short balances. */}
+              {state === "result" && <ExpressOfferMoment surface="result" />}
 
               {/* Action buttons */}
               {state === "error" ? (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
+import { ChaiBalanceChip } from "@/components/chai-wallet";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -594,6 +595,12 @@ export default function Home() {
           {/* soft decorative blobs */}
           <div className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/15 blur-xl" />
           <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+
+          {/* Chai balance chip (Chunk 5B): its own header line above the stat
+              cells so the four-cell row keeps its exact reserved layout. */}
+          <div className="relative mb-3 flex justify-end">
+            <ChaiBalanceChip className="bg-white/15 text-white hover:bg-white/25" />
+          </div>
 
           <div
             key={summary ? "stats-ready" : "stats-pending"}

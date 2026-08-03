@@ -27,6 +27,7 @@ import {
 } from "@/lib/entitlements";
 import { PlusPill } from "@/components/plus";
 import { ChatTipCard } from "@/components/chat-tip-card";
+import { ExpressOfferMoment } from "@/components/chai-wallet";
 import { webHaptic } from "@/lib/haptics";
 
 // How many previous turns to include in each request.
@@ -2064,6 +2065,10 @@ export default function ChatPage() {
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary">
             +20 XP
           </div>
+          {/* Express Multiplier offer moment (Chunk 5B): after the primary
+              celebration content. Nothing renders while a multiplier runs or
+              when the balance is short. */}
+          <ExpressOfferMoment surface="celebration" className="mt-4 w-full max-w-xs" />
           <Link
             href="/app"
             className="mt-8 flex w-full max-w-xs items-center justify-center rounded-2xl bg-primary py-4 text-base font-black text-primary-foreground shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"

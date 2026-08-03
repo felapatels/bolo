@@ -1012,3 +1012,15 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 **dbMock.ts additions.** `tokenLedgerTable: {}`, `userTokenStateTable: {}`, `insertTokenLedgerSchema: {}`, `insertUserTokenStateSchema: {}` added to satisfy the `satisfies DbValueExports` guard.
 
 **Suite state after Chunk 5A:** api 786 tests / 30 suites, 785 pass / 1 fail (pilot-capture env trap, audited skip — fires only when PILOT_CAPTURE_USER_IDS is set in .replit). Typecheck clean. Code-review subagent: PASS (atomicity, idempotency, 409-not-402, no negative balances). Both boot smokes pass.
+
+### Chunk 5B: Chai wallet web surfaces + Chacha-ji vignette (August 3, 2026, web only)
+
+**New module `artifacts/gujarati-coach/src/components/chai-wallet.tsx`.** Four exports: `ChaiBalanceChip` (small chip, `Coffee` lucide glyph plus count; loading renders a dash, never a spinner; tap opens the sheet), `ChaiWalletSheet` (first consumer of `ui/sheet.tsx`, `side="bottom"`; header shows the Chacha-ji vignette at avatar scale beside the balance; Station Pause row with equipped count plus Equip button; Express Multiplier row with Start button or live countdown), `ExpressOfferMoment` (offer element for the result card and the zone-completion celebration; session-wide dismiss via sessionStorage key `chai-express-offer-dismissed`; while active the result card variant renders a small "2x XP" pill and the celebration variant renders nothing; short balances render nothing), `useExpressCountdown` (mm:ss derived from `expressMultiplierActiveUntil` by wall clock each tick; no client-side timer ever creates multiplier state, so backgrounding and expiry self-correct).
+
+**Consumers.** `home.tsx` stats banner gains a right-aligned chip header line above the keyed stat-cell row (row layout and its reserved-height/invisible mechanics untouched); `practice.tsx` renders `ExpressOfferMoment surface="result"` after the result panel's shake wrapper, before the action buttons; `chat.tsx` renders `surface="celebration"` inside the scenario completion overlay after the +20 XP chip.
+
+**Spend flow.** `useSpendTokens` with `onSettled` invalidating `getGetTokensQueryKey()` (`['/api/tokens']`); 409 bodies surface exact ruled copy via the house toast; rejections are never paywall moments. Client constants (5/10 costs, max 2 pauses) mirror `tokenEconomy.ts`; server stays authoritative.
+
+**Asset.** `artifacts/gujarati-coach/public/mascot/chachaji-wallet-vignette.png` — 512x512 quantized optimized PNG (39,385 bytes) downscaled from the 1024px original in attached_assets (original not committed). Chacha-ji is a distinct character; the canonical-mascot rule (five Bolo PNGs only) is unaffected.
+
+**Suite state after Chunk 5B:** see the 5B task report for the final full-suite line; typecheck clean; no new test files (mock base auto-derives `useGetTokens`/`useSpendTokens` as idle hooks, so existing suites were unaffected by the new imports).
