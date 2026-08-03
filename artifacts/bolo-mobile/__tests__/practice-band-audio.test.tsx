@@ -162,6 +162,11 @@ function successQuery(data: unknown) {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  // This file pins exact synth/playback call counts for the band-audio
+  // surface; switch the meaning segment (Build 34A) off so its extra English
+  // synthesis and playback do not shift them. practice-meaning-audio.test.tsx
+  // owns that surface.
+  await AsyncStorage.setItem('bolo.meaningAudio', 'off');
   jest.clearAllMocks();
   mockState.bandClips = [];
   mockState.phrases = successQuery([phraseA]);
@@ -202,7 +207,7 @@ describe('instant band audio on results', () => {
   test('the band clip for the result band plays when the result lands, then feedback follows', async () => {
     await renderReady();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
 
     // Band call-out fired immediately with the result's band.
     await waitFor(() => expect(playBandClip).toHaveBeenCalledWith('great'));
@@ -236,7 +241,7 @@ describe('instant band audio on results', () => {
     await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
     await renderReady();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
 
     await act(async () => {
       await Promise.resolve();
@@ -258,7 +263,7 @@ describe('instant band audio on results', () => {
     await recordAndRelease();
 
     // Result card renders normally — never blocked on audio.
-    await waitFor(() => expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
     await waitFor(() => expect(playBandClip).toHaveBeenCalledWith('great'));
 
     await act(async () => {
@@ -267,6 +272,6 @@ describe('instant band audio on results', () => {
     // The failed synthesis must not reach playback (coach playback at mount
     // was the only playBase64Audio call).
     expect(playBase64Audio).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen();
+    expect(screen.getByText('Amazing!')).toBeOnTheScreen();
   });
 });

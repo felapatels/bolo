@@ -150,6 +150,9 @@ beforeEach(async () => {
   // These tests count phrase-model synth/playback calls; keep the (separately
   // tested) spoken-feedback read-aloud silent so it doesn't skew the counts.
   await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
+  // Same isolation for the meaning segment (Build 34A);
+  // practice-meaning-audio.test.tsx owns that surface.
+  await AsyncStorage.setItem('bolo.meaningAudio', 'off');
   jest.requireMock('@/lib/audio').playBase64Audio.mockClear();
   mockState.phrases = successQuery([phraseA, phraseB]);
   mockState.synth = jest.fn(async () => ({
@@ -189,7 +192,7 @@ async function recordToResult() {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
   await waitFor(() =>
-    expect(screen.getByText('Keep trying 🔄')).toBeOnTheScreen(),
+    expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen(),
   );
 }
 
@@ -282,7 +285,7 @@ describe('score card retry', () => {
     await act(async () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
-    await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Nice work!')).toBeOnTheScreen());
 
     expect(screen.getByTestId('retry-button')).toBeOnTheScreen();
     expect(screen.getByText('Next phrase')).toBeOnTheScreen();

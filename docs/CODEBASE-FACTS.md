@@ -1189,6 +1189,20 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 
 **Test surface.** Extended only, no new files: `gameSessions.test.ts` (pass-gate pins, including the 1-of-8 evidence run), `quick-game-frame.test.tsx` (failing run never marks cleared; Ticket Check reveal describe; the marks-cleared pin now plays a passing 2 of 2).
 
+### Build 34A: iOS parity batch 1 (August 3, 2026, mobile only)
+
+**Scope.** `artifacts/bolo-mobile` plus this doc. Web-parity batch; recon verified four items already at parity with no code changes (pass-card energy/tear/rail pulse/train art, record barge-in, the 88x88 hold-to-talk frame contract, app icon), and the entitlement audit found zero "pro" identifiers (the app checks 'plus' and 'one_language'; 'family' is derived server-side, never checked client-side).
+
+**Meaning audio (`app/(app)/practice/[id].tsx` + new `lib/meaning-audio.ts`).** Port of the web practice meaning segment: after the coach phrase clip, a 400ms beat (`MEANING_SEGMENT_PAUSE_MS`), then the English meaning in an English voice (`languageName: 'English'`, `languageCode: 'en'`). `meaningSpeechText` mirrors the web rules verbatim: "means X" prefix unless the sentence flag is set, the gloss ends in sentence punctuation, or it runs 6+ words. Preference key `bolo.meaningAudio` (exported as `MEANING_AUDIO_KEY`), default on, stored in AsyncStorage; because that store is async (unlike web localStorage) the screen uses a lazy pref ref (`readMeaningPref`) so a saved "off" is never raced by the first autoplay, and the ref is read fresh at play time so a toggle applies to the very next segment. Per-session meaning cache keyed by phrase id (`meaningCacheRef`; the coach cache key shape does not apply since the meaning is always English). Prewarm overlaps the phrase clip, with reset-on-failure so `playMeaning` retries fresh; every failure path fails silent to phrase-only. `coachPlaying` spans the meaning segment (web playing_coach parity) and playback rides `playbackRef`/`playTokenRef`, so barge-in and iOS earpiece routing cover it with no extra code. The practice header gains a globe pill toggle (testID `meaning-audio-header-toggle`, secondary fill when on, web accessibility strings verbatim). Review screen intentionally has no meaning segment.
+
+**Review romanized guard (`app/(app)/review.tsx`).** The phrase card's romanized line is guarded like the game screens (testID `review-phrase-romanized`, hidden when empty). Curated content ships romanized for every language today (0 empty of 268 fields each for ur/ks/sd/sat/mni), so the guard is a defensive rail. The practice phrase card stays unguarded, matching web practice.
+
+**Result band copy.** The result ladder is now the web ladder verbatim on both the practice and review result cards: 'Perfect!' / 'Amazing!' / 'Nice work!' / 'So close!' / 'Good try, keep going!' (owner-approved contingency; the emoji rungs 'Excellent 🌟' / 'Good 👍' / 'Almost there 👍' / 'Keep trying 🔄' are retired). Test pins across 13 practice suite files were updated to the new strings; no behavioral assertions changed.
+
+**Test surface.** New file `__tests__/practice-meaning-audio.test.tsx` (justified: the play chain past the phrase clip is a genuinely new mobile surface; covers default-on synthesis/playback, stored-off skip, toggle persistence, and the meaningSpeechText rules). Extended `review-we-heard-romanized.test.tsx` with a guard describe. Pinned `bolo.meaningAudio: 'off'` in the four files that count exact synth/playback calls for other surfaces (`practice-band-audio`, `practice-voice-cache`, `practice-retry`, `practice-spoken-feedback`).
+
+**Known debt.** The pref key literal is repeated in the four test pins (the export exists for reuse). Real-device meaning playback and earpiece routing are device-pass pending. `family.test.tsx` showed a one-off failure under full-suite load in this batch and passed solo immediately after; watch for recurrence.
+
 ## 11. House Patterns
 
 One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.

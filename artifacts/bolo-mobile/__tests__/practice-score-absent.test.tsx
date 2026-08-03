@@ -255,7 +255,7 @@ describe('acceptance item 5 — score absent from evaluate response (mobile)', (
 
     render(<PracticeScreen />);
     // Grade label for nailed band — same text the celebrations test suite checks.
-    await doRecordAndWaitForGradeLabel('Excellent 🌟');
+    await doRecordAndWaitForGradeLabel('Amazing!');
 
     // The old numeric score must not appear anywhere.
     expect(screen.queryByText(/Score:/i)).toBeNull();
@@ -274,7 +274,7 @@ describe('acceptance item 5 — score absent from evaluate response (mobile)', (
     }));
 
     render(<PracticeScreen />);
-    await doRecordAndWaitForGradeLabel('Good 👍');
+    await doRecordAndWaitForGradeLabel('Nice work!');
 
     expect(screen.queryByText(/Score:/i)).toBeNull();
   });
@@ -292,7 +292,7 @@ describe('acceptance item 5 — score absent from evaluate response (mobile)', (
     }));
 
     render(<PracticeScreen />);
-    await doRecordAndWaitForGradeLabel('Keep trying 🔄');
+    await doRecordAndWaitForGradeLabel('Good try, keep going!');
 
     expect(screen.queryByText(/Score:/i)).toBeNull();
   });

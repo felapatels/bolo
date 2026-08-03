@@ -142,6 +142,10 @@ function successQuery(data: unknown) {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  // These tests pin exact synth counts for the spoken-feedback readout;
+  // switch the meaning segment (Build 34A) off so its extra English synthesis
+  // does not shift them. practice-meaning-audio.test.tsx owns that surface.
+  await AsyncStorage.setItem('bolo.meaningAudio', 'off');
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
   mockState.evaluate = jest.fn(async () => ({
@@ -176,7 +180,7 @@ async function recordAndScore() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
 }
 
 describe('spoken feedback after scoring', () => {

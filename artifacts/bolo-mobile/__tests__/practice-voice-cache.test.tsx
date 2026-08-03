@@ -159,6 +159,10 @@ function successQuery(data: unknown) {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  // These tests pin exact synth call counts for the voice-keyed phrase cache;
+  // switch the meaning segment (Build 34A) off so its extra English synthesis
+  // does not shift them. practice-meaning-audio.test.tsx owns that surface.
+  await AsyncStorage.setItem('bolo.meaningAudio', 'off');
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
   mockState.evaluate = jest.fn(async () => ({

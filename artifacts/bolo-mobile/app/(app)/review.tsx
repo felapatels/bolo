@@ -1265,7 +1265,18 @@ export default function ReviewScreen() {
           <Text style={[nativeProps, styles.phraseNative, { color: colors.foreground }]}>
             {phrase.nativeScript}
           </Text>
-          <Text style={[styles.phraseRoman, { color: colors.secondary }]}>{phrase.romanized}</Text>
+          {/* Guarded like the game screens' romanized hints (#914): a phrase
+              that ships no romanized form must not leave an empty slot.
+              Curated content populates romanized for every language today,
+              so this is a defensive rail, not a live gap. */}
+          {phrase.romanized ? (
+            <Text
+              testID="review-phrase-romanized"
+              style={[styles.phraseRoman, { color: colors.secondary }]}
+            >
+              {phrase.romanized}
+            </Text>
+          ) : null}
           <Text style={[styles.phraseEng, { color: colors.mutedForeground }]}>{phrase.english}</Text>
 
           <Pressable
@@ -1399,14 +1410,14 @@ export default function ReviewScreen() {
           >
             <Text style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}>
               {result.band === 'perfect'
-                ? 'Perfect 🌟'
+                ? 'Perfect!'
                 : result.band === 'great'
-                  ? 'Excellent 🌟'
+                  ? 'Amazing!'
                   : result.band === 'good'
-                    ? 'Good 👍'
+                    ? 'Nice work!'
                     : result.band === 'almost'
-                      ? 'Almost there 👍'
-                      : 'Keep trying 🔄'}
+                      ? 'So close!'
+                      : 'Good try, keep going!'}
             </Text>
 
             {/* Five-band ladder for scored attempts; nocatch keeps its

@@ -230,7 +230,7 @@ async function recordCurrentPhrase() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Good 👍')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Nice work!')).toBeOnTheScreen());
 }
 
 /** Complete the whole 2-phrase run: record, next, record, finish. */
@@ -297,7 +297,7 @@ describe('test-out run mechanics', () => {
     await act(async () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
-    await waitFor(() => expect(screen.getByText('Keep trying 🔄')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen());
     expect(screen.queryByTestId('try-again-button')).toBeNull();
     expect(screen.queryByTestId('retry-button')).toBeNull();
     expect(screen.getByText('Next phrase')).toBeOnTheScreen();

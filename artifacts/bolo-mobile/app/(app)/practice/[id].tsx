@@ -90,6 +90,7 @@ import {
 import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
+import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from '@/lib/meaning-audio';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
@@ -101,6 +102,10 @@ import { glyphsForLanguage } from '@/lib/scriptGlyphs';
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'compare' | 'error' | 'done';
 
 const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
+
+// Beat between the phrase clip and the spoken English meaning (web parity:
+// MEANING_SEGMENT_PAUSE_MS in gujarati-coach's practice page, Task 1003).
+const MEANING_SEGMENT_PAUSE_MS = 400;
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
   great: 'Great',
@@ -739,6 +744,42 @@ export default function PracticeScreen() {
     });
   }, []);
 
+  // Meaning-aloud preference (web Task 1003 parity): the English meaning is
+  // spoken right after each phrase clip. Mirrored in state for the header
+  // toggle. The ref starts null (unknown) because AsyncStorage is async,
+  // unlike the web's synchronous localStorage read: the first play awaits the
+  // stored value through readMeaningPref so a saved "off" is never raced by
+  // an optimistic default, and every later read is synchronous. The ref is
+  // read fresh at each step of the play chain so a toggle flip applies to the
+  // very next segment without waiting for a re-render.
+  const [meaningAudioUI, setMeaningAudioUI] = React.useState(true);
+  const meaningPrefRef = React.useRef<boolean | null>(null);
+  const readMeaningPref = React.useCallback(async () => {
+    if (meaningPrefRef.current === null) {
+      meaningPrefRef.current = await loadMeaningAudio();
+    }
+    return meaningPrefRef.current;
+  }, []);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadMeaningAudio().then((enabled) => {
+      if (cancelled) return;
+      if (meaningPrefRef.current === null) meaningPrefRef.current = enabled;
+      setMeaningAudioUI(meaningPrefRef.current);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const toggleMeaningAudioUI = React.useCallback(() => {
+    setMeaningAudioUI((prev) => {
+      const next = !prev;
+      meaningPrefRef.current = next;
+      void saveMeaningAudio(next);
+      return next;
+    });
+  }, []);
+
   const stopPlayback = React.useCallback(() => {
     playTokenRef.current += 1;
     playbackRef.current?.stop();
@@ -806,6 +847,14 @@ export default function PracticeScreen() {
     new Map<string, { audioBase64: string; format: string }>(),
   );
 
+  // Per-session cache for the synthesized English meaning clips, keyed by
+  // phrase id alone: the meaning segment always speaks English, so the
+  // coach-voice cache key shape above does not apply. Web parity:
+  // meaningAudioCacheRef in gujarati-coach's practice page (Task 1003).
+  const meaningCacheRef = React.useRef(
+    new Map<number, { audioBase64: string; format: string }>(),
+  );
+
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
     stopPlayback();
@@ -835,8 +884,80 @@ export default function PracticeScreen() {
       // The learner may have moved on (or re-tapped) while we waited for the
       // audio — this response belongs to the old word, so drop it silently.
       if (token !== playTokenRef.current) return;
+      // Second segment of the play chain (web Task 1003 parity): after the
+      // phrase clip ends, a short pause, then the English meaning in an
+      // English voice. Best-effort by design: any synthesis or playback
+      // failure here falls back silently to the phrase-only behavior.
+      const synthMeaning = async () => {
+        const cachedMeaning = meaningCacheRef.current.get(phrase.id);
+        if (cachedMeaning) return cachedMeaning;
+        const fresh = await synth.mutateAsync({
+          data: {
+            text: meaningSpeechText(phrase.english, { sentence: isSentences }),
+            languageName: 'English',
+            languageCode: 'en',
+          },
+        });
+        const entry = {
+          audioBase64: fresh.audioBase64,
+          format: fresh.format || 'mp3',
+        };
+        meaningCacheRef.current.set(phrase.id, entry);
+        return entry;
+      };
+      // Pre-warm the meaning clip while the phrase clip plays so the beat
+      // after it stays near MEANING_SEGMENT_PAUSE_MS even on a cold cache. On
+      // failure the handle resets so playMeaning retries fresh and keeps
+      // owning the fail-silent fallback.
+      let meaningPrewarm: ReturnType<typeof synthMeaning> | null = null;
+      const meaningOn = await readMeaningPref();
+      if (token !== playTokenRef.current) return;
+      if (meaningOn && phrase.english) {
+        const prewarm = synthMeaning();
+        meaningPrewarm = prewarm;
+        prewarm.catch(() => {
+          if (meaningPrewarm === prewarm) meaningPrewarm = null;
+        });
+      }
+      const playMeaning = async () => {
+        if (token !== playTokenRef.current) return;
+        // Read the preference fresh at play time so a toggle flip applies to
+        // the very next play without a reload (web parity).
+        if (!meaningPrefRef.current || !phrase.english) {
+          setCoachPlaying(false);
+          return;
+        }
+        try {
+          // The pause and the (pre-warmed or fresh) synthesis overlap so the
+          // gap between the two segments stays close to the intended beat.
+          const [meaningRes] = await Promise.all([
+            meaningPrewarm ?? synthMeaning(),
+            new Promise((resolve) =>
+              setTimeout(resolve, MEANING_SEGMENT_PAUSE_MS),
+            ),
+          ]);
+          if (token !== playTokenRef.current) return;
+          playbackRef.current = await playBase64Audio(
+            meaningRes.audioBase64,
+            meaningRes.format || 'mp3',
+            () => {
+              if (token === playTokenRef.current) setCoachPlaying(false);
+            },
+          );
+          if (token !== playTokenRef.current) {
+            playbackRef.current?.stop();
+            playbackRef.current = null;
+          }
+        } catch {
+          // Fail silent to phrase-only: the phrase clip already played in
+          // full, so simply drop back as if the meaning were off.
+          if (token === playTokenRef.current) setCoachPlaying(false);
+        }
+      };
       const onCoachDone = () => {
-        setCoachPlaying(false);
+        // coachPlaying (and the disabled listen buttons) span the meaning
+        // segment too, matching the web's playing_coach state span.
+        void playMeaning();
       };
       playbackRef.current = await playBase64Audio(
         res.audioBase64,
@@ -852,7 +973,7 @@ export default function PracticeScreen() {
       if (token === playTokenRef.current) setCoachPlaying(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phrase?.id, activeLanguage?.name, ttsVoice]);
+  }, [phrase?.id, activeLanguage?.name, ttsVoice, isSentences]);
 
   // Auto-play the coach model once when a new phrase appears, unless the
   // learner has opted into silent mode (they prefer to read the phrase and
@@ -1870,6 +1991,8 @@ export default function PracticeScreen() {
         label={`${index + 1} of ${list.length}`}
         silentMode={silentModeUI}
         onToggleSilentMode={toggleSilentModeUI}
+        meaningAudio={meaningAudioUI}
+        onToggleMeaningAudio={toggleMeaningAudioUI}
       />
       {/* Express test-out banner: one quiet line so the learner knows the
           rules of the run (one take per phrase, pass mark). */}
@@ -2158,14 +2281,14 @@ export default function PracticeScreen() {
               style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}
             >
             {result.band === 'perfect'
-                ? 'Perfect 🌟'
+                ? 'Perfect!'
                 : result.band === 'great'
-                  ? 'Excellent 🌟'
+                  ? 'Amazing!'
                   : result.band === 'good'
-                    ? 'Good 👍'
+                    ? 'Nice work!'
                     : result.band === 'almost'
-                      ? 'Almost there 👍'
-                      : 'Keep trying 🔄'}
+                      ? 'So close!'
+                      : 'Good try, keep going!'}
             </Text>
 
             {/* Five-band ladder for scored attempts; nocatch keeps its
@@ -2421,6 +2544,8 @@ function PracticeHeader({
   label,
   silentMode,
   onToggleSilentMode,
+  meaningAudio,
+  onToggleMeaningAudio,
 }: {
   onClose: () => void;
   label: string;
@@ -2428,6 +2553,10 @@ function PracticeHeader({
    *  Mirrors the web practice header toggle for cross-platform parity. */
   silentMode?: boolean;
   onToggleSilentMode?: () => void;
+  /** When provided, shows a Meaning-aloud quick-toggle beside the silent
+   *  toggle. Mirrors the web practice header Meaning pill (Task 1003). */
+  meaningAudio?: boolean;
+  onToggleMeaningAudio?: () => void;
 }) {
   const colors = useColors();
   return (
@@ -2445,6 +2574,31 @@ function PracticeHeader({
         </Text>
         <XpCounter variant="session" />
       </View>
+      {onToggleMeaningAudio !== undefined ? (
+        <Pressable
+          onPress={onToggleMeaningAudio}
+          accessibilityRole="togglebutton"
+          accessibilityLabel={
+            meaningAudio
+              ? 'Meaning aloud on, the English meaning is spoken after each phrase. Tap to turn off'
+              : 'Meaning aloud off, tap to hear the English meaning after each phrase'
+          }
+          hitSlop={8}
+          testID="meaning-audio-header-toggle"
+          style={[
+            styles.closeBtn,
+            {
+              backgroundColor: meaningAudio ? colors.secondary : colors.card,
+            },
+          ]}
+        >
+          <Feather
+            name="globe"
+            size={20}
+            color={meaningAudio ? '#fff' : colors.mutedForeground}
+          />
+        </Pressable>
+      ) : null}
       {onToggleSilentMode !== undefined ? (
         <Pressable
           onPress={onToggleSilentMode}

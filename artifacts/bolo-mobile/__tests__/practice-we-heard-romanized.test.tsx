@@ -212,7 +212,7 @@ async function recordThrough(resultText: string | RegExp) {
 describe('We heard romanized transcript', () => {
   test('renders the raw transcript and the romanized form', async () => {
     mockState.evaluate = jest.fn(async () => evalResult({}));
-    await recordThrough('Keep trying 🔄');
+    await recordThrough('Good try, keep going!');
     expect(screen.getByText('We heard: "કેમ છો"')).toBeOnTheScreen();
     expect(screen.getByText('"kem cho"')).toBeOnTheScreen();
   });
@@ -221,7 +221,7 @@ describe('We heard romanized transcript', () => {
     mockState.evaluate = jest.fn(async () =>
       evalResult({ transcript: 'کیسے ہو', transcriptRomanized: '' }),
     );
-    await recordThrough('Keep trying 🔄');
+    await recordThrough('Good try, keep going!');
     expect(screen.getByText('We heard: "کیسے ہو"')).toBeOnTheScreen();
     expect(screen.queryByText('"kem cho"')).toBeNull();
   });
@@ -230,7 +230,7 @@ describe('We heard romanized transcript', () => {
     mockState.evaluate = jest.fn(async () =>
       evalResult({ transcript: 'kem cho', transcriptRomanized: 'kem cho' }),
     );
-    await recordThrough('Keep trying 🔄');
+    await recordThrough('Good try, keep going!');
     expect(screen.getByText('We heard: "kem cho"')).toBeOnTheScreen();
     // Only the raw line renders — no duplicate quoted romanized line.
     expect(screen.queryByText('"kem cho"')).toBeNull();

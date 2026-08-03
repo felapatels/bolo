@@ -214,3 +214,23 @@ describe('review screen: We heard romanized transcript (#914)', () => {
     expect(screen.queryByText('"kem cho"')).toBeNull();
   });
 });
+
+describe('review screen: phrase card romanized guard (#914, Build 34A)', () => {
+  test('shows the romanized line when the phrase ships one', async () => {
+    render(<ReviewScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    expect(screen.getByTestId('review-phrase-romanized')).toBeOnTheScreen();
+    expect(screen.getByText('namaste')).toBeOnTheScreen();
+  });
+
+  test('renders no empty slot when the phrase ships no romanized form', async () => {
+    mockState.phrases = successQuery([{ ...phraseA, romanized: '' }]);
+    render(<ReviewScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    expect(screen.queryByTestId('review-phrase-romanized')).toBeNull();
+  });
+});

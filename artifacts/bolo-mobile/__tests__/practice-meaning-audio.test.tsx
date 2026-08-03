@@ -9,12 +9,19 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Unsupported language (speechCapability === 'unsupported'): practice switches
-// to listen-record-compare mode. The learner can record and play back, but:
-//  • NO evaluation request is ever sent
-//  • NO score / band verdict is shown
-//  • A supportive "ear-training" compare card appears with play-target,
-//    hear-yourself, and Practice again / Next actions.
+// Build 34A item 5: meaning audio on mobile practice (web Task 1003 parity).
+//
+// After the coach phrase clip ends, a short beat, then the English meaning in
+// an English voice. New test file because the post-phrase meaning segment is
+// a genuinely new mobile surface: no existing file exercises the play chain
+// past the phrase clip.
+// Guards:
+//   - the meaning clip is synthesized with the "means <english>" line in
+//     English and plays after the phrase clip,
+//   - a stored "off" preference skips the segment entirely (no English
+//     synthesis, no second playback), even on the first play after mount,
+//   - the header toggle persists the preference,
+//   - meaningSpeechText picks prefix vs verbatim per the web rules.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
@@ -25,11 +32,18 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  // Test-out mode is idle in these suites (no mode: testout param).
-  useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  getGetLessonGroupTestoutQueryKey: () => ['lesson-group-testout'],
-  useSubmitLessonGroupTestout: () => ({ mutate: jest.fn(), data: undefined, isError: false, error: null, isPending: false }),
-  // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
+  useGetLessonGroupTestout: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  getGetLessonGroupTestoutQueryKey: (id: unknown) => ['testout', id],
+  useSubmitLessonGroupTestout: () => ({
+    mutateAsync: jest.fn(async () => ({})),
+    isPending: false,
+    reset: jest.fn(),
+  }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -73,31 +87,29 @@ jest.mock('@/lib/audio', () => ({
   prepareRecordingSession: jest.fn(async () => true),
   prepareRecorderInSession: jest.fn(async () => undefined),
   ensureRecordingMode: jest.fn(async () => undefined),
-  stopAndReadRecording: jest.fn(async () => 'learner-recording-base64'),
+  stopAndReadRecording: jest.fn(async () => 'base64audio'),
   playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
     onDone?.();
     return { stop: jest.fn() };
   }),
+  playAssetAudio: jest.fn(async () => ({ stop: jest.fn() })),
   RECORDING_PRESET: {},
   SILENCE_THRESHOLD_DB: -45,
   SILENCE_DURATION_MS: 1600,
+}));
+
+jest.mock('@/lib/band-audio', () => ({
+  playBandClip: jest.fn(() => ({ finished: Promise.resolve(), stop: jest.fn() })),
 }));
 
 jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: true, isOneLanguage: false }),
 }));
 
-// Manipuri (mni) — unsupported recognition.
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
-    activeLang: 'mni',
-    activeLanguage: {
-      code: 'mni',
-      name: 'Manipuri',
-      nativeName: 'ꯃꯤꯇꯩ ꯂꯣꯟ',
-      speechCapability: 'unsupported',
-    },
-    speechCapability: 'unsupported',
+    activeLang: 'gu',
+    activeLanguage: { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
   }),
 }));
 
@@ -114,19 +126,23 @@ jest.mock('@/constants/fonts', () => ({
 jest.mock('@/components/Screen', () => {
   const { View } = require('react-native');
   return {
-    Screen: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+    Screen: ({ children }: { children: React.ReactNode }) => (
+      <View>{children}</View>
+    ),
     TAB_BAR_CLEARANCE: 0,
     RAISED_PARROT_CLEARANCE: 0,
   };
 });
 
+// Imported after the mocks are declared.
 import PracticeScreen from '@/app/(app)/practice/[id]';
 import { playBase64Audio } from '@/lib/audio';
+import { meaningSpeechText, MEANING_AUDIO_KEY } from '@/lib/meaning-audio';
 
 const phraseA = {
   id: 1,
-  nativeScript: 'ꯍꯦꯂꯣ',
-  romanized: 'hello',
+  nativeScript: 'નમસ્તે',
+  romanized: 'namaste',
   english: 'hello',
 };
 
@@ -147,9 +163,16 @@ beforeEach(async () => {
   jest.clearAllMocks();
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
-  mockState.evaluate = jest.fn(async () => {
-    throw new Error('evaluation must never be called for unsupported languages');
-  });
+  mockState.evaluate = jest.fn(async () => ({
+    score: 88,
+    passed: true,
+    band: 'great',
+    xpAwarded: 8,
+    transcript: 'namaste',
+    feedback: 'Nice work!',
+    tip: 'Keep going.',
+    evaluationToken: 'signed-token',
+  }));
   mockState.createAttempt = jest.fn(async () => ({ newlyEarnedBadges: [] }));
 });
 
@@ -160,88 +183,76 @@ async function renderReady() {
   );
 }
 
-async function recordOnce() {
-  await act(async () => {
-    fireEvent(screen.getByTestId('record-button'), 'pressIn');
-  });
-  await waitFor(() =>
-    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
-  );
-  await act(async () => {
-    fireEvent(screen.getByTestId('record-button'), 'pressOut');
-  });
-}
-
-describe('Unsupported language — listen-record-compare mode', () => {
-  test('recording never sends an evaluation request', async () => {
+describe('meaning audio after the phrase clip', () => {
+  test('synthesizes the "means <english>" line in English and plays it after the coach clip', async () => {
     await renderReady();
-    await recordOnce();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('compare-card')).toBeOnTheScreen(),
+    // Call 1 is the coach phrase; call 2 must be the meaning segment. The
+    // beat between the segments is MEANING_SEGMENT_PAUSE_MS (400ms), so give
+    // waitFor room for it.
+    await waitFor(
+      () => expect(mockState.synth).toHaveBeenCalledTimes(2),
+      { timeout: 2000 },
     );
-    expect(mockState.evaluate).not.toHaveBeenCalled();
-  });
-
-  test('compare card is shown instead of a scored band/verdict', async () => {
-    await renderReady();
-    await recordOnce();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('compare-card')).toBeOnTheScreen(),
-    );
-    // Supportive ear-training copy naming the language.
-    expect(
-      screen.getByText(/ear-training practice: listen, record, and compare/i),
-    ).toBeOnTheScreen();
-    expect(screen.getByText(/It still counts!/i)).toBeOnTheScreen();
-    // No scored verdict text.
-    expect(screen.queryByText('Amazing!')).toBeNull();
-    expect(screen.queryByText('Nice work!')).toBeNull();
-    expect(screen.queryByText('Good try, keep going!')).toBeNull();
-  });
-
-  test('compare card offers play-target and hear-yourself actions', async () => {
-    await renderReady();
-    await recordOnce();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('compare-card')).toBeOnTheScreen(),
-    );
-    expect(screen.getByTestId('compare-play-target')).toBeOnTheScreen();
-    expect(screen.getByTestId('hear-yourself-button')).toBeOnTheScreen();
-
-    // Hear-yourself plays back the learner's own recording.
-    (playBase64Audio as jest.Mock).mockClear();
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('hear-yourself-button'));
+    expect(mockState.synth).toHaveBeenCalledWith({
+      data: {
+        text: 'means hello',
+        languageName: 'English',
+        languageCode: 'en',
+      },
     });
-    await waitFor(() =>
-      expect(playBase64Audio as jest.Mock).toHaveBeenCalledWith(
-        'learner-recording-base64',
-        'm4a',
-        expect.any(Function),
-      ),
+    await waitFor(
+      () => expect(playBase64Audio).toHaveBeenCalledTimes(2),
+      { timeout: 2000 },
     );
   });
 
-  test('a Next action moves on without any score or XP', async () => {
+  test('a stored "off" preference skips the meaning segment even on the first play', async () => {
+    await AsyncStorage.setItem(MEANING_AUDIO_KEY, 'off');
     await renderReady();
-    await recordOnce();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('compare-card')).toBeOnTheScreen(),
-    );
-    // Single-phrase session — Next finishes it.
+    // Let the play chain (including the 400ms beat window) settle before
+    // asserting nothing extra fired.
     await act(async () => {
-      fireEvent.press(screen.getByText('Finish'));
+      await new Promise((resolve) => setTimeout(resolve, 600));
     });
-    await waitFor(() =>
-      expect(screen.getByText('Nice practice! 🎧')).toBeOnTheScreen(),
+    // Only the coach phrase was synthesized and played.
+    expect(mockState.synth).toHaveBeenCalledTimes(1);
+    expect(playBase64Audio).toHaveBeenCalledTimes(1);
+  });
+
+  test('the header toggle persists the preference', async () => {
+    await renderReady();
+    const toggle = screen.getByTestId('meaning-audio-header-toggle');
+    await act(async () => {
+      fireEvent.press(toggle);
+    });
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem(MEANING_AUDIO_KEY)).toBe('off'),
     );
-    // No evaluation was ever sent across the whole session.
-    expect(mockState.evaluate).not.toHaveBeenCalled();
-    // Summary reflects the single ear-training phrase, not a scored count.
-    expect(screen.getByText('You practiced 1 phrase.')).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(toggle);
+    });
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem(MEANING_AUDIO_KEY)).toBe('on'),
+    );
+  });
+});
+
+describe('meaningSpeechText', () => {
+  test('a short gloss gets the "means" prefix', () => {
+    expect(meaningSpeechText('hello')).toBe('means hello');
+  });
+
+  test('sentence-final punctuation reads verbatim', () => {
+    expect(meaningSpeechText('How are you?')).toBe('How are you?');
+  });
+
+  test('six or more words read verbatim', () => {
+    expect(meaningSpeechText('I would like a cup please')).toBe(
+      'I would like a cup please',
+    );
+  });
+
+  test('the sentence-stage flag reads verbatim regardless of length', () => {
+    expect(meaningSpeechText('the tea', { sentence: true })).toBe('the tea');
   });
 });

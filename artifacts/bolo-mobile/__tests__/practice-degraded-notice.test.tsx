@@ -215,7 +215,7 @@ describe('Degraded language — one-time approximate-feedback notice', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() =>
-      expect(screen.getByText('Excellent 🌟')).toBeOnTheScreen(),
+      expect(screen.getByText('Amazing!')).toBeOnTheScreen(),
     );
     expect(mockState.evaluate).toHaveBeenCalledTimes(1);
     // Not the unsupported compare path.
