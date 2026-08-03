@@ -1,0 +1,15 @@
+Owner audit. Deviation rulings first: migration 0038 (FK cascade) is ACCEPTED on the merits, matching the 0036 cascade precedent, but it violated an instructed hard stop and was not labeled under DEVIATIONS; both are logged. SpendTokensBody is not a deviation (the paste pre-ruled the generated name wins). The two test fixes are accepted as disclosed.
+
+Answer everything below in ONE message. Items 1 through 4 are approval-blocking.
+
+1. HARD RULE status: state explicitly whether ANY git commit has been made this task. Include git status and the exact would-be staged file list, confirming docs/CODEBASE-FACTS.md included, zero attached_assets, zero files in gujarati-coach or bolo-mobile. If a commit already exists, stop after reporting that fact and its hash.
+2. Package proof: quote the consumed package's version line verbatim, and state the implemented values of EXPRESS_MULTIPLIER_COST and TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY.
+3. Suite arithmetic: report the runner summary line verbatim (tests, suites, pass, fail). Then close the math from the 752/15 baseline: enumerate every new or modified test file with its test-count delta, summing exactly to the new total. Name where the 15 non-tokenEconomy tests live. Nothing may be deleted; if anything was, stop and report only that.
+4. HOOK 5 second site: is maybeGrantAllowance called in POST /attempts side effects? If yes, quote the call site. If no, ADD that one call now exactly per the package, re-run typecheck, and say so; that addition is pre-approved and is the only code change permitted.
+5. Cascade proof: confirm the two schema files declare onDelete cascade so schema, snapshot, and SQL agree, and confirm BOTH 0037 and 0038 are applied to the dev database right now.
+6. Quote one line each: the HOOK 2c call site inside deriveAndLatchUnlock's newlyCompleted branch, and the quiz-grant site in routes/games.ts with its route path.
+7. Query-cost delta for POST /attempts: added reads and writes per attempt, worst case.
+
+CONDITIONAL APPROVAL: if item 1 shows zero commits, item 3 closes with nothing deleted, item 2 shows 10 and 50, and item 4 ends with the allowance call present and typecheck clean, you are approved to commit with exactly: "Chunk 5A: Chai token economy server (earn-only slice)". Then one confirmation message: the hash, the runner line verbatim, restated confirmation that 0037 and 0038 are applied in dev, and the final staged list. Then stop. Any other outcome: stop and report only the blocker. No task cards, no em dashes.
+
+END OF MESSAGE. If this line is not the last line you received, the paste truncated; stop and say so.

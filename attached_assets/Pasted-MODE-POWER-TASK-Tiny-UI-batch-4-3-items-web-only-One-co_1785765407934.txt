@@ -1,0 +1,43 @@
+MODE: POWER
+
+TASK: Tiny-UI batch 4 (3 items, web only). One commit to main. Main HEAD at start: 661266d.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. ONE report, then STOP. If any commit exists that you did not make after approval, stop and report it. No task cards; bank suggestions as report lines.
+
+SESSION RULES (binding):
+1. Scope: artifacts/gujarati-coach only, plus docs/CODEBASE-FACTS.md and root package/lockfile changes required by item 3. Do NOT touch the api server, lib/, or bolo-mobile. You are the only writer.
+2. No em dashes anywhere. attached_assets never staged. No new test files unless an existing file already asserts a changed surface. Zero generated strays before the report.
+3. If any full-suite run fails, capture the failure identity BEFORE any re-run (standing ruling).
+4. Any divergence goes under DEVIATIONS with rationale.
+
+STEP 0 (verify, fold into report, misses hard-stop):
+A. Quote the current ToastViewport classes and the Toast variant classes from src/components/ui/toast.tsx.
+B. Quote the house card vocabulary you will mirror (the badge-card classes from home.tsx are the reference: border-2, rounded, hard offset shadow, press translate).
+C. Quote how the app handles bottom spacing on mobile (BottomNav height, safe-area padding) so the toast can sit above it.
+D. Locate and quote verbatim the nocatch result-card tip string containing an em dash ("Nothing to fix on your end").
+E. Grep the web workspace source for the U+2014 em dash character (construct the character in your shell; this paste deliberately does not contain it). Enumerate every hit, split into user-visible strings vs code/comments.
+F. Re-confirm sonner has zero consumers; locate src/components/ui/sonner.tsx and the package.json entry.
+
+ITEM 1: Toast restyle + reposition. Viewport: bottom-center on mobile, sitting above the BottomNav and safe area per Step 0 C; bottom-right on desktop; stacking order stays above the wallet sheet overlay. Style: restyle the Toast to the house vocabulary from Step 0 B (border-2, house radius, hard offset shadow, house background/foreground tokens); keep the destructive variant visually distinct. ALL toast copy untouched. Verify empirically with the throwaway-probe pattern from batch 3 (real browser, screenshot, describe in report, delete probe before reporting).
+
+ITEM 2: Em dash copy fix. The nocatch tip string becomes exactly: "Tip: Nothing to fix on your end, just try the same thing again." For other Step 0 E hits: if the total count of user-visible string hits is 10 or fewer, fix them all with comma/period equivalents and list every before/after verbatim; if more than 10, fix only the nocatch string and enumerate the rest as a banked report line. Code/comment hits: enumerate only, do not fix in this batch.
+
+ITEM 3: Remove sonner. Delete src/components/ui/sonner.tsx and uninstall the dependency so package.json and the lockfile update. Typecheck must prove nothing referenced it.
+
+GATE (lean during, one full run at the end):
+1. Typecheck the web workspace; mandatory.
+2. Grep-first: enumerate test files asserting toast rendering/classes or the nocatch tip string; update only where genuinely affected; run those during development.
+3. At the end: ONE full web suite run, baseline 413/58; report the runner line verbatim, any delta enumerated by file. Any failure: capture identity first, report, do not commit.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through F with quoted blocks.
+2. Files changed, one line each.
+3. DEVIATIONS or "none".
+4. Every user-visible string changed, before and after, verbatim.
+5. Probe verification description (position on mobile width and desktop width, style).
+6. Gate results with the runner line.
+7. git status and the exact staged list; zero attached_assets, zero strays.
+8. Proposed commit message: "Tiny UI batch 4: branded bottom toasts, em dash copy fix, drop sonner"
+END OF REPORT is the report's final line. After approval only: commit, confirm with git log -1 --decorate and git show --stat HEAD, DEVIATIONS or "none", END OF REPORT sentinel, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

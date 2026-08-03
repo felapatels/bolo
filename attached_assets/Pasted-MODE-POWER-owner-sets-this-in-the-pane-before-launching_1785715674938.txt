@@ -1,0 +1,63 @@
+MODE: POWER (owner sets this in the pane before launching)
+
+TASK: Chunk 5B v2 (supersedes any earlier 5B paste in this pane): Chai wallet web surfaces + Chacha-ji vignette. One commit to main.
+
+HARD RULE, READ FIRST: ZERO git commits before the owner's approval message arrives in this pane. You produce ONE report, then STOP. If you discover you have already committed anything, stop everything and report that fact first. Do NOT create task cards for any reason; bank suggestions as one line inside your final report instead.
+
+SESSION RULES (binding):
+1. Scope: artifacts/gujarati-coach, docs/CODEBASE-FACTS.md, plus exactly ONE asset copy described in ITEM 0. Do NOT touch artifacts/api-server, artifacts/bolo-mobile, lib/db, or lib/api-spec. The server shipped in 964f901 and is authoritative; the generated client already carries the tokens functions.
+2. attached_assets originals are NEVER staged. The committed file is the web-sized COPY inside gujarati-coach only. The other five chachaji images in attached_assets/generated_images are OUT OF SCOPE: do not copy, place, or reference them anywhere in this task.
+3. Small parameterized UI build, not a redesign. Reuse existing surface patterns (chips, sheets, toasts, countdowns). Any divergence from the items below goes under a DEVIATIONS heading with a one-line rationale each; unlabeled divergence is a violation even when good.
+4. No em dashes anywhere: code, comments, copy, or reports.
+5. No new test files unless an existing test file already asserts a surface this task changes; testing is governed solely by the GATE section.
+6. HARD PRODUCT RULE: no new CTA of any kind on the home screen. The boarding pass remains the sole progression CTA. Token UI lives on the stats/streak surfaces and at the moments named below only.
+
+STEP 0 (verify, do not explore; fold confirmations into the end report; any miss = hard stop reporting only the miss, EXCEPT D which self-handles):
+A. Generated client: confirm exported names and signatures for the tokens GET and spend POST from 964f901's codegen (actual names win, reported). Confirm the spend 409 error body shapes: { error: "insufficient_tokens", balance, cost }, { error: "pause_max_equipped" }, { error: "multiplier_active" }.
+B. The stats/streak surface: name the file rendering the streak display (the progress/summary consumer) and where a small balance chip sits without layout damage. Also name the folder where the web client's existing mascot/static image assets live; the vignette copy lands there.
+C. The result card and the zone-completion celebration surfaces: name both files and the moment in each where an offer element can appear after primary content.
+D. Vignette asset: verify attached_assets/generated_images/chachaji-wallet-vignette.png exists; report its pixel dimensions and file size; confirm the background is transparent and it reads acceptably against the dark theme. If missing, opaque-white, or otherwise unusable: OMIT the vignette entirely (banked in the report), skip ITEM 0, and proceed with every other item unchanged. This is the only Step 0 miss that does not hard-stop.
+E. Query invalidation: quote the exact generated query key for GET /tokens.
+
+ITEM 0: Vignette copy (only if Step 0 D passed).
+Copy attached_assets/generated_images/chachaji-wallet-vignette.png to the Step 0 B asset folder as chachaji-wallet-vignette.png. If the source exceeds 512px on its long edge or 200KB, the copy is downscaled to at most 512px long edge, optimized PNG. The copy is committed; the original is not.
+
+ITEM 1: Balance chip.
+On the stats/streak surface, a small Chai balance chip: count plus a chai-glass glyph from the icon set in use (never a new asset). Data from the tokens GET. Loading renders a dash, never a spinner. Tapping opens ITEM 2's sheet.
+
+ITEM 2: Wallet sheet.
+House sheet pattern, opened from the chip. Header: when the vignette shipped, the Chacha-ji image sits small beside the balance (roughly avatar-scale, never dominating the sheet); when omitted, the header is balance only. Contents: current balance; Station Pause row with equipped count and an Equip button (POST, item station_pause); Express Multiplier row with a Start button (POST, item express_multiplier) or, while active, a live countdown to expressMultiplierActiveUntil replacing the button. Spend buttons disable in flight; the sheet refreshes from the invalidated GET after. Exact copy:
+- Pause row title: "Station Pause"
+- Pause row line: "Covers a missed day so your streak rides on. 5 Chai."
+- Equipped state: "{n} of 2 equipped"
+- Multiplier row title: "Express Multiplier"
+- Multiplier row line: "Double XP for 20 minutes. 10 Chai."
+- Active state: "Express running: {mm:ss} left"
+409 handling, exact copy per error:
+- insufficient_tokens: "Not enough Chai yet. You have {balance}, this costs {cost}. Keep riding to earn more."
+- pause_max_equipped: "You already have 2 pauses equipped. That is the maximum."
+- multiplier_active: "An Express Multiplier is already running."
+Never render an upgrade pitch from any 409; these are not paywall moments.
+
+ITEM 3: Multiplier offer moments.
+At the two Step 0 C surfaces, when the multiplier is not active and balance covers the cost, one small offer element after primary content: "Double your XP for the next 20 minutes? 10 Chai." with a single Start action (same POST) and a dismiss remembered for the session. While active, the result card shows a small "2x XP" indicator instead. No offer renders when balance is short; short-balance moments show nothing.
+
+ITEM 4: Countdown truth.
+Countdowns derive from expressMultiplierActiveUntil; no client-side timer creates multiplier state; expiry returns surfaces to default without drama, including after backgrounding.
+
+GATE (lean during, one full run at the end):
+1. Typecheck the web workspace during development; mandatory.
+2. Grep-first: grep gujarati-coach test files for assertions on the Step 0 B/C surfaces' existing strings and structure; update only genuinely affected assertions; run only those files during development, enumerated.
+3. At the end: ONE full web suite run. Baseline 412/58; report the runner line verbatim and enumerate any delta by file. Any new failure: report, do not commit.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through E confirmations, including the vignette verdict with dimensions and the asset folder path.
+2. Files changed, enumerated, one line each, including the committed vignette copy path or its omission.
+3. DEVIATIONS heading: each with rationale, or the single word "none".
+4. Every user-visible string added, verbatim, including all three 409 copies.
+5. Gate results: typecheck, grep findings and files run during, final full-suite runner line verbatim with delta enumeration.
+6. git status and the exact staged file list including docs/CODEBASE-FACTS.md; confirm the attached_assets ORIGINALS are unstaged, and zero files outside gujarati-coach plus the facts doc.
+7. Proposed commit message: "Chunk 5B: Chai wallet web surfaces"
+After approval only: commit, report the hash, stop. No task cards, no em dashes.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

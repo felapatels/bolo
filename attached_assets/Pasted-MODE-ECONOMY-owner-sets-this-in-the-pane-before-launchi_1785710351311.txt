@@ -1,0 +1,51 @@
+MODE: ECONOMY (owner sets this in the pane before launching)
+
+TASK: Chunk 5A: Chai token economy server, earn-only slice. One commit to main.
+
+HARD RULE, READ FIRST: ZERO git commits before the owner's approval message arrives in this pane. You produce ONE report, then STOP. If you discover you have already committed anything, stop everything and report that fact first.
+
+SESSION RULES (binding):
+1. This is an APPLY task. The authoritative source is the package pasted into this pane immediately before this task, beginning "# TOKEN-ECONOMY-PREBUILT v2" and ending with the line "END OF PACKAGE. If this line is missing, the file is truncated; stop." It landed as a Pasted-*.txt under attached_assets. Its FILE 1 through FILE 6, HOOK WIRING sites 1 through 6, and TESTS list are the spec. Do not redesign, do not rename, do not re-derive.
+2. Scope fence: server, lib/db, lib/api-spec, generated client output, and the two progressMetrics signatures only. Do NOT touch artifacts/gujarati-coach or artifacts/bolo-mobile (Commit 5B owns web). NOTHING in this build may reference IAP, RevenueCat, packs, TESTOUT_RETRY_COST, or STREAK_REPAIR_COST beyond the two constant definitions in FILE 1; they ship defined and unwired.
+3. Any divergence from the package appears in the report under a DEVIATIONS heading with a one-line rationale each; the package itself pre-authorizes exactly one (the reason-narrowed SQL in tokenService reads). Unlabeled divergence is a violation even when good.
+4. No Suggested or draft task cards. No em dashes anywhere: code, comments, or reports. attached_assets are never staged.
+5. ESTABLISHED FACTS (verified this session; trust them): last migration is 0036, this build generates 0037; migration command: pnpm --filter @workspace/db run generate, applied to dev in this same session; codegen command: pnpm --filter @workspace/api-spec run codegen; api baseline is the runner line: tests 752, suites 15, pass 751, fail 1 (the documented PILOT_CAPTURE_USER_IDS env-trap); dbMock completeness follows the zoneTestouts two-line precedent; learning.ts already imports localDayKey, getUserTimezone, writeAttemptXp, and isFullCreditBand; isZoneComplete exports from lessonGroupUnlock.ts; deriveAndLatchUnlock in lessonGroupAccess.ts has the newlyCompleted.length > 0 branch.
+
+STEP 0 (verify, do not explore; any miss = hard stop reporting only the miss):
+A. PACKAGE INTEGRITY: locate the pasted package file, quote its version line verbatim (expected: TEP-V2-AUG2-RULED-5/10/15/25-ALLOW50-409SPEND-DERIVEDSTREAK) and confirm its final line is the END OF PACKAGE sentinel. Either wrong: hard stop, request re-paste.
+B. Mount pattern: confirm where the learning router is mounted with the requireAuth and loadEntitlements chain (file and line); the tokens router mounts identically.
+C. Quiz earn site: locate the route that records a passing daily quiz completion (dailyQuizzes table) and report its path; that is HOOK 4's site. If no such write path exists, HOOK 4 is omitted, labeled under DEVIATIONS, nothing invented.
+D. Plan resolution: report the possible resolvedPlan.plan values and confirm whether family-plan members resolve to "plus" through loadEntitlements. If a distinct family plan value exists, include it in the allowance check and label the DEVIATION.
+E. progressMetrics: confirm computeProgressMetrics and computeSpeakingStreakDays signatures so the optional pausedDayKeys parameter is appended without disturbing any existing caller.
+F. writeAttemptXp signature and the attempts side-effects Promise.all block exist as described in HOOK 1.
+Fold confirmations into the end report; proceed without stopping when all pass.
+
+BUILD ORDER:
+1. FILE 2 and FILE 3 schema files, index.ts exports, dbMock two lines.
+2. Generate migration 0037 (expect exactly token_ledger, user_token_state, their indexes and FKs; anything more is a hard stop). Apply to dev now.
+3. FILE 6 openapi paths and component schemas; run codegen; report the actual generated zod export name for the spend body and import that name in FILE 5 (expected TokensSpendBody; the actual name wins, noted in the report, not a DEVIATION).
+4. FILE 1 tokenEconomy.ts, FILE 4 tokenService.ts, FILE 5 routes/tokens.ts, mounted per Step 0 B.
+5. HOOK WIRING sites 1 through 6 exactly as written in the package, including the multiplier's effectiveXp applied to BOTH attemptValues.xpAwarded and writeAttemptXp, the pause-consumption gap latch, the three deduped zone-complete sites, stop-level-only express stamps, the quiz site from Step 0 C, and the allowance call in both GET /tokens and the attempts side effects.
+6. progressMetrics optional pausedDayKeys parameter, plus the summary route and loadExtendedMetrics fetching listPausedDayKeys and passing it through.
+7. Author every test in the package's TESTS list, house style, mirroring the zone-testout suite.
+
+GATE (the chunk's single full run; this is a money-adjacent surface):
+1. Typecheck across all workspaces.
+2. Both boot smoke tests.
+3. Full api-server suite once: report the runner's summary line verbatim and the delta versus the 752/15 baseline, new tests enumerated by file with counts; the only permitted failure is the documented env-trap. Any other failure: report, do not commit.
+4. Code-review subagent pass over the full diff (ledger atomicity, idempotency, 409-never-402, no negative balances, hook dedup): findings enumerated.
+5. Web and mobile suites: do not run.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through F confirmations, including the quoted version line, the quiz route path, and the plan values.
+2. Migration: exact command, resulting 0037 filename, applied-to-dev confirmation.
+3. Files changed, enumerated, one line each.
+4. DEVIATIONS heading: each with rationale, or the single word "none".
+5. Hook sites as implemented: the six call sites quoted, one line each.
+6. Query-cost delta for POST /attempts (added reads and writes per attempt, worst case).
+7. Gate results per the five items, enumerated.
+8. git status and the exact staged file list including docs/CODEBASE-FACTS.md per the standing end-of-task rule; confirm zero attached_assets and zero files inside gujarati-coach or bolo-mobile.
+9. Proposed commit message: "Chunk 5A: Chai token economy server (earn-only slice)"
+After approval only: commit, report the hash, restate 0037 applied in dev, stop. No task cards, no em dashes.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

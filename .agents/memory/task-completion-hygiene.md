@@ -14,3 +14,7 @@ description: markTaskComplete commits the entire working tree; leftover unrelate
 **Rule 2:** The completion validation runs every configured test workflow, and this project's suites fail at documented pre-existing baselines (api-server: enumerated in CODEBASE-FACTS §8; web: ZERO since July 30, 2026 — the web suite must be fully green, any web failure is new breakage). Validation may therefore FAIL even for clean work on the api-server side only.
 
 **How to apply:** Diagnose first — confirm the failure count matches the enumerated baseline exactly (extra failures mean your diff or leftovers broke something). Then re-call `markTaskComplete` with `skip_validation_reason` citing the CODEBASE-FACTS baseline rows and the checks that do pass. Never inflate the baseline rows to absorb new failures.
+
+**Rule 3 (standing, all sessions):** Never create task cards — not via `proposeFollowUpTasks`, not via any task-creation callback, not for follow-ups, housekeeping, or suggestions. Bank any suggestions as one line inside the final report instead.
+
+**Why:** The owner's plan already tracks next work; unsolicited cards clutter the panel and violate the session rule stated at task open.

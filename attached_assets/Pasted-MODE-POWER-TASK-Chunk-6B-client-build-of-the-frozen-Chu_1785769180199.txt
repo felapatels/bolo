@@ -1,0 +1,58 @@
+MODE: POWER
+
+TASK: Chunk 6B, client build of the frozen Chunk 6 spec: trackside signals, five quick games, zone closeout, line facts. One commit to main. Main HEAD at start: a18cd44. Story 3's server side is already live (shipped in c395232); this chunk consumes it, never modifies it.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. ONE report, then STOP. If any commit exists that you did not make after approval, stop and report it. No task cards; bank suggestions as report lines.
+
+SESSION RULES (binding):
+1. Scope: artifacts/gujarati-coach plus docs/CODEBASE-FACTS.md. Do NOT touch the api server or lib/ (Story 3 server contract is frozen). bolo-mobile is NOT in this chunk; mobile parity rides the standing row 8 audit.
+2. No em dashes anywhere, including every new user-visible string. attached_assets never staged. New test files are allowed ONLY for genuinely new surfaces (games, signals, closeout); enumerate each new file with one line of justification.
+3. If any full-suite run fails, capture the failure identity BEFORE any re-run.
+4. Routes are truth, comments are hints. Any divergence goes under DEVIATIONS with rationale.
+5. NO browser probes this chunk: the owner eyeball checklist at republish replaces them (cost ruling).
+
+DO NOT BUILD (binding deferral record, do not re-propose): pre-test-out gate is DEAD. Echo chain is shelved. Per-replay Chai is rejected. Revisit chooser and checkpoint polish stay parked behind POLISH_ENABLED and are not part of this chunk.
+
+STEP 0 (verify, fold into report, misses hard-stop):
+A. Task 985 scenery planner: quote its seating API (how items are placed in inter-station gaps) and how journey renders planner output.
+B. Games architecture: where the four existing games live, what shared pieces exist today (timer, tally, result beat, decline), the two server correctness models game sessions use, and the client POST /game-sessions call with its generated types including context, contextRef, and chaiGranted.
+C. Plan-visible roster: quote how the client derives the entitled or visible phrase set per category, and how existing games gate on set size (the floor pattern).
+D. Zone completion celebration as shipped: quote the flow and where the existing capstone offer hooks in.
+E. india-facts: current data shape, the zone gateway postcard render, and how a planner-seated signpost would render in the journey.
+F. Session-scoped memory pattern: quote an existing example (for the wave-through memory).
+G. Enumerate test files asserting journey, scenery, games, or celebration surfaces.
+
+STORY 1, signals: a signal encounter in every other inter-station gap (gaps after stops 1, 3, 5), seated by the Task 985 planner as trackside signals. The train stops at unvisited signals with exactly two actions: play the offered game (default) or a one-tap signalman wave-through. Wave-through is session-remembered and never shamed; an unclaimed signal first-clear Chai grant stays claimable by returning later. Auto-wave with a short signalman quip when the departed stop's plan-visible set is under every game floor. Game offered at each signal: deterministic rotation by signal index over the caller's plan-visible game roster. Signals never block test-out, teasers, capture mode, or any entitled surface.
+
+STORY 2, five new games, all free-visible, and a shared quick-game frame built ONCE (timer, tally, result beat, decline) that all five use:
+- Ticket Check: script match, floor 4.
+- Wrong Platform: odd one out, floor 3 plus 1 imported stray from another category.
+- Luggage Match: pairs, floor 4, cap 6 pairs.
+- Express Listening: listen and pick at 1.25x audio rate, timed, floor 4.
+- Signal Lights: true or false lightning round, floor 2, same-category decoys.
+Speed Round and Phrase Builder stay Plus. Correctness stays entirely on the two existing server models; scoped sets must pass existing validation unchanged.
+
+STORY 3 consumption: signal-launched sessions POST with context "signal" and contextRef "gap-N"; closeout sessions POST with context "closeout"; hub launches keep sending NO context (preserves the byte-identical guarantee). On a 201 with chaiGranted, surface the Chai earn in the quick-game result beat using the existing earn-beat pattern from Step 0.
+
+STORY 4, closeout: zone completion becomes a two-beat celebration: the closeout game first (Speed Round for Plus, Express Listening for free), then the existing capstone offer second. Nothing gates: declining either beat proceeds exactly as today.
+
+STORY 5, facts: extend india-facts with region and line tags, mechanical tagging only; every ambiguous tag goes into a flagged list in the report for owner ruling, never guessed. One rotating fact per zone gateway postcard (region or line match preferred). One tappable signpost per zone, seated via the planner: fact card on tap, reveal animation suppressed under reduced motion, the signpost itself always renders. One arrival fact in the zone celebration. Facts never block anything and add zero new network calls.
+
+GATE (lean during, one full run at the end):
+1. Typecheck the web workspace; mandatory.
+2. Grep-first: enumerate and run only test files asserting touched surfaces during development, plus the new-surface test files.
+3. At the end: ONE full web suite run. Baseline 416/58. Runner line verbatim; every delta enumerated by file. Any failure: identity first, report, no commit.
+
+REPORT (one message, docx, then STOP for approval before any commit):
+1. Step 0 A through G with quoted blocks.
+2. Per-story implementation summary, three lines max each.
+3. EVERY new user-visible string, verbatim, grouped by surface (game names, instructions, result copy, signalman quips, celebration copy). These get a full copy audit.
+4. The flagged ambiguous fact-tag list for owner ruling.
+5. Files changed, one line each; new test files with one-line justifications.
+6. DEVIATIONS or "none".
+7. Gate results with runner lines.
+8. git status and the exact staged list; zero attached_assets, zero strays.
+9. Proposed commit message: "Chunk 6B: trackside signals, quick games, zone closeout, line facts"
+END OF REPORT is the report's final line. After approval only: commit, confirm with git log -1 --decorate and git show --stat HEAD, DEVIATIONS or "none", END OF REPORT sentinel, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

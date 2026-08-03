@@ -1,0 +1,66 @@
+MODE: ECONOMY (owner sets this in the pane before launching)
+
+TASK: Chunk 6A: game-session context + once-ever Chai grants (signals, closeout). One commit to main.
+
+HARD RULE, READ FIRST: ZERO git commits before the owner's approval message arrives in this pane. ONE report, then STOP. If you discover you have already committed anything, stop and report that fact first. No task cards for any reason; bank suggestions as one line in the report.
+
+SESSION RULES (binding):
+1. Scope: artifacts/api-server, lib/api-spec plus generated client output ONLY IF Step 0 B says the path exists there, and docs/CODEBASE-FACTS.md. Do NOT touch artifacts/gujarati-coach, artifacts/bolo-mobile, or lib/db (zero schema changes, zero migrations in this task).
+2. This extends POST /game-sessions and tokenEconomy.ts per the frozen Chunk 6 spec, Story 3. Do not redesign the games engine, XP rules, or plan gates; absent-context behavior must remain byte-identical to today.
+3. Any divergence goes under a DEVIATIONS heading with one-line rationale; unlabeled divergence is a violation even when good.
+4. No em dashes anywhere. attached_assets never staged.
+5. ESTABLISHED FACTS (trust them): main HEAD is 3e62f5c; api baseline is the runner line tests 786, suites 30, pass 785, fail 1 (the documented PILOT_CAPTURE_USER_IDS env-trap); tokenEconomy.ts and tokenService.ts shipped in 964f901 with grantTokens(userId, reason, refId, amount) and the ledger's unique (user, reason, ref) idempotency; GameSessionBody is inline zod in routes/learning.ts; a fire-and-forget grant precedent exists in routes/games.ts (quiz earn).
+
+STEP 0 (verify, do not explore; fold confirmations into the report; any miss = hard stop reporting only the miss):
+A. Quote the current GameSessionBody zod definition and the POST /game-sessions response shape.
+B. State whether /game-sessions exists in lib/api-spec/openapi.yaml. If yes, this task extends it and runs codegen. If no, the inline zod is the only contract touched and codegen is skipped; say so.
+C. Confirm the TokenReason union's current members and that adding two members is a type-level change with no schema impact.
+D. Confirm the grant call pattern used by the quiz earn in games.ts (fire-and-forget with error logging) as the pattern to mirror.
+
+ITEM 1: tokenEconomy.ts additions.
+Constants: SIGNAL_FIRST_CLEAR_CHAI = 1 and CLOSEOUT_FIRST_CHAI = 2, with a comment "ruled Aug 2; once-ever per identity via the ledger index". TokenReason union gains "earn_signal_first_clear" and "earn_closeout_first".
+
+ITEM 2: GameSessionBody context.
+The body gains two optional fields: context: z.enum(["hub", "signal", "closeout"]).optional() and contextRef: z.string().regex(/^gap-[0-9]+$/).optional(). Validation rules: contextRef is REQUIRED when context === "signal" and FORBIDDEN otherwise (400 "Invalid game session payload" on violation, the existing message). Absent context behaves exactly as today in every respect.
+
+ITEM 3: Grants.
+After the session insert succeeds (the existing valid-session bar: at least one server-validated phrase result; the 422 path grants nothing), fire-and-forget per the Step 0 D pattern:
+- context "signal": grantTokens(userId, "earn_signal_first_clear", `${languageCode}:${categoryId}:${contextRef}`, SIGNAL_FIRST_CLEAR_CHAI)
+- context "closeout": grantTokens(userId, "earn_closeout_first", `${languageCode}:${categoryId}`, CLOSEOUT_FIRST_CHAI)
+- context "hub" or absent: no grant.
+Replays are automatic no-ops via the ledger index; XP rules are untouched and pay on every play exactly as today; plan gates (Speed Round, Phrase Builder) apply identically regardless of context.
+
+ITEM 4: Response addition.
+The 201 response gains optional chaiGranted: the granted amount, present only when a grant call returned a state whose ledger insert actually landed this call. Implementation note: grantTokens returns state either way; determine "actually landed" cheaply by comparing balance before and after the call (the state is in hand from ITEM 3's await) rather than re-querying. Absent-context responses carry no chaiGranted field at all (byte-identical rule).
+
+ITEM 5: Contract.
+Per Step 0 B: if openapi carries /game-sessions, add context, contextRef, and chaiGranted to its schemas in house style and run pnpm --filter @workspace/api-spec run codegen; otherwise skip and note.
+
+ITEM 6: Tests (house style, in or beside the existing game-sessions coverage):
+1. Absent-context session: response byte-identical shape to today, zero ledger rows.
+2. Hub context: accepted, zero ledger rows.
+3. Signal context happy path: 1 Chai granted, chaiGranted 1, ledger row with the composed refId.
+4. Same signal twice: second response has no chaiGranted (or chaiGranted absent), exactly one ledger row, XP still awarded both times.
+5. Closeout: 2 Chai once; repeat grants nothing.
+6. contextRef missing with context signal: 400. contextRef present with context closeout: 400. Bad pattern: 400.
+7. Invalid session (zero validated results) with signal context: 422, zero ledger rows.
+8. Plan gate parity: speed-round with signal context still 402-gated for a free caller exactly as today.
+
+GATE (full tier; this touches the economy):
+1. Typecheck across touched workspaces.
+2. Both boot smoke tests.
+3. Full api-server suite once: report the runner line verbatim, close the arithmetic from tests 786 / suites 30 by enumerating every new or modified test file with its delta summing exactly to the new total. Only the documented env-trap failure is permitted.
+4. Code-review subagent pass over the diff (grant idempotency, absent-context byte-identity, refId composition, no schema drift): findings enumerated.
+5. Web and mobile suites: do not run.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through D confirmations, quoted where asked.
+2. Files changed, enumerated, one line each.
+3. DEVIATIONS or "none".
+4. The exact refId compositions as implemented.
+5. Gate results per the five items, arithmetic closed.
+6. git status and the exact staged list including docs/CODEBASE-FACTS.md; zero attached_assets, zero web or mobile files.
+7. Proposed commit message: "Chunk 6A: game-session context + Chai grants (signals, closeout)"
+After approval only: commit, report the hash, stop. No task cards, no em dashes.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

@@ -1,0 +1,41 @@
+MODE: POWER
+
+TASK: Splash polish (2 items, owner-ruled after device viewing). One commit to main. Main HEAD at start: 9485672.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. ONE report, then STOP. If any commit exists that you did not make after approval, stop and report it. No task cards; bank suggestions as report lines.
+
+SESSION RULES (binding):
+1. Scope: artifacts/gujarati-coach only (expected: brand-splash.tsx, index.css, the existing splash test file) plus docs/CODEBASE-FACTS.md. No api server, no lib/, no bolo-mobile. You are the only writer.
+2. No em dashes anywhere. attached_assets never staged. No new test files. Zero generated strays before the report.
+3. If any full-suite run fails, capture the failure identity BEFORE any re-run.
+4. Divergence goes under DEVIATIONS with rationale.
+
+OWNER DEVICE REPORT (the reason for this task): on a fast dev load, the splash appeared piecemeal (carriage SVG instantly, Bolo PNG late, reading as vertical lines) then vanished almost immediately because the ready signal settled instantly. It read as a glitch, not a moment.
+
+STEP 0 (verify, fold into report, misses hard-stop):
+A. Quote the v2 phase logic in brand-splash.tsx: mount/skip conditions (warm-cache skip, reduced-motion path), the ready-signal release, and the 8s failsafe.
+B. Quote how the five SPLASH_V2_ASSETS layers currently load (plain img tags vs any preload/decode step).
+C. Quote the current pins in the splash test file that touch timing or release.
+
+ITEM 1, minimum hold: a qualifying splash mount holds at least 1500ms. Release fires at whichever is LATER: the 1500ms minimum or the ready signal settling. The 8s max-hold failsafe is unchanged and always wins. The warm-cache skip is unchanged: loads that skip the splash entirely keep skipping it; the minimum applies only when the splash actually mounts. Expose the value as a CSS tuning var alongside the existing splash vars.
+
+ITEM 2, compose-then-reveal: the splash overlay renders NOTHING until all five layers are loaded and decoded (image decode, not merely onload), then appears as one complete composed frame in a single reveal. The boot gradient already painting underneath is the holding surface. Decode failure or timeout must never trap the user: if the layers are not all decoded by a decode cap (1200ms, tunable), reveal whatever is ready rather than holding the blank gradient; the 8s failsafe still governs total time. Reduced motion follows the same gate, then shows the static composed frame. The min-hold clock starts at overlay mount, not at reveal, so the two items cannot compound into a longer total wait.
+
+GATE (lean during, one full run at the end):
+1. Typecheck the web workspace; mandatory.
+2. Grep-first: the splash test file updates to pin the min-hold and the decode gate; run it during development, enumerated.
+3. At the end: ONE full web suite run, baseline 413/58; runner line verbatim, any delta by file. Any failure: identity first, report, no commit.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through C with quoted blocks.
+2. The revised boot timeline, five lines or fewer (cold fast load, cold slow load, warm cache, reduced motion).
+3. Files changed, one line each.
+4. DEVIATIONS or "none".
+5. User-visible strings changed (expected: none; confirm).
+6. Tuning var names and values added.
+7. Gate results with the runner line.
+8. git status and the exact staged list; zero attached_assets, zero strays.
+9. Proposed commit message: "Splash polish: minimum hold and compose-then-reveal"
+END OF REPORT is the report's final line. After approval only: commit, confirm with git log -1 --decorate and git show --stat HEAD, DEVIATIONS or "none", END OF REPORT sentinel, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

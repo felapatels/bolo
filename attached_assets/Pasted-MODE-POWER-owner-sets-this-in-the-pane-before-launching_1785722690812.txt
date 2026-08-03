@@ -1,0 +1,47 @@
+MODE: POWER (owner sets this in the pane before launching)
+
+TASK: Wallet polish micro-pass (4 items). One commit to main. Main HEAD at start: dd12b94.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. ONE report, then STOP. Confirm every commit with git log -1 --decorate (the ref, not just the hash). If you discover any commit already exists that you did not make after approval, stop and report it. No task cards; bank suggestions as report lines.
+
+SESSION RULES (binding):
+1. Scope: artifacts/gujarati-coach only, plus docs/CODEBASE-FACTS.md at the end. Do NOT touch the api server, lib/, bolo-mobile, or the splash-v2-motion branch. Work on main directly; you are the only writer.
+2. Files expected to change: chai-wallet.tsx, home.tsx, the affected test files, the facts doc. Anything beyond that list goes under DEVIATIONS with rationale.
+3. After codegen-free UI work like this, git status must show zero generated-file strays before the report.
+4. No em dashes anywhere. attached_assets never staged. No new test files unless an existing file already asserts a changed surface.
+
+STEP 0 (verify, fold into report, misses hard-stop):
+A. In chai-wallet.tsx, locate the spend mutation's error handling and quote the current catch/onError block. Confirm how the custom-fetch wrapper (custom-fetch.ts) surfaces non-2xx responses: what the thrown or returned error object exposes (status, parsed body, or raw), quoting the relevant lines from custom-fetch.ts.
+B. Confirm the toast/notice mechanism the app uses elsewhere (the house pattern) for inline error copy.
+C. In home.tsx, quote the stats-row cell structure (the four cells: streak, speaking, XP, mastered) and the current corner chip block from 5B.
+D. Confirm the exact response shape of the spend 409s from the generated types or the server route: { error: "insufficient_tokens", balance, cost } and { error: "pause_max_equipped" } and { error: "multiplier_active" }.
+
+ITEM 1: Silent 409 fix. Every spend rejection must render its ruled copy through the Step 0 B house mechanism:
+- insufficient_tokens: "Not enough Chai yet. You have {balance}, this costs {cost}. Keep riding to earn more."
+- pause_max_equipped: "You already have 2 pauses equipped. That is the maximum."
+- multiplier_active: "An Express Multiplier is already running."
+The fix must parse the 409 body through whatever custom-fetch actually exposes (per Step 0 A), not through an assumed shape. Never an upgrade pitch from any 409. Both buttons flow through the same handler.
+
+ITEM 2: Cost on the button. Equip button label becomes "Equip · 5" and Start becomes "Start · 10", each with the same chai glyph the chip uses after the number. Drop the trailing price sentences from the two description lines, which become exactly: "Covers a missed day so your streak rides on." and "Double XP for 20 minutes." The result-card offer copy is untouched.
+
+ITEM 3: Countdown-expiry refetch. When the multiplier countdown in the wallet sheet or the result-card indicator reaches zero, invalidate the tokens query so surfaces return to default within a second of expiry, no reopen required. Implementation via a single effect keyed on the expiry timestamp; no polling loops.
+
+ITEM 4: Chai stat-row promotion (tier 1, owner-ruled). Chai joins the stats row as a fifth full cell: the chai glyph, the count, label "CHAI", same visual weight and structure as the existing four cells. Tapping the cell opens the wallet sheet (same behavior the chip had). The corner chip from 5B is removed entirely. If five cells crowd at phone width, the row's existing responsive behavior governs; if a genuine layout break occurs, report it under DEVIATIONS with a screenshot description rather than improvising a redesign.
+
+GATE (lean during, one full run at the end):
+1. Typecheck the web workspace; mandatory.
+2. Grep-first: test files asserting the chip, the stats row, or wallet copy get updated only where genuinely affected; those files run during development, enumerated.
+3. At the end: ONE full web suite run. Baseline 412/58; report the runner line verbatim with any delta enumerated by file. Any new failure: report, do not commit.
+
+REPORT (one message, then STOP for approval before any commit):
+1. Step 0 A through D with the quoted blocks.
+2. Files changed, one line each.
+3. DEVIATIONS or "none".
+4. Every user-visible string added or changed, verbatim.
+5. The expiry-refetch implementation in one line.
+6. Gate results including the full-suite runner line.
+7. git status and the exact staged list; zero attached_assets, zero generated strays, zero files outside gujarati-coach plus the facts doc.
+8. Proposed commit message: "Wallet polish: 409 surfaces, cost-on-button, expiry refetch, Chai stat cell"
+END OF REPORT is the report's final line. After approval only: commit, confirm with git log -1 --decorate, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

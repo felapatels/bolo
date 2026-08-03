@@ -234,3 +234,45 @@ id = "s_IEvKerd84yMAbKgPkP1"
 uri = "file://qa/shots/pre28/pass-journey-hi.png"
 type = "image"
 title = "Journey header — glyph removed, clean stub"
+
+[[outputs]]
+id = "qH-42fdIcPdYKxmGTa88s"
+uri = "file://attached_assets/generated_images/chachaji-avatar.png"
+type = "image"
+title = "Chacha-ji — Avatar"
+description = "Circular bust portrait, composed to read at 64px chat-avatar size."
+
+[[outputs]]
+id = "CXy1r3aEFJP580WUXYdn1"
+uri = "file://attached_assets/generated_images/chachaji-greeting.png"
+type = "image"
+title = "Chacha-ji — Greeting"
+description = "Full body welcoming wave, steel kettle in the other hand."
+
+[[outputs]]
+id = "5fGP-WAMfSI14OmkEP5ro"
+uri = "file://attached_assets/generated_images/chachaji-hero-pour.png"
+type = "image"
+title = "Chacha-ji — Hero Pour"
+description = "The famous high pour: kettle raised, thin chai stream into a kulhad, steam wisps."
+
+[[outputs]]
+id = "Vw1fqCChThRC5bS2Z2Zsd"
+uri = "file://attached_assets/generated_images/chachaji-stall-scene-v2.png"
+type = "image"
+title = "Chacha-ji — Stall Scene"
+description = "Wide platform chai stall backdrop with blank hanging sign and station hints. v2: regenerated without the parrot."
+
+[[outputs]]
+id = "GHcC_xF61hxQCFX1R1ezI"
+uri = "file://attached_assets/generated_images/chachaji-wallet-vignette.png"
+type = "image"
+title = "Chacha-ji — Wallet Vignette"
+description = "Waist-up, offering a kulhad toward the viewer, bold shapes for small sizes."
+
+[[outputs]]
+id = "U7SSR0mED4Ea6eTkwHXfG"
+uri = "file://attached_assets/generated_images/chachaji-celebration.png"
+type = "image"
+title = "Chacha-ji — Celebration"
+description = "Kettle raised triumphantly, steam swirls and confetti."
