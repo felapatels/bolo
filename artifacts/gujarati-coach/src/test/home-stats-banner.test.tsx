@@ -157,6 +157,14 @@ describe("home stats banner", () => {
     // Tokens are idle-mocked here, so the count renders the loading dash.
     expect(within(cell).getByText("-")).toBeInTheDocument();
     expect(within(cell).getByText("Chai")).toBeInTheDocument();
+    // Tappable cell contract: a real button element with a trailing chevron
+    // affordance next to the label. The four static cells stay plain divs.
+    expect(cell.tagName).toBe("BUTTON");
+    expect(cell.querySelector("svg.lucide-chevron-right")).not.toBeNull();
+    for (const staticId of ["Day Streak", "Speaking Streak", "Total XP", "Mastered"]) {
+      const staticCell = within(row).getByText(staticId).closest("div");
+      expect(staticCell?.querySelector("svg.lucide-chevron-right")).toBeNull();
+    }
     // The old corner chip must be gone.
     expect(screen.queryByTestId("chai-balance-chip")).toBeNull();
     // Tapping the cell opens the wallet sheet.

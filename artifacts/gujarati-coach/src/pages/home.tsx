@@ -1044,7 +1044,10 @@ function StatCell({
   testId?: string;
 }) {
   // Same structure whether static or tappable; the Chai cell passes onClick
-  // so it renders as a button that opens the wallet sheet.
+  // so it renders as a button that opens the wallet sheet. Tappable cells get
+  // the home page's existing press feedback (whileTap, reduced-motion aware)
+  // and a trailing chevron affordance; static cells stay exactly as they are.
+  const reduceMotion = useReducedMotion();
   const Cell = onClick ? motion.button : motion.div;
   return (
     <Cell
@@ -1054,6 +1057,7 @@ function StatCell({
       data-testid={testId}
       initial={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
+      whileTap={onClick && !reduceMotion ? { scale: PASS_PRESS_SCALE } : undefined}
       transition={{ delay, type: "spring", stiffness: 320, damping: 18 }}
       className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-center"
     >
@@ -1066,7 +1070,16 @@ function StatCell({
         {icon}
       </motion.div>
       <div className="text-2xl font-black leading-none lg:text-3xl">{value}</div>
-      <div className="text-[11px] font-bold uppercase tracking-wider text-white">{label}</div>
+      <div className="text-[11px] font-bold uppercase tracking-wider text-white">
+        {onClick ? (
+          <span className="inline-flex items-center gap-0.5">
+            {label}
+            <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />
+          </span>
+        ) : (
+          label
+        )}
+      </div>
     </Cell>
   );
 }
