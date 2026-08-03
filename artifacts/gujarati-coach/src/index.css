@@ -268,8 +268,10 @@
   --train-ticket-h-lg: 65px;     /* home pass train height, lg (was 56px) */
   --train-marker-w: 37px;        /* journey rail-marker train width (was 32px) */
   --tear-duration: 600ms;        /* stub tear + body recoil run time */
-  --tear-nav-delay: 500ms;       /* pass activation -> navigation. MUST be in ms:
-                                    home.tsx parses this value to time navigate() */
+  --tear-nav-delay: 500ms;       /* pass activation -> navigation. home.tsx
+                                    times navigate() off this via cssTimeMs
+                                    (unit-aware: the prod minifier rewrites
+                                    ms values as s) */
   --tear-rotate: 16deg;          /* stub peel rotation at full tear */
   --tear-distance: 34px;         /* stub travel toward the right edge */
   --tear-drop: 10px;             /* stub sag as it comes free */
@@ -300,17 +302,18 @@
   --depth-shadow: var(--depth-shadow-x) var(--depth-shadow-y)
     var(--depth-shadow-blur) var(--depth-shadow-color);
   /* Brand splash v2: layered motion boot with ready-signal hold
-     (brand-splash.tsx). */
+     (brand-splash.tsx). JS reads these via cssTimeMs, which honors the
+     unit: the production minifier rewrites "8000ms" as "8s", so a bare
+     parseFloat would read 8 MILLISECONDS (the Aug 3, 2026 prod splash
+     blackout). Any unit CSS <time> accepts is safe here. */
   --splash-max-hold: 8000ms;     /* failsafe release cap while the ready
-                                    signal is stuck. MUST be in ms:
-                                    brand-splash.tsx parses this */
-  --splash-exit: 260ms;          /* overlay fade on release. MUST be in ms */
+                                    signal is stuck */
+  --splash-exit: 260ms;          /* overlay fade on release */
   --splash-min-hold: 1500ms;     /* minimum time a MOUNTED splash plays before
                                     the ready signal may release it; clock
-                                    starts at overlay mount. MUST be in ms */
+                                    starts at overlay mount */
   --splash-decode-cap: 1200ms;   /* compose-then-reveal decode wait cap; past
-                                    it, reveal whatever is ready. MUST be in
-                                    ms */
+                                    it, reveal whatever is ready */
   --splash-wordmark-delay: 0.26s;/* wordmark entrance lag behind the scene */
   --splash-wordmark-rise: 14px;  /* wordmark entrance rise distance */
   --splash2-flap-cycle: 1.5s;    /* wing frame swap period (gentle flap) */

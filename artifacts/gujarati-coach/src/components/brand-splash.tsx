@@ -1,7 +1,7 @@
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, cssTimeMs } from "@/lib/utils";
 
 // Splash v2 (layered motion boot with ready-signal hold): a cold-load boot
 // moment that overlays the loading home, HOLDS until home's real readiness
@@ -105,12 +105,16 @@ const bootQualifies = (() => {
 })();
 
 /** Reads a :root tuning var in ms with a fallback (same pattern as the
- *  boarding-pass --tear-nav-delay read in pages/home.tsx). */
+ *  boarding-pass --tear-nav-delay read in pages/home.tsx). Unit-aware via
+ *  cssTimeMs: the production minifier rewrites "8000ms" as "8s", which a
+ *  bare parseFloat read as 8 MILLISECONDS, so the max-hold failsafe
+ *  unmounted the splash before its first paint (prod-only blackout). */
 function readTuningMs(name: string, fallback: number): number {
   try {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
-    const parsed = parseFloat(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    return cssTimeMs(
+      getComputedStyle(document.documentElement).getPropertyValue(name),
+      fallback,
+    );
   } catch {
     return fallback;
   }

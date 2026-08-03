@@ -34,7 +34,7 @@ import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired }
 import { motion, useReducedMotion } from "framer-motion";
 import { springs, FloatingTag } from "@/lib/motion";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, cssTimeMs } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 
 // Boarding-pass press feedback tuning. The CSS idle-motion constants (breathe,
@@ -117,15 +117,15 @@ const TEAR_OVERLAY_CLEANUP_FALLBACK_MS = 900;
 // Any failure here is swallowed by the caller: navigation always proceeds.
 function spawnTearHandoffOverlay(body: HTMLElement, stub: HTMLElement): void {
   // Read the cleanup deadline BEFORE touching the DOM so a failing style
-  // read can never leave an orphaned node behind.
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(
-    "--tear-overlay-cleanup",
+  // read can never leave an orphaned node behind. Unit-aware (cssTimeMs):
+  // the production minifier rewrites "900ms" as ".9s", which a bare
+  // parseFloat would read as 0.9 milliseconds.
+  const cleanupMs = cssTimeMs(
+    getComputedStyle(document.documentElement).getPropertyValue(
+      "--tear-overlay-cleanup",
+    ),
+    TEAR_OVERLAY_CLEANUP_FALLBACK_MS,
   );
-  const parsed = parseFloat(raw);
-  const cleanupMs =
-    Number.isFinite(parsed) && parsed > 0
-      ? parsed
-      : TEAR_OVERLAY_CLEANUP_FALLBACK_MS;
   const container = document.createElement("div");
   container.setAttribute("data-tear-overlay", "");
   container.setAttribute("aria-hidden", "true");
@@ -249,12 +249,14 @@ export default function Home() {
       webHaptic("light");
       playTearSfx();
       setTearing(true);
-      const raw = getComputedStyle(document.documentElement).getPropertyValue(
-        "--tear-nav-delay",
+      // Unit-aware read (cssTimeMs): the production minifier rewrites
+      // "500ms" as ".5s"; a bare parseFloat made the tear beat 0.5ms in prod.
+      const delay = cssTimeMs(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--tear-nav-delay",
+        ),
+        TEAR_NAV_DELAY_FALLBACK_MS,
       );
-      const parsed = parseFloat(raw);
-      const delay =
-        Number.isFinite(parsed) && parsed > 0 ? parsed : TEAR_NAV_DELAY_FALLBACK_MS;
       tearTimerRef.current = window.setTimeout(() => {
         // Hand-off (Task #905): clone the mid-tear halves into the
         // body-level overlay in the same beat as navigation, so React's
