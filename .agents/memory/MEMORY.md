@@ -122,3 +122,5 @@
 - [Cross-script bridge](cross-script-bridge.md) — rescue-only max(raw,bridged) in compareToTarget (0.93 skip / 0.45 floor); siblings never bridge; nocatch sidecar fail-open boundary.
 - [Headless Clerk API auth](clerk-headless-api-auth.md) — sign_in_tokens + FAPI _is_native flow mints a Bearer JWT; DEV + OWNER ACCOUNT + MANUAL USE ONLY (owner restriction).
 - [Suite-wide localStorage defaults in web tests](web-test-localstorage-defaults.md) — setup.ts beforeEach pins prefs; any file calling localStorage.clear() wipes the pin and must re-set it.
+- [Map-stack tap swallowing](map-tap-swallowing.md) — full-width absolute wrappers above button layers eat taps (wrapper pointer-events-none, card auto); jsdom fireEvent skips hit-testing so tests stay green.
+- [CSS minifier time-unit trap](css-minified-time-units.md) — prod CSS rewrites 8000ms as 8s; bare parseFloat of computed timing vars reads 8 (ms!) — use cssTimeMs; dev/jsdom can't catch it.
