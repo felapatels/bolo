@@ -1,0 +1,28 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+APPROVAL: Hotfix 3 consolidated. Report accepted, DEVIATIONS none. Execute exactly the following, in order, then stop.
+
+CONTINGENCY before staging: state the name of the existing test that asserts the reward chip renders only while the first-clear grant is unclaimed and NEVER on a cleared replay dialog. If no such assertion exists, add exactly that assertion to journey-signals.test.tsx, run that single file, and include its runner line in the confirmation; the addition joins this commit.
+
+PRE-CHECK: run git log -1 --decorate. If HEAD is not 5cd7a43 on main, STOP, commit nothing, report what you see.
+
+COMMIT: stage exactly these 13 files and nothing else:
+artifacts/gujarati-coach/src/components/game-mute-button.tsx
+artifacts/gujarati-coach/src/components/journey-scenery.tsx
+artifacts/gujarati-coach/src/index.css
+artifacts/gujarati-coach/src/lib/india-facts.ts
+artifacts/gujarati-coach/src/pages/games/quick-game-frame.tsx
+artifacts/gujarati-coach/src/pages/games/signal-lights.tsx
+artifacts/gujarati-coach/src/pages/journey.tsx
+artifacts/gujarati-coach/src/test/journey-scenery.test.tsx
+artifacts/gujarati-coach/src/test/journey-signals.test.tsx
+artifacts/gujarati-coach/src/test/quick-game-frame.test.tsx
+artifacts/gujarati-coach/src/test/journey-fact-strip.test.tsx
+artifacts/gujarati-coach/src/test/signal-lights-audio.test.tsx
+docs/CODEBASE-FACTS.md
+
+Commit message: "Hotfix 3: crossing signals with traffic-light states, tap fix, reward chip, wave receipt, live facts, timed-game feel"
+
+Confirmation requirements: the contingency test name (and runner line if added); git log -1 --decorate; git show --stat HEAD listing exactly those 13 files; DEVIATIONS or none; END OF REPORT as the final line. Then STOP. No pushes, no further edits, no cleanup.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.
