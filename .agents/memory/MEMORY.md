@@ -73,7 +73,7 @@
 - [Speech capability tiers](speech-capability.md) — per-language STT flag (ks/sat degraded, mni/brx unsupported); script-mismatch = nocatch universally; Latin sim<0.45 rule.
 - [Observability (Sentry + PostHog)](observability-sentry-posthog.md) — env-gated inits, scrub rules (drop req.body!), 7-event allowlist, @opentelemetry/api drizzle-orm dedup trap.
 - [Screenshot tool img quirk](screenshot-tool-img-quirk.md) — Screenshot tool shows broken <img> for mockup-sandbox public PNGs that real browsers load fine; verify with Nix chromium 138 dump-dom.
-- [drizzle migrate hash-without-DDL](drizzle-migrate-hash-without-ddl.md) — dev-DB migrate can record the hash row without running the DDL; verify with to_regclass, apply committed SQL via psql.
+- [dev-DB migrate silently no-ops](drizzle-migrate-hash-without-ddl.md) — a poisoned non-epoch created_at row makes dev migrate skip ALL new migrations (no DDL, no hash row); verify with to_regclass, apply committed SQL via psql.
 - [Clerk mobile auth factors](clerk-mobile-auth-factors.md) — signIn.password() is one-shot, NOT complete-or-throw; branch on status/supportedFirstFactors; surface status+factors in UI and Sentry.
 - [Clerk Client Trust ops](clerk-client-trust.md) — toggle is dashboard-only (no Backend API); needs_client_trust uses signIn.mfa.*, not emailCode.*; dev test-mode +clerk_test emails verify with 424242.
 - [Resend connector addressing](resend-connector-addressing.md) — proxy by connector name "resend", not the conn_ id (404s); key is send-only; INVITE_FROM_EMAIL has no code fallback.
