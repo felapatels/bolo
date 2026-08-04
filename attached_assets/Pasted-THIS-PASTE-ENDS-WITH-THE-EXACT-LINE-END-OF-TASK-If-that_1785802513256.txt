@@ -1,0 +1,19 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+APPROVAL + FOLLOW-UP: recognizer fix approved with one contingency; tear-sound swap ordered next. Execute in exact order.
+
+PART 1, CONTINGENCY then COMMIT:
+CONTINGENCY: state the name of the test asserting that guard-rejected audio (script mismatch or under-duration) routes to nocatch and is NEVER scored and NEVER counted against the learner's attempt outcomes. If no single assertion pins that, add exactly it to the guard's test file, run that file solo, include the runner line. It joins this commit.
+PRE-CHECK: git log -1 --decorate, quoted. HEAD must match your report's Step 0 A accepted commit. Else STOP.
+COMMIT: stage exactly the files enumerated in your report's git status section, nothing else; report the staged path count; zero attached_assets, zero .agents. Commit message: "Recognizer: pin session language, min-duration guard, capture fixes per diagnosis"
+Confirm with: the contingency answer, quoted pre-check, git log -1 --decorate, message echoed, stat summary line, path count. Include at the top of the Part 2 report.
+
+PART 2, TEAR SOUND SWAP (web only, owner-supplied asset):
+The owner placed boarding-pass-tear-v2.mp3 in the workspace root (blessed: 366ms, -3.5dB peak, 44.1k mp3).
+STEP 0: locate the currently shipped web tear sound asset: its exact path, format, and every reference to it (import or URL). Quote them.
+BUILD: replace the shipped asset with the new file at the SAME serving path and reference (rename the new file to match; convert reference only if extension must change, reporting it). Remove the root copy so the tree is clean. gujarati-coach + docs line only; bolo-mobile untouched (iOS keeps its bundled sound until the train 35 remote-audio slot).
+GATE: typecheck; targeted tests touching the tear/audio path only; no full suite (asset swap).
+PART 2 REPORT: Part 1 confirmation block; Step 0 quotes; the swap described in one line; files changed; DEVIATIONS or none; gate lines; git status with exact staged list; proposed commit message: "Web tear sound: owner v2 asset swap"
+END OF REPORT is the final line. Then STOP for approval of the second commit.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

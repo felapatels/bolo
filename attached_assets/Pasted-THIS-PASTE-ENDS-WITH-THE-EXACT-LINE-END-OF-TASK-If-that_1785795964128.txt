@@ -1,0 +1,33 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+MODE: POWER
+
+TASK: Build 34B, iOS parity batch 2 of 2 (final pre-build batch). One commit to main. Mobile workspace only.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. Tree stays UNSTAGED until approval. ONE report, then STOP. No task cards; suggestions bank as report lines.
+
+SESSION RULES: scope = artifacts/bolo-mobile plus docs/CODEBASE-FACTS.md ONLY. No api server, no gujarati-coach edits (web is the reference implementation, read freely), no lib/ except consuming already-generated types. No em dashes anywhere. attached_assets never staged. New test files only for genuinely new surfaces (justify). Failure identity before re-runs; suite runs tee to a log first. Reuse-first Step 0 against the House Patterns registry. Expo-web never proves native: device-only behaviors are implemented per config and flagged "device-pass pending", never claimed verified. Divergence goes under DEVIATIONS.
+
+STEP 0 (verify, quote, misses hard-stop):
+A. git log -1 --decorate. Acceptable HEAD: decb732, or exactly one "Published your App" commit atop it. Else STOP. Additionally confirm decb732's parent chain includes 03bca2c then 45d89ee (chain heal for the prior confirmation gap).
+B. How mobile calls the api: quote the client mechanism and confirm the tokens endpoints and types (GET tokens, spend POST, the 409 shapes, chaiEarned on attempts, ZoneSignalStates) are available to it from the generated outputs.
+C. Quote the WEB wallet contract as the spec: ChaiWalletSheet structure, the spend rows, the ruled 409 copy in spendErrorMessage, useSpendWithRefresh invalidation, the Chai StatCell with chevron and press state, and the useExpressCountdown expiry-refetch.
+D. Quote the mobile home stats row current state and the mobile boarding-pass tear sound implementation, including which audio-session pattern coach playback uses (the serialized playback-only reroute pattern) and where the tear sound currently plays from.
+E. Quote the web zone test-out entry behavior (the journey entry point and locked-dialog behavior) and the current mobile journey state for it.
+F. Quote the mobile paywall: how packages render (monthly hardcoded or offering-driven), and grep the workspace for hardcoded price literals (12.99, 89.99, 24.99, 174.99, 9.99, 19.99, $ followed by digits in user-visible strings). Enumerate every hit.
+G. Quote mobile app.json splash config and state whether it matches the 3S-era alignment (transparent canonical mascot over the app background).
+
+ITEMS (web is the behavior spec; deviations from web behavior go under DEVIATIONS):
+1. Chai wallet to iOS: Chai stat cell in the home stats row (count, chai glyph, chevron affordance, press state, opens the wallet) + the wallet sheet: balance, Station Pause row with "Equip · 5" and equipped count, Express Multiplier row with "Start · 10" and live countdown, descriptions verbatim from web ("Covers a missed day so your streak rides on." / "Double XP for 20 minutes."). Spend flow with the ruled 409 copy VERBATIM: "Not enough Chai yet. You have {balance}, this costs {cost}. Keep riding to earn more." / "You already have 2 pauses equipped. That is the maximum." / "An Express Multiplier is already running." / fallback "That spend did not go through. Try again in a moment." Success is silent except state updates (web parity). Tokens query invalidation on settle; countdown-expiry refetch per the web hook's contract. Notices use the mobile house notice pattern; report which pattern that is.
+2. Session Complete Chai receipt parity (post-lock parity add, web shipped it in 3S; owner may strike at approval): read chaiEarned from attempt responses, render "+{n} Chai earned" pill under the XP pill only when n > 0.
+3. Zone test-out entry parity per the web behavior from Step 0 E.
+4. Tear sound reroute: play the tear sound through the serialized playback-only audio-session pattern from Step 0 D so it exits the speaker, not the earpiece. Do not touch the existing haptic. DEVICE-PASS PENDING flag mandatory.
+5. Price integrity: any user-visible hardcoded price literal from Step 0 F becomes offering/package-driven (RevenueCat data), or is removed if the surface can render without it; enumerate each change. Confirm the paywall renders ANNUAL packages now present in the offering (Plus Annual, Family Annual per Step 0 F findings); if the paywall is structurally monthly-only, make it render the annual packages per the offering structure. Purchase flow logic otherwise unchanged.
+6. Splash config: verify per Step 0 G; align only if drifted. DEVICE-PASS PENDING flag for the native handoff.
+
+GATE: typecheck bolo-mobile; targeted suites during development (enumerate); ONE full mobile suite at the end, baseline 73 suites / 477 tests, tee'd, runner line verbatim, delta by file. Any new failure: identity first, report, no commit.
+
+REPORT (one message, then STOP for approval): Step 0 A-G quotes; per-item summary 2 lines max with device-pass-pending flags; every new or changed user-visible string verbatim (the 409 set restated as implemented); the price-literal hit list with per-hit resolution; files changed one line each; new test files justified; DEVIATIONS or none; gate results with the runner line; git status with the exact proposed unstaged list; proposed commit message: "Build 34B: iOS parity batch 2: Chai wallet, session receipt, zone test-out entry, tear sound reroute, offering-driven prices, splash config"
+END OF REPORT is the final line. After approval only: stage, commit, confirm with git log -1 --decorate, the pre-check hash quoted, the message line echoed, git show --stat HEAD summary line, staged path count, DEVIATIONS or none, END OF REPORT, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.

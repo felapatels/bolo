@@ -1,0 +1,36 @@
+THIS PASTE ENDS WITH THE EXACT LINE "END OF TASK". If that line is absent, the paste truncated; stop and say so before doing anything.
+
+MODE: POWER
+
+TASK: Recognizer language pinning investigation + fix. Strictest surface class: scoring-adjacent. Investigation first, minimal fix second, NO band or scoring changes of any kind. One commit to main.
+
+HARD RULE: ZERO git commits before the owner's approval message arrives in this pane. Tree stays UNSTAGED until approval. ONE report, then STOP. No task cards.
+
+SESSION RULES: scope = artifacts/api-server, artifacts/gujarati-coach (recording layer only if a client fix is proven necessary), docs/CODEBASE-FACTS.md; codegen only if a response shape changes (it should not). No bolo-mobile. No em dashes. attached_assets never staged. Failure identity before re-runs; suites tee first. Divergence under DEVIATIONS.
+
+NAMED REPROS (owner devices, all practice surface):
+R1: Hindi phrase, iOS Safari web: transcript returned in RUSSIAN Cyrillic, "Доброго утра", nocatch fired. Proves language auto-detect is active on at least this path.
+R2: Hindi session, desktop: transcript returned in Urdu script.
+R3: छह (short single-syllable, Hindi): three attempts transcribed as fragments "achh", "achh", "cha": onset or tail loss on sub-second clips.
+
+STEP 0, DIAGNOSIS (read-only, quote everything, misses hard-stop):
+A. git log -1 --decorate; acceptable: d47cf2c or exactly one "Published your App" atop it. Else STOP.
+B. Quote the transcription call in the practice attempt path verbatim: the exact Whisper/API invocation and every parameter. State plainly: is a language parameter sent? If yes, where does its value come from and can it be wrong or empty for a Hindi session?
+C. Quote how the client captures and encodes practice audio (MediaRecorder setup, mime types, sample rate, start/stop) and any browser-specific branches. State what Safari on iOS would produce with this code.
+D. FIRST READ of the accumulated nocatch diagnostics: query the diagnostics store and report aggregates: count by detected language, clip duration distribution (especially under 1s), mime/format by user agent if captured, and the rows matching R1-R3 timeframes if findable. Quote the schema you read from.
+E. Quote any existing min-duration enforcement in the attempt path (the pilot's 0.8s rule) and state whether live practice enforces it.
+F. State the root cause of each repro in one sentence each, tagged CONFIRMED or BEST-SUPPORTED.
+
+FIXES (build only what diagnosis supports; each fix maps to a repro):
+1. Language pinning (expected primary): the transcription request carries the session's language code on every practice path, derived server-side from the attempt's language context, never from client free-text. If the API supports it, constrain to the pinned language; transcripts in a non-matching script for the pinned language route to the existing nocatch flow rather than being scored.
+2. Min-duration guard: if E shows no live enforcement, clips under the pilot threshold route to nocatch with the existing friendly copy, never scored, never counted against the learner.
+3. Safari capture: ONLY if C/D prove a format or sample-rate defect, apply the minimal capture fix with a browser-gated branch; otherwise report findings and bank.
+4. Onset loss (R3): if diagnosis supports capture-start latency, add a short pre-roll on the recording start, client-side, motion of the mic UI unchanged; otherwise bank with evidence.
+BINDING: no changes to band thresholds, scoring math, or the 92 cap. The nocatch path is the only permitted destination for rejected audio.
+
+GATE: typecheck all touched workspaces; FULL api suite (baseline 811 total / 809 passing with the two documented exceptions: env trap + feedbackTts flake); full web suite ONLY if client files changed (baseline 480/65); tee'd, runner lines verbatim, deltas by file.
+
+REPORT (one message, docx or text, then STOP for approval): Step 0 A-F with the diagnostics aggregates; per-fix summary with its repro tag; every changed user-visible string verbatim (expected: none beyond existing nocatch copy reuse); files changed one line each; DEVIATIONS or none; gate results; git status with the exact proposed unstaged list; proposed commit message: "Recognizer: pin session language, min-duration guard, capture fixes per diagnosis"
+END OF REPORT is the final line. After approval only: stage, commit, confirm with the quoted pre-check, git log -1 --decorate, message echoed, stat summary, path count, DEVIATIONS or none, END OF REPORT, stop.
+
+END OF TASK. If this line is not the last line you received, the paste truncated; stop and say so.
