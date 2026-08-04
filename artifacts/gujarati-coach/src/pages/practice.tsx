@@ -103,6 +103,13 @@ function approxNoticeKey(code: string): string {
   return `bolo.approxNoticeSeen.${code}`;
 }
 
+// Minimum clip length accepted for scoring, in seconds. Mirrors the pilot
+// corpus rule (qa/pilot-pronunciation-v2.mjs MIN_CLIP_DURATION): clips under
+// 0.8 s come back from the transcriber as mangled fragments and would score
+// as retry, which counts against the learner. Shorter holds get the local
+// didn't-catch card instead: never sent, never scored, never counted.
+const MIN_CLIP_SECONDS = 0.8;
+
 // Maps a pronunciation band to its CSS color (five-band ladder gradient;
 // retry/nocatch keep the pre-five-band destructive fallback).
 function bandCss(band: Band): string {
@@ -1056,6 +1063,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (isUnsupported) {
         setOwnRecording(blob);
         setState("compare");
+        return;
+      }
+
+      // Min-duration guard (pilot rule, R3 class): clips under MIN_CLIP_SECONDS
+      // transcribe as fragments and would be scored as retry. Route to the
+      // local didn't-catch card instead; no request is sent, so the attempt
+      // is never scored and never counted. Duration is read synchronously
+      // after stopRecording resolves (no intervening await), per the
+      // recorder's contract.
+      if (recorder.getLastDurationSeconds() < MIN_CLIP_SECONDS) {
+        setEvalError({
+          title: "Didn't catch that one",
+          body: "The mic didn't pick you up clearly that time. Same phrase, one more go.",
+          tip: "Get a little closer to the mic and speak at normal volume.",
+        });
+        setState("error");
         return;
       }
 

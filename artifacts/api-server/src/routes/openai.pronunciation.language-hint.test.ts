@@ -10,8 +10,10 @@
 //
 // When a phraseId is supplied the server fetches the phrase from the DB and
 // uses phrase.languageCode — the client cannot forge it.  When no phraseId is
-// supplied languageCode defaults to the empty string and the `language` key is
-// omitted, leaving Whisper to auto-detect.
+// supplied the route pins the session language server-side from the user's
+// active language (recognizer language pinning); only a user with no recorded
+// active language falls back to the empty languageCode, omitting the
+// `language` key and leaving Whisper to auto-detect.
 //
 // The STT language hint is the primary safeguard against phonetically identical
 // short words (e.g. "na") silently passing in the wrong language: Whisper
@@ -72,6 +74,14 @@ let stubLanguage: StubLanguage | null = {
   code: "gu",
   name: "Gujarati",
 };
+
+// ─── Stub user returned by the DB mock ────────────────────────────────────────
+// Recognizer language pinning: requests WITHOUT a phraseId resolve the session
+// language from the user's active language (usersTable lookup). Default null =
+// no recorded active language, preserving the legacy auto-detect behavior for
+// tests that don't opt in.
+
+let stubUser: { activeLanguage: string | null } | null = null;
 
 // ─── Module mocks (must be registered before ./openai is imported) ────────────
 
@@ -146,8 +156,9 @@ mock.module("@workspace/db", {
           findFirst: async () => null,
         },
         usersTable: {
-          // Voice-preference lookup → null so the route uses the language default.
-          findFirst: async () => null,
+          // Voice-preference lookup AND (no-phraseId) language-pinning lookup.
+          // Default stubUser=null → route uses the language default / auto-detect.
+          findFirst: async () => stubUser ?? null,
         },
         languagesTable: {
           // Language name lookup → return stubLanguage (or undefined when null).
@@ -294,14 +305,17 @@ test("STT hint includes language code 'hi' for a Hindi phrase", async () => {
   }
 });
 
-test("STT hint omits language key when no phraseId is supplied (client-provided targets)", async () => {
-  // Without a phraseId, languageCode stays as the empty string and the
-  // `language` key must be absent from sttOptions so Whisper auto-detects.
+test("STT hint omits language key when no phraseId is supplied AND the user has no active language", async () => {
+  // Recognizer language pinning fail-open: without a phraseId the route asks
+  // the users table for an active language. When there is none recorded,
+  // languageCode stays as the empty string and the `language` key must be
+  // absent from sttOptions so Whisper auto-detects (legacy behavior).
   stubbedTranscript = "na";
   capturedSttOptions = [];
+  stubUser = null; // no recorded active language
 
   const { status, json } = await postPronunciation({
-    // No phraseId — client supplies the target strings directly.
+    // No phraseId: client supplies the target strings directly.
     targetNative: "ná",
     targetRomanized: "na",
     targetEnglish: "no",
@@ -582,4 +596,77 @@ test("both STT passes fire even when the first-pass transcript is already strong
       `call #${i + 1}: prompt must name the language, got ${JSON.stringify(opts.prompt)}`,
     );
   }
+});
+
+test("no phraseId: STT hint pins to the user's active language, overriding client free-text", async () => {
+  // Recognizer language pinning (Aug 2026): a request without a phraseId
+  // resolves the session language server-side from the user's active
+  // language, never from the client-supplied languageName. The stub user is
+  // active in Hindi while the client claims "Gujarati"; every STT pass must
+  // carry language "hi" and the prompt must name Hindi (from the DB language
+  // row), proving the free-text value cannot mislead the transcriber.
+  stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
+  capturedSttOptions = [];
+  stubUser = { activeLanguage: "hi" };
+  stubLanguage = { code: "hi", name: "Hindi" };
+
+  const { status, json } = await postPronunciation({
+    // No phraseId: client supplies the target strings directly, and lies
+    // about the language name.
+    targetNative: "ना",
+    targetRomanized: "na",
+    targetEnglish: "no",
+    languageName: "Gujarati",
+  });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(
+    capturedSttOptions.length,
+    2,
+    `expected the S1 dual-pass pair, got ${capturedSttOptions.length}`,
+  );
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.equal(
+      opts.language,
+      "hi",
+      `call #${i + 1} must carry the pinned active-language hint "hi", got ${JSON.stringify(opts)}`,
+    );
+    assert.ok(
+      typeof opts.prompt === "string" && opts.prompt.includes("Hindi"),
+      `call #${i + 1}: prompt must name the DB language (Hindi), not the client free-text, got ${JSON.stringify(opts.prompt)}`,
+    );
+  }
+
+  // Reset so subsequent tests keep the legacy no-active-language default.
+  stubUser = null;
+  stubLanguage = { code: "gu", name: "Gujarati" };
+});
+
+test("no phraseId: a user whose active language row has no activeLanguage value stays on auto-detect", async () => {
+  // Fail-open pinning: the users row exists but activeLanguage is null (e.g.
+  // a fresh account before the first reconcile). languageCode must stay
+  // empty: no `language` key, prompt falls back to the client-supplied name.
+  stubbedTranscript = "na";
+  stubbedTranscriptSequence = null;
+  capturedSttOptions = [];
+  stubUser = { activeLanguage: null };
+
+  const { status, json } = await postPronunciation({
+    targetNative: "ná",
+    targetRomanized: "na",
+    targetEnglish: "no",
+  });
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.ok(capturedSttOptions.length >= 1, "speechToText must have been called");
+  for (const [i, opts] of capturedSttOptions.entries()) {
+    assert.equal(
+      opts.language,
+      undefined,
+      `call #${i + 1}: language key must be absent when the user has no active language, got ${JSON.stringify(opts)}`,
+    );
+  }
+
+  stubUser = null;
 });

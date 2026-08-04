@@ -67,6 +67,7 @@ vi.mock("@tanstack/react-query", () => ({
 // touching real microphone/audio APIs.
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
+    getLastDurationSeconds: () => 2,
     getAmplitude: () => 0,
     state: "idle",
     prepare: vi.fn().mockResolvedValue(undefined),

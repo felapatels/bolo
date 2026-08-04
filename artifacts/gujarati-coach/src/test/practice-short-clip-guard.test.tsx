@@ -5,10 +5,14 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
-// Guards the spoken-feedback read-aloud: when a score lands, the coach's
-// feedback + tip are synthesized and played — unless the "Spoken feedback"
-// preference (bolo.spokenFeedback) is off, in which case only the
-// target-phrase playback happens.
+// Min-duration guard (pilot rule): a hold shorter than MIN_CLIP_SECONDS (0.8 s)
+// must never reach the evaluation endpoint. Sub-second clips transcribe as
+// mangled fragments (R3 class: छह -> "achh"/"cha") and would be scored as
+// retry, which counts against the learner. The guard routes them to the local
+// didn't-catch card instead: no request sent, never scored, never counted.
+//
+// Drives the real Practice page through the hold-to-talk cycle with a
+// controllable recorder duration, mirroring the practice-retry harness.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -17,15 +21,14 @@ const h = vi.hoisted(() => ({
   synth: vi.fn(),
   evaluate: vi.fn(),
   createAttempt: vi.fn(),
-  startRecording: vi.fn(),
-  stopRecording: vi.fn(),
-  MockApiError: class extends Error {
-    status: number;
-    constructor(status: number) {
-      super(`HTTP ${status}`);
-      this.status = status;
-    }
-  },
+  // Wall-clock duration the mocked recorder reports for the last recording.
+  lastDurationSeconds: 2,
+}));
+
+vi.mock("@/lib/silent-mode", () => ({
+  loadSilentMode: () => true, // silent mode: belly available without coach audio
+  saveSilentMode: vi.fn(),
+  SILENT_MODE_STORAGE_KEY: "bolo.silentMode",
 }));
 
 vi.mock("@/lib/language-context", () => ({
@@ -47,24 +50,26 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@workspace/integrations-openai-ai-react", () => ({
   useVoiceRecorder: () => ({
-    getLastDurationSeconds: () => 2,
     getAmplitude: () => 0,
     state: "idle",
-    startRecording: h.startRecording,
-    stopRecording: h.stopRecording,
+    startRecording: vi.fn(async () => {}),
+    stopRecording: vi.fn(async () => ({
+      size: 4,
+      type: "audio/webm",
+      arrayBuffer: async () => new ArrayBuffer(4),
+    })),
     abortRecording: vi.fn(),
     prepare: vi.fn().mockResolvedValue(undefined),
+    getLastDurationSeconds: () => h.lastDurationSeconds,
   }),
 }));
 
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
-  // Test-out mode is idle in these suites (no ?mode=testout).
   useGetLessonGroupTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() }),
   getGetLessonGroupTestoutQueryKey: () => ["lesson-group-testout"],
   useSubmitLessonGroupTestout: () => ({ mutate: vi.fn(), data: undefined, isError: false, error: null, isPending: false }),
   useReportPhrase: () => ({ mutate: vi.fn() }),
-  // Group mode is idle in these suites (no ?group= param).
   useListLessonGroupPhrases: () => ({
     data: undefined,
     isLoading: false,
@@ -75,7 +80,7 @@ vi.mock("@workspace/api-client-react", async () => ({
   }),
   getListLessonGroupPhrasesQueryKey: () => ["lesson-group-phrases"],
   getListCategoryLessonGroupsQueryKey: () => ["category-lesson-groups"],
-  ApiError: h.MockApiError,
+  ApiError: class extends Error {},
   useListCategoryPhrases: () => h.categoryPhrases,
   useListCategorySentences: () => ({
     data: undefined,
@@ -93,51 +98,32 @@ vi.mock("@workspace/api-client-react", async () => ({
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
   useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
-    getGetProgressSummaryQueryKey: () => ["progress-summary"],
+  getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
 }));
 
+// Imported after the mocks are declared.
 import Practice from "@/pages/practice";
 
-const audioInstances: FakeAudio[] = [];
+// jsdom's Audio can't play; a permissive stub keeps the page's audio wiring quiet.
 class FakeAudio {
   onended: (() => void) | null = null;
-  constructor(public src: string) {
-    audioInstances.push(this);
-  }
+  constructor(public src: string) {}
   play = vi.fn(async () => {});
   pause = vi.fn();
 }
 vi.stubGlobal("Audio", FakeAudio);
 
-function renderPage(ui: ReactElement, path = "/learn/1") {
-  const { hook } = memoryLocation({ path });
-  return render(<Router hook={hook}>{ui}</Router>);
-}
-
 const phrase = {
   id: 10,
-  nativeScript: "નમસ્તે",
-  romanized: "namaste",
-  english: "hello",
+  nativeScript: "છ",
+  romanized: "chha",
+  english: "six",
 };
 
-function makeBlob(bytes = 4, type = "audio/webm") {
-  return {
-    size: bytes,
-    type,
-    arrayBuffer: async () => new ArrayBuffer(bytes),
-  };
-}
-
 beforeEach(() => {
-  localStorage.clear();
-  // clear() wipes the suite-wide setup.ts default, so restore it: these tests
-  // drive the phrase-only coach chain and must keep the spoken English
-  // meaning segment (Task 1003) off.
-  localStorage.setItem("bolo.meaningAudio", "off");
-  audioInstances.length = 0;
+  h.lastDurationSeconds = 2;
   h.categoryPhrases = {
     data: [phrase],
     isLoading: false,
@@ -149,63 +135,68 @@ beforeEach(() => {
   h.reviewPhrases = { data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: vi.fn() };
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.evaluate.mockReset().mockResolvedValue({
-    score: 90,
-    band: "great",
-    passed: true,
-    xpAwarded: 9,
-    feedback: "Nice work on that greeting!",
-    tip: "Soften the t sound.",
+    score: 42,
+    band: "retry",
+    passed: false,
+    xpAwarded: 0,
+    feedback: "Almost!",
+    tip: "Slow down.",
     evaluationToken: "signed-token",
   });
   h.createAttempt.mockReset().mockResolvedValue({ newlyEarnedBadges: [] });
-  h.startRecording.mockReset().mockResolvedValue(undefined);
-  h.stopRecording.mockReset().mockResolvedValue(makeBlob());
 });
 
-/** Render in silent mode and wait for the belly zone to appear. */
-async function reachIdle() {
-  localStorage.setItem("bolo.silentMode", "on");
+function renderPage(ui: ReactElement, path = "/learn/1") {
+  const { hook } = memoryLocation({ path });
+  return render(<Router hook={hook}>{ui}</Router>);
+}
+
+/** Hold belly to record, then release to submit. */
+async function holdAndRelease() {
+  const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
+  fireEvent.pointerDown(belly);
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="Release to submit"]')).not.toBeNull(),
+  );
+  await act(async () => {
+    const releaseTarget = document.querySelector('[aria-label="Release to submit"]') as HTMLButtonElement;
+    fireEvent.pointerUp(releaseTarget);
+  });
+}
+
+async function renderToIdle() {
   renderPage(<Practice />);
+  // Silent mode: the belly appears without waiting for coach audio.
   await waitFor(() =>
     expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
   );
 }
 
-/** Hold parrot belly to record, then release to submit and await the score. */
-async function recordAndScore() {
-  const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
-  fireEvent.pointerDown(belly);
-  await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-  await act(async () => {
-    const releaseTarget =
-      document.querySelector('[aria-label="Release to submit"]') ?? belly;
-    fireEvent.pointerUp(releaseTarget);
-  });
-  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
-}
+describe("web practice min-duration guard", () => {
+  test("a clip under 0.8 s shows the local didn't-catch card and never calls evaluate", async () => {
+    h.lastDurationSeconds = 0.3;
+    await renderToIdle();
+    await holdAndRelease();
 
-describe("spoken feedback after scoring", () => {
-  test("reads the feedback and tip aloud by default", async () => {
-    await reachIdle();
-    await recordAndScore();
+    // The existing friendly nocatch copy, reused verbatim.
+    await waitFor(() =>
+      expect(screen.getByText("Didn't catch that one")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("The mic didn't pick you up clearly that time. Same phrase, one more go."),
+    ).toBeInTheDocument();
 
-    await waitFor(() => expect(h.synth).toHaveBeenCalledTimes(1));
-    expect(h.synth).toHaveBeenLastCalledWith({
-      data: { text: "Nice work on that greeting! Soften the t sound." },
-    });
+    // Never sent, never scored, never counted.
+    expect(h.evaluate).not.toHaveBeenCalled();
+    expect(h.createAttempt).not.toHaveBeenCalled();
   });
 
-  test("stays silent when the preference is off", async () => {
-    localStorage.setItem("bolo.spokenFeedback", "off");
-    await reachIdle();
-    await recordAndScore();
+  test("a clip at or above 0.8 s still evaluates normally (guard does not overfire)", async () => {
+    h.lastDurationSeconds = 0.8;
+    await renderToIdle();
+    await holdAndRelease();
 
-    // Give any (wrong) feedback synthesis a chance to fire.
-    await act(async () => {
-      await Promise.resolve();
-    });
-    // In silent mode, no coach playback happens either — synth should be
-    // called 0 times total.
-    expect(h.synth).toHaveBeenCalledTimes(0);
+    await waitFor(() => expect(h.evaluate).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Didn't catch that one")).not.toBeInTheDocument();
   });
 });

@@ -706,13 +706,36 @@ router.post(
       phraseDifficulty = phrase.difficulty ?? 1;
     }
 
-    // When a phraseId was supplied, look up the canonical language name from the
-    // DB so a client-provided languageName cannot mislead Whisper with a
+    // Recognizer language pinning: a request without a phraseId previously
+    // carried no languageCode at all, which meant no STT language hint, no
+    // script-mismatch guard, and full transcriber auto-detect. Resolve the
+    // session language server-side from the user's active language
+    // (server-authoritative), never from client free-text. Fail-open: a user
+    // with no recorded active language keeps the old auto-detect behavior.
+    if (phraseId == null) {
+      try {
+        const userRow = await db.query.usersTable.findFirst({
+          where: eq(usersTable.id, userId),
+        });
+        if (userRow?.activeLanguage) {
+          languageCode = userRow.activeLanguage;
+        }
+      } catch (err) {
+        req.log.warn(
+          { err },
+          "Could not resolve active language for STT pinning; transcriber will auto-detect",
+        );
+      }
+    }
+
+    // Whenever a languageCode is pinned (from the phrase row, or from the
+    // user's active language above), look up the canonical language name from
+    // the DB so a client-provided languageName cannot mislead Whisper with a
     // mismatched language (e.g. "Hindi" for a Gujarati phrase).  Falls back to
     // the client-supplied value when the language record is not found.
     let language = languageName?.trim() || "the target language";
     let speechCapability: string = "supported";
-    if (phraseId != null && languageCode) {
+    if (languageCode) {
       try {
         const langRow = await db.query.languagesTable.findFirst({
           where: eq(languagesTable.code, languageCode),
