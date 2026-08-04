@@ -57,3 +57,7 @@ qa/pilot-clips/
 # Pilot corpus manifest + raw calibration results (reference R2 keys; recordings never enter the repo)
 qa/pilot-results/manifest.json
 qa/pilot-results/calibration/
+
+# Owner ruling (August 4, 2026): keep platform publish commits from sweeping these in
+attached_assets/
+.agents/

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { Router, Route } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -50,6 +50,61 @@ function signUpHrefs() {
 beforeEach(() => {
   h.languages = undefined;
   h.track.mockClear();
+});
+
+// The hero App Store badge is iOS-only: iPhone visitors get the official
+// Apple badge linking to the native listing, everyone else renders nothing.
+describe("App Store badge (iOS only)", () => {
+  const originalUserAgent = navigator.userAgent;
+
+  function setUserAgent(value: string) {
+    Object.defineProperty(window.navigator, "userAgent", {
+      value,
+      configurable: true,
+    });
+  }
+
+  afterEach(() => {
+    setUserAgent(originalUserAgent);
+  });
+
+  const IPHONE_UA =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+
+  test("pre-release default: iOS user agents see a muted unlinked badge with the coming-soon caption, nothing tracked", () => {
+    setUserAgent(IPHONE_UA);
+    renderAt(<Landing />);
+
+    expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon to the App Store")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Download on the App Store/i }),
+    ).not.toBeInTheDocument();
+    expect(h.track).not.toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.CTA_CLICK,
+      expect.objectContaining({ placement: "hero-appstore-badge" }),
+    );
+  });
+
+  test("live state: iOS user agents see the badge linking to the App Store listing, and clicks are tracked", () => {
+    setUserAgent(IPHONE_UA);
+    renderAt(<Landing appStoreLive />);
+
+    const badge = screen.getByRole("link", { name: /Download on the App Store/i });
+    expect(badge).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
+    expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
+
+    fireEvent.click(badge);
+    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
+      placement: "hero-appstore-badge",
+    });
+  });
+
+  test("non-iOS user agents see no App Store badge or caption in either state", () => {
+    renderAt(<Landing />);
+    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
+  });
 });
 
 describe("Landing page", () => {

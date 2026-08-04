@@ -21,6 +21,17 @@ import { diasporaOrdered, LANGUAGE_PAGES } from '@/lib/languagePages';
 import { TIER_PRICING, FAMILY_SEATS } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
+import { isIosSafariWeb } from '@/lib/iosAudio';
+
+// Native app listing. The numeric id is ascAppId from bolo-mobile/eas.json;
+// the badge below renders only for iOS user agents (reuse-first: the same
+// isIosSafariWeb helper that gates the silent-switch hint).
+const APP_STORE_URL = 'https://apps.apple.com/app/id6790907772';
+// Flip to true when the listing is approved and live in the App Store. Until
+// then the badge renders muted and unlinked with a coming-soon caption; the
+// Smart App Banner meta stays in the shell because Safari will not render it
+// for an unpublished listing anyway.
+const APP_STORE_LIVE = false;
 
 const CHIP_COLORS = ['#4F46E5', '#0D9488', '#6366F1'];
 
@@ -158,7 +169,11 @@ function SignUpCta({
 const PRIMARY_CTA_CLASS =
   'w-full sm:w-auto bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl inline-flex items-center justify-center gap-3 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all';
 
-export default function Landing() {
+// appStoreLive defaults to the module const; tests inject the live state
+// through the prop because a same-module const cannot be vi.mocked.
+export default function Landing({
+  appStoreLive = APP_STORE_LIVE,
+}: { appStoreLive?: boolean } = {}) {
   const reduceMotion = useReducedMotion();
   const { data: languages } = useListLanguages();
   const langs = languages ?? [];
@@ -265,6 +280,43 @@ export default function Landing() {
                 I have an account
               </Link>
             </motion.div>
+
+            {/* Official Apple badge, iOS visitors only. Android and desktop
+                render nothing here; Safari additionally shows the Smart App
+                Banner from the apple-itunes-app meta in index.html. */}
+            {isIosSafariWeb() && (
+              <motion.div
+                {...heroItem(0.25)}
+                className="mt-6 flex flex-col items-center lg:items-start"
+              >
+                {appStoreLive ? (
+                  <a
+                    href={APP_STORE_URL}
+                    onClick={() =>
+                      track(ANALYTICS_EVENTS.CTA_CLICK, { placement: 'hero-appstore-badge' })
+                    }
+                  >
+                    <img
+                      src={`${import.meta.env.BASE_URL}appstore-badge.svg`}
+                      alt="Download on the App Store"
+                      className="h-12 w-auto"
+                    />
+                  </a>
+                ) : (
+                  <>
+                    {/* Pre-release: same slot, muted, unlinked, no tracking. */}
+                    <img
+                      src={`${import.meta.env.BASE_URL}appstore-badge.svg`}
+                      alt="Download on the App Store"
+                      className="h-12 w-auto opacity-50"
+                    />
+                    <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                      Coming soon to the App Store
+                    </p>
+                  </>
+                )}
+              </motion.div>
+            )}
           </div>
 
           {/* Live product demo: the actual speak, transcribe, coach loop. */}
