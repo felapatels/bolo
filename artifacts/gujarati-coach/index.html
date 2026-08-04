@@ -3,15 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-    <title>Bolo! - Actually speak your family's language</title>
-    <meta name="description" content="Bolo! is a speaking-first app for South Asian languages. Say every phrase out loud, get coached on the spot, and find your way back to your family's language. 22 languages, free to start." />
+    <title>Bolo! : Learn 22 South Asian Languages</title>
+    <meta name="description" content="Bolo is the first app built to teach 22 South Asian languages, with a coach that actually listens to you speak." />
     <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="Bolo! - Actually speak your family's language" />
-    <meta property="og:description" content="Speak South Asian languages out loud and get instant friendly pronunciation coaching. 22 languages, free to start." />
+    <!-- Static no-JS defaults. lib/seo.ts (applyDocumentHead) owns these tags
+         at runtime on public pages and overwrites them per page; social
+         scrapers that skip JS read the values below. -->
+    <link rel="canonical" href="https://bolo-india.app/" />
+    <meta property="og:title" content="Bolo! : Learn 22 South Asian Languages" />
+    <meta property="og:description" content="Bolo is the first app built to teach 22 South Asian languages, with a coach that actually listens to you speak." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bolo-india.app/" />
+    <meta property="og:image" content="https://bolo-india.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Bolo! - Actually speak your family's language" />
-    <meta name="twitter:description" content="Speak South Asian languages out loud and get instant friendly pronunciation coaching. 22 languages, free to start." />
+    <meta name="twitter:title" content="Bolo! : Learn 22 South Asian Languages" />
+    <meta name="twitter:description" content="Bolo is the first app built to teach 22 South Asian languages, with a coach that actually listens to you speak." />
+    <meta name="twitter:image" content="https://bolo-india.app/og-image.png" />
+    <!-- Shares its id with useHomepageStructuredData (lib/seo.ts): on the
+         homepage the runtime hook replaces this element's content instead of
+         adding a second SoftwareApplication block. -->
+    <script type="application/ld+json" id="bolo-structured-data">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Bolo!",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "iOS, Web",
+        "description": "Bolo is the first app built to teach 22 South Asian languages, with a coach that actually listens to you speak.",
+        "url": "https://bolo-india.app/"
+      }
+    </script>
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
