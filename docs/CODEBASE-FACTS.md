@@ -1234,6 +1234,26 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 - **Fix 2 (web):** `practice.tsx` enforces `MIN_CLIP_SECONDS = 0.8` (the pilot rule from `qa/pilot-pronunciation-v2.mjs` `MIN_CLIP_DURATION`) right after `stopRecording()` resolves, using the recorder's wall-clock `getLastDurationSeconds()`. Short holds get the existing local "Didn't catch that one" card; no request is sent, nothing is scored or counted. Recorder test mocks must stub `getLastDurationSeconds` (all web recorder mocks were patched in one pass).
 - **Banked / known debt:** `attempts.audio_duration_ms` is never populated by the live path (NULL on every prod row), so duration distributions are unmeasurable from the DB; nocatch sidecars carry no duration, mime, or user-agent fields. Server-side duration enforcement needs a request-shape addition (codegen) or ffprobe. Mobile has no 0.8 s clip guard (it has its own 300 ms min-hold). Safari capture was ruled out as a defect (the HQ pass transcribed the same clips correctly), and no pre-roll fix is supported by evidence (short-clip fragments contain the word onset).
 
+## 10b. Referral R1: server-side referral codes and rewards (August 4, 2026)
+
+**Scope.** api workspace only (plus lib/db, lib/api-spec docs). No web or mobile UI; offer codes, daily limits, and signal/game surfaces untouched.
+
+**Schema (migration `drizzle/0040_referral.sql`).** `users.referral_code`: nullable text, unique via `users_referral_code_idx`, minted lazily on the first GET /referral (JIT, like the users row). `referral_redemptions` (`lib/db/src/schema/referralRedemptions.ts`): referrer_user_id, referee_user_id (UNIQUE `referral_redemptions_referee_idx`, once-ever per referee), code (stored normalized), created_at, activated_at, granted_at. R1 sets activated_at and granted_at together; they are separate columns so later slices can split activation from payout without DDL.
+
+**Economy (`lib/tokenEconomy.ts`).** `REFERRAL_REWARD_REFERRER_CHAI = 25`, `REFERRAL_REWARD_REFEREE_CHAI = 25`; `TokenReason` gains `earn_referral_referrer` / `earn_referral_referee` (type-only; ledger reason column is text).
+
+**Lib (`api-server/src/lib/referral.ts`).** Code alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no 0/O/1/I), length 6. `getOrCreateReferralCode` retries on unique-index collision and read-backs a concurrent mint. `redeemReferralCode` is attribution ONLY; the already-redeemed check runs before the code lookup so a repeat attempt never leaks whether another code exists; unique-index race resolves to already_redeemed. `activateReferralIfPending` runs grants BEFORE the granted_at claim update so a crash between the two heals on the next call (grants no-op against the ledger unique key). Owner copy lives in `REFERRAL_COPY`, exact strings.
+
+**Routes (`routes/referral.ts`, mounted for all authed learners).** GET /referral returns code, pendingCount, activatedCount (redemptions split on granted_at), chaiEarned (ledger sum, reason earn_referral_referrer, never a stored counter). POST /referral/redeem: 201 `{redeemed:true}`; 409 repeat, 400 self-referral, 404 unknown, each with the owner copy.
+
+**Activation hook.** The server keeps no discrete practice session-complete marker; the Chai receipt rides POST /attempts. So activation is a Promise.all element there: the referee's first recorded attempt activates the pending redemption and grants both sides. Errors are warn-logged and never block the attempt response.
+
+**RIDE-ALONGs.** (1) POST /game-sessions response now carries the server-authoritative `passed` (sessionPassed, the flag that gates signal/closeout grants); openapi.yaml documents it plus the two referral endpoints and three referral schemas. openapi codegen deliberately not run (server-only slice; the web slice owns client generation). (2) feedbackTts pending-join flake fixed test-side: the fake pending in `feedbackTts.test.ts` now writes the ttsCache row before resolving, honoring the production invariant (cache row lands before the pending entry clears).
+
+**Tests.** `src/test/referral.test.ts` (one new file, lib/DB layer against the live dev DB, same harness pattern as signalWaves.test.ts).
+
+**Debt.** None new. Known trap re-confirmed: dev-DB `drizzle-kit migrate` recorded the 0040 hash without executing the DDL; the committed SQL was applied by hand via psql and verified with to_regclass.
+
 ## 11. House Patterns
 
 One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.

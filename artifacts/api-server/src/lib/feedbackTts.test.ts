@@ -208,9 +208,20 @@ test("/openai/tts joins an in-flight prewarm instead of synthesizing a duplicate
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ text }),
   });
-  // Let the request reach the route and block on the pending entry, then
-  // finish the "synthesis".
+  // Let the request reach the route so it can join the pending entry.
   await new Promise((r) => setTimeout(r, 50));
+  // RIDE-ALONG flake fix (test-side): honor the production invariant before
+  // resolving. prewarmFeedbackTts writes the ttsCache row FIRST, then the
+  // pending entry clears on settle (see the pendingSynthesis comment in
+  // feedbackTts.ts). This fake pending used to resolve without that row, so
+  // under load the request could arrive AFTER clear-on-settle and find
+  // neither the pending entry nor the cache row, synthesizing fresh bytes.
+  // With the row in place, both orderings serve the same prewarmed audio,
+  // which is exactly what production guarantees.
+  await db
+    .insert(ttsCacheTable)
+    .values({ cacheKey, audioBase64: "b64_FROM_PREWARM==", format: "mp3" })
+    .onConflictDoNothing();
   release();
 
   const res = await resPromise;

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, date, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Local mirror of the authenticated user, keyed by the Clerk user id.
 // Rows are provisioned just-in-time on the first authenticated request.
@@ -95,6 +95,13 @@ export const usersTable = pgTable("users", {
   // learner's timezone from a request header (one free auto-set per day
   // if the learner hasn't set an explicit preference yet). Null = never used.
   tzGraceUsedOn: date("tz_grace_used_on"),
-});
+  // Referral R1: the learner's shareable referral code. Short uppercase string
+  // from an unambiguous alphabet (no 0/O/1/I), generated lazily on the first
+  // GET /referral (JIT, like the users row itself). Null until first fetched;
+  // Postgres unique indexes ignore NULLs, so unminted users coexist fine.
+  referralCode: text("referral_code"),
+}, (t) => [
+  uniqueIndex("users_referral_code_idx").on(t.referralCode),
+]);
 
 export type User = typeof usersTable.$inferSelect;

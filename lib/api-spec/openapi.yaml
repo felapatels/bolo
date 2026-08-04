@@ -1906,6 +1906,61 @@ paths:
                 items:
                   $ref: "#/components/schemas/ZoneStamp"
 
+  /referral:
+    get:
+      operationId: getReferral
+      tags: [referral]
+      summary: The caller's referral code and referral stats
+      description: >-
+        Returns the caller's shareable referral code (minted lazily on the
+        first fetch; short uppercase string from an unambiguous alphabet with
+        no 0/O/1/I), counts of pending and activated redemptions attributed
+        to the caller, and the total Chai earned from referrals. The Chai
+        total is derived from the token ledger, never a stored counter.
+      responses:
+        "200":
+          description: Referral summary for the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralSummary"
+
+  /referral/redeem:
+    post:
+      operationId: redeemReferral
+      tags: [referral]
+      summary: Redeem another learner's referral code
+      description: >-
+        Records attribution ONLY; nothing is granted at redeem time. Grants
+        for both sides land later, when the referee's first completed session
+        activates the redemption server-side. A learner can redeem at most
+        one code ever.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferralRedeemInput"
+      responses:
+        "201":
+          description: Attribution recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralRedeemResult"
+        "400":
+          description: >-
+            Invalid payload, or self-referral ("You cannot use your own
+            code.").
+        "404":
+          description: >-
+            Unknown code ("That code did not match. Check it and try
+            again.").
+        "409":
+          description: >-
+            Caller already redeemed a code ("You have already used a referral
+            code.").
+
   /journey/signal-waves:
     post:
       operationId: recordSignalWave
@@ -2761,6 +2816,53 @@ components:
       required:
         - ref
 
+    ReferralSummary:
+      type: object
+      properties:
+        code:
+          type: string
+          description: The caller's shareable referral code (uppercase, no 0/O/1/I).
+        pendingCount:
+          type: integer
+          description: Redemptions attributed to the caller that have not activated yet.
+        activatedCount:
+          type: integer
+          description: >-
+            Redemptions that activated (the referee completed a first session;
+            both sides were granted).
+        chaiEarned:
+          type: integer
+          description: >-
+            Total referral Chai earned by the caller, derived from the token
+            ledger (reason earn_referral_referrer), never a stored counter.
+      required:
+        - code
+        - pendingCount
+        - activatedCount
+        - chaiEarned
+
+    ReferralRedeemInput:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: The referral code to redeem. Case-insensitive; normalized server-side.
+      required:
+        - code
+
+    ReferralRedeemResult:
+      type: object
+      properties:
+        redeemed:
+          type: boolean
+          description: >-
+            True when attribution was recorded. Grants happen at activation
+            (the referee's first completed session), not here.
+      required:
+        - redeemed
+
     GameSessionInput:
       type: object
       properties:
@@ -2838,6 +2940,13 @@ components:
         totalXp:
           type: integer
           description: Learner's cumulative XP for this language after the session.
+        passed:
+          type: boolean
+          description: >-
+            Server-authoritative session verdict (majority of answered
+            questions correct, as judged server-side). This is the flag that
+            gates signal and closeout Chai grants; clients must not derive
+            their own pass state.
         chaiGranted:
           type: integer
           description: >-
@@ -2847,6 +2956,7 @@ components:
       required:
         - xpEarned
         - totalXp
+        - passed
 
     AttemptInput:
       type: object

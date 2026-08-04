@@ -50,6 +50,7 @@ const GameSessionBody = z.object({
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { verifyEvaluation } from "../lib/evaluationToken";
+import { activateReferralIfPending } from "../lib/referral";
 import {
   generateLesson,
   generateAdditionalPhrases,
@@ -1434,6 +1435,15 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     maybeGrantAllowance(req).catch((err) => {
       req.log?.warn({ err }, "token_allowance_grant_failed");
     }),
+    // Referral R1 activation hook. This /attempts path IS the session-complete
+    // flow the Chai receipt rides (the server keeps no discrete practice
+    // session-complete marker), so a referee's first recorded attempt here
+    // activates a pending redemption and grants BOTH sides through the ledger.
+    // Doubly idempotent (granted_at guard + ledger unique key); errors never
+    // block the attempt response.
+    activateReferralIfPending(userId).catch((err) => {
+      req.log?.warn({ err }, "referral_activation_failed");
+    }),
   ]);
 
   // HOOK 1d: pause consumption (latch-on-attempt). Finds the most recent prior
@@ -2157,6 +2167,10 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   res.status(201).json({
     xpEarned,
     totalXp: metrics.xp,
+    // RIDE-ALONG (documented in openapi.yaml alongside Referral R1): the
+    // server-authoritative session verdict, the same flag that gates signal
+    // and closeout grants. Clients must not derive their own pass state.
+    passed: sessionPassed,
     newlyEarnedBadges,
     ...(chaiGranted !== undefined && { chaiGranted }),
   });

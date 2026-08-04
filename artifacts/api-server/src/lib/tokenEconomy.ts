@@ -22,6 +22,12 @@ export function signalFirstClearChai(languageCode: string): number {
 }
 export const CLOSEOUT_FIRST_CHAI = 2;
 
+// Referral R1 (owner spec): both sides earn Chai when the referee's first
+// completed session activates a pending redemption. Granted through the
+// ledger like every other earn; refId is referral:<redemption row id>.
+export const REFERRAL_REWARD_REFERRER_CHAI = 25;
+export const REFERRAL_REWARD_REFEREE_CHAI = 25;
+
 // Signal polish item 1 (Branch A): the frozen Chunk 6 spec pays signal and
 // closeout Chai on PASSING sessions only. Passing means majority correct,
 // score strictly greater than half the server-validated rounds. The route is
@@ -50,6 +56,8 @@ export type TokenReason =
   | "earn_allowance_monthly"
   | "earn_signal_first_clear"
   | "earn_closeout_first"
+  | "earn_referral_referrer"
+  | "earn_referral_referee"
   | "spend_station_pause"
   | "spend_express_multiplier"
   | "station_pause_consumed";

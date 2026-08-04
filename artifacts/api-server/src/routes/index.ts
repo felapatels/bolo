@@ -6,6 +6,7 @@ import openaiRouter from "./openai";
 import entitlementsRouter from "./entitlements";
 import accountRouter from "./account";
 import friendsRouter from "./friends";
+import referralRouter from "./referral";
 import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
 import familyRouter from "./family";
@@ -48,6 +49,9 @@ router.use(accountRouter);
 // Friends & the friends leaderboard stay available to all authenticated
 // learners (not gated behind Bolo! Plus), so this sits before the gated routers.
 router.use(friendsRouter);
+// Referral R1: code fetch + redeem. Available to every authenticated learner
+// (not Plus-gated); a brand-new Free referee must be able to redeem.
+router.use(referralRouter);
 // Spec B2: phrase incorrectness reports (fire-and-forget, silently throttled).
 router.use(phraseReportsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
