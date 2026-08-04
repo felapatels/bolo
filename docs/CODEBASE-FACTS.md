@@ -703,6 +703,8 @@ D1b direction decided: **Gujarat Express (Mockup C) merged** — rail-line layou
 
 **Landing provenance:** Task #984's platform merge was orphaned (same ghost state as #967); its payload was landed by intent on main after Task #986, asset byte-identical (md5 987df1bb895dba926f04db31f5b5952f, 13,080 bytes, no re-processing). The #984 checkout's own gate run (against its 348-test branch baseline) passed everything; suite state on MAIN after this landing is recorded in the gate report for the landing commit (web baseline 370, unchanged by this swap — the probe is not a vitest file).
 
+**v2 asset swap (August 4, 2026):** owner-supplied clip replaces the recording at `public/sounds/tear-sfx.mp3` (0.392s, stereo, 44.1kHz mp3, -3.5 dB peak, -24.6 dB RMS, 10,075 bytes); the old `tear-sfx.m4a` is deleted and the fetch URL in `tearAudio.ts` updated because the extension had to change (mp3 bytes must not ship under a `.m4a` name); `TEAR_SFX_GAIN` stays 0.4; bolo-mobile keeps its bundled m4a until the train 35 remote-audio slot.
+
 ### Journey map India scenery + 2.5D depth pass (Task #985, August 1, 2026, web only)
 
 **Depth-order tokens (`DEPTH_2_5D.layers` in `src/lib/motion.tsx`) — the shared 2.5D language for later surfaces (games hub, home):** scenery(0) < rail(1) < stationCard(4) < station(6) < train(7) < postcard(8) < overlay(50). Scenery and rail are SVG groups inside the map svg (paint order; the svg underlies all HTML overlays); the rest are the z-indexes of the absolutely positioned HTML layers in journey.tsx. The current-stop marker wrapper takes `train`, other markers `station`; postcards and the interchange diamond take `postcard`; dialogs are z-50 (`overlay`).

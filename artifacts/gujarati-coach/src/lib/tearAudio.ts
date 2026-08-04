@@ -1,8 +1,8 @@
 /**
  * Paper-tear SFX for the boarding-pass tear animation (Task 905 / Task 984).
  *
- * Plays the recorded paper-tear asset (`public/sounds/tear-sfx.m4a`, 0.985s,
- * mono, 44.1kHz, loudness-normalized) through Web Audio. The clip is fetched
+ * Plays the recorded paper-tear asset (`public/sounds/tear-sfx.mp3`, 0.392s,
+ * stereo, 44.1kHz, owner-supplied v2 clip) through Web Audio. The clip is fetched
  * and decoded ONCE at screen mount (preloadTearAudio) into a module-cached
  * AudioBuffer, so the first play has zero fetch or decode lag.
  *
@@ -16,11 +16,10 @@
  *     stays SILENT -- never a fetch-then-play that would lag the tap.
  */
 
-// Playback gain for the recorded clip. The asset is loudness-normalized
-// (~-2 dB peak, -21 dB RMS), far hotter than the old synthesized burst
-// (-16.5 dB peak, -33 dB RMS), so this sits well below unity. 0.40 (-8 dB)
-// lands the tear ~4 dB more present than the old burst without being
-// startling: peak ~-10 dBFS, RMS ~-29 dBFS at normal volume.
+// Playback gain for the recorded clip. The owner-supplied v2 asset measures
+// -3.5 dB peak, -24.6 dB RMS (ffmpeg volumedetect), hotter than the old
+// synthesized burst (-16.5 dB peak, -33 dB RMS), so this sits well below
+// unity. 0.40 (-8 dB) keeps the tear present without being startling.
 export const TEAR_SFX_GAIN = 0.4;
 
 let warmCtx: AudioContext | null = null;
@@ -59,7 +58,7 @@ export function preloadTearAudio(): void {
     loadStarted = true;
     const base: string = import.meta.env.BASE_URL ?? "/";
     const ctx = warmCtx;
-    void fetch(`${base}sounds/tear-sfx.m4a`)
+    void fetch(`${base}sounds/tear-sfx.mp3`)
       .then((res) => {
         if (!res.ok) throw new Error(`tear sfx fetch ${res.status}`);
         return res.arrayBuffer();
