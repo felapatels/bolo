@@ -214,7 +214,10 @@ function TestRound({ api, setAudioPlaying }: QuickRoundProps) {
 function renderShell(
   // `null` means an untimed game. `undefined` keeps the timed default, so a
   // test has to opt into untimed explicitly.
-  opts: { secondsPerRound?: number | null; roundsPerRun?: number } = {},
+  opts: {
+    secondsPerRound?: number | null;
+    roundsPerRun?: number | ((phrases: any[]) => number);
+  } = {},
 ) {
   return render(
     <QuickGameShell
@@ -920,5 +923,112 @@ describe('signal cleared mark', () => {
 
     const swept = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     expect(swept.filter((g) => isSignalCleared('gu', g))).toEqual([]);
+  });
+});
+
+// ─── Resolved run length ─────────────────────────────────────────────────────
+//
+// `roundsPerRun` may be a number (fixed at mount) or a resolver called with
+// the fetched pool, mirroring the web frame's totalRounds(phrases). Games
+// whose length depends on their data — a pairs board capped at
+// min(6, phrases.length) — could not be expressed by a number without
+// risking a run that can never reach its finish condition.
+
+describe('resolved run length', () => {
+  beforeEach(() => {
+    mockState.params = { cat: '1' };
+  });
+
+  test('a plain number still fixes the run length at mount', async () => {
+    renderShell({ secondsPerRound: null, roundsPerRun: 5 });
+    await act(async () => {});
+
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    answerRounds(5, 5);
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+    expect(lastPayload().phraseResults).toHaveLength(5);
+  });
+
+  test('a resolver is handed the fetched pool and its answer drives the run', async () => {
+    const seen: number[][] = [];
+    renderShell({
+      secondsPerRound: null,
+      roundsPerRun: (phrases: any[]) => {
+        seen.push(phrases.map((ph) => ph.id));
+        return Math.min(6, phrases.length);
+      },
+    });
+    await act(async () => {});
+
+    // Never an empty or partial list: every call carried the real pool.
+    expect(seen.length).toBeGreaterThan(0);
+    for (const ids of seen) expect(ids).toEqual([10, 11, 12, 13, 14]);
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+  });
+
+  test('the resolver is not called at all while the pool is still loading', async () => {
+    mockState.phrases = { data: undefined, isLoading: true, isError: false, error: null };
+    const calls: number[] = [];
+    renderShell({
+      secondsPerRound: null,
+      roundsPerRun: (phrases: any[]) => {
+        calls.push(phrases.length);
+        return phrases.length;
+      },
+    });
+    await act(async () => {});
+
+    expect(calls).toEqual([]);
+    expect(screen.queryByTestId('round-label')).toBeNull();
+  });
+
+  test('a 4-phrase category runs exactly four rounds, finishes, and posts once', async () => {
+    mockState.phrases = successQuery(PHRASES.slice(0, 4));
+    renderShell({
+      secondsPerRound: null,
+      roundsPerRun: (phrases: any[]) => Math.min(6, phrases.length),
+    });
+    await act(async () => {});
+
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-4');
+    answerRounds(4, 4);
+
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+    expect(lastPayload().phraseResults).toHaveLength(4);
+    expect(screen.getByText('4 / 4 correct')).toBeTruthy();
+  });
+
+  test('the dead run this exists to prevent: a hardcoded length above the pool never finishes', async () => {
+    // The retired shape, kept as the witness. Four pairs on the board, a
+    // finish condition wanting six: the learner answers everything there is
+    // and the run neither ends nor posts.
+    mockState.phrases = successQuery(PHRASES.slice(0, 4));
+    renderShell({ secondsPerRound: null, roundsPerRun: 6 });
+    await act(async () => {});
+
+    answerRounds(4, 4);
+    expect(mockState.recordMutate).not.toHaveBeenCalled();
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-4-of-6');
+  });
+
+  test('a resolver that cannot fill one whole round refuses to start the run', async () => {
+    renderShell({ secondsPerRound: null, roundsPerRun: () => 0 });
+    await act(async () => {});
+
+    // Refused, and it says which dead end this is: the pool cleared the
+    // floor, so blaming the floor would send the learner looking for the
+    // wrong thing.
+    expect(screen.getByTestId('quick-no-rounds')).toBeTruthy();
+    expect(screen.queryByText(/Need at least/)).toBeNull();
+    expect(screen.queryByTestId('round-label')).toBeNull();
+    expect(mockState.recordMutate).not.toHaveBeenCalled();
+  });
+
+  test('a fractional run length is refused too, not floored into a run', async () => {
+    renderShell({ secondsPerRound: null, roundsPerRun: () => 0.5 });
+    await act(async () => {});
+
+    expect(screen.getByTestId('quick-no-rounds')).toBeTruthy();
+    expect(screen.queryByTestId('round-label')).toBeNull();
   });
 });

@@ -201,7 +201,19 @@ export type QuickGameShellProps = {
    * the continue beat for both outcomes so the learner sets the dwell time.
    */
   secondsPerRound?: number | null;
-  roundsPerRun?: number;
+  /**
+   * How many rounds one run lasts.
+   *
+   * A plain number is fixed at mount and behaves exactly as it always has.
+   * A FUNCTION mirrors the web frame's `totalRounds(phrases)` contract: the
+   * shell calls it with the fetched pool once that pool clears `def.floor`,
+   * so a game whose length depends on its data — a pairs board capped at
+   * min(6, phrases.length), say — can say so. Without this, such a game has
+   * to hardcode a number, and a category at the floor but under that number
+   * builds a board that can never reach the finish condition: no POST, no
+   * result screen, and the learner's finished work thrown away.
+   */
+  roundsPerRun?: number | ((phrases: Phrase[]) => number);
   /** One-line instruction shown under the countdown. */
   instruction?: string;
   renderRound: (props: QuickRoundProps) => ReactNode;
@@ -265,7 +277,24 @@ export function QuickGameShell({
     },
   });
   const phrases: Phrase[] = phraseQuery.data ?? [];
-  const roundsReady = categoryId !== null && phrases.length >= def.floor;
+  /** The pool exists and is big enough for this game to be playable at all. */
+  const poolReady = categoryId !== null && phrases.length >= def.floor;
+  /**
+   * THE run length. Everything downstream — progression, the finish
+   * condition, `api.total`, the "Round N of M" display, the end screen —
+   * reads this and never the raw prop. A resolver is only called once the
+   * pool clears the floor (web parity: `phrases.length >= def.floor ?
+   * totalRounds(phrases) : 0`), so it never sees a half-loaded list.
+   */
+  const resolvedRounds =
+    typeof roundsPerRun === 'function' ? (poolReady ? roundsPerRun(phrases) : 0) : roundsPerRun;
+  /**
+   * A run is only enterable if it can also END. A resolver returning 0 (or
+   * anything under one whole round) means this topic cannot fill a run of
+   * this game, so the shell refuses to start rather than dropping the
+   * learner into a board whose finish condition is unreachable.
+   */
+  const roundsReady = poolReady && resolvedRounds >= 1;
 
   // ── Countdown: only ticks once the phrases are actually ready, so a slow
   //    query can never drop the learner into an empty first round.
@@ -371,7 +400,7 @@ export function QuickGameShell({
       if (result.correct) setCorrect((c) => c + 1);
 
       const nextRound = round + 1;
-      if (nextRound >= roundsPerRun) {
+      if (nextRound >= resolvedRounds) {
         // Terminal: the guard deliberately stays closed for good.
         finishRun(resultsRef.current);
         return;
@@ -382,7 +411,7 @@ export function QuickGameShell({
       setTimedOut(false);
       setAudioPlaying(false);
     },
-    [finishRun, round, roundsPerRun, secondsPerRound],
+    [finishRun, round, resolvedRounds, secondsPerRound],
   );
 
   // Reopen the submit guard only once the new round is on screen.
@@ -501,9 +530,21 @@ export function QuickGameShell({
           </View>
         ) : !roundsReady ? (
           <View style={styles.center}>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              Need at least {def.floor} phrases here. {pinned ? 'Try another stop.' : 'Choose another topic.'}
-            </Text>
+            {poolReady ? (
+              // Above the floor, but the game's own resolver cannot make a
+              // whole round out of this topic. Same recoverable dead end,
+              // different cause, so it says so rather than blaming the floor.
+              <Text
+                style={[styles.emptyText, { color: colors.mutedForeground }]}
+                testID="quick-no-rounds"
+              >
+                Not enough here for a full round. {pinned ? 'Try another stop.' : 'Choose another topic.'}
+              </Text>
+            ) : (
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                Need at least {def.floor} phrases here. {pinned ? 'Try another stop.' : 'Choose another topic.'}
+              </Text>
+            )}
           </View>
         ) : phase === 'countdown' ? (
           <View style={styles.center} testID="quick-countdown">
@@ -521,7 +562,7 @@ export function QuickGameShell({
             <View style={styles.progressSection}>
               <View style={styles.progressMeta}>
                 <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
-                  Round {round + 1} of {roundsPerRun}
+                  Round {round + 1} of {resolvedRounds}
                 </Text>
                 <Text style={[styles.progressLabel, { color: '#10B981' }]}>
                   ✓ {correct} correct
@@ -533,7 +574,7 @@ export function QuickGameShell({
                     styles.progressBar,
                     {
                       backgroundColor: colors.primary,
-                      width: `${(round / roundsPerRun) * 100}%` as any,
+                      width: `${(round / resolvedRounds) * 100}%` as any,
                     },
                   ]}
                 />
@@ -576,7 +617,7 @@ export function QuickGameShell({
               api: {
                 // Zero-based, web parity. The display above adds the +1.
                 round,
-                total: roundsPerRun,
+                total: resolvedRounds,
                 correct,
                 secondsLeft,
                 timedOut,
@@ -594,7 +635,7 @@ export function QuickGameShell({
       {phase === 'end' && (
         <EndScreen
           score={correct}
-          total={roundsPerRun}
+          total={resolvedRounds}
           xpEarned={xpEarned}
           chaiEarned={chaiEarned}
           pinned={pinned}
