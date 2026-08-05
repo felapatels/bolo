@@ -86,6 +86,7 @@ import {
 import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
+import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
@@ -550,6 +551,21 @@ export default function ReviewScreen() {
     return () => { cancelled = true; };
   }, []);
 
+  // Coach voice master gate: when off, all Bolo speech is silent regardless
+  // of the more granular spoken-feedback setting.
+  const [coachVoiceEnabled, setCoachVoiceEnabled] = React.useState(true);
+  const coachVoiceRef = React.useRef(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadCoachVoicePref().then((enabled) => {
+      if (!cancelled) {
+        coachVoiceRef.current = enabled;
+        setCoachVoiceEnabled(enabled);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const stopPlayback = React.useCallback(() => {
     playTokenRef.current += 1;
     playbackRef.current?.stop();
@@ -604,6 +620,7 @@ export default function ReviewScreen() {
 
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
+    if (!coachVoiceRef.current) return; // Coach voice master gate
     stopPlayback();
     const token = playTokenRef.current;
     try {
@@ -678,7 +695,7 @@ export default function ReviewScreen() {
 
   React.useEffect(() => {
     if (phase !== 'result' || !result) return;
-    if (!spokenEnabled) return;
+    if (!spokenEnabled || !coachVoiceEnabled) return;
     const pending = feedbackAudioRef.current;
     if (!pending) return;
     stopPlayback();
@@ -699,7 +716,7 @@ export default function ReviewScreen() {
     })();
     return () => stopPlayback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, result, spokenEnabled]);
+  }, [phase, result, spokenEnabled, coachVoiceEnabled]);
 
   // Session-end celebration — confetti only when at least half of the phrases
   // ended in a passing band (Spec 1 gating; no confetti on rough sessions).

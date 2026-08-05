@@ -137,10 +137,20 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
+// Build 35: mock coachVoicePref so the disabled-state test has full control
+// over what the practice screen's useEffect resolves, without relying on
+// AsyncStorage propagation timing through the full component tree.
+jest.mock('@/lib/coachVoicePref', () => ({
+  loadCoachVoicePref: jest.fn().mockResolvedValue(true),
+  saveCoachVoicePref: jest.fn(),
+  COACH_VOICE_PREF_KEY: 'bolo.coachVoice',
+}));
+
 // Imported after the mocks are declared.
 import PracticeScreen from '@/app/(app)/practice/[id]';
 import { playBase64Audio } from '@/lib/audio';
 import { meaningSpeechText, MEANING_AUDIO_KEY } from '@/lib/meaning-audio';
+import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 
 const phraseA = {
   id: 1,
@@ -237,6 +247,33 @@ describe('meaning audio after the phrase clip', () => {
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MEANING_AUDIO_KEY)).toBe('on'),
     );
+  });
+});
+
+// Build 35: meaning toggle is visibly disabled when Coach voice is off.
+describe('meaning toggle disabled when Coach voice is off', () => {
+  it('Pressable has disabled=true when coachVoice pref is off', async () => {
+    // Arrange: pref returns false for this one render.
+    (loadCoachVoicePref as jest.MockedFunction<typeof loadCoachVoicePref>)
+      .mockResolvedValueOnce(false);
+    render(<PracticeScreen />);
+    // Flush the async useEffect that reads loadCoachVoicePref() and commits
+    // setCoachVoiceEnabled(false) → meaningAudioDisabled=true on PracticeHeader.
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    });
+    // Pressable propagates disabled to accessibilityState.disabled on the host View.
+    expect(screen.getByTestId('meaning-audio-header-toggle').props.accessibilityState?.disabled).toBe(true);
+  });
+
+  it('Pressable is not disabled when Coach voice is on (default)', async () => {
+    // Default mock returns true; coachVoiceEnabled stays true → not disabled.
+    render(<PracticeScreen />);
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    });
+    const toggle = screen.getByTestId('meaning-audio-header-toggle');
+    expect(toggle.props.accessibilityState?.disabled).not.toBe(true);
   });
 });
 

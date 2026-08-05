@@ -94,6 +94,7 @@ import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
 import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from '@/lib/meaning-audio';
+import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
@@ -795,6 +796,21 @@ export default function PracticeScreen() {
     };
   }, []);
 
+  // Coach voice master gate: when off, all Bolo speech is silent regardless
+  // of the more granular spoken-feedback and meaning-audio settings below.
+  const [coachVoiceEnabled, setCoachVoiceEnabled] = React.useState(true);
+  const coachVoiceRef = React.useRef(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadCoachVoicePref().then((enabled) => {
+      if (!cancelled) {
+        coachVoiceRef.current = enabled;
+        setCoachVoiceEnabled(enabled);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Silent-mode preference — mirrored in state so the practice-header quick
   // toggle (web parity) applies instantly without reloading the phrase.
   const [silentModeUI, setSilentModeUI] = React.useState(false);
@@ -928,6 +944,7 @@ export default function PracticeScreen() {
 
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
+    if (!coachVoiceRef.current) return; // Coach voice master gate
     stopPlayback();
     const token = playTokenRef.current;
     try {
@@ -1130,7 +1147,7 @@ export default function PracticeScreen() {
   // dropped or stopped.
   React.useEffect(() => {
     if (phase !== 'result' || !result) return;
-    if (!spokenEnabled) return;
+    if (!spokenEnabled || !coachVoiceEnabled) return;
     stopPlayback();
     const token = playTokenRef.current;
     // 1) Band call-out (Task 903) — bundled clip, starts effectively
@@ -1173,7 +1190,7 @@ export default function PracticeScreen() {
       stopPlayback();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, result, spokenEnabled]);
+  }, [phase, result, spokenEnabled, coachVoiceEnabled]);
 
   // Celebrate finishing a whole session with a longer confetti shower — but
   // only when the session went well: at least half of the phrases ended in a
@@ -2106,6 +2123,7 @@ export default function PracticeScreen() {
         onToggleSilentMode={toggleSilentModeUI}
         meaningAudio={meaningAudioUI}
         onToggleMeaningAudio={toggleMeaningAudioUI}
+        meaningAudioDisabled={!coachVoiceEnabled}
       />
       {/* Express test-out banner: one quiet line so the learner knows the
           rules of the run (one take per phrase, pass mark). */}
@@ -2659,6 +2677,7 @@ function PracticeHeader({
   onToggleSilentMode,
   meaningAudio,
   onToggleMeaningAudio,
+  meaningAudioDisabled,
 }: {
   onClose: () => void;
   label: string;
@@ -2670,6 +2689,8 @@ function PracticeHeader({
    *  toggle. Mirrors the web practice header Meaning pill (Task 1003). */
   meaningAudio?: boolean;
   onToggleMeaningAudio?: () => void;
+  /** When true, visibly disables the meaning-audio toggle (coach voice is off). */
+  meaningAudioDisabled?: boolean;
 }) {
   const colors = useColors();
   return (
@@ -2690,6 +2711,7 @@ function PracticeHeader({
       {onToggleMeaningAudio !== undefined ? (
         <Pressable
           onPress={onToggleMeaningAudio}
+          disabled={meaningAudioDisabled}
           accessibilityRole="togglebutton"
           accessibilityLabel={
             meaningAudio
@@ -2702,6 +2724,7 @@ function PracticeHeader({
             styles.closeBtn,
             {
               backgroundColor: meaningAudio ? colors.secondary : colors.card,
+              opacity: meaningAudioDisabled ? 0.4 : 1,
             },
           ]}
         >

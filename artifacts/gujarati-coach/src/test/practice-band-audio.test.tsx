@@ -264,6 +264,23 @@ describe("instant band audio on results", () => {
     expect(h.synth).toHaveBeenCalledTimes(0);
   });
 
+  // Build 35: meaning toggle is disabled (HTML disabled attribute) when Coach
+  // voice is off. coachVoiceRef is initialized synchronously from localStorage
+  // so the disabled state is set on first render, no waiting required.
+  test("meaning toggle is disabled when Coach voice is off", async () => {
+    localStorage.setItem("bolo.coachVoice", "off");
+    await reachIdle();
+    const toggle = screen.getByTitle(/meaning aloud/i);
+    expect(toggle).toBeDisabled();
+  });
+
+  test("meaning toggle is enabled when Coach voice is on", async () => {
+    // default: coachVoice not stored → true
+    await reachIdle();
+    const toggle = screen.getByTitle(/meaning aloud/i);
+    expect(toggle).not.toBeDisabled();
+  });
+
   test("feedback synthesis failure still shows the result card; band clip alone plays", async () => {
     h.synth.mockReset().mockRejectedValue(new Error("TTS down"));
     await reachIdle();

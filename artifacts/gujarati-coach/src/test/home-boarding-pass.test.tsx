@@ -429,4 +429,16 @@ describe("home boarding pass tear SFX + haptic (task 978)", () => {
     expect(h.playTearSfx).not.toHaveBeenCalled();
     expect(h.webHaptic).not.toHaveBeenCalledWith("light");
   });
+
+  // Build 35: Sound effects off suppresses the tear SFX but never blocks navigation.
+  test("Sound effects off — playTearSfx is suppressed", async () => {
+    localStorage.setItem("bolo.soundEffects", "off");
+    try {
+      renderHome();
+      await userEvent.setup().click(getPass());
+      expect(h.playTearSfx).not.toHaveBeenCalled();
+    } finally {
+      localStorage.removeItem("bolo.soundEffects");
+    }
+  });
 });

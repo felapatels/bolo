@@ -7,6 +7,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { preloadTearAudio, playTearSfx } from "@/lib/tearAudio";
+import { loadSoundPref } from "@/lib/soundPref";
 import { blessAudioPlayback } from "@/lib/iosAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
@@ -247,7 +248,7 @@ export default function Home() {
       // Haptic + SFX fire immediately -- both are fire-and-forget and never
       // delay the animation or navigation regardless of browser support.
       webHaptic("light");
-      playTearSfx();
+      if (loadSoundPref()) { playTearSfx(); }
       setTearing(true);
       // Unit-aware read (cssTimeMs): the production minifier rewrites
       // "500ms" as ".5s"; a bare parseFloat made the tear beat 0.5ms in prod.

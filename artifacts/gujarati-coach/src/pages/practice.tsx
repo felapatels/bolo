@@ -53,6 +53,7 @@ import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { playBandClip, preloadBandClips, type BandClipHandle } from "@/lib/band-audio";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from "@/lib/meaning-audio";
+import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
@@ -673,6 +674,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     saveMeaningAudio(enabled);
   };
 
+  // Coach voice master gate — loaded once at mount (synchronous localStorage
+  // read). When off, all Bolo speech is silent regardless of the more granular
+  // spoken-feedback and meaning-audio settings below.
+  const coachVoiceRef = useRef<boolean>(loadCoachVoicePref());
+
   // Warm up the microphone as soon as the practice session mounts, so the
   // first hold starts capturing immediately and the first syllable isn't
   // clipped — but only when permission is already granted, so first-time
@@ -834,7 +840,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         if (cancelled) return;
         // Read the preference fresh at play time so a toggle flip applies to
         // the very next play without a reload.
-        if (!meaningAudioPrefRef.current || !phrase.english) {
+        if (!coachVoiceRef.current || !meaningAudioPrefRef.current || !phrase.english) {
           setState("idle");
           return;
         }
@@ -863,6 +869,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       };
 
       const playCoach = async () => {
+        if (!coachVoiceRef.current) { setState("idle"); return; }
         let audio: HTMLAudioElement;
         try {
           const cached = coachAudioCacheRef.current.get(phrase.id);
@@ -950,7 +957,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       : "";
     // Read the setting fresh each time a result lands, so a toggle flipped on
     // the Account page applies to the very next score without a reload.
-    if (state === "result" && result && spokenFeedback) {
+    if (state === "result" && result && spokenFeedback && coachVoiceRef.current) {
       let cancelled = false;
       // 1) Band call-out — pre-bundled audio, no synthesis wait. Correct
       // band mapping is result.band itself (nocatch gets the neutral clip).
@@ -1167,7 +1174,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // voice is ready (or nearly ready) when the result card appears.
       // gpt-audio synthesis takes ~1–2 s; pre-warming here cuts that delay.
       const fbText = [evalRes.feedback, evalRes.tip].filter(Boolean).join(" ");
-      if (fbText && spokenFeedbackRef.current) {
+      if (fbText && spokenFeedbackRef.current && coachVoiceRef.current) {
         feedbackAudioPendingRef.current = synthesize
           .mutateAsync({ data: { text: fbText } })
           .then(res => res)
@@ -2098,6 +2105,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         <button
           onClick={() => changeMeaningAudio(!meaningAudio)}
           aria-pressed={meaningAudio}
+          disabled={!coachVoiceRef.current}
           title={
             meaningAudio
               ? "Meaning aloud on, the English meaning is spoken after each phrase. Tap to turn off"
@@ -2108,6 +2116,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             meaningAudio
               ? "bg-secondary text-white shadow-sm"
               : "bg-muted text-muted-foreground",
+            "disabled:opacity-40 disabled:pointer-events-none",
           )}
         >
           <Languages className="w-4 h-4" />

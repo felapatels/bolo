@@ -45,6 +45,7 @@ import {
   saveSilentMode,
 } from '@/lib/settings';
 import { loadSoundPref, saveSoundPref } from '@/lib/soundPref';
+import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
 import { hapticLight } from '@/lib/haptics';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
@@ -127,6 +128,24 @@ export default function AccountScreen() {
     hapticLight();
     setSoundOn(enabled);
     void saveSoundPref(enabled);
+  };
+
+  // Device-local: whether Bolo's voice plays (phrase audio, meaning audio,
+  // feedback read-aloud, band call-outs, chat replies, greeting). Default on.
+  const [coachVoiceOn, setCoachVoiceOn] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadCoachVoicePref().then((enabled) => {
+      if (!cancelled) setCoachVoiceOn(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeCoachVoiceOn = (enabled: boolean) => {
+    hapticLight();
+    setCoachVoiceOn(enabled);
+    void saveCoachVoicePref(enabled);
   };
   const [name, setName] = React.useState('');
   const [avatarBusy, setAvatarBusy] = React.useState(false);
@@ -564,6 +583,26 @@ export default function AccountScreen() {
                 accessibilityLabel="Sound effects"
                 value={soundOn}
                 onValueChange={changeSoundOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="mic" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Coach voice
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Play Bolo's spoken voice and phrase audio
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Coach voice"
+                value={coachVoiceOn}
+                onValueChange={changeCoachVoiceOn}
                 trackColor={{ true: colors.primary }}
               />
             </View>

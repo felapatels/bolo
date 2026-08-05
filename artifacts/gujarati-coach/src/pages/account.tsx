@@ -19,6 +19,7 @@ import {
   Mail,
   Users,
   Volume2,
+  Mic,
   Lock,
   Check,
   Play,
@@ -68,6 +69,7 @@ import { useTheme, type Theme } from "@/lib/theme-context";
 import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
+import { loadCoachVoicePref, saveCoachVoicePref } from "@/lib/coachVoicePref";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -191,6 +193,14 @@ export default function Account() {
   function handleChangeSoundOn(enabled: boolean) {
     setSoundOn(enabled);
     saveSoundPref(enabled);
+  }
+
+  // Device-local: whether Bolo's voice plays (phrase audio, meaning audio,
+  // feedback read-aloud, band call-outs, chat replies, greeting). Default on.
+  const [coachVoiceOn, setCoachVoiceOn] = useState(loadCoachVoicePref);
+  function handleChangeCoachVoiceOn(enabled: boolean) {
+    setCoachVoiceOn(enabled);
+    saveCoachVoicePref(enabled);
   }
 
   // Profile form — seeded from the account snapshot once it loads.
@@ -643,6 +653,25 @@ export default function Account() {
               <Switch
                 checked={soundOn}
                 onCheckedChange={handleChangeSoundOn}
+              />
+            </div>
+          </div>
+
+          {/* Coach voice */}
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Mic className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Coach voice</p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Play Bolo's spoken voice and phrase audio
+                </p>
+              </div>
+              <Switch
+                checked={coachVoiceOn}
+                onCheckedChange={handleChangeCoachVoiceOn}
               />
             </div>
           </div>

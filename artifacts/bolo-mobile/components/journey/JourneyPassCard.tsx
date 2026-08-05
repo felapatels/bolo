@@ -49,6 +49,7 @@ import {
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
 import { playTearSfx } from '@/lib/tearAudio';
+import { loadSoundPref } from '@/lib/soundPref';
 
 // Web tuning constants (index.css :root block + PASS_PRESS_* in home.tsx).
 const PASS_CYCLE_MS = 3200; // breathe + shimmer + glow share one heartbeat
@@ -260,7 +261,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
     // same beat as PressableScale's press haptic. Fire-and-forget: it never
     // delays the tear or the scheduled navigation, and it sits AFTER the
     // reduceMotion early-return, so reduced motion stays instant and silent.
-    playTearSfx();
+    loadSoundPref().then(on => { if (on) playTearSfx(); });
     tearingRef.current = true;
     setTearing(true);
     tearProgress.value = 0;

@@ -29,6 +29,8 @@ import { PlusPill } from "@/components/plus";
 import { ChatTipCard } from "@/components/chat-tip-card";
 import { ExpressOfferMoment } from "@/components/chai-wallet";
 import { webHaptic } from "@/lib/haptics";
+import { loadSoundPref } from "@/lib/soundPref";
+import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -601,26 +603,38 @@ export default function ChatPage() {
           }
         };
 
-        // Play greeting audio (squawk SFX intro, then the voice clip).
-        const greetingAudio = acquireAudio(voicePoolRef, `data:audio/${greeting!.format};base64,${greeting!.audioBase64}`);
-        playbackRef.current = greetingAudio;
-        greetingAudio.onended = onGreetingEnded;
-        greetingAudio.onerror = () => onGreetingEnded();
+        if (!loadCoachVoicePref()) {
+          // Coach voice off: skip greeting audio entirely; coordinates the
+          // real reply the same way a completed audio clip would.
+          onGreetingEnded();
+        } else {
+          // Play greeting audio (squawk SFX intro, then the voice clip).
+          const greetingAudio = acquireAudio(voicePoolRef, `data:audio/${greeting!.format};base64,${greeting!.audioBase64}`);
+          playbackRef.current = greetingAudio;
+          greetingAudio.onended = onGreetingEnded;
+          greetingAudio.onerror = () => onGreetingEnded();
 
-        const startGreetingAudio = () => {
-          if (activeTurnRef.current !== myTurn) return;
-          greetingAudio.play().catch((e) => {
-            console.log('[audio] play blocked path=greeting', (e as Error)?.name);
-            onGreetingEnded();
-          });
-        };
+          const startGreetingAudio = () => {
+            if (activeTurnRef.current !== myTurn) return;
+            greetingAudio.play().catch((e) => {
+              console.log('[audio] play blocked path=greeting', (e as Error)?.name);
+              onGreetingEnded();
+            });
+          };
 
-        const gSfxIdx = greeting!.squawkVariant ?? 0;
-        const gSfxFile = ["squawk_a", "squawk_b", "squawk_c"][gSfxIdx];
-        const gSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${gSfxFile}.mp3`);
-        gSfx.onended = startGreetingAudio;
-        gSfx.onerror = startGreetingAudio;
-        gSfx.play().catch(startGreetingAudio);
+          const gSfxIdx = greeting!.squawkVariant ?? 0;
+          const gSfxFile = ["squawk_a", "squawk_b", "squawk_c"][gSfxIdx];
+          const gSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${gSfxFile}.mp3`);
+          gSfx.onended = startGreetingAudio;
+          gSfx.onerror = startGreetingAudio;
+          // Sound effects gate: if off, skip the squawk SFX and start the
+          // greeting voice clip directly.
+          if (loadSoundPref()) {
+            gSfx.play().catch(startGreetingAudio);
+          } else {
+            startGreetingAudio();
+          }
+        }
 
         // Fire the real API call (no streaming audio — we just need the reply).
         const chatUrl = getChatTurnUrl();
@@ -725,6 +739,7 @@ export default function ChatPage() {
                 setPhase("playing");
                 const playRealAudio = () => {
                   if (activeTurnRef.current !== myTurn) return;
+                  if (!loadCoachVoicePref()) { if (activeTurnRef.current === myTurn) setPhase("idle"); return; }
                   console.log('[audio] play path=reply');
                   stopCurrentPlayback();
                   const ra = acquireAudio(voicePoolRef, `data:audio/${rFmt};base64,${rAudio}`);
@@ -750,7 +765,7 @@ export default function ChatPage() {
                   };
                   rSfx.onended = onceRealAudio;
                   rSfx.onerror = onceRealAudio;
-                  rSfx.play().catch(onceRealAudio);
+                  if (loadSoundPref()) { rSfx.play().catch(onceRealAudio); } else { onceRealAudio(); }
                 } else {
                   playRealAudio();
                 }
@@ -1076,6 +1091,7 @@ export default function ChatPage() {
             setPhase("playing");
 
             const playReply = () => {
+              if (!loadCoachVoicePref()) { setPhase("idle"); return; }
               console.log('[audio] play path=reply');
               stopCurrentPlayback();
               const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
@@ -1099,7 +1115,7 @@ export default function ChatPage() {
               };
               sfx.onended = onceReply;
               sfx.onerror = onceReply;
-              sfx.play().catch(onceReply);
+              if (loadSoundPref()) { sfx.play().catch(onceReply); } else { onceReply(); }
             } else {
               playReply();
             }
@@ -1414,6 +1430,7 @@ export default function ChatPage() {
             setPhase("playing");
             const playReply = () => {
               if (activeTurnRef.current !== myTurn) return;
+              if (!loadCoachVoicePref()) { if (activeTurnRef.current === myTurn) setPhase("idle"); return; }
               console.log('[audio] play path=reply');
               stopCurrentPlayback();
               const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
@@ -1436,7 +1453,7 @@ export default function ChatPage() {
               };
               sfx.onended = onceReply;
               sfx.onerror = onceReply;
-              sfx.play().catch(onceReply);
+              if (loadSoundPref()) { sfx.play().catch(onceReply); } else { onceReply(); }
             } else {
               playReply();
             }

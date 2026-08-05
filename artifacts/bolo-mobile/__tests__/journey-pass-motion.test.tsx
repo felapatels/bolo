@@ -84,8 +84,17 @@ jest.mock('@/lib/tearAudio', () => ({
   playTearSfx: jest.fn(),
 }));
 
+// Build 35: tearSfx is now gated by soundPref. Mock the whole module so
+// AsyncStorage is not needed for pref reads and the default is "on".
+jest.mock('@/lib/soundPref', () => ({
+  loadSoundPref: jest.fn().mockResolvedValue(true),
+  saveSoundPref: jest.fn(),
+  SOUND_PREF_KEY: 'bolo.soundEffects',
+}));
+
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { playTearSfx } from '@/lib/tearAudio';
+import { loadSoundPref } from '@/lib/soundPref';
 
 const CURRENT = {
   geoName: 'New Delhi',
@@ -256,17 +265,19 @@ describe('stub tear-off activation', () => {
   // R4: the recorded tear SFX plays at tear start (before the 500ms nav
   // mark), exactly once per tear — swallowed re-presses stay silent, and a
   // fresh activation after the reset window plays it again.
-  it('plays the tear SFX once per tear, at tear start', () => {
+  // The SFX is gated behind an async soundPref check (Build 35), so each
+  // press assertion awaits act to flush the resolved promise.
+  it('plays the tear SFX once per tear, at tear start', async () => {
     const onPress = jest.fn();
     render(<JourneyPassCard onPress={onPress} />);
     const card = screen.getByTestId('journey-pass-card');
 
-    fireEvent.press(card);
-    // Fires synchronously with the tear start, ahead of navigation.
+    await act(async () => { fireEvent.press(card); });
+    // Fires after the async soundPref check resolves, ahead of navigation.
     expect(playTearSfx).toHaveBeenCalledTimes(1);
     expect(onPress).not.toHaveBeenCalled();
 
-    // Swallowed mid-tear re-press: no second sound.
+    // Swallowed mid-tear re-press: no second sound (guard fires before pref check).
     act(() => {
       jest.advanceTimersByTime(300);
     });
@@ -277,7 +288,17 @@ describe('stub tear-off activation', () => {
     act(() => {
       jest.advanceTimersByTime(1300);
     });
-    fireEvent.press(card);
+    await act(async () => { fireEvent.press(card); });
     expect(playTearSfx).toHaveBeenCalledTimes(2);
+  });
+
+  // Build 35: Sound effects off suppresses the tear SFX. Navigation still fires.
+  it('suppresses tear SFX when Sound effects is off', async () => {
+    (loadSoundPref as jest.MockedFunction<typeof loadSoundPref>).mockResolvedValueOnce(false);
+    render(<JourneyPassCard onPress={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('journey-pass-card'));
+    });
+    expect(playTearSfx).not.toHaveBeenCalled();
   });
 });

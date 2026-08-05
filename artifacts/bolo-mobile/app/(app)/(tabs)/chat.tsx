@@ -49,6 +49,8 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
+import { loadSoundPref } from '@/lib/soundPref';
+import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { PressableScale } from '@/components/PressableScale';
 import { TipCard } from '@/components/TipCard';
 import { useChatRecording } from '@/components/ChatRecordingContext';
@@ -80,21 +82,26 @@ const SQUAWK_ASSETS = [
  * the start of Bolo's speech rather than blocking it.
  */
 function playSquawk(variant: 0 | 1 | 2): void {
-  // keepAudioSessionActive: without it, this ~0.5 s chirp finishing while the
-  // streamed reply is still buffering (buffering players do not count as
-  // "playing" to expo-audio's deactivation check) tears down the audio
-  // session mid-turn and degrades the reply's volume and quality. See
-  // lib/audio.ts playStreamingAudio for the full seam description.
-  const sfxPlayer = createAudioPlayer(SQUAWK_ASSETS[variant], {
-    keepAudioSessionActive: true,
+  // Sound effects master gate: if the user turned off "Sound effects" in
+  // Account settings, skip the chirp entirely.
+  void loadSoundPref().then((on) => {
+    if (!on) return;
+    // keepAudioSessionActive: without it, this ~0.5 s chirp finishing while the
+    // streamed reply is still buffering (buffering players do not count as
+    // "playing" to expo-audio's deactivation check) tears down the audio
+    // session mid-turn and degrades the reply's volume and quality. See
+    // lib/audio.ts playStreamingAudio for the full seam description.
+    const sfxPlayer = createAudioPlayer(SQUAWK_ASSETS[variant], {
+      keepAudioSessionActive: true,
+    });
+    const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
+      if (s.didJustFinish) {
+        try { sub.remove(); } catch {}
+        try { sfxPlayer.remove(); } catch {}
+      }
+    });
+    sfxPlayer.play();
   });
-  const sub = sfxPlayer.addListener('playbackStatusUpdate', (s) => {
-    if (s.didJustFinish) {
-      try { sub.remove(); } catch {}
-      try { sfxPlayer.remove(); } catch {}
-    }
-  });
-  sfxPlayer.play();
 }
 
 type ChatPhase =
@@ -369,6 +376,12 @@ export default function ChatScreen() {
   // still in flight when the learner switches tabs can't start playing the
   // reply audio in the background once the server responds.
   const isFocusedRef = React.useRef(true);
+  // Coach voice master gate: load once at mount so greeting and reply audio
+  // are skipped when the user has turned it off in Account settings.
+  const coachVoiceRef = React.useRef(true);
+  React.useEffect(() => {
+    void loadCoachVoicePref().then((v) => { coachVoiceRef.current = v; });
+  }, []);
   useFocusEffect(
     React.useCallback(
       () => {
@@ -641,22 +654,28 @@ export default function ChatScreen() {
       // Play squawk SFX (fire-and-forget intro chirp), then greeting audio.
       playSquawk(greeting!.squawkVariant ?? 0);
 
-      try {
-        const gHandle = await playBase64Audio(
-          greeting!.audioBase64,
-          greeting!.format,
-          () => {
-            if (playbackRef.current === gHandle) playbackRef.current = null;
-            onGreetingEnded();
-          },
-        );
-        if (activeTurnRef.current === myTurn && isFocusedRef.current) {
-          playbackRef.current = gHandle;
-        } else {
-          gHandle.stop();
+      if (!coachVoiceRef.current) {
+        // Coach voice off: skip greeting audio and let reply coordination
+        // proceed immediately, the same way a completed clip would.
+        onGreetingEnded();
+      } else {
+        try {
+          const gHandle = await playBase64Audio(
+            greeting!.audioBase64,
+            greeting!.format,
+            () => {
+              if (playbackRef.current === gHandle) playbackRef.current = null;
+              onGreetingEnded();
+            },
+          );
+          if (activeTurnRef.current === myTurn && isFocusedRef.current) {
+            playbackRef.current = gHandle;
+          } else {
+            gHandle.stop();
+          }
+        } catch {
+          onGreetingEnded(); // treat play failure as "greeting ended"
         }
-      } catch {
-        onGreetingEnded(); // treat play failure as "greeting ended"
       }
 
       // Fire the real API call in the background (no streaming audio needed).
@@ -788,29 +807,37 @@ export default function ChatScreen() {
           playSquawk(gSquawk);
         }
 
-        void playBase64Audio(gReplyAudio, gFmt, () => {
-          playbackRef.current = null;
+        if (!coachVoiceRef.current) {
+          // Coach voice off: skip reply audio and release the turn.
           if (activeTurnRef.current === myTurn) {
             setPhase('idle');
             finishingRef.current = false;
           }
-        }).then((handle) => {
-          if (activeTurnRef.current === myTurn && isFocusedRef.current) {
-            playbackRef.current = handle;
-          } else {
-            handle.stop();
+        } else {
+          void playBase64Audio(gReplyAudio, gFmt, () => {
+            playbackRef.current = null;
             if (activeTurnRef.current === myTurn) {
               setPhase('idle');
               finishingRef.current = false;
             }
-          }
-        }).catch(() => {
-          playbackRef.current = null;
-          if (activeTurnRef.current === myTurn) {
-            setPhase('idle');
-            finishingRef.current = false;
-          }
-        });
+          }).then((handle) => {
+            if (activeTurnRef.current === myTurn && isFocusedRef.current) {
+              playbackRef.current = handle;
+            } else {
+              handle.stop();
+              if (activeTurnRef.current === myTurn) {
+                setPhase('idle');
+                finishingRef.current = false;
+              }
+            }
+          }).catch(() => {
+            playbackRef.current = null;
+            if (activeTurnRef.current === myTurn) {
+              setPhase('idle');
+              finishingRef.current = false;
+            }
+          });
+        }
       };
 
       if (greetingEnded) {
@@ -879,24 +906,31 @@ export default function ChatScreen() {
             squawkPlayed = true;
             playSquawk(turnSquawkVariant);
           }
-          setPhase('playing');
-          hapticHeavy();
-          const handle = await playStreamingAudio(
-            `${chatUrl}/audio/${streamId}`,
-            token ? { Authorization: `Bearer ${token}` } : {},
-            () => {
-              streamFinishedPlaying = true;
-              if (activeTurnRef.current !== myTurn) return;
-              playbackRef.current = null;
-              if (isFocusedRef.current) setPhase('idle');
-            },
-          );
-          if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
-            handle.stop();
-            return;
+          if (!coachVoiceRef.current) {
+            // Coach voice off: mark stream as done so the buffered fallback
+            // path below also skips audio.
+            streamFinishedPlaying = true;
+            if (isFocusedRef.current) setPhase('idle');
+          } else {
+            setPhase('playing');
+            hapticHeavy();
+            const handle = await playStreamingAudio(
+              `${chatUrl}/audio/${streamId}`,
+              token ? { Authorization: `Bearer ${token}` } : {},
+              () => {
+                streamFinishedPlaying = true;
+                if (activeTurnRef.current !== myTurn) return;
+                playbackRef.current = null;
+                if (isFocusedRef.current) setPhase('idle');
+              },
+            );
+            if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+              handle.stop();
+              return;
+            }
+            streamHandle = handle;
+            playbackRef.current = handle;
           }
-          streamHandle = handle;
-          playbackRef.current = handle;
         } catch {
           // Launch failed — the buffered clip from the `reply` event takes over.
           streamFailed = true;
@@ -1221,15 +1255,19 @@ export default function ChatScreen() {
           playSquawk(squawkVariant);
         }
 
-        const handle = await playBase64Audio(
-          replyAudioBase64,
-          format,
-          () => {
-            playbackRef.current = null;
-            setPhase('idle');
-          },
-        );
-        playbackRef.current = handle;
+        if (!coachVoiceRef.current) {
+          setPhase('idle');
+        } else {
+          const handle = await playBase64Audio(
+            replyAudioBase64,
+            format,
+            () => {
+              playbackRef.current = null;
+              setPhase('idle');
+            },
+          );
+          playbackRef.current = handle;
+        }
       }
     } catch (err) {
       // A newer turn started while this one was in flight — drop this error
@@ -1449,15 +1487,19 @@ export default function ChatScreen() {
         playSquawk(squawkVariant);
       }
 
-      const handle = await playBase64Audio(replyAudioBase64, format, () => {
-        playbackRef.current = null;
+      if (!coachVoiceRef.current) {
         if (activeTurnRef.current === myTurn) setPhase('idle');
-      });
-      if (activeTurnRef.current === myTurn && isFocusedRef.current) {
-        playbackRef.current = handle;
       } else {
-        handle.stop();
-        if (activeTurnRef.current === myTurn) setPhase('idle');
+        const handle = await playBase64Audio(replyAudioBase64, format, () => {
+          playbackRef.current = null;
+          if (activeTurnRef.current === myTurn) setPhase('idle');
+        });
+        if (activeTurnRef.current === myTurn && isFocusedRef.current) {
+          playbackRef.current = handle;
+        } else {
+          handle.stop();
+          if (activeTurnRef.current === myTurn) setPhase('idle');
+        }
       }
     } catch (err) {
       if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
