@@ -58,6 +58,7 @@ import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { markSignalCleared } from '@/lib/signalMemory';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import type { QuickGameDef } from '@/lib/quick-games';
@@ -338,6 +339,19 @@ export function QuickGameShell({
             if (chai > 0) {
               setChaiEarned(chai);
               queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+              // The shell is the only place that sees a real grant, so it is
+              // the only place allowed to retire a crossing locally. Guarded
+              // three ways: the launch must be a SIGNAL one (a closeout or hub
+              // run can grant Chai too, and marking on those would clear a
+              // crossing nobody played), the ref must parse to a gap, and the
+              // server must have actually granted — this whole branch is
+              // inside `chai > 0`. The mark can therefore never outrun the
+              // ledger and retire a still-claimable reward.
+              const gap =
+                launch.context === 'signal' && launch.contextRef
+                  ? Number(/^gap-([0-9]+)$/.exec(launch.contextRef)?.[1] ?? NaN)
+                  : NaN;
+              if (Number.isInteger(gap)) void markSignalCleared(activeLang, gap);
             }
           },
         },

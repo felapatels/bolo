@@ -20,6 +20,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 //    a plain hub launch, rather than posting a signal the server rejects
 // ---------------------------------------------------------------------------
 
+import { isSignalCleared, resetSignalMemory } from '@/lib/signalMemory';
+
 const mockState: Record<string, any> = {};
 
 jest.mock('expo-router', () => ({
@@ -860,5 +862,63 @@ describe('exit paths', () => {
     fireEvent.press(screen.getByTestId('game-exit-btn'));
     expect(confirmDiscardRun).not.toHaveBeenCalled();
     expect(mockState.back).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── The local cleared mark follows the ledger, never leads it ───────────────
+// This is display state on the journey map. If it is ever written without a
+// real grant, the map shows a paid crossing the server has no record of and
+// quietly retires a reward the learner can still claim.
+
+describe('signal cleared mark', () => {
+  beforeEach(() => {
+    resetSignalMemory();
+  });
+
+  async function playFullRun() {
+    renderShell();
+    await act(async () => {});
+    await runCountdown();
+    answerRounds(5, 5);
+  }
+
+  test('a granting signal run marks its own crossing cleared', async () => {
+    mockState.params = { cat: '1', ctx: 'signal', gap: '4' };
+    mockState.sessionResponse = { xpEarned: 25, totalXp: 900, chaiGranted: 3 };
+    await playFullRun();
+
+    expect(isSignalCleared('gu', 4)).toBe(true);
+    // Only its own crossing.
+    expect(isSignalCleared('gu', 3)).toBe(false);
+    expect(isSignalCleared('gu', 5)).toBe(false);
+  });
+
+  test('a signal run the server refused to pay marks nothing', async () => {
+    // Second run at the same crossing: the ledger already spent this refId,
+    // so the session succeeds and grants zero.
+    mockState.params = { cat: '1', ctx: 'signal', gap: '4' };
+    mockState.sessionResponse = { xpEarned: 25, totalXp: 900, chaiGranted: 0 };
+    await playFullRun();
+
+    expect(isSignalCleared('gu', 4)).toBe(false);
+  });
+
+  test('a failed session marks nothing', async () => {
+    mockState.params = { cat: '1', ctx: 'signal', gap: '4' };
+    // The POST rejects, so onSuccess never runs.
+    mockState.recordMutate = jest.fn(() => {});
+    await playFullRun();
+
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+    expect(isSignalCleared('gu', 4)).toBe(false);
+  });
+
+  test('a granting closeout or hub run never clears a crossing', async () => {
+    mockState.sessionResponse = { xpEarned: 25, totalXp: 900, chaiGranted: 5 };
+    mockState.params = { cat: '1', ctx: 'closeout' };
+    await playFullRun();
+
+    const swept = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    expect(swept.filter((g) => isSignalCleared('gu', g))).toEqual([]);
   });
 });
