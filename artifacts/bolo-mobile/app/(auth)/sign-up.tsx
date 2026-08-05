@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSignUp } from '@clerk/expo';
+import { useClerk, useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -13,6 +13,7 @@ import {
   reportAuthError,
   reportAuthIncompleteState,
 } from '@/lib/authErrors';
+import { abandonSignUpAttempt } from '@/lib/abandonSignUp';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -23,6 +24,7 @@ import { AppFonts } from '@/constants/fonts';
 
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
+  const clerk = useClerk();
   const router = useRouter();
   const colors = useColors();
 
@@ -30,6 +32,11 @@ export default function SignUpScreen() {
   const [password, setPassword] = React.useState('');
   const [code, setCode] = React.useState('');
   const [formError, setFormError] = React.useState<string | null>(null);
+  // Local escape from the code step. The step is derived from server state,
+  // so without this the screen re-renders itself on every launch and there is
+  // no way back to the form (iOS build 34 trap).
+  const [returnedToForm, setReturnedToForm] = React.useState(false);
+  const [abandoning, setAbandoning] = React.useState(false);
 
   const busy = fetchStatus === 'fetching';
   const finishNavigate = () => router.replace('/(app)/(tabs)');
@@ -77,6 +84,8 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setFormError(null);
+    // A fresh submit re-enters the code step if Clerk asks for one again.
+    setReturnedToForm(false);
     const { error } = await signUp.password({ emailAddress, password });
     if (error) {
       handleUnexpected('signUp.password', error);
@@ -116,8 +125,34 @@ export default function SignUpScreen() {
   };
 
   const awaitingCode =
+    !returnedToForm &&
     signUp.status === 'missing_requirements' &&
     signUp.unverifiedFields.includes('email_address');
+
+  /** Back out of the code step without touching Clerk state. */
+  const backToForm = () => {
+    setFormError(null);
+    setCode('');
+    setReturnedToForm(true);
+  };
+
+  /**
+   * Abandon the stuck attempt, then return to the email form with the fields
+   * cleared. On failure the user still lands on a usable form, with the
+   * message the helper produced — never a dead button, never a blank screen.
+   */
+  const handleUseDifferentEmail = async () => {
+    if (!awaitingCode) return; // constraint: pre-session code step only
+    setFormError(null);
+    setAbandoning(true);
+    const result = await abandonSignUpAttempt(clerk);
+    setEmailAddress('');
+    setPassword('');
+    setCode('');
+    setReturnedToForm(true);
+    setAbandoning(false);
+    if (!result.ok) setFormError(result.message);
+  };
 
   const formErrorLine = formError ?? fieldError(errors.raw?.[0]);
 
@@ -161,6 +196,25 @@ export default function SignUpScreen() {
         >
           <Text style={[styles.footerLink, { color: colors.secondary }]}>
             Send a new code
+          </Text>
+        </Pressable>
+        {/* Escape hatches. Rendered ONLY in this branch: the abandon helper
+            destroys the Clerk client, which would be a silent sign-out if it
+            were reachable from anywhere a session exists. */}
+        <Pressable
+          style={styles.escape}
+          disabled={busy || abandoning}
+          onPress={() => {
+            void handleUseDifferentEmail();
+          }}
+        >
+          <Text style={[styles.footerLink, { color: colors.primary }]}>
+            Use a different email
+          </Text>
+        </Pressable>
+        <Pressable style={styles.escape} disabled={abandoning} onPress={backToForm}>
+          <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
+            Back
           </Text>
         </Pressable>
         <View nativeID="clerk-captcha" />
@@ -265,4 +319,5 @@ const styles = StyleSheet.create({
   footerText: { fontFamily: AppFonts.regular, fontSize: 15 },
   footerLink: { fontFamily: AppFonts.bold, fontSize: 15 },
   resend: { alignItems: 'center', marginTop: 18 },
+  escape: { alignItems: 'center', marginTop: 14 },
 });
