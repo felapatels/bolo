@@ -1,4 +1,5 @@
 import type { Entitlements } from "@workspace/api-client-react";
+import type { PricingCatalog } from "@/lib/pricing";
 
 // Shared entitlement snapshots mirroring what GET /api/entitlements returns for
 // each plan. The whole locked-vs-unlocked UI is driven off these shapes, so the
@@ -48,6 +49,21 @@ export const TRIALING_ENTITLEMENTS: Entitlements = {
   trialEndsAt: "2099-01-01T00:00:00.000Z",
   currentPeriodEnd: null,
 } as Entitlements;
+
+// The live Stripe price ladder as GET /api/pricing reports it (minor units,
+// exactly as Stripe holds them). Seeded into the shared pricing cache by
+// setup.ts so every component test renders real, deterministic amounts without
+// a network call. Update this when the Stripe prices themselves change.
+export const PRICING_CATALOG: PricingCatalog = {
+  plus: {
+    monthly: { amountCents: 1299, currency: "usd" },
+    annual: { amountCents: 8999, currency: "usd" },
+  },
+  family: {
+    monthly: { amountCents: 2499, currency: "usd" },
+    annual: { amountCents: 17499, currency: "usd" },
+  },
+};
 
 // The shared HTTP 402 body every server gate returns, wrapped to look like the
 // ApiError the client throws (status + parsed data).

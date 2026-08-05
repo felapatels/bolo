@@ -18,7 +18,7 @@ import { SpeakingDemo } from '@/components/speaking-demo';
 import { Mascot } from '@/components/mascot';
 import { FloatingTag, springs } from '@/lib/motion';
 import { diasporaOrdered, LANGUAGE_PAGES } from '@/lib/languagePages';
-import { TIER_PRICING, FAMILY_SEATS } from '@/lib/pricing';
+import { usePricing, FAMILY_SEATS } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
 import { isIosSafariWeb } from '@/lib/iosAudio';
@@ -208,8 +208,13 @@ export default function Landing({
     transition: reduceMotion ? { duration: 0.001 } : { ...springs.smooth, delay },
   });
 
-  const plusMonthly = TIER_PRICING.plus.monthly;
-  const familyMonthly = TIER_PRICING.family.monthly;
+  // Live Stripe prices. Absent until they load (or if they cannot be loaded):
+  // the pricing cards then show a placeholder instead of an invented amount.
+  const { pricing } = usePricing();
+  const plusMonthly = pricing?.plus.monthly;
+  const plusAnnual = pricing?.plus.annual;
+  const familyMonthly = pricing?.family.monthly;
+  const familyAnnual = pricing?.family.annual;
 
   return (
     <div className="app-surface min-h-[100dvh] bg-background overflow-x-hidden">
@@ -563,13 +568,24 @@ export default function Landing({
                 </span>
                 <h3 className="text-xl font-black text-foreground">All-Access</h3>
                 <p className="mt-1 text-3xl font-black text-foreground">
-                  {plusMonthly.price}
-                  <span className="text-sm font-bold text-muted-foreground">{plusMonthly.per}</span>
+                  {plusMonthly ? (
+                    <>
+                      {plusMonthly.price}
+                      <span className="text-sm font-bold text-muted-foreground">{plusMonthly.per}</span>
+                    </>
+                  ) : (
+                    <span
+                      className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted align-middle"
+                      aria-label="Loading price"
+                    />
+                  )}
                 </p>
-                <p className="text-xs font-bold text-muted-foreground mt-1">
-                  or {TIER_PRICING.plus.annual.price}
-                  {TIER_PRICING.plus.annual.per} billed yearly
-                </p>
+                {plusAnnual && (
+                  <p className="text-xs font-bold text-muted-foreground mt-1">
+                    or {plusAnnual.price}
+                    {plusAnnual.per} billed yearly
+                  </p>
+                )}
                 <ul className="mt-4 space-y-2 text-sm font-medium text-muted-foreground flex-1">
                   <li>All 22 languages, the full phrase library and sentences</li>
                   <li>Every game, including Script Trace and the Bolo Quiz</li>
@@ -590,13 +606,24 @@ export default function Landing({
               <div className="glass-card rounded-3xl p-7 h-full flex flex-col">
                 <h3 className="text-xl font-black text-foreground">Family</h3>
                 <p className="mt-1 text-3xl font-black text-foreground">
-                  {familyMonthly.price}
-                  <span className="text-sm font-bold text-muted-foreground">{familyMonthly.per}</span>
+                  {familyMonthly ? (
+                    <>
+                      {familyMonthly.price}
+                      <span className="text-sm font-bold text-muted-foreground">{familyMonthly.per}</span>
+                    </>
+                  ) : (
+                    <span
+                      className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted align-middle"
+                      aria-label="Loading price"
+                    />
+                  )}
                 </p>
-                <p className="text-xs font-bold text-muted-foreground mt-1">
-                  or {TIER_PRICING.family.annual.price}
-                  {TIER_PRICING.family.annual.per} billed yearly
-                </p>
+                {familyAnnual && (
+                  <p className="text-xs font-bold text-muted-foreground mt-1">
+                    or {familyAnnual.price}
+                    {familyAnnual.per} billed yearly
+                  </p>
+                )}
                 <ul className="mt-4 space-y-2 text-sm font-medium text-muted-foreground flex-1">
                   <li>
                     <span className="inline-flex items-center gap-1.5">

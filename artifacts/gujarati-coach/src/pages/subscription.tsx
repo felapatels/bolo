@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
 import { beginAllAccessCheckout, beginFamilyCheckout, cancelPlus } from "@/lib/billing";
+import { usePricing } from "@/lib/pricing";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
@@ -167,6 +168,11 @@ function ManageView({
   const [downgradeWarnOpen, setDowngradeWarnOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unpauseMutation = useUnpauseAccountSubscription();
+  // The Family upsell quotes a real price, so it reads the live Stripe
+  // catalog; if that is unavailable the copy drops the amount rather than
+  // guessing one.
+  const { pricing } = usePricing();
+  const familyMonthly = pricing?.family.monthly;
 
   const isPaused = sub.status === "paused";
   const isTrialing = sub.status === "trialing";
@@ -519,7 +525,9 @@ function ManageView({
               <div>
                 <p className="text-base font-black">Upgrade to the Family plan</p>
                 <p className="text-sm font-semibold text-white/85">
-                  Share All-Access with up to 3 more people — $19.99/mo, prorated
+                  {familyMonthly
+                    ? `Share All-Access with up to 3 more people, ${familyMonthly.price}${familyMonthly.per}, prorated`
+                    : "Share All-Access with up to 3 more people, prorated"}
                 </p>
               </div>
             </div>

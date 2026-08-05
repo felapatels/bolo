@@ -3,6 +3,8 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { MEANING_AUDIO_STORAGE_KEY } from "@/lib/meaning-audio";
 import { __resetBlessedAudioElementsForTests } from "@/lib/iosAudio";
+import { __seedPricingForTests } from "@/lib/pricing";
+import { PRICING_CATALOG } from "./fixtures";
 
 // React Testing Library leaves rendered trees in the jsdom document between
 // tests; tear them down so each test starts from a clean slate.
@@ -20,6 +22,10 @@ beforeEach(() => {
   // element blessing); reset per test so each test's Audio mock captures its
   // own instances and counts stay deterministic.
   __resetBlessedAudioElementsForTests();
+  // Plan prices come from GET /api/pricing at runtime. Seed the shared cache
+  // with the live Stripe ladder so price assertions stay deterministic and no
+  // test reaches for the network.
+  __seedPricingForTests(PRICING_CATALOG);
   try {
     localStorage.setItem(MEANING_AUDIO_STORAGE_KEY, "off");
   } catch {

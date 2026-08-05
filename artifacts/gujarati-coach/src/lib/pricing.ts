@@ -1,10 +1,15 @@
-// The canonical CLIENT-SIDE pricing display config, shared by the public
-// pricing preview (landing page) and the authenticated paywall (upgrade.tsx)
-// so the two can never drift apart. These display strings mirror the store
-// pricing ladder; the REAL charge comes from the Stripe price ids the server
-// holds (STRIPE_*_PRICE_ID env vars), keep both in sync, and keep
-// scripts/seedStripeProducts.ts in sync too.
+// The canonical CLIENT-SIDE pricing surface, shared by the public pricing
+// preview (landing page), the authenticated paywall (upgrade.tsx) and the
+// account surfaces that quote a plan price.
+//
+// Prices are NOT written down here. They are read from GET /api/pricing, which
+// reports the amounts held by the Stripe price ids checkout actually charges,
+// so a displayed price can never drift from the real charge. This module only
+// owns presentation: currency formatting, the per-interval copy, and the
+// annual savings badge. When the catalog is unavailable, callers render a
+// price-free surface rather than an invented number.
 
+import { useEffect, useMemo, useState } from 'react';
 import type { PlusInterval } from '@/lib/billing';
 
 // The tiers sold on web: All-Access ("plus") and the Family plan.
@@ -14,34 +19,189 @@ export type SelectableTier = 'plus' | 'family';
 // lib/db familyPlans (owner occupies the implicit 4th seat).
 export const FAMILY_SEATS = 4;
 
-export const TIER_PRICING: Record<
+// One price as the server reports it: Stripe minor units plus currency.
+export type PriceAmount = { amountCents: number; currency: string };
+
+// GET /api/pricing. An interval is absent when no Stripe price is configured
+// for it.
+export type PricingCatalog = Record<
   SelectableTier,
-  Record<PlusInterval, { price: string; per: string; note: string; badge?: string }>
-> = {
-  plus: {
-    monthly: {
-      price: '$12.99',
-      per: '/mo',
-      note: 'Billed monthly. Cancel anytime.',
-    },
-    annual: {
-      price: '$89.99',
-      per: '/yr',
-      note: 'Just $7.50/mo, billed yearly.',
-      badge: 'Save 42%',
-    },
-  },
-  family: {
-    monthly: {
-      price: '$19.99',
-      per: '/mo',
-      note: `One bill covers up to ${FAMILY_SEATS} people. Billed monthly. Cancel anytime.`,
-    },
-    annual: {
-      price: '$139.99',
-      per: '/yr',
-      note: `Just $11.67/mo for up to ${FAMILY_SEATS} people, billed yearly.`,
-      badge: 'Save 42%',
-    },
-  },
+  Partial<Record<PlusInterval, PriceAmount>>
+>;
+
+// One tier/interval ready to render.
+export type TierPrice = {
+  price: string;
+  per: string;
+  // Card copy under the price.
+  note: string;
+  // Billing cadence as a clause, for sentences that already say "cancel".
+  cadence: string;
+  badge?: string;
 };
+
+export type TierPricing = Record<
+  SelectableTier,
+  Partial<Record<PlusInterval, TierPrice>>
+>;
+
+export function formatMoney({ amountCents, currency }: PriceAmount): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amountCents / 100);
+}
+
+// What an annual plan works out to per month, for the "just $x/mo" line.
+function monthlyEquivalent(annual: PriceAmount): string {
+  return formatMoney({
+    amountCents: annual.amountCents / 12,
+    currency: annual.currency,
+  });
+}
+
+// How much annual saves against paying monthly all year, e.g. "Save 42%".
+// Only shown when both amounts are known and annual is genuinely cheaper.
+function savingsBadge(
+  monthly: PriceAmount | undefined,
+  annual: PriceAmount,
+): string | undefined {
+  if (!monthly || monthly.amountCents <= 0) return undefined;
+  const yearlyAtMonthlyRate = monthly.amountCents * 12;
+  if (annual.amountCents >= yearlyAtMonthlyRate) return undefined;
+  const percent = Math.round(
+    (1 - annual.amountCents / yearlyAtMonthlyRate) * 100,
+  );
+  return percent > 0 ? `Save ${percent}%` : undefined;
+}
+
+// Turns the server catalog into rendered copy. Intervals missing from the
+// catalog stay missing.
+export function buildTierPricing(catalog: PricingCatalog): TierPricing {
+  const pricing: TierPricing = { plus: {}, family: {} };
+
+  for (const tier of ['plus', 'family'] as SelectableTier[]) {
+    const monthly = catalog[tier]?.monthly;
+    const annual = catalog[tier]?.annual;
+
+    if (monthly) {
+      pricing[tier].monthly = {
+        price: formatMoney(monthly),
+        per: '/mo',
+        note:
+          tier === 'family'
+            ? `One bill covers up to ${FAMILY_SEATS} people. Billed monthly. Cancel anytime.`
+            : 'Billed monthly. Cancel anytime.',
+        cadence: 'billed monthly',
+      };
+    }
+
+    if (annual) {
+      pricing[tier].annual = {
+        price: formatMoney(annual),
+        per: '/yr',
+        note:
+          tier === 'family'
+            ? `Just ${monthlyEquivalent(annual)}/mo for up to ${FAMILY_SEATS} people, billed yearly.`
+            : `Just ${monthlyEquivalent(annual)}/mo, billed yearly.`,
+        cadence: 'billed yearly',
+        badge: savingsBadge(monthly, annual),
+      };
+    }
+  }
+
+  return pricing;
+}
+
+// Module-scope cache: prices change rarely, so every surface in a session
+// shares one fetch. It EXPIRES, though: a long-lived tab must not keep quoting
+// an amount Stripe has since changed, so past the TTL the next surface to
+// mount refetches and shows a placeholder meanwhile rather than a possibly
+// stale price.
+export const PRICING_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type CacheEntry = { at: number; catalog: PricingCatalog };
+
+let cached: CacheEntry | null = null;
+let inFlight: Promise<PricingCatalog> | null = null;
+
+function freshCatalog(): PricingCatalog | null {
+  if (!cached) return null;
+  if (Date.now() - cached.at >= PRICING_CACHE_TTL_MS) {
+    cached = null;
+    return null;
+  }
+  return cached.catalog;
+}
+
+async function fetchCatalog(): Promise<PricingCatalog> {
+  const res = await fetch('/api/pricing', { credentials: 'include' });
+  if (!res.ok) throw new Error(`Pricing unavailable (${res.status}).`);
+  return (await res.json()) as PricingCatalog;
+}
+
+export type UsePricingResult = {
+  pricing: TierPricing | null;
+  isLoading: boolean;
+  isError: boolean;
+};
+
+export function usePricing(): UsePricingResult {
+  const [catalog, setCatalog] = useState<PricingCatalog | null>(freshCatalog);
+  const [isLoading, setIsLoading] = useState(freshCatalog() === null);
+  const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    const fresh = freshCatalog();
+    if (fresh) {
+      setCatalog(fresh);
+      setIsLoading(false);
+      return;
+    }
+    // Past the TTL the expired amount is dropped, not re-displayed while the
+    // refetch runs: a placeholder is honest, a stale price is not.
+    setCatalog(null);
+    setIsLoading(true);
+    let active = true;
+    if (!inFlight) {
+      inFlight = fetchCatalog()
+        .then((loaded) => {
+          cached = { at: Date.now(), catalog: loaded };
+          return loaded;
+        })
+        .finally(() => {
+          inFlight = null;
+        });
+    }
+    inFlight
+      .then((loaded) => {
+        if (!active) return;
+        setCatalog(loaded);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsError(true);
+        setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const pricing = useMemo(
+    () => (catalog ? buildTierPricing(catalog) : null),
+    [catalog],
+  );
+
+  return { pricing, isLoading, isError };
+}
+
+// Test seam: primes (or clears) the shared catalog so component tests render
+// deterministic prices without a network call.
+export function __seedPricingForTests(catalog: PricingCatalog | null): void {
+  cached = catalog ? { at: Date.now(), catalog } : null;
+  inFlight = null;
+}

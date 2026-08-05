@@ -9,17 +9,19 @@
 import { getUncachableStripeClient } from "../src/lib/stripeClient";
 
 const PRODUCT_NAME = "Bolo! Plus";
-// All-Access (Plus) pricing — matches the store (mobile) pricing ladder. Keep
-// in sync with the `plus` prices shown in
-// artifacts/gujarati-coach/src/pages/upgrade.tsx (TIER_PRICING). The middle
-// One-Language tier is RevenueCat/mobile-only and not sold through Stripe.
+// All-Access (Plus) pricing — matches the store (mobile) pricing ladder. These
+// constants only seed a NEW Stripe account: the live amounts are whatever the
+// configured price ids hold, and clients render those via GET /pricing. If the
+// prices are changed in Stripe, update these too so a re-run cannot create a
+// second, stale price. The middle One-Language tier is RevenueCat/mobile-only
+// and not sold through Stripe.
 const MONTHLY_CENTS = 1299; // $12.99/mo
 const ANNUAL_CENTS = 8999; // $89.99/yr
 
 // Family plan: one subscription covering up to 4 people (owner + 3 seats).
 const FAMILY_PRODUCT_NAME = "Bolo! Family";
-const FAMILY_MONTHLY_CENTS = 1999; // $19.99/mo
-const FAMILY_ANNUAL_CENTS = 13999; // $139.99/yr
+const FAMILY_MONTHLY_CENTS = 2499; // $24.99/mo
+const FAMILY_ANNUAL_CENTS = 17499; // $174.99/yr
 
 async function findOrCreatePrice(
   stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>,

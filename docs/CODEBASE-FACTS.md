@@ -174,6 +174,8 @@ A day with no activity yet falls back to yesterday, so a streak does not appear 
 | `lib/evaluationToken.ts` | `EvaluationClaims`, `signEvaluation`. Line 116 |
 | `lib/feedbackTts.ts` | Eval-time feedback TTS prewarm (Task 903, July 31, 2026): every `/openai/pronunciation` response path fires `prewarmFeedbackTts(feedback, tip)` fire-and-forget — synthesizes the exact spoken-feedback string clients build (`[feedback, tip].filter(Boolean).join(" ")`, pinned by `feedbackSpokenText`) into ttsCache under the default phrase-audio identity (empty language key). An in-flight pending map (`registerPendingFeedbackSynthesis`/`getPendingFeedbackSynthesis`, 60s TTL) closes the race: `/openai/tts` on cache miss JOINS a pending prewarm instead of synthesizing twice (logs `hit: "pending-prewarm"`; falls through to fresh synthesis if the pending rejects). The cache row is written BEFORE the pending resolves. Prewarm is SKIPPED when `TTS_PROVIDER === "elevenlabs"` (per-user voice prefs make the client's cache key unpredictable — see §8). Tests: `lib/feedbackTts.test.ts` (unit + a real-router pending-join integration test) |
 | `lib/backfillScoringV2.ts` | Idempotent startup backfill. Line 306 gate throw. `SCORING_V2_GATE_OVERRIDE=1` bypasses |
+| `lib/pricingCatalog.ts` | Live plan prices read from the configured Stripe price ids (`STRIPE_{PLUS,FAMILY}_{MONTHLY,ANNUAL}_PRICE_ID`), shaped as `{plus,family} x {monthly,annual} -> {amountCents, currency}`. Injectable `PriceFetcher` + clock for tests; 5-minute in-memory cache with in-flight dedupe; ONLY successes are cached; throws when no price id is configured or a configured price has a null `unit_amount` (never substitutes a guess). Tests: `lib/pricingCatalog.test.ts` (8, no DB) |
+| `routes/pricing.ts` | `GET /pricing`, PUBLIC (mounted before `requireAuth`, next to languages) because the signed-out landing page renders the pricing ladder. Answers 503 on catalog failure so clients render a price-free surface |
 
 `index.ts` opens the port FIRST, then runs the startup pipeline (content seed, `runBackfillScoringV2()`, scope triggers, lesson-group backfill) behind `listen` (changed July 29, 2026: the C1 rollout seed blew the publish promote step's ~60 second port-open window when the pipeline ran before listen). Pipeline order is unchanged and load-bearing; a pipeline failure still exits the process. Startup probe path `/api/healthz` (in `artifact.toml`) returns 200 with no auth and no content dependency.
 
@@ -1254,6 +1256,20 @@ Server-only (`artifacts/api-server`, `lib/db`). No client changes in this chunk.
 
 **Debt.** None new. Known trap re-confirmed: dev-DB `drizzle-kit migrate` recorded the 0040 hash without executing the DDL; the committed SQL was applied by hand via psql and verified with to_regclass.
 
+## 10c. Web prices come from Stripe, never from a constant (August 5, 2026)
+
+The web paywall and the public pricing preview showed hardcoded strings, and the Family strings had drifted from Stripe: displayed `$19.99`/mo and `$139.99`/yr against live prices of `$24.99`/mo and `$174.99`/yr (the annual gap was a second, unreported drift; All-Access `$12.99`/`$89.99` did match). Both tiers are genuinely purchasable on web through Stripe Checkout, so the displayed price was a real misquote, not decoration.
+
+Fix: no money string is written down in the client any more. `GET /pricing` (section 4) reports the amounts held by the exact price ids checkout charges, and `artifacts/gujarati-coach/src/lib/pricing.ts` renders them. That module now owns presentation only: `formatMoney` (Intl currency from minor units), the per-interval card copy, the annual monthly-equivalent line ("Just $7.50/mo, billed yearly.", Family "Just $14.58/mo for up to 4 people, billed yearly."), a `cadence` clause for sentences that already say "cancel", and a `Save N%` badge DERIVED from the two real amounts (both tiers currently compute to `Save 42%`, which is why the previously hardcoded badge looked right). `usePricing()` is a plain fetch plus a module-scope cache shared by every surface, deliberately NOT react-query (`upgrade-paywall.test.tsx` mocks `@tanstack/react-query` with `useQueryClient` only, so a `useQuery` call would break that mock). This supersedes the `TIER_PRICING` mention in the section 5 Task 997 paragraph; `TIER_PRICING` no longer exists.
+
+Unavailable-catalog policy (money surface): never show an invented number. Price slots render a pulse placeholder, the annual "or $X/yr" line and the savings badge are omitted entirely, and fine print falls back to price-free phrasing ("7 days free. Cancel anytime before the trial ends and you won't be charged."). Checkout itself is unaffected; Stripe shows the real price.
+
+Consumers updated: `pages/upgrade.tsx` (plan cards, interval badge, fine print), `pages/landing.tsx` (pricing preview, both tiers, monthly + annual), `pages/subscription.tsx` (Family upsell), `pages/family.tsx` (NoneView). Copy fix in the upgrade fine print: the trial sentence used to append "Cancel anytime before the trial ends..." after a `note` that already ended "Cancel anytime.", so it read as two cancel instructions; it is now one sentence, "7 days free, then $12.99/mo, billed monthly. Cancel anytime before the trial ends and you won't be charged."
+
+`scripts/seedStripeProducts.ts` Family constants were also stale (1999/13999) and are corrected to 2499/17499; that script only seeds a NEW Stripe account and matches by `unit_amount`, so leaving them stale risked creating a second, wrong price on a re-run.
+
+Tests: `src/test/pricing.test.tsx` (formatting, monthly equivalent, derived badge, absent interval, cached/fetch/error paths of `usePricing`) plus `src/test/setup.ts` seeding the live ladder from `PRICING_CATALOG` in `src/test/fixtures.ts` so component price assertions stay deterministic without a network call. Update that fixture when the Stripe prices change.
+
 ## 11. House Patterns
 
 One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.
@@ -1277,3 +1293,4 @@ One-line registry of reusable components and patterns. Verify the contract at th
 - **Expiry-refetch hook**: `components/chai-wallet.tsx`. One timeout keyed on the expiry timestamp refetches token state when a multiplier lapses; no polling.
 - **UpgradeCard + PlusPill**: `components/plus.tsx`. The only sanctioned upsell card and Plus badge; reuse them rather than composing ad-hoc upgrade UI.
 - **Spend contract**: `components/chai-wallet.tsx` wrapper over `useSpendTokens`. Server-authoritative spends; the client never decrements a balance locally, it refetches on success.
+- **Displayed prices**: `lib/pricing.ts` `usePricing()`. Any surface quoting a plan price reads the live Stripe catalog and omits the amount when it is unavailable; never hardcode a money string.

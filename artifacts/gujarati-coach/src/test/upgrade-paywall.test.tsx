@@ -111,9 +111,10 @@ describe("Paywall plan preselection", () => {
   test("shows the store-ladder monthly prices", () => {
     renderAt("/upgrade");
 
-    // Monthly is the default interval: Plus $12.99/mo, Family $19.99/mo.
+    // Monthly is the default interval. The amounts come from the live Stripe
+    // catalog (seeded in setup.ts): All-Access $12.99/mo, Family $24.99/mo.
     expect(screen.getByText("$12.99")).toBeInTheDocument();
-    expect(screen.getByText("$19.99")).toBeInTheDocument();
+    expect(screen.getByText("$24.99")).toBeInTheDocument();
   });
 });
 

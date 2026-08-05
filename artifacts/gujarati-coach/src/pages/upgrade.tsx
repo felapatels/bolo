@@ -30,9 +30,9 @@ import {
 
 // The tiers selectable on this page: All-Access and the Family plan (one
 // subscription covering up to 4 people). One Language is not sold on web.
-// Pricing display strings live in the shared canonical config (lib/pricing)
-// so the public pricing preview and this paywall can never drift apart.
-import { TIER_PRICING, type SelectableTier } from "@/lib/pricing";
+// Prices come from the live Stripe catalog via lib/pricing, the same price ids
+// checkout charges, so this paywall can never quote a stale amount.
+import { usePricing, type SelectableTier, type TierPrice } from "@/lib/pricing";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
@@ -129,6 +129,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Live prices from Stripe. Until they land (or if they cannot be fetched)
+  // every price slot renders a placeholder: on a money surface, no number is
+  // better than a possibly wrong one. Checkout itself is unaffected.
+  const { pricing } = usePricing();
+
   // If the learner just returned from a cancelled Stripe Checkout, surface a
   // gentle notice and refresh entitlements (in case anything changed), then
   // strip the query param so a refresh doesn't repeat it.
@@ -172,7 +177,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     }
   };
 
-  const priceForTier = (tier: SelectableTier) => TIER_PRICING[tier][interval];
+  const priceForTier = (tier: SelectableTier) => pricing?.[tier][interval];
 
   // A handful of language native names for the bobbing hero tags — pure brand
   // flair echoing the launch video. Falls back gracefully if the list is short.
@@ -253,14 +258,14 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                 )}
               >
                 {key === "monthly" ? "Monthly" : "Annual"}
-                {showSave && (
+                {showSave && pricing?.plus.annual?.badge && (
                   <span
                     className={cn(
                       "absolute -top-2.5 right-2 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm",
                       PLUS_GRADIENT,
                     )}
                   >
-                    Save 42%
+                    {pricing.plus.annual.badge}
                   </span>
                 )}
               </button>
@@ -344,7 +349,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
               {error}
             </p>
           )}
-          <FinePrint tier={selectedTier} interval={interval} />
+          <FinePrint tier={selectedTier} price={priceForTier(selectedTier)} />
         </div>
       </main>
     </div>
@@ -353,25 +358,36 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
 
 function FinePrint({
   tier,
-  interval,
+  price,
 }: {
   tier: SelectableTier;
-  interval: PlusInterval;
+  price: TierPrice | undefined;
 }) {
-  const p = TIER_PRICING[tier][interval];
   return (
     <>
       {tier === "family" ? (
         <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-          {p.price}
-          {p.per} for up to 4 people — you plus 3 invites. {p.note} Invite your
-          family after checkout. No free trial on this plan.
+          {price ? (
+            <>
+              {price.price}
+              {price.per} for up to 4 people, you plus 3 invites. {price.note}{" "}
+            </>
+          ) : (
+            <>For up to 4 people, you plus 3 invites. </>
+          )}
+          Invite your family after checkout. No free trial on this plan.
         </p>
       ) : (
         <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-          7 days free, then {p.price}
-          {p.per}. {p.note} Cancel anytime before the trial ends and you won't be
-          charged.
+          {price ? (
+            <>
+              7 days free, then {price.price}
+              {price.per}, {price.cadence}.{" "}
+            </>
+          ) : (
+            <>7 days free. </>
+          )}
+          Cancel anytime before the trial ends and you won't be charged.
         </p>
       )}
       <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
@@ -404,7 +420,8 @@ function PlanCard({
   onSelect: () => void;
   title: string;
   tagline: string;
-  price: { price: string; per: string; badge?: string };
+  // Undefined until the live Stripe prices load (or if they cannot be loaded).
+  price: TierPrice | undefined;
   benefits: { icon: React.ElementType; text: string }[];
   highlight?: string;
   recommended?: boolean;
@@ -446,12 +463,21 @@ function PlanCard({
         </div>
         <div className="shrink-0 text-right">
           <div className="flex items-baseline justify-end gap-0.5">
-            <span className="text-2xl font-black text-foreground">
-              {price.price}
-            </span>
-            <span className="text-sm font-bold text-muted-foreground">
-              {price.per}
-            </span>
+            {price ? (
+              <>
+                <span className="text-2xl font-black text-foreground">
+                  {price.price}
+                </span>
+                <span className="text-sm font-bold text-muted-foreground">
+                  {price.per}
+                </span>
+              </>
+            ) : (
+              <span
+                className="inline-block h-7 w-20 animate-pulse rounded-lg bg-muted"
+                aria-label="Loading price"
+              />
+            )}
           </div>
           <span
             className={cn(

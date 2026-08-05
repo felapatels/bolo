@@ -28,6 +28,7 @@ import {
   type FamilySeat,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { usePricing } from "@/lib/pricing";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 const BASE_PATH = import.meta.env.BASE_URL;
@@ -505,6 +506,9 @@ function MemberView({ family }: { family: FamilyStatus }) {
 }
 
 function NoneView() {
+  // Quotes the live Stripe price; without it the copy simply omits the amount.
+  const { pricing } = usePricing();
+  const familyMonthly = pricing?.family.monthly;
   return (
     <div className="mt-6 rounded-3xl border border-card-border bg-card p-6 text-center shadow-sm">
       <div
@@ -519,8 +523,9 @@ function NoneView() {
         You're not on a family plan yet
       </h2>
       <p className="mt-2 text-sm font-medium text-muted-foreground">
-        Get All-Access for up to 4 people with one $19.99/mo subscription,
-        or join someone else's plan with their code.
+        {familyMonthly
+          ? `Get All-Access for up to 4 people with one ${familyMonthly.price}${familyMonthly.per} subscription, or join someone else's plan with their code.`
+          : "Get All-Access for up to 4 people with one subscription, or join someone else's plan with their code."}
       </p>
       <div className="mt-5 space-y-2">
         <Link

@@ -267,9 +267,9 @@ describe("Landing page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^Family$/i })).toBeInTheDocument();
 
-    // Prices come from the canonical shared config.
+    // Prices come from the live Stripe catalog, never a hardcoded string.
     expect(screen.getByText("$12.99")).toBeInTheDocument();
-    expect(screen.getByText("$19.99")).toBeInTheDocument();
+    expect(screen.getByText("$24.99")).toBeInTheDocument();
 
     // The Free daily lesson cap was retired; no stale daily-limit claims.
     expect(container.textContent).not.toMatch(/per day|daily limit|lessons a day/i);

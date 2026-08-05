@@ -9,6 +9,7 @@ import friendsRouter from "./friends";
 import referralRouter from "./referral";
 import revenuecatRouter from "./revenuecat";
 import stripeRouter from "./stripe";
+import pricingRouter from "./pricing";
 import familyRouter from "./family";
 import contactRouter from "./contact";
 import phraseReportsRouter from "./phraseReports";
@@ -23,6 +24,10 @@ const router: IRouter = Router();
 // languages behind the paywall).
 router.use(healthRouter);
 router.use(languagesRouter);
+
+// Live plan prices from Stripe. Public: the signed-out landing page renders the
+// pricing ladder from it, and the paywall reads the same catalog.
+router.use(pricingRouter);
 
 // The RevenueCat webhook is called by RevenueCat's servers (not a Clerk user),
 // so it lives in the public section and authenticates itself with a shared
