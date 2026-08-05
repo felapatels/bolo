@@ -118,7 +118,9 @@ describe('games hub - tile vignettes', () => {
     expect(screen.getByText('Phrase Builder')).toBeOnTheScreen();
     expect(screen.getByText('Speed Round')).toBeOnTheScreen();
     expect(screen.getByText('Bolo Quiz')).toBeOnTheScreen();
-    expect(screen.getAllByText('Beginner').length).toBe(2);
+    // Build 35: Ticket Check joined the hub as a third Beginner game.
+    expect(screen.getByText('Ticket Check')).toBeOnTheScreen();
+    expect(screen.getAllByText('Beginner').length).toBe(3);
     expect(screen.getAllByText('Intermediate').length).toBe(2);
     expect(screen.getAllByText('Advanced').length).toBe(1);
   });

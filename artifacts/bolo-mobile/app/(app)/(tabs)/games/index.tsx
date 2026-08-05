@@ -122,6 +122,19 @@ const GAMES: GameDef[] = [
     plusOnly: true,
     icon: 'award',
   },
+  // Build 35 mobile parity, first quick game. Copy comes from the roster
+  // entry in lib/quick-games.ts so the hub, signals and web all describe the
+  // same game the same way. FREE on mobile: mobile's existing 3-gated/2-free
+  // split is untouched here. The roster grades it 'Easy'; the hub's own scale
+  // is Beginner/Intermediate/Advanced, so it lands as Beginner.
+  {
+    id: 'ticket-check',
+    title: 'Ticket Check',
+    description: 'Hear the phrase, punch the matching ticket.',
+    difficulty: 'Beginner',
+    plusOnly: false,
+    icon: 'check-square',
+  },
 ];
 
 /**
