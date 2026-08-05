@@ -209,11 +209,15 @@ function TestRound({ api, setAudioPlaying }: QuickRoundProps) {
   );
 }
 
-function renderShell(opts: { secondsPerRound?: number; roundsPerRun?: number } = {}) {
+function renderShell(
+  // `null` means an untimed game. `undefined` keeps the timed default, so a
+  // test has to opt into untimed explicitly.
+  opts: { secondsPerRound?: number | null; roundsPerRun?: number } = {},
+) {
   return render(
     <QuickGameShell
       def={DEF}
-      secondsPerRound={opts.secondsPerRound ?? 10}
+      secondsPerRound={opts.secondsPerRound === undefined ? 10 : opts.secondsPerRound}
       roundsPerRun={opts.roundsPerRun ?? 5}
       instruction="Punch the matching ticket."
       renderRound={(p) => <TestRound {...p} />}
@@ -399,7 +403,7 @@ describe('topic picker', () => {
     fireEvent.press(screen.getByText('Greetings'));
     await runCountdown();
 
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
   });
 
   test('a pinned launch skips the picker entirely', async () => {
@@ -411,7 +415,7 @@ describe('topic picker', () => {
     expect(screen.getByTestId('quick-countdown')).toBeTruthy();
 
     await runCountdown();
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
   });
 
   test('topics under the game floor are disabled', async () => {
@@ -435,13 +439,13 @@ describe('round progression', () => {
     await act(async () => {});
     await runCountdown();
 
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
     fireEvent.press(screen.getByTestId('answer-correct'));
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-2-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
     expect(screen.getByText('✓ 1 correct')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('answer-wrong'));
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-3-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-2-of-5');
     expect(screen.getByText('✓ 1 correct')).toBeTruthy();
   });
 
@@ -453,11 +457,11 @@ describe('round progression', () => {
 
     expect(screen.getByText('3 / 5 correct')).toBeTruthy();
     expect(lastPayload().phraseResults).toEqual([
+      { phraseId: 100, selectedPhraseId: 100 },
       { phraseId: 101, selectedPhraseId: 101 },
       { phraseId: 102, selectedPhraseId: 102 },
-      { phraseId: 103, selectedPhraseId: 103 },
+      { phraseId: 103, selectedPhraseId: 999 },
       { phraseId: 104, selectedPhraseId: 999 },
-      { phraseId: 105, selectedPhraseId: 999 },
     ]);
   });
 
@@ -505,6 +509,91 @@ describe('round progression', () => {
 
     fireEvent.press(screen.getByTestId('answer-correct'));
     expect(screen.getByTestId('quick-timer')).toHaveTextContent('10s');
+  });
+
+  test('the game-facing round index is ZERO-BASED', async () => {
+    // Web parity: a ported game reads plan[api.round] with no off-by-one.
+    // The shell's own "Round N of M" display adds the +1 itself.
+    renderShell();
+    await act(async () => {});
+    await runCountdown();
+
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    expect(screen.getByText('Round 1 of 5')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('answer-correct'));
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
+    expect(screen.getByText('Round 2 of 5')).toBeTruthy();
+  });
+
+  // ─── Untimed games (web frame parity: omit secondsPerRound) ────────────────
+
+  describe('untimed games', () => {
+    test('no count-in, no chip, no clock, and timedOut never fires', async () => {
+      renderShell({ secondsPerRound: null });
+      await act(async () => {});
+
+      // Straight into the first round — no 3-2-1 to sit through.
+      expect(screen.queryByTestId('quick-countdown')).toBeNull();
+      expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+      // No chip at all — not a frozen one, not a hidden one.
+      expect(screen.queryByTestId('quick-timer')).toBeNull();
+      expect(screen.getByTestId('timed-out')).toHaveTextContent('no');
+
+      // Time passing changes nothing: no tick is ever scheduled.
+      await tickSeconds(15);
+      expect(screen.queryByTestId('quick-timer')).toBeNull();
+      expect(screen.getByTestId('timed-out')).toHaveTextContent('no');
+      expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    });
+
+    test('omitting the prop entirely behaves exactly like passing null', async () => {
+      render(
+        <QuickGameShell
+          def={DEF}
+          roundsPerRun={5}
+          instruction="Punch the matching ticket."
+          renderRound={(p) => <TestRound {...p} />}
+        />,
+      );
+      await act(async () => {});
+
+      expect(screen.queryByTestId('quick-countdown')).toBeNull();
+      expect(screen.queryByTestId('quick-timer')).toBeNull();
+      expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    });
+
+    test('rounds, scoring and the single POST all work untimed', async () => {
+      renderShell({ secondsPerRound: null });
+      await act(async () => {});
+
+      answerRounds(5, 5);
+
+      expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+      expect(lastPayload().phraseResults).toHaveLength(5);
+      expect(screen.getByText('5 / 5 correct')).toBeTruthy();
+    });
+
+    test('an untimed run started from the picker skips the count-in too', async () => {
+      mockState.params = {};
+      renderShell({ secondsPerRound: null });
+      await act(async () => {});
+
+      fireEvent.press(screen.getByText('Greetings'));
+
+      expect(screen.queryByTestId('quick-countdown')).toBeNull();
+      expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    });
+
+    test('the TIMED path is unchanged: count-in and chip both still run', async () => {
+      renderShell({ secondsPerRound: 10 });
+      await act(async () => {});
+
+      expect(screen.getByTestId('quick-countdown')).toBeTruthy();
+      await runCountdown();
+      expect(screen.getByTestId('quick-timer')).toHaveTextContent('10s');
+      expect(screen.getByTestId('timed-out')).toHaveTextContent('no');
+    });
   });
 
   test('live audio lights the shared mute button', async () => {
@@ -564,7 +653,7 @@ describe('end-of-run persistence', () => {
     await runCountdown();
 
     fireEvent.press(screen.getByTestId('answer-twice'));
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-2-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-1-of-5');
     expect(screen.getByText('✓ 1 correct')).toBeTruthy();
 
     answerRounds(4, 4);
@@ -574,11 +663,11 @@ describe('end-of-run persistence', () => {
     // The rejected duplicate never reaches the server.
     expect(results.map((r: any) => r.phraseId)).not.toContain(777);
     expect(results).toEqual([
+      { phraseId: 100, selectedPhraseId: 100 },
       { phraseId: 101, selectedPhraseId: 101 },
       { phraseId: 102, selectedPhraseId: 102 },
       { phraseId: 103, selectedPhraseId: 103 },
       { phraseId: 104, selectedPhraseId: 104 },
-      { phraseId: 105, selectedPhraseId: 105 },
     ]);
   });
 
@@ -606,7 +695,7 @@ describe('end-of-run persistence', () => {
 
     // Three separate taps, three separate rounds — the guard is per-round,
     // not a one-shot for the whole run.
-    expect(screen.getByTestId('round-label')).toHaveTextContent('round-4-of-5');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-3-of-5');
     expect(screen.getByText('✓ 3 correct')).toBeTruthy();
   });
 

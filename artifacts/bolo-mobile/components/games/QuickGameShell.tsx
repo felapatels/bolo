@@ -151,13 +151,18 @@ export type QuickRoundResult = {
 };
 
 export type QuickRoundApi = {
-  /** 1-based round number. */
+  /**
+   * ZERO-BASED round index, matching the web frame. Read it directly as
+   * `plan[api.round]` — ported web round code transfers with no off-by-one.
+   * The shell's own "Round N of M" display adds the +1, not the game.
+   */
   round: number;
   total: number;
   /** Correct answers so far this run. */
   correct: number;
-  secondsLeft: number;
-  /** True once the clock hit zero for this round. */
+  /** Seconds left in this round, or null when the game is untimed. */
+  secondsLeft: number | null;
+  /** True once the clock hit zero. Never true for an untimed game. */
   timedOut: boolean;
   /** Freeze the clock (answer taken, showing feedback). */
   lockRound: () => void;
@@ -187,8 +192,14 @@ const URGENT_SECONDS = 2;
 
 export type QuickGameShellProps = {
   def: QuickGameDef;
-  /** Per-round clock. Each game sets its own pace. */
-  secondsPerRound: number;
+  /**
+   * Per-round clock in seconds. OMIT it (or pass null) for an UNTIMED game:
+   * no per-round clock, no timer chip, no 3-2-1 countdown, and `api.timedOut`
+   * never becomes true. Mirrors the web frame's contract exactly. Untimed is
+   * a real design choice, not a fallback — Ticket Check's answer reveal rides
+   * the continue beat for both outcomes so the learner sets the dwell time.
+   */
+  secondsPerRound?: number | null;
   roundsPerRun?: number;
   /** One-line instruction shown under the countdown. */
   instruction?: string;
@@ -211,15 +222,22 @@ export function QuickGameShell({
   const launch = useQuickLaunch();
 
   const pinned = launch.categoryId !== null;
+  /**
+   * A timed game runs the clock rig (count-in, chip, timeout); an untimed one
+   * skips all of it and drops straight into the first round.
+   */
+  const timed = secondsPerRound != null;
 
   const [categoryId, setCategoryId] = useState<number | null>(launch.categoryId);
-  const [phase, setPhase] = useState<Phase>(pinned ? 'countdown' : 'picker');
+  const [phase, setPhase] = useState<Phase>(
+    pinned ? (timed ? 'countdown' : 'playing') : 'picker',
+  );
   const [countdown, setCountdown] = useState<number | null>(
-    pinned ? COUNTDOWN_START : null,
+    pinned && timed ? COUNTDOWN_START : null,
   );
   const [round, setRound] = useState(0); // 0-based
   const [correct, setCorrect] = useState(0);
-  const [secondsLeft, setSecondsLeft] = useState(secondsPerRound);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(secondsPerRound ?? null);
   const [locked, setLocked] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -254,7 +272,7 @@ export function QuickGameShell({
     if (phase !== 'countdown' || !roundsReady || countdown === null) return;
     if (countdown <= 0) {
       setCountdown(null);
-      setSecondsLeft(secondsPerRound);
+      setSecondsLeft(secondsPerRound ?? null);
       setLocked(false);
       setTimedOut(false);
       submittedRef.current = false;
@@ -265,19 +283,23 @@ export function QuickGameShell({
     return () => clearTimeout(t);
   }, [phase, roundsReady, countdown, secondsPerRound]);
 
-  // ── Per-round clock. Frozen while locked or counting in.
+  // ── Per-round clock. Frozen while locked or counting in; absent entirely
+  //    for an untimed game, which never schedules a tick at all.
   useEffect(() => {
-    if (phase !== 'playing' || locked || secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    if (!timed || phase !== 'playing' || locked) return;
+    if (secondsLeft === null || secondsLeft <= 0) return;
+    const t = setTimeout(() => setSecondsLeft((s) => (s === null ? null : s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [phase, locked, secondsLeft]);
+  }, [timed, phase, locked, secondsLeft]);
 
   // ── Zero: flag the timeout and lock. The game decides what to submit.
+  //    An untimed game can never reach this, so timedOut stays false for good.
   useEffect(() => {
-    if (phase !== 'playing' || secondsLeft > 0 || timedOut) return;
+    if (!timed || phase !== 'playing' || timedOut) return;
+    if (secondsLeft === null || secondsLeft > 0) return;
     setTimedOut(true);
     setLocked(true);
-  }, [phase, secondsLeft, timedOut]);
+  }, [timed, phase, secondsLeft, timedOut]);
 
   const finishRun = useCallback(
     (results: QuickRoundResult[]) => {
@@ -341,7 +363,7 @@ export function QuickGameShell({
         return;
       }
       setRound(nextRound);
-      setSecondsLeft(secondsPerRound);
+      setSecondsLeft(secondsPerRound ?? null);
       setLocked(false);
       setTimedOut(false);
       setAudioPlaying(false);
@@ -362,7 +384,7 @@ export function QuickGameShell({
     setCorrect(0);
     setXpEarned(null);
     setChaiEarned(0);
-    setSecondsLeft(secondsPerRound);
+    setSecondsLeft(secondsPerRound ?? null);
     setLocked(false);
     setTimedOut(false);
     setAudioPlaying(false);
@@ -370,9 +392,9 @@ export function QuickGameShell({
 
   const playAgain = useCallback(() => {
     resetRun();
-    setCountdown(COUNTDOWN_START);
-    setPhase('countdown');
-  }, [resetRun]);
+    setCountdown(timed ? COUNTDOWN_START : null);
+    setPhase(timed ? 'countdown' : 'playing');
+  }, [resetRun, timed]);
 
   const backToPicker = useCallback(() => {
     resetRun();
@@ -416,13 +438,14 @@ export function QuickGameShell({
     (id: number) => {
       resetRun();
       setCategoryId(id);
-      setCountdown(COUNTDOWN_START);
-      setPhase('countdown');
+      setCountdown(timed ? COUNTDOWN_START : null);
+      setPhase(timed ? 'countdown' : 'playing');
     },
-    [resetRun],
+    [resetRun, timed],
   );
 
-  const urgent = phase === 'playing' && secondsLeft <= URGENT_SECONDS;
+  const urgent =
+    phase === 'playing' && secondsLeft !== null && secondsLeft <= URGENT_SECONDS;
 
   return (
     <Screen>
@@ -503,37 +526,42 @@ export function QuickGameShell({
               </View>
             </View>
 
-            <View style={styles.timerRow}>
-              <View
-                testID="quick-timer"
-                accessibilityLabel={`${secondsLeft} seconds left`}
-                style={[
-                  styles.timerPill,
-                  urgent
-                    ? { backgroundColor: '#EF444420', borderColor: '#EF4444' }
-                    : { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Feather
-                  name="clock"
-                  size={14}
-                  color={urgent ? '#EF4444' : colors.mutedForeground}
-                />
-                <Text
+            {/* Untimed games render no chip at all — not a frozen or hidden
+                one — so nothing on screen implies a clock that isn't running. */}
+            {timed && secondsLeft !== null && (
+              <View style={styles.timerRow}>
+                <View
+                  testID="quick-timer"
+                  accessibilityLabel={`${secondsLeft} seconds left`}
                   style={[
-                    styles.timerText,
-                    { color: urgent ? '#EF4444' : colors.foreground },
+                    styles.timerPill,
+                    urgent
+                      ? { backgroundColor: '#EF444420', borderColor: '#EF4444' }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
-                  {secondsLeft}s
-                </Text>
+                  <Feather
+                    name="clock"
+                    size={14}
+                    color={urgent ? '#EF4444' : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.timerText,
+                      { color: urgent ? '#EF4444' : colors.foreground },
+                    ]}
+                  >
+                    {secondsLeft}s
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {renderRound({
               phrases,
               api: {
-                round: round + 1,
+                // Zero-based, web parity. The display above adds the +1.
+                round,
                 total: roundsPerRun,
                 correct,
                 secondsLeft,
