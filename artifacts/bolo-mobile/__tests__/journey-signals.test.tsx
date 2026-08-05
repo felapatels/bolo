@@ -8,7 +8,7 @@
 // ledger has never heard of, and no map-level assertion would notice.
 
 import React from 'react';
-import { render, screen, fireEvent, renderHook, waitFor, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, renderHook, waitFor, act, within } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 jest.mock('react-native-svg', () => {
@@ -183,6 +183,33 @@ describe('signal encounter dialog', () => {
     expect(screen.getByTestId('signal-chai-chip')).toHaveTextContent(/\+3 Chai/);
     expect(screen.getByTestId('signal-wave-through')).toBeOnTheScreen();
     expect(screen.getByTestId('signal-play-game')).toHaveTextContent(`Play ${game.title}`);
+  });
+
+  it('puts the Signalman in the scene the copy already names, decoratively', () => {
+    const onWave = jest.fn();
+    render(
+      <SignalEncounterDialog
+        encounter={encounter()}
+        colors={colors}
+        onPlay={jest.fn()}
+        onWave={onWave}
+        onClose={jest.fn()}
+      />,
+    );
+
+    // The whole scene header is hidden from assistive tech, so the glyph is
+    // only reachable with hidden elements included — which is the assertion:
+    // a screen reader is never read a decorative scene.
+    const deep = { includeHiddenElements: true };
+    const scene = screen.getByTestId('signal-scene', deep);
+    expect(within(scene).getByTestId('signalman-glyph', deep)).toBeOnTheScreen();
+    expect(screen.queryByTestId('signalman-glyph')).toBeNull();
+
+    // He is scenery: nothing about the encounter's behaviour moves for him.
+    expect(screen.getByTestId('signal-dialog-title')).toHaveTextContent('Signal ahead');
+    expect(screen.getByTestId('signal-chai-chip')).toHaveTextContent(/\+3 Chai/);
+    fireEvent.press(screen.getByTestId('signal-wave-through'));
+    expect(onWave).toHaveBeenCalledTimes(1);
   });
 
   it('promises nothing on a cleared replay, and stops offering the wave', () => {

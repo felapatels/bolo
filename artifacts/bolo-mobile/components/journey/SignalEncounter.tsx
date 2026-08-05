@@ -16,6 +16,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { AppFonts } from '@/constants/fonts';
 import { TrainEngine } from '@/components/journey/TrainEngine';
+import { SignalmanGlyph } from '@/components/journey/SignalmanGlyph';
 import { SignalGlyph, type SignalState } from '@/components/journey/SignalGlyph';
 import type { QuickGameDef } from '@/lib/quick-games';
 
@@ -103,6 +104,9 @@ export function SignalEncounterDialog({
               >
                 <TrainEngine width={64} tint={colors.primary} />
                 <View style={[styles.sceneRule, { borderColor: colors.border }]} />
+                {/* The Signalman himself steps out beside his crossing, in
+                    web's scene order: engine, rule, signalman, signal. */}
+                <SignalmanGlyph />
                 <SignalGlyph state={cleared ? 'cleared' : waved ? 'waved' : 'active'} />
               </View>
 
