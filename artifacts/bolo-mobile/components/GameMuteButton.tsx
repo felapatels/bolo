@@ -37,19 +37,28 @@ export function useGameAudio(): { soundOn: boolean; toggle: () => void } {
 /**
  * The one shared mute toggle rendered on every game's play surface.
  * Speaker icon when audio is on, crossed speaker when muted.
+ *
+ * `active` is the audio-active treatment (web parity): while a clip is
+ * actually sounding the button lights up green, so the learner can see which
+ * control owns the noise they're hearing. Purely visual and opt-in — callers
+ * that don't track playback simply omit it and get the previous behaviour.
  */
 export function GameMuteButton({
   soundOn,
   onToggle,
+  active = false,
 }: {
   soundOn: boolean;
   onToggle: () => void;
+  active?: boolean;
 }) {
   const colors = useColors();
+  // Muted games never light up, even if a caller leaves `active` latched.
+  const live = soundOn && active;
   return (
     <Pressable
       onPress={onToggle}
-      style={styles.btn}
+      style={[styles.btn, live && styles.btnLive]}
       accessibilityRole="button"
       accessibilityLabel={soundOn ? 'Mute game audio' : 'Unmute game audio'}
       testID="game-mute-btn"
@@ -58,12 +67,15 @@ export function GameMuteButton({
       <Feather
         name={soundOn ? 'volume-2' : 'volume-x'}
         size={20}
-        color={soundOn ? colors.foreground : colors.mutedForeground}
+        color={live ? ACTIVE_GREEN : soundOn ? colors.foreground : colors.mutedForeground}
       />
     </Pressable>
   );
 }
 
+const ACTIVE_GREEN = '#10B981';
+
 const styles = StyleSheet.create({
   btn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  btnLive: { borderRadius: 22, backgroundColor: '#10B98118' },
 });
