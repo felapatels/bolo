@@ -1,12 +1,13 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
 // ---------------------------------------------------------------------------
-// Task 986 pins: the games hub energy model.
-//   - every card renders its preview vignette (the centerpiece)
-//   - locked cards carry gv--locked (paused until hover; look-but-locked)
+// The games hub energy model, as re-cut in Build 35.
+//   - the five games WITH vignette assets render them (the centerpiece)
+//   - gated cards animate too: the Build 35 locked grammar is full-color art
+//     plus a badge and lock chip, NOT a paused or washed-out tile
 //   - off-screen vignettes pause via IntersectionObserver (gv--offscreen)
 //   - reduced motion renders the same vignette DOM (static frames come from
 //     the authored CSS base styles; nothing JS-side re-enables motion)
@@ -32,15 +33,21 @@ vi.mock("framer-motion", async (importOriginal) => {
 
 import GamesPage from "@/pages/games/index";
 
-const GAME_IDS = [
+/** The games that ship an animated vignette. The other five keep static art. */
+const VIGNETTE_IDS = [
   "word-match",
   "listen-and-pick",
   "phrase-builder",
   "speed-round",
   "bolo-quiz",
 ] as const;
-const LOCKED_IDS = ["phrase-builder", "speed-round", "bolo-quiz"] as const;
-const FREE_IDS = ["word-match", "listen-and-pick"] as const;
+
+/**
+ * One observer per rendered vignette. The hero (Luggage Match) is one of the
+ * five games with no vignette, so it adds no observer: the count is exactly
+ * the five catalog vignettes.
+ */
+const OBSERVED_VIGNETTES = VIGNETTE_IDS.length;
 
 function renderPage() {
   const loc = memoryLocation({ path: "/games", record: true });
@@ -50,6 +57,10 @@ function renderPage() {
     </Router>,
   );
   return { loc, ...utils };
+}
+
+function catalog() {
+  return screen.getByTestId("games-catalog");
 }
 
 /** Controllable IntersectionObserver stub (jsdom has none). */
@@ -82,44 +93,51 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("Games hub energy model (task 986)", () => {
-  test("every card renders its vignette with the gv base class", () => {
+describe("Games hub energy model", () => {
+  test("every vignette-bearing card renders its vignette with the gv base class", () => {
     renderPage();
-    for (const id of GAME_IDS) {
-      const gv = screen.getByTestId(`game-preview-${id}`);
+    for (const id of VIGNETTE_IDS) {
+      const gv = within(catalog()).getByTestId(`game-preview-${id}`);
       expect(gv.classList.contains("gv")).toBe(true);
     }
   });
 
-  test("free user: locked cards' vignettes are gv--locked, free cards' are not", () => {
+  test("free user: gated cards still animate — no vignette is gv--locked", () => {
     renderPage();
-    for (const id of LOCKED_IDS) {
+    for (const id of VIGNETTE_IDS) {
       expect(
-        screen.getByTestId(`game-preview-${id}`).classList.contains("gv--locked"),
-      ).toBe(true);
-    }
-    for (const id of FREE_IDS) {
-      expect(
-        screen.getByTestId(`game-preview-${id}`).classList.contains("gv--locked"),
+        within(catalog()).getByTestId(`game-preview-${id}`).classList.contains("gv--locked"),
       ).toBe(false);
     }
   });
 
-  test("plus user: no vignette is gv--locked", () => {
+  test("all-access user: no vignette is gv--locked either", () => {
     h.isPlus = true;
     renderPage();
-    for (const id of GAME_IDS) {
+    for (const id of VIGNETTE_IDS) {
       expect(
-        screen.getByTestId(`game-preview-${id}`).classList.contains("gv--locked"),
+        within(catalog()).getByTestId(`game-preview-${id}`).classList.contains("gv--locked"),
       ).toBe(false);
     }
+  });
+
+  test("ambient loops are staggered so no two vignettes pulse in sync", () => {
+    renderPage();
+    const delays = VIGNETTE_IDS.map((id) =>
+      within(catalog())
+        .getByTestId(`game-preview-${id}`)
+        .style.getPropertyValue("--gv-delay"),
+    );
+    expect(new Set(delays).size).toBe(delays.length);
+    // The hero is a static-icon game, so it contributes no vignette phase and
+    // cannot beat against the grid.
+    expect(screen.queryByTestId("featured-game-preview")).toBeNull();
   });
 
   test("off-screen vignettes gain gv--offscreen and recover when visible again", () => {
     vi.stubGlobal("IntersectionObserver", MockIO as unknown as typeof IntersectionObserver);
     renderPage();
-    // One observer per vignette; all five observed their element.
-    expect(MockIO.instances.length).toBe(GAME_IDS.length);
+    expect(MockIO.instances.length).toBe(OBSERVED_VIGNETTES);
 
     const first = MockIO.instances[0];
     act(() => {
@@ -142,20 +160,25 @@ describe("Games hub energy model (task 986)", () => {
   test("reduced motion: identical vignette DOM, no JS-side motion classes (static frames are pure CSS)", () => {
     h.reduceMotion = true;
     renderPage();
-    for (const id of GAME_IDS) {
-      const gv = screen.getByTestId(`game-preview-${id}`);
+    for (const id of VIGNETTE_IDS) {
+      const gv = within(catalog()).getByTestId(`game-preview-${id}`);
       expect(gv.classList.contains("gv")).toBe(true);
       expect(gv.classList.contains("gv--offscreen")).toBe(false);
-      // Locked mapping is unchanged under reduced motion.
-      const shouldBeLocked = (LOCKED_IDS as readonly string[]).includes(id);
-      expect(gv.classList.contains("gv--locked")).toBe(shouldBeLocked);
+      expect(gv.classList.contains("gv--locked")).toBe(false);
     }
   });
 
   test("step-in press never delays navigation: clicking a free card navigates same-tick", () => {
     const { loc } = renderPage();
-    const link = screen.getByText("Word Match").closest("a")!;
+    const link = within(catalog()).getByTestId("game-card-ticket-check").closest("a")!;
     fireEvent.click(link);
-    expect(loc.history.at(-1)).toBe("/games/word-match");
+    expect(loc.history.at(-1)).toBe("/games/ticket-check");
+  });
+
+  test("a gated card press goes to the upgrade route, never a dead end", () => {
+    const { loc } = renderPage();
+    const link = within(catalog()).getByTestId("game-card-word-match").closest("a")!;
+    fireEvent.click(link);
+    expect(loc.history.at(-1)).toBe("/upgrade");
   });
 });

@@ -459,7 +459,13 @@ function GameBoard({
   const cardHeight = gridSize ? (gridSize.height - GAP * (ROWS - 1)) / ROWS : null;
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 16, gap: GAP }}>
+    // The board is flex:1, so without the same bottom clearance the topic
+    // picker and end screen already apply, the grid stretches under the
+    // floating tab bar and swallows the last tile row.
+    <View
+      testID="word-match-board"
+      style={{ flex: 1, paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE, gap: GAP }}
+    >
       {/* Stats row */}
       <View style={[styles.statsRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.statItem}>

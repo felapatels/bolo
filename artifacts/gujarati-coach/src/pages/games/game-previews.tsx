@@ -110,11 +110,19 @@ export function GamePreview({
   delay,
   locked,
   fallback,
+  testId,
 }: {
   gameId: string;
   delay?: string;
   locked?: boolean;
   fallback?: ReactNode;
+  /**
+   * Overrides the default `game-preview-<id>` test id, so the featured slot's
+   * hero can be addressed separately from any grid card. (The hero is
+   * currently a static-icon game, so no vignette renders there today; this
+   * stays for when the slot points at a vignette-bearing game.)
+   */
+  testId?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [offscreen, setOffscreen] = useState(false);
@@ -138,7 +146,7 @@ export function GamePreview({
       className={cn("gv", locked && "gv--locked", offscreen && "gv--offscreen")}
       style={{ "--gv-delay": delay ?? "0s" } as CSSProperties}
       aria-hidden="true"
-      data-testid={`game-preview-${gameId}`}
+      data-testid={testId ?? `game-preview-${gameId}`}
     >
       <Vignette />
     </div>
