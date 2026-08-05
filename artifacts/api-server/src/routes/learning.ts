@@ -2129,6 +2129,12 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   // have no grant path and are unaffected; XP and badges are ungated.
   const sessionPassed = gameSessionPassed(correctCount, totalCount);
   let chaiGranted: number | undefined;
+  // The receipt is derived from grantTokensDetailed's `granted` flag, which
+  // reports whether THIS call inserted the ledger row. A stateBefore/stateAfter
+  // balance compare cannot tell this grant apart from a concurrent unrelated
+  // one (streak day, monthly allowance) landing between the two reads, and
+  // would over-report Chai the session did not earn. Same precedent as the
+  // attempt-response Chai receipt.
   if (context === "signal" && sessionPassed) {
     const reason = "earn_signal_first_clear" as const;
     const refId = `${languageCode}:${categoryId}:${contextRef}`;
@@ -2136,9 +2142,8 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     // config (per-line capable); the same accessor feeds the journey payload.
     const amount = signalFirstClearChai(languageCode);
     try {
-      const stateBefore = await getOrCreateTokenState(userId);
-      const stateAfter = await grantTokens(userId, reason, refId, amount);
-      if (stateAfter.balance > stateBefore.balance) {
+      const { granted } = await grantTokensDetailed(userId, reason, refId, amount);
+      if (granted) {
         chaiGranted = amount;
       }
     } catch (err) {
@@ -2148,9 +2153,13 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
     const reason = "earn_closeout_first" as const;
     const refId = `${languageCode}:${categoryId}`;
     try {
-      const stateBefore = await getOrCreateTokenState(userId);
-      const stateAfter = await grantTokens(userId, reason, refId, CLOSEOUT_FIRST_CHAI);
-      if (stateAfter.balance > stateBefore.balance) {
+      const { granted } = await grantTokensDetailed(
+        userId,
+        reason,
+        refId,
+        CLOSEOUT_FIRST_CHAI,
+      );
+      if (granted) {
         chaiGranted = CLOSEOUT_FIRST_CHAI;
       }
     } catch (err) {

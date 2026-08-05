@@ -19,6 +19,10 @@
  *   6b. context enum: zod rejects an unknown string
  *   6c. contextRef present with hub context: caught by the post-parse check
  *   6d. contextRef absent with signal context: caught by the post-parse check
+ *   9.  chaiGranted receipt derivation: present only when THIS call inserted
+ *       the ledger row (grantTokensDetailed's `granted` flag), absent on a
+ *       spent refId, absent for hub/absent context, absent on a failed
+ *       session, and never fabricated by an unrelated grant moving the balance
  *
  * Runs with: node --import tsx --test src/test/gameSessions.test.ts
  */
@@ -29,11 +33,13 @@ import { db, pool, usersTable, tokenLedgerTable, userTokenStateTable } from "@wo
 import { eq, and, count } from "drizzle-orm";
 import {
   grantTokens,
+  grantTokensDetailed,
   getOrCreateTokenState,
 } from "../lib/tokenService.js";
 import {
   signalFirstClearChai,
   CLOSEOUT_FIRST_CHAI,
+  TOKEN_EARN_STREAK_DAY,
   gameSessionPassed,
 } from "../lib/tokenEconomy.js";
 
@@ -300,5 +306,205 @@ describe("contextRef / context payload validation", () => {
     assert.ok(parse.success);
     const valid = validateContextRef(parse.data.context, parse.data.contextRef);
     assert.ok(valid, "signal + valid contextRef must pass");
+  });
+});
+
+// ---- Item 9: chaiGranted receipt derivation --------------------------------
+
+/**
+ * Mirrors the chaiGranted derivation in routes/learning.ts POST /game-sessions
+ * (both grant paths), the same way validateContextRef above mirrors the route's
+ * post-parse check -- this codebase's api tests have no HTTP harness.
+ *
+ * The receipt comes from grantTokensDetailed's `granted` flag, which reports
+ * whether THIS call inserted the ledger row. It is deliberately NOT a
+ * stateBefore/stateAfter balance compare: that cannot distinguish this grant
+ * from an unrelated one landing between the two reads.
+ *
+ * Returning `undefined` models the route omitting the key entirely
+ * (`...(chaiGranted !== undefined && { chaiGranted })`).
+ */
+async function deriveChaiGranted(
+  userId: string,
+  context: "hub" | "signal" | "closeout" | undefined,
+  sessionPassed: boolean,
+  opts: { languageCode: string; categoryId: number; contextRef?: string },
+): Promise<number | undefined> {
+  let chaiGranted: number | undefined;
+  if (context === "signal" && sessionPassed) {
+    const amount = signalFirstClearChai(opts.languageCode);
+    const { granted } = await grantTokensDetailed(
+      userId,
+      "earn_signal_first_clear",
+      `${opts.languageCode}:${opts.categoryId}:${opts.contextRef}`,
+      amount,
+    );
+    if (granted) chaiGranted = amount;
+  } else if (context === "closeout" && sessionPassed) {
+    const { granted } = await grantTokensDetailed(
+      userId,
+      "earn_closeout_first",
+      `${opts.languageCode}:${opts.categoryId}`,
+      CLOSEOUT_FIRST_CHAI,
+    );
+    if (granted) chaiGranted = CLOSEOUT_FIRST_CHAI;
+  }
+  return chaiGranted;
+}
+
+describe("chaiGranted receipt: present only when the ledger actually granted", () => {
+  before(async () => { await cleanupTokens(); });
+
+  const LANG = "hi";
+  const CAT_ID = 4;
+  const SIGNAL_OPTS = { languageCode: LANG, categoryId: CAT_ID, contextRef: "gap-77" };
+
+  it("signal first clear: receipt present and equals the configured reward", async () => {
+    const receipt = await deriveChaiGranted(TEST_USER_ID, "signal", true, SIGNAL_OPTS);
+    assert.strictEqual(
+      receipt,
+      signalFirstClearChai(LANG),
+      "a real first clear must carry the served reward amount",
+    );
+  });
+
+  it("signal replay on a spent refId: receipt absent, balance unchanged", async () => {
+    const balanceBefore = (await getOrCreateTokenState(TEST_USER_ID)).balance;
+    const receipt = await deriveChaiGranted(TEST_USER_ID, "signal", true, SIGNAL_OPTS);
+    const balanceAfter = (await getOrCreateTokenState(TEST_USER_ID)).balance;
+
+    assert.strictEqual(receipt, undefined, "an already-spent refId must produce no receipt");
+    assert.strictEqual(balanceAfter, balanceBefore, "replay must not move the balance");
+  });
+
+  it("regression: an unrelated grant interleaved mid-flight never fabricates a receipt", async () => {
+    // The retired defect, reproduced deterministically rather than by racing.
+    // `retiredBalanceCompare` is the OLD algorithm, kept only as a regression
+    // witness: read the balance, grant, infer a receipt from the difference.
+    // Driving the unrelated earn into the window BETWEEN those two reads is
+    // what makes this discriminating -- landing it before the call (an earlier
+    // draft of this test) leaves the old algorithm passing too.
+    //
+    // On a replay, grantTokens still returns a freshly read in-transaction
+    // state, so an interleaved earn shows up in stateAfter and the old compare
+    // reports a signal grant that never happened.
+    async function retiredBalanceCompare(
+      refId: string,
+      amount: number,
+      interleave: () => Promise<unknown>,
+    ): Promise<number | undefined> {
+      const stateBefore = await getOrCreateTokenState(TEST_USER_ID);
+      await interleave();
+      const stateAfter = await grantTokens(
+        TEST_USER_ID,
+        "earn_signal_first_clear",
+        refId,
+        amount,
+      );
+      return stateAfter.balance > stateBefore.balance ? amount : undefined;
+    }
+
+    const amount = signalFirstClearChai(LANG);
+    const spentRefId = `${LANG}:${CAT_ID}:${SIGNAL_OPTS.contextRef}`;
+    // Precondition: the first test in this suite already spent this refId, so
+    // BOTH algorithms are looking at a replay that must pay nothing.
+    const ledgerBefore = await db
+      .select({ c: count() })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, TEST_USER_ID),
+          eq(tokenLedgerTable.refId, spentRefId),
+        ),
+      );
+    assert.strictEqual(ledgerBefore[0]!.c, 1, "precondition: refId already spent exactly once");
+
+    const retiredReceipt = await retiredBalanceCompare(spentRefId, amount, () =>
+      grantTokensDetailed(TEST_USER_ID, "earn_streak_day", "2026-08-05", TOKEN_EARN_STREAK_DAY),
+    );
+    assert.strictEqual(
+      retiredReceipt,
+      amount,
+      "witness: the retired balance compare DOES mis-report an unrelated grant",
+    );
+
+    // The shipped derivation, same already-spent refId, same interleave shape.
+    await grantTokensDetailed(
+      TEST_USER_ID,
+      "earn_streak_day",
+      "2026-08-06",
+      TOKEN_EARN_STREAK_DAY,
+    );
+    const liveReceipt = await deriveChaiGranted(TEST_USER_ID, "signal", true, SIGNAL_OPTS);
+    assert.strictEqual(
+      liveReceipt,
+      undefined,
+      "shipped derivation must report nothing: no signal row was inserted",
+    );
+
+    // Neither path may have added a signal ledger row.
+    const ledgerAfter = await db
+      .select({ c: count() })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, TEST_USER_ID),
+          eq(tokenLedgerTable.refId, spentRefId),
+        ),
+      );
+    assert.strictEqual(ledgerAfter[0]!.c, 1, "replays must not add signal ledger rows");
+  });
+
+  it("closeout first: receipt present; replay: receipt absent", async () => {
+    const closeoutOpts = { languageCode: LANG, categoryId: 5 };
+    const first = await deriveChaiGranted(TEST_USER_ID, "closeout", true, closeoutOpts);
+    assert.strictEqual(first, CLOSEOUT_FIRST_CHAI, "first closeout must carry the receipt");
+
+    const replay = await deriveChaiGranted(TEST_USER_ID, "closeout", true, closeoutOpts);
+    assert.strictEqual(replay, undefined, "closeout replay must produce no receipt");
+  });
+
+  it("hub launch: no receipt and no ledger row", async () => {
+    const receipt = await deriveChaiGranted(TEST_USER_ID, "hub", true, {
+      languageCode: LANG,
+      categoryId: 6,
+    });
+    assert.strictEqual(receipt, undefined, "hub launches have no grant path");
+
+    const rows = await db
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, TEST_USER_ID),
+          eq(tokenLedgerTable.refId, `${LANG}:6`),
+        ),
+      );
+    assert.strictEqual(rows.length, 0, "hub context must insert no ledger row");
+  });
+
+  it("absent context: no receipt", async () => {
+    const receipt = await deriveChaiGranted(TEST_USER_ID, undefined, true, {
+      languageCode: LANG,
+      categoryId: 7,
+    });
+    assert.strictEqual(receipt, undefined, "absent context must stay byte-identical (no key)");
+  });
+
+  it("failed signal session: no receipt, and the refId stays claimable", async () => {
+    const failOpts = { languageCode: LANG, categoryId: 8, contextRef: "gap-3" };
+    // 1 of 4 correct is not a strict majority.
+    assert.strictEqual(gameSessionPassed(1, 4), false, "precondition: this session fails");
+
+    const failReceipt = await deriveChaiGranted(TEST_USER_ID, "signal", false, failOpts);
+    assert.strictEqual(failReceipt, undefined, "a failing session must not grant");
+
+    // The once-ever refId was left unspent, so a later passing run still pays.
+    const passReceipt = await deriveChaiGranted(TEST_USER_ID, "signal", true, failOpts);
+    assert.strictEqual(
+      passReceipt,
+      signalFirstClearChai(LANG),
+      "the unspent refId must still pay on a later passing run",
+    );
   });
 });
