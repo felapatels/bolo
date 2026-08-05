@@ -6,7 +6,7 @@
 // navigating. Drives the REAL journey screen with the API hooks mocked.
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
@@ -15,6 +15,7 @@ const mockState: Record<string, any> = {
   isPlus: true,
   push: jest.fn(),
   back: jest.fn(),
+  recordWave: jest.fn(),
 };
 
 jest.mock('expo-router', () => ({
@@ -134,6 +135,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),
+  // Build 35: the map records waves through this hook. This mock is a FULL
+  // replacement, so any hook the screen calls must exist here or the whole
+  // file dies at render with "not a function".
+  useRecordSignalWave: () => ({ mutate: mockState.recordWave, isPending: false }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;
@@ -163,6 +168,7 @@ jest.mock('@workspace/api-client-react', () => ({
 
 // Imported after the mocks are declared.
 import JourneyScreen from '@/app/(app)/journey';
+import { resetSignalMemory } from '@/lib/signalMemory';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -660,5 +666,103 @@ describe('journey header inset and stamp slot (build 30)', () => {
     expect(zoneStampExtent(44)).toBeGreaterThanOrEqual(Math.ceil(44 * 1.186));
     expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(44));
     expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(44));
+  });
+});
+
+// ─── Build 35: trackside signals ────────────────────────────────────────────
+// Signal memory is module-scoped and would otherwise leak between cases (a
+// stop marked seen never auto-opens again), so each case starts clean.
+describe('journey map — trackside signals', () => {
+  beforeEach(() => {
+    resetSignalMemory();
+    // The rotation only offers a game a zone can actually fill, so the zone
+    // needs a visible phrase count or every signal becomes an auto-wave.
+    mockState.categories = [1, 2, 3, 4, 5, 6].map((id) => ({ id, phraseCount: 12 }));
+  });
+
+  function lineWithSignal(signals: Record<string, unknown>) {
+    setZones(
+      [
+        [
+          grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+          grp({ status: 'unlocked' }),
+        ],
+        [],
+        [],
+        [],
+        [],
+        [],
+      ],
+      { signals },
+    );
+  }
+
+  it('soft-stops at the held crossing and waves through without shame', async () => {
+    lineWithSignal({ rewardChai: 3, waves: [], clears: [] });
+    render(<JourneyScreen />);
+
+    // gap-1 sits after the completed stop 1, which is exactly where the run
+    // is held, so the encounter opens itself once — but only once the
+    // device's cleared marks have hydrated, which is a tick away.
+    await waitFor(() =>
+      expect(screen.getByTestId('signal-dialog-title')).toHaveTextContent('Signal ahead'),
+    );
+    // Reward is the served amount, not a constant.
+    expect(screen.getByTestId('signal-chai-chip')).toHaveTextContent(/\+3 Chai/);
+
+    fireEvent.press(screen.getByTestId('signal-wave-through'));
+    expect(mockState.recordWave).toHaveBeenCalledWith({
+      data: { languageCode: 'gu', categoryId: 1, gap: 1 },
+    });
+    // Optimistic re-derive: the gate is up and the dialog is gone.
+    expect(screen.queryByTestId('signal-dialog')).toBeNull();
+    // The glyph is a11y-hidden behind its labelled wrapper, so opt in.
+    expect(
+      screen.getAllByTestId('signal-arm-up', { includeHiddenElements: true }).length,
+    ).toBe(1);
+  });
+
+  it('honours the server ledger: a cleared crossing promises no more Chai', () => {
+    lineWithSignal({ rewardChai: 3, waves: [], clears: ['gap-1'] });
+    render(<JourneyScreen />);
+
+    // A cleared signal is never held, so nothing auto-opens; it is still
+    // tappable for a replay.
+    expect(screen.queryByTestId('signal-dialog')).toBeNull();
+    fireEvent.press(screen.getByTestId('signal-1'));
+    expect(screen.getByTestId('signal-dialog-title')).toHaveTextContent(
+      'Signal already cleared',
+    );
+    expect(screen.queryByTestId('signal-chai-chip')).toBeNull();
+    expect(screen.queryByTestId('signal-wave-through')).toBeNull();
+  });
+
+  it('launches the offered game carrying the context the grant needs', async () => {
+    lineWithSignal({ rewardChai: 1, waves: [], clears: [] });
+    render(<JourneyScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('signal-play-game')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('signal-play-game'));
+    expect(mockState.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: expect.stringContaining('/(app)/(tabs)/games/'),
+        params: { cat: '1', ctx: 'signal', gap: '1' },
+      }),
+    );
+  });
+
+  it('opens each signal at most once per session on its own', async () => {
+    lineWithSignal({ rewardChai: 1, waves: [], clears: [] });
+    const first = render(<JourneyScreen />);
+    await waitFor(() => expect(screen.getByTestId('signal-dialog-title')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('signal-dialog-close'));
+    first.unmount();
+
+    // Same session, same signal: it must not stop the learner twice. The
+    // clears are already hydrated by now, so a second auto-open would have
+    // nothing left to wait for.
+    render(<JourneyScreen />);
+    await waitFor(() => expect(screen.getByTestId('signal-1')).toBeOnTheScreen());
+    expect(screen.queryByTestId('signal-dialog-title')).toBeNull();
   });
 });

@@ -14,7 +14,7 @@
 // completed segments solid, locked segments faded and dashed. Rendering
 // approach (approved): react-native-svg with the web's exact path geometry,
 // split into per-zone Svg blocks inside the ScrollView for scroll perf.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -41,6 +41,7 @@ import Animated, {
 import {
   useListCategories,
   useListCategoryLessonGroups,
+  useRecordSignalWave,
   type LessonGroupList,
   type LessonGroupSummary,
 } from '@workspace/api-client-react';
@@ -58,6 +59,15 @@ import {
   ZoneStamp,
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
+import { SignalGlyph, type SignalState } from '@/components/journey/SignalGlyph';
+import {
+  SignalEncounterDialog,
+  type SignalEncounter,
+} from '@/components/journey/SignalEncounter';
+import { MilestoneToast } from '@/components/MilestoneToast';
+import { planTracksideSignals, signalContextRef } from '@/lib/tracksideSignals';
+import { gameForSignal } from '@/lib/quick-games';
+import { useSignalMemory } from '@/lib/signalMemory';
 import {
   Bunting,
   SceneryElement,
@@ -321,6 +331,54 @@ function StationMarker({
   );
 }
 
+/** A trackside signal seated in the gap after an odd global stop, with the
+ *  geometry the map needs on top of the encounter payload the dialog needs. */
+type SignalSpot = SignalEncounter & {
+  signalIndex: number;
+  x: number;
+  y: number;
+  /** True when the run is held at this crossing (the train stopped here). */
+  held: boolean;
+};
+
+/** Signal glyph half-width and the nudge off the rail, in map px. */
+const SIGNAL_HALF_W = 20;
+const SIGNAL_GAP_DX = 30;
+
+/**
+ * Soft stop: reaching a held signal auto-opens its encounter ONCE per signal
+ * per session. Renders nothing; it exists as a component purely so the effect
+ * can live below the map's early returns. Waved and cleared signals are never
+ * held, so they can never trigger this.
+ */
+function SignalSoftStop({
+  sig,
+  blocked,
+  hydrated,
+  isStopSeen,
+  markStopSeen,
+  onOpen,
+}: {
+  sig: SignalSpot | null;
+  blocked: boolean;
+  hydrated: boolean;
+  isStopSeen: (gap: number) => boolean;
+  markStopSeen: (gap: number) => void;
+  onOpen: (sig: SignalSpot) => void;
+}) {
+  const gap = sig?.gap;
+  useEffect(() => {
+    // Never over another dialog, and never before the device's cleared marks
+    // have hydrated: a signal that is really cleared must not burn its one
+    // auto-open of the session showing a stale state.
+    if (!sig || gap === undefined || blocked || !hydrated) return;
+    if (isStopSeen(gap)) return;
+    markStopSeen(gap);
+    onOpen(sig);
+  }, [sig, gap, blocked, hydrated, isStopSeen, markStopSeen, onOpen]);
+  return null;
+}
+
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -337,6 +395,8 @@ export default function JourneyScreen() {
   const railBrand = getRailBrand(activeLang);
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
+  const [signalDlg, setSignalDlg] = useState<SignalSpot | null>(null);
+  const [waveToast, setWaveToast] = useState({ message: '', key: 0 });
   const reduceMotion = useReducedMotion();
   // Task 985 port: light scroll parallax on the scenery layer. ONE
   // scroll-linked transform on the scenery wrapper, so it drifts slightly
@@ -375,6 +435,41 @@ export default function JourneyScreen() {
   const zoneQueries = [q1, q2, q3, q4, q5, q6];
 
   const languageName = activeLanguage?.name ?? 'this language';
+
+  // Signal memory hydrates off AsyncStorage; render only ever reads the
+  // synchronous snapshot it exposes (see lib/signalMemory.ts).
+  const signalMemory = useSignalMemory(activeLang);
+  const recordSignalWave = useRecordSignalWave();
+
+  /** Wave through: mark locally, persist, re-derive, close, never shame. */
+  const waveSignal = (sig: SignalEncounter) => {
+    hapticLight();
+    signalMemory.markWaved(sig.gap);
+    // The local mark is the optimistic cache; this is the durable one.
+    // Idempotent server-side, so a replayed wave is a no-op.
+    recordSignalWave.mutate({
+      data: { languageCode: activeLang, categoryId: sig.zoneId, gap: sig.gap },
+    });
+    setSignalDlg(null);
+    setWaveToast((t) => ({
+      key: t.key + 1,
+      message:
+        sig.game === null
+          ? 'Green flag, straight through!'
+          : 'Waved through. The signalman kept your Chai warm, come back anytime.',
+    }));
+  };
+
+  /** Launch the offered game with the signal context the server needs to
+   *  decide the Chai grant. The shell parses and validates these params. */
+  const playSignalGame = (sig: SignalEncounter & { game: NonNullable<SignalEncounter['game']> }) => {
+    hapticLight();
+    setSignalDlg(null);
+    router.push({
+      pathname: `/(app)/(tabs)/games/${sig.game.id}` as never,
+      params: { cat: String(sig.zoneId), ctx: 'signal', gap: String(sig.gap) },
+    });
+  };
 
   // Plain-locked language (no teaser set): the API keeps its pre-M1 402 and
   // the map defers to the standard upgrade screen.
@@ -580,6 +675,76 @@ export default function JourneyScreen() {
       };
     });
   });
+
+  // ── Trackside signals (Build 35 mobile parity) ─────────────────────────
+  // TRAP 1: signals are NOT pushed into `pts`. `segs` draws the rail between
+  // consecutive pts, so a signal point would route the actual track through
+  // the crossing. Their positions are derived HERE, as a separate array of
+  // gap positions taken off the station points, that nothing else consumes.
+  // TRAP 5: a showroom (plan-locked) map gets no interactive signals at all,
+  // matching web, or a locked line would advertise Chai the server refuses.
+  void signalMemory.version; // re-derive after any local mark
+  const currentGlobalIdx =
+    currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
+  const visibleCountForZone = (zoneId: number) =>
+    categories?.find((c) => c.id === zoneId)?.phraseCount ?? 0;
+  const signals: SignalSpot[] = showroom
+    ? []
+    : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
+        const a = stationPts[afterStop - 1];
+        if (!a) return [];
+        const station = a.station!;
+        const zone = zones[station.zoneIndex]!;
+        // TRAP 4: web seats the crossing opposite the stop's label card, but
+        // mobile lays that card out itself, so the card slot is recomputed
+        // here with the station row's own formula and the overlap is really
+        // CHECKED rather than assumed. If the preferred flank collides, the
+        // signal is pushed clear of the card box instead of sitting on it.
+        const cardSide: 'left' | 'right' = (afterStop - 1) % 2 === 0 ? 'right' : 'left';
+        const boxLeft = cardSide === 'right' ? a.x + 28 : 16;
+        const boxWidth =
+          cardSide === 'right' ? mapW - 16 - (a.x + 28) : a.x - 28 - 16;
+        let x = cardSide === 'right' ? a.x - SIGNAL_GAP_DX : a.x + SIGNAL_GAP_DX;
+        if (x + SIGNAL_HALF_W > boxLeft && x - SIGNAL_HALF_W < boxLeft + boxWidth) {
+          x =
+            cardSide === 'right'
+              ? boxLeft - SIGNAL_HALF_W - 4
+              : boxLeft + boxWidth + SIGNAL_HALF_W + 4;
+        }
+        x = Math.min(mapW - SIGNAL_HALF_W, Math.max(SIGNAL_HALF_W, x));
+        const stopDone =
+          station.status === 'completed' || station.status === 'tested_out';
+        // Server truth first (ledger-backed clears and persisted waves off
+        // the zone payload), local memory second as the optimistic cache.
+        // CLEARED IS CHECKED BEFORE WAVED on both sides, so a later clear
+        // always supersedes an earlier wave.
+        const zoneSignals = zoneQueries[station.zoneIndex]?.data?.signals;
+        const gapRef = signalContextRef(afterStop);
+        const state: SignalState =
+          zoneSignals?.clears.includes(gapRef) || signalMemory.isCleared(afterStop)
+            ? 'cleared'
+            : zoneSignals?.waves.includes(gapRef) || signalMemory.isWaved(afterStop)
+              ? 'waved'
+              : stopDone
+                ? 'active'
+                : 'upcoming';
+        return [
+          {
+            gap: afterStop,
+            signalIndex,
+            x,
+            y: a.y + 30,
+            zoneId: zone.id,
+            state,
+            // Served by the zone payload, never a constant.
+            rewardChai: zoneSignals?.rewardChai ?? 1,
+            game: gameForSignal(signalIndex, visibleCountForZone(zone.id)),
+            held: state === 'active' && afterStop === currentGlobalIdx,
+          },
+        ];
+      });
+  /** The crossing the train is stopped at, if any. */
+  const heldSignal = signals.find((s) => s.held) ?? null;
 
   // Rail comet (#917/#973 web port): dots sampled on the segment(s) leaving
   // the current station toward the next stop (any postcard midpoint between
@@ -1186,6 +1351,35 @@ export default function JourneyScreen() {
               {allDone ? 'journey complete!' : 'the festival finale awaits'}
             </Text>
           </View>
+          {/* Trackside signals.
+              TRAP 2: deliberately NOT drawn inside the per-zone <Svg> slices.
+              The map is sliced per zone for scroll performance, so a signal
+              seated near a zone boundary would straddle two slices and be
+              clipped by one of them. These are plain absolutely positioned
+              Views layered over the ScrollView content.
+              TRAP 3: they sit in the SAME non-parallax layer as the stations
+              and the rail. The scenery layer carries a 0.03 parallax factor,
+              which would drift a signal out of register with its own gap. */}
+          {signals.map((sig) => (
+            <Pressable
+              key={`signal-${sig.gap}`}
+              testID={`signal-${sig.gap}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Trackside signal after stop ${sig.gap}`}
+              // An upcoming crossing is real scenery, not a dead button.
+              disabled={sig.state === 'upcoming'}
+              onPress={() => {
+                hapticLight();
+                // A manual open counts as seen, so the soft stop does not
+                // reopen the same encounter later in the session.
+                signalMemory.markStopSeen(sig.gap);
+                setSignalDlg(sig);
+              }}
+              style={[styles.signalWrap, { left: sig.x - 28, top: sig.y - 33 }]}
+            >
+              <SignalGlyph state={sig.state} />
+            </Pressable>
+          ))}
         </View>
 
         <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>
@@ -1362,6 +1556,23 @@ export default function JourneyScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <SignalSoftStop
+        sig={heldSignal}
+        blocked={lock !== null || signalDlg !== null}
+        hydrated={signalMemory.hydrated}
+        isStopSeen={signalMemory.isStopSeen}
+        markStopSeen={signalMemory.markStopSeen}
+        onOpen={setSignalDlg}
+      />
+      <SignalEncounterDialog
+        encounter={signalDlg}
+        colors={colors}
+        onPlay={playSignalGame}
+        onWave={waveSignal}
+        onClose={() => setSignalDlg(null)}
+      />
+      <MilestoneToast message={waveToast.message} toastKey={waveToast.key} />
     </Screen>
   );
 }
@@ -1457,6 +1668,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 8,
     position: 'relative',
+  },
+  // 40x50 glyph inside a 56x66 slot: the hit target clears the 44px minimum
+  // without the glyph itself growing.
+  signalWrap: {
+    position: 'absolute',
+    width: 56,
+    height: 66,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   markerWrap: {
     position: 'absolute',

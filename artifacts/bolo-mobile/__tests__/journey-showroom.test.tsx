@@ -133,6 +133,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),
+  // Build 35: the map records waves through this hook. This mock is a FULL
+  // replacement, so any hook the screen calls must exist here or the whole
+  // file dies at render with "not a function".
+  useRecordSignalWave: () => ({ mutate: jest.fn(), isPending: false }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;
@@ -263,5 +267,17 @@ describe('journey map — showroom mode (locked language)', () => {
       pathname: '/(app)/paywall',
       params: { lang: 'ta', reason: 'teaser_exhausted' },
     });
+  });
+});
+
+describe('journey map — showroom signals', () => {
+  it('seats no interactive signals on a line the learner has not bought', () => {
+    setShowroom('teaser', { consumed: 1, limit: 3 });
+    render(<JourneyScreen />);
+
+    // The line is long enough to seat three crossings, but a showroom map
+    // must never offer Chai the server would refuse to grant.
+    expect(screen.queryAllByTestId(/^signal-[0-9]+$/)).toHaveLength(0);
+    expect(screen.queryByTestId('signal-dialog')).toBeNull();
   });
 });
