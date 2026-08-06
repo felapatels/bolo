@@ -60,6 +60,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { markSignalCleared } from '@/lib/signalMemory';
+import { markCloseoutGranted } from '@/lib/closeoutMemory';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import type { QuickGameDef } from '@/lib/quick-games';
@@ -409,6 +410,14 @@ export function QuickGameShell({
                   ? Number(/^gap-([0-9]+)$/.exec(launch.contextRef)?.[1] ?? NaN)
                   : NaN;
               if (Number.isInteger(gap)) void markSignalCleared(activeLang, gap);
+              // A closeout run records the RECEIPT instead of a mark: the
+              // journey's payoff beat may only claim Chai the server actually
+              // paid, and this is the one place that sees the amount. Session
+              // scoped, so it never outlives the run it describes, and the
+              // closeout stage machine stays pure display state.
+              if (launch.context === 'closeout' && categoryId !== null) {
+                markCloseoutGranted(activeLang, categoryId, chai);
+              }
             }
           },
         },

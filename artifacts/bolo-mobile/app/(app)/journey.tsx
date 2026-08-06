@@ -68,6 +68,9 @@ import { MilestoneToast } from '@/components/MilestoneToast';
 import { planTracksideSignals, signalContextRef } from '@/lib/tracksideSignals';
 import { gameForSignal } from '@/lib/quick-games';
 import { useSignalMemory } from '@/lib/signalMemory';
+import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
+import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
+import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import {
   Bunting,
   SceneryElement,
@@ -396,6 +399,8 @@ export default function JourneyScreen() {
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   const [signalDlg, setSignalDlg] = useState<SignalSpot | null>(null);
+  // The closeout payoff beat opens the wallet, so the map hosts the sheet.
+  const [walletOpen, setWalletOpen] = useState(false);
   const [waveToast, setWaveToast] = useState({ message: '', key: 0 });
   const reduceMotion = useReducedMotion();
   // Task 985 port: light scroll parallax on the scenery layer. ONE
@@ -439,6 +444,8 @@ export default function JourneyScreen() {
   // Signal memory hydrates off AsyncStorage; render only ever reads the
   // synchronous snapshot it exposes (see lib/signalMemory.ts).
   const signalMemory = useSignalMemory(activeLang);
+  // Zone closeout stages hydrate the same way, and for the same reason.
+  const closeoutMemory = useCloseoutMemory(activeLang);
   const recordSignalWave = useRecordSignalWave();
 
   /** Wave through: mark locally, persist, re-derive, close, never shame. */
@@ -556,6 +563,11 @@ export default function JourneyScreen() {
       title: categories?.find((c) => c.id === z.id)?.title ?? z.title,
       geoName: line.zones[i]!,
       stations,
+      // Every stop in the fare zone finished. An empty zone is never "done":
+      // a zone whose groups have not loaded must not fire a celebration.
+      zoneAllDone:
+        stations.length > 0 &&
+        stations.every((s) => s.status === 'completed' || s.status === 'tested_out'),
     };
   });
 
@@ -627,6 +639,12 @@ export default function JourneyScreen() {
       k++;
     }
   }
+  // Closeout suppression, direction one (web parity): the signal soft stop
+  // holds while a celebration is owed, so the two never race for the screen.
+  // Unseeded counts as owed — the seeding pass has not run yet.
+  const closeoutPending =
+    !showroom && closeoutOwed(closeoutMemory, zones.map((z) => z.zoneAllDone));
+
   const allDone = doneCount === totalCount && totalCount > 0;
   const termX = k > 0 ? stationX(k - 1) : LEFT_X;
   const termY = layoutY + TERM_H / 2;
@@ -1559,7 +1577,7 @@ export default function JourneyScreen() {
 
       <SignalSoftStop
         sig={heldSignal}
-        blocked={lock !== null || signalDlg !== null}
+        blocked={lock !== null || signalDlg !== null || closeoutPending}
         hydrated={signalMemory.hydrated}
         isStopSeen={signalMemory.isStopSeen}
         markStopSeen={signalMemory.markStopSeen}
@@ -1572,6 +1590,33 @@ export default function JourneyScreen() {
         onWave={waveSignal}
         onClose={() => setSignalDlg(null)}
       />
+      {/* Zone closeout: beat one the result, beat two the Chai payoff.
+          Showroom callers have no live progress to close out. Direction two
+          of the suppression (an addition over web): the celebration waits
+          while a lock or signal dialog owns the screen. */}
+      {!showroom && (
+        <ZoneCloseoutOverlay
+          lang={activeLang}
+          lineName={line.lineName}
+          accent={line.accent}
+          colors={colors}
+          memory={closeoutMemory}
+          blocked={lock !== null || signalDlg !== null}
+          onOpenWallet={() => setWalletOpen(true)}
+          zones={zones.map((z, zi) => ({
+            zoneIndex: zi,
+            zoneId: z.id,
+            geoName: z.geoName,
+            title: z.title,
+            allDone: z.zoneAllDone,
+          }))}
+        />
+      )}
+      {/* Mounted on demand: the sheet runs a tokens query, and the map has no
+          business fetching a wallet balance nobody asked to see. */}
+      {walletOpen && (
+        <ChaiWalletSheet visible onClose={() => setWalletOpen(false)} />
+      )}
       <MilestoneToast message={waveToast.message} toastKey={waveToast.key} />
     </Screen>
   );

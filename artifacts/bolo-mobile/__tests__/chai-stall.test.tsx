@@ -46,9 +46,10 @@ const GLYPH_SITES: Record<string, number> = {
   'components/ChaiWallet.tsx': 3, // balance badge, Equip · 5, Start · 10
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
+  'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
 };
 
-const MOBILE_GLYPH_COUNT = 6;
+const MOBILE_GLYPH_COUNT = 7;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {

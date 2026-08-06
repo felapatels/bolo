@@ -23,6 +23,12 @@ jest.mock('expo-router', () => ({
     back: mockState.back,
     replace: jest.fn(),
   }),
+  // The closeout overlay clears its post-launch guard on focus.
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const React = require('react');
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    React.useEffect(cb, []);
+  },
 }));
 
 jest.mock('react-native-svg', () => {
