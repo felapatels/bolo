@@ -161,10 +161,18 @@ const PHRASES = [
  * will: one submitRound call carrying the picked option.
  */
 function TestRound({ api, setAudioPlaying }: QuickRoundProps) {
+  // Round-OWNED state, standing in for what a persistent-board game keeps for
+  // a whole run (Luggage Match's matched set and first-wrong map). The shell
+  // resets its own state between runs; only a remount clears this.
+  const [kept, setKept] = React.useState(0);
   return (
     <View>
       <Text testID="round-label">{`round-${api.round}-of-${api.total}`}</Text>
       <Text testID="timed-out">{api.timedOut ? 'yes' : 'no'}</Text>
+      <Text testID="round-kept">{`kept-${kept}`}</Text>
+      <Pressable testID="keep-something" onPress={() => setKept((k) => k + 1)}>
+        <Text>keep</Text>
+      </Pressable>
       <Pressable
         testID="answer-correct"
         onPress={() =>
@@ -217,6 +225,9 @@ function renderShell(
   opts: {
     secondsPerRound?: number | null;
     roundsPerRun?: number | ((phrases: any[]) => number);
+    // `undefined` leaves the prop off entirely, which is the whole point of
+    // the default-safety test below.
+    usesAudio?: boolean;
   } = {},
 ) {
   return render(
@@ -224,6 +235,7 @@ function renderShell(
       def={DEF}
       secondsPerRound={opts.secondsPerRound === undefined ? 10 : opts.secondsPerRound}
       roundsPerRun={opts.roundsPerRun ?? 5}
+      usesAudio={opts.usesAudio}
       instruction="Punch the matching ticket."
       renderRound={(p) => <TestRound {...p} />}
     />,
@@ -599,6 +611,26 @@ describe('round progression', () => {
       expect(screen.getByTestId('quick-timer')).toHaveTextContent('10s');
       expect(screen.getByTestId('timed-out')).toHaveTextContent('no');
     });
+  });
+
+  test('a game that declares NO audio gets no mute toggle at all', async () => {
+    // Absent, not disabled and not dimmed: a toggle that cannot change
+    // anything invites a press that does nothing, which reads as a bug.
+    renderShell({ usesAudio: false });
+    await act(async () => {});
+    await runCountdown();
+
+    expect(screen.queryByTestId('game-mute-btn')).toBeNull();
+    // ...and the round still runs; the declaration is chrome, not a gate.
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+  });
+
+  test('omitting the declaration keeps the toggle, so existing games are untouched', async () => {
+    renderShell();
+    await act(async () => {});
+    await runCountdown();
+
+    expect(screen.getByTestId('game-mute-btn')).toBeTruthy();
   });
 
   test('live audio lights the shared mute button', async () => {
@@ -1030,5 +1062,80 @@ describe('resolved run length', () => {
 
     expect(screen.getByTestId('quick-no-rounds')).toBeTruthy();
     expect(screen.queryByTestId('round-label')).toBeNull();
+  });
+});
+
+// ─── Run key: the round subtree is remounted between runs ────────────────────
+//
+// `resetRun` clears the SHELL's state. A round that keeps state of its own —
+// a persistent board like Luggage Match, which holds a matched set and a
+// first-wrong map for a whole run — kept that state across Play Again until
+// the shell gained a run key, so a second run opened with every tag already
+// matched. Web has always done this (its `gameKey`); mobile did not.
+//
+// Two things are on trial here: that the remount really happens, and that it
+// does not disturb the games that were already shipping.
+
+describe('run key', () => {
+  test('Play Again does not regress a per-round game: fresh run, one POST each', async () => {
+    mockState.params = { cat: '1' };
+    renderShell({ secondsPerRound: null });
+    await act(async () => {});
+
+    answerRounds(5, 5);
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('5 / 5 correct')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Play Again'));
+    await act(async () => {});
+
+    // Back at round one of a live run, and still exactly one POST behind it.
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
+
+    answerRounds(5, 3);
+    expect(mockState.recordMutate).toHaveBeenCalledTimes(2);
+    const second = mockState.recordMutate.mock.calls[1][0].data;
+    expect(second.phraseResults).toHaveLength(5);
+    expect(screen.getByText('3 / 5 correct')).toBeTruthy();
+  });
+
+  test('Play Again REMOUNTS the round, so round-owned state cannot leak into it', async () => {
+    mockState.params = { cat: '1' };
+    renderShell({ secondsPerRound: null });
+    await act(async () => {});
+
+    fireEvent.press(screen.getByTestId('keep-something'));
+    fireEvent.press(screen.getByTestId('keep-something'));
+    expect(screen.getByTestId('round-kept')).toHaveTextContent('kept-2');
+
+    answerRounds(5, 5);
+    fireEvent.press(screen.getByText('Play Again'));
+    await act(async () => {});
+
+    expect(screen.getByTestId('round-kept')).toHaveTextContent('kept-0');
+  });
+
+  test('Choose Topic remounts the round too, on the way back through the picker', async () => {
+    mockState.params = {};
+    renderShell({ secondsPerRound: null });
+    await act(async () => {});
+
+    fireEvent.press(screen.getByText('Greetings'));
+    await act(async () => {});
+    fireEvent.press(screen.getByTestId('keep-something'));
+    expect(screen.getByTestId('round-kept')).toHaveTextContent('kept-1');
+
+    answerRounds(5, 5);
+    fireEvent.press(screen.getByText('Choose Topic'));
+    await act(async () => {});
+    // Really back on the picker, not straight into a new run.
+    expect(screen.getByText('Greetings')).toBeTruthy();
+    expect(screen.queryByTestId('round-label')).toBeNull();
+
+    fireEvent.press(screen.getByText('Greetings'));
+    await act(async () => {});
+    expect(screen.getByTestId('round-kept')).toHaveTextContent('kept-0');
+    expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
   });
 });

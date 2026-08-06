@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Volume2, X } from "lucide-react";
-import { useSynthesizeSpeech, type Phrase } from "@workspace/api-client-react";
+import { useGetAccount, useSynthesizeSpeech, type Phrase } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { webHaptic } from "@/lib/haptics";
 import { useNativeText } from "@/lib/language-context";
@@ -55,11 +55,23 @@ function ExpressListeningRound({
   const soundOnRef = useRef(soundOn);
   soundOnRef.current = soundOn;
 
+  // The chosen TTS voice rides the cache key (see below); the account query is
+  // almost always already in cache, this only needs the preference.
+  const account = useGetAccount();
+  const ttsVoice = account.data?.preferences.learning.ttsVoice ?? "auto";
+
   const [plan] = useState(() => buildPlan(phrases, ROUNDS));
   const [picked, setPicked] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCache = useRef(new Map<number, { audioBase64: string; format: string }>());
+  // Key is `${phrase.id}:${ttsVoice}`, matching mobile's five audio games: on
+  // phrase id alone, changing the voice mid-session replays the old voice's
+  // clip forever.
+  const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+  // Round-pinning: the live round index, read by the async playback path to
+  // tell whether the round that asked for this clip is still on screen.
+  const roundRef = useRef(api.round);
+  roundRef.current = api.round;
 
   const q = plan[api.round];
 
@@ -71,8 +83,12 @@ function ExpressListeningRound({
         audioRef.current = null;
       }
       setIsPlaying(true);
+      // Captured BEFORE the await: a synthesis that resolves after the round
+      // advanced must not play its clip over the new question.
+      const capturedRound = roundRef.current;
       try {
-        const cached = audioCache.current.get(phrase.id);
+        const cacheKey = `${phrase.id}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
         const res =
           cached ??
           (await synthesize.mutateAsync({
@@ -82,7 +98,13 @@ function ExpressListeningRound({
               languageCode: activeLang,
             },
           }));
-        audioCache.current.set(phrase.id, { audioBase64: res.audioBase64, format: res.format });
+        // Banked regardless of whether it is still wanted: a late clip is
+        // worth keeping, it is only the playback that is stale.
+        audioCache.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format });
+        if (roundRef.current !== capturedRound) {
+          setIsPlaying(false);
+          return;
+        }
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         // The express tempo: every clip plays fast.
         audio.playbackRate = PLAYBACK_RATE;
@@ -93,7 +115,7 @@ function ExpressListeningRound({
         setIsPlaying(false);
       }
     },
-    [synthesize, activeLanguageName, activeLang],
+    [synthesize, activeLanguageName, activeLang, ttsVoice],
   );
 
   useEffect(() => {
@@ -209,6 +231,11 @@ export default function ExpressListeningPage() {
       def={def}
       instruction="Listen fast and pick the matching phrase"
       secondsPerRound={SECONDS_PER_ROUND}
+      // The clip IS the prompt here: the four choices render native script
+      // only, so with sound off the round is unanswerable. Entry is refused
+      // rather than started.
+      requiresAudio
+
       totalRounds={() => ROUNDS}
       renderRound={(props) => <ExpressListeningRound {...props} />}
     />

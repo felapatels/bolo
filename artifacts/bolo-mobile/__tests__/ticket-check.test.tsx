@@ -295,6 +295,15 @@ describe('Ticket Check round', () => {
     expect(screen.getByTestId('ticket-english')).toBeTruthy();
   });
 
+  test('the game is SILENT: no mute toggle, because it speaks nothing', async () => {
+    // Ticket Check reads a ticket and punches a tile; it synthesizes nothing
+    // and plays nothing. It shipped before the silent-game declaration
+    // existed and inherited the default, so the shell offered a live control
+    // over silence for four ports.
+    await startRun();
+    expect(screen.queryByTestId('game-mute-btn')).toBeNull();
+  });
+
   test('a CORRECT pick waits for the continue beat before advancing', async () => {
     await startRun();
 

@@ -29,6 +29,7 @@
  * against.
  */
 import React, {
+  Fragment,
   useCallback,
   useEffect,
   useRef,
@@ -214,6 +215,20 @@ export type QuickGameShellProps = {
    * result screen, and the learner's finished work thrown away.
    */
   roundsPerRun?: number | ((phrases: Phrase[]) => number);
+  /**
+   * Whether this game speaks target-language audio.
+   *
+   * Defaults to TRUE, so every existing game keeps the mute toggle with no
+   * edit. A game that declares `false` gets no toggle at all — not disabled,
+   * not dimmed, absent — because a control that cannot affect anything is
+   * worse than no control: the learner presses it, nothing changes, and the
+   * game reads as broken. Same opt-in shape as `secondsPerRound`: one
+   * per-game declaration, the shell decides the chrome.
+   *
+   * A silent game still receives `soundOn` and `setAudioPlaying` (the round
+   * contract does not change); it simply never uses them.
+   */
+  usesAudio?: boolean;
   /** One-line instruction shown under the countdown. */
   instruction?: string;
   renderRound: (props: QuickRoundProps) => ReactNode;
@@ -223,6 +238,7 @@ export function QuickGameShell({
   def,
   secondsPerRound,
   roundsPerRun = DEFAULT_ROUNDS_PER_RUN,
+  usesAudio = true,
   instruction,
   renderRound,
 }: QuickGameShellProps) {
@@ -256,6 +272,18 @@ export function QuickGameShell({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   const [chaiEarned, setChaiEarned] = useState(0);
+  /**
+   * Identity of the CURRENT run, used only as a remount key for the round
+   * subtree (web does the same with its `gameKey`).
+   *
+   * `resetRun` clears the shell's own state, but a round that keeps state of
+   * its own — a persistent board like Luggage Match, which holds a matched
+   * set and a first-wrong map for the whole run — would otherwise carry that
+   * state into the next run: press Play Again and every tag is already
+   * matched. Bumping this key unmounts the round and rebuilds it from
+   * scratch. Per-round-derived games are unaffected either way.
+   */
+  const [runKey, setRunKey] = useState(0);
 
   const resultsRef = useRef<QuickRoundResult[]>([]);
   /**
@@ -435,12 +463,14 @@ export function QuickGameShell({
 
   const playAgain = useCallback(() => {
     resetRun();
+    setRunKey((k) => k + 1);
     setCountdown(timed ? COUNTDOWN_START : null);
     setPhase(timed ? 'countdown' : 'playing');
   }, [resetRun, timed]);
 
   const backToPicker = useCallback(() => {
     resetRun();
+    setRunKey((k) => k + 1);
     setCategoryId(null);
     setCountdown(null);
     setPhase('picker');
@@ -511,7 +541,13 @@ export function QuickGameShell({
             </Text>
           )}
         </View>
-        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+        {usesAudio ? (
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+        ) : (
+          // Layout ballast only, no control: the header is space-between, so
+          // dropping the toggle outright would slide the title off centre.
+          <View style={styles.headerSlot} />
+        )}
       </View>
 
       {phase === 'picker' && (
@@ -612,7 +648,11 @@ export function QuickGameShell({
               </View>
             )}
 
-            {renderRound({
+            {/* Keyed on the run, so a round holding its own state starts
+                every run clean. A Fragment rather than a wrapper View: the
+                remount must not add a layout node. */}
+            <Fragment key={runKey}>
+              {renderRound({
               phrases,
               api: {
                 // Zero-based, web parity. The display above adds the +1.
@@ -628,7 +668,8 @@ export function QuickGameShell({
               activeLang,
               activeLanguage,
               setAudioPlaying,
-            })}
+              })}
+            </Fragment>
           </View>
         ))}
 
@@ -840,6 +881,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerSlot: { width: 44, height: 44 },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
   subtitle: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },

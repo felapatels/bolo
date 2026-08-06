@@ -228,6 +228,10 @@ export default function TicketCheckScreen() {
       def={def}
       // secondsPerRound deliberately omitted: Ticket Check is untimed.
       roundsPerRun={ROUNDS}
+      // SILENT: the game speaks nothing, so the shell must not offer a mute
+      // control over silence. This landed after the port did — usesAudio
+      // defaults to true, so the first game on the shell never opted out.
+      usesAudio={false}
       instruction="Punch the ticket that matches the script"
       renderRound={(props) => <TicketCheckRound {...props} />}
     />

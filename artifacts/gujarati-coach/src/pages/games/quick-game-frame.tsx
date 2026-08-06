@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Timer,
   Trophy,
+  VolumeX,
   Zap,
 } from "lucide-react";
 import { CategoryIcon } from "@/lib/category-icons";
@@ -271,6 +272,7 @@ export function QuickGameShell({
   def,
   instruction,
   secondsPerRound,
+  requiresAudio,
   totalRounds,
   renderRound,
 }: {
@@ -279,6 +281,10 @@ export function QuickGameShell({
   instruction: string;
   /** Per-round countdown in seconds; omit for untimed games. */
   secondsPerRound?: number;
+  /** Opt-in for a game whose PROMPT is the clip (Express Listening): entry is
+   *  refused while sound is off, because the round surface carries nothing
+   *  readable without it. Omit for every game that merely speaks. */
+  requiresAudio?: boolean;
   /** Rounds for a given phrase pool (pairs count for Luggage Match). */
   totalRounds: (phrases: Phrase[]) => number;
   renderRound: (props: QuickRoundProps) => ReactNode;
@@ -295,6 +301,19 @@ export function QuickGameShell({
     launch.categoryId !== null ? { id: launch.categoryId, title: "" } : null,
   );
   const [gameKey, setGameKey] = useState(0);
+
+  // Audio-required gate. Evaluated ONCE per run entry (a pinned launch that
+  // opens straight into the game, Choose Topic, or Play Again) and never
+  // mid-round: muting during a run leaves that run alone to finish, and the
+  // gate catches the NEXT entry instead. Unmuting clears it immediately, in
+  // that one direction only, so the header's existing mute button is the way
+  // out; nothing here writes the sound preference or unmutes on the learner.
+  const [audioBlocked, setAudioBlocked] = useState(
+    () => requiresAudio === true && !soundOn && launch.categoryId !== null,
+  );
+  useEffect(() => {
+    if (audioBlocked && soundOn) setAudioBlocked(false);
+  }, [audioBlocked, soundOn]);
 
   // Hotfix 3 item 7c: a 3-2-1 countdown before round 1 of a TIMED game
   // (Signal Lights and Express Listening). While it runs, the round UI is
@@ -333,6 +352,7 @@ export function QuickGameShell({
   // and holds entirely until the pre-round 3-2-1 countdown finishes (7c).
   useEffect(() => {
     if (phase !== "game" || secondsPerRound == null || locked || countdown !== null) return;
+    if (audioBlocked) return;
     if (secondsLeft === null) return;
     if (secondsLeft <= 0) {
       setTimedOut(true);
@@ -341,13 +361,14 @@ export function QuickGameShell({
     }
     const t = setTimeout(() => setSecondsLeft((s) => (s === null ? null : s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [phase, secondsPerRound, locked, secondsLeft, countdown]);
+  }, [phase, secondsPerRound, locked, secondsLeft, countdown, audioBlocked]);
 
   // Item 7c: the 3-2-1 ticks only once the round surface is actually ready
   // (phrases loaded and above the floor), so a slow fetch never eats the
   // countdown before anything is visible.
   const roundsReady =
     phase === "game" &&
+    !audioBlocked &&
     !!selectedCategory &&
     !phraseQuery.isLoading &&
     phrases.length >= def.floor;
@@ -447,12 +468,14 @@ export function QuickGameShell({
 
   const handleTopicSelect = (id: number, title: string) => {
     setSelectedCategory({ id, title });
+    setAudioBlocked(requiresAudio === true && !soundOn);
     resetRun();
     setGameKey((k) => k + 1);
     setPhase("game");
   };
 
   const handlePlayAgain = () => {
+    setAudioBlocked(requiresAudio === true && !soundOn);
     resetRun();
     setGameKey((k) => k + 1);
     setPhase("game");
@@ -503,7 +526,19 @@ export function QuickGameShell({
       )}
 
       {phase === "game" &&
-        (selectedCategory && phraseQuery.isLoading ? (
+        (audioBlocked ? (
+          <div
+            className="flex flex-1 flex-col items-center justify-center gap-2 px-8 text-center"
+            data-testid="quick-audio-gate"
+          >
+            <VolumeX className="h-8 w-8 text-muted-foreground" />
+            <p className="text-base font-extrabold text-foreground">This game needs sound</p>
+            <p className="text-sm text-muted-foreground">
+              {def.title} plays the phrase and you pick what you heard, so there is nothing to
+              read with sound off. Unmute above to play.
+            </p>
+          </div>
+        ) : selectedCategory && phraseQuery.isLoading ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>

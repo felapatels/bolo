@@ -135,6 +135,44 @@ const GAMES: GameDef[] = [
     plusOnly: false,
     icon: 'check-square',
   },
+  // Build 35 mobile parity, second quick game. Title, description and icon
+  // come from the roster entry in lib/quick-games.ts so the hub, signals and
+  // web all describe the same game the same way. FREE on mobile. The roster
+  // grades it 'Medium'; the hub's own scale is Beginner/Intermediate/Advanced,
+  // so it lands as Intermediate.
+  {
+    id: 'signal-lights',
+    title: 'Signal Lights',
+    description: 'Green or red? Call the phrase before the signal changes.',
+    difficulty: 'Intermediate',
+    plusOnly: false,
+    icon: 'radio',
+  },
+  // Build 35 mobile parity, third quick game. Title, description and icon come
+  // from the roster entry in lib/quick-games.ts. FREE, matching the web hub.
+  // The roster grades it 'Medium', which maps to Intermediate on the hub's own
+  // Beginner/Intermediate/Advanced scale.
+  {
+    id: 'wrong-platform',
+    title: 'Wrong Platform',
+    description: 'Spot the phrase that does not belong on this platform.',
+    difficulty: 'Intermediate',
+    plusOnly: false,
+    icon: 'alert-triangle',
+  },
+  // Build 35 mobile parity, fourth quick game. Roster title, description and
+  // icon; FREE, matching the web hub. The roster grades it 'Easy', which maps
+  // to Beginner — the same grade the web hub hardcodes, so no divergence here.
+  // The roster blurb's "before the train leaves" promises a timer this game
+  // does not have; banked as a copy fix rather than rewritten here.
+  {
+    id: 'luggage-match',
+    title: 'Luggage Match',
+    description: 'Pair each bag with its owner before the train leaves.',
+    difficulty: 'Beginner',
+    plusOnly: false,
+    icon: 'briefcase',
+  },
 ];
 
 /**

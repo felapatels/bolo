@@ -249,6 +249,10 @@ describe('word-match target-language audio', () => {
     render(<WordMatchScreen />);
     await enterGameBoard();
 
+    // Word Match speaks, so it declares nothing and keeps the toggle: proof
+    // the silent-game declaration defaults safe for every shipped game.
+    expect(screen.getByTestId('game-mute-btn')).toBeTruthy();
+
     await act(async () => {
       fireEvent.press(screen.getByTestId('game-mute-btn'));
     });

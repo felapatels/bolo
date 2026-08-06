@@ -118,10 +118,16 @@ describe('games hub - tile vignettes', () => {
     expect(screen.getByText('Phrase Builder')).toBeOnTheScreen();
     expect(screen.getByText('Speed Round')).toBeOnTheScreen();
     expect(screen.getByText('Bolo Quiz')).toBeOnTheScreen();
-    // Build 35: Ticket Check joined the hub as a third Beginner game.
+    // Build 35: Ticket Check joined the hub as a third Beginner game, and
+    // Signal Lights as a third Intermediate one. The assertion still says the
+    // same thing it always did — every hub game carries exactly one difficulty
+    // pill, and the totals account for the whole roster.
     expect(screen.getByText('Ticket Check')).toBeOnTheScreen();
-    expect(screen.getAllByText('Beginner').length).toBe(3);
-    expect(screen.getAllByText('Intermediate').length).toBe(2);
+    expect(screen.getByText('Signal Lights')).toBeOnTheScreen();
+    expect(screen.getByText('Wrong Platform')).toBeOnTheScreen();
+    expect(screen.getByText('Luggage Match')).toBeOnTheScreen();
+    expect(screen.getAllByText('Beginner').length).toBe(4);
+    expect(screen.getAllByText('Intermediate').length).toBe(4);
     expect(screen.getAllByText('Advanced').length).toBe(1);
   });
 });
