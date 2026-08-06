@@ -9,4 +9,6 @@ description: Running the api and web suites concurrently makes timing-sensitive 
 
 **How to apply:** When gating a task that needs both suites, run web first (fast, hermetic jsdom), then api solo. If a timing-ish api test fails only in a contended run, suspect load before code.
 
+**Mobile has one too (Aug 6, 2026):** bolo-mobile's `quick-game-shell.test.tsx` "topic picker" test hits jest's 5s per-test timeout in a full-suite run and passes 67/67 in a targeted single-file run. Same protocol: targeted file run settles flake-vs-regression for free.
+
 **Update (Aug 3, 2026):** the feedbackTts pending-join timing test also flakes in a SOLO full api-suite run under ordinary workspace load (dev workflows running); parallel suites are sufficient but not necessary. Settle flake-vs-regression with a free targeted run of `src/lib/feedbackTts.test.ts` (note: co-located under src/lib/, NOT src/test/) before spending a suite re-run.
