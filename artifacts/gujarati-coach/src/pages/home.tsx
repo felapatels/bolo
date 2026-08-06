@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle, Coffee } from "lucide-react";
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
+import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens } from "@workspace/api-client-react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -590,6 +591,16 @@ export default function Home() {
           </Link>
         </div>
 
+        {/* Chai treatment tier 1: Chacha-ji's stall as a scene vignette
+            at wallet-vignette scale, right-aligned directly above the
+            stats banner so it reads as the stall behind the Chai cell
+            that opens the wallet. Decorative only (aria-hidden,
+            pointer-events-none): the wallet still opens from that cell,
+            and no wallet behavior changed. */}
+        <div className="mt-5 flex justify-end">
+          <ChaiStallVignette className="h-14" />
+        </div>
+
         {/* Stats Banner — vibrant, front-and-center progress. The banner is
             ALWAYS rendered: summary no longer blocks first paint, so its late
             arrival must not shift the layout below. The cell row is invisible
@@ -638,7 +649,7 @@ export default function Home() {
             <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
             <div className="w-px self-stretch bg-white/25" />
             <StatCell
-              icon={<Coffee className="w-6 h-6" />}
+              icon={<ChaiGlyph className="w-6 h-6" />}
               value={tokensQuery.data?.balance ?? "-"}
               label="Chai"
               delay={0.4}

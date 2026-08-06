@@ -14,6 +14,7 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { ChaiGlyph } from '@/components/ChaiStall';
 import { AppFonts } from '@/constants/fonts';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import { SignalmanGlyph } from '@/components/journey/SignalmanGlyph';
@@ -126,7 +127,7 @@ export function SignalEncounterDialog({
                   nothing, because the server will not pay twice. */}
               {!cleared && (
                 <View testID="signal-chai-chip" style={styles.chaiChip}>
-                  <Feather name="coffee" size={13} color="#B45309" />
+                  <ChaiGlyph size={13} />
                   <Text style={styles.chaiChipText}>+{encounter.rewardChai} Chai</Text>
                 </View>
               )}

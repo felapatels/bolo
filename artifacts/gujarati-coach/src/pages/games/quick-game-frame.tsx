@@ -17,7 +17,6 @@ import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
   Check,
-  Coffee,
   Home,
   Map as MapIcon,
   RefreshCw,
@@ -26,6 +25,7 @@ import {
   VolumeX,
   Zap,
 } from "lucide-react";
+import { ChaiGlyph } from "@/components/chai-stall";
 import { CategoryIcon } from "@/lib/category-icons";
 import {
   useListCategories,
@@ -211,13 +211,13 @@ function QuickEndScreen({
 
       {/* Chai earn beat: only when the server granted tokens for this run
           (first clear of a trackside signal or a zone closeout). Modeled on
-          the +XP chip pattern; the wallet's Coffee icon keeps Chai's look. */}
+          the +XP chip pattern; the wallet's kulhad glyph keeps Chai's look. */}
       {chaiEarned !== null && chaiEarned > 0 && (
         <div
           data-testid="chai-earn-beat"
           className="flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
         >
-          <Coffee className="h-4 w-4" />
+          <ChaiGlyph className="h-4 w-4" />
           +{chaiEarned} Chai earned
         </div>
       )}

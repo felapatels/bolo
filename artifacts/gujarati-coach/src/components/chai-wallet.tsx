@@ -4,7 +4,8 @@
 // derived from expressMultiplierActiveUntil, never from a client-side timer.
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Coffee, X } from "lucide-react";
+import { X } from "lucide-react";
+import { ChaiGlyph } from "@/components/chai-stall";
 import {
   ApiError,
   getGetTokensQueryKey,
@@ -181,7 +182,7 @@ export function ChaiWalletSheet({
               className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
             >
               <span>Equip · 5</span>
-              <Coffee className="h-4 w-4" aria-hidden="true" />
+              <ChaiGlyph className="h-4 w-4" />
             </button>
           </div>
 
@@ -210,7 +211,7 @@ export function ChaiWalletSheet({
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
               >
                 <span>Start · 10</span>
-                <Coffee className="h-4 w-4" aria-hidden="true" />
+                <ChaiGlyph className="h-4 w-4" />
               </button>
             )}
           </div>

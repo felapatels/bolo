@@ -27,7 +27,8 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Coffee, Lock, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Star } from "lucide-react";
+import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
 import {
@@ -1769,7 +1770,7 @@ export default function Journey() {
                   data-testid="signal-chai-chip"
                   className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
                 >
-                  <Coffee className="h-3.5 w-3.5" />
+                  <ChaiGlyph className="h-3.5 w-3.5" />
                   {/* Hotfix 3S Item 4: served value from the zone payload,
                       never a hardcoded amount. */}
                   +{signalDlg.rewardChai} Chai

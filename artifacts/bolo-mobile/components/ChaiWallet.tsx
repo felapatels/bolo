@@ -7,7 +7,7 @@
 // (MilestoneToast) with the exact web 409 copy.
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { ChaiGlyph } from '@/components/ChaiStall';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ApiError,
@@ -149,7 +149,7 @@ export function ChaiWalletSheet({
             <View
               style={[styles.balanceIcon, { backgroundColor: colors.primary }]}
             >
-              <Feather name="coffee" size={26} color="#fff" />
+              <ChaiGlyph size={26} />
             </View>
             <Text
               style={[styles.balanceValue, { color: colors.foreground }]}
@@ -198,7 +198,7 @@ export function ChaiWalletSheet({
               >
                 Equip · 5
               </Text>
-              <Feather name="coffee" size={14} color={colors.primaryForeground} />
+              <ChaiGlyph size={14} />
             </Pressable>
           </View>
 
@@ -245,11 +245,7 @@ export function ChaiWalletSheet({
                 >
                   Start · 10
                 </Text>
-                <Feather
-                  name="coffee"
-                  size={14}
-                  color={colors.primaryForeground}
-                />
+                <ChaiGlyph size={14} />
               </Pressable>
             )}
           </View>

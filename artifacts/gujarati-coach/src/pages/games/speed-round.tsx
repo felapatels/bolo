@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
-import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer, Coffee } from "lucide-react";
+import { ArrowLeft, Zap, ChevronRight, RotateCcw, Home, Trophy, Flame, Timer } from "lucide-react";
+import { ChaiGlyph } from "@/components/chai-stall";
 import { webHaptic } from "@/lib/haptics";
 import { useListCategories, useListCategoryPhrases, useRecordGameSession, useSynthesizeSpeech, getGetProgressSummaryQueryKey, getGetTokensQueryKey, type Category } from "@workspace/api-client-react";
 import { useQuickLaunch } from "./quick-game-frame";
@@ -585,7 +586,7 @@ function DoneScreen({
           data-testid="chai-earn-beat"
           className="mt-4 flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-extrabold text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
         >
-          <Coffee className="h-4 w-4" />
+          <ChaiGlyph className="h-4 w-4" />
           +{chaiEarned} Chai earned
         </div>
       )}

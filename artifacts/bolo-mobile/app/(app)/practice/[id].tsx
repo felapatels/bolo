@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { ChaiGlyph } from '@/components/ChaiStall';
 import * as Haptics from 'expo-haptics';
 import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { track, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
@@ -2010,12 +2011,7 @@ export default function PracticeScreen() {
                 { backgroundColor: `${'#D97706'}18`, borderColor: '#D97706' },
               ]}
             >
-              <Feather
-                name="coffee"
-                size={16}
-                color="#D97706"
-                style={{ marginRight: 6 }}
-              />
+              <ChaiGlyph size={16} style={{ marginRight: 6 }} />
               <CountUpText
                 value={sessionChai}
                 prefix="+"

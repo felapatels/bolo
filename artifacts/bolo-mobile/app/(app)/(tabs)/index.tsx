@@ -55,6 +55,7 @@ import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
+import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
 import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
@@ -365,6 +366,16 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {/* Chai treatment tier 1 (web parity): Chacha-ji's stall as a
+            scene vignette at wallet-vignette scale, right-aligned
+            directly above the stats banner so it reads as the stall
+            behind the Chai cell that opens the wallet. Decorative only
+            (hidden from the a11y tree, not pressable): the wallet still
+            opens from that cell, and no wallet behavior changed. */}
+        <View style={styles.stallVignetteRow}>
+          <ChaiStallVignette height={56} />
+        </View>
+
         {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
         <View style={styles.statsRowWrapper}>
           <LinearGradient
@@ -438,7 +449,7 @@ export default function HomeScreen() {
                 <View style={styles.statsDivider} />
                 <GradientStatCell
                   index={3}
-                  icon="coffee"
+                  icon="chai"
                   value={tokensQuery.data?.balance ?? '-'}
                   label="Chai"
                   loading={tokensQuery.isLoading}
@@ -904,7 +915,8 @@ function GradientStatCell({
   accessibilityLabel,
 }: {
   index: number;
-  icon: keyof typeof Feather.glyphMap;
+  /** A Feather glyph name, or 'chai' for the kulhad glyph. */
+  icon: keyof typeof Feather.glyphMap | 'chai';
   value: number | string;
   label: string;
   loading?: boolean;
@@ -960,7 +972,11 @@ function GradientStatCell({
           pressed && onPress != null && styles.gradientStatPressed,
         ]}
       >
-      <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
+      {icon === 'chai' ? (
+        <ChaiGlyph size={20} />
+      ) : (
+        <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
+      )}
       {loading ? (
         <ActivityIndicator color="rgba(255,255,255,0.7)" style={{ marginVertical: 4 }} />
       ) : showArc ? (
@@ -1071,6 +1087,10 @@ const styles = StyleSheet.create({
   // Nastaliq glyphs cascade above/below the baseline; increase the parent
   // Text lineHeight so the inline native name renders without clipping.
   langNameTall: { lineHeight: 36 },
+  stallVignetteRow: {
+    alignItems: 'flex-end',
+    marginTop: 14,
+  },
   statsRowWrapper: { marginBottom: 18 },
   statsBanner: {
     flexDirection: 'row',

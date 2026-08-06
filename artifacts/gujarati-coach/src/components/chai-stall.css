@@ -1,0 +1,36 @@
+/* Ambient steam for the Chai Stall vignette (components/chai-stall.tsx).
+
+   ONE slow looping layer over the kettle, and nothing else: the reactive
+   pour-on-earn moment is deliberately not built.
+
+   Reduced motion: this is pure CSS, so the global
+   @media (prefers-reduced-motion: reduce) rule in index.css (which collapses
+   animation-duration and iteration-count for everything except .animate-spin)
+   stops the loop on its own. There is intentionally NO animation-fill-mode
+   here: with no fill, a collapsed animation leaves the element on the base
+   styles below — a visible plume at rest, which is the authored static frame.
+   A `forwards`/`both` fill would strand it on the last keyframe instead (and
+   would also leave an identity transform behind, which is how animated
+   wrappers start acting as containing blocks for fixed children). */
+
+.chai-stall-steam {
+  /* Base frame == the reduced-motion frame: steam present, softly. */
+  opacity: 0.45;
+  transform-origin: bottom center;
+  animation: chai-steam-rise 7000ms ease-in-out infinite;
+}
+
+@keyframes chai-steam-rise {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4%) scale(0.96);
+  }
+  50% {
+    opacity: 0.62;
+    transform: translateY(-6%) scale(1.05);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(4%) scale(0.96);
+  }
+}

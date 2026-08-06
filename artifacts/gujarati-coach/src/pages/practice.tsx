@@ -28,7 +28,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Coffee, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 // TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
 // with the ?mode=capture scaffolding once the calibration corpus is complete.
 import {
@@ -66,6 +66,7 @@ import { PhraseReportButton } from "@/components/phrase-report";
 import { playCue } from "@/lib/sound";
 import { XpArc } from "@/components/XpArc";
 import { CountUp } from "@/components/ui/count-up";
+import { ChaiGlyph } from "@/components/chai-stall";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare" | "capture_saved";
@@ -1816,7 +1817,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   data-testid="session-chai-pill"
                   className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/40 px-4 py-1 text-sm font-black text-amber-700 dark:text-amber-400"
                 >
-                  <Coffee className="h-3.5 w-3.5" aria-hidden />
+                  <ChaiGlyph className="h-3.5 w-3.5" />
                   <CountUp value={sessionChai} prefix="+" suffix=" Chai earned" />
                 </div>
               </div>
