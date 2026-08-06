@@ -55,6 +55,9 @@ jest.mock('react-native-reanimated', () => {
     SlideInUp: chain,
     SlideOutUp: chain,
     Easing: new Proxy({}, { get: () => () => 0 }),
+    // Animation configs may carry a reduceMotion policy (the mascot's hanging
+    // breathe opts out of the system switch), so the enum has to exist here.
+    ReduceMotion: { System: 'system', Always: 'always', Never: 'never' },
     interpolateColor: () => 'transparent',
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: () => ({}),

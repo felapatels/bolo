@@ -134,14 +134,16 @@ export function steamLoop(reduceMotion: boolean): {
 export function ChaiGlyph({
   size = 16,
   style,
+  testID = 'chai-glyph',
 }: {
   size?: number;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   return (
     <Image
       source={STALL_ASSETS.kulhad}
-      testID="chai-glyph"
+      testID={testID}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       resizeMode="contain"

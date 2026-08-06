@@ -2103,12 +2103,17 @@ export default function PracticeScreen() {
                   ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
                   : 'tryagain'
             : 'wave';
+  // Evaluating is Bolo's job, not a throbber's: he hangs upside down and swings
+  // while the score comes back (build 36 — the ActivityIndicator that used to
+  // sit inside the record button is gone).
   const mascotMotion =
-    phase === 'recording'
-      ? 'sway'
-      : phase === 'result' && result && isFullCreditBand(result.band)
-        ? 'bounce'
-        : 'float';
+    phase === 'evaluating'
+      ? 'flip'
+      : phase === 'recording'
+        ? 'sway'
+        : phase === 'result' && result && isFullCreditBand(result.band)
+          ? 'bounce'
+          : 'float';
 
   return (
     <Screen>
@@ -2847,15 +2852,15 @@ function RecordButton({
             { backgroundColor: recording ? colors.accent : colors.primary },
           ]}
         >
-          {evaluating ? (
-            <ActivityIndicator color="#fff" size="large" />
-          ) : (
-            <Feather
-              name={recording ? 'square' : 'mic'}
-              size={34}
-              color="#fff"
-            />
-          )}
+          {/* No throbber here: the hanging mascot carries the evaluating
+              state (build 36). The button keeps its icon, dimmed, so the
+              circle never empties or shifts under a finger. */}
+          <Feather
+            name={recording ? 'square' : 'mic'}
+            size={34}
+            color="#fff"
+            style={evaluating ? styles.recordIconEvaluating : undefined}
+          />
         </Pressable>
       </View>
       {/* Spec D2: live waveform — only while actually recording. The slot
@@ -3124,6 +3129,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Evaluating: the button is disabled and the hanging mascot carries the
+  // state, so the icon just steps back rather than being swapped for a
+  // throbber (which sat visibly off-centre on iOS).
+  recordIconEvaluating: { opacity: 0.45 },
   // Frame-stability contract: waveform and hint render in reserved fixed-
   // height slots so phase changes never move the record button mid-hold.
   waveSlot: { height: 22, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },

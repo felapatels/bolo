@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
+import { SignalGlyph } from "@/components/journey-scenery";
 
 // Chunk 6B Story 3: trackside signals on the journey map. Pins:
 // (1) seating: one signal in the gap after every odd global stop, none in
@@ -431,5 +432,52 @@ describe("signal server truth (Hotfix 3S)", () => {
     fireEvent.click(screen.getByTestId("trackside-signal-1"));
     const scene = screen.getByTestId("signal-scene");
     expect(scene.querySelector('[data-testid="signalman-glyph"]')).not.toBeNull();
+  });
+});
+
+// ─── glyph ──────────────────────────────────────────────────────────────────
+
+describe("signal glyph", () => {
+  const cases = [
+    { state: "upcoming" as const, arm: "signal-arm-down", lamp: "#ef4444", halo: false },
+    { state: "active" as const, arm: "signal-arm-down", lamp: "#ef4444", halo: true },
+    { state: "waved" as const, arm: "signal-arm-up", lamp: "#ffb300", halo: false },
+    { state: "cleared" as const, arm: "signal-arm-up", lamp: "#22c55e", halo: false },
+  ];
+
+  // The glyph is aria-hidden (its tappable wrapper carries the label), so
+  // these go through the DOM rather than a role query.
+  const q = (c: HTMLElement, id: string) => c.querySelector(`[data-testid="${id}"]`);
+
+  test("reads its four states off one geometry: arm angle and lamp only", () => {
+    for (const c of cases) {
+      const { container, unmount } = render(<SignalGlyph state={c.state} />);
+      expect(q(container, c.arm)).not.toBeNull();
+      expect(q(container, "signal-lamp")?.getAttribute("fill")).toBe(c.lamp);
+      expect(q(container, "signal-active-halo") !== null).toBe(c.halo);
+      unmount();
+    }
+  });
+
+  test("carries the full crossing in every state: bell, crossbuck, housing, base, arm lamps", () => {
+    // The detail redraw is part of the ONE geometry: nothing here may appear,
+    // vanish or change colour with the state.
+    for (const c of cases) {
+      const { container, unmount } = render(<SignalGlyph state={c.state} />);
+      for (const part of [
+        "signal-bell",
+        "signal-crossbuck",
+        "signal-housing",
+        "signal-base",
+        "signal-arm-lamps",
+      ]) {
+        expect(q(container, part)).not.toBeNull();
+      }
+      // The raised arm is the same drawing, rotated about the pivot — never a
+      // second shape.
+      const up = q(container, "signal-arm-up");
+      if (up) expect(up.getAttribute("transform")).toBe("rotate(75 16.4 22.4)");
+      unmount();
+    }
   });
 });

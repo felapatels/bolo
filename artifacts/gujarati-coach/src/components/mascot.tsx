@@ -15,9 +15,11 @@ import { mascotEntrance, floatIdle } from "@/lib/motion";
 // reference only — do not render it in the app.
 export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain";
 
-/** Reactive mode for chat: "talking" while Bolo's voice plays, "listening"
- * while the learner records. Whole-image motion only (pulse / lean). */
-export type MascotActivity = "talking" | "listening";
+/** Reactive mode: "talking" while Bolo's voice plays, "listening" while the
+ * learner records, "evaluating" while something is being worked out for them —
+ * he hangs upside down like a parrot and swings. Whole-image motion only
+ * (pulse / lean / hang), so the canonical art rule holds. */
+export type MascotActivity = "talking" | "listening" | "evaluating";
 
 const POSE_SRC: Record<MascotPose, string> = {
   wave: "mascot-wave.png",
@@ -117,9 +119,32 @@ export function Mascot({
 
   // Whole-image activity layer: talking = soft rhythmic pulse, listening =
   // attentive lean. No part-level motion.
+  // The hang itself is a CSS class on an in-flow wrapper, not a framer value:
+  // it must hold with animations off, and the mascot's fill chain has no
+  // definite ancestor height, so the wrapper stays in flow (see the crossfade
+  // note below — an absolute box collapses the whole parrot zone).
+  const hanging = activity === "evaluating";
+  // Reduced motion kills the tip-over transition and the swing, and a bird
+  // frozen upside down does not read as "working". A slow opacity breathe
+  // carries it instead: no movement, so it stays motion-safe.
+  const hangBreathe =
+    hanging && reduceMotion
+      ? {
+          animate: { opacity: [1, 0.5, 1] },
+          transition: { duration: 1.7, repeat: Infinity, ease: "easeInOut" as const },
+        }
+      : undefined;
+
   const activityAnim = !animActive
     ? undefined
-    : activity === "talking"
+    : activity === "evaluating"
+      ? {
+          // Pendulum on the hang. The 180° lives on the wrapper class, so this
+          // is a small swing around it.
+          animate: { rotate: [-7, 7, -7] },
+          transition: { duration: 2.4, repeat: Infinity, ease: "easeInOut" as const },
+        }
+      : activity === "talking"
       ? {
           animate: { scale: [1, 1.035, 1] },
           transition: { duration: 0.55, repeat: Infinity, ease: "easeInOut" as const },
@@ -147,6 +172,15 @@ export function Mascot({
           animate={activityAnim?.animate}
           transition={activityAnim?.transition}
         >
+          <motion.div
+            data-testid={hanging ? "mascot-hanging" : undefined}
+            className={cn(
+              "h-full w-full transition-transform duration-500",
+              hanging && "rotate-180",
+            )}
+            animate={hangBreathe?.animate}
+            transition={hangBreathe?.transition}
+          >
           {/* Pose changes crossfade between whole canonical images.
               The CURRENT pose img must stay IN-FLOW (not absolute): the
               practice screen's `fill` chain has no definite ancestor height,
@@ -185,6 +219,7 @@ export function Mascot({
               )}
             />
           </AnimatePresence>
+          </motion.div>
         </motion.div>
       </motion.div>
     </motion.div>

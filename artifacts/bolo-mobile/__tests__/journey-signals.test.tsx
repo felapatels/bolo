@@ -172,6 +172,27 @@ describe('signal glyph', () => {
       unmount();
     }
   });
+
+  it('carries the full crossing in every state: bell, crossbuck, housing, base, arm lamps', () => {
+    // The detail redraw is part of the ONE geometry: nothing here may appear,
+    // vanish or change colour with the state, or the state would be readable
+    // from something other than arm angle + lamp fill.
+    const deep = { includeHiddenElements: true };
+    const parts = [
+      'signal-bell',
+      'signal-crossbuck',
+      'signal-housing',
+      'signal-base',
+      'signal-arm-lamps',
+    ];
+    for (const state of ['upcoming', 'active', 'waved', 'cleared'] as const) {
+      const { unmount } = render(<SignalGlyph state={state} />);
+      for (const part of parts) {
+        expect(screen.getByTestId(part, deep)).toBeOnTheScreen();
+      }
+      unmount();
+    }
+  });
 });
 
 // ─── encounter dialog ───────────────────────────────────────────────────────

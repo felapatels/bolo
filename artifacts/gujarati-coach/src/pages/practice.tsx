@@ -28,7 +28,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, Loader2, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
 // TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
 // with the ?mode=capture scaffolding once the calibration corpus is complete.
 import {
@@ -2363,12 +2363,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
             {/* Pose changes morph the rigged mascot's body parts in place —
                 no keyed remount/hard swap anymore (the rig springs between
-                per-part pose targets). Only the evaluating dim remains here. */}
-            <motion.div
-              animate={{ opacity: state === "evaluating" ? 0.55 : 1 }}
-              transition={springs.snappy}
-              className="w-full h-full"
-            >
+                per-part pose targets). The evaluating dim is gone with the
+                spinner it used to sit behind: Bolo himself now plays that
+                state, so he stays at full strength while it runs. */}
+            <div className="w-full h-full">
               {/* Spec D2: mascot "hears" the learner — scale rides the live
                     amplitude MotionValue (1.0–1.08) while recording. The rAF
                     loop leaves amplitudeMv at 0 under reduced motion or when
@@ -2386,17 +2384,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       pose={mascotPose}
                       fill
                       idle={state === "result" && result?.passed ? "cheer" : "float"}
+                      // Evaluating state: he hangs upside down and swings
+                      // while the score comes back. Replaced the throbber.
+                      activity={state === "evaluating" ? "evaluating" : null}
                     />
                   </div>
                 </motion.div>
-            </motion.div>
-
-            {/* Evaluating spinner — centred over the belly zone */}
-            {state === "evaluating" && (
-              <div className="absolute bottom-[18%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
-                <Loader2 className="w-10 h-10 animate-spin text-primary drop-shadow-lg" />
-              </div>
-            )}
+            </div>
 
             {/* One-time first-practice hint — floats above the mascot belly,
                 auto-fades after 3.5s, then never shown again. Motion-safe:

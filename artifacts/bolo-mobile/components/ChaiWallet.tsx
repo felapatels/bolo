@@ -146,11 +146,11 @@ export function ChaiWalletSheet({
             Chai Wallet
           </Text>
           <View style={styles.balanceRow}>
-            <View
-              style={[styles.balanceIcon, { backgroundColor: colors.primary }]}
-            >
-              <ChaiGlyph size={26} />
-            </View>
+            {/* No disc. A terracotta kulhad on an indigo plate fought itself,
+                and every other Chai surface — the home stat cell, the stall
+                band, the receipts, the journey payouts — renders the glyph
+                bare. Bigger glyph instead, so the header keeps its anchor. */}
+            <ChaiGlyph size={40} testID="wallet-balance-glyph" />
             <Text
               style={[styles.balanceValue, { color: colors.foreground }]}
               testID="wallet-balance"
@@ -277,13 +277,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  balanceIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   balanceValue: {
     fontFamily: AppFonts.extrabold,

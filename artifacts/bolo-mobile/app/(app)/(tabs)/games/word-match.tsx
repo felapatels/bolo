@@ -456,7 +456,14 @@ function GameBoard({
 
   const [gridSize, setGridSize] = useState<{ width: number; height: number } | null>(null);
   const cardWidth  = gridSize ? (gridSize.width  - GAP * (COLS - 1)) / COLS : null;
-  const cardHeight = gridSize ? (gridSize.height - GAP * (ROWS - 1)) / ROWS : null;
+  // The grid is flex:1, so dividing its full height by the row count stretched
+  // every card into a slender tile — roughly 84x134 on a phone at four rows,
+  // and worse at three. Cards are never taller than they are wide now, which
+  // is the near-square shape the web board already uses; the leftover height
+  // is distributed around the rows (alignContent) instead of inside them.
+  const rowHeight  = gridSize ? (gridSize.height - GAP * (ROWS - 1)) / ROWS : null;
+  const cardHeight =
+    rowHeight !== null && cardWidth !== null ? Math.min(rowHeight, cardWidth) : null;
 
   return (
     // The board is flex:1, so without the same bottom clearance the topic
@@ -782,7 +789,12 @@ const styles = StyleSheet.create({
   },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statText: { fontFamily: AppFonts.semibold, fontSize: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'center',
+    marginHorizontal: -2,
+  },
   cardFace: {
     position: 'absolute',
     top: 0,

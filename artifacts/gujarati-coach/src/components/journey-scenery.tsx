@@ -664,48 +664,92 @@ export function SignalGlyph({
 }) {
   const barDown = state === "upcoming" || state === "active";
   const lamp = barDown ? SIGNAL_RED : state === "waved" ? SIGNAL_AMBER : SIGNAL_GREEN;
-  // The striped gate arm, drawn pointing left from its pivot on the post.
+  // The striped gate arm, drawn ONCE pointing left from its pivot on the post.
   // The bar-up states rotate this same group about the pivot, so the arm's
-  // geometry is identical in every state.
+  // geometry — stripes, lamps and all — is identical in every state.
   const arm = (
     <g>
       <rect x={1} y={20.9} width={16.4} height={3} rx={1.5} fill="#ffffff" stroke={SLATE} strokeWidth={0.6} />
-      <rect x={2.4} y={21.4} width={3.4} height={2} rx={0.6} fill={SIGNAL_RED} />
-      <rect x={8.2} y={21.4} width={3.4} height={2} rx={0.6} fill={SIGNAL_RED} />
-      <rect x={14} y={21.4} width={2.4} height={2} rx={0.6} fill={SIGNAL_RED} />
+      <rect x={2.1} y={21.35} width={3.2} height={2.1} rx={0.5} fill={SIGNAL_RED} />
+      <rect x={7.9} y={21.35} width={3.2} height={2.1} rx={0.5} fill={SIGNAL_RED} />
+      <rect x={13.5} y={21.35} width={2.7} height={2.1} rx={0.5} fill={SIGNAL_RED} />
+      {/* gate lamps, in the white gaps between stripes. Fixed colour in every
+          state: the STATE lamp is the one on the mast, and a second colour
+          here would give the learner two things to read. */}
+      <g data-testid="signal-arm-lamps">
+        <circle cx={6.6} cy={22.4} r={1.15} fill={INK} opacity={0.8} />
+        <circle cx={6.6} cy={22.4} r={0.6} fill={SIGNAL_RED} />
+        <circle cx={12.3} cy={22.4} r={1.15} fill={INK} opacity={0.8} />
+        <circle cx={12.3} cy={22.4} r={0.6} fill={SIGNAL_RED} />
+      </g>
     </g>
   );
   // Signal polish item 2: rendered a step larger (was 32x40); the viewBox is
   // unchanged so the glyph geometry scales as one piece.
   return (
-    <svg width={40} height={50} viewBox="0 0 32 40" aria-hidden focusable="false">
-      {/* post + base */}
-      <rect x={15} y={7} width={2.8} height={29} rx={1.2} fill={SLATE_SHADE} />
-      <rect x={10.4} y={35.4} width={12} height={3} rx={1.5} fill={TEAL} />
-      {/* crossbuck (X sign) */}
-      <g transform="rotate(26 16.4 5.4)">
-        <rect x={8.4} y={4} width={16} height={2.9} rx={1.45} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+    <svg width={40} height={50} viewBox="0 0 32 40" aria-hidden focusable="false" data-testid="signal-glyph">
+      {/* ground shadow (shared scenery convention: down-light from upper-left) */}
+      <ellipse cx={16.4} cy={38.4} rx={9.6} ry={1.5} fill={INK} opacity={0.12} />
+      {/* concrete base + footing */}
+      <g data-testid="signal-base">
+        <rect x={9.4} y={33.6} width={14} height={3.2} rx={1.2} fill={SLATE} />
+        <rect x={8.6} y={36} width={15.6} height={1.8} rx={0.9} fill={SLATE_SHADE} opacity={0.9} />
       </g>
-      <g transform="rotate(-26 16.4 5.4)">
-        <rect x={8.4} y={4} width={16} height={2.9} rx={1.45} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+      {/* mast */}
+      <rect x={15} y={3.2} width={2.8} height={31} rx={1.2} fill={SLATE_SHADE} />
+      {/* mechanism housing: the box that swings the arm, bolted to the mast */}
+      <g data-testid="signal-housing">
+        <rect x={11.3} y={24.9} width={10.2} height={7} rx={1.8} fill={SLATE_SHADE} />
+        <rect x={12.6} y={26.1} width={7.6} height={4.6} rx={1.1} fill={TEAL} />
+        <rect x={13.6} y={27.2} width={5.6} height={0.5} rx={0.25} fill={INK} opacity={0.35} />
+        <rect x={13.6} y={28.4} width={5.6} height={0.5} rx={0.25} fill={INK} opacity={0.35} />
+        <circle cx={12.1} cy={26} r={0.5} fill={AMBER} />
+        <circle cx={20.7} cy={26} r={0.5} fill={AMBER} />
+        <circle cx={12.1} cy={30.7} r={0.5} fill={AMBER} />
+        <circle cx={20.7} cy={30.7} r={0.5} fill={AMBER} />
       </g>
-      {/* lamp box */}
+      {/* warning bell atop the mast */}
+      <g data-testid="signal-bell">
+        <path d="M13.9 4.3 C13.9 1.9 15 0.8 16.4 0.8 C17.8 0.8 18.9 1.9 18.9 4.3 Z" fill={AMBER} />
+        <rect x={13.3} y={4.1} width={6.2} height={1.2} rx={0.6} fill={AMBER_SHADE} />
+        <circle cx={16.4} cy={5.8} r={0.65} fill={AMBER_SHADE} />
+      </g>
+      {/* crossbuck (X sign): the same bar twice, mirrored about the mast */}
+      <g data-testid="signal-crossbuck">
+        <g transform="rotate(26 16.4 8.2)">
+          <rect x={8.9} y={6.85} width={15} height={2.7} rx={1.35} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+        </g>
+        <g transform="rotate(-26 16.4 8.2)">
+          <rect x={8.9} y={6.85} width={15} height={2.7} rx={1.35} fill="#ffffff" stroke={INDIGO} strokeWidth={1} />
+        </g>
+      </g>
+      {/* lamp head: hood + housing */}
+      <rect x={12.6} y={9.5} width={7.6} height={1.6} rx={0.8} fill={SLATE_SHADE} />
       <rect x={12.2} y={10.4} width={8.4} height={8.4} rx={2.6} fill={INK} opacity={0.85} />
       {/* RED ACTIVE blocking emphasis: amber halo ring plus a red glow behind
           the lit lamp. The attention pulse lives on the button
           (motion-safe:animate-pulse), so reduced motion suppresses it there.
           RED FUTURE gets the same full-color lamp with no halo. */}
       {state === "active" && (
-        <>
+        <g data-testid="signal-active-halo">
           <circle cx={16.4} cy={14.6} r={6.6} fill="none" stroke={AMBER} strokeWidth={1.6} opacity={0.9} />
           <circle cx={16.4} cy={14.6} r={5.2} fill={SIGNAL_RED} opacity={0.35} />
-        </>
+        </g>
       )}
-      <circle cx={16.4} cy={14.6} r={3} fill={lamp} />
+      <circle data-testid="signal-lamp" cx={16.4} cy={14.6} r={3} fill={lamp} />
+      {/* hinge bracket, behind the arm */}
+      <rect x={14.6} y={20.2} width={3.6} height={4.4} rx={1.3} fill={SLATE_SHADE} />
       {/* gate arm: down blocks the track, up clears it */}
-      {barDown ? arm : <g transform="rotate(75 16.4 22.4)">{arm}</g>}
+      {barDown ? (
+        <g data-testid="signal-arm-down">{arm}</g>
+      ) : (
+        <g data-testid="signal-arm-up" transform="rotate(75 16.4 22.4)">
+          {arm}
+        </g>
+      )}
       {/* pivot hub */}
       <circle cx={16.4} cy={22.4} r={1.7} fill={TEAL} />
+      <circle cx={16.4} cy={22.4} r={0.65} fill={SLATE_SHADE} />
     </svg>
   );
 }

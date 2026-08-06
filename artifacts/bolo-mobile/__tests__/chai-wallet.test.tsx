@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,30 @@ describe('Chai wallet sheet content', () => {
     expect(screen.getByText('Start · 10')).toBeOnTheScreen();
     // No multiplier running: the countdown line is absent.
     expect(screen.queryByTestId('wallet-express-countdown')).toBeNull();
+  });
+
+  // Build 36 item 3: the balance badge used to set the terracotta kulhad on a
+  // 52pt disc filled with the indigo primary — the only plated Chai glyph
+  // anywhere. Every other Chai surface (home stat cell, stall band, receipts,
+  // journey payouts, web) renders it bare, so the plate is gone and the glyph
+  // carries the header on its own size.
+  it('renders the balance glyph bare — no coloured disc behind it', () => {
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    // The glyph is decorative (accessibility-hidden), which RNTL skips by
+    // default.
+    const glyph = screen.getByTestId('wallet-balance-glyph', {
+      includeHiddenElements: true,
+    });
+    const glyphStyle = StyleSheet.flatten(glyph.props.style);
+    expect(glyphStyle.width).toBe(40);
+    expect(glyphStyle.height).toBe(40);
+
+    // Nothing paints a plate under it: the glyph sits straight in the balance
+    // row, which carries no background of its own.
+    const parentStyle = StyleSheet.flatten(glyph.parent?.props.style) ?? {};
+    expect(parentStyle.backgroundColor).toBeUndefined();
+    expect(parentStyle.borderRadius).toBeUndefined();
   });
 
   it('shows a dash while token state has not loaded', () => {

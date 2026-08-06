@@ -1,7 +1,8 @@
 import React from 'react';
-import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
+import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import Animated, {
   Easing,
+  ReduceMotion,
   ZoomIn,
   useAnimatedStyle,
   useReducedMotion,
@@ -37,8 +38,14 @@ export type MascotPose =
   | 'thinking'
   | 'tryagain';
 
-/** Idle motion applied while the mascot sits on screen. */
-export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway';
+/**
+ * Idle motion applied while the mascot sits on screen.
+ *
+ * `flip` is the working/evaluating state: Bolo hangs upside down the way a
+ * parrot does, swinging gently, while something is being worked out for the
+ * learner. It replaced the throbber inside the practice record button.
+ */
+export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway' | 'flip';
 
 const SOURCES: Record<MascotPose, number> = {
   wave: require('../assets/images/mascot/mascot-wave.png'),
@@ -99,6 +106,15 @@ export function Mascot({
   const reduceMotion = useReducedMotion();
   const loop = useSharedValue(0);
 
+  // Hanging (evaluating) state. The 180° itself is a PLAIN style on an inner
+  // view, applied for as long as the mascot hangs; the shared value carries
+  // only the spring INTO the pose (-180 -> 0) and the pendulum rides the idle
+  // loop. Keeping the pose itself out of the worklet means it still reads as
+  // "upside down" wherever animations don't run at all.
+  const hanging = motion === 'flip';
+  const flipIn = useSharedValue(hanging ? 1 : 0);
+  const breathe = useSharedValue(1);
+
   // Extra shared values for funny idle transforms.
   const funnyY = useSharedValue(0);
   const funnyRotate = useSharedValue(0);
@@ -113,13 +129,48 @@ export function Mascot({
       loop.value = 0;
       return;
     }
-    const duration = motion === 'bounce' ? 650 : motion === 'sway' ? 1400 : 2200;
+    const duration =
+      motion === 'bounce'
+        ? 650
+        : motion === 'sway'
+          ? 1400
+          : motion === 'flip'
+            ? 1600
+            : 2200;
     loop.value = withRepeat(
       withTiming(1, { duration, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
   }, [motion, reduceMotion, loop]);
+
+  // Spring into (and out of) the hang.
+  React.useEffect(() => {
+    if (hanging) {
+      flipIn.value = reduceMotion
+        ? 1
+        : withSpring(1, { damping: 12, stiffness: 150 });
+    } else {
+      flipIn.value = 0;
+    }
+  }, [hanging, reduceMotion, flipIn]);
+
+  // Reduced motion gets neither the flip-in nor the swing, and a bird simply
+  // frozen upside down does not read as "working". A slow opacity breathe
+  // carries that instead — no movement, so it stays motion-safe. It has to opt
+  // out of the system reduced-motion switch explicitly or reanimated snaps it
+  // straight to the end value and leaves the mascot dimmed.
+  React.useEffect(() => {
+    if (hanging && reduceMotion) {
+      breathe.value = withRepeat(
+        withTiming(0.5, { duration: 850, reduceMotion: ReduceMotion.Never }),
+        -1,
+        true,
+      );
+    } else {
+      breathe.value = 1;
+    }
+  }, [hanging, reduceMotion, breathe]);
 
   // Cheer gets an extra celebratory wiggle whenever the pose becomes "cheer".
   React.useEffect(() => {
@@ -227,7 +278,12 @@ export function Mascot({
     if (motion === 'float') translateY = -6 * Math.sin(t * Math.PI);
     else if (motion === 'bounce') translateY = -10 * Math.sin(t * Math.PI);
     else if (motion === 'sway') rotate = (t - 0.5) * 6;
+    else if (motion === 'flip') rotate = (t - 0.5) * 14; // pendulum on the hang
     if (pose === 'cheer') rotate += (t - 0.5) * 10;
+
+    // Cancels the inner 180° until the spring lands, so he tips over into the
+    // hang rather than appearing upside down.
+    if (hanging) rotate += (flipIn.value - 1) * 180;
 
     // Layer funny transforms on top.
     translateY += funnyY.value;
@@ -235,6 +291,7 @@ export function Mascot({
     const scale = funnyScale.value;
 
     return {
+      opacity: breathe.value,
       transform: [{ translateY }, { rotate: `${rotate}deg` }, { scale }],
     };
   });
@@ -248,16 +305,26 @@ export function Mascot({
       ? ZoomIn.springify().damping(10).stiffness(140).mass(0.6).delay(40)
       : undefined;
 
+  const image = (
+    <Image
+      source={SOURCES[pose]}
+      style={[{ width: size, height: size }, styles.img, style]}
+      resizeMode="contain"
+      accessibilityRole="image"
+      accessibilityLabel={`Bolo the parrot, ${pose}`}
+    />
+  );
+
   return (
     <Animated.View key={pose} entering={appear(entrance)}>
       <Animated.View style={animatedStyle}>
-        <Image
-          source={SOURCES[pose]}
-          style={[{ width: size, height: size }, styles.img, style]}
-          resizeMode="contain"
-          accessibilityRole="image"
-          accessibilityLabel={`Bolo the parrot, ${pose}`}
-        />
+        {hanging ? (
+          <View style={styles.hanging} testID="mascot-hanging">
+            {image}
+          </View>
+        ) : (
+          image
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -265,4 +332,6 @@ export function Mascot({
 
 const styles = StyleSheet.create({
   img: {},
+  /** The hang itself — a plain transform, so it holds with animations off. */
+  hanging: { transform: [{ rotate: '180deg' }] },
 });

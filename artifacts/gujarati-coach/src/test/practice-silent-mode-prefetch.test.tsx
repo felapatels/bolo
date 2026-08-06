@@ -415,6 +415,41 @@ describe("belly zone availability", () => {
       });
     });
   });
+
+  // Build 36 items 1+2: the Loader2 throbber that used to float over the
+  // mascot's belly while evaluating (and the 0.55 dim behind it) are gone —
+  // Bolo plays the state himself, hanging upside down off his perch.
+  test("evaluating shows the hanging mascot and no throbber", async () => {
+    let resolveEval!: (v: unknown) => void;
+    h.evaluate.mockReturnValue(new Promise((res) => { resolveEval = res; }));
+
+    await renderSilent();
+    fireEvent.pointerDown(bellyButton());
+    await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
+
+    await act(async () => {
+      const releaseTarget =
+        document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
+      fireEvent.pointerUp(releaseTarget);
+    });
+
+    await waitFor(() =>
+      expect(document.querySelector('[data-testid="mascot-hanging"]')).not.toBeNull(),
+    );
+    expect(document.querySelector(".animate-spin")).toBeNull();
+
+    await act(async () => {
+      resolveEval({
+        score: 90,
+        band: "great",
+        passed: true,
+        xpAwarded: 9,
+        feedback: "Great!",
+        tip: "",
+        evaluationToken: "tok",
+      });
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
