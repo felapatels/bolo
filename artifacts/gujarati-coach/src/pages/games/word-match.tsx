@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, Link2, RefreshCw, Home, Clock, Zap, Trophy } from "lucide-react";
+import { ArrowLeft, RefreshCw, Home, Clock, Zap, Trophy } from "lucide-react";
 import { CategoryIcon } from "@/lib/category-icons";
 import {
   useListCategories,
@@ -62,6 +62,28 @@ function formatTime(seconds: number): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+/**
+ * The face-down card's art. Bolo waving on a tinted face — the SAME back the
+ * mobile game renders (mascot-wave), so a learner switching devices sees one
+ * deck. It shipped on web as a lucide `Link2` chain-link glyph at 40% opacity,
+ * which read as a broken-image placeholder rather than a designed card back.
+ *
+ * ONE component, deliberately: the back is the only thing the two platforms
+ * have to keep in step by hand, so it must not be inlined at the call site.
+ * Canonical mascot rule holds — this is the shipped PNG via <Mascot>, no new
+ * art. `word-match-card-back` is pinned by test, placeholder can't creep back.
+ */
+export function WordMatchCardBack() {
+  return (
+    <div
+      data-testid="word-match-card-back"
+      className="flex h-full w-full items-center justify-center"
+    >
+      <Mascot pose="wave" size={40} idle="none" ambient="calm" />
+    </div>
+  );
+}
+
 function FlipCard({
   card,
   onFlip,
@@ -96,9 +118,9 @@ function FlipCard({
         {/* Back face (hidden state) */}
         <div
           style={{ backfaceVisibility: "hidden" }}
-          className="absolute inset-0 flex items-center justify-center rounded-2xl border border-border bg-card shadow-sm hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl border border-border bg-primary/5 shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/10"
         >
-          <Link2 className="h-6 w-6 text-muted-foreground/40" />
+          <WordMatchCardBack />
         </div>
 
         {/* Front face (flipped/matched/error state) */}

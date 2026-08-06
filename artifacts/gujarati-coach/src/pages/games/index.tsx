@@ -586,7 +586,16 @@ function GameCard({
         // aspect-square gives the near-square tile that replaced the old
         // slender card; justify-between spreads the three content rows across
         // that taller box.
-        "group relative flex aspect-square cursor-pointer flex-col justify-between gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color,filter] duration-200 hover:shadow-md motion-safe:hover:saturate-[1.15]",
+        //
+        // The square is gated behind the SAME min-[480px] breakpoint as the
+        // two-column grid below, because a square is only near-square when
+        // the card is half the row. Applied unconditionally (as it shipped in
+        // the hub redesign) a single-column card at 390pt measured 358x358 —
+        // most of the viewport, with the content stranded top and bottom.
+        // Below the breakpoint the card is content-height with a modest floor
+        // so it can't collapse back to the old slender shape; at or above it,
+        // min-h-0 hands the box back to aspect-square exactly as before.
+        "group relative flex min-h-[168px] cursor-pointer flex-col justify-between gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color,filter] duration-200 hover:shadow-md motion-safe:hover:saturate-[1.15] min-[480px]:aspect-square min-[480px]:min-h-0",
         colors.bg,
         colors.border,
         colors.pressGlow,

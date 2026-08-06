@@ -1497,6 +1497,16 @@ Tests: `src/test/pricing.test.tsx` (formatting, monthly equivalent, derived badg
 
 **Suite state:** mobile 86 suites / 737 tests pass (was 86 / 736); web 71 files / 557 tests pass (was 71 / 555). Typecheck clean across all 7 projects.
 
+## 10i. Games hub square tile is breakpoint-gated; Word Match has a real card back (August 6, 2026, web)
+
+**The square was never conditional, the grid always was.** The hub redesign gave the grid card `aspect-square` unconditionally while the shelf grid only goes two-up at `min-[480px]`. On a 390pt iPhone the card is therefore full width, and a full-width square measured **358×358px** — most of the viewport, with `justify-between` stranding the icon at the top and the title and chip at the bottom of a mostly empty box. The square is now gated behind the SAME `min-[480px]` breakpoint as the grid, with a `min-h-[168px]` floor below it (and `min-[480px]:min-h-0` handing the box back to aspect-ratio above it). Measured after: **169.8–191px** at 390pt, **238×238 unchanged** at 520pt. Rule of thumb: an aspect ratio on a grid child is only meaningful alongside the column count that gives the child its width — gate them together or not at all.
+
+**The featured card is not affected and never was.** `FeaturedCard` is a flex row, measured **162px at 390pt both before and after** the fix. If a hub screenshot looks top-heavy, the hero is not the cause.
+
+**Word Match's face-down card** renders `WordMatchCardBack` (exported from the web game module) — the canonical waving Bolo on a tinted face, the same art the mobile game has always dealt. It previously drew a lucide `Link2` chain-link glyph at 40% opacity, which every viewer read as a broken image. It is ONE exported component precisely because the platforms have to be kept in step by hand, and its contents are pinned by test (mascot PNG present, zero `<svg>` on the back) so a placeholder cannot creep back.
+
+**Verification note that matters more than the fix.** Both defects were invisible to the suites and always would have been: jsdom has no layout engine and never compiles Tailwind, so `aspect-ratio` never resolves and every element measures 0×0 — and no test asserted card shape at all, not even as a class string. `/games` is auth-gated, so the `qa/*.mjs` browser probes had never been pointed at it. Anything geometric on the games routes must be checked in a real browser with a Clerk sign-in ticket at a named viewport width; a class assertion is not an acceptance check for layout.
+
 ## 11. House Patterns
 
 One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.
