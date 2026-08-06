@@ -1507,6 +1507,23 @@ Tests: `src/test/pricing.test.tsx` (formatting, monthly equivalent, derived badg
 
 **Verification note that matters more than the fix.** Both defects were invisible to the suites and always would have been: jsdom has no layout engine and never compiles Tailwind, so `aspect-ratio` never resolves and every element measures 0×0 — and no test asserted card shape at all, not even as a class string. `/games` is auth-gated, so the `qa/*.mjs` browser probes had never been pointed at it. Anything geometric on the games routes must be checked in a real browser with a Clerk sign-in ticket at a named viewport width; a class assertion is not an acceptance check for layout.
 
+## 10j. Romanized reading is mandatory on game surfaces, with three named exemptions (August 6, 2026, web + mobile)
+
+**The ruling.** Any game surface rendering native script to a learner during play must ALSO render its romanized form, always visible — not on reveal, not gated. It softens the script-recognition challenge in games like Word Match and Luggage Match, and that was accepted deliberately: a learner who cannot yet read Devanagari or Gujarati is otherwise guessing at shapes.
+
+**Source is `phrase.romanized`, always.** It is a required string on the API phrase schema and already rides in every payload these games fetch — no new field, no new request, and NO transliteration helper ships to a client. The deterministic sanscript romanizer lives server-side and exists for free-form STT transcripts (the practice "We heard" line), not for catalog phrases. Per-word romanization does not exist anywhere in the schema or seed data.
+
+**Empty string is a real case.** Several scripts have no romanization and their phrases carry `""`. Every surface guards with `romanized.trim() !== ''` and renders the script alone — never an empty line, never a placeholder.
+
+**Treatment (identical on both platforms):** native script primary, romanized directly beneath it, quieter and smaller — the two-line stack mobile Word Match and the Speed Round card already used. Web: `text-xs font-medium text-muted-foreground` on cards and tags, `text-sm text-muted-foreground` on a full-size prompt. Mobile: `AppFonts.regular` at 11px on cards/tags and 13px on a prompt, 0.75–0.85 opacity. On Wrong Platform the reading sits between the script and the English meaning.
+
+**Three exemptions, ruled by the owner, that must not be "fixed" later.**
+- **Ticket Check** — its mechanic IS romanization → script: the prompt ticket shows the reading and the learner picks the matching script. Romanizing the choices reduces it to matching a Latin string to an identical Latin string, which is finished, not easier. Its reveal-only choice romanization stays.
+- **Speed Round hard mode** — hiding the reading is the entire difference between normal and hard, and normal shows it. Opt-in challenge, not a trap.
+- **Phrase Builder tiles** — per-word romanization exists nowhere, and the prompt already shows the full romanized phrase above the tiles.
+
+**Test trap this created.** Choice buttons now contain two text nodes, so any test identifying a choice by the button's whole `textContent` breaks (Express Listening's helper did). Identify a choice by its FIRST line — the native span — not by the button's concatenated text.
+
 ## 11. House Patterns
 
 One-line registry of reusable components and patterns. Verify the contract at the path before reuse; paths are under `artifacts/gujarati-coach/src/` unless noted.

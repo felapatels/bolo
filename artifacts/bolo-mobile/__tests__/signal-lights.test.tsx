@@ -528,3 +528,26 @@ describe('a full Signal Lights run', () => {
     expect(screen.getByText('0 / 10 correct')).toBeTruthy();
   });
 });
+
+// ─── Romanized reading on the claim ──────────────────────────────────────────
+//
+// Owner ruling: native script on a game surface always carries its romanized
+// form during play. The claim card showed script → "means" → English, so the
+// reading was missing. Empty romanized renders nothing at all.
+
+describe('romanized reading on the claim', () => {
+  test('the claim shows the romanized reading under the native script', async () => {
+    await startRun();
+    const { phrase } = expectedRound(0);
+
+    expect(screen.getByTestId('signal-lights-romanized')).toHaveTextContent(phrase.romanized);
+  });
+
+  test('a phrase with no romanization shows the script alone, never an empty line', async () => {
+    mockState.phrases = successQuery(PHRASES.map((p) => ({ ...p, romanized: '' })));
+    await startRun();
+
+    expect(screen.getByTestId('signal-lights-native')).toBeTruthy();
+    expect(screen.queryByTestId('signal-lights-romanized')).toBeNull();
+  });
+});

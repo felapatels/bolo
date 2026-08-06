@@ -218,3 +218,34 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
     expect(mockState.synth.mock.calls.length).toBe(callCountAfterAutoPlay);
   });
 });
+
+// ─── Romanized reading on the choices ────────────────────────────────────────
+//
+// Owner ruling: native script on a game surface always carries its romanized
+// form during play. The choice cards showed script + English only, which left
+// a learner who cannot read the script picking shapes against a clip. Empty
+// romanized renders nothing at all.
+
+describe('romanized reading on the choices', () => {
+  test('every choice carries its romanized line beneath the script', async () => {
+    render(<ListenAndPickScreen />);
+    await enterGamePhase();
+
+    for (const p of PHRASES) {
+      expect(screen.getByTestId(`listen-and-pick-romanized-${p.id}`)).toHaveTextContent(
+        p.romanized,
+      );
+    }
+  });
+
+  test('a phrase with no romanization shows the script alone, never an empty line', async () => {
+    mockState.phrases = successQuery(PHRASES.map((p) => ({ ...p, romanized: '' })));
+    render(<ListenAndPickScreen />);
+    await enterGamePhase();
+
+    for (const p of PHRASES) {
+      expect(screen.getByText(p.nativeScript)).toBeTruthy();
+      expect(screen.queryByTestId(`listen-and-pick-romanized-${p.id}`)).toBeNull();
+    }
+  });
+});

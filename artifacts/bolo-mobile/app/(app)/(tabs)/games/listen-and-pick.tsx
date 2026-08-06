@@ -476,6 +476,28 @@ function GameRound({
                 >
                   {choice.nativeScript}
                 </Text>
+                {/* Romanized reading between the script and its meaning —
+                    quieter and smaller, always visible. Empty romanized
+                    renders nothing. */}
+                {choice.romanized.trim() !== '' ? (
+                  <Text
+                    testID={`listen-and-pick-romanized-${choice.id}`}
+                    style={[
+                      styles.choiceRomanized,
+                      {
+                        color: isCorrect
+                          ? '#10B981'
+                          : isWrong
+                          ? '#EF4444'
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {choice.romanized}
+                  </Text>
+                ) : null}
                 <Text
                   style={[
                     styles.choiceEnglish,
@@ -738,6 +760,13 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.bold,
     fontSize: 16,
     textAlign: 'center',
+  },
+  choiceRomanized: {
+    fontFamily: AppFonts.regular,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 2,
+    opacity: 0.75,
   },
   choiceEnglish: {
     fontFamily: AppFonts.regular,

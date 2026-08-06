@@ -28,6 +28,9 @@ interface GameCard {
   pairId: number;   // phrase id (shared between the two cards of a pair)
   type: "native" | "english";
   label: string;
+  /** Romanized reading, native cards only. Empty string for scripts with no
+   *  romanization — the card then renders the script alone (mobile parity). */
+  romanized?: string;
   state: "hidden" | "flipped" | "matched" | "error";
 }
 
@@ -48,7 +51,7 @@ function buildCards(phrases: Phrase[], count: number): GameCard[] {
   const pool = shuffle([...phrases]).slice(0, count);
   const cards: GameCard[] = [];
   for (const p of pool) {
-    cards.push({ id: `${p.id}-n`, pairId: p.id, type: "native", label: p.nativeScript, state: "hidden" });
+    cards.push({ id: `${p.id}-n`, pairId: p.id, type: "native", label: p.nativeScript, romanized: p.romanized, state: "hidden" });
     cards.push({ id: `${p.id}-e`, pairId: p.id, type: "english", label: p.english, state: "hidden" });
   }
   return shuffle(cards);
@@ -84,7 +87,7 @@ export function WordMatchCardBack() {
   );
 }
 
-function FlipCard({
+export function FlipCard({
   card,
   onFlip,
   native,
@@ -136,12 +139,21 @@ function FlipCard({
             !isMatched && !isError && "border-primary/50 bg-primary/10 text-foreground",
           )}
         >
-          <span
-            style={card.type === "native" ? native.style : undefined}
-            dir={card.type === "native" ? native.dir : undefined}
-            className="line-clamp-3"
-          >
-            {card.label}
+          {/* Native card: script primary, romanized quieter beneath it —
+              the treatment mobile Word Match has always used, ported here for
+              parity. A card whose phrase has no romanization (empty string)
+              renders the script alone, never an empty line. */}
+          <span className="flex flex-col items-center gap-0.5">
+            <span
+              style={card.type === "native" ? native.style : undefined}
+              dir={card.type === "native" ? native.dir : undefined}
+              className="line-clamp-3"
+            >
+              {card.label}
+            </span>
+            {card.type === "native" && (card.romanized ?? "").trim() !== "" && (
+              <span className="line-clamp-1 text-xs font-medium opacity-70">{card.romanized}</span>
+            )}
           </span>
         </div>
       </div>

@@ -208,6 +208,18 @@ function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
         >
           {q.phrase.nativeScript}
         </Text>
+        {/* Romanized reading under the prompt, quieter and smaller than the
+            script. Empty romanized renders nothing. */}
+        {q.phrase.romanized.trim() !== '' ? (
+          <Text
+            testID="signal-lights-romanized"
+            style={[styles.romanized, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {q.phrase.romanized}
+          </Text>
+        ) : null}
         <Text style={[styles.means, { color: colors.mutedForeground }]}>means</Text>
         <Text
           testID="signal-lights-english"
@@ -282,6 +294,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   native: { fontSize: 26, textAlign: 'center' },
+  romanized: { fontFamily: AppFonts.regular, fontSize: 13, opacity: 0.85, textAlign: 'center' },
   means: { fontFamily: AppFonts.regular, fontSize: 13, textAlign: 'center' },
   english: { fontFamily: AppFonts.bold, fontSize: 18, textAlign: 'center' },
   correction: { fontFamily: AppFonts.semibold, fontSize: 12, textAlign: 'center' },

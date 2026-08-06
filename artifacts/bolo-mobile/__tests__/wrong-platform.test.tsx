@@ -547,3 +547,40 @@ describe('a full Wrong Platform run', () => {
     }
   });
 });
+
+// ─── Romanized reading on the tiles ──────────────────────────────────────────
+//
+// Owner ruling: native script always carries its romanized form during play.
+// The tiles showed script + English meaning with no reading between them.
+// Empty romanized renders nothing at all.
+
+describe('romanized reading on the tiles', () => {
+  test('every tile carries its romanized line between the script and the meaning', async () => {
+    await startRun();
+    const { anchor, others, stray } = expectedRound(0);
+
+    for (const p of [anchor, ...others, stray]) {
+      expect(screen.getByTestId(`wrong-platform-romanized-${p.id}`)).toHaveTextContent(
+        p.romanized,
+      );
+    }
+  });
+
+  test('a phrase with no romanization shows the script alone, never an empty line', async () => {
+    mockState.phrasesFor = (id: number) =>
+      id === 1
+        ? successQuery(LOCALS.map((p) => ({ ...p, romanized: '' })))
+        : id === 2
+          ? successQuery(STRAYS.map((p) => ({ ...p, romanized: '' })))
+          : successQuery([]);
+    await startRun();
+    const { anchor, others, stray } = expectedRound(0);
+
+    for (let i = 0; i < 4; i++) {
+      expect(screen.getByTestId(`wrong-platform-option-${i}`)).toBeTruthy();
+    }
+    for (const p of [anchor, ...others, stray]) {
+      expect(screen.queryByTestId(`wrong-platform-romanized-${p.id}`)).toBeNull();
+    }
+  });
+});

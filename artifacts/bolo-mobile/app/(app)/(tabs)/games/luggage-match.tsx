@@ -203,6 +203,19 @@ function LuggageMatchRound({ phrases, api, activeLanguage }: QuickRoundProps) {
                 >
                   {p.nativeScript}
                 </Text>
+                {/* Romanized reading beneath the script — the two-line stack
+                    Word Match already uses here. Empty romanized (a script
+                    with no romanization) renders nothing at all. */}
+                {p.romanized.trim() !== '' ? (
+                  <Text
+                    testID={`luggage-match-romanized-${p.id}`}
+                    style={[styles.tagRomanized, { color: tagTextColor(done, shaking) }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {p.romanized}
+                  </Text>
+                ) : null}
               </PressableScale>
             );
           })}
@@ -288,5 +301,12 @@ const styles = StyleSheet.create({
   holeLeft: { left: 6 },
   holeRight: { right: 6 },
   tagText: { fontSize: 15, textAlign: 'center' },
+  tagRomanized: {
+    fontFamily: AppFonts.regular,
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.75,
+    textAlign: 'center',
+  },
   tagEnglish: { fontFamily: AppFonts.semibold, fontSize: 14, textAlign: 'center' },
 });

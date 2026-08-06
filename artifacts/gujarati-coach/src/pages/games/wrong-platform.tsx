@@ -154,6 +154,11 @@ function WrongPlatformRound({ phrases, api, activeLang }: QuickRoundProps) {
               <span style={native.style} dir={native.dir} className="text-base font-semibold leading-snug text-foreground">
                 {p.nativeScript}
               </span>
+              {/* Romanized reading sits directly under the script, above the
+                  English meaning. Empty romanized renders nothing. */}
+              {p.romanized.trim() !== "" && (
+                <span className="text-xs font-medium text-muted-foreground">{p.romanized}</span>
+              )}
               <span className="text-xs text-muted-foreground">{p.english}</span>
               {answered && idx === strayIdx && (
                 <span className="absolute right-2 top-2">

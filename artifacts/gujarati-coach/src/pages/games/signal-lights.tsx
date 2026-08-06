@@ -182,6 +182,11 @@ function SignalLightsRound({
         <p style={native.style} dir={native.dir} className="text-2xl font-extrabold leading-snug text-foreground">
           {q.phrase.nativeScript}
         </p>
+        {/* Romanized reading under the prompt — same quiet secondary line the
+            Speed Round card uses. Empty romanized renders nothing. */}
+        {q.phrase.romanized.trim() !== "" && (
+          <p className="text-sm text-muted-foreground">{q.phrase.romanized}</p>
+        )}
         <p className="text-sm text-muted-foreground">means</p>
         <p className="text-lg font-bold text-foreground">"{q.shownEnglish}"</p>
         {(answered || api.timedOut) && !wasCorrect && (

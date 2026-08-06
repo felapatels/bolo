@@ -260,6 +260,18 @@ function WrongPlatformRound({ phrases, api, activeLang, activeLanguage }: QuickR
               >
                 {p.nativeScript}
               </Text>
+              {/* Romanized reading sits directly under the script, above the
+                  English meaning. Empty romanized renders nothing. */}
+              {p.romanized.trim() !== '' ? (
+                <Text
+                  testID={`wrong-platform-romanized-${p.id}`}
+                  style={[styles.optionRomanized, { color: colors.mutedForeground }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {p.romanized}
+                </Text>
+              ) : null}
               <Text
                 style={[styles.optionEnglish, { color: colors.mutedForeground }]}
                 numberOfLines={2}
@@ -331,6 +343,12 @@ const styles = StyleSheet.create({
     width: '47.5%',
   },
   optionNative: { fontSize: 16, textAlign: 'center' },
+  optionRomanized: {
+    fontFamily: AppFonts.regular,
+    fontSize: 11,
+    opacity: 0.75,
+    textAlign: 'center',
+  },
   optionEnglish: { fontFamily: AppFonts.regular, fontSize: 12, textAlign: 'center' },
   mark: { position: 'absolute', right: 8, top: 8 },
   continueBtn: {

@@ -605,3 +605,35 @@ describe('a second run starts clean', () => {
     expect(payload(1).phraseResults[0]).toEqual({ phraseId: 10, selectedPhraseId: 10 });
   });
 });
+
+// ─── Romanized reading on the tags ───────────────────────────────────────────
+//
+// Owner ruling: any game surface showing native script must ALSO show its
+// romanized form, always visible during play. The luggage tags render script
+// only, so a learner who cannot read Gujarati yet was pairing shapes blind.
+// The romanized line comes off phrase.romanized — no transliteration engine —
+// and an empty romanized (a script with no romanization) must render nothing
+// rather than an empty line.
+
+describe('romanized reading on the tags', () => {
+  test('every native tag carries its romanized line beneath the script', async () => {
+    await startRun();
+
+    for (const p of POOL) {
+      expect(screen.getByTestId(`luggage-match-romanized-${p.id}`)).toHaveTextContent(
+        p.romanized,
+      );
+    }
+  });
+
+  test('a phrase with no romanization shows the script alone, never an empty line', async () => {
+    mockState.phrases = successQuery(POOL.map((p) => ({ ...p, romanized: '' })));
+    await startRun();
+
+    for (const p of POOL) {
+      // The tag itself still plays; only the second line is gone.
+      expect(screen.getByTestId(`luggage-match-left-${p.id}`)).toBeTruthy();
+      expect(screen.queryByTestId(`luggage-match-romanized-${p.id}`)).toBeNull();
+    }
+  });
+});

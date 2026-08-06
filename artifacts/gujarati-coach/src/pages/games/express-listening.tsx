@@ -183,13 +183,17 @@ function ExpressListeningRound({
               onClick={() => handlePick(idx)}
               disabled={answered || missed}
               className={cn(
-                "relative flex min-h-[80px] items-center justify-center rounded-2xl border p-3 text-center font-semibold transition-all active:scale-[0.97]",
+                "relative flex min-h-[80px] flex-col items-center justify-center gap-0.5 rounded-2xl border p-3 text-center font-semibold transition-all active:scale-[0.97]",
                 cardClass,
               )}
             >
               <span style={native.style} dir={native.dir} className="text-base leading-snug text-foreground">
                 {choice.nativeScript}
               </span>
+              {/* Romanized reading, always visible beneath the script. */}
+              {choice.romanized.trim() !== "" && (
+                <span className="text-xs font-medium text-muted-foreground">{choice.romanized}</span>
+              )}
               {(answered || missed) && idx === q.correctIdx && (
                 <span className="absolute right-2 top-2">
                   <Check className="h-4 w-4 text-emerald-600" />

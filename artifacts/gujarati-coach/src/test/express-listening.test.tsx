@@ -170,10 +170,15 @@ async function tickSeconds(seconds: number) {
   }
 }
 
-const choiceButtons = () =>
-  screen.getAllByRole("button").filter((b) => /^n\d$/.test((b.textContent ?? "").trim()));
+/** A choice renders TWO lines now — the native script and, under the owner's
+ *  always-visible romanization ruling, its romanized reading — so a choice is
+ *  identified by its FIRST line, not by the button's whole text content. */
+const nativeLabel = (b: Element) => (b.querySelector("span")?.textContent ?? "").trim();
 
-const choiceTexts = () => choiceButtons().map((b) => (b.textContent ?? "").trim());
+const choiceButtons = () =>
+  screen.getAllByRole("button").filter((b) => /^n\d$/.test(nativeLabel(b)));
+
+const choiceTexts = () => choiceButtons().map(nativeLabel);
 const idOf = (nativeScript: string) => POOL.find((p) => p.nativeScript === nativeScript)!.id;
 /** The round's target is whatever text the synthesizer was last asked for. */
 const currentTarget = () => state.calls[state.calls.length - 1]!;
@@ -295,7 +300,7 @@ describe("Express Listening audio", () => {
     // Answer correctly and let the 700ms beat carry us to round 2, which
     // starts its own synthesis.
     await act(async () => {
-      fireEvent.click(choiceButtons().find((b) => b.textContent?.trim() === round1Text)!);
+      fireEvent.click(choiceButtons().find((b) => nativeLabel(b) === round1Text)!);
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(700);
@@ -353,7 +358,7 @@ describe("Express Listening rounds (unchanged behaviour)", () => {
     const target = currentTarget();
 
     await act(async () => {
-      fireEvent.click(choiceButtons().find((b) => b.textContent?.trim() === target)!);
+      fireEvent.click(choiceButtons().find((b) => nativeLabel(b) === target)!);
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(690);
@@ -372,7 +377,7 @@ describe("Express Listening rounds (unchanged behaviour)", () => {
     const target = currentTarget();
 
     await act(async () => {
-      fireEvent.click(choiceButtons().find((b) => b.textContent?.trim() !== target)!);
+      fireEvent.click(choiceButtons().find((b) => nativeLabel(b) !== target)!);
     });
     expect(screen.getByTestId("express-listening-continue")).toBeTruthy();
     await tickSeconds(5);
