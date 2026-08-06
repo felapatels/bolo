@@ -1,10 +1,16 @@
 // Chacha-ji's Chai Stall — the two-tier Chai treatment.
 //
-// TIER 1, the SCENE: a stall vignette on home, at the same scale as the
-// Chacha-ji wallet vignette (h-14 / 56px). Carries one slow ambient steam
-// plume over the kettle. Purely atmospheric: aria-hidden and
-// pointer-events-none, so it adds nothing to the tab order and changes no
-// wallet behavior.
+// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/574
+// aspect, sitting directly above the boarding pass so the pass reads as
+// standing in front of the stall. It carries one slow ambient steam plume over
+// the kettle, and tapping it opens the Chai wallet — the same sheet the Chai
+// stat cell opens, never a second wallet surface. (It shipped at
+// wallet-vignette scale, 56px and right-aligned; at that size a detailed scene
+// read as a stray thumbnail rather than a place. Owner correction, Aug 6.)
+//
+// The scene is therefore no longer decoration: when a caller passes `onClick`
+// the box is a real button with an accessible label. Callers that pass none
+// keep the old atmospheric treatment (aria-hidden, pointer-events-none).
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) is Chai's inline mark. It
 // replaces the lucide Coffee icon at every spot that shows a Chai amount —
@@ -71,20 +77,24 @@ export function ChaiGlyph({ className }: { className?: string }) {
 }
 
 /**
- * The stall scene vignette. Sized by the caller's height class; the aspect box
- * keeps the whole scene visible so the KETTLE fractions stay true.
+ * The stall scene. Fills its container's width and takes its height from the
+ * scene's own aspect box, so the KETTLE fractions land on the kettle at any
+ * width — they are fractions OF THAT BOX, and the box never changes shape.
+ *
+ * Pass `onClick` to make the scene a door into the wallet; `label` is the
+ * accessible name for that button.
  */
-export function ChaiStallVignette({ className }: { className?: string }) {
-  return (
-    <div
-      data-testid="chai-stall-vignette"
-      aria-hidden="true"
-      className={cn(
-        "pointer-events-none relative shrink-0 overflow-hidden rounded-2xl border border-card-border",
-        className,
-      )}
-      style={{ aspectRatio: `${SCENE_W} / ${SCENE_H}` }}
-    >
+export function ChaiStallVignette({
+  className,
+  onClick,
+  label,
+}: {
+  className?: string;
+  onClick?: () => void;
+  label?: string;
+}) {
+  const layers = (
+    <>
       <img
         src={STALL_ASSETS.scene}
         alt=""
@@ -98,6 +108,41 @@ export function ChaiStallVignette({ className }: { className?: string }) {
         className="chai-stall-steam absolute"
         style={{ left: KETTLE.left, bottom: KETTLE.bottom, width: KETTLE.width }}
       />
-    </div>
+    </>
+  );
+
+  // object-cover on an aspect box of the SAME aspect crops nothing, which is
+  // what keeps the layer map honest at full width.
+  const box = "relative w-full overflow-hidden rounded-2xl border border-card-border";
+  const style = { aspectRatio: `${SCENE_W} / ${SCENE_H}` };
+
+  if (!onClick) {
+    return (
+      <div
+        data-testid="chai-stall-vignette"
+        aria-hidden="true"
+        className={cn("pointer-events-none", box, className)}
+        style={style}
+      >
+        {layers}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid="chai-stall-vignette"
+      onClick={onClick}
+      aria-label={label ?? "Open your Chai wallet"}
+      className={cn(
+        box,
+        "block transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-0.5",
+        className,
+      )}
+      style={style}
+    >
+      {layers}
+    </button>
   );
 }

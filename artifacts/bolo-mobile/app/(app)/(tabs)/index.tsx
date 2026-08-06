@@ -366,16 +366,6 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Chai treatment tier 1 (web parity): Chacha-ji's stall as a
-            scene vignette at wallet-vignette scale, right-aligned
-            directly above the stats banner so it reads as the stall
-            behind the Chai cell that opens the wallet. Decorative only
-            (hidden from the a11y tree, not pressable): the wallet still
-            opens from that cell, and no wallet behavior changed. */}
-        <View style={styles.stallVignetteRow}>
-          <ChaiStallVignette height={56} />
-        </View>
-
         {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
         <View style={styles.statsRowWrapper}>
           <LinearGradient
@@ -468,6 +458,18 @@ export default function HomeScreen() {
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
+          {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
+              at its natural aspect, directly above the pass — the platform the
+              boarding pass stands in front of. It enters WITH the pass and
+              opens the same wallet sheet the Chai stat cell opens. */}
+          <ChaiStallVignette
+            style={styles.stallBand}
+            accessibilityLabel="Chacha-ji's Chai stall — open your Chai wallet"
+            onPress={() => {
+              hapticLight();
+              setWalletOpen(true);
+            }}
+          />
           <JourneyPassCard
             onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
           />
@@ -1087,10 +1089,9 @@ const styles = StyleSheet.create({
   // Nastaliq glyphs cascade above/below the baseline; increase the parent
   // Text lineHeight so the inline native name renders without clipping.
   langNameTall: { lineHeight: 36 },
-  stallVignetteRow: {
-    alignItems: 'flex-end',
-    marginTop: 14,
-  },
+  // The stall band and the boarding pass read as one unit: platform, then
+  // pass. Only enough gap that the pass looks like it is standing in front.
+  stallBand: { marginBottom: 12 },
   statsRowWrapper: { marginBottom: 18 },
   statsBanner: {
     flexDirection: 'row',

@@ -2,10 +2,17 @@
 // (artifacts/gujarati-coach/src/components/chai-stall.tsx). Owner ruling 4:
 // same asset, same loop, same layer map on both platforms, built once.
 //
-// TIER 1, the SCENE: a stall vignette on home at wallet-vignette scale (56px
-// tall), carrying one slow ambient steam plume over the kettle. Atmospheric
-// only — hidden from the accessibility tree, not pressable, no wallet
-// behavior attached.
+// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/574
+// aspect, directly above the boarding pass so the pass reads as standing in
+// front of the stall. It carries one slow ambient steam plume over the kettle,
+// and tapping it opens the Chai wallet sheet — the same sheet the Chai stat
+// cell opens, never a second wallet surface. (It shipped at wallet-vignette
+// scale, 56px and right-aligned; at that size a detailed scene read as a stray
+// thumbnail rather than a place. Owner correction, Aug 6.)
+//
+// The scene is therefore no longer decoration: given `onPress` it is a real
+// button with an accessible label. Without one it keeps the old atmospheric
+// treatment (hidden from the a11y tree, not pressable).
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) replaces the Feather coffee
 // icon at every spot showing a Chai amount — stat cell, wallet rows, earn
@@ -16,7 +23,14 @@
 // lib/band-audio.ts). The web twin resolves the same three files out of the
 // public folder via BASE_URL; the registries must stay in step.
 import React from 'react';
-import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -96,19 +110,30 @@ export function ChaiGlyph({
 }
 
 /**
- * The stall scene vignette. `height` is the wallet-vignette scale by default;
- * width follows the scene's aspect so the KETTLE fractions stay true.
+ * The stall scene. Fills its parent's width and takes its height from the
+ * scene's aspect, so the KETTLE fractions land on the kettle at any width —
+ * they are fractions OF THAT BOX, and the box never changes shape.
+ *
+ * The plume's pixel placement needs real numbers, so the box reports its size
+ * via onLayout rather than the caller declaring a height. Until the first
+ * layout the plume measures zero and is simply not drawn yet.
+ *
+ * Pass `onPress` to make the scene a door into the wallet; `accessibilityLabel`
+ * is the accessible name for that button.
  */
 export function ChaiStallVignette({
-  height = 56,
   style,
+  onPress,
+  accessibilityLabel,
 }: {
-  height?: number;
   style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
+  accessibilityLabel?: string;
 }) {
   const reduceMotion = useReducedMotion();
   const loop = steamLoop(!!reduceMotion);
   const phase = useSharedValue(0.5);
+  const [box, setBox] = React.useState({ width: 0, height: 0 });
 
   React.useEffect(() => {
     if (!loop.animate) {
@@ -125,8 +150,7 @@ export function ChaiStallVignette({
     );
   }, [loop.animate, loop.cycleMs, phase]);
 
-  const width = height * SCENE_ASPECT;
-  const steamWidth = width * KETTLE.width;
+  const steamWidth = box.width * KETTLE.width;
 
   // Opacity and translateY only. Animating layout props (top/left/bottom)
   // inside useAnimatedStyle crashes Expo Go on the New Architecture, so the
@@ -134,16 +158,26 @@ export function ChaiStallVignette({
   const steamStyle = useAnimatedStyle(() => ({
     opacity:
       STEAM_MIN_OPACITY + (STEAM_MAX_OPACITY - STEAM_MIN_OPACITY) * phase.value,
-    transform: [{ translateY: (0.5 - phase.value) * height * 0.18 }],
+    transform: [{ translateY: (0.5 - phase.value) * box.height * 0.18 }],
   }));
 
-  return (
+  const scene = (
     <View
       testID="chai-stall-vignette"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setBox((prev) =>
+          prev.width === width && prev.height === height
+            ? prev
+            : { width, height },
+        );
+      }}
+      // Not pressable on its own: when the caller wants a tap target the
+      // Pressable below owns it, so the a11y node is the button, not the box.
+      accessibilityElementsHidden={!onPress}
+      importantForAccessibility={onPress ? 'auto' : 'no-hide-descendants'}
       pointerEvents="none"
-      style={[styles.vignette, { width, height }, style]}
+      style={[styles.vignette, onPress ? undefined : style]}
     >
       <Image
         source={STALL_ASSETS.scene}
@@ -156,8 +190,8 @@ export function ChaiStallVignette({
         style={[
           {
             position: 'absolute',
-            left: width * KETTLE.left,
-            bottom: height * KETTLE.bottom,
+            left: box.width * KETTLE.left,
+            bottom: box.height * KETTLE.bottom,
             width: steamWidth,
             height: steamWidth / STEAM_ASPECT,
             opacity: loop.restOpacity,
@@ -173,10 +207,28 @@ export function ChaiStallVignette({
       </Animated.View>
     </View>
   );
+
+  if (!onPress) return scene;
+
+  return (
+    <Pressable
+      testID="chai-stall-button"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? 'Open your Chai wallet'}
+      style={style}
+    >
+      {scene}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
   vignette: {
+    // Full-width band at the scene's own aspect: Yoga derives the height from
+    // the measured width, which is what keeps the KETTLE fractions true.
+    width: '100%',
+    aspectRatio: SCENE_ASPECT,
     borderRadius: 14,
     overflow: 'hidden',
   },

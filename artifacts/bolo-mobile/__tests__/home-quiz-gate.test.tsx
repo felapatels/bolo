@@ -249,4 +249,19 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
     expect(screen.getByTestId('chai-wallet-sheet')).toBeOnTheScreen();
     expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();
   });
+
+  // Owner correction (Aug 6): the stall band above the boarding pass is a
+  // second door into the SAME wallet sheet — no new wallet surface.
+  it('opens the same wallet sheet from the stall band', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+    mockState.quiz = { data: undefined, isLoading: false };
+    render(<HomeScreen />);
+
+    expect(screen.queryByTestId('chai-wallet-sheet')).toBeNull();
+    fireEvent.press(
+      screen.getByLabelText("Chacha-ji's Chai stall — open your Chai wallet"),
+    );
+    expect(screen.getByTestId('chai-wallet-sheet')).toBeOnTheScreen();
+    expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();
+  });
 });

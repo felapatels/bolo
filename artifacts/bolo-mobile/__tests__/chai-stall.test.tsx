@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import {
   ChaiGlyph,
   ChaiStallVignette,
@@ -62,21 +62,71 @@ describe('chai glyph', () => {
   });
 });
 
-describe('chai stall vignette', () => {
+describe('chai stall scene', () => {
   test('renders the scene with the steam plume layered over it', () => {
-    render(<ChaiStallVignette height={56} />);
+    render(<ChaiStallVignette />);
     expect(screen.getByTestId('chai-stall-scene', HIDDEN).props.source).toBe(
       STALL_ASSETS.scene,
     );
     expect(screen.getByTestId('chai-stall-steam', HIDDEN)).toBeTruthy();
   });
 
-  test('keeps the scene aspect so the kettle layer map stays true', () => {
-    render(<ChaiStallVignette height={56} />);
+  test('is a full-width band at the scene aspect', () => {
+    // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
+    // the column at the art's own aspect instead of the 56px wallet-vignette
+    // scale it shipped at. Yoga derives the height from the measured width.
+    render(<ChaiStallVignette />);
     const box = screen.getByTestId('chai-stall-vignette', HIDDEN);
     const flat = Object.assign({}, ...[box.props.style].flat(2));
-    expect(flat.height).toBe(56);
-    expect(Math.round(flat.width)).toBe(Math.round(56 * (1024 / 574)));
+    expect(flat.width).toBe('100%');
+    expect(flat.aspectRatio).toBeCloseTo(1024 / 574, 5);
+    expect(flat.height).toBeUndefined();
+  });
+
+  test('the kettle map still lands on the kettle at full width', () => {
+    // Verified rather than assumed: feed the band a real full-width layout
+    // and check the plume's resolved pixels are exactly the KETTLE fractions
+    // of THAT box (left 21%, bottom 46%, width 12%) — the same three numbers
+    // as web, and scale-free because the aspect box never changes shape.
+    render(<ChaiStallVignette />);
+    const width = 390 - 40; // a phone viewport minus the home screen's padding
+    const height = width / (1024 / 574);
+    fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width, height } },
+    });
+
+    const steam = screen.getByTestId('chai-stall-steam', HIDDEN);
+    const flat = Object.assign({}, ...[steam.props.style].flat(2));
+    expect(flat.left).toBeCloseTo(width * 0.21, 5);
+    expect(flat.bottom).toBeCloseTo(height * 0.46, 5);
+    expect(flat.width).toBeCloseTo(width * 0.12, 5);
+    // cover on a same-aspect box crops nothing, which is what keeps the map
+    // honest at this new size.
+    expect(screen.getByTestId('chai-stall-scene', HIDDEN).props.resizeMode).toBe(
+      'cover',
+    );
+  });
+
+  test('stays decorative when no tap target is asked for', () => {
+    render(<ChaiStallVignette />);
+    expect(screen.queryByTestId('chai-stall-button')).toBeNull();
+    const box = screen.getByTestId('chai-stall-vignette', HIDDEN);
+    expect(box.props.accessibilityElementsHidden).toBe(true);
+    expect(box.props.importantForAccessibility).toBe('no-hide-descendants');
+  });
+
+  test('given onPress it is a labelled button, not decoration', () => {
+    const onPress = jest.fn();
+    render(
+      <ChaiStallVignette
+        onPress={onPress}
+        accessibilityLabel="Open your Chai wallet"
+      />,
+    );
+    const button = screen.getByLabelText('Open your Chai wallet');
+    expect(button.props.accessibilityRole).toBe('button');
+    fireEvent.press(button);
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 
   test('the steam loop stops under reduced motion, still visible', () => {

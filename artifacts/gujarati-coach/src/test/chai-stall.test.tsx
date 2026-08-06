@@ -1,5 +1,5 @@
-import { describe, test, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, test, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import { ChaiGlyph, ChaiStallVignette, STALL_ASSETS } from "@/components/chai-stall";
@@ -75,9 +75,9 @@ describe("chai glyph", () => {
   });
 });
 
-describe("chai stall vignette", () => {
+describe("chai stall scene", () => {
   test("renders the scene with the steam plume layered over it", () => {
-    render(<ChaiStallVignette className="h-14" />);
+    render(<ChaiStallVignette />);
     const scene = screen.getByTestId("chai-stall-scene");
     const steam = screen.getByTestId("chai-stall-steam");
     expect(scene.getAttribute("src")).toBe(STALL_ASSETS.scene);
@@ -89,11 +89,47 @@ describe("chai stall vignette", () => {
     expect(steam.style.width).toMatch(/%$/);
   });
 
-  test("the whole vignette is decorative and never in the way", () => {
-    render(<ChaiStallVignette className="h-14" />);
+  test("is a full-width band whose kettle map survives the new scale", () => {
+    // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
+    // the column at the art's own 1024/574 aspect instead of the 56px
+    // wallet-vignette scale it shipped at. The kettle map is unaffected BY
+    // CONSTRUCTION: the plume offsets are percentages of a box whose aspect
+    // never changes, and object-cover on a same-aspect box crops nothing.
+    render(<ChaiStallVignette />);
+    const box = screen.getByTestId("chai-stall-vignette");
+    expect(box.className).toContain("w-full");
+    expect(box.className).not.toContain("shrink-0");
+    expect(box.style.aspectRatio).toBe("1024 / 574");
+    const steam = screen.getByTestId("chai-stall-steam");
+    expect(steam.style.left).toBe("21%");
+    expect(steam.style.bottom).toBe("46%");
+    expect(steam.style.width).toBe("12%");
+    expect(screen.getByTestId("chai-stall-scene").className).toContain(
+      "object-cover",
+    );
+  });
+
+  test("stays decorative when no tap target is asked for", () => {
+    render(<ChaiStallVignette />);
     const box = screen.getByTestId("chai-stall-vignette");
     expect(box).toHaveAttribute("aria-hidden", "true");
     expect(box.className).toContain("pointer-events-none");
+  });
+
+  test("given onClick it is a labelled button, not decoration", () => {
+    const onClick = vi.fn();
+    render(
+      <ChaiStallVignette onClick={onClick} label="Open your Chai wallet" />,
+    );
+    const box = screen.getByTestId("chai-stall-vignette");
+    expect(box.tagName).toBe("BUTTON");
+    expect(box).not.toHaveAttribute("aria-hidden");
+    expect(box.className).not.toContain("pointer-events-none");
+    expect(screen.getByRole("button", { name: "Open your Chai wallet" })).toBe(
+      box,
+    );
+    fireEvent.click(box);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   test("the steam loop respects reduced motion and rests on a visible frame", () => {

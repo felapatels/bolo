@@ -173,6 +173,21 @@ describe("home stats banner", () => {
     expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
   });
 
+  // Owner correction (Aug 6): the stall band above the boarding pass is a
+  // second door into the SAME wallet sheet — no new wallet surface.
+  test("the stall band opens the same wallet sheet", async () => {
+    renderHome();
+    expect(screen.queryByTestId("chai-wallet-sheet")).toBeNull();
+    await userEvent
+      .setup()
+      .click(
+        screen.getByRole("button", {
+          name: "Chacha-ji's Chai stall — open your Chai wallet",
+        }),
+      );
+    expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
+  });
+
   test("keeps the reserved shell hidden while summary is pending", () => {
     renderHome();
     const row = bannerRow();

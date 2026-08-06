@@ -591,16 +591,6 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Chai treatment tier 1: Chacha-ji's stall as a scene vignette
-            at wallet-vignette scale, right-aligned directly above the
-            stats banner so it reads as the stall behind the Chai cell
-            that opens the wallet. Decorative only (aria-hidden,
-            pointer-events-none): the wallet still opens from that cell,
-            and no wallet behavior changed. */}
-        <div className="mt-5 flex justify-end">
-          <ChaiStallVignette className="h-14" />
-        </div>
-
         {/* Stats Banner — vibrant, front-and-center progress. The banner is
             ALWAYS rendered: summary no longer blocks first paint, so its late
             arrival must not shift the layout below. The cell row is invisible
@@ -730,6 +720,17 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springs.gentle, delay: 0.05 }}
             >
+              {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
+                  natural aspect, directly above the pass — the platform the
+                  boarding pass stands in front of. It enters WITH the pass
+                  (inside this entrance wrapper, outside the breathe wrapper
+                  below, which must keep driving the ticket alone) and opens
+                  the same wallet sheet the Chai stat cell opens. */}
+              <ChaiStallVignette
+                className="mb-3"
+                label="Chacha-ji's Chai stall — open your Chai wallet"
+                onClick={() => setWalletOpen(true)}
+              />
               {/* The idle breathe lives on a dedicated wrapper: framer drives
                   the entrance motion.div and press motion.div inline
                   transforms, and a CSS transform animation on either of those
