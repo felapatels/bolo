@@ -726,10 +726,15 @@ export default function Home() {
                   (inside this entrance wrapper, outside the breathe wrapper
                   below, which must keep driving the ticket alone) and opens
                   the same wallet sheet the Chai stat cell opens. */}
+              {/* The balance is the SAME query the Chai stat cell reads
+                  (tokensQuery above), passed down rather than fetched again:
+                  spends are server-authoritative and every surface refetches
+                  on change, so the band can never drift from the wallet. */}
               <ChaiStallVignette
                 className="mb-3"
                 label="Chacha-ji's Chai stall — open your Chai wallet"
                 onClick={() => setWalletOpen(true)}
+                balance={tokensQuery.data?.balance}
               />
               {/* The idle breathe lives on a dedicated wrapper: framer drives
                   the entrance motion.div and press motion.div inline

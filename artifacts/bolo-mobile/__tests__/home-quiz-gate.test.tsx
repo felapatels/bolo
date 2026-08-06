@@ -50,7 +50,9 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // ONE token query feeds both Chai surfaces on this screen (the stat cell and
+  // the stall band), which is exactly what the parity test below asserts.
+  useGetTokens: () => ({ data: { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetTokensQueryKey: () => ['tokens'],
   useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -248,6 +250,25 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
     fireEvent.press(cell);
     expect(screen.getByTestId('chai-wallet-sheet')).toBeOnTheScreen();
     expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();
+  });
+
+  // The band names itself and shows the balance, so it has to read from the
+  // screen's ONE token query — a second source could drift from the stat cell
+  // and from the wallet after a spend.
+  it('shows the same balance on the stall band as on the Chai cell', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+    mockState.quiz = { data: undefined, isLoading: false };
+    render(<HomeScreen />);
+
+    expect(
+      screen.getByTestId('chai-stall-title', { includeHiddenElements: true }),
+    ).toHaveTextContent("Chacha-ji's Chai Stall");
+    expect(
+      screen.getByTestId('chai-stall-balance', { includeHiddenElements: true }),
+    ).toHaveTextContent('12');
+    // The cell's own text is "12Chai" (value + label), so this is a contains
+    // check — toHaveTextContent is exact for strings.
+    expect(screen.getByTestId('stat-chai')).toHaveTextContent(/12/);
   });
 
   // Owner correction (Aug 6): the stall band above the boarding pass is a

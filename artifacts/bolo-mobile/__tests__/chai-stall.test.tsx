@@ -42,6 +42,7 @@ function read(rel: string): string {
  * mobile's balance row marks the balance itself.
  */
 const GLYPH_SITES: Record<string, number> = {
+  'components/ChaiStall.tsx': 1, // the band's own balance readout
   'app/(app)/(tabs)/index.tsx': 1, // Chai stat cell
   'components/ChaiWallet.tsx': 3, // balance badge, Equip · 5, Start · 10
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
@@ -49,7 +50,7 @@ const GLYPH_SITES: Record<string, number> = {
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
 };
 
-const MOBILE_GLYPH_COUNT = 7;
+const MOBILE_GLYPH_COUNT = 8;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {
@@ -107,6 +108,82 @@ describe('chai stall scene', () => {
     );
   });
 
+  test('Chacha-ji is his own layer, placed by his own fraction map', () => {
+    // He is NEVER baked into stall.png: the banked pour-on-earn moment has to
+    // be able to animate him, which a painted-in figure makes impossible.
+    render(<ChaiStallVignette />);
+    const width = 390 - 40; // a phone viewport minus the home screen's padding
+    const height = width / (1024 / 574);
+    fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width, height } },
+    });
+
+    const chachaji = screen.getByTestId('chai-stall-chachaji', HIDDEN);
+    // Placement and the pointerEvents rule live on the wrapper View (Image
+    // takes no pointerEvents prop); the art itself is the child image.
+    expect(
+      screen.getByTestId('chai-stall-chachaji-image', HIDDEN).props.source,
+    ).toBe(STALL_ASSETS.chachaji);
+    expect(STALL_ASSETS.chachaji).not.toBe(STALL_ASSETS.scene);
+    // Same three-number contract as the kettle map, and the same numbers as
+    // web. Placement itself was verified by looking at the composite; these
+    // pin what that verification chose.
+    const flat = Object.assign({}, ...[chachaji.props.style].flat(2));
+    expect(flat.left).toBeCloseTo(width * 0.485, 5);
+    expect(flat.bottom).toBeCloseTo(height * 0.17, 5);
+    expect(flat.width).toBeCloseTo(width * 0.195, 5);
+    // Height comes from the art's own aspect, so scale stays one number.
+    expect(flat.height).toBeCloseTo((width * 0.195) / (386 / 520), 5);
+    // Decoration, not a control.
+    expect(chachaji.props.pointerEvents).toBe('none');
+  });
+
+  test('names itself and shows the balance it is given', () => {
+    // The band is a wallet surface, not scenery: it says whose stall it is and
+    // what the learner has. The balance is a PROP — the component never runs
+    // its own query, so it cannot drift from the stat cell or the wallet.
+    render(<ChaiStallVignette balance={12} />);
+    expect(screen.getByTestId('chai-stall-title', HIDDEN)).toHaveTextContent(
+      "Chacha-ji's Chai Stall",
+    );
+    expect(screen.getByTestId('chai-stall-balance', HIDDEN)).toHaveTextContent(
+      '12',
+    );
+    // Rendered with the kulhad, exactly like every other Chai amount.
+    expect(screen.getByTestId('chai-glyph', HIDDEN)).toBeTruthy();
+  });
+
+  test("shows the wallet's dash while the balance is still loading", () => {
+    render(<ChaiStallVignette />);
+    expect(screen.getByTestId('chai-stall-balance', HIDDEN)).toHaveTextContent(
+      '-',
+    );
+  });
+
+  test('the overlay is legible over the art, not just where it is dark', () => {
+    // Both ends of the scene are in play: bright sky on the right, dark awning
+    // on the left. The scrim therefore spans the full width rather than
+    // sitting behind the text, and the text carries its own shadow.
+    render(<ChaiStallVignette balance={3} />);
+    const scrim = screen.getByTestId('chai-stall-scrim', HIDDEN);
+    const scrimStyle = Object.assign({}, ...[scrim.props.style].flat(2));
+    expect(scrimStyle.left).toBe(0);
+    expect(scrimStyle.right).toBe(0);
+    expect(scrimStyle.bottom).toBe(0);
+    // Must not reach the plume, which starts at 46%.
+    expect(scrimStyle.height).toBe('40%');
+    // jest-expo's LinearGradient stub does not forward `colors` onto the host
+    // view, so the ramp itself is pinned at the source: transparent at the top
+    // (no hard edge across the art) down to a near-opaque base under the text.
+    const src = read('components/ChaiStall.tsx');
+    expect(src).toContain("colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.40)', 'rgba(0,0,0,0.75)']}");
+
+    const title = screen.getByTestId('chai-stall-title', HIDDEN);
+    const titleStyle = Object.assign({}, ...[title.props.style].flat(2));
+    expect(titleStyle.color).toBe('#FFFFFF');
+    expect(titleStyle.textShadowColor).toBe('rgba(0,0,0,0.8)');
+  });
+
   test('stays decorative when no tap target is asked for', () => {
     render(<ChaiStallVignette />);
     expect(screen.queryByTestId('chai-stall-button')).toBeNull();
@@ -121,12 +198,36 @@ describe('chai stall scene', () => {
       <ChaiStallVignette
         onPress={onPress}
         accessibilityLabel="Open your Chai wallet"
+        balance={12}
       />,
     );
     const button = screen.getByLabelText('Open your Chai wallet');
     expect(button.props.accessibilityRole).toBe('button');
     fireEvent.press(button);
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  test('the title and balance do not add a second tap target', () => {
+    // The overlay is text on a non-pressable layer inside the button, and the
+    // scene stays out of the a11y tree, so a screen reader finds ONE node with
+    // ONE name however much text the band grows.
+    const onPress = jest.fn();
+    render(
+      <ChaiStallVignette
+        onPress={onPress}
+        accessibilityLabel="Open your Chai wallet"
+        balance={12}
+      />,
+    );
+    expect(screen.getAllByLabelText('Open your Chai wallet')).toHaveLength(1);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    // Chacha-ji is part of that one target, not a second one.
+    expect(
+      screen.getByTestId('chai-stall-chachaji', HIDDEN).props.pointerEvents,
+    ).toBe('none');
+    const box = screen.getByTestId('chai-stall-vignette', HIDDEN);
+    expect(box.props.accessibilityElementsHidden).toBe(true);
+    expect(box.props.pointerEvents).toBe('none');
   });
 
   test('the steam loop stops under reduced motion, still visible', () => {
@@ -159,7 +260,14 @@ describe('chai glyph census (mobile)', () => {
   test('no Feather coffee survives on a Chai surface', () => {
     const survivors: string[] = [];
     for (const file of Object.keys(GLYPH_SITES)) {
-      if (/name="coffee"/.test(read(file))) survivors.push(file);
+      // Comments are stripped first: ChaiStall.tsx is itself a census site
+      // now, and the ChaiGlyph docstring quotes the very element it replaced
+      // (`<Feather name="coffee" …>`). Prose must not satisfy — or trip — a
+      // check on what the file actually renders.
+      const src = read(file)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      if (/name="coffee"/.test(src)) survivors.push(file);
     }
     expect(survivors).toEqual([]);
   });

@@ -51,6 +51,7 @@ function read(rel: string): string {
  * artifacts/bolo-mobile/__tests__/chai-stall.test.tsx.
  */
 const GLYPH_SITES: Record<string, number> = {
+  "components/chai-stall.tsx": 1, // the band's own balance readout
   "components/chai-wallet.tsx": 2, // Equip · 5, Start · 10
   "pages/home.tsx": 1, // Chai stat cell
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
@@ -59,7 +60,7 @@ const GLYPH_SITES: Record<string, number> = {
   "pages/practice.tsx": 1, // session-chai-pill
 };
 
-const WEB_GLYPH_COUNT = 7;
+const WEB_GLYPH_COUNT = 8;
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {
@@ -89,6 +90,29 @@ describe("chai stall scene", () => {
     expect(steam.style.width).toMatch(/%$/);
   });
 
+  test("Chacha-ji is his own layer, placed by his own fraction map", () => {
+    // He is NEVER baked into stall.png: the banked pour-on-earn moment has to
+    // be able to animate him, which a painted-in figure makes impossible.
+    render(<ChaiStallVignette />);
+    const chachaji = screen.getByTestId("chai-stall-chachaji");
+    expect(chachaji.getAttribute("src")).toBe(STALL_ASSETS.chachaji);
+    expect(chachaji.getAttribute("src")).toMatch(/stall\/chachaji\.png$/);
+    expect(STALL_ASSETS.chachaji).not.toBe(STALL_ASSETS.scene);
+    expect(screen.getByTestId("chai-stall-scene").getAttribute("src")).toBe(
+      STALL_ASSETS.scene,
+    );
+    // Same three-number contract as the kettle map, so an art move is an edit
+    // to the map and nothing else. Placement itself was verified by looking at
+    // the composite; these pin the numbers that verification chose.
+    expect(chachaji.style.left).toBe("48.5%");
+    expect(chachaji.style.bottom).toBe("17%");
+    expect(chachaji.style.width).toBe("19.5%");
+    // Decoration, not a control.
+    expect(chachaji).toHaveAttribute("aria-hidden", "true");
+    expect(chachaji.getAttribute("alt")).toBe("");
+    expect(chachaji.className).toContain("pointer-events-none");
+  });
+
   test("is a full-width band whose kettle map survives the new scale", () => {
     // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
     // the column at the art's own 1024/574 aspect instead of the 56px
@@ -109,6 +133,40 @@ describe("chai stall scene", () => {
     );
   });
 
+  test("names itself and shows the balance it is given", () => {
+    // The band is a wallet surface, not scenery: it says whose stall it is and
+    // what the learner has. The balance is a PROP — the component never runs
+    // its own query, so it cannot drift from the stat cell or the wallet.
+    render(<ChaiStallVignette balance={12} />);
+    expect(screen.getByTestId("chai-stall-title")).toHaveTextContent(
+      "Chacha-ji's Chai Stall",
+    );
+    expect(screen.getByTestId("chai-stall-balance")).toHaveTextContent("12");
+    // Rendered with the kulhad, exactly like every other Chai amount.
+    expect(screen.getByTestId("chai-glyph")).toBeInTheDocument();
+  });
+
+  test("shows the wallet's dash while the balance is still loading", () => {
+    render(<ChaiStallVignette />);
+    expect(screen.getByTestId("chai-stall-balance")).toHaveTextContent("-");
+  });
+
+  test("the overlay is legible over the art, not just where it is dark", () => {
+    // Both ends of the scene are in play: bright sky on the right, dark awning
+    // on the left. The scrim therefore spans the full width (inset-x-0) rather
+    // than sitting behind the text, and the text carries its own shadow.
+    render(<ChaiStallVignette balance={3} />);
+    const scrim = screen.getByTestId("chai-stall-scrim");
+    expect(scrim.className).toContain("inset-x-0");
+    expect(scrim.className).toContain("bottom-0");
+    expect(scrim.className).toMatch(/bg-gradient-to-t/);
+    const row = screen.getByTestId("chai-stall-title").parentElement!;
+    expect(row.className).toMatch(/drop-shadow/);
+    expect(row.className).toContain("text-white");
+    // The scrim must not reach the plume, which starts at 46%.
+    expect(scrim.className).toContain("h-2/5");
+  });
+
   test("stays decorative when no tap target is asked for", () => {
     render(<ChaiStallVignette />);
     const box = screen.getByTestId("chai-stall-vignette");
@@ -119,7 +177,11 @@ describe("chai stall scene", () => {
   test("given onClick it is a labelled button, not decoration", () => {
     const onClick = vi.fn();
     render(
-      <ChaiStallVignette onClick={onClick} label="Open your Chai wallet" />,
+      <ChaiStallVignette
+        onClick={onClick}
+        label="Open your Chai wallet"
+        balance={12}
+      />,
     );
     const box = screen.getByTestId("chai-stall-vignette");
     expect(box.tagName).toBe("BUTTON");
@@ -129,6 +191,31 @@ describe("chai stall scene", () => {
       box,
     );
     fireEvent.click(box);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  test("the title and balance do not add a second tap target", () => {
+    // The overlay is text on a pointer-events-none layer inside the button:
+    // one control, one accessible name, whichever part of the band is hit.
+    const onClick = vi.fn();
+    render(
+      <ChaiStallVignette
+        onClick={onClick}
+        label="Open your Chai wallet"
+        balance={12}
+      />,
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    // Chacha-ji is part of that one target, not a second one.
+    fireEvent.click(screen.getByTestId("chai-stall-chachaji"));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    onClick.mockClear();
+    const overlay = screen.getByTestId("chai-stall-title").parentElement!;
+    expect(overlay.className).toContain("pointer-events-none");
+    expect(screen.getByTestId("chai-stall-scrim").className).toContain(
+      "pointer-events-none",
+    );
+    fireEvent.click(screen.getByTestId("chai-stall-balance"));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
@@ -174,7 +261,13 @@ describe("chai glyph census (web)", () => {
     for (const file of Object.keys(GLYPH_SITES)) {
       // The word also appears in prose ("the wallet's kulhad glyph…"), so the
       // check is for the icon itself: a lucide import or a rendered element.
-      const src = read(file);
+      // Comments are stripped first — chai-stall.tsx is itself a census site
+      // now, and the ChaiGlyph docstring quotes the very element it replaced
+      // (`<Coffee className="h-4 w-4" />`). Prose must not satisfy, or trip,
+      // a check on what the file actually renders.
+      const src = read(file)
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
       if (/<Coffee[\s/>]/.test(src) || /\bCoffee\b[^\n]*lucide-react/.test(src)) {
         survivors.push(file);
       }

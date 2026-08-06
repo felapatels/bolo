@@ -12,7 +12,19 @@
 //
 // The scene is therefore no longer decoration: given `onPress` it is a real
 // button with an accessible label. Without one it keeps the old atmospheric
-// treatment (hidden from the a11y tree, not pressable).
+// treatment (hidden from the a11y tree, not pressable). The scene View stays
+// out of the a11y tree EITHER WAY, so the Pressable is the single node a
+// screen reader lands on — the overlay text below never splits it in two.
+//
+// The band NAMES ITSELF and shows the live balance, bottom-left / bottom-right,
+// so it reads as a wallet surface rather than scenery (same strings and layout
+// as web). Both sit over photographic art with a bright sky, so legibility is
+// the house pair: a LinearGradient scrim (the home bottom-fade / pass-shimmer
+// pattern) plus white text with the textShadow treatment speed-round already
+// uses over art. The scrim spans the full width, so the row never depends on
+// the art happening to be dark under it. The balance is the caller's — this
+// component never queries or caches one, because spends are
+// server-authoritative and every surface refetches on change.
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) replaces the Feather coffee
 // icon at every spot showing a Chai amount — stat cell, wallet rows, earn
@@ -27,10 +39,13 @@ import {
   Image,
   Pressable,
   StyleSheet,
+  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AppFonts } from '@/constants/fonts';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -48,11 +63,18 @@ export const STALL_ASSETS = {
   kulhad: require('../assets/images/stall/kulhad.png') as number,
   /** Isolated steam plume, layered over the kettle in the scene. */
   steam: require('../assets/images/stall/steam.png') as number,
+  /**
+   * Chacha-ji himself, isolated on transparency — the existing greeting figure,
+   * trimmed to its bounding box. A LAYER, never painted into stall.png: the
+   * banked pour-on-earn moment has to be able to animate him.
+   */
+  chachaji: require('../assets/images/stall/chachaji.png') as number,
 };
 
 /** Intrinsic art dimensions, so the vignette and plume keep their shapes. */
 const SCENE_ASPECT = 1024 / 574;
 const STEAM_ASPECT = 232 / 487;
+const CHACHAJI_ASPECT = 386 / 520;
 
 /**
  * Where the plume sits, in fractions of the SCENE box — the same three
@@ -60,6 +82,25 @@ const STEAM_ASPECT = 232 / 487;
  * both files together.
  */
 const KETTLE = { left: 0.21, bottom: 0.46, width: 0.12 } as const;
+
+/**
+ * Where Chacha-ji stands, same contract as KETTLE and the same three numbers
+ * as web's CHACHAJI map: fractions of the SCENE box. Height comes from the
+ * art's own aspect.
+ *
+ * `bottom` is MEASURED, not chosen: the awning support pole meets the dirt at
+ * b≈17 (its base, with the grass tufts, traced by scanning stall.png for the
+ * pole's dark span row by row), and that is the ground line for the open dirt
+ * beside the stall. His soles sit on it. Two earlier passes chose a bottom by
+ * eye and he floated. `left` clears the pole entirely — the pole leans between
+ * x45.2% (base) and x48.3% (upper), so 48.5% puts his whole silhouette to its
+ * right. Verified by compositing the real art and zooming into the soles and
+ * the pole at native scale.
+ */
+const CHACHAJI = { left: 0.485, bottom: 0.17, width: 0.195 } as const;
+
+/** The band's own name. The web twin renders the identical string. */
+export const STALL_TITLE = "Chacha-ji's Chai Stall";
 
 /** Steam opacity at rest. Also the reduced-motion frame: visible, still. */
 export const STEAM_REST_OPACITY = 0.45;
@@ -125,10 +166,17 @@ export function ChaiStallVignette({
   style,
   onPress,
   accessibilityLabel,
+  balance,
 }: {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /**
+   * The learner's live Chai balance, straight from the caller's token query
+   * (home already holds one for the Chai stat cell). Undefined while that
+   * query is in flight, which renders the same "-" the wallet surfaces show.
+   */
+  balance?: number;
 }) {
   const reduceMotion = useReducedMotion();
   const loop = steamLoop(!!reduceMotion);
@@ -151,6 +199,7 @@ export function ChaiStallVignette({
   }, [loop.animate, loop.cycleMs, phase]);
 
   const steamWidth = box.width * KETTLE.width;
+  const chachajiWidth = box.width * CHACHAJI.width;
 
   // Opacity and translateY only. Animating layout props (top/left/bottom)
   // inside useAnimatedStyle crashes Expo Go on the New Architecture, so the
@@ -172,10 +221,12 @@ export function ChaiStallVignette({
             : { width, height },
         );
       }}
-      // Not pressable on its own: when the caller wants a tap target the
-      // Pressable below owns it, so the a11y node is the button, not the box.
-      accessibilityElementsHidden={!onPress}
-      importantForAccessibility={onPress ? 'auto' : 'no-hide-descendants'}
+      // Never pressable on its own, and never in the a11y tree: when the
+      // caller wants a tap target the Pressable below owns it, so a screen
+      // reader lands on ONE node (the button) rather than on the button plus
+      // the overlay's title and balance text.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
       style={[styles.vignette, onPress ? undefined : style]}
     >
@@ -185,6 +236,30 @@ export function ChaiStallVignette({
         resizeMode="cover"
         style={StyleSheet.absoluteFill}
       />
+      {/* Decorative layer, under the scrim like the rest of the art: he is
+          the man at the stall, not a control. Not pressable, and the whole
+          scene is already out of the a11y tree, so no node is added. */}
+      {/* A View carries the placement and the pointerEvents rule (Image takes
+          no pointerEvents prop) — the scene above is already unpressable, and
+          this states the same rule on the layer itself. */}
+      <View
+        testID="chai-stall-chachaji"
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: box.width * CHACHAJI.left,
+          bottom: box.height * CHACHAJI.bottom,
+          width: chachajiWidth,
+          height: chachajiWidth / CHACHAJI_ASPECT,
+        }}
+      >
+        <Image
+          source={STALL_ASSETS.chachaji}
+          testID="chai-stall-chachaji-image"
+          resizeMode="contain"
+          style={styles.fillImage}
+        />
+      </View>
       <Animated.View
         testID="chai-stall-steam"
         style={[
@@ -205,6 +280,29 @@ export function ChaiStallVignette({
           style={styles.steamImage}
         />
       </Animated.View>
+      {/* Legibility scrim: full width, so the row stays readable over the
+          bright sky end of the art as well as the dark awning end. It stops
+          below the plume (which starts at 46%), so the steam is untouched. */}
+      <LinearGradient
+        testID="chai-stall-scrim"
+        pointerEvents="none"
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.40)', 'rgba(0,0,0,0.75)']}
+        style={styles.scrim}
+      />
+      {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
+          compete with the orange boarding pass directly below. */}
+      <View pointerEvents="none" style={styles.overlayRow}>
+        <Text testID="chai-stall-title" numberOfLines={1} style={styles.title}>
+          {STALL_TITLE}
+        </Text>
+        <View style={styles.balanceGroup}>
+          <ChaiGlyph size={16} />
+          <Text testID="chai-stall-balance" style={styles.balanceValue}>
+            {balance === undefined ? '-' : String(balance)}
+          </Text>
+          <Text style={styles.balanceUnit}>Chai</Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -235,5 +333,55 @@ const styles = StyleSheet.create({
   steamImage: {
     width: '100%',
     height: '100%',
+  },
+  fillImage: {
+    width: '100%',
+    height: '100%',
+  },
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '40%',
+  },
+  overlayRow: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  title: {
+    flexShrink: 1,
+    color: '#FFFFFF',
+    fontFamily: AppFonts.extrabold,
+    fontSize: 13,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  balanceGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  balanceValue: {
+    color: '#FFFFFF',
+    fontFamily: AppFonts.extrabold,
+    fontSize: 13,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  balanceUnit: {
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: AppFonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 });

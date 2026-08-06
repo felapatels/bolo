@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   summaryError: null as unknown,
   refetchSummary: vi.fn(),
   categories: undefined as unknown,
+  tokens: undefined as unknown,
 }));
 
 // Home renders BottomNav → XpCounter; stub it so this test doesn't need a
@@ -86,6 +87,16 @@ vi.mock("@workspace/api-client-react", async () => ({
   useListBadges: () => ({ data: undefined, isLoading: false }),
   useListIncomingFriendRequests: () => ({ data: [], isLoading: false }),
   useListCategoryLessonGroups: () => ({ data: undefined, isLoading: false, isError: true }),
+  // ONE token query feeds both Chai surfaces on this page (the stat cell and
+  // the stall band), which is exactly what the parity test below asserts.
+  useGetTokens: () => ({
+    data: h.tokens,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
 }));
 
 // Imported after the mocks are declared.
@@ -109,6 +120,7 @@ beforeEach(() => {
   h.summaryIsError = false;
   h.summaryError = null;
   h.refetchSummary.mockClear();
+  h.tokens = undefined;
   h.categories = [
     {
       id: 1,
@@ -171,6 +183,32 @@ describe("home stats banner", () => {
     expect(screen.queryByTestId("chai-wallet-sheet")).toBeNull();
     await userEvent.setup().click(cell);
     expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
+  });
+
+  // The band names itself and shows the balance, so it has to read from the
+  // page's ONE token query — a second source could drift from the stat cell
+  // and from the wallet after a spend.
+  test("the stall band shows the same balance as the Chai cell", () => {
+    h.summary = {
+      currentStreakDays: 3,
+      speakingStreakDays: 2,
+      xp: 120,
+      phrasesMastered: 8,
+      attemptsToday: 0,
+    };
+    h.tokens = {
+      balance: 12,
+      stationPausesEquipped: 0,
+      expressMultiplierActiveUntil: null,
+    };
+    renderHome();
+    expect(screen.getByTestId("chai-stall-title")).toHaveTextContent(
+      "Chacha-ji's Chai Stall",
+    );
+    expect(screen.getByTestId("chai-stall-balance")).toHaveTextContent("12");
+    expect(
+      within(bannerRow()).getByTestId("stat-chai"),
+    ).toHaveTextContent("12");
   });
 
   // Owner correction (Aug 6): the stall band above the boarding pass is a

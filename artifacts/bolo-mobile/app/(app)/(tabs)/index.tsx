@@ -462,8 +462,13 @@ export default function HomeScreen() {
               at its natural aspect, directly above the pass — the platform the
               boarding pass stands in front of. It enters WITH the pass and
               opens the same wallet sheet the Chai stat cell opens. */}
+          {/* The balance is the SAME query the Chai stat cell reads
+              (tokensQuery above), passed down rather than fetched again:
+              spends are server-authoritative and every surface refetches on
+              change, so the band can never drift from the wallet. */}
           <ChaiStallVignette
             style={styles.stallBand}
+            balance={tokensQuery.data?.balance}
             accessibilityLabel="Chacha-ji's Chai stall — open your Chai wallet"
             onPress={() => {
               hapticLight();
