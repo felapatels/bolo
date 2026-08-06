@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
@@ -404,8 +406,37 @@ describe('quick-game roster', () => {
   test('ids are unique and looked up by id', () => {
     const ids = QUICK_GAMES.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
+    // Membership is pinned, not just shaped: this roster is the signal
+    // rotation's only input. Express Listening is DESCOPED from mobile and
+    // must not reappear here without a screen to land on.
+    expect(ids).toEqual([
+      'ticket-check',
+      'wrong-platform',
+      'luggage-match',
+      'signal-lights',
+    ]);
+    expect(quickGameById('express-listening')).toBeUndefined();
     expect(quickGameById('ticket-check')?.title).toBe('Ticket Check');
     expect(quickGameById('not-a-game')).toBeUndefined();
+  });
+
+  test('every roster entry has a mobile route file to land on', () => {
+    // The invariant the Express Listening descope violated. The journey
+    // signal rotation reads this roster directly and navigates by id, with no
+    // route-existence check anywhere in between, so a roster entry whose
+    // screen was never ported offers a learner a game and then strands them
+    // on +not-found, outside the games stack, with the promised Chai
+    // unobtainable. Asserted against the real filesystem so it cannot drift
+    // out of step with an allowlist.
+    const dir = path.join(__dirname, '..', 'app', '(app)', '(tabs)', 'games');
+    for (const g of QUICK_GAMES) {
+      const routeFile = path.join(dir, `${g.id}.tsx`);
+      // Compared as an object so a failure names the offending game id.
+      expect({ id: g.id, hasRouteFile: fs.existsSync(routeFile) }).toEqual({
+        id: g.id,
+        hasRouteFile: true,
+      });
+    }
   });
 });
 

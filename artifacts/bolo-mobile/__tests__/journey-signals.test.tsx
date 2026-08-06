@@ -115,8 +115,20 @@ describe('trackside signal seating', () => {
 
 describe('signal game rotation', () => {
   it('rotates deterministically through the games a zone can actually fill', () => {
+    // Express Listening was DESCOPED from mobile and left the roster, so the
+    // rotation is modulo FOUR and wraps at index 4. Pinned by id rather than
+    // by shape: which game each crossing offers is learner-visible on the
+    // map, so a roster change must fail here and be re-ruled, not discovered
+    // by a learner.
     const picks = [0, 1, 2, 3, 4, 5].map((i) => gameForSignal(i, 8)?.id);
-    expect(picks.every(Boolean)).toBe(true);
+    expect(picks).toEqual([
+      'ticket-check',
+      'wrong-platform',
+      'luggage-match',
+      'signal-lights',
+      'ticket-check',
+      'wrong-platform',
+    ]);
     // Consecutive crossings must not offer the same game twice running.
     expect(picks[0]).not.toBe(picks[1]);
     // Deterministic: the same signal always offers the same game.
@@ -130,6 +142,9 @@ describe('signal game rotation', () => {
     // to offer, so the encounter waves the learner through instead.
     expect(gameForSignal(0, QUICK_GAME_MIN_FLOOR - 1)).toBeNull();
     expect(gameForSignal(3, 0)).toBeNull();
+    // Unchanged by the descope: signal-lights (floor 2) is still the lowest
+    // floor on the roster, so the auto-wave threshold did not move.
+    expect(QUICK_GAME_MIN_FLOOR).toBe(2);
   });
 });
 

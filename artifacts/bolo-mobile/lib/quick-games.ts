@@ -22,7 +22,6 @@ export type QuickGameId =
   | 'ticket-check'
   | 'wrong-platform'
   | 'luggage-match'
-  | 'express-listening'
   | 'signal-lights';
 
 export type QuickGameDifficulty = 'Easy' | 'Medium' | 'Hard';
@@ -79,16 +78,6 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     floor: 4,
     serverGame: 'word-match',
     route: '/games/luggage-match',
-  },
-  {
-    id: 'express-listening',
-    title: 'Express Listening',
-    description: 'Fast listening rounds against the clock.',
-    difficulty: 'Hard',
-    icon: 'headphones',
-    floor: 4,
-    serverGame: 'listen-and-pick',
-    route: '/games/express-listening',
   },
   {
     id: 'signal-lights',
