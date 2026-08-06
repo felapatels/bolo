@@ -126,3 +126,5 @@
 - [CSS minifier time-unit trap](css-minified-time-units.md) — prod CSS rewrites 8000ms as 8s; bare parseFloat of computed timing vars reads 8 (ms!) — use cssTimeMs; dev/jsdom can't catch it.
 - [Signal wave persistence & LIKE-fed refs](signal-wave-persistence.md) — grammar-pin any user string feeding a LIKE scan (zod regex + openapi pattern); showroom envelope key-pins break on new response fields.
 - [Parallel suite flakes](parallel-suite-flakes.md) — never run api + web suites concurrently; the feedbackTts pending-join timing test flakes under any load (even solo runs); settle via targeted file run.
+- [RN test query & hydration traps](rn-test-query-traps.md) — RNTL toHaveTextContent is EXACT; a11y-hidden subtrees need includeHiddenElements; storage-hydrated UI can't be asserted synchronously.
+- [Concurrency regression witness](concurrency-regression-witness.md) — carry the retired algorithm inline and interleave BETWEEN its two reads; interfering before the call leaves the old code passing too.

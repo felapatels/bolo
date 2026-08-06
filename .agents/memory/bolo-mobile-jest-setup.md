@@ -75,6 +75,26 @@ filter which sees stale dist.
   `expect(JSON.stringify(screen.toJSON())).not.toContain('"%')` — but never
   `JSON.stringify` a host element's `props.children` (circular fiber refs).
 
+## Fake timers: one self-rescheduling tick per act block
+A timer that reschedules itself from an effect (`useEffect` → `setTimeout` →
+`setState` → effect reruns → next `setTimeout`) advances only ONE step per
+`act`, no matter how much time you pass. `advanceTimersByTime(4000)` fires the
+first callback synchronously, but React doesn't flush the state update — and
+therefore doesn't run the effect that schedules the next timeout — until the
+act boundary. Advance one interval per `await act(...)` in a loop. Symptom is
+an off-by-N that looks like the component's clock is broken when it is fine in
+real time.
+
+## Guards cleared inside a handler don't survive the same tick
+A "once per round/step" ref guard that is set at the top of a handler and
+cleared at the bottom is not a guard: two calls in one tick (a timeout handler
+racing a tap) both pass, and the second runs against the pre-update state
+value. Clear it from an effect keyed on the committed state instead
+(`useEffect(() => { ref.current = false }, [step])`). `fireEvent` flushes
+between presses, so two `fireEvent.press` calls will NOT reproduce this —
+the regression test has to call the captured callback twice synchronously
+from inside one handler.
+
 ## onLayout-gated UI renders empty in jest
 Components that render children only after an `onLayout` measurement (e.g. the
 Word Match card grid sizes cards from the measured grid box) show an EMPTY
