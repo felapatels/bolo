@@ -13,6 +13,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
+import { mascotSource } from '@/lib/mascotOutfits';
+import { useEquippedOutfit } from '@/contexts/OutfitContext';
 
 /**
  * Bolo the Parrot — the friendly face of the app. Renders one of the five
@@ -47,13 +49,9 @@ export type MascotPose =
  */
 export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway' | 'flip';
 
-const SOURCES: Record<MascotPose, number> = {
-  wave: require('../assets/images/mascot/mascot-wave.png'),
-  cheer: require('../assets/images/mascot/mascot-cheer.png'),
-  thumbsup: require('../assets/images/mascot/mascot-thumbsup.png'),
-  thinking: require('../assets/images/mascot/mascot-thinking.png'),
-  tryagain: require('../assets/images/mascot/mascot-tryagain.png'),
-};
+// Pose art (canonical and dressed) resolves in lib/mascotOutfits.ts, so every
+// surface that renders <Mascot> shows the equipped outfit without knowing
+// outfits exist.
 
 // ---------------------------------------------------------------------------
 // Funny idle sequences — at least 5 one-shot animations that fire when isIdle
@@ -83,6 +81,7 @@ export function Mascot({
   isIdle = false,
   celebrateBounce = 0,
   style,
+  outfit,
 }: {
   pose: MascotPose;
   size?: number;
@@ -102,7 +101,15 @@ export function Mascot({
    */
   celebrateBounce?: number;
   style?: StyleProp<ImageStyle>;
+  /**
+   * Force an outfit instead of the learner's equipped one. Only the outfit
+   * shop uses this, to preview a costume on the learner's own Bolo before they
+   * buy it; pass null to force canonical Bolo.
+   */
+  outfit?: string | null;
 }) {
+  const equippedOutfit = useEquippedOutfit();
+  const wornOutfit = outfit === undefined ? equippedOutfit : outfit;
   const reduceMotion = useReducedMotion();
   const loop = useSharedValue(0);
 
@@ -307,7 +314,7 @@ export function Mascot({
 
   const image = (
     <Image
-      source={SOURCES[pose]}
+      source={mascotSource(pose, wornOutfit)}
       style={[{ width: size, height: size }, styles.img, style]}
       resizeMode="contain"
       accessibilityRole="image"

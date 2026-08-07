@@ -2023,6 +2023,130 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /tokens/unlock-stop:
+    post:
+      operationId: unlockStop
+      tags: [tokens]
+      summary: Spend Chai to open one stop in a plan-locked language
+      description: >-
+        Buys a single station in a language the caller's plan does not include.
+        The caller names only a lesson group id: the language, the price and the
+        ledger idempotency key are all derived server-side, and the purchase is
+        once-ever (a repeat call returns 200 with charged=false and deducts
+        nothing). Only stops inside the language's FIRST zone — the zone that
+        hosts the free-taste stop — are purchasable; anything beyond it answers
+        402 UpgradeRequired because that is the All-Access boundary. Money and
+        state conflicts (insufficient_tokens, stop_already_free,
+        stop_not_unlockable) answer 409, matching the other Chai spends.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnlockStopInput"
+      responses:
+        "200":
+          description: Stop unlocked (or already owned — charged=false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopUnlockResult"
+        "402":
+          description: Beyond the first zone — All-Access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "409":
+          description: insufficient_tokens, stop_already_free, or stop_not_unlockable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /outfits:
+    get:
+      operationId: getOutfits
+      tags: [outfits]
+      summary: Outfit catalog with prices, ownership and the equipped choice
+      responses:
+        "200":
+          description: The catalog as it stands for this learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutfitCatalog"
+  /outfits/buy:
+    post:
+      operationId: buyOutfit
+      tags: [outfits]
+      summary: Spend Chai on an outfit for Bolo
+      description: >-
+        Buys an outfit once-ever. Ownership is the ledger row (refId
+        outfit:<id>), so a repeat call returns 200 with charged=false, deducts
+        nothing and leaves the equipped choice untouched. A purchase that does
+        charge also equips the outfit, because buying it is the act of putting
+        it on. Insufficient balance answers 409, matching the other Chai
+        spends; an unknown outfit id answers 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyOutfitInput"
+      responses:
+        "200":
+          description: Bought (or already owned — charged=false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutfitPurchaseResult"
+        "404":
+          description: No such outfit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: insufficient_tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /outfits/equip:
+    post:
+      operationId: equipOutfit
+      tags: [outfits]
+      summary: Wear an owned outfit, or go back to undressed Bolo
+      description: >-
+        Free and instant. Sends an owned outfit id to wear it, or null to
+        unequip. Equipping an outfit the learner does not own answers 409
+        outfit_not_owned — ownership is never inferred from the equip call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EquipOutfitInput"
+      responses:
+        "200":
+          description: The equipped choice after the write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutfitEquipResult"
+        "404":
+          description: No such outfit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: outfit_not_owned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   schemas:
@@ -2654,6 +2778,21 @@ components:
             learner's best band is "perfect" or "great" (score >= 80) on all
             of them. Used to show the gold stamp overlay on the journey map
             when POLISH_ENABLED is on. Optional/additive.
+        chaiUnlocked:
+          type: boolean
+          description: >-
+            True when the learner has BOUGHT this stop with Chai in a
+            plan-locked language. The stop opens exactly like the free-taste
+            stop, and because ownership is a ledger row it survives a
+            reinstall. Present only in showroom payloads. Optional/additive.
+        chaiUnlockable:
+          type: boolean
+          description: >-
+            True when this stop is offered for Chai: inside the language's
+            first zone, not the free stop, not already bought, and holding at
+            least one phrase the caller's plan can practise. Absent everywhere
+            else — a station without it can only be opened by All-Access, and
+            the server refuses a purchase attempt on one. Optional/additive.
         planLocked:
           type: boolean
           description: >-
@@ -2755,6 +2894,8 @@ components:
             allowed language.
         teaser:
           $ref: "#/components/schemas/TeaserProgress"
+        stopUnlock:
+          $ref: "#/components/schemas/StopUnlockOffer"
         signals:
           $ref: "#/components/schemas/ZoneSignalStates"
 
@@ -4263,6 +4404,81 @@ components:
           type: string
           format: date-time
           nullable: true
+        equippedOutfit:
+          type: string
+          nullable: true
+          description: >-
+            The outfit id Bolo is wearing, or null for canonical undressed
+            Bolo. Every mascot surface resolves its art from this value, so
+            clients read it here rather than holding their own copy.
+    OutfitCatalogItem:
+      type: object
+      required: [id, name, tagline, cost, owned]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        tagline: { type: string }
+        cost:
+          type: integer
+          description: >-
+            Server-authoritative price in Chai. Clients must render this
+            number, never a hardcoded one.
+        owned:
+          type: boolean
+          description: Bought once, owned forever — derived from the ledger.
+    OutfitCatalog:
+      type: object
+      required: [balance, equipped, outfits]
+      properties:
+        balance: { type: integer }
+        equipped:
+          type: string
+          nullable: true
+        outfits:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutfitCatalogItem"
+    BuyOutfitInput:
+      type: object
+      required: [outfitId]
+      properties:
+        outfitId:
+          type: string
+          description: >-
+            Catalog id. The price and the ledger refId (outfit:<id>) are both
+            composed server-side, so no client-supplied idempotency key is
+            accepted here.
+    OutfitPurchaseResult:
+      type: object
+      required: [balance, outfitId, owned, charged, cost, equipped]
+      properties:
+        balance: { type: integer }
+        outfitId: { type: string }
+        owned: { type: boolean }
+        charged:
+          type: boolean
+          description: >-
+            False when the learner already owned this outfit — the call is a
+            no-op that deducts nothing and leaves the equipped choice alone.
+        cost: { type: integer }
+        equipped:
+          type: string
+          nullable: true
+    EquipOutfitInput:
+      type: object
+      required: [outfitId]
+      properties:
+        outfitId:
+          type: string
+          nullable: true
+          description: An owned outfit id, or null to go back to undressed Bolo.
+    OutfitEquipResult:
+      type: object
+      required: [equipped]
+      properties:
+        equipped:
+          type: string
+          nullable: true
     TokensSpendInput:
       type: object
       required: [item]
@@ -4273,6 +4489,40 @@ components:
         refId:
           type: string
           description: optional client idempotency key
+    UnlockStopInput:
+      type: object
+      required: [lessonGroupId]
+      properties:
+        lessonGroupId:
+          type: integer
+          description: >-
+            The station to open. The server resolves its language from the row
+            itself and mints the ledger refId as stop:<language>:<groupId>, so
+            no client-supplied idempotency key is accepted here.
+    StopUnlockResult:
+      type: object
+      required: [balance, lessonGroupId, languageCode, unlocked, charged, cost]
+      properties:
+        balance: { type: integer }
+        lessonGroupId: { type: integer }
+        languageCode: { type: string }
+        unlocked: { type: boolean }
+        charged:
+          type: boolean
+          description: >-
+            False when the learner already owned this stop — the call is a
+            no-op that deducts nothing. Clients must not re-render a "spent"
+            animation for it.
+        cost: { type: integer }
+    StopUnlockOffer:
+      type: object
+      description: >-
+        The served price of a Chai stop unlock. Present on a showroom journey
+        payload only for the first zone, the only zone whose stops are
+        purchasable. Clients must render this number, never a hardcoded one.
+      properties:
+        cost:
+          type: integer
     TokenSpendResult:
       type: object
       required: [balance, granted, stationPausesEquipped]

@@ -12,6 +12,7 @@ import { loadSoundPref } from "@/lib/soundPref";
 import { blessAudioPlayback } from "@/lib/iosAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
+import { AddToHomeScreen } from "@/components/add-to-home-screen";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { HomeSkeleton } from "@/components/home-skeleton";
@@ -1037,6 +1038,11 @@ export default function Home() {
             <div className="lg:hidden">{recentSection}</div>
           </aside>
         </div>
+
+        {/* Secondary chrome: how to keep Bolo on the home screen, plus the
+            App Store badge for iOS. Quiet, bottom of the page, never
+            competing with the journey and practice content above. */}
+        <AddToHomeScreen />
       </main>
       {/* Daily goal celebration — mirrors the MilestoneToast on mobile home */}
       <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />

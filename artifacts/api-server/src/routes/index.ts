@@ -14,6 +14,7 @@ import familyRouter from "./family";
 import contactRouter from "./contact";
 import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
+import outfitsRouter from "./outfits";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -65,6 +66,10 @@ router.use(stripeRouter);
 // authenticated learner — joining must work for Free users.
 router.use(familyRouter);
 router.use(tokensRouter);
+// Bolo's outfits: a Chai sink, so it sits with the other token surfaces and is
+// open to every authenticated learner (Free included — outfits are bought with
+// Chai, not with a plan).
+router.use(outfitsRouter);
 router.use(learningRouter);
 router.use(gamesRouter);
 router.use(openaiRouter);

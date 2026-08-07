@@ -37,6 +37,18 @@ export function gameSessionPassed(correctCount: number, totalCount: number): boo
   return correctCount > totalCount / 2;
 }
 
+// Chai sink (owner ruling, Aug 6 2026): a Free learner may buy a single stop
+// in a language they have NOT purchased. Deliberately expensive — this is a
+// taste of a locked line, not a way around All-Access. Capped to the first
+// zone (see lib/stopUnlock.ts); nothing beyond it is purchasable at any price.
+export const STOP_UNLOCK_COST = 50;
+
+// Chai sink (owner ruling, Aug 6 2026): outfits for Bolo. Bought once, owned
+// forever — permanent, not seasonal — and worn on every surface the mascot
+// appears on. The catalog itself lives in lib/outfits.ts; only the price is
+// economy tuning.
+export const OUTFIT_COST = 25;
+
 export const STATION_PAUSE_COST = 5;
 export const STATION_PAUSE_MAX_EQUIPPED = 2;
 export const EXPRESS_MULTIPLIER_COST = 10;
@@ -60,6 +72,8 @@ export type TokenReason =
   | "earn_referral_referee"
   | "spend_station_pause"
   | "spend_express_multiplier"
+  | "spend_stop_unlock"
+  | "spend_outfit"
   | "station_pause_consumed";
 
 export type SpendItem = "station_pause" | "express_multiplier";

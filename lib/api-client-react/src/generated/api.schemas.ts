@@ -347,6 +347,10 @@ export interface LessonGroupSummary {
   teaserStation?: boolean;
   /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
   allTopBand?: boolean;
+  /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional/additive. */
+  chaiUnlocked?: boolean;
+  /** True when this stop is offered for Chai: inside the language's first zone, not the free stop, not already bought, and holding at least one phrase the caller's plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional/additive. */
+  chaiUnlockable?: boolean;
   /** True when the caller's plan can see ZERO of this group's phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount/attemptedCount/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser/exhausted) payloads. Optional/additive. */
   planLocked?: boolean;
 }
@@ -414,6 +418,13 @@ export const LessonGroupListAccess = {
 } as const;
 
 /**
+ * The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.
+ */
+export interface StopUnlockOffer {
+  cost?: number;
+}
+
+/**
  * Per-signal server truth for this zone's trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.
  */
 export interface ZoneSignalStates {
@@ -428,6 +439,7 @@ export interface LessonGroupList {
   /** Present only for a plan-locked language on this one read-only route, which deliberately returns the full zone/station structure instead of a 402 so the journey map can render as the paywall's showroom (counts and statuses only, zero phrase content, everything locked except the marked teaser station). "teaser" while free taster phrases remain, "exhausted" once used up. A plan-locked language with no teaser set still 402s. Absent for an allowed language. */
   access?: LessonGroupListAccess;
   teaser?: TeaserProgress;
+  stopUnlock?: StopUnlockOffer;
   signals?: ZoneSignalStates;
 }
 
@@ -450,6 +462,31 @@ export interface SignalWaveInput {
 export interface SignalWaveResult {
   /** The stored ref, languageCode:categoryId:gap-N. */
   ref: string;
+}
+
+export interface ReferralSummary {
+  /** The caller's shareable referral code (uppercase, no 0/O/1/I). */
+  code: string;
+  /** Redemptions attributed to the caller that have not activated yet. */
+  pendingCount: number;
+  /** Redemptions that activated (the referee completed a first session; both sides were granted). */
+  activatedCount: number;
+  /** Total referral Chai earned by the caller, derived from the token ledger (reason earn_referral_referrer), never a stored counter. */
+  chaiEarned: number;
+}
+
+export interface ReferralRedeemInput {
+  /**
+     * The referral code to redeem. Case-insensitive; normalized server-side.
+     * @minLength 1
+     * @maxLength 32
+     */
+  code: string;
+}
+
+export interface ReferralRedeemResult {
+  /** True when attribution was recorded. Grants happen at activation (the referee's first completed session), not here. */
+  redeemed: boolean;
 }
 
 /**
@@ -518,6 +555,8 @@ export interface GameSessionResult {
   xpEarned: number;
   /** Learner's cumulative XP for this language after the session. */
   totalXp: number;
+  /** Server-authoritative session verdict (majority of answered questions correct, as judged server-side). This is the flag that gates signal and closeout Chai grants; clients must not derive their own pass state. */
+  passed: boolean;
   /** Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted. */
   chaiGranted?: number;
 }
@@ -1242,6 +1281,48 @@ export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierActiveUntil?: string | null;
+  /** The outfit id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
+  equippedOutfit?: string | null;
+}
+
+export interface OutfitCatalogItem {
+  id: string;
+  name: string;
+  tagline: string;
+  /** Server-authoritative price in Chai. Clients must render this number, never a hardcoded one. */
+  cost: number;
+  /** Bought once, owned forever — derived from the ledger. */
+  owned: boolean;
+}
+
+export interface OutfitCatalog {
+  balance: number;
+  equipped: string | null;
+  outfits: OutfitCatalogItem[];
+}
+
+export interface BuyOutfitInput {
+  /** Catalog id. The price and the ledger refId (outfit:<id>) are both composed server-side, so no client-supplied idempotency key is accepted here. */
+  outfitId: string;
+}
+
+export interface OutfitPurchaseResult {
+  balance: number;
+  outfitId: string;
+  owned: boolean;
+  /** False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone. */
+  charged: boolean;
+  cost: number;
+  equipped: string | null;
+}
+
+export interface EquipOutfitInput {
+  /** An owned outfit id, or null to go back to undressed Bolo. */
+  outfitId: string | null;
+}
+
+export interface OutfitEquipResult {
+  equipped: string | null;
 }
 
 export type TokensSpendInputItem = typeof TokensSpendInputItem[keyof typeof TokensSpendInputItem];
@@ -1256,6 +1337,21 @@ export interface TokensSpendInput {
   item: TokensSpendInputItem;
   /** optional client idempotency key */
   refId?: string;
+}
+
+export interface UnlockStopInput {
+  /** The station to open. The server resolves its language from the row itself and mints the ledger refId as stop:<language>:<groupId>, so no client-supplied idempotency key is accepted here. */
+  lessonGroupId: number;
+}
+
+export interface StopUnlockResult {
+  balance: number;
+  lessonGroupId: number;
+  languageCode: string;
+  unlocked: boolean;
+  /** False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a "spent" animation for it. */
+  charged: boolean;
+  cost: number;
 }
 
 export interface TokenSpendResult {

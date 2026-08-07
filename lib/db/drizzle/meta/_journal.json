@@ -288,6 +288,13 @@
       "when": 1785857394692,
       "tag": "0040_referral",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1786066862063,
+      "tag": "0041_ordinary_daredevil",
+      "breakpoints": true
     }
   ]
 }

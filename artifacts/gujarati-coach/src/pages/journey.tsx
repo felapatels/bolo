@@ -20,10 +20,13 @@ import { Link } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ApiError,
+  useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
   useListZoneStamps,
   useRecordSignalWave,
+  useUnlockStop,
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
@@ -146,7 +149,23 @@ type LockInfo = {
   /** Route pieces for the progression dialog's test-out action. */
   zoneId?: number;
   groupId?: number;
+  /** Server says this locked stop can be opened with Chai (first zone only). */
+  chaiUnlockable?: boolean;
 };
+
+/** Chai stop-unlock failures. Insufficient balance keeps the wallet's exact
+ *  copy register so every Chai refusal in the app reads the same way. */
+function unlockErrorCopy(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) {
+    const data = error.data as
+      | { error?: string; balance?: number; cost?: number }
+      | null;
+    if (data?.error === "insufficient_tokens") {
+      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
+    }
+  }
+  return "That unlock did not go through. Try again in a moment.";
+}
 
 function stageRank(g: LessonGroupSummary): number {
   return g.stage === "sentence" ? 1 : 0;
@@ -827,6 +846,23 @@ export default function Journey() {
   // still in flight (or fails — the server catches up on the next wave).
   const recordSignalWave = useRecordSignalWave();
 
+  // Chai stop unlock. The offer, its price and its cap all come from the
+  // server payload; this only spends and then re-reads. A success refetches
+  // the zones (the bought stop comes back status "unlocked") and the wallet.
+  const tokensQuery = useGetTokens();
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const unlockStop = useUnlockStop({
+    mutation: {
+      onSuccess: () => {
+        setUnlockError(null);
+        setLock(null);
+        void tokensQuery.refetch();
+        zoneQueries.forEach((q) => void q.refetch());
+      },
+      onError: (e) => setUnlockError(unlockErrorCopy(e)),
+    },
+  });
+
   // Plain-locked language (no teaser set): the API keeps its pre-M1 402 and
   // the map defers to the standard upgrade screen.
   const upgrade = zoneQueries
@@ -889,6 +925,12 @@ export default function Journey() {
     zoneQueries.map((q) => (q.data as LessonGroupList | undefined)?.teaser).find(Boolean) ??
     null;
   const showroom = access !== null;
+  // Served price of a Chai stop unlock. Present only for the first zone (the
+  // only zone whose stops the server will sell), never hardcoded here.
+  const stopUnlockCost =
+    zoneQueries
+      .map((q) => (q.data as LessonGroupList | undefined)?.stopUnlock?.cost)
+      .find((c) => typeof c === "number") ?? null;
 
   const zones = JOURNEY_ZONES.map((z, i) => {
     const groups = [...((zoneQueries[i]!.data as LessonGroupList | undefined)?.lessonGroups ?? [])]
@@ -1428,6 +1470,7 @@ export default function Journey() {
                             zoneTitle: zone.title,
                             zoneId: zone.id,
                             groupId: s.id,
+                            chaiUnlockable: s.chaiUnlockable === true,
                           })
                         }
                         side={side}
@@ -1675,6 +1718,48 @@ export default function Journey() {
                     : `Your free taste covers the marked station (${teaserProgress?.consumed ?? 0}/${teaserProgress?.limit ?? 3} tried). Unlock ${languageName} to board every stop.`}
                 </DialogDescription>
               </DialogHeader>
+              {/* Chai stop unlock: offered ONLY where the server says so —
+                  inside the first fare zone of a line the learner hasn't
+                  bought. Once opened, the stop stays open for good (the
+                  purchase is a ledger row, not device state). Everything
+                  further down the line is All-Access territory, and the
+                  ticket action below is untouched. */}
+              {lock.chaiUnlockable === true &&
+                stopUnlockCost !== null &&
+                lock.groupId !== undefined && (
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      data-testid="button-unlock-stop-chai"
+                      disabled={unlockStop.isPending}
+                      onClick={() => {
+                        setUnlockError(null);
+                        unlockStop.mutate({
+                          data: { lessonGroupId: lock.groupId! },
+                        });
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-black text-foreground active:scale-[0.98] transition-transform disabled:opacity-60"
+                    >
+                      <ChaiGlyph className="h-4 w-4" />
+                      {unlockStop.isPending
+                        ? "Opening the stop…"
+                        : `Open this stop for ${stopUnlockCost} Chai`}
+                    </button>
+                    <p className="text-center text-[11px] text-muted-foreground">
+                      Yours for keeps. You have {tokensQuery.data?.balance ?? 0}{" "}
+                      Chai. Stops further down the {line.lineName} need a ticket.
+                    </p>
+                    {unlockError !== null && (
+                      <p
+                        role="alert"
+                        data-testid="text-unlock-stop-error"
+                        className="text-center text-[11px] font-bold text-destructive"
+                      >
+                        {unlockError}
+                      </p>
+                    )}
+                  </div>
+                )}
               <Link
                 href={upgradeLanguageHref}
                 onClick={() => setLock(null)}

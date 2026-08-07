@@ -143,6 +143,9 @@ jest.mock('@workspace/api-client-react', () => ({
   // replacement, so any hook the screen calls must exist here or the whole
   // file dies at render with "not a function".
   useRecordSignalWave: () => ({ mutate: jest.fn(), isPending: false }),
+  // Chai stop unlocks: the map reads the wallet and offers the purchase.
+  useGetTokens: () => ({ data: { balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useUnlockStop: () => ({ mutate: jest.fn(), isPending: false }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;

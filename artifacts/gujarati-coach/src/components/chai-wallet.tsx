@@ -4,6 +4,7 @@
 // derived from expressMultiplierActiveUntil, never from a client-side timer.
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { X } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import {
@@ -185,6 +186,23 @@ export function ChaiWalletSheet({
               <ChaiGlyph className="h-4 w-4" />
             </button>
           </div>
+
+          <Link
+            href="/outfits"
+            onClick={() => onOpenChange(false)}
+            data-testid="wallet-open-wardrobe"
+            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-primary/40"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-black text-foreground">Bolo's wardrobe</p>
+              <p className="text-xs leading-snug text-muted-foreground">
+                Outfits for Bolo. Buy once, his for good.
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-black text-primary">
+              Browse
+            </span>
+          </Link>
 
           <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4">
             <div className="min-w-0 flex-1">

@@ -22,16 +22,13 @@ import { usePricing, FAMILY_SEATS } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
 import { isIosSafariWeb } from '@/lib/iosAudio';
-
-// Native app listing. The numeric id is ascAppId from bolo-mobile/eas.json;
-// the badge below renders only for iOS user agents (reuse-first: the same
-// isIosSafariWeb helper that gates the silent-switch hint).
-const APP_STORE_URL = 'https://apps.apple.com/app/id6790907772';
-// Flip to true when the listing is approved and live in the App Store. Until
-// then the badge renders muted and unlinked with a coming-soon caption; the
-// Smart App Banner meta stays in the shell because Safari will not render it
-// for an unpublished listing anyway.
-const APP_STORE_LIVE = false;
+// The badge (and the listing URL and APP_STORE_LIVE flag behind it) now lives
+// in one shared component so the signed-in home page shows the same one. The
+// hero still owns its own gate and entrance animation, below. Until the flag
+// flips, the badge is muted and unlinked with a coming-soon caption; the Smart
+// App Banner meta stays in the shell because Safari will not render it for an
+// unpublished listing anyway.
+import { AppStoreBadge, APP_STORE_LIVE } from '@/components/app-store-badge';
 
 const CHIP_COLORS = ['#4F46E5', '#0D9488', '#6366F1'];
 
@@ -294,32 +291,7 @@ export default function Landing({
                 {...heroItem(0.25)}
                 className="mt-6 flex flex-col items-center lg:items-start"
               >
-                {appStoreLive ? (
-                  <a
-                    href={APP_STORE_URL}
-                    onClick={() =>
-                      track(ANALYTICS_EVENTS.CTA_CLICK, { placement: 'hero-appstore-badge' })
-                    }
-                  >
-                    <img
-                      src={`${import.meta.env.BASE_URL}appstore-badge.svg`}
-                      alt="Download on the App Store"
-                      className="h-12 w-auto"
-                    />
-                  </a>
-                ) : (
-                  <>
-                    {/* Pre-release: same slot, muted, unlinked, no tracking. */}
-                    <img
-                      src={`${import.meta.env.BASE_URL}appstore-badge.svg`}
-                      alt="Download on the App Store"
-                      className="h-12 w-auto opacity-50"
-                    />
-                    <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                      Coming soon to the App Store
-                    </p>
-                  </>
-                )}
+                <AppStoreBadge live={appStoreLive} placement="hero-appstore-badge" />
               </motion.div>
             )}
           </div>

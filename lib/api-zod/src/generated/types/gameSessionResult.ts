@@ -11,6 +11,8 @@ export interface GameSessionResult {
   xpEarned: number;
   /** Learner's cumulative XP for this language after the session. */
   totalXp: number;
+  /** Server-authoritative session verdict (majority of answered questions correct, as judged server-side). This is the flag that gates signal and closeout Chai grants; clients must not derive their own pass state. */
+  passed: boolean;
   /** Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted. */
   chaiGranted?: number;
 }

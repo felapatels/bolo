@@ -39,9 +39,12 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import {
+  ApiError,
+  useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
   useRecordSignalWave,
+  useUnlockStop,
   type LessonGroupList,
   type LessonGroupSummary,
 } from '@workspace/api-client-react';
@@ -111,7 +114,23 @@ type LockInfo = {
   /** Route pieces for the progression dialog's test-out action. */
   zoneId?: number;
   groupId?: number;
+  /** Server says this locked stop can be opened with Chai (first zone only). */
+  chaiUnlockable?: boolean;
 };
+
+/** Chai stop-unlock failures. Insufficient balance keeps the wallet's exact
+ *  copy register so every Chai refusal in the app reads the same way. */
+function unlockErrorCopy(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) {
+    const data = error.data as
+      | { error?: string; balance?: number; cost?: number }
+      | null;
+    if (data?.error === 'insufficient_tokens') {
+      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
+    }
+  }
+  return 'That unlock did not go through. Try again in a moment.';
+}
 
 function stageRank(g: LessonGroupSummary): number {
   return g.stage === 'sentence' ? 1 : 0;
@@ -448,6 +467,24 @@ export default function JourneyScreen() {
   const closeoutMemory = useCloseoutMemory(activeLang);
   const recordSignalWave = useRecordSignalWave();
 
+  // Chai stop unlock (web parity). The offer, its price and its cap all come
+  // from the server payload; this only spends and then re-reads. A success
+  // refetches the zones (the bought stop returns status "unlocked") and the
+  // wallet. Ownership is a ledger row, so it survives a reinstall.
+  const tokensQuery = useGetTokens();
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const unlockStop = useUnlockStop({
+    mutation: {
+      onSuccess: () => {
+        setUnlockError(null);
+        setLock(null);
+        void tokensQuery.refetch();
+        zoneQueries.forEach((q) => void q.refetch());
+      },
+      onError: (e) => setUnlockError(unlockErrorCopy(e)),
+    },
+  });
+
   /** Wave through: mark locally, persist, re-derive, close, never shame. */
   const waveSignal = (sig: SignalEncounter) => {
     hapticLight();
@@ -546,6 +583,12 @@ export default function JourneyScreen() {
     zoneQueries.map((q) => (q.data as LessonGroupList | undefined)?.teaser).find(Boolean) ??
     null;
   const showroom = access !== null;
+  // Served price of a Chai stop unlock. Present only for the first zone (the
+  // only zone whose stops the server will sell), never hardcoded here.
+  const stopUnlockCost =
+    zoneQueries
+      .map((q) => (q.data as LessonGroupList | undefined)?.stopUnlock?.cost)
+      .find((c) => typeof c === 'number') ?? null;
 
   const zones = JOURNEY_ZONES.map((z, i) => {
     const groups = [...((zoneQueries[i]!.data as LessonGroupList | undefined)?.lessonGroups ?? [])]
@@ -1177,6 +1220,7 @@ export default function JourneyScreen() {
                 zoneTitle: zone.title,
                 zoneId: zone.id,
                 groupId: s.id,
+                chaiUnlockable: s.chaiUnlockable === true,
               });
             };
             return (
@@ -1553,6 +1597,58 @@ export default function JourneyScreen() {
                     ? `All ${teaserProgress?.limit ?? 3} free phrases on the ${line.lineName} are used. Unlock ${languageName} to keep riding.`
                     : `Your free taste covers the marked station (${teaserProgress?.consumed ?? 0}/${teaserProgress?.limit ?? 3} tried). Unlock ${languageName} to board every stop.`}
                 </Text>
+                {/* Chai stop unlock: offered ONLY where the server says so —
+                    inside the first fare zone of a line the learner hasn't
+                    bought. Once opened, the stop stays open for good (the
+                    purchase is a ledger row, not device state). Everything
+                    further down the line is All-Access territory, and the
+                    ticket action below is untouched. */}
+                {lock.chaiUnlockable === true &&
+                  stopUnlockCost !== null &&
+                  lock.groupId !== undefined && (
+                    <>
+                      <Pressable
+                        testID="unlock-stop-chai"
+                        disabled={unlockStop.isPending}
+                        onPress={() => {
+                          hapticLight();
+                          setUnlockError(null);
+                          unlockStop.mutate({
+                            data: { lessonGroupId: lock.groupId! },
+                          });
+                        }}
+                        style={[
+                          styles.dialogSecondaryCta,
+                          {
+                            borderColor: colors.border,
+                            opacity: unlockStop.isPending ? 0.6 : 1,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.dialogSecondaryCtaText, { color: colors.foreground }]}
+                        >
+                          {unlockStop.isPending
+                            ? 'Opening the stop…'
+                            : `Open this stop for ${stopUnlockCost} Chai`}
+                        </Text>
+                      </Pressable>
+                      <Text
+                        style={[styles.dialogFootnote, { color: colors.mutedForeground }]}
+                      >
+                        Yours for keeps. You have {tokensQuery.data?.balance ?? 0} Chai.
+                        Stops further down the {line.lineName} need a ticket.
+                      </Text>
+                      {unlockError !== null && (
+                        <Text
+                          testID="unlock-stop-error"
+                          style={[styles.dialogFootnote, { color: colors.destructive }]}
+                        >
+                          {unlockError}
+                        </Text>
+                      )}
+                    </>
+                  )}
                 <Pressable
                   onPress={openPaywallForLanguage}
                   style={[styles.dialogCta, { backgroundColor: colors.primary }]}
@@ -2012,6 +2108,13 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.regular,
     fontSize: 12,
     textAlign: 'center',
+  },
+  dialogFootnote: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 11,
+    lineHeight: 15,
+    textAlign: 'center',
+    marginTop: 6,
   },
   dialogClose: {
     position: 'absolute',

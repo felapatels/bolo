@@ -53,6 +53,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useUpdateAccountPreferences: () => ({
     mutateAsync: jest.fn().mockResolvedValue(undefined),
   }),
+  // The authed layout resolves Bolo's equipped outfit from the wallet query;
+  // inert here, this suite is about routing.
+  useGetTokens: () => ({ data: undefined }),
+  getGetTokensQueryKey: () => ['/api/tokens'],
 }));
 
 jest.mock('@clerk/expo', () => ({

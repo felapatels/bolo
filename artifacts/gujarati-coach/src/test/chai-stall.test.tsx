@@ -56,11 +56,12 @@ const GLYPH_SITES: Record<string, number> = {
   "pages/home.tsx": 1, // Chai stat cell
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
   "pages/games/speed-round.tsx": 1, // +N Chai earned
-  "pages/journey.tsx": 1, // signal-chai-chip
+  "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
   "pages/practice.tsx": 1, // session-chai-pill
+  "pages/outfits.tsx": 3, // wardrobe balance, Buy · 25, rack price
 };
 
-const WEB_GLYPH_COUNT = 8;
+const WEB_GLYPH_COUNT = 12;
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {

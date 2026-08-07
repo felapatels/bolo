@@ -29,6 +29,7 @@ import type {
   AttemptInput,
   AttemptResult,
   Badge,
+  BuyOutfitInput,
   Category,
   ChatTurnInput,
   ChatTurnResult,
@@ -41,6 +42,7 @@ import type {
   DailyQuizResult,
   DeleteAccountResult,
   Entitlements,
+  EquipOutfitInput,
   Error,
   FamilyStatus,
   Friend,
@@ -68,6 +70,9 @@ import type {
   ListReviewPhrasesParams,
   ListZoneStampsParams,
   Ok,
+  OutfitCatalog,
+  OutfitEquipResult,
+  OutfitPurchaseResult,
   PauseSubscriptionInput,
   Phrase,
   PhraseReportInput,
@@ -79,6 +84,9 @@ import type {
   ProgressSummary,
   PronunciationInput,
   PronunciationResult,
+  ReferralRedeemInput,
+  ReferralRedeemResult,
+  ReferralSummary,
   RegenerateFamilyCode200,
   ScenarioPublic,
   ScriptTraceCharacterProgress,
@@ -91,10 +99,12 @@ import type {
   SignalWaveResult,
   SpeechInput,
   SpeechResult,
+  StopUnlockResult,
   SubscriptionDetails,
   TokenSpendResult,
   TokenState,
   TokensSpendInput,
+  UnlockStopInput,
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
@@ -4988,6 +4998,156 @@ export function useListZoneStamps<TData = Awaited<ReturnType<typeof listZoneStam
 
 
 
+export const getGetReferralUrl = () => {
+
+
+
+
+  return `/api/referral`
+}
+
+/**
+ * Returns the caller's shareable referral code (minted lazily on the first fetch; short uppercase string from an unambiguous alphabet with no 0/O/1/I), counts of pending and activated redemptions attributed to the caller, and the total Chai earned from referrals. The Chai total is derived from the token ledger, never a stored counter.
+ * @summary The caller's referral code and referral stats
+ */
+export const getReferral = async ( options?: RequestInit): Promise<ReferralSummary> => {
+
+  return customFetch<ReferralSummary>(getGetReferralUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReferralQueryKey = () => {
+    return [
+    `/api/referral`
+    ] as const;
+    }
+
+
+export const getGetReferralQueryOptions = <TData = Awaited<ReturnType<typeof getReferral>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferral>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReferralQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReferral>>> = ({ signal }) => getReferral({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReferral>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReferralQueryResult = NonNullable<Awaited<ReturnType<typeof getReferral>>>
+export type GetReferralQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The caller's referral code and referral stats
+ */
+
+export function useGetReferral<TData = Awaited<ReturnType<typeof getReferral>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferral>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReferralQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRedeemReferralUrl = () => {
+
+
+
+
+  return `/api/referral/redeem`
+}
+
+/**
+ * Records attribution ONLY; nothing is granted at redeem time. Grants for both sides land later, when the referee's first completed session activates the redemption server-side. A learner can redeem at most one code ever.
+ * @summary Redeem another learner's referral code
+ */
+export const redeemReferral = async (referralRedeemInput: ReferralRedeemInput, options?: RequestInit): Promise<ReferralRedeemResult> => {
+
+  return customFetch<ReferralRedeemResult>(getRedeemReferralUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(referralRedeemInput)
+  }
+);}
+
+
+
+
+
+export const getRedeemReferralMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemReferral>>, TError,{data: BodyType<ReferralRedeemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof redeemReferral>>, TError,{data: BodyType<ReferralRedeemInput>}, TContext> => {
+
+const mutationKey = ['redeemReferral'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof redeemReferral>>, {data: BodyType<ReferralRedeemInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  redeemReferral(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RedeemReferralMutationResult = NonNullable<Awaited<ReturnType<typeof redeemReferral>>>
+    export type RedeemReferralMutationBody = BodyType<ReferralRedeemInput>
+    export type RedeemReferralMutationError = ErrorType<void>
+
+    /**
+ * @summary Redeem another learner's referral code
+ */
+export const useRedeemReferral = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemReferral>>, TError,{data: BodyType<ReferralRedeemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof redeemReferral>>,
+        TError,
+        {data: BodyType<ReferralRedeemInput>},
+        TContext
+      > => {
+      return useMutation(getRedeemReferralMutationOptions(options));
+    }
+
 export const getRecordSignalWaveUrl = () => {
 
 
@@ -5206,5 +5366,298 @@ export const useSpendTokens = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSpendTokensMutationOptions(options));
+    }
+
+export const getUnlockStopUrl = () => {
+
+
+
+
+  return `/api/tokens/unlock-stop`
+}
+
+/**
+ * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * @summary Spend Chai to open one stop in a plan-locked language
+ */
+export const unlockStop = async (unlockStopInput: UnlockStopInput, options?: RequestInit): Promise<StopUnlockResult> => {
+
+  return customFetch<StopUnlockResult>(getUnlockStopUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unlockStopInput)
+  }
+);}
+
+
+
+
+
+export const getUnlockStopMutationOptions = <TError = ErrorType<UpgradeRequired | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockStop>>, TError,{data: BodyType<UnlockStopInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlockStop>>, TError,{data: BodyType<UnlockStopInput>}, TContext> => {
+
+const mutationKey = ['unlockStop'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlockStop>>, {data: BodyType<UnlockStopInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  unlockStop(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlockStopMutationResult = NonNullable<Awaited<ReturnType<typeof unlockStop>>>
+    export type UnlockStopMutationBody = BodyType<UnlockStopInput>
+    export type UnlockStopMutationError = ErrorType<UpgradeRequired | Error>
+
+    /**
+ * @summary Spend Chai to open one stop in a plan-locked language
+ */
+export const useUnlockStop = <TError = ErrorType<UpgradeRequired | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockStop>>, TError,{data: BodyType<UnlockStopInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlockStop>>,
+        TError,
+        {data: BodyType<UnlockStopInput>},
+        TContext
+      > => {
+      return useMutation(getUnlockStopMutationOptions(options));
+    }
+
+export const getGetOutfitsUrl = () => {
+
+
+
+
+  return `/api/outfits`
+}
+
+/**
+ * @summary Outfit catalog with prices, ownership and the equipped choice
+ */
+export const getOutfits = async ( options?: RequestInit): Promise<OutfitCatalog> => {
+
+  return customFetch<OutfitCatalog>(getGetOutfitsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOutfitsQueryKey = () => {
+    return [
+    `/api/outfits`
+    ] as const;
+    }
+
+
+export const getGetOutfitsQueryOptions = <TData = Awaited<ReturnType<typeof getOutfits>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOutfits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOutfitsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOutfits>>> = ({ signal }) => getOutfits({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOutfits>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOutfitsQueryResult = NonNullable<Awaited<ReturnType<typeof getOutfits>>>
+export type GetOutfitsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Outfit catalog with prices, ownership and the equipped choice
+ */
+
+export function useGetOutfits<TData = Awaited<ReturnType<typeof getOutfits>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOutfits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOutfitsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getBuyOutfitUrl = () => {
+
+
+
+
+  return `/api/outfits/buy`
+}
+
+/**
+ * Buys an outfit once-ever. Ownership is the ledger row (refId outfit:<id>), so a repeat call returns 200 with charged=false, deducts nothing and leaves the equipped choice untouched. A purchase that does charge also equips the outfit, because buying it is the act of putting it on. Insufficient balance answers 409, matching the other Chai spends; an unknown outfit id answers 404.
+ * @summary Spend Chai on an outfit for Bolo
+ */
+export const buyOutfit = async (buyOutfitInput: BuyOutfitInput, options?: RequestInit): Promise<OutfitPurchaseResult> => {
+
+  return customFetch<OutfitPurchaseResult>(getBuyOutfitUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(buyOutfitInput)
+  }
+);}
+
+
+
+
+
+export const getBuyOutfitMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyOutfit>>, TError,{data: BodyType<BuyOutfitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buyOutfit>>, TError,{data: BodyType<BuyOutfitInput>}, TContext> => {
+
+const mutationKey = ['buyOutfit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buyOutfit>>, {data: BodyType<BuyOutfitInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  buyOutfit(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BuyOutfitMutationResult = NonNullable<Awaited<ReturnType<typeof buyOutfit>>>
+    export type BuyOutfitMutationBody = BodyType<BuyOutfitInput>
+    export type BuyOutfitMutationError = ErrorType<Error>
+
+    /**
+ * @summary Spend Chai on an outfit for Bolo
+ */
+export const useBuyOutfit = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyOutfit>>, TError,{data: BodyType<BuyOutfitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof buyOutfit>>,
+        TError,
+        {data: BodyType<BuyOutfitInput>},
+        TContext
+      > => {
+      return useMutation(getBuyOutfitMutationOptions(options));
+    }
+
+export const getEquipOutfitUrl = () => {
+
+
+
+
+  return `/api/outfits/equip`
+}
+
+/**
+ * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned — ownership is never inferred from the equip call.
+ * @summary Wear an owned outfit, or go back to undressed Bolo
+ */
+export const equipOutfit = async (equipOutfitInput: EquipOutfitInput, options?: RequestInit): Promise<OutfitEquipResult> => {
+
+  return customFetch<OutfitEquipResult>(getEquipOutfitUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(equipOutfitInput)
+  }
+);}
+
+
+
+
+
+export const getEquipOutfitMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof equipOutfit>>, TError,{data: BodyType<EquipOutfitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof equipOutfit>>, TError,{data: BodyType<EquipOutfitInput>}, TContext> => {
+
+const mutationKey = ['equipOutfit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof equipOutfit>>, {data: BodyType<EquipOutfitInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  equipOutfit(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EquipOutfitMutationResult = NonNullable<Awaited<ReturnType<typeof equipOutfit>>>
+    export type EquipOutfitMutationBody = BodyType<EquipOutfitInput>
+    export type EquipOutfitMutationError = ErrorType<Error>
+
+    /**
+ * @summary Wear an owned outfit, or go back to undressed Bolo
+ */
+export const useEquipOutfit = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof equipOutfit>>, TError,{data: BodyType<EquipOutfitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof equipOutfit>>,
+        TError,
+        {data: BodyType<EquipOutfitInput>},
+        TContext
+      > => {
+      return useMutation(getEquipOutfitMutationOptions(options));
     }
 

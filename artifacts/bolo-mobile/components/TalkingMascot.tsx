@@ -12,15 +12,21 @@ import Animated, {
 import { appear } from '@/lib/entrance';
 import { ZoomIn } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
+import { mascotSource } from '@/lib/mascotOutfits';
+import { useEquippedOutfit } from '@/contexts/OutfitContext';
+import type { MascotPose } from '@/components/Mascot';
 
 export type TalkingMascotMode = 'idle' | 'listening' | 'talking' | 'thinking';
 
-const POSES = {
-  idle: require('../assets/images/mascot/mascot-wave.png'),
-  listening: require('../assets/images/mascot/mascot-thinking.png'),
-  talking: require('../assets/images/mascot/mascot-wave.png'),
-  thinking: require('../assets/images/mascot/mascot-thinking.png'),
-} satisfies Record<TalkingMascotMode, number>;
+// Chat modes borrow the canonical poses; the art itself (canonical or dressed
+// in the learner's equipped outfit) resolves in lib/mascotOutfits.ts, so the
+// chat screen wears the same costume as every other surface.
+const MODE_POSES = {
+  idle: 'wave',
+  listening: 'thinking',
+  talking: 'wave',
+  thinking: 'thinking',
+} satisfies Record<TalkingMascotMode, MascotPose>;
 
 /**
  * An extended mascot component for the Parrot Chat screen.
@@ -42,6 +48,7 @@ export function TalkingMascot({
 }) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
+  const equippedOutfit = useEquippedOutfit();
 
   // ── Float loop (idle + thinking) ──────────────────────────────────────────
   const floatVal = useSharedValue(0);
@@ -170,7 +177,7 @@ export function TalkingMascot({
       <Animated.View key={mode} entering={appear(entrance)}>
         <Animated.View style={imageMotionStyle}>
           <Image
-            source={POSES[mode]}
+            source={mascotSource(MODE_POSES[mode], equippedOutfit)}
             style={{ width: size, height: size }}
             resizeMode="contain"
             accessibilityRole="image"

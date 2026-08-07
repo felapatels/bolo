@@ -7,6 +7,7 @@
 // (MilestoneToast) with the exact web 409 copy.
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -115,6 +116,7 @@ export function ChaiWalletSheet({
   onClose: () => void;
 }) {
   const colors = useColors();
+  const router = useRouter();
   const tokensQuery = useGetTokens();
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
@@ -201,6 +203,31 @@ export function ChaiWalletSheet({
               <ChaiGlyph size={14} />
             </Pressable>
           </View>
+
+          <Pressable
+            testID="wallet-open-wardrobe"
+            accessibilityRole="button"
+            onPress={() => {
+              onClose();
+              router.push('/(app)/outfits');
+            }}
+            style={[
+              styles.itemRow,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.itemInfo}>
+              <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+                Bolo's wardrobe
+              </Text>
+              <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+                Outfits for Bolo. Buy once, his for good.
+              </Text>
+            </View>
+            <Text style={[styles.spendBtnText, { color: colors.primary }]}>
+              Browse
+            </Text>
+          </Pressable>
 
           <View
             style={[

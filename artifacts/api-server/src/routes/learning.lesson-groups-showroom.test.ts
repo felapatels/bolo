@@ -295,7 +295,14 @@ const GROUP_KEYS = [
 ] as const;
 
 function assertNoPhraseContent(group: Record<string, unknown>): void {
-  const allowed = new Set<string>([...GROUP_KEYS, "teaserStation"]);
+  // Chai stop unlocks add two more flags to the showroom vocabulary; both are
+  // booleans about the stop, still zero phrase content.
+  const allowed = new Set<string>([
+    ...GROUP_KEYS,
+    "teaserStation",
+    "chaiUnlocked",
+    "chaiUnlockable",
+  ]);
   for (const key of Object.keys(group)) {
     assert.ok(
       allowed.has(key),
@@ -337,9 +344,18 @@ test("teaser caller gets the showroom: all locked except the marked teaser stati
 
   // Envelope: exactly the list contract plus the showroom fields.
   // Hotfix 3S: every lesson-groups response now carries the signals payload.
+  // stopUnlock rides the first zone only: it is the Chai price of a stop
+  // unlock, and the first zone is the only place the server sells one.
   assert.deepEqual(
     Object.keys(json).sort(),
-    ["access", "lessonGroups", "signals", "teaser", "unassignedCount"].sort(),
+    [
+      "access",
+      "lessonGroups",
+      "signals",
+      "stopUnlock",
+      "teaser",
+      "unassignedCount",
+    ].sort(),
   );
   assert.equal(json.access, "teaser");
   assert.deepEqual(json.teaser, { consumed: 0, limit: TEASER_LIMIT });

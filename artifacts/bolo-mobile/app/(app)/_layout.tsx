@@ -8,6 +8,7 @@ import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { Mascot } from '@/components/Mascot';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
+import { EquippedOutfitProvider } from '@/contexts/OutfitContext';
 import { useColors } from '@/hooks/useColors';
 
 export default function AppLayout() {
@@ -44,6 +45,8 @@ export default function AppLayout() {
   return (
     <EntitlementsProvider>
       <PurchasesProvider>
+        {/* What Bolo is wearing, resolved once for every mascot on screen. */}
+        <EquippedOutfitProvider>
         <LanguageProvider>
             <ReminderScheduler />
             <Stack
@@ -59,6 +62,7 @@ export default function AppLayout() {
               <Stack.Screen name="practice/daily" />
               <Stack.Screen name="badges" />
               <Stack.Screen name="journey" />
+              <Stack.Screen name="outfits" />
               <Stack.Screen name="analytics" />
               <Stack.Screen name="account/index" />
               <Stack.Screen name="account/reminders" />
@@ -70,6 +74,7 @@ export default function AppLayout() {
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
         </LanguageProvider>
+        </EquippedOutfitProvider>
       </PurchasesProvider>
     </EntitlementsProvider>
   );

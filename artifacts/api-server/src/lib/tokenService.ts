@@ -3,7 +3,7 @@ import {
   tokenLedgerTable,
   userTokenStateTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   type TokenReason,
   type SpendItem,
@@ -11,7 +11,11 @@ import {
   STATION_PAUSE_MAX_EQUIPPED,
   EXPRESS_MULTIPLIER_COST,
   EXPRESS_MULTIPLIER_MINUTES,
+  STOP_UNLOCK_COST,
+  OUTFIT_COST,
 } from "./tokenEconomy";
+import { stopUnlockRefId } from "./stopUnlock";
+import { OUTFIT_REASON, outfitRefId, type OutfitId } from "./outfits";
 
 // Chunk 5: the one module allowed to write token_ledger or user_token_state.
 // Every mutation is a single transaction pairing a ledger row with the state
@@ -23,6 +27,7 @@ export interface TokenStateRow {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
+  equippedOutfit: string | null;
 }
 
 export class InsufficientTokensError extends Error {
@@ -160,6 +165,188 @@ export async function spendTokens(
 }
 
 /**
+ * Buy one stop in a plan-locked language. The ledger row IS the unlock: the
+ * refId encodes language and stop, so the unique (user, reason, ref) index
+ * makes a replay a silent no-op that charges nothing (`charged: false`) and,
+ * because ownership is derived from that same row, grants nothing new either.
+ * The caller has already enforced the first-zone cap (lib/stopUnlock.ts);
+ * this function owns only the money.
+ */
+export async function unlockStop(
+  userId: string,
+  languageCode: string,
+  lessonGroupId: number,
+): Promise<{ state: TokenStateRow; charged: boolean }> {
+  const refId = stopUnlockRefId(languageCode, lessonGroupId);
+  return db.transaction(async (tx) => {
+    const state = await ensureState(tx, userId);
+    // Owned already? Return before the balance check — a replay must never be
+    // refused for funds the learner does not need to spend again.
+    // (Read before the row lock: an already-owned stop needs no money at all.)
+    const [owned] = await tx
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, userId),
+          eq(tokenLedgerTable.reason, "spend_stop_unlock"),
+          eq(tokenLedgerTable.refId, refId),
+        ),
+      )
+      .limit(1);
+    if (owned) return { state, charged: false };
+
+    // Money path: take the row lock BEFORE reading the balance we spend
+    // against. Two purchases of DIFFERENT stops are not deduplicated by the
+    // ledger's unique index, so without this both could read the same balance
+    // and each subtract its cost — 50 Chai buying two stops and going
+    // negative. The lock serializes them: the loser re-reads the debited
+    // balance and is refused for funds.
+    const [locked] = await tx
+      .select({ balance: userTokenStateTable.balance })
+      .from(userTokenStateTable)
+      .where(eq(userTokenStateTable.userId, userId))
+      .for("update");
+    const balance = locked?.balance ?? state.balance;
+    if (balance < STOP_UNLOCK_COST)
+      throw new InsufficientTokensError(balance, STOP_UNLOCK_COST);
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: -STOP_UNLOCK_COST,
+        balanceAfter: balance - STOP_UNLOCK_COST,
+        reason: "spend_stop_unlock",
+        refId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    // Lost the race with a concurrent identical purchase: the other request
+    // paid, this one must not.
+    if (inserted.length === 0) return { state, charged: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        balance: sql`${userTokenStateTable.balance} - ${STOP_UNLOCK_COST}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), charged: true };
+  });
+}
+
+/**
+ * Buy an outfit for Bolo. Same shape as unlockStop and for the same reasons:
+ * the ledger row IS the ownership (refId outfit:<id>), so a replay charges
+ * nothing, and the balance is read under a row lock so two purchases of
+ * DIFFERENT outfits cannot both spend the same Chai. A purchase that charges
+ * also equips — buying an outfit is the act of putting it on — while a replay
+ * leaves the learner's current choice alone.
+ */
+export async function buyOutfit(
+  userId: string,
+  outfitId: OutfitId,
+): Promise<{ state: TokenStateRow; charged: boolean }> {
+  const refId = outfitRefId(outfitId);
+  return db.transaction(async (tx) => {
+    // The row has to exist before it can be locked.
+    const initial = await ensureState(tx, userId);
+
+    // Lock the money row FIRST, then decide everything against the view it
+    // serialises. Reading ownership before the lock is a real defect, not a
+    // style choice: a second request for the SAME outfit that read "not owned"
+    // and then waited on the lock would wake up to a tin the winner already
+    // debited and be refused for insufficient Chai — a 409 for something the
+    // learner now owns, instead of the free replay.
+    const [locked] = await tx
+      .select()
+      .from(userTokenStateTable)
+      .where(eq(userTokenStateTable.userId, userId))
+      .for("update");
+    const state = locked ? toState(locked) : initial;
+
+    const [owned] = await tx
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, userId),
+          eq(tokenLedgerTable.reason, OUTFIT_REASON),
+          eq(tokenLedgerTable.refId, refId),
+        ),
+      )
+      .limit(1);
+    if (owned) return { state, charged: false };
+
+    const balance = state.balance;
+    if (balance < OUTFIT_COST)
+      throw new InsufficientTokensError(balance, OUTFIT_COST);
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: -OUTFIT_COST,
+        balanceAfter: balance - OUTFIT_COST,
+        reason: OUTFIT_REASON,
+        refId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    if (inserted.length === 0) return { state, charged: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        balance: sql`${userTokenStateTable.balance} - ${OUTFIT_COST}`,
+        equippedOutfit: outfitId,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), charged: true };
+  });
+}
+
+/**
+ * Wear an owned outfit, or pass null to go back to canonical Bolo. Free, so
+ * there is no ledger row here — only the choice column. Ownership is checked
+ * inside the same transaction: an equip may never confer what a purchase did
+ * not.
+ */
+export async function equipOutfit(
+  userId: string,
+  outfitId: OutfitId | null,
+): Promise<{ state: TokenStateRow; owned: boolean }> {
+  return db.transaction(async (tx) => {
+    const state = await ensureState(tx, userId);
+    if (outfitId != null) {
+      const [owned] = await tx
+        .select({ id: tokenLedgerTable.id })
+        .from(tokenLedgerTable)
+        .where(
+          and(
+            eq(tokenLedgerTable.userId, userId),
+            eq(tokenLedgerTable.reason, OUTFIT_REASON),
+            eq(tokenLedgerTable.refId, outfitRefId(outfitId)),
+          ),
+        )
+        .limit(1);
+      if (!owned) return { state, owned: false };
+    }
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({ equippedOutfit: outfitId, updatedAt: new Date() })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), owned: true };
+  });
+}
+
+/**
  * Consume equipped pauses to cover a run of missed local days. Called from
  * the attempts side-effect hook (this codebase has no streak engine; streaks
  * derive at read time, so consumption is latched at the next attempt, the
@@ -265,8 +452,10 @@ const toState = (r: {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
+  equippedOutfit: string | null;
 }): TokenStateRow => ({
   balance: r.balance,
   stationPausesEquipped: r.stationPausesEquipped,
   expressMultiplierExpiresAt: r.expressMultiplierExpiresAt ?? null,
+  equippedOutfit: r.equippedOutfit ?? null,
 });

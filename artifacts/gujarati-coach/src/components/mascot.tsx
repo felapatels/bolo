@@ -2,6 +2,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { mascotEntrance, floatIdle } from "@/lib/motion";
+import { mascotAssetSrc } from "@/lib/mascot-outfits";
+import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
 
 // Bolo the Parrot — the friendly face of the app. Each pose maps to a mood so
 // screens can show the right reaction for the moment. See public/mascot/README.md.
@@ -21,15 +23,8 @@ export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain"
  * (pulse / lean / hang), so the canonical art rule holds. */
 export type MascotActivity = "talking" | "listening" | "evaluating";
 
-const POSE_SRC: Record<MascotPose, string> = {
-  wave: "mascot-wave.png",
-  cheer: "mascot-cheer.png",
-  thumbsup: "mascot-thumbsup.png",
-  thinking: "mascot-thinking.png",
-  tryagain: "mascot-tryagain.png",
-};
-
-const MASCOT_BASE = `${import.meta.env.BASE_URL}mascot/`;
+// Pose art (canonical and dressed) resolves in one place, so every surface
+// that renders <Mascot> shows the equipped outfit without knowing it exists.
 
 // How the mascot idles once it's on screen. "float" gently bobs (default),
 // "cheer" adds a springy celebratory hop, "none" stays put.
@@ -77,6 +72,7 @@ export function Mascot({
   fill = false,
   activity = null,
   talkAudioRef,
+  outfit,
 }: {
   pose: MascotPose;
   size?: number;
@@ -93,8 +89,16 @@ export function Mascot({
   activity?: MascotActivity | null;
   /** Kept for API compatibility (was beak sync in the retired rig). Unused. */
   talkAudioRef?: RefObject<HTMLAudioElement | null>;
+  /**
+   * Force an outfit instead of the learner's equipped one. Only the outfit
+   * shop uses this, to preview a costume on the learner's own Bolo before they
+   * buy it; pass null to force canonical Bolo.
+   */
+  outfit?: string | null;
 }) {
   void talkAudioRef;
+  const equippedOutfit = useEquippedOutfit();
+  const wornOutfit = outfit === undefined ? equippedOutfit : outfit;
   const reduceMotion = useReducedMotion();
   const calm = ambient === "calm";
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -191,8 +195,8 @@ export function Mascot({
               flow so the crossfade still overlaps in place. */}
           <AnimatePresence initial={false} mode="popLayout">
             <motion.img
-              key={pose}
-              src={MASCOT_BASE + POSE_SRC[pose]}
+              key={`${wornOutfit ?? "canonical"}:${pose}`}
+              src={mascotAssetSrc(pose, wornOutfit)}
               alt=""
               draggable={false}
               // iOS long-press image callout + drag ghost suppression: the

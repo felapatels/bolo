@@ -15,6 +15,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from './lib/queryClient';
 import { LanguageProvider } from './lib/language-context';
+import { EquippedOutfitProvider } from '@/hooks/use-equipped-outfit';
 import { ThemeProvider } from './lib/theme-context';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -75,6 +76,7 @@ const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'
 const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'));
 const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
+const Outfits = lazyRoute(() => import('@/pages/outfits'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
 const Subscription = lazyRoute(() => import('@/pages/subscription'));
@@ -365,6 +367,13 @@ function AppRouter() {
           </AppShell>
         </Guard>
       </Route>
+      <Route path="/outfits">
+        <Guard>
+          <AppShell>
+            <Outfits />
+          </AppShell>
+        </Guard>
+      </Route>
       <Route path="/games">
         <Guard>
           <AppShell>
@@ -520,7 +529,11 @@ function ClerkProviderWithRoutes() {
         <ThemeProvider>
           <LanguageProvider>
             <TooltipProvider>
-              <AppRouter />
+              {/* What Bolo is wearing, resolved once for every mascot on
+                  screen. Signed-out visitors fetch nothing (see the hook). */}
+              <EquippedOutfitProvider>
+                <AppRouter />
+              </EquippedOutfitProvider>
               <IdleRoutePrefetch />
               <Toaster />
             </TooltipProvider>

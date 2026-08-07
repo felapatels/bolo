@@ -13,6 +13,7 @@ import {
   getTeaserPhraseIds,
   TEASER_LIMIT,
 } from "./teaser";
+import { hasStopUnlock, hasStopUnlockForPhrase } from "./stopUnlock";
 
 // The server rejects gated Free actions with 402 Payment Required plus a
 // structured UpgradeRequiredPayload, so clients can distinguish "you must
@@ -134,6 +135,24 @@ export async function denyLockedLanguage(
         firstStop.groupId === opts.firstStopGroupId) ||
         (opts.firstStopPhraseId != null &&
           firstStop.phraseIds.includes(opts.firstStopPhraseId)))
+    ) {
+      return false;
+    }
+    // Chai stop unlock: the SAME ids identify the resource being requested, so
+    // a stop this learner bought (a ledger row, see lib/stopUnlock.ts) plays
+    // through every phrase-scoped route without a per-route exception list.
+    // Checked only after the free paths miss, so an unpaid caller's cost is
+    // unchanged and a paying caller costs one indexed ledger probe.
+    const userId = (req as EntitledRequest).userId;
+    if (
+      opts.firstStopGroupId != null &&
+      (await hasStopUnlock(userId, lang, opts.firstStopGroupId))
+    ) {
+      return false;
+    }
+    if (
+      opts.firstStopPhraseId != null &&
+      (await hasStopUnlockForPhrase(userId, lang, opts.firstStopPhraseId))
     ) {
       return false;
     }

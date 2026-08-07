@@ -80,6 +80,8 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "stage": zod.enum(['phrase', 'sentence']).optional().describe('Which learning stage this group\'s members belong to: the starter \"phrase\" list every topic opens with, or the Plus-only \"sentence\" stage. Derived from the group\'s member phrases (groups are homogeneous by construction); an empty group reads as \"phrase\". Optional\/additive - part of the journey-map contract mobile reuses.'),
   "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.'),
   "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.'),
+  "chaiUnlocked": zod.boolean().optional().describe('True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional\/additive.'),
+  "chaiUnlockable": zod.boolean().optional().describe('True when this stop is offered for Chai: inside the language\'s first zone, not the free stop, not already bought, and holding at least one phrase the caller\'s plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional\/additive.'),
   "planLocked": zod.boolean().optional().describe('True when the caller\'s plan can see ZERO of this group\'s phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount\/attemptedCount\/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser\/exhausted) payloads. Optional\/additive.')
 })).optional(),
   "unassignedCount": zod.number().optional(),
@@ -88,6 +90,9 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "consumed": zod.number().describe('Distinct teaser phrases attempted so far.'),
   "limit": zod.number().describe('Total teaser phrases available (currently 3).')
 }).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.'),
+  "stopUnlock": zod.object({
+  "cost": zod.number().optional()
+}).optional().describe('The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.'),
   "signals": zod.object({
   "rewardChai": zod.number(),
   "waves": zod.array(zod.string()),
@@ -469,6 +474,7 @@ export const RecordGameSessionBody = zod.object({
 export const RecordGameSessionResponse = zod.object({
   "xpEarned": zod.number().describe('XP earned in this game session.'),
   "totalXp": zod.number().describe('Learner\'s cumulative XP for this language after the session.'),
+  "passed": zod.boolean().describe('Server-authoritative session verdict (majority of answered questions correct, as judged server-side). This is the flag that gates signal and closeout Chai grants; clients must not derive their own pass state.'),
   "chaiGranted": zod.number().optional().describe('Chai awarded this call, present only when a signal or closeout grant actually landed (first-ever clear). Absent on replays and when context is hub or omitted.')
 })
 
@@ -1513,6 +1519,35 @@ export const ListZoneStampsResponse = zod.array(ListZoneStampsResponseItem)
 
 
 /**
+ * Returns the caller's shareable referral code (minted lazily on the first fetch; short uppercase string from an unambiguous alphabet with no 0/O/1/I), counts of pending and activated redemptions attributed to the caller, and the total Chai earned from referrals. The Chai total is derived from the token ledger, never a stored counter.
+ * @summary The caller's referral code and referral stats
+ */
+export const GetReferralResponse = zod.object({
+  "code": zod.string().describe('The caller\'s shareable referral code (uppercase, no 0\/O\/1\/I).'),
+  "pendingCount": zod.number().describe('Redemptions attributed to the caller that have not activated yet.'),
+  "activatedCount": zod.number().describe('Redemptions that activated (the referee completed a first session; both sides were granted).'),
+  "chaiEarned": zod.number().describe('Total referral Chai earned by the caller, derived from the token ledger (reason earn_referral_referrer), never a stored counter.')
+})
+
+
+/**
+ * Records attribution ONLY; nothing is granted at redeem time. Grants for both sides land later, when the referee's first completed session activates the redemption server-side. A learner can redeem at most one code ever.
+ * @summary Redeem another learner's referral code
+ */
+export const redeemReferralBodyCodeMax = 32;
+
+
+
+export const RedeemReferralBody = zod.object({
+  "code": zod.string().min(1).max(redeemReferralBodyCodeMax).describe('The referral code to redeem. Case-insensitive; normalized server-side.')
+})
+
+export const RedeemReferralResponse = zod.object({
+  "redeemed": zod.boolean().describe('True when attribution was recorded. Grants happen at activation (the referee\'s first completed session), not here.')
+})
+
+
+/**
  * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent — replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
  * @summary Persist a signal wave-through for the caller
  */
@@ -1539,7 +1574,8 @@ export const RecordSignalWaveResponse = zod.object({
 export const GetTokensResponse = zod.object({
   "balance": zod.number(),
   "stationPausesEquipped": zod.number(),
-  "expressMultiplierActiveUntil": zod.coerce.date().nullish()
+  "expressMultiplierActiveUntil": zod.coerce.date().nullish(),
+  "equippedOutfit": zod.string().nullish().describe('The outfit id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.')
 })
 
 
@@ -1556,6 +1592,71 @@ export const SpendTokensResponse = zod.object({
   "granted": zod.string(),
   "stationPausesEquipped": zod.number(),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish()
+})
+
+
+/**
+ * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * @summary Spend Chai to open one stop in a plan-locked language
+ */
+export const UnlockStopBody = zod.object({
+  "lessonGroupId": zod.number().describe('The station to open. The server resolves its language from the row itself and mints the ledger refId as stop:<language>:<groupId>, so no client-supplied idempotency key is accepted here.')
+})
+
+export const UnlockStopResponse = zod.object({
+  "balance": zod.number(),
+  "lessonGroupId": zod.number(),
+  "languageCode": zod.string(),
+  "unlocked": zod.boolean(),
+  "charged": zod.boolean().describe('False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a \"spent\" animation for it.'),
+  "cost": zod.number()
+})
+
+
+/**
+ * @summary Outfit catalog with prices, ownership and the equipped choice
+ */
+export const GetOutfitsResponse = zod.object({
+  "balance": zod.number(),
+  "equipped": zod.string().nullable(),
+  "outfits": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "tagline": zod.string(),
+  "cost": zod.number().describe('Server-authoritative price in Chai. Clients must render this number, never a hardcoded one.'),
+  "owned": zod.boolean().describe('Bought once, owned forever — derived from the ledger.')
+}))
+})
+
+
+/**
+ * Buys an outfit once-ever. Ownership is the ledger row (refId outfit:<id>), so a repeat call returns 200 with charged=false, deducts nothing and leaves the equipped choice untouched. A purchase that does charge also equips the outfit, because buying it is the act of putting it on. Insufficient balance answers 409, matching the other Chai spends; an unknown outfit id answers 404.
+ * @summary Spend Chai on an outfit for Bolo
+ */
+export const BuyOutfitBody = zod.object({
+  "outfitId": zod.string().describe('Catalog id. The price and the ledger refId (outfit:<id>) are both composed server-side, so no client-supplied idempotency key is accepted here.')
+})
+
+export const BuyOutfitResponse = zod.object({
+  "balance": zod.number(),
+  "outfitId": zod.string(),
+  "owned": zod.boolean(),
+  "charged": zod.boolean().describe('False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone.'),
+  "cost": zod.number(),
+  "equipped": zod.string().nullable()
+})
+
+
+/**
+ * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned — ownership is never inferred from the equip call.
+ * @summary Wear an owned outfit, or go back to undressed Bolo
+ */
+export const EquipOutfitBody = zod.object({
+  "outfitId": zod.string().nullable().describe('An owned outfit id, or null to go back to undressed Bolo.')
+})
+
+export const EquipOutfitResponse = zod.object({
+  "equipped": zod.string().nullable()
 })
 
 
