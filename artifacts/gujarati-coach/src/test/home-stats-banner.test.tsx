@@ -18,6 +18,9 @@ const h = vi.hoisted(() => ({
   refetchSummary: vi.fn(),
   categories: undefined as unknown,
   tokens: undefined as unknown,
+  repairOffer: undefined as unknown,
+  repair: vi.fn() as ReturnType<typeof vi.fn>,
+  repairHandlers: undefined as Record<string, unknown> | undefined,
 }));
 
 // Home renders BottomNav → XpCounter; stub it so this test doesn't need a
@@ -97,6 +100,22 @@ vi.mock("@workspace/api-client-react", async () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
+  // Contextual streak-repair offer: controllable via h.repairOffer so each
+  // test can set eligibility independently.
+  useGetStreakRepair: () => ({
+    data: h.repairOffer,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+  useRepairStreak: (opts?: { mutation?: Record<string, unknown> }) => {
+    h.repairHandlers = opts?.mutation;
+    return { mutate: h.repair, isPending: false };
+  },
+  getGetStreakRepairQueryKey: () => ["streak-repair"],
+  getGetTokensQueryKey: () => ["tokens"],
 }));
 
 // Imported after the mocks are declared.
@@ -121,6 +140,9 @@ beforeEach(() => {
   h.summaryError = null;
   h.refetchSummary.mockClear();
   h.tokens = undefined;
+  h.repairOffer = undefined;
+  h.repair = vi.fn();
+  h.repairHandlers = undefined;
   h.categories = [
     {
       id: 1,
@@ -132,6 +154,47 @@ beforeEach(() => {
       masteredCount: 2,
     },
   ];
+});
+
+describe("contextual streak repair offer (Ruling 2)", () => {
+  // 2026-08-06 is a Thursday (today in the test run is 2026-08-07).
+  const OFFER_THURSDAY = {
+    eligible: true,
+    missedDay: "2026-08-06",
+    restoresStreakDays: 5,
+    cost: 25,
+    balance: 100,
+  };
+
+  test("absent while offer is still loading (data undefined)", () => {
+    h.repairOffer = undefined;
+    renderHome();
+    expect(screen.queryByTestId("home-streak-repair-offer")).toBeNull();
+  });
+
+  test("absent when eligible is false (no repairable break)", () => {
+    h.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
+    renderHome();
+    expect(screen.queryByTestId("home-streak-repair-offer")).toBeNull();
+  });
+
+  test("shows banner with missed-day label and mend button when eligible", () => {
+    h.repairOffer = OFFER_THURSDAY;
+    renderHome();
+    const banner = screen.getByTestId("home-streak-repair-offer");
+    expect(banner).toBeInTheDocument();
+    expect(screen.getByTestId("home-repair-streak")).toHaveTextContent("Mend · 25");
+    expect(screen.getByText(/Thursday/)).toBeInTheDocument();
+    expect(screen.getByText(/5-day/)).toBeInTheDocument();
+  });
+
+  test("pressing mend calls mutate() with no arguments", async () => {
+    h.repairOffer = OFFER_THURSDAY;
+    renderHome();
+    await userEvent.setup().click(screen.getByTestId("home-repair-streak"));
+    expect(h.repair).toHaveBeenCalledTimes(1);
+    expect(h.repair.mock.calls[0]).toHaveLength(0);
+  });
 });
 
 describe("home stats banner", () => {

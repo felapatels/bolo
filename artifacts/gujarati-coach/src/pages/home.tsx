@@ -3,8 +3,8 @@ import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, Messa
 import { ChaiWalletSheet } from "@/components/chai-wallet";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
 import { Link, useLocation } from "wouter";
-import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens } from "@workspace/api-client-react";
-import { keepPreviousData } from "@tanstack/react-query";
+import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens, useGetStreakRepair, useRepairStreak, getGetStreakRepairQueryKey, getGetTokensQueryKey } from "@workspace/api-client-react";
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
 import { preloadTearAudio, playTearSfx } from "@/lib/tearAudio";
@@ -204,6 +204,87 @@ function spawnTearHandoffOverlay(body: HTMLElement, stub: HTMLElement): void {
     remove();
   });
   document.body.appendChild(container);
+}
+
+/** Day-of-week name for a YYYY-MM-DD string (noon anchor avoids DST shifts). */
+function missedDayLabel(day: string | null | undefined): string {
+  if (!day) return "That day";
+  return new Date(day + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "long",
+  });
+}
+
+/**
+ * Contextual streak-repair offer. Sits between the stats banner and the main
+ * content on home. Absent (returns null) when nothing is repairable — no
+ * greyed-out state, because a permanent "mend your streak" is a daily
+ * reproach. Not dismissible: the 2-day eligibility window is its natural
+ * expiry, and a dismissed offer + forgotten repair = permanent loss.
+ */
+function HomeStreakRepairBanner() {
+  const queryClient = useQueryClient();
+  const offerQuery = useGetStreakRepair();
+  const offer = offerQuery.data;
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const repairMutation = useRepairStreak({
+    mutation: {
+      onSuccess: (result) => {
+        setNotice(
+          `${missedDayLabel(result.repairedDay)} is covered. Your ${result.restoredStreakDays}-day streak rides on.`,
+        );
+      },
+      onError: () => {
+        setNotice(
+          "Couldn't mend right now. Open the Chai wallet to try again.",
+        );
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+        queryClient.invalidateQueries({
+          queryKey: getGetStreakRepairQueryKey(),
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/progress/summary"] });
+      },
+    },
+  });
+
+  if (!offer?.eligible || !offer.missedDay) return null;
+
+  return (
+    <div
+      data-testid="home-streak-repair-offer"
+      className="mx-auto mt-4 w-full max-w-6xl px-6 lg:px-10"
+    >
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/30">
+        <div className="flex min-w-0 items-center gap-3">
+          <Flame
+            className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden
+          />
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+            {notice ?? (
+              <>
+                <span className="font-bold">{missedDayLabel(offer.missedDay)}</span>{" "}
+                got away from you. Cover it and your {offer.restoresStreakDays}-day streak
+                rides on.
+              </>
+            )}
+          </p>
+        </div>
+        {!notice && (
+          <button
+            data-testid="home-repair-streak"
+            disabled={repairMutation.isPending}
+            onClick={() => repairMutation.mutate()}
+            className="shrink-0 rounded-lg bg-amber-600 px-3.5 py-1.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-amber-500"
+          >
+            Mend · {offer.cost}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -710,6 +791,12 @@ export default function Home() {
 
         <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
       </header>
+
+      {/* Contextual streak-repair offer (Ruling 2). Sits between the stats
+          banner and the main grid so the learner sees it immediately when they
+          open the app and notice the streak is gone. Absent entirely when
+          nothing is repairable — see HomeStreakRepairBanner. */}
+      <HomeStreakRepairBanner />
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-3">

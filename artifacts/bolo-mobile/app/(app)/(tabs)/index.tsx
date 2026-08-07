@@ -35,6 +35,10 @@ import {
   useGetTokens,
   getGetDailyQuizQueryKey,
   getListReviewPhrasesQueryKey,
+  useGetStreakRepair,
+  useRepairStreak,
+  getGetStreakRepairQueryKey,
+  getGetTokensQueryKey,
 } from '@workspace/api-client-react';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -82,6 +86,120 @@ function greetingFor(hour: number): string {
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 }
+
+/** Day-of-week name for a YYYY-MM-DD string (noon anchor avoids DST shifts). */
+function missedDayLabel(day: string | null | undefined): string {
+  if (!day) return 'That day';
+  return new Date(day + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
+  });
+}
+
+/**
+ * Contextual streak-repair offer. Shown between the stats banner and the
+ * boarding pass when a repairable break exists. Absent (returns null) when
+ * nothing is repairable. Not dismissible: 2-day window is its natural expiry.
+ */
+function HomeStreakRepairBanner() {
+  const queryClient = useQueryClient();
+  const colors = useColors();
+  const offerQuery = useGetStreakRepair();
+  const offer = offerQuery.data;
+  const [notice, setNotice] = React.useState<string | null>(null);
+
+  const repair = useRepairStreak({
+    mutation: {
+      onSuccess: (result) => {
+        setNotice(
+          `${missedDayLabel(result.repairedDay)} is covered. Your ${result.restoredStreakDays}-day streak rides on.`,
+        );
+      },
+      onError: () => {
+        setNotice("Couldn't mend right now. Try from the Chai wallet.");
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetStreakRepairQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ['/api/progress/summary'] });
+      },
+    },
+  });
+
+  React.useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  if (!offer?.eligible || !offer.missedDay) return null;
+
+  return (
+    <View
+      testID="home-streak-repair-offer"
+      style={[
+        repairBannerStyles.wrap,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <Feather name="zap" size={16} color="#D97706" style={repairBannerStyles.icon} />
+      {notice ? (
+        <Text style={[repairBannerStyles.copy, { color: colors.foreground }]}>
+          {notice}
+        </Text>
+      ) : (
+        <>
+          <Text
+            style={[repairBannerStyles.copy, { color: colors.foreground }]}
+            numberOfLines={2}
+          >
+            <Text style={repairBannerStyles.bold}>
+              {missedDayLabel(offer.missedDay)}
+            </Text>
+            {' got away from you. Cover it and your '}
+            <Text style={repairBannerStyles.bold}>{offer.restoresStreakDays}-day</Text>
+            {' streak rides on.'}
+          </Text>
+          <Pressable
+            testID="home-repair-streak"
+            disabled={repair.isPending}
+            onPress={() => repair.mutate()}
+            style={({ pressed }) => [
+              repairBannerStyles.btn,
+              (pressed || repair.isPending) && repairBannerStyles.btnPressed,
+            ]}
+          >
+            <Text style={repairBannerStyles.btnText}>Mend · {offer.cost}</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}
+
+const repairBannerStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 14,
+  },
+  icon: { flexShrink: 0 },
+  copy: { flex: 1, fontSize: 13, lineHeight: 18 },
+  bold: { fontFamily: AppFonts.semibold },
+  btn: {
+    flexShrink: 0,
+    backgroundColor: '#D97706',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  btnPressed: { opacity: 0.7 },
+  btnText: { color: '#fff', fontSize: 13, fontFamily: AppFonts.bold },
+});
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -470,6 +588,12 @@ export default function HomeScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* Contextual streak-repair offer (Ruling 2). Sits between the stats
+            banner and the boarding pass so the learner sees it immediately
+            when they open the app and notice the streak is gone. Absent
+            entirely when nothing is repairable — see HomeStreakRepairBanner. */}
+        <HomeStreakRepairBanner />
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
@@ -996,7 +1120,9 @@ function GradientStatCell({
         ]}
       >
       {icon === 'chai' ? (
-        <ChaiGlyph size={20} />
+        // The kulhad is a photo, not a line icon — it needs more pixels to
+        // read at the same visual weight as the 20 px Feather glyphs.
+        <ChaiGlyph size={28} />
       ) : (
         <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
       )}
@@ -1122,7 +1248,7 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: 'center',
   },

@@ -53,9 +53,13 @@ jest.mock('@workspace/api-client-react', () => ({
   // ONE token query feeds both Chai surfaces on this screen (the stat cell and
   // the stall band), which is exactly what the parity test below asserts.
   useGetTokens: () => ({ data: { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  // The wallet sheet reads the streak-repair offer; no break to mend here.
-  useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
-  useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
+  // The wallet sheet and home contextual banner both read the streak-repair
+  // offer; mockState.repairOffer lets each test control eligibility.
+  useGetStreakRepair: () => ({ data: mockState.repairOffer, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useRepairStreak: (opts?: { mutation?: Record<string, any> }) => {
+    mockState.repairHandlers = opts?.mutation;
+    return { mutate: mockState.repairFn ?? jest.fn(), isPending: false };
+  },
   getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   getGetTokensQueryKey: () => ['tokens'],
   useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
@@ -202,6 +206,10 @@ const UNLOCKED_COPY = 'Fresh questions, every day';
 beforeEach(() => {
   mockState.quiz = { data: undefined, isLoading: false };
   mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+  // Default: no repairable break — banner stays absent.
+  mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
+  mockState.repairFn = jest.fn();
+  mockState.repairHandlers = undefined;
 });
 
 describe('HomeScreen - Bolo Quiz card fails closed', () => {
@@ -236,6 +244,48 @@ describe('HomeScreen - Bolo Quiz card fails closed', () => {
 
     expect(screen.getByText('Bolo Quiz')).toBeOnTheScreen();
     expect(screen.queryByText('Daily Quiz')).toBeNull();
+  });
+});
+
+// Ruling 2: contextual streak-repair offer on the home tab.
+// 2026-08-06 is a Thursday (today in CI is 2026-08-07).
+describe('HomeScreen - contextual streak repair offer', () => {
+  const OFFER_THURSDAY = {
+    eligible: true,
+    missedDay: '2026-08-06',
+    restoresStreakDays: 5,
+    cost: 25,
+    balance: 100,
+  };
+
+  it('absent while offer data is undefined (still loading)', () => {
+    mockState.repairOffer = undefined;
+    render(<HomeScreen />);
+    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
+  });
+
+  it('absent when eligible is false (no repairable break)', () => {
+    mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
+    render(<HomeScreen />);
+    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
+  });
+
+  it('shows the banner with missed-day label and mend button when eligible', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    render(<HomeScreen />);
+    expect(screen.getByTestId('home-streak-repair-offer')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-repair-streak')).toBeOnTheScreen();
+    // Day label derived from 2026-08-06 (noon anchor, en-US weekday).
+    expect(screen.getByText(/Thursday/)).toBeOnTheScreen();
+    expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
+  });
+
+  it('pressing mend calls repair mutate() with no arguments', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('home-repair-streak'));
+    expect(mockState.repairFn).toHaveBeenCalledTimes(1);
+    expect(mockState.repairFn.mock.calls[0]).toHaveLength(0);
   });
 });
 
