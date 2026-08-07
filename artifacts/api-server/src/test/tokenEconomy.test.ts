@@ -32,7 +32,7 @@ import {
   spendTokens,
   consumePausesForGap,
   getOrCreateTokenState,
-  listPausedDayKeys,
+  listCoveredDayKeys,
   InsufficientTokensError,
   SpendConflictError,
 } from "../lib/tokenService.js";
@@ -403,7 +403,7 @@ describe("quiz earn: TOKEN_EARN_QUIZ constant is correct", () => {
   });
 });
 
-describe("listPausedDayKeys: returns covered dates", () => {
+describe("listCoveredDayKeys: returns covered dates", () => {
   before(async () => {
     await cleanup();
     await grantTokens(TEST_USER_ID, "earn_allowance_monthly", "lp-fund", STATION_PAUSE_COST * 2);
@@ -413,13 +413,13 @@ describe("listPausedDayKeys: returns covered dates", () => {
   });
 
   it("returns the set of covered YYYY-MM-DD keys", async () => {
-    const keys = await listPausedDayKeys(TEST_USER_ID);
+    const keys = await listCoveredDayKeys(TEST_USER_ID);
     assert.ok(keys.has("2026-03-10"), "Must contain 2026-03-10");
     assert.ok(keys.has("2026-03-11"), "Must contain 2026-03-11");
   });
 
   it("does not return non-date refIds", async () => {
-    const keys = await listPausedDayKeys(TEST_USER_ID);
+    const keys = await listCoveredDayKeys(TEST_USER_ID);
     for (const k of keys) {
       assert.match(k, /^\d{4}-\d{2}-\d{2}$/, `Key ${k} must match YYYY-MM-DD`);
     }

@@ -56,6 +56,10 @@ jest.mock('@workspace/api-client-react', () => ({
   // The authed layout resolves Bolo's equipped outfit from the wallet query;
   // inert here, this suite is about routing.
   useGetTokens: () => ({ data: undefined }),
+  // The wallet sheet reads the streak-repair offer; no break to mend here.
+  useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   getGetTokensQueryKey: () => ['/api/tokens'],
 }));
 

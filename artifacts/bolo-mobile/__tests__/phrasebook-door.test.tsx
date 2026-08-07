@@ -72,6 +72,10 @@ jest.mock('@/lib/entrance', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // The wallet sheet reads the streak-repair offer; no break to mend here.
+  useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   getGetTokensQueryKey: () => ['tokens'],
   useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),

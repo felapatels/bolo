@@ -8,13 +8,17 @@ import {
   grantTokens,
   spendTokens,
   unlockStop,
+  repairStreak,
+  listCoveredDayKeys,
   InsufficientTokensError,
   SpendConflictError,
 } from "../lib/tokenService";
 import {
   STOP_UNLOCK_COST,
+  STREAK_REPAIR_COST,
   TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
 } from "../lib/tokenEconomy";
+import { findRepairableBreak, loadPracticeDayKeys } from "../lib/streakRepair";
 import { checkStopUnlockEligibility } from "../lib/stopUnlock";
 import { getLanguageAccess, sendLockedLanguageDenial } from "../lib/gating";
 
@@ -168,6 +172,110 @@ router.post(
         unlocked: true,
         charged,
         cost: STOP_UNLOCK_COST,
+      });
+    } catch (e) {
+      if (e instanceof InsufficientTokensError) {
+        res.status(409).json({
+          error: "insufficient_tokens",
+          balance: e.balance,
+          cost: e.cost,
+        });
+        return;
+      }
+      throw e;
+    }
+  },
+);
+
+// ── Streak repair ───────────────────────────────────────────────────────────
+//
+// The ratified exception to the delight-only spine (owner ruling, Aug 7 2026):
+// this sink buys back a streak lost to life happening. It is protection, never
+// advantage — see lib/streakRepair.ts for the eligibility rules that keep it
+// so, and why the window is two days.
+//
+// Nothing about WHAT is bought comes from the client: there is no body at all.
+// The server finds the repairable day, composes the ledger refId from it, and
+// prices it from STREAK_REPAIR_COST. So there is no client idempotency key and
+// no Date.now() fallback (see POST /tokens/spend above for why that matters).
+//
+// Status register, matching the outfit sink: 200 for a repair or a replay
+// (`charged: false`), 409 for every refusal. Never 402 — a broken streak is
+// not a plan boundary, and a learner must never be upsold over one.
+
+/** Eligibility as the clients need it: an offer, or nothing to offer. */
+async function readStreakRepairOffer(req: Request): Promise<{
+  eligible: boolean;
+  missedDay: string | null;
+  restoresStreakDays: number;
+  refusal: string | null;
+}> {
+  const userId = getUserId(req);
+  const timeZone = (req as EntitledRequest).userTimezone;
+  const [practiceDays, coveredDays] = await Promise.all([
+    loadPracticeDayKeys(userId, timeZone),
+    listCoveredDayKeys(userId),
+  ]);
+  const found = findRepairableBreak(practiceDays, coveredDays, timeZone);
+  return found.ok
+    ? {
+        eligible: true,
+        missedDay: found.dayKey,
+        restoresStreakDays: found.restoresStreakDays,
+        refusal: null,
+      }
+    : {
+        eligible: false,
+        missedDay: null,
+        restoresStreakDays: 0,
+        refusal: found.refusal,
+      };
+}
+
+// GET /tokens/streak-repair — is there a break worth offering to mend?
+router.get(
+  "/tokens/streak-repair",
+  async (req: Request, res: Response): Promise<void> => {
+    const offer = await readStreakRepairOffer(req);
+    const state = await getOrCreateTokenState(getUserId(req));
+    res.json({
+      eligible: offer.eligible,
+      missedDay: offer.missedDay,
+      restoresStreakDays: offer.restoresStreakDays,
+      cost: STREAK_REPAIR_COST,
+      balance: state.balance,
+    });
+  },
+);
+
+// POST /tokens/repair-streak — mend it.
+router.post(
+  "/tokens/repair-streak",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = getUserId(req);
+    const offer = await readStreakRepairOffer(req);
+    if (!offer.eligible || !offer.missedDay) {
+      // Refused before any money moves. The refusal names WHICH rule turned
+      // it down so the clients never have to guess, but no client may offer a
+      // repair on the strength of one — eligibility is re-derived here.
+      res.status(409).json({
+        error:
+          offer.refusal === "window_expired"
+            ? "repair_window_expired"
+            : offer.refusal === "break_too_long"
+              ? "break_too_long"
+              : "no_break_to_repair",
+      });
+      return;
+    }
+    try {
+      const { state, charged } = await repairStreak(userId, offer.missedDay);
+      res.json({
+        balance: state.balance,
+        repairedDay: offer.missedDay,
+        restoredStreakDays: offer.restoresStreakDays,
+        charged,
+        cost: STREAK_REPAIR_COST,
       });
     } catch (e) {
       if (e instanceof InsufficientTokensError) {

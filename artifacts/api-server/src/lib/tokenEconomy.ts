@@ -55,9 +55,15 @@ export const EXPRESS_MULTIPLIER_COST = 10;
 export const EXPRESS_MULTIPLIER_MINUTES = 20;
 export const EXPRESS_MULTIPLIER_FACTOR = 2;
 
-// Slice 2 sinks, ruled Aug 2 but NOT wired in this build. Exported so the
-// numbers live here from day one; nothing may reference them in slice 1.
+// Slice 2 sink, ruled Aug 2 but NOT wired in this build. Exported so the
+// number lives here from day one; nothing may reference it yet.
 export const TESTOUT_RETRY_COST = 15;
+
+// Chai sink (owner ruling, Aug 7 2026): streak repair. The ratified exception
+// to the delight-only spine — this one buys back something lost to life
+// happening, never an advantage. Price unchanged from the Aug 2 ruling that
+// defined it; the eligibility rules that keep it protection rather than a way
+// to rewrite history live in lib/streakRepair.ts.
 export const STREAK_REPAIR_COST = 25;
 
 export type TokenReason =
@@ -74,6 +80,7 @@ export type TokenReason =
   | "spend_express_multiplier"
   | "spend_stop_unlock"
   | "spend_outfit"
+  | "spend_streak_repair"
   | "station_pause_consumed";
 
 export type SpendItem = "station_pause" | "express_multiplier";

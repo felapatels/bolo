@@ -2064,6 +2064,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /tokens/streak-repair:
+    get:
+      operationId: getStreakRepair
+      tags: [tokens]
+      summary: Whether a broken streak can be mended, and for how much
+      description: >-
+        Streak repair is the ratified exception to the delight-only Chai spine:
+        it buys back a streak lost to life happening, never an advantage. A day
+        is repairable only when it is a real hole with practice on the day
+        before it, and only within two local days — so at most one break is
+        ever on offer and repairs cannot be walked backwards through history.
+      responses:
+        "200":
+          description: The offer, or eligible=false when there is nothing to mend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakRepairOffer"
+  /tokens/repair-streak:
+    post:
+      operationId: repairStreak
+      tags: [tokens]
+      summary: Spend Chai to mend the day that broke the streak
+      description: >-
+        Takes no body. The server re-derives which day is repairable, composes
+        the ledger key from it (streak:<YYYY-MM-DD>), and charges
+        STREAK_REPAIR_COST once — a replay answers 200 with charged=false and
+        deducts nothing. Refusals are 409 and never 402: a broken streak is not
+        a plan boundary and must never become an upsell.
+      responses:
+        "200":
+          description: Streak mended (or already mended — charged=false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakRepairResult"
+        "409":
+          description: >-
+            insufficient_tokens, no_break_to_repair, break_too_long, or
+            repair_window_expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /outfits:
     get:
       operationId: getOutfits
@@ -4513,6 +4558,40 @@ components:
             False when the learner already owned this stop — the call is a
             no-op that deducts nothing. Clients must not re-render a "spent"
             animation for it.
+        cost: { type: integer }
+    StreakRepairOffer:
+      type: object
+      required: [eligible, missedDay, restoresStreakDays, cost, balance]
+      description: >-
+        Whether the learner has a streak break worth mending, and what mending
+        it would cost. `eligible` false means there is nothing to offer — no
+        break, an absence too long to be a slip, or a break older than the
+        repair window — and clients must show nothing at all in that case.
+      properties:
+        eligible: { type: boolean }
+        missedDay:
+          type: string
+          nullable: true
+          description: The YYYY-MM-DD local day that broke the streak.
+        restoresStreakDays:
+          type: integer
+          description: >-
+            The streak the learner would have again once the day is covered,
+            measured on the same ladder the progress summary climbs.
+        cost: { type: integer }
+        balance: { type: integer }
+    StreakRepairResult:
+      type: object
+      required: [balance, repairedDay, restoredStreakDays, charged, cost]
+      properties:
+        balance: { type: integer }
+        repairedDay: { type: string }
+        restoredStreakDays: { type: integer }
+        charged:
+          type: boolean
+          description: >-
+            False when this day was already repaired — the call is a no-op that
+            deducts nothing.
         cost: { type: integer }
     StopUnlockOffer:
       type: object

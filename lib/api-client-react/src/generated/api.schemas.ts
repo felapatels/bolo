@@ -1354,6 +1354,28 @@ export interface StopUnlockResult {
   cost: number;
 }
 
+/**
+ * Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer — no break, an absence too long to be a slip, or a break older than the repair window — and clients must show nothing at all in that case.
+ */
+export interface StreakRepairOffer {
+  eligible: boolean;
+  /** The YYYY-MM-DD local day that broke the streak. */
+  missedDay: string | null;
+  /** The streak the learner would have again once the day is covered, measured on the same ladder the progress summary climbs. */
+  restoresStreakDays: number;
+  cost: number;
+  balance: number;
+}
+
+export interface StreakRepairResult {
+  balance: number;
+  repairedDay: string;
+  restoredStreakDays: number;
+  /** False when this day was already repaired — the call is a no-op that deducts nothing. */
+  charged: boolean;
+  cost: number;
+}
+
 export interface TokenSpendResult {
   balance: number;
   granted: string;

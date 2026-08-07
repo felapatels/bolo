@@ -12,8 +12,12 @@ import { ChaiGlyph } from '@/components/ChaiStall';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ApiError,
+  getGetProgressSummaryQueryKey,
+  getGetStreakRepairQueryKey,
   getGetTokensQueryKey,
+  useGetStreakRepair,
   useGetTokens,
+  useRepairStreak,
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { MilestoneToast } from '@/components/MilestoneToast';
@@ -22,6 +26,7 @@ import {
   ExpressTile,
   LanguagesTile,
   StationPauseTile,
+  StreakMendTile,
 } from '@/components/WalletArt';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
@@ -112,6 +117,118 @@ function spendErrorMessage(error: unknown): string {
     }
   }
   return 'That spend did not go through. Try again in a moment.';
+}
+
+/**
+ * The name of the day that got away, e.g. "Tuesday". Parsed at UTC noon so the
+ * label never slides a day either side of a timezone; the key itself was cut
+ * on the learner's own calendar, server-side. (Web twin: missedDayLabel.)
+ */
+function missedDayLabel(dayKey: string): string {
+  const d = new Date(`${dayKey}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return 'That day';
+  return d.toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' });
+}
+
+/**
+ * Refusal copy for a repair, word for word with web. A broken streak is life
+ * happening, so none of these may read as a telling-off, and none of them is a
+ * paywall moment.
+ */
+function repairErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) {
+    const data = error.data as
+      | { error?: string; balance?: number; cost?: number }
+      | null;
+    if (data?.error === 'insufficient_tokens') {
+      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
+    }
+    if (data?.error === 'repair_window_expired') {
+      return 'That day has slipped too far back to mend. Today starts the next one.';
+    }
+    if (data?.error === 'break_too_long') {
+      return 'That was a proper break, not a missed day. Today starts the next one.';
+    }
+    if (data?.error === 'no_break_to_repair') {
+      return 'Nothing to mend — your streak is whole.';
+    }
+  }
+  return 'That repair did not go through. Try again in a moment.';
+}
+
+/**
+ * Streak repair row: shown ONLY when the server says there is a real break
+ * inside the window, and silent otherwise — no greyed-out row and no "you
+ * could have" on a day the learner did nothing wrong. Eligibility is never
+ * inferred here; the button posts an empty body and the server picks the day
+ * it is willing to sell. Web twin: StreakRepairRow in chai-wallet.tsx.
+ */
+function StreakRepairRow({ onNotice }: { onNotice: (message: string) => void }) {
+  const colors = useColors();
+  const queryClient = useQueryClient();
+  const offerQuery = useGetStreakRepair();
+  const offer = offerQuery.data;
+  const repair = useRepairStreak({
+    mutation: {
+      onError: (error: unknown) => {
+        onNotice(repairErrorMessage(error));
+      },
+      onSuccess: (result) => {
+        onNotice(
+          `${missedDayLabel(result.repairedDay)} is covered. Your ${result.restoredStreakDays}-day streak rides on.`,
+        );
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+        queryClient.invalidateQueries({
+          queryKey: getGetStreakRepairQueryKey(),
+        });
+        // The streak the learner just bought back is derived server-side, so
+        // every surface showing it has to re-ask rather than patch a number.
+        queryClient.invalidateQueries({
+          queryKey: [getGetProgressSummaryQueryKey()[0]],
+        });
+      },
+    },
+  });
+
+  if (!offer?.eligible || !offer.missedDay) return null;
+
+  return (
+    <View
+      testID="wallet-streak-repair"
+      style={[
+        styles.itemRow,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
+    >
+      <RowWash color={`${INDIA.gold}3D`} />
+      <StreakMendTile />
+      <View style={styles.itemInfo}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+          Mend the line
+        </Text>
+        <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+          {missedDayLabel(offer.missedDay)} got away from you. Cover it and your{' '}
+          {offer.restoresStreakDays}-day streak rides on.
+        </Text>
+      </View>
+      <Pressable
+        testID="wallet-repair-streak"
+        accessibilityRole="button"
+        disabled={repair.isPending}
+        onPress={() => repair.mutate()}
+        style={({ pressed }) => [
+          styles.spendBtn,
+          (pressed || repair.isPending) && styles.spendBtnPressed,
+        ]}
+      >
+        <SpendFace />
+        <Text style={styles.spendBtnText}>Mend · {offer.cost}</Text>
+        <ChaiCoin />
+      </Pressable>
+    </View>
+  );
 }
 
 /**
@@ -244,6 +361,13 @@ export function ChaiWalletSheet({
 
           <View style={styles.body}>
             <MilestoneToast message={notice} toastKey={noticeKey} />
+
+            <StreakRepairRow
+              onNotice={(message) => {
+                setNotice(message);
+                setNoticeKey((k) => k + 1);
+              }}
+            />
 
             <View
               style={[

@@ -119,7 +119,9 @@ export function localDayKey(d: Date, timeZone?: string | null): string {
 // Steps a "YYYY-MM-DD" day key back one calendar day. Done as pure date-string
 // arithmetic (via a UTC noon anchor) so walking backwards never skips or
 // double-counts a day around DST transitions in the learner's zone.
-function previousDayKey(key: string): string {
+// Exported for streak repair, which walks the same ladder backwards looking
+// for the hole in it (lib/streakRepair.ts).
+export function previousDayKey(key: string): string {
   const d = new Date(`${key}T12:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
@@ -134,14 +136,31 @@ export function computeStreakDays(
   timeZone?: string | null,
   pausedDayKeys?: Set<string>,
 ): number {
-  const days = new Set(createdAts.map((d) => localDayKey(d, timeZone)));
-  const paused = pausedDayKeys ?? new Set<string>();
+  return streakFromDayKeys(
+    new Set(createdAts.map((d) => localDayKey(d, timeZone))),
+    pausedDayKeys,
+    timeZone,
+  );
+}
+
+// The streak ladder itself, over day keys rather than timestamps. Split out so
+// streak repair can ask what a candidate cover WOULD restore without inventing
+// a second climb of the same ladder: a repair that claims to restore N days
+// and a summary that then reports something else would be a lie told with the
+// learner's Chai. A covered day (pause or repair) counts exactly as a
+// practiced one — that is what buying a cover means.
+export function streakFromDayKeys(
+  dayKeys: Set<string>,
+  coveredDayKeys?: Set<string>,
+  timeZone?: string | null,
+  now: Date = new Date(),
+): number {
+  const covered = coveredDayKeys ?? new Set<string>();
+  const present = (key: string) => dayKeys.has(key) || covered.has(key);
   let streak = 0;
-  let cursor = localDayKey(new Date(), timeZone);
-  if (!days.has(cursor) && !paused.has(cursor)) {
-    cursor = previousDayKey(cursor);
-  }
-  while (days.has(cursor) || paused.has(cursor)) {
+  let cursor = localDayKey(now, timeZone);
+  if (!present(cursor)) cursor = previousDayKey(cursor);
+  while (present(cursor)) {
     streak += 1;
     cursor = previousDayKey(cursor);
   }

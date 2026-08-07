@@ -93,6 +93,27 @@ export function StationPauseTile() {
 }
 
 /**
+ * Streak repair: a gap in the rail with a fishplate bolted across it. The
+ * missing sleeper stays missing — the day was lost and the picture does not
+ * pretend otherwise — but the line runs through, which is what the repair
+ * buys. Web twin: StreakMendTile in components/wallet-art.tsx.
+ */
+export function StreakMendTile() {
+  return (
+    <Tile colors={[`${INDIA.gold}66`, INDIA.skyLow]}>
+      <View style={styles.mendSun} />
+      {[4, 14, 40, 50].map((left) => (
+        <View key={left} style={[styles.mendSleeper, { left }]} />
+      ))}
+      <View style={[styles.mendRail, { left: 2 }]} />
+      <View style={[styles.mendRail, { right: 2 }]} />
+      <View style={styles.mendPlate} />
+      <View style={styles.mendBallast} />
+    </Tile>
+  );
+}
+
+/**
  * Bolo Bazaar: a stall front — striped awning, a marigold, and the learner's
  * own bird standing under it in whatever he currently owns.
  */
@@ -216,6 +237,52 @@ const styles = StyleSheet.create({
     width: 2,
     height: 22,
     backgroundColor: INDIA.iron,
+  },
+  // Streak repair tile: low sun, a rail with a gap, the fishplate across it.
+  mendSun: {
+    position: 'absolute',
+    left: TILE / 2 - 10,
+    bottom: 20,
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: INDIA.gold,
+    opacity: 0.9,
+  },
+  mendSleeper: {
+    position: 'absolute',
+    bottom: 10,
+    width: 8,
+    height: 4,
+    borderRadius: 1,
+    backgroundColor: INDIA.timberShade,
+  },
+  mendRail: {
+    position: 'absolute',
+    bottom: 15,
+    width: 24,
+    height: 3,
+    backgroundColor: INDIA.iron,
+  },
+  mendPlate: {
+    position: 'absolute',
+    left: TILE / 2 - 10,
+    bottom: 13,
+    width: 20,
+    height: 7,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: INDIA.timberShade,
+    backgroundColor: INDIA.gold,
+  },
+  mendBallast: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 10,
+    backgroundColor: INDIA.timberShade,
+    opacity: 0.9,
   },
   signalLamp: {
     position: 'absolute',

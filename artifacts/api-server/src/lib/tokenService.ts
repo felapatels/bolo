@@ -13,9 +13,15 @@ import {
   EXPRESS_MULTIPLIER_MINUTES,
   STOP_UNLOCK_COST,
   OUTFIT_COST,
+  STREAK_REPAIR_COST,
 } from "./tokenEconomy";
 import { stopUnlockRefId } from "./stopUnlock";
 import { OUTFIT_REASON, outfitRefId, type OutfitId } from "./outfits";
+import {
+  STREAK_REPAIR_REASON,
+  streakRepairDayKey,
+  streakRepairRefId,
+} from "./streakRepair";
 
 // Chunk 5: the one module allowed to write token_ledger or user_token_state.
 // Every mutation is a single transaction pairing a ledger row with the state
@@ -347,6 +353,74 @@ export async function equipOutfit(
 }
 
 /**
+ * Repair one broken streak by buying a cover for the day that broke it. The
+ * ledger row IS the repair: `streak:<YYYY-MM-DD>` is composed server-side from
+ * a day the SERVER chose (lib/streakRepair.ts decides what is repairable), so
+ * there is no client idempotency key to forge and a replay charges nothing.
+ *
+ * Lock ordering follows buyOutfit rather than unlockStop, and for the reason
+ * that suite's race witness pins: the balance row is taken FIRST, and only
+ * then is the existing repair read. A learner with exactly one repair's worth
+ * of Chai and two requests in flight must see the loser replay for free, not
+ * be refused for funds it does not need to spend twice. Reading ownership
+ * before the lock is precisely the ordering that gets that wrong.
+ */
+export async function repairStreak(
+  userId: string,
+  dayKey: string,
+): Promise<{ state: TokenStateRow; charged: boolean }> {
+  const refId = streakRepairRefId(dayKey);
+  return db.transaction(async (tx) => {
+    const created = await ensureState(tx, userId);
+    const [locked] = await tx
+      .select()
+      .from(userTokenStateTable)
+      .where(eq(userTokenStateTable.userId, userId))
+      .for("update");
+    const state = locked ? toState(locked) : created;
+
+    const [already] = await tx
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, userId),
+          eq(tokenLedgerTable.reason, STREAK_REPAIR_REASON),
+          eq(tokenLedgerTable.refId, refId),
+        ),
+      )
+      .limit(1);
+    if (already) return { state, charged: false };
+
+    if (state.balance < STREAK_REPAIR_COST)
+      throw new InsufficientTokensError(state.balance, STREAK_REPAIR_COST);
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: -STREAK_REPAIR_COST,
+        balanceAfter: state.balance - STREAK_REPAIR_COST,
+        reason: STREAK_REPAIR_REASON,
+        refId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    if (inserted.length === 0) return { state, charged: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        balance: sql`${userTokenStateTable.balance} - ${STREAK_REPAIR_COST}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), charged: true };
+  });
+}
+
+/**
  * Consume equipped pauses to cover a run of missed local days. Called from
  * the attempts side-effect hook (this codebase has no streak engine; streaks
  * derive at read time, so consumption is latched at the next attempt, the
@@ -416,17 +490,25 @@ export async function getOrCreateTokenState(
   return db.transaction(async (tx) => ensureState(tx, userId));
 }
 
-/** Dates the user has ever covered with a pause, for streak derivation. */
-export async function listPausedDayKeys(userId: string): Promise<Set<string>> {
+/**
+ * Every day the learner has covered, for streak derivation: pauses consumed
+ * ahead of time (refId is the bare date) and breaks repaired after the fact
+ * (refId is `streak:<date>`). ONE accessor deliberately — a second one that
+ * returned only pauses would silently un-repair a paid-for streak wherever it
+ * was called, so there is no wrong function to reach for.
+ */
+export async function listCoveredDayKeys(userId: string): Promise<Set<string>> {
   const rows = await db
     .select({ refId: tokenLedgerTable.refId })
     .from(tokenLedgerTable)
     .where(eq(tokenLedgerTable.userId, userId));
-  return new Set(
-    rows
-      .map((r) => r.refId)
-      .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r)),
-  );
+  const keys = new Set<string>();
+  for (const { refId } of rows) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(refId)) keys.add(refId);
+    const repaired = streakRepairDayKey(refId);
+    if (repaired) keys.add(repaired);
+  }
+  return keys;
 }
 
 async function ensureState(tx: Tx, userId: string): Promise<TokenStateRow> {

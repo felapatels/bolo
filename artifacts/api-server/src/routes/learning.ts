@@ -134,7 +134,7 @@ import {
   grantTokensDetailed,
   getOrCreateTokenState,
   consumePausesForGap,
-  listPausedDayKeys,
+  listCoveredDayKeys,
 } from "../lib/tokenService";
 import {
   TOKEN_EARN_STREAK_DAY,
@@ -1741,9 +1741,11 @@ router.get(
               gte(xpLedgerTable.createdAt, twoDaysAgo),
             ),
           ),
-        // HOOK 6: paused day keys for streak derivation. A user-level pause
-        // covers the gap in every language's streak (deliberately generous).
-        listPausedDayKeys(userId),
+        // HOOK 6: covered day keys for streak derivation — pauses equipped
+        // ahead of the gap and breaks repaired after it. Both are user-level
+        // and cover the gap in every language's streak (deliberately
+        // generous); the repair is priced on that basis too.
+        listCoveredDayKeys(userId),
       ]);
 
     const totalPhrases = phrases.length;

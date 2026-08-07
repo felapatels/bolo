@@ -145,6 +145,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useRecordSignalWave: () => ({ mutate: jest.fn(), isPending: false }),
   // Chai stop unlocks: the map reads the wallet and offers the purchase.
   useGetTokens: () => ({ data: { balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // The wallet sheet reads the streak-repair offer; no break to mend here.
+  useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   useUnlockStop: () => ({ mutate: jest.fn(), isPending: false }),
   ApiError: class ApiError extends Error {
     status: number;

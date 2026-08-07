@@ -16,6 +16,15 @@ const h = vi.hoisted(() => ({
   tokens: undefined as unknown,
   isPaid: false,
   spend: vi.fn(),
+  repairOffer: undefined as unknown,
+  repair: vi.fn(),
+  repairHandlers: undefined as
+    | {
+        onError?: (e: unknown) => void;
+        onSuccess?: (r: unknown) => void;
+        onSettled?: () => void;
+      }
+    | undefined,
 }));
 
 vi.mock("@/lib/entitlements", () => ({
@@ -34,8 +43,21 @@ vi.mock("@workspace/api-client-react", () => {
   return {
     ApiError,
     getGetTokensQueryKey: () => ["tokens"],
+    getGetStreakRepairQueryKey: () => ["streak-repair"],
+    getGetProgressSummaryQueryKey: () => ["/api/progress/summary"],
     useGetTokens: () => h.tokens,
     useSpendTokens: () => ({ mutate: h.spend, isPending: false }),
+    useGetStreakRepair: () => h.repairOffer,
+    useRepairStreak: (opts?: {
+      mutation?: {
+        onError?: (e: unknown) => void;
+        onSuccess?: (r: unknown) => void;
+        onSettled?: () => void;
+      };
+    }) => {
+      h.repairHandlers = opts?.mutation;
+      return { mutate: h.repair, isPending: false };
+    },
   };
 });
 
@@ -59,6 +81,19 @@ function renderWallet(path = "/") {
 beforeEach(() => {
   h.isPaid = false;
   h.spend = vi.fn();
+  h.repair = vi.fn();
+  h.repairHandlers = undefined;
+  // Default: no break to mend, so the row is absent from every other test.
+  h.repairOffer = {
+    data: {
+      eligible: false,
+      missedDay: null,
+      restoresStreakDays: 0,
+      cost: 25,
+      balance: 12,
+    },
+    isLoading: false,
+  };
   h.tokens = {
     data: {
       balance: 12,
@@ -127,5 +162,54 @@ describe("Chai wallet sheet", () => {
     // The spend rows are unaffected by tier.
     expect(screen.getByTestId("wallet-equip-pause")).toBeInTheDocument();
     expect(screen.getByTestId("wallet-start-express")).toBeInTheDocument();
+  });
+});
+
+// Streak repair. The row is a conditional offer, not a permanent shelf item:
+// on a day nothing is broken there must be nothing to see, because a greyed
+// "mend your streak" button on an unbroken streak is a small daily reproach.
+describe("streak repair row", () => {
+  const eligible = {
+    data: {
+      eligible: true,
+      missedDay: "2026-08-04", // a Tuesday
+      restoresStreakDays: 9,
+      cost: 25,
+      balance: 40,
+    },
+    isLoading: false,
+  };
+
+  test("shows nothing at all when there is no break to mend", () => {
+    renderWallet();
+    expect(screen.queryByTestId("wallet-streak-repair")).toBeNull();
+    expect(screen.queryByText("Mend the line")).toBeNull();
+  });
+
+  test("names the day, the streak it restores, and the server's price", () => {
+    h.repairOffer = eligible;
+    renderWallet();
+
+    const row = screen.getByTestId("wallet-streak-repair");
+    expect(row).toHaveTextContent("Mend the line");
+    // Warm, never shaming: the day is named, the learner is not blamed.
+    expect(row).toHaveTextContent(
+      "Tuesday got away from you. Cover it and your 9-day streak rides on.",
+    );
+    // Price comes from the payload, never from a client constant.
+    expect(screen.getByTestId("wallet-repair-streak")).toHaveTextContent(
+      "Mend · 25",
+    );
+  });
+
+  test("mends with an empty request — the client never names the day", async () => {
+    h.repairOffer = eligible;
+    const user = userEvent.setup();
+    renderWallet();
+
+    await user.click(screen.getByTestId("wallet-repair-streak"));
+    expect(h.repair).toHaveBeenCalledTimes(1);
+    // No arguments: the server picks the day it is willing to sell.
+    expect(h.repair.mock.calls[0]).toHaveLength(0);
   });
 });

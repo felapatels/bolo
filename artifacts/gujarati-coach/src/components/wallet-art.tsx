@@ -102,6 +102,62 @@ export function StationPauseTile() {
 }
 
 /**
+ * Streak repair: a gap in the rail with a fishplate bolted across it. The
+ * missing sleeper is still missing — the day was lost and no picture pretends
+ * otherwise — but the line runs through, which is exactly what the repair
+ * buys. Sunset rather than the pause tile's afternoon: this is the end of a
+ * day that got away.
+ */
+export function StreakMendTile() {
+  return (
+    <Tile
+      style={{
+        background: `linear-gradient(180deg, ${INDIA.gold}66 0%, ${INDIA.skyLow} 100%)`,
+      }}
+    >
+      {/* low sun behind the line */}
+      <span
+        className="absolute left-1/2 block h-5 w-5 -translate-x-1/2 rounded-full"
+        style={{ bottom: 20, background: INDIA.gold, opacity: 0.9 }}
+      />
+      {/* sleepers, with one plainly missing under the join */}
+      {[4, 14, 40, 50].map((left) => (
+        <span
+          key={left}
+          className="absolute block w-2 rounded-[1px]"
+          style={{ left, bottom: 10, height: 4, background: INDIA.timberShade }}
+        />
+      ))}
+      {/* the two rails, ends stopping short of each other */}
+      <span
+        className="absolute block"
+        style={{ left: 2, bottom: 15, width: 24, height: 3, background: INDIA.iron }}
+      />
+      <span
+        className="absolute block"
+        style={{ right: 2, bottom: 15, width: 24, height: 3, background: INDIA.iron }}
+      />
+      {/* the fishplate: marigold, bolted across the gap */}
+      <span
+        className="absolute left-1/2 block -translate-x-1/2 rounded-[2px]"
+        style={{
+          bottom: 13,
+          width: 20,
+          height: 7,
+          background: INDIA.gold,
+          boxShadow: `inset 0 0 0 1px ${INDIA.timberShade}`,
+        }}
+      />
+      {/* ballast */}
+      <span
+        className="absolute inset-x-0 bottom-0 block"
+        style={{ height: 10, background: INDIA.timberShade, opacity: 0.9 }}
+      />
+    </Tile>
+  );
+}
+
+/**
  * Bolo Bazaar: a stall front — striped awning, marigold dot, and the learner's
  * own bird standing under it in whatever he currently owns.
  */

@@ -130,6 +130,8 @@ export * from './speechInput';
 export * from './speechResult';
 export * from './stopUnlockOffer';
 export * from './stopUnlockResult';
+export * from './streakRepairOffer';
+export * from './streakRepairResult';
 export * from './subscriptionDetails';
 export * from './teaserProgress';
 export * from './tokenSpendResult';

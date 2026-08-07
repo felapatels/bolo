@@ -33,6 +33,22 @@ jest.mock('@workspace/api-client-react', () => {
     ApiError,
     useGetTokens: () => mockState.tokens,
     getGetTokensQueryKey: () => ['/api/tokens'],
+    getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
+    getGetProgressSummaryQueryKey: () => ['/api/progress/summary'],
+    useGetStreakRepair: () => mockState.repairOffer,
+    useRepairStreak: (opts?: {
+      mutation?: {
+        onError?: (e: unknown) => void;
+        onSuccess?: (r: unknown) => void;
+        onSettled?: () => void;
+      };
+    }) => {
+      mockState.repairHandlers = opts?.mutation;
+      return {
+        isPending: false,
+        mutate: (...args: unknown[]) => mockState.repairCalls.push(args),
+      };
+    },
     useSpendTokens: (opts?: {
       mutation?: {
         onError?: (e: unknown) => void;
@@ -110,6 +126,16 @@ beforeEach(() => {
   mockState.isOneLanguage = false;
   mockState.spendCalls = [];
   mockState.spendHandlers = undefined;
+  mockState.repairCalls = [];
+  mockState.repairHandlers = undefined;
+  // Default: no break to mend, so the row is absent from every other test.
+  mockState.repairOffer = tokensQuery({
+    eligible: false,
+    missedDay: null,
+    restoresStreakDays: 0,
+    cost: 25,
+    balance: 12,
+  });
   mockState.invalidateQueries = jest.fn();
   mockState.tokens = tokensQuery({
     balance: 12,
@@ -314,5 +340,109 @@ describe('express countdown', () => {
     render(<ChaiWalletSheet visible onClose={jest.fn()} />);
 
     expect(screen.queryByTestId('wallet-language-row')).toBeNull();
+  });
+});
+
+// Streak repair, web-parity (gujarati-coach chai-wallet.test.tsx). The row is
+// a conditional offer, not a permanent shelf item: on a day nothing is broken
+// there must be nothing to see, because a greyed "mend your streak" button on
+// an unbroken streak is a small daily reproach.
+describe('streak repair row', () => {
+  const eligible = {
+    data: {
+      eligible: true,
+      missedDay: '2026-08-04', // a Tuesday
+      restoresStreakDays: 9,
+      cost: 25,
+      balance: 40,
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: jest.fn(),
+  };
+
+  it('shows nothing at all when there is no break to mend', () => {
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    expect(screen.queryByTestId('wallet-streak-repair')).toBeNull();
+    expect(screen.queryByText('Mend the line')).toBeNull();
+  });
+
+  it('names the day, the streak it restores, and the server price', () => {
+    mockState.repairOffer = eligible;
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    expect(screen.getByTestId('wallet-streak-repair')).toBeOnTheScreen();
+    expect(screen.getByText('Mend the line')).toBeOnTheScreen();
+    // Warm, never shaming: the day is named, the learner is not blamed.
+    expect(
+      screen.getByText(
+        'Tuesday got away from you. Cover it and your 9-day streak rides on.',
+      ),
+    ).toBeOnTheScreen();
+    // Price comes from the payload, never from a client constant.
+    expect(screen.getByText('Mend · 25')).toBeOnTheScreen();
+  });
+
+  it('mends with an empty request — the client never names the day', () => {
+    mockState.repairOffer = eligible;
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    fireEvent.press(screen.getByTestId('wallet-repair-streak'));
+    expect(mockState.repairCalls).toHaveLength(1);
+    // No arguments: the server picks the day it is willing to sell.
+    expect(mockState.repairCalls[0]).toEqual([]);
+  });
+
+  it('surfaces the 409 refusals in the Chai copy register, never a paywall', () => {
+    mockState.repairOffer = eligible;
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    act(() => {
+      mockState.repairHandlers?.onError?.(
+        new ApiError(409, {
+          error: 'insufficient_tokens',
+          balance: 3,
+          cost: 25,
+        }),
+      );
+    });
+    expect(
+      screen.getByText(
+        'Not enough Chai yet. You have 3, this costs 25. Keep riding to earn more.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('confirms the mend and refreshes token, offer, and progress state', () => {
+    mockState.repairOffer = eligible;
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    act(() => {
+      mockState.repairHandlers?.onSuccess?.({
+        balance: 15,
+        repairedDay: '2026-08-04',
+        restoredStreakDays: 9,
+        charged: true,
+        cost: 25,
+      });
+      mockState.repairHandlers?.onSettled?.();
+    });
+
+    expect(
+      screen.getByText('Tuesday is covered. Your 9-day streak rides on.'),
+    ).toBeOnTheScreen();
+    // The streak is derived server-side, so the surfaces showing it re-ask.
+    expect(mockState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['/api/tokens'],
+    });
+    expect(mockState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['/api/tokens/streak-repair'],
+    });
+    expect(mockState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['/api/progress/summary'],
+    });
   });
 });

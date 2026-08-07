@@ -100,6 +100,8 @@ import type {
   SpeechInput,
   SpeechResult,
   StopUnlockResult,
+  StreakRepairOffer,
+  StreakRepairResult,
   SubscriptionDetails,
   TokenSpendResult,
   TokenState,
@@ -5438,6 +5440,156 @@ export const useUnlockStop = <TError = ErrorType<UpgradeRequired | Error>,
         TContext
       > => {
       return useMutation(getUnlockStopMutationOptions(options));
+    }
+
+export const getGetStreakRepairUrl = () => {
+
+
+
+
+  return `/api/tokens/streak-repair`
+}
+
+/**
+ * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days — so at most one break is ever on offer and repairs cannot be walked backwards through history.
+ * @summary Whether a broken streak can be mended, and for how much
+ */
+export const getStreakRepair = async ( options?: RequestInit): Promise<StreakRepairOffer> => {
+
+  return customFetch<StreakRepairOffer>(getGetStreakRepairUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStreakRepairQueryKey = () => {
+    return [
+    `/api/tokens/streak-repair`
+    ] as const;
+    }
+
+
+export const getGetStreakRepairQueryOptions = <TData = Awaited<ReturnType<typeof getStreakRepair>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStreakRepair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStreakRepairQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStreakRepair>>> = ({ signal }) => getStreakRepair({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStreakRepair>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStreakRepairQueryResult = NonNullable<Awaited<ReturnType<typeof getStreakRepair>>>
+export type GetStreakRepairQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Whether a broken streak can be mended, and for how much
+ */
+
+export function useGetStreakRepair<TData = Awaited<ReturnType<typeof getStreakRepair>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStreakRepair>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStreakRepairQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRepairStreakUrl = () => {
+
+
+
+
+  return `/api/tokens/repair-streak`
+}
+
+/**
+ * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once — a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
+ * @summary Spend Chai to mend the day that broke the streak
+ */
+export const repairStreak = async ( options?: RequestInit): Promise<StreakRepairResult> => {
+
+  return customFetch<StreakRepairResult>(getRepairStreakUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRepairStreakMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof repairStreak>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof repairStreak>>, TError,void, TContext> => {
+
+const mutationKey = ['repairStreak'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof repairStreak>>, void> = () => {
+
+
+          return  repairStreak(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RepairStreakMutationResult = NonNullable<Awaited<ReturnType<typeof repairStreak>>>
+
+    export type RepairStreakMutationError = ErrorType<Error>
+
+    /**
+ * @summary Spend Chai to mend the day that broke the streak
+ */
+export const useRepairStreak = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof repairStreak>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof repairStreak>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRepairStreakMutationOptions(options));
     }
 
 export const getGetOutfitsUrl = () => {

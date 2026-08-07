@@ -37,6 +37,10 @@ jest.mock('@workspace/api-client-react', () => ({
     mutate: (vars: unknown) => mockState.equipCalls.push(vars),
   }),
   useGetTokens: () => ({ data: undefined }),
+  // The wallet sheet reads the streak-repair offer; no break to mend here.
+  useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
 }));
 
 jest.mock('@tanstack/react-query', () => ({

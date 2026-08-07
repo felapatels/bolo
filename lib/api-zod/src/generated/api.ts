@@ -1614,6 +1614,32 @@ export const UnlockStopResponse = zod.object({
 
 
 /**
+ * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days — so at most one break is ever on offer and repairs cannot be walked backwards through history.
+ * @summary Whether a broken streak can be mended, and for how much
+ */
+export const GetStreakRepairResponse = zod.object({
+  "eligible": zod.boolean(),
+  "missedDay": zod.string().nullable().describe('The YYYY-MM-DD local day that broke the streak.'),
+  "restoresStreakDays": zod.number().describe('The streak the learner would have again once the day is covered, measured on the same ladder the progress summary climbs.'),
+  "cost": zod.number(),
+  "balance": zod.number()
+}).describe('Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer — no break, an absence too long to be a slip, or a break older than the repair window — and clients must show nothing at all in that case.')
+
+
+/**
+ * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once — a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
+ * @summary Spend Chai to mend the day that broke the streak
+ */
+export const RepairStreakResponse = zod.object({
+  "balance": zod.number(),
+  "repairedDay": zod.string(),
+  "restoredStreakDays": zod.number(),
+  "charged": zod.boolean().describe('False when this day was already repaired — the call is a no-op that deducts nothing.'),
+  "cost": zod.number()
+})
+
+
+/**
  * @summary Outfit catalog with prices, ownership and the equipped choice
  */
 export const GetOutfitsResponse = zod.object({
