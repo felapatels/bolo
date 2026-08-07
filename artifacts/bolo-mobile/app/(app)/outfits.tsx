@@ -15,16 +15,27 @@ import { PressableScale } from '@/components/PressableScale';
 import { Mascot } from '@/components/Mascot';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { Awning, MarigoldString } from '@/components/IndiaDecor';
+import { INDIA } from '@/constants/india';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
-// Bolo's wardrobe (mobile twin of artifacts/gujarati-coach/src/pages/outfits.tsx).
+// Bolo Bazaar (mobile twin of artifacts/gujarati-coach/src/pages/outfits.tsx).
 //
 // Outfits are a Chai sink: bought once, owned forever, worn everywhere the
 // mascot appears. The shop previews a costume ON THE LEARNER'S OWN BOLO rather
 // than showing a grid of thumbnails — tap it, see the bird wearing it, then buy
 // it or back out. Prices, ownership and the equipped choice all come from the
 // server; nothing here hardcodes a number.
+//
+// THE THEME is a roadside cloth shop: striped awning with a scalloped hem, a
+// marigold toran strung under it, a hand-painted signboard, and a timber
+// counter the bird stands behind. The awning and toran are shared dressing
+// (components/IndiaDecor.tsx) and the colours come from the fixed INDIA
+// palette (constants/india.ts) — a painted scene, so it reads the same in
+// light and dark mode. Only the scene is fixed; every control stays on the
+// design system.
+
 export default function OutfitsScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -84,9 +95,9 @@ export default function OutfitsScreen() {
         >
           <Feather name="chevron-left" size={24} color={colors.foreground} />
         </PressableScale>
-        <Text style={[styles.headerLabel, { color: colors.foreground }]}>
-          Bolo's wardrobe
-        </Text>
+        {/* The shop's name lives on the painted board below, so the nav row
+            stays a back button and the tin. */}
+        <View style={styles.headerSpacer} />
         <View
           testID="outfit-balance"
           style={[
@@ -108,29 +119,43 @@ export default function OutfitsScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-          Dress him up with Chai. Once he owns it, it's his for good.
-        </Text>
-
-        {/* Preview: the learner's own Bolo, wearing whatever is selected. */}
+        {/* The storefront: awning, toran, painted board, and the counter Bolo
+            stands behind — one shop rather than a header stacked on a card. */}
         <View
-          testID="outfit-preview"
-          style={[
-            styles.previewCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          testID="outfit-storefront"
+          style={[styles.storefront, { borderColor: colors.border }]}
         >
-          <Mascot pose="wave" size={180} motion="float" outfit={shown} />
-          <Text style={[styles.previewName, { color: colors.foreground }]}>
-            {shownOutfit ? shownOutfit.name : 'Bolo, as he comes'}
-          </Text>
-          {shownOutfit ? (
-            <Text
-              style={[styles.previewTagline, { color: colors.mutedForeground }]}
-            >
-              {shownOutfit.tagline}
+          <Awning />
+
+          <View style={styles.shopBody}>
+            <MarigoldString />
+
+            <View style={styles.signboard}>
+              <Text style={styles.signName}>Bolo Bazaar</Text>
+              <Text style={styles.signSub}>OUTFITS · PAID IN CHAI</Text>
+            </View>
+
+            <Text style={styles.shopLine}>
+              Everything here is stitched for one bird. Buy it once and it stays
+              his.
             </Text>
-          ) : null}
+
+            {/* Preview: the learner's own Bolo, at the counter in whatever is
+                selected. */}
+            <View testID="outfit-preview" style={styles.preview}>
+              <Mascot pose="wave" size={180} motion="float" outfit={shown} />
+              <Text style={styles.previewName}>
+                {shownOutfit ? shownOutfit.name : 'Bolo, as he comes'}
+              </Text>
+              {shownOutfit ? (
+                <Text style={styles.previewTagline}>{shownOutfit.tagline}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.counter}>
+            <View style={styles.counterLip} />
+          </View>
         </View>
 
         {/* Action for whatever is on the bird right now. */}
@@ -248,6 +273,16 @@ export default function OutfitsScreen() {
                 },
               ]}
             >
+              {/* The cloth-tag spine down the left of every bolt on the
+                  shelf: green once it is his, marigold while it is for sale. */}
+              <View
+                style={[
+                  styles.cardSpine,
+                  {
+                    backgroundColor: outfit.owned ? INDIA.board : INDIA.gold,
+                  },
+                ]}
+              />
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardTitle, { color: colors.foreground }]}>
                   {outfit.name}
@@ -310,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerLabel: { flex: 1, fontFamily: AppFonts.extrabold, fontSize: 20 },
+  headerSpacer: { flex: 1 },
   balancePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,26 +356,54 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   balanceValue: { fontFamily: AppFonts.extrabold, fontSize: 15 },
-  sub: { fontFamily: AppFonts.regular, fontSize: 14, marginBottom: 16 },
-  previewCard: {
-    alignItems: 'center',
+  storefront: {
     borderWidth: 1,
     borderRadius: 24,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    overflow: 'hidden',
+    backgroundColor: INDIA.wall,
   },
+  shopBody: { paddingHorizontal: 16, paddingTop: 14 },
+  signboard: {
+    alignSelf: 'flex-start',
+    borderWidth: 2,
+    borderColor: INDIA.gold,
+    backgroundColor: INDIA.board,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  signName: { fontFamily: AppFonts.extrabold, fontSize: 22, color: INDIA.cream },
+  signSub: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 2,
+    marginTop: 3,
+    color: INDIA.gold,
+  },
+  shopLine: {
+    fontFamily: AppFonts.bold,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 12,
+    color: INDIA.ink,
+  },
+  preview: { alignItems: 'center', marginTop: 8 },
   previewName: {
     fontFamily: AppFonts.extrabold,
     fontSize: 15,
-    marginTop: 12,
+    marginTop: 8,
     textAlign: 'center',
+    color: INDIA.board,
   },
   previewTagline: {
-    fontFamily: AppFonts.regular,
+    fontFamily: AppFonts.bold,
     fontSize: 12,
     marginTop: 2,
     textAlign: 'center',
+    color: INDIA.ink,
   },
+  counter: { marginTop: 12, height: 14, backgroundColor: INDIA.timber },
+  counterLip: { height: 6, backgroundColor: INDIA.timberShade, marginTop: 8 },
   actionRow: { alignItems: 'center', marginTop: 16 },
   primaryBtn: {
     flexDirection: 'row',
@@ -369,6 +432,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
   },
+  cardSpine: { width: 6, height: 40, borderRadius: 999 },
   cardInfo: { flex: 1, minWidth: 0 },
   cardTitle: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   cardDesc: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },

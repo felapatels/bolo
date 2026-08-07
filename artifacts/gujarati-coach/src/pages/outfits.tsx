@@ -11,15 +11,26 @@ import {
 } from "@workspace/api-client-react";
 import { Mascot } from "@/components/mascot";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { Awning, MarigoldString } from "@/components/india-decor";
+import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
 
-// Bolo's wardrobe. Outfits are a Chai sink: bought once, owned forever, worn
+// Bolo Bazaar. Outfits are a Chai sink: bought once, owned forever, worn
 // everywhere the mascot appears.
 //
 // The shop previews an outfit ON THE LEARNER'S OWN BOLO rather than showing a
 // grid of thumbnails (owner ruling) — tap a costume, see the bird wearing it,
 // then buy it or back out. Prices, ownership and the equipped choice all come
 // from the server; nothing here hardcodes a number.
+//
+// THE THEME is a roadside cloth shop: a striped awning with a scalloped edge,
+// a marigold toran strung under it, a hand-painted signboard, and a wooden
+// counter the bird stands behind. The awning and toran are shared dressing
+// (components/india-decor.tsx) and the colours come from the fixed INDIA
+// palette (lib/india-palette.ts) — a painted scene, not app chrome, so it
+// reads the same in light and dark mode. Only the scene is fixed; every
+// control below it stays on the design system.
+
 export default function OutfitsPage() {
   const queryClient = useQueryClient();
   const outfitsQuery = useGetOutfits();
@@ -82,36 +93,88 @@ export default function OutfitsPage() {
         Back
       </Link>
 
-      <div className="mt-3 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-foreground">Bolo's wardrobe</h1>
-          <p className="mt-1 text-sm leading-snug text-muted-foreground">
-            Dress him up with Chai. Once he owns it, it's his for good.
+      {/* The storefront. Awning, toran, painted board, and the counter Bolo
+          stands behind — one continuous shop rather than a header stacked on
+          a card. */}
+      <div
+        data-testid="outfit-storefront"
+        className="mt-3 overflow-hidden rounded-3xl border border-card-border shadow-sm"
+        style={{ background: INDIA.wall }}
+      >
+        <Awning />
+
+        <div className="px-5 pb-4 pt-4">
+          <MarigoldString className="mb-3" />
+          <div className="flex items-center justify-between gap-4">
+            <div
+              className="rounded-xl border-2 px-4 py-2"
+              style={{ borderColor: INDIA.gold, background: INDIA.board }}
+            >
+              <h1
+                className="text-2xl font-black leading-none tracking-wide"
+                style={{ color: INDIA.cream }}
+              >
+                Bolo Bazaar
+              </h1>
+              <p
+                className="mt-1 text-[10px] font-black uppercase tracking-[0.22em]"
+                style={{ color: INDIA.gold }}
+              >
+                Outfits · paid in Chai
+              </p>
+            </div>
+            <span
+              data-testid="outfit-balance"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-black"
+              style={{
+                borderColor: INDIA.gold,
+                background: INDIA.cloth,
+                color: INDIA.board,
+              }}
+            >
+              {balance}
+              <ChaiGlyph className="h-4 w-4" />
+            </span>
+          </div>
+          <p
+            className="mt-3 text-sm font-bold leading-snug"
+            style={{ color: INDIA.ink }}
+          >
+            Everything here is stitched for one bird. Buy it once and it stays
+            his.
           </p>
         </div>
-        <span
-          data-testid="outfit-balance"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-card-border bg-card px-3 py-1.5 text-sm font-black text-foreground"
-        >
-          {balance}
-          <ChaiGlyph className="h-4 w-4" />
-        </span>
-      </div>
 
-      {/* Preview: the learner's own Bolo, wearing whatever is selected. */}
-      <div
-        data-testid="outfit-preview"
-        className="mt-5 flex flex-col items-center rounded-3xl border border-card-border bg-card p-6"
-      >
-        <Mascot pose="wave" size={180} outfit={shown} />
-        <p className="mt-3 text-center text-sm font-bold text-foreground">
-          {shownOutfit ? shownOutfit.name : "Bolo, as he comes"}
-        </p>
-        {shownOutfit ? (
-          <p className="mt-0.5 text-center text-xs text-muted-foreground">
-            {shownOutfit.tagline}
+        {/* Preview: the learner's own Bolo, standing at the counter in
+            whatever is selected. */}
+        <div
+          data-testid="outfit-preview"
+          className="flex flex-col items-center px-5 pb-0 pt-1"
+        >
+          <Mascot pose="wave" size={180} outfit={shown} />
+          <p
+            className="mt-2 text-center text-sm font-black"
+            style={{ color: INDIA.board }}
+          >
+            {shownOutfit ? shownOutfit.name : "Bolo, as he comes"}
           </p>
-        ) : null}
+          {shownOutfit ? (
+            <p
+              className="mt-0.5 text-center text-xs font-bold"
+              style={{ color: INDIA.ink }}
+            >
+              {shownOutfit.tagline}
+            </p>
+          ) : null}
+          {/* The counter: a timber lip the bird stands behind. */}
+          <div
+            aria-hidden="true"
+            className="mt-3 h-3 w-[calc(100%+2.5rem)] rounded-t-sm"
+            style={{
+              background: `linear-gradient(180deg, ${INDIA.timber} 0 55%, ${INDIA.timberShade} 55% 100%)`,
+            }}
+          />
+        </div>
       </div>
 
       {error ? (
@@ -195,12 +258,21 @@ export default function OutfitsPage() {
               setPreviewed(outfit.id);
             }}
             className={cn(
-              "flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left transition-colors",
+              "flex w-full items-center gap-3 rounded-2xl border bg-card p-4 pl-3 text-left transition-colors",
               shown === outfit.id
                 ? "border-primary"
                 : "border-card-border hover:border-primary/40",
             )}
           >
+            {/* The cloth-tag spine: a stitched edge down the left of every
+                bolt of cloth on the shelf. */}
+            <span
+              aria-hidden="true"
+              className="h-10 w-1.5 shrink-0 rounded-full"
+              style={{
+                background: outfit.owned ? INDIA.board : INDIA.gold,
+              }}
+            />
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">{outfit.name}</p>
               <p className="text-xs leading-snug text-muted-foreground">

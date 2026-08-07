@@ -254,3 +254,27 @@ VITE_SENTRY_DSN = "https://1a5b9d149bf8569510161800f39804e8@o4511813816352768.in
 INVITE_FROM_EMAIL = "hello@bolo-india.app"
 INVITE_CTA_URL = "https://bolo-india.app"
 RESEND_FROM = "hello@bolo-india.app"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 19724
+externalPort = 3002
+
+[[ports]]
+localPort = 19729
+externalPort = 3001
+
+[[ports]]
+localPort = 20259
+externalPort = 80
+
+[[ports]]
+localPort = 20384
+externalPort = 3000

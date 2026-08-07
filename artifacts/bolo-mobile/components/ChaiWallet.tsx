@@ -17,8 +17,33 @@ import {
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { MarigoldString } from '@/components/IndiaDecor';
+import {
+  BazaarTile,
+  ExpressTile,
+  StationPauseTile,
+} from '@/components/WalletArt';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { INDIA } from '@/constants/india';
+import { LinearGradient } from 'expo-linear-gradient';
+
+/**
+ * The colour wash behind a wallet row: a hint of the tile's own palette
+ * bleeding out of the art and fading to nothing. Fixed scene colours at low
+ * alpha, so it reads in both themes without touching the row's text tokens.
+ */
+function RowWash({ color }: { color: string }) {
+  return (
+    <LinearGradient
+      colors={[color, 'transparent']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    />
+  );
+}
 
 // Mirrors artifacts/api-server/src/lib/tokenEconomy.ts (server is
 // authoritative; these only size copy client-side).
@@ -147,21 +172,27 @@ export function ChaiWalletSheet({
           <Text style={[styles.title, { color: colors.foreground }]}>
             Chai Wallet
           </Text>
-          <View style={styles.balanceRow}>
-            {/* No disc. A terracotta kulhad on an indigo plate fought itself,
-                and every other Chai surface — the home stat cell, the stall
-                band, the receipts, the journey payouts — renders the glyph
-                bare. Bigger glyph instead, so the header keeps its anchor. */}
-            <ChaiGlyph size={40} testID="wallet-balance-glyph" />
-            <Text
-              style={[styles.balanceValue, { color: colors.foreground }]}
-              testID="wallet-balance"
-            >
-              {tokens?.balance ?? '-'}
-            </Text>
-            <Text style={[styles.balanceUnit, { color: colors.mutedForeground }]}>
-              Chai
-            </Text>
+          {/* The tin, on a strip of bazaar wall with a toran over it. Fixed
+              scene colours (constants/india.ts), so the band reads the same in
+              both themes; the rows below stay on design tokens. */}
+          <View testID="wallet-balance-band" style={styles.balanceBand}>
+            <MarigoldString />
+            <View style={styles.balanceRow}>
+              {/* No disc. A terracotta kulhad on an indigo plate fought itself,
+                  and every other Chai surface — the home stat cell, the stall
+                  band, the receipts, the journey payouts — renders the glyph
+                  bare. Bigger glyph instead, so the header keeps its anchor. */}
+              <ChaiGlyph size={40} testID="wallet-balance-glyph" />
+              <Text
+                style={[styles.balanceValue, { color: INDIA.board }]}
+                testID="wallet-balance"
+              >
+                {tokens?.balance ?? '-'}
+              </Text>
+              <Text style={[styles.balanceUnit, { color: INDIA.ink }]}>
+                Chai
+              </Text>
+            </View>
           </View>
 
           <View
@@ -170,6 +201,8 @@ export function ChaiWalletSheet({
               { backgroundColor: colors.background, borderColor: colors.border },
             ]}
           >
+            <RowWash color={`${INDIA.gold}2E`} />
+            <StationPauseTile />
             <View style={styles.itemInfo}>
               <Text style={[styles.itemTitle, { color: colors.foreground }]}>
                 Station Pause
@@ -216,9 +249,11 @@ export function ChaiWalletSheet({
               { backgroundColor: colors.background, borderColor: colors.border },
             ]}
           >
+            <RowWash color={`${INDIA.stripe}26`} />
+            <BazaarTile />
             <View style={styles.itemInfo}>
               <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-                Bolo's wardrobe
+                Bolo Bazaar
               </Text>
               <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
                 Outfits for Bolo. Buy once, his for good.
@@ -235,6 +270,8 @@ export function ChaiWalletSheet({
               { backgroundColor: colors.background, borderColor: colors.border },
             ]}
           >
+            <RowWash color={`${INDIA.express}26`} />
+            <ExpressTile running={countdown !== null} />
             <View style={styles.itemInfo}>
               <Text style={[styles.itemTitle, { color: colors.foreground }]}>
                 Express Multiplier
@@ -299,6 +336,14 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: AppFonts.extrabold,
     fontSize: 18,
+  },
+  balanceBand: {
+    backgroundColor: INDIA.wall,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 8,
   },
   balanceRow: {
     flexDirection: 'row',

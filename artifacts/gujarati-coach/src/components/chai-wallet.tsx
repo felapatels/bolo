@@ -7,6 +7,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { X } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { MarigoldString } from "@/components/india-decor";
+import {
+  BazaarTile,
+  ExpressTile,
+  StationPauseTile,
+} from "@/components/wallet-art";
+import { INDIA } from "@/lib/india-palette";
 import {
   ApiError,
   getGetTokensQueryKey,
@@ -147,24 +154,46 @@ export function ChaiWalletSheet({
         <SheetHeader className="text-left">
           <SheetTitle>Chai Wallet</SheetTitle>
         </SheetHeader>
-        <div className="mt-2 flex items-center gap-3">
-          <img
-            src={VIGNETTE_SRC}
-            alt="Chacha-ji offering a cup of chai"
-            className="h-14 w-14 shrink-0 object-contain"
-          />
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black leading-none text-foreground">
-              {tokens?.balance ?? "-"}
-            </span>
-            <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-              Chai
-            </span>
+        {/* The tin, on a strip of bazaar wall with a toran over it. Fixed
+            scene colours (lib/india-palette.ts), so the band reads the same
+            in both themes; the rows below stay on design tokens. */}
+        <div
+          data-testid="wallet-balance-band"
+          className="mt-2 overflow-hidden rounded-2xl"
+          style={{ background: INDIA.wall }}
+        >
+          <MarigoldString className="px-4 pt-3" />
+          <div className="flex items-center gap-3 px-4 pb-3 pt-2">
+            <img
+              src={VIGNETTE_SRC}
+              alt="Chacha-ji offering a cup of chai"
+              className="h-14 w-14 shrink-0 object-contain"
+            />
+            <div className="flex items-baseline gap-2">
+              <span
+                className="text-4xl font-black leading-none"
+                style={{ color: INDIA.board }}
+              >
+                {tokens?.balance ?? "-"}
+              </span>
+              <span
+                className="text-sm font-bold uppercase tracking-wider"
+                style={{ color: INDIA.ink }}
+              >
+                Chai
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="mt-5 space-y-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4">
+          <div
+            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+            style={{
+              backgroundImage: `linear-gradient(90deg, ${INDIA.gold}1F 0%, transparent 55%)`,
+            }}
+          >
+            <StationPauseTile />
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Station Pause</p>
               <p className="text-xs leading-snug text-muted-foreground">
@@ -192,9 +221,13 @@ export function ChaiWalletSheet({
             onClick={() => onOpenChange(false)}
             data-testid="wallet-open-wardrobe"
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-primary/40"
+            style={{
+              backgroundImage: `linear-gradient(90deg, ${INDIA.stripe}1A 0%, transparent 55%)`,
+            }}
           >
+            <BazaarTile />
             <div className="min-w-0 flex-1">
-              <p className="font-black text-foreground">Bolo's wardrobe</p>
+              <p className="font-black text-foreground">Bolo Bazaar</p>
               <p className="text-xs leading-snug text-muted-foreground">
                 Outfits for Bolo. Buy once, his for good.
               </p>
@@ -204,7 +237,13 @@ export function ChaiWalletSheet({
             </span>
           </Link>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4">
+          <div
+            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+            style={{
+              backgroundImage: `linear-gradient(90deg, ${INDIA.express}1A 0%, transparent 55%)`,
+            }}
+          >
+            <ExpressTile running={countdown !== null} />
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Express Multiplier</p>
               <p className="text-xs leading-snug text-muted-foreground">

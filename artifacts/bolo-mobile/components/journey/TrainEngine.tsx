@@ -142,6 +142,7 @@ export function TrainEngine({
   width = 64,
   height = 42,
   motion = 'none',
+  palette,
 }: {
   /** Headlamp tint — the one surface-tinted part (web: currentColor).
    *  White on the accent ticket, line accent inside the marker pill. */
@@ -149,6 +150,14 @@ export function TrainEngine({
   width?: number;
   height?: number;
   motion?: TrainMotion;
+  /**
+   * Fixed ironwork colours for engines drawn INTO a painted scene (the Chai
+   * wallet's art tiles), whose backgrounds do not flip with the theme. Web
+   * parity: those tiles pin the same CSS vars on their wrapper. Omit it and
+   * the engine keeps reading theme tokens, which is what every in-app
+   * surface (ticket, rail marker) wants.
+   */
+  palette?: { chassis: string; body: string; trim: string; steam: string };
 }) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
@@ -189,10 +198,10 @@ export function TrainEngine({
   });
 
   const svgH = (height * VIEW_H) / BODY_H;
-  const steam = colors.cardBorder;
-  const chassis = colors.foreground;
-  const body = colors.primary;
-  const trim = colors.secondary;
+  const steam = palette?.steam ?? colors.cardBorder;
+  const chassis = palette?.chassis ?? colors.foreground;
+  const body = palette?.body ?? colors.primary;
+  const trim = palette?.trim ?? colors.secondary;
   const steamDelayFracs = STEAM_DELAYS_S.map((d) => (d * 1000) / cycleMs);
 
   return (
