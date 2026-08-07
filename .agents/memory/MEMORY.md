@@ -133,3 +133,5 @@
 - [Chai stop unlocks](chai-stop-unlock.md) — ledger row IS the entitlement (refId = resource); unique index dedups replays but NOT budget — lock the balance row; split 402 cap vs 409 funds.
 - [Mascot outfits (Chai sink)](mascot-outfits.md) — ownership = ledger row (`outfit:<id>`), wearing = a column; one pose+outfit resolver per platform; crossfade makes DOM-order image assertions lie.
 - [Concurrency regression witness](concurrency-regression-witness.md) — carry the retired algorithm inline and interleave BETWEEN its two reads; interfering before the call leaves the old code passing too.
+- [RN Image absoluteFill sizing](rn-image-absolutefill-intrinsic-size.md) — bare absoluteFill on iOS = intrinsic size, corner-cropped, resizeMode inert; Expo web hides it. Predict-and-crop to diagnose.
+- [RN absolute insets vs parent padding](rn-absolute-inset-padding-box.md) — insets resolve against the PADDING BOX, so parent padding never insets them; measure font width (opentype.js, skip GSUB) before corner-pinning.
