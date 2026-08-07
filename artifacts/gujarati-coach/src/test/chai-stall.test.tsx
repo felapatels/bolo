@@ -116,7 +116,7 @@ describe("chai stall scene", () => {
 
   test("is a full-width band whose kettle map survives the new scale", () => {
     // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
-    // the column at the art's own 1024/574 aspect instead of the 56px
+    // the column at the art's own 1024/572 aspect instead of the 56px
     // wallet-vignette scale it shipped at. The kettle map is unaffected BY
     // CONSTRUCTION: the plume offsets are percentages of a box whose aspect
     // never changes, and object-cover on a same-aspect box crops nothing.
@@ -124,7 +124,7 @@ describe("chai stall scene", () => {
     const box = screen.getByTestId("chai-stall-vignette");
     expect(box.className).toContain("w-full");
     expect(box.className).not.toContain("shrink-0");
-    expect(box.style.aspectRatio).toBe("1024 / 574");
+    expect(box.style.aspectRatio).toBe("1024 / 572");
     const steam = screen.getByTestId("chai-stall-steam");
     expect(steam.style.left).toBe("21%");
     expect(steam.style.bottom).toBe("46%");

@@ -81,7 +81,7 @@ describe('chai stall scene', () => {
     const box = screen.getByTestId('chai-stall-vignette', HIDDEN);
     const flat = Object.assign({}, ...[box.props.style].flat(2));
     expect(flat.width).toBe('100%');
-    expect(flat.aspectRatio).toBeCloseTo(1024 / 574, 5);
+    expect(flat.aspectRatio).toBeCloseTo(1024 / 572, 5);
     expect(flat.height).toBeUndefined();
   });
 
@@ -92,7 +92,7 @@ describe('chai stall scene', () => {
     // as web, and scale-free because the aspect box never changes shape.
     render(<ChaiStallVignette />);
     const width = 390 - 40; // a phone viewport minus the home screen's padding
-    const height = width / (1024 / 574);
+    const height = width / (1024 / 572);
     fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width, height } },
     });
@@ -114,7 +114,7 @@ describe('chai stall scene', () => {
     // be able to animate him, which a painted-in figure makes impossible.
     render(<ChaiStallVignette />);
     const width = 390 - 40; // a phone viewport minus the home screen's padding
-    const height = width / (1024 / 574);
+    const height = width / (1024 / 572);
     fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width, height } },
     });

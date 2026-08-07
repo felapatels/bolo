@@ -1,6 +1,6 @@
 // Chacha-ji's Chai Stall — the two-tier Chai treatment.
 //
-// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/574
+// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
 // aspect, sitting directly above the boarding pass so the pass reads as
 // standing in front of the stall. It carries one slow ambient steam plume over
 // the kettle, and tapping it opens the Chai wallet — the same sheet the Chai
@@ -62,7 +62,7 @@ export const STALL_ASSETS = {
 
 /** Intrinsic scene dimensions; drives the vignette's aspect box. */
 const SCENE_W = 1024;
-const SCENE_H = 574;
+const SCENE_H = 572;
 
 /**
  * Where the plume sits, in fractions of the SCENE box (the kettle sits on the

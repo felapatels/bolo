@@ -2,7 +2,7 @@
 // (artifacts/gujarati-coach/src/components/chai-stall.tsx). Owner ruling 4:
 // same asset, same loop, same layer map on both platforms, built once.
 //
-// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/574
+// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
 // aspect, directly above the boarding pass so the pass reads as standing in
 // front of the stall. It carries one slow ambient steam plume over the kettle,
 // and tapping it opens the Chai wallet sheet — the same sheet the Chai stat
@@ -71,9 +71,15 @@ export const STALL_ASSETS = {
   chachaji: require('../assets/images/stall/chachaji.png') as number,
 };
 
-/** Intrinsic art dimensions, so the vignette and plume keep their shapes. */
-const SCENE_ASPECT = 1024 / 574;
-const STEAM_ASPECT = 232 / 487;
+/**
+ * Intrinsic art dimensions, so the vignette and plume keep their shapes.
+ * These MUST equal the real pixel dimensions of the files above: the scene
+ * box is what `cover` is measured against (a mismatch crops the art), and the
+ * plume's height is derived as width/STEAM_ASPECT rather than from the file.
+ * Verified against the PNG headers, not eyeballed.
+ */
+const SCENE_ASPECT = 1024 / 572;
+const STEAM_ASPECT = 226 / 485;
 const CHACHAJI_ASPECT = 386 / 520;
 
 /**
@@ -232,11 +238,19 @@ export function ChaiStallVignette({
       pointerEvents="none"
       style={[styles.vignette, onPress ? undefined : style]}
     >
+      {/* width/height 100% are LOAD-BEARING, not redundant with absoluteFill.
+          With only the four insets, iOS gives the Image its INTRINSIC size
+          (1024x572pt) anchored top-left; overflow:hidden then crops the band
+          to the art's top-left corner and resizeMode="cover" scales nothing,
+          because the frame already equals the intrinsic size. Expo web is
+          unaffected (RN-web maps the insets straight to CSS), so this only
+          ever shows up on device. Mirrors web's `absolute inset-0 h-full
+          w-full object-cover`, and matches the chachaji/steam layers below. */}
       <Image
         source={STALL_ASSETS.scene}
         testID="chai-stall-scene"
         resizeMode="cover"
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, styles.fillImage]}
       />
       {/* Decorative layer, under the scrim like the rest of the art: he is
           the man at the stall, not a control. Not pressable, and the whole
