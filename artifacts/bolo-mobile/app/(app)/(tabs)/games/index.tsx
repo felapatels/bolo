@@ -74,6 +74,16 @@ type GameDef = {
 };
 
 const GAMES: GameDef[] = [
+  // Luggage Match leads: free, beginner, visually distinct — the right first
+  // impression for a new learner browsing the hub.
+  {
+    id: 'luggage-match',
+    title: 'Luggage Match',
+    description: 'Pair each bag with its owner before the train leaves.',
+    difficulty: 'Beginner',
+    plusOnly: false,
+    icon: 'briefcase',
+  },
   {
     id: 'word-match',
     title: 'Word Match',
@@ -123,11 +133,6 @@ const GAMES: GameDef[] = [
     plusOnly: true,
     icon: 'award',
   },
-  // Build 35 mobile parity, first quick game. Copy comes from the roster
-  // entry in lib/quick-games.ts so the hub, signals and web all describe the
-  // same game the same way. FREE on mobile: mobile's existing 3-gated/2-free
-  // split is untouched here. The roster grades it 'Easy'; the hub's own scale
-  // is Beginner/Intermediate/Advanced, so it lands as Beginner.
   {
     id: 'ticket-check',
     title: 'Ticket Check',
@@ -136,11 +141,6 @@ const GAMES: GameDef[] = [
     plusOnly: false,
     icon: 'check-square',
   },
-  // Build 35 mobile parity, second quick game. Title, description and icon
-  // come from the roster entry in lib/quick-games.ts so the hub, signals and
-  // web all describe the same game the same way. FREE on mobile. The roster
-  // grades it 'Medium'; the hub's own scale is Beginner/Intermediate/Advanced,
-  // so it lands as Intermediate.
   {
     id: 'signal-lights',
     title: 'Signal Lights',
@@ -149,10 +149,6 @@ const GAMES: GameDef[] = [
     plusOnly: false,
     icon: 'radio',
   },
-  // Build 35 mobile parity, third quick game. Title, description and icon come
-  // from the roster entry in lib/quick-games.ts. FREE, matching the web hub.
-  // The roster grades it 'Medium', which maps to Intermediate on the hub's own
-  // Beginner/Intermediate/Advanced scale.
   {
     id: 'wrong-platform',
     title: 'Wrong Platform',
@@ -160,19 +156,6 @@ const GAMES: GameDef[] = [
     difficulty: 'Intermediate',
     plusOnly: false,
     icon: 'alert-triangle',
-  },
-  // Build 35 mobile parity, fourth quick game. Roster title, description and
-  // icon; FREE, matching the web hub. The roster grades it 'Easy', which maps
-  // to Beginner — the same grade the web hub hardcodes, so no divergence here.
-  // The roster blurb's "before the train leaves" promises a timer this game
-  // does not have; banked as a copy fix rather than rewritten here.
-  {
-    id: 'luggage-match',
-    title: 'Luggage Match',
-    description: 'Pair each bag with its owner before the train leaves.',
-    difficulty: 'Beginner',
-    plusOnly: false,
-    icon: 'briefcase',
   },
 ];
 
@@ -470,31 +453,42 @@ function GameCardTile({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Vignette medallion + badge row */}
-        <View style={styles.topRow}>
-          <View style={styles.medallion}>
-            <GamePreview
-              gameId={game.id}
-              index={index}
-              playing={!reduceMotion && (locked ? pressed : visible || pressed)}
-              tempo={pressed ? 1 : 2.2}
-              holdMidCycle={locked && !reduceMotion}
-              ink={MEDALLION_INK}
-              fallback={<Feather name={game.icon} size={32} color={gc.ink} />}
-            />
+        {/* Access badge — its own right-aligned row, in normal flow.
+            It cannot share the medallion's row and it cannot be pinned to the
+            corner: "ALL-ACCESS" measures ~103pt at 10pt extrabold, while a
+            two-column card's content box is only ~146pt and the 64pt medallion
+            claims the left 64 of that. Pinned at top/right:0 the badge sits
+            hard against the border (absolute insets resolve against the
+            PADDING BOX, so the card's 12pt padding does not inset it) and
+            already overlaps the medallion by ~9pt at 390pt wide; any inset big
+            enough to look padded drives it further in. On its own row it gets
+            the card's full 12pt padding on all four sides at every width. */}
+        <View style={styles.pillRow}>
+          <View
+            style={[
+              styles.pill,
+              game.plusOnly ? styles.pillAllAccess : styles.pillFree,
+            ]}
+          >
+            {game.plusOnly && <Feather name="star" size={10} color="#4A2C00" />}
+            <Text
+              style={[styles.pillText, { color: game.plusOnly ? '#4A2C00' : '#FFFFFF' }]}
+            >
+              {game.plusOnly ? 'All-Access' : 'Free'}
+            </Text>
           </View>
-          <View style={styles.pillCol}>
-            {game.plusOnly ? (
-              <View style={[styles.pill, styles.pillAllAccess]}>
-                <Feather name="star" size={10} color="#4A2C00" />
-                <Text style={[styles.pillText, { color: '#4A2C00' }]}>All-Access</Text>
-              </View>
-            ) : (
-              <View style={[styles.pill, styles.pillFree]}>
-                <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Free</Text>
-              </View>
-            )}
-          </View>
+        </View>
+        {/* Vignette medallion */}
+        <View style={styles.medallion}>
+          <GamePreview
+            gameId={game.id}
+            index={index}
+            playing={!reduceMotion && (locked ? pressed : visible || pressed)}
+            tempo={pressed ? 1 : 2.2}
+            holdMidCycle={locked && !reduceMotion}
+            ink={MEDALLION_INK}
+            fallback={<Feather name={game.icon} size={32} color={gc.ink} />}
+          />
         </View>
 
         {/* Title & description */}
@@ -567,12 +561,6 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
   medallion: {
     width: 64,
     height: 64,
@@ -584,9 +572,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.6)',
   },
-  pillCol: {
-    alignItems: 'flex-end',
-    gap: 4,
+  pillRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   pill: {
     flexDirection: 'row',
