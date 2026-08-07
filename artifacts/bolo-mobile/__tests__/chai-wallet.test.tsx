@@ -159,7 +159,7 @@ describe('Chai wallet sheet content', () => {
       screen.getByText('Covers a missed day so your streak rides on.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('1 of 2 equipped')).toBeOnTheScreen();
-    expect(screen.getByText('Equip · 5')).toBeOnTheScreen();
+    expect(screen.getByText('Equip · 10')).toBeOnTheScreen();
     expect(screen.getByText('Express Multiplier')).toBeOnTheScreen();
     expect(screen.getByText('Double XP for 20 minutes.')).toBeOnTheScreen();
     expect(screen.getByText('Start · 10')).toBeOnTheScreen();

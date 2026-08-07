@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 
 // Mirrors artifacts/api-server/src/lib/tokenEconomy.ts (server is
 // authoritative; these only size copy and eligibility checks client-side).
-const STATION_PAUSE_COST = 5;
+const STATION_PAUSE_COST = 10;
 const EXPRESS_MULTIPLIER_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
 

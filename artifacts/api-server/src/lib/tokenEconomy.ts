@@ -49,7 +49,7 @@ export const STOP_UNLOCK_COST = 50;
 // economy tuning.
 export const OUTFIT_COST = 25;
 
-export const STATION_PAUSE_COST = 5;
+export const STATION_PAUSE_COST = 10;
 export const STATION_PAUSE_MAX_EQUIPPED = 2;
 export const EXPRESS_MULTIPLIER_COST = 10;
 export const EXPRESS_MULTIPLIER_MINUTES = 20;

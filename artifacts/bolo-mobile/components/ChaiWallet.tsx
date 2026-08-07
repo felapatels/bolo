@@ -58,6 +58,7 @@ const HEADER_IMAGE = require('../assets/images/stall/wallet-header.jpg') as numb
 
 // Mirrors artifacts/api-server/src/lib/tokenEconomy.ts (server is
 // authoritative; these only size copy client-side).
+const STATION_PAUSE_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
 
 /**
@@ -400,7 +401,7 @@ export function ChaiWalletSheet({
                 ]}
               >
                 <SpendFace />
-                <Text style={styles.spendBtnText}>Equip · 5</Text>
+                <Text style={styles.spendBtnText}>Equip · {STATION_PAUSE_COST}</Text>
                 <ChaiCoin />
               </Pressable>
             </View>
