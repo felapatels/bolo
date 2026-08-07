@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -199,121 +200,86 @@ function resolveFeaturedGame(): GameDef | undefined {
 }
 
 /**
- * Per-game color identity (one distinct hue per game, drawn from the Tailwind
- * palette). Gated cards render in FULL COLOR — the All-Access badge and lock
- * chip carry the gate, never a gray or washed-out tile.
+ * Per-game color identity. These are NOT pastel tints over the theme card:
+ * every tile is a painted enamel signboard in a saturated Indian hue
+ * (marigold, kumkum, peacock, jamun, terracotta, rani pink), so the hub reads
+ * as a bazaar wall of boards rather than a grid of white cards. Because the
+ * tile carries the color, all card text is cream/white and the badges sit on
+ * a scrim — the design system's foreground tokens are deliberately not used
+ * INSIDE a tile (they would vanish on these backgrounds), exactly as the chai
+ * stall and Bolo Bazaar pin their painted colors.
+ *
+ * Gated cards render in FULL COLOR — the All-Access badge and lock chip carry
+ * the gate, never a gray or washed-out tile.
  */
 type GameColor = {
-  /** Card background tint. */
-  bg: string;
-  /** Card border accent (incl. hover deepen). */
-  border: string;
-  /** Icon bubble background. */
-  iconBg: string;
-  /** Icon color. */
-  iconColor: string;
-  /**
-   * Press bloom (task 986): a brief border glow in the card's own hue while
-   * pressed. motion-safe so reduced motion never flashes it.
-   */
-  pressGlow: string;
+  /** Enamel gradient stops (top-left → bottom-right). */
+  from: string;
+  to: string;
+  /** Deeper edge: border and the hard bottom shadow the board sits on. */
+  deep: string;
+  /** Icon ink on the cream medallion. */
+  ink: string;
 };
 
 const GAME_COLORS: Record<string, GameColor> = {
-  "word-match": {
-    bg: "bg-sky-50/70 dark:bg-sky-950/25",
-    border: "border-sky-200/80 hover:border-sky-300 dark:border-sky-900/60 dark:hover:border-sky-700",
-    iconBg: "bg-sky-100 dark:bg-sky-900/50",
-    iconColor: "text-sky-600 dark:text-sky-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(56,189,248,0.45)]",
-  },
-  "listen-and-pick": {
-    bg: "bg-emerald-50/70 dark:bg-emerald-950/25",
-    border:
-      "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/60 dark:hover:border-emerald-700",
-    iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(52,211,153,0.45)]",
-  },
-  "phrase-builder": {
-    bg: "bg-amber-50/70 dark:bg-amber-950/25",
-    border:
-      "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/60 dark:hover:border-amber-700",
-    iconBg: "bg-amber-100 dark:bg-amber-900/50",
-    iconColor: "text-amber-600 dark:text-amber-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,191,36,0.45)]",
-  },
-  "speed-round": {
-    bg: "bg-rose-50/70 dark:bg-rose-950/25",
-    border:
-      "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/60 dark:hover:border-rose-700",
-    iconBg: "bg-rose-100 dark:bg-rose-900/50",
-    iconColor: "text-rose-600 dark:text-rose-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,113,133,0.45)]",
-  },
-  "bolo-quiz": {
-    bg: "bg-violet-50/70 dark:bg-violet-950/25",
-    border:
-      "border-violet-200/80 hover:border-violet-300 dark:border-violet-900/60 dark:hover:border-violet-700",
-    iconBg: "bg-violet-100 dark:bg-violet-900/50",
-    iconColor: "text-violet-600 dark:text-violet-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(167,139,250,0.45)]",
-  },
-  "ticket-check": {
-    bg: "bg-orange-50/70 dark:bg-orange-950/25",
-    border:
-      "border-orange-200/80 hover:border-orange-300 dark:border-orange-900/60 dark:hover:border-orange-700",
-    iconBg: "bg-orange-100 dark:bg-orange-900/50",
-    iconColor: "text-orange-600 dark:text-orange-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(251,146,60,0.45)]",
-  },
-  "wrong-platform": {
-    bg: "bg-fuchsia-50/70 dark:bg-fuchsia-950/25",
-    border:
-      "border-fuchsia-200/80 hover:border-fuchsia-300 dark:border-fuchsia-900/60 dark:hover:border-fuchsia-700",
-    iconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/50",
-    iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(232,121,249,0.45)]",
-  },
-  "luggage-match": {
-    bg: "bg-teal-50/70 dark:bg-teal-950/25",
-    border:
-      "border-teal-200/80 hover:border-teal-300 dark:border-teal-900/60 dark:hover:border-teal-700",
-    iconBg: "bg-teal-100 dark:bg-teal-900/50",
-    iconColor: "text-teal-600 dark:text-teal-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(45,212,191,0.45)]",
-  },
-  "express-listening": {
-    bg: "bg-cyan-50/70 dark:bg-cyan-950/25",
-    border:
-      "border-cyan-200/80 hover:border-cyan-300 dark:border-cyan-900/60 dark:hover:border-cyan-700",
-    iconBg: "bg-cyan-100 dark:bg-cyan-900/50",
-    iconColor: "text-cyan-600 dark:text-cyan-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(34,211,238,0.45)]",
-  },
-  "signal-lights": {
-    bg: "bg-lime-50/70 dark:bg-lime-950/25",
-    border:
-      "border-lime-200/80 hover:border-lime-300 dark:border-lime-900/60 dark:hover:border-lime-700",
-    iconBg: "bg-lime-100 dark:bg-lime-900/50",
-    iconColor: "text-lime-600 dark:text-lime-400",
-    pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(163,230,53,0.45)]",
-  },
+  // peacock blue
+  "word-match": { from: "#1B7A8F", to: "#0E5567", deep: "#0A3F4D", ink: "#0E5567" },
+  // parrot green
+  "listen-and-pick": { from: "#2E9E4F", to: "#177038", deep: "#0F5228", ink: "#177038" },
+  // turmeric / marigold
+  "phrase-builder": { from: "#F0A11B", to: "#D2740A", deep: "#A85700", ink: "#B35F00" },
+  // kumkum red
+  "speed-round": { from: "#E14434", to: "#B3251D", deep: "#8A1912", ink: "#B3251D" },
+  // jamun purple
+  "bolo-quiz": { from: "#7B3FA8", to: "#57217D", deep: "#41165F", ink: "#57217D" },
+  // terracotta kulhad
+  "ticket-check": { from: "#D9702F", to: "#B04A15", deep: "#8A370C", ink: "#B04A15" },
+  // rani pink
+  "wrong-platform": { from: "#D33A7B", to: "#A81C58", deep: "#821242", ink: "#A81C58" },
+  // deep teal
+  "luggage-match": { from: "#17897E", to: "#0B5F58", deep: "#084741", ink: "#0B5F58" },
+  // express indigo
+  "express-listening": { from: "#4453B8", to: "#2A3390", deep: "#1F2670", ink: "#2A3390" },
+  // signal green
+  "signal-lights": { from: "#3E8E41", to: "#256A2B", deep: "#1A4E1F", ink: "#256A2B" },
 };
 
 /** Neutral fallback so an unmapped future game still renders sensibly. */
 const FALLBACK_COLOR: GameColor = {
-  bg: "bg-card",
-  border: "border-border hover:border-primary/30",
-  iconBg: "bg-primary/10",
-  iconColor: "text-primary",
-  pressGlow: "motion-safe:active:shadow-[0_0_14px_2px_rgba(148,163,184,0.35)]",
+  from: "#5B6474",
+  to: "#3E4653",
+  deep: "#2C333D",
+  ink: "#3E4653",
 };
 
-const DIFFICULTY_CLASSES: Record<GameDef["difficulty"], string> = {
-  Beginner: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40",
-  Intermediate: "text-amber-600 bg-amber-50 dark:bg-amber-950/40",
-  Advanced: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40",
+/** The board itself: gradient face, deep edge, and the hard shadow under it. */
+function boardStyle(c: GameColor): CSSProperties {
+  return {
+    backgroundImage: `linear-gradient(150deg, ${c.from} 0%, ${c.to} 100%)`,
+    borderColor: c.deep,
+    boxShadow: `0 5px 0 ${c.deep}`,
+  };
+}
+
+/**
+ * The vignettes (game-previews.css) are authored against the LIGHT theme
+ * tokens. They now sit on a cream medallion inside a saturated board, so the
+ * tokens are pinned here rather than inherited — otherwise dark mode would
+ * paint dark-theme shapes onto a cream tile.
+ */
+const MEDALLION_INK: CSSProperties = {
+  "--primary": "243 75% 59%",
+  "--secondary": "174 84% 32%",
+  "--accent": "173 80% 40%",
+  "--muted-foreground": "215 16% 47%",
+} as CSSProperties;
+
+/** Difficulty is a dot + white label; the hue alone can't carry it on a board. */
+const DIFFICULTY_DOT: Record<GameDef["difficulty"], string> = {
+  Beginner: "#5BE58A",
+  Intermediate: "#FFC93C",
+  Advanced: "#FF8A65",
 };
 
 export default function GamesPage() {
@@ -330,9 +296,9 @@ export default function GamesPage() {
   const featuredGame = resolveFeaturedGame();
 
   return (
-    <div className="min-h-[100dvh] bg-background pb-28 lg:pb-8">
+    <div className="min-h-[100dvh] bg-[#FDF2DF] pb-28 dark:bg-background lg:pb-8">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-md">
+      <div className="sticky top-0 z-10 border-b-2 border-[#E0A93B]/60 bg-[#FDF2DF]/85 backdrop-blur-md dark:border-border dark:bg-background/80">
         <div className="mx-auto flex max-w-2xl items-center gap-4 px-4 py-4 lg:px-6">
           <Gamepad2 className="h-7 w-7 shrink-0 text-primary" />
           <div>
@@ -372,7 +338,11 @@ export default function GamesPage() {
         <div className="space-y-7" data-testid="games-catalog">
           {GAME_GROUPS.map((group) => (
             <section key={group.id} data-testid={`games-group-${group.id}`}>
-              <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-muted-foreground">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.14em] text-[#8A4B12] dark:text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-1.5 rounded-full bg-[#E0A93B]"
+                />
                 {group.title}
               </h2>
               {/* 2 columns from small-phone widths up (min-[480px]), a single
@@ -441,7 +411,11 @@ export default function GamesPage() {
                   // Locked cards are never dead ends: they open the upgrade
                   // route instead of the game.
                   return (
-                    <Link key={game.id} href={locked ? "/upgrade" : game.href}>
+                    <Link
+                      key={game.id}
+                      href={locked ? "/upgrade" : game.href}
+                      className="block"
+                    >
                       {Card}
                     </Link>
                   );
@@ -457,7 +431,7 @@ export default function GamesPage() {
 }
 
 /**
- * The promoted hero card. Same gate grammar as a grid card (full-color art,
+ * The promoted hero card. Same gate grammar as a grid card (full-color board,
  * All-Access badge, lock chip, always tappable) in a wider layout.
  */
 function FeaturedCard({
@@ -470,10 +444,10 @@ function FeaturedCard({
   reduceMotion: boolean;
 }) {
   const { Icon } = game;
-  const colors = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const c = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
 
   return (
-    <Link href={locked ? "/upgrade" : game.href}>
+    <Link href={locked ? "/upgrade" : game.href} className="block">
       <motion.div
         data-testid="featured-game"
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96 }}
@@ -481,18 +455,12 @@ function FeaturedCard({
         transition={reduceMotion ? { duration: 0.001 } : springs.poppy}
         whileHover={reduceMotion ? undefined : { y: -4, transition: springs.snappy }}
         whileTap={reduceMotion ? undefined : { scale: 0.97, transition: springs.snappy }}
-        className={cn(
-          "group relative flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-[box-shadow,border-color,background-color] duration-200 hover:shadow-md",
-          colors.bg,
-          colors.border,
-          colors.pressGlow,
-        )}
+        className="group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border-2 p-4 text-white transition-[filter] duration-200 motion-safe:hover:saturate-[1.1]"
+        style={boardStyle(c)}
       >
         <div
-          className={cn(
-            "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
-            colors.iconBg,
-          )}
+          className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF8EC] shadow-[inset_0_0_0_3px_rgba(255,255,255,0.6)] lg:h-28 lg:w-28 lg:rounded-3xl"
+          style={MEDALLION_INK}
         >
           <GamePreview
             gameId={game.id}
@@ -500,29 +468,18 @@ function FeaturedCard({
             // catalog-ordinal phase so it never beats in lockstep with them.
             delay="-0.55s"
             testId="featured-game-preview"
-            fallback={
-              <Icon className={cn("h-9 w-9", colors.iconColor)} strokeWidth={1.75} />
-            }
+            fallback={<Icon className="h-12 w-12" style={{ color: c.ink }} strokeWidth={2} />}
           />
         </div>
 
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
+        <div className="relative min-w-0 flex-1 space-y-1">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/70">
             Featured
           </p>
-          <h2 className="text-lg font-extrabold leading-tight text-foreground">
-            {game.title}
-          </h2>
-          <p className="text-sm leading-snug text-muted-foreground">{game.description}</p>
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-                DIFFICULTY_CLASSES[game.difficulty],
-              )}
-            >
-              {game.difficulty}
-            </span>
+          <h2 className="text-xl font-extrabold leading-tight text-white">{game.title}</h2>
+          <p className="text-sm leading-snug text-white/85">{game.description}</p>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+            <DifficultyPill difficulty={game.difficulty} />
             <AccessBadge plusOnly={game.plusOnly} />
             {locked && <LockChip />}
           </div>
@@ -532,32 +489,50 @@ function FeaturedCard({
   );
 }
 
-/** Free vs All-Access pill. Copy canon: "All-Access", never "Plus". */
+/**
+ * Free vs All-Access pill. Copy canon: "All-Access", never "Plus".
+ * These are enamel badges, not tinted text: solid fill, white ring and a hard
+ * shadow so they read as stickers stuck onto the board.
+ */
 function AccessBadge({ plusOnly }: { plusOnly: boolean }) {
   if (plusOnly) {
     return (
-      <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-        <Star className="h-2.5 w-2.5" />
+      <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_2px_0_rgba(0,0,0,0.28)] ring-2 ring-white/70">
+        <Star className="h-3 w-3 fill-[#4A2C00]" />
         All-Access
       </span>
     );
   }
   return (
-    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40">
+    <span className="whitespace-nowrap rounded-full bg-gradient-to-b from-[#4ADE80] to-[#16A34A] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-[0_2px_0_rgba(0,0,0,0.28)] ring-2 ring-white/70">
       Free
     </span>
   );
 }
 
-/** The lock affordance on a gated card. Art behind it stays full color. */
+/** The lock affordance on a gated card. The board behind it stays full color. */
 function LockChip() {
   return (
     <span
-      className="flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-background/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground"
+      className="flex items-center gap-1 whitespace-nowrap rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white ring-1 ring-white/35"
       data-testid="lock-chip"
     >
-      <Lock className="h-2.5 w-2.5" />
+      <Lock className="h-3 w-3" />
       Locked
+    </span>
+  );
+}
+
+/** Difficulty on a painted board: white label, hue carried by the dot. */
+function DifficultyPill({ difficulty }: { difficulty: GameDef["difficulty"] }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-white ring-1 ring-white/30">
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: DIFFICULTY_DOT[difficulty] }}
+      />
+      {difficulty}
     </span>
   );
 }
@@ -572,51 +547,46 @@ function GameCard({
   previewDelay?: string;
 }) {
   const { Icon } = game;
-  const colors = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const c = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
 
   return (
     <div
       className={cn(
         // Hover lift + press compress are handled by the framer-motion wrapper
         // in GamesPage (whileHover / whileTap) so transform feedback lives in
-        // ONE place — the CSS here only transitions the non-transform hover
-        // affordances (shadow + border tint + saturation), replacing the old
-        // `card-lift`. Press adds the per-game border glow (pressGlow).
+        // ONE place; the CSS here only wakes the board's saturation on hover.
         //
-        // aspect-square gives the near-square tile that replaced the old
-        // slender card; justify-between spreads the three content rows across
-        // that taller box.
+        // aspect-square gives the near-square tile, gated behind the SAME
+        // min-[480px] breakpoint as the two-column grid: a square is only
+        // near-square when the card is half the row. Below the breakpoint the
+        // card is content-height with a modest floor so it can't collapse back
+        // to the old slender shape.
         //
-        // The square is gated behind the SAME min-[480px] breakpoint as the
-        // two-column grid below, because a square is only near-square when
-        // the card is half the row. Applied unconditionally (as it shipped in
-        // the hub redesign) a single-column card at 390pt measured 358x358 —
-        // most of the viewport, with the content stranded top and bottom.
-        // Below the breakpoint the card is content-height with a modest floor
-        // so it can't collapse back to the old slender shape; at or above it,
-        // min-h-0 hands the box back to aspect-square exactly as before.
-        "group relative flex min-h-[168px] cursor-pointer flex-col justify-between gap-3 rounded-2xl border p-4 transition-[box-shadow,border-color,background-color,filter] duration-200 hover:shadow-md motion-safe:hover:saturate-[1.15] min-[480px]:aspect-square min-[480px]:min-h-0",
-        colors.bg,
-        colors.border,
-        colors.pressGlow,
+        // Padding and gaps are deliberately tight (p-3 / gap-2) so the
+        // medallion, title and badges fill the square instead of floating in
+        // dead space.
+        "group relative flex min-h-[172px] cursor-pointer flex-col gap-2 overflow-hidden rounded-2xl border-2 p-3 text-white transition-[filter] duration-200 motion-safe:hover:saturate-[1.15] min-[480px]:aspect-square min-[480px]:min-h-0",
       )}
+      style={boardStyle(c)}
       data-testid={`game-card-${game.id}`}
     >
-      {/* Preview vignette + badges row. Gated cards keep FULL-COLOR art and a
+      {/* Preview medallion + badge row. Gated cards keep FULL-COLOR art and a
           live ambient loop — the All-Access badge and lock chip carry the
           gate, so nothing here is grayed out or paused. */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="relative flex items-start justify-between gap-2">
         <div
-          className={cn(
-            "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl",
-            colors.iconBg,
-          )}
+          className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF8EC] shadow-[inset_0_0_0_3px_rgba(255,255,255,0.6)] min-[480px]:h-20 min-[480px]:w-20 lg:h-28 lg:w-28 lg:rounded-3xl"
+          style={MEDALLION_INK}
         >
           <GamePreview
             gameId={game.id}
             delay={previewDelay}
             fallback={
-              <Icon className={cn("h-6 w-6", colors.iconColor)} strokeWidth={1.75} />
+              <Icon
+                className="h-9 w-9 lg:h-14 lg:w-14"
+                style={{ color: c.ink }}
+                strokeWidth={2}
+              />
             }
           />
         </div>
@@ -627,23 +597,18 @@ function GameCard({
       </div>
 
       {/* Title & description */}
-      <div className="space-y-1">
-        <h3 className="font-bold leading-tight text-foreground">{game.title}</h3>
-        <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
+      <div className="relative space-y-0.5">
+        <h3 className="text-[15px] font-extrabold leading-tight text-white lg:text-lg">
+          {game.title}
+        </h3>
+        <p className="line-clamp-2 text-[12.5px] leading-snug text-white/85 lg:text-sm">
           {game.description}
         </p>
       </div>
 
       {/* Difficulty chip, plus the lock chip on gated cards. */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span
-          className={cn(
-            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-            DIFFICULTY_CLASSES[game.difficulty],
-          )}
-        >
-          {game.difficulty}
-        </span>
+      <div className="relative mt-auto flex flex-wrap items-center gap-1.5">
+        <DifficultyPill difficulty={game.difficulty} />
         {locked && <LockChip />}
       </div>
     </div>

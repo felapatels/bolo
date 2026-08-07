@@ -14,6 +14,7 @@
 //    prefers-reduced-motion reset already neutralises into a clean parked
 //    frame. Nothing here animates layout — transforms and opacity only.
 import type { CSSProperties } from "react";
+import { Lock } from "lucide-react";
 import { Mascot } from "@/components/mascot";
 import { TrainEngine } from "@/components/train-svg";
 import { INDIA } from "@/lib/india-palette";
@@ -134,6 +135,58 @@ export function BazaarTile() {
         <Mascot pose="wave" size={40} ambient="calm" />
       </span>
       {/* the counter he stands behind */}
+      <span
+        className="absolute inset-x-0 bottom-0 block"
+        style={{
+          height: 7,
+          background: `linear-gradient(180deg, ${INDIA.timber} 0 55%, ${INDIA.timberShade} 55% 100%)`,
+        }}
+      />
+    </Tile>
+  );
+}
+
+/**
+ * Unlock a language: a junction signpost — two enamel name-boards pointing
+ * different ways, one of them still padlocked. It is the picture of a stop you
+ * have not bought yet.
+ */
+export function LanguagesTile() {
+  return (
+    <Tile
+      style={{
+        background: `linear-gradient(180deg, ${INDIA.skyHigh} 0%, ${INDIA.skyLow} 100%)`,
+      }}
+    >
+      {/* the post */}
+      <span
+        className="absolute bottom-[7px] left-1/2 block w-[3px] -translate-x-1/2"
+        style={{ height: 40, background: INDIA.timber }}
+      />
+      {/* upper name-board, pointing right */}
+      <span
+        className="absolute left-2 top-[14px] flex h-[13px] w-[38px] items-center gap-[3px] rounded-[3px] border px-1"
+        style={{ background: INDIA.board, borderColor: INDIA.gold }}
+      >
+        <span className="block h-[2px] w-3.5 rounded-full" style={{ background: INDIA.cream }} />
+        <span className="block h-[2px] w-2 rounded-full" style={{ background: INDIA.gold }} />
+      </span>
+      {/* lower name-board, pointing left and still locked */}
+      <span
+        className="absolute right-2 top-[31px] flex h-[13px] w-[34px] items-center gap-[3px] rounded-[3px] border px-1"
+        style={{ background: INDIA.timberShade, borderColor: INDIA.gold }}
+      >
+        <span className="block h-[2px] w-2.5 rounded-full" style={{ background: INDIA.cream }} />
+        <span className="block h-[2px] w-1.5 rounded-full" style={{ background: INDIA.gold }} />
+      </span>
+      {/* the padlock hanging off the locked board */}
+      <span
+        className="absolute right-1 top-[26px] flex h-[13px] w-[13px] items-center justify-center rounded-full"
+        style={{ background: INDIA.gold }}
+      >
+        <Lock className="h-2 w-2" strokeWidth={3} style={{ color: INDIA.iron }} />
+      </span>
+      {/* the ground it stands in */}
       <span
         className="absolute inset-x-0 bottom-0 block"
         style={{

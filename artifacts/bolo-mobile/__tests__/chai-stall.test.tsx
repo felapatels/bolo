@@ -44,11 +44,11 @@ function read(rel: string): string {
 const GLYPH_SITES: Record<string, number> = {
   'components/ChaiStall.tsx': 1, // the band's own balance readout
   'app/(app)/(tabs)/index.tsx': 1, // Chai stat cell
-  'components/ChaiWallet.tsx': 3, // balance badge, Equip · 5, Start · 10
+  'components/ChaiWallet.tsx': 2, // balance badge + the shared ChaiCoin both spend buttons render
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
-  'app/(app)/outfits.tsx': 3, // wardrobe balance, Buy · 25, rack price
+  'app/(app)/outfits.tsx': 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
 };
 
 const MOBILE_GLYPH_COUNT = 11;

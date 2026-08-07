@@ -612,32 +612,43 @@ export default function Home() {
             className={`relative flex items-stretch ${summary ? "" : "invisible"}`}
             aria-hidden={!summary}
           >
-            <StatCell
-              icon={
-                <motion.div
-                  animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Flame className="w-6 h-6" fill="currentColor" />
-                </motion.div>
-              }
-              value={summary?.currentStreakDays ?? 0}
-              label="Day Streak"
-              delay={0.16}
-            />
-            <div className="w-px self-stretch bg-white/25" />
-            {/* Spec D2: speaking streak — days with a nailed/close attempt.
-                Mic icon so it reads as distinct from the general streak. */}
-            <StatCell
-              icon={<Mic className="w-6 h-6" />}
-              value={summary?.speakingStreakDays ?? 0}
-              label="Speaking Streak"
-              delay={0.2}
-            />
-            <div className="w-px self-stretch bg-white/25" />
-            <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
-            <div className="w-px self-stretch bg-white/25" />
-            <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
+            {/* Everything left of Chai is one target: the four progress
+                figures all live on /progress, so the whole run of cells opens
+                it rather than being four inert numbers next to one tappable
+                one. Chai stays separate — it opens the wallet. */}
+            <Link
+              href="/progress"
+              data-testid="stats-progress-link"
+              aria-label="See your progress"
+              className="flex flex-[4] items-stretch rounded-2xl transition-colors hover:bg-white/10"
+            >
+              <StatCell
+                icon={
+                  <motion.div
+                    animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <Flame className="w-6 h-6" fill="currentColor" />
+                  </motion.div>
+                }
+                value={summary?.currentStreakDays ?? 0}
+                label="Day Streak"
+                delay={0.16}
+              />
+              <div className="w-px self-stretch bg-white/25" />
+              {/* Spec D2: speaking streak — days with a nailed/close attempt.
+                  Mic icon so it reads as distinct from the general streak. */}
+              <StatCell
+                icon={<Mic className="w-6 h-6" />}
+                value={summary?.speakingStreakDays ?? 0}
+                label="Speaking Streak"
+                delay={0.2}
+              />
+              <div className="w-px self-stretch bg-white/25" />
+              <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
+              <div className="w-px self-stretch bg-white/25" />
+              <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
+            </Link>
             <div className="w-px self-stretch bg-white/25" />
             <StatCell
               icon={<ChaiGlyph className="w-6 h-6" />}

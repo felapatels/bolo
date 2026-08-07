@@ -1,6 +1,8 @@
 // Chunk 6B quick game: Ticket Check (script match, floor 4).
-// A ticket shows the English meaning and romanized reading; the learner
-// punches the matching native-script ticket. Selection game riding the
+// A ticket shows the English meaning ALONE; the learner punches the matching
+// native-script ticket. The romanized reading lives under the script on the
+// answers, never on the question — printing it on the prompt handed over the
+// pronunciation the learner is here to recognise. Selection game riding the
 // frozen listen-and-pick correctness model (selectedPhraseId === phraseId).
 
 import { useEffect, useState } from "react";
@@ -69,7 +71,6 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
       <div className="relative mx-auto w-full max-w-sm rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 p-5 text-center dark:border-amber-700 dark:bg-amber-950/30">
         <TicketIcon className="mx-auto mb-2 h-6 w-6 text-amber-600" />
         <p className="text-lg font-extrabold text-foreground">{q.phrase.english}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{q.phrase.romanized}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -93,11 +94,11 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
               <span style={native.style} dir={native.dir} className="text-base leading-snug text-foreground">
                 {choice.nativeScript}
               </span>
-              {/* Item 3 learning reveal: after the answer every ticket shows
-                  its romanized line; the correct ticket also shows its English
-                  meaning. Languages without romanization (empty romanized
-                  field) render no empty slot. */}
-              {answered && choice.romanized.trim() !== "" && (
+              {/* Every answer carries its own reading under the script, from
+                  the first look — the pairing IS the lesson, and hiding it
+                  until after the pick made the choice a guess. Languages
+                  without romanization render no empty slot. */}
+              {choice.romanized.trim() !== "" && (
                 <span className="text-xs font-medium text-muted-foreground">{choice.romanized}</span>
               )}
               {answered && idx === q.correctIdx && (

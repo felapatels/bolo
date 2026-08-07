@@ -348,14 +348,28 @@ describe("ticket check learning reveal (Signal polish item 3)", () => {
     return screen.getByText(`ન${id}`).closest("button")!;
   }
 
-  test("a wrong answer reveals every ticket's romanized line, the meaning on the correct one, and holds on the continue beat", () => {
+  test("the answers carry their reading from the first look and the question never does", () => {
+    renderTicket();
+    const correct = promptId();
+
+    // Before any pick: every ticket already pairs script with reading...
+    for (const id of [1, 2, 3, 4]) {
+      expect(choiceButton(id)).toHaveTextContent(`r${id}`);
+    }
+    // ...and the ticket being checked shows the meaning ALONE. Printing the
+    // reading on the prompt handed over the recognition the game is testing.
+    expect(screen.getByText(`word ${correct}`).closest("div")).not.toHaveTextContent(
+      `r${correct}`,
+    );
+  });
+
+  test("a wrong answer reveals the meaning on the correct ticket and holds on the continue beat", () => {
     renderTicket();
     const correct = promptId();
     const wrong = correct === 1 ? 2 : 1;
     fireEvent.click(choiceButton(wrong));
 
-    // Every ticket shows its own romanized line (the prompt duplicates the
-    // correct one's, hence getAllByText).
+    // The readings stay put through the answer.
     for (const id of [1, 2, 3, 4]) {
       expect(screen.getAllByText(`r${id}`).length).toBeGreaterThanOrEqual(1);
     }

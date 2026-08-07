@@ -123,7 +123,7 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
   return (
     <View style={styles.wrap}>
       {/* The ticket being checked. */}
-      <View style={[styles.ticket, { backgroundColor: colors.card }]}>
+      <View testID="ticket-prompt" style={[styles.ticket, { backgroundColor: colors.card }]}>
         <Feather name="check-square" size={22} color="#D97706" />
         <Text
           testID="ticket-english"
@@ -131,11 +131,9 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
         >
           {q.phrase.english}
         </Text>
-        {q.phrase.romanized.trim() !== '' && (
-          <Text style={[styles.ticketRomanized, { color: colors.mutedForeground }]}>
-            {q.phrase.romanized}
-          </Text>
-        )}
+        {/* No romanized line on the question (web parity): printing the
+            reading on the prompt handed over what the learner is here to
+            recognise. It lives under the script on the answers instead. */}
       </View>
 
       <View style={styles.grid}>
@@ -168,11 +166,11 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
                 {choice.nativeScript}
               </Text>
 
-              {/* Learning reveal (web parity): after the answer every ticket
-                  shows its romanized line, and the correct ticket also shows
-                  its English meaning. Languages with no romanization render
-                  no empty slot. */}
-              {answered && choice.romanized.trim() !== '' && (
+              {/* Every answer carries its own reading under the script, from
+                  the first look — the pairing IS the lesson. The correct tile
+                  adds its English meaning once answered. Languages with no
+                  romanization render no empty slot. */}
+              {choice.romanized.trim() !== '' && (
                 <Text
                   style={[styles.choiceSub, { color: colors.mutedForeground }]}
                   numberOfLines={1}

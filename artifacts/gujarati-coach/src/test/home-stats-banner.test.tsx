@@ -185,6 +185,28 @@ describe("home stats banner", () => {
     expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
   });
 
+  // Build 37: the four figures left of Chai all live on /progress, so the
+  // whole run of them is one link into that page. Chai stays outside it — it
+  // opens the wallet, and nesting a button inside a link would break both.
+  test("the four progress figures are one link to /progress", () => {
+    h.summary = {
+      currentStreakDays: 3,
+      speakingStreakDays: 2,
+      xp: 120,
+      phrasesMastered: 8,
+      attemptsToday: 0,
+    };
+    renderHome();
+    const row = bannerRow();
+    const link = within(row).getByTestId("stats-progress-link");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("/progress");
+    for (const label of ["Day Streak", "Speaking Streak", "Total XP", "Mastered"]) {
+      expect(link.contains(within(row).getByText(label))).toBe(true);
+    }
+    expect(link.contains(within(row).getByTestId("stat-chai"))).toBe(false);
+  });
+
   // The band names itself and shows the balance, so it has to read from the
   // page's ONE token query — a second source could drift from the stat cell
   // and from the wallet after a spend.

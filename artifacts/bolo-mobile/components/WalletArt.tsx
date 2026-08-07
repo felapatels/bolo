@@ -17,6 +17,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Feather from '@expo/vector-icons/Feather';
 import { Mascot } from '@/components/Mascot';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import { INDIA } from '@/constants/india';
@@ -126,6 +127,33 @@ export function BazaarTile() {
       <View style={styles.marigold} />
       <View style={styles.birdSlot}>
         <Mascot pose="wave" size={40} entering={false} />
+      </View>
+      <View style={styles.counter}>
+        <View style={styles.counterLip} />
+      </View>
+    </Tile>
+  );
+}
+
+/**
+ * Unlock a language: a junction signpost — two enamel name-boards pointing
+ * different ways, one of them still padlocked. It is the picture of a stop you
+ * have not bought yet.
+ */
+export function LanguagesTile() {
+  return (
+    <Tile colors={[INDIA.skyHigh, INDIA.skyLow]}>
+      <View style={styles.post} />
+      <View style={[styles.nameBoard, styles.nameBoardTop]}>
+        <View style={[styles.boardLine, { width: 14, backgroundColor: INDIA.cream }]} />
+        <View style={[styles.boardLine, { width: 8, backgroundColor: INDIA.gold }]} />
+      </View>
+      <View style={[styles.nameBoard, styles.nameBoardBottom]}>
+        <View style={[styles.boardLine, { width: 10, backgroundColor: INDIA.cream }]} />
+        <View style={[styles.boardLine, { width: 6, backgroundColor: INDIA.gold }]} />
+      </View>
+      <View style={styles.padlock}>
+        <Feather name="lock" size={8} color={INDIA.iron} />
       </View>
       <View style={styles.counter}>
         <View style={styles.counterLip} />
@@ -261,6 +289,49 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 3,
     backgroundColor: INDIA.timberShade,
+  },
+  post: {
+    position: 'absolute',
+    left: TILE / 2 - 1.5,
+    bottom: 7,
+    width: 3,
+    height: 40,
+    backgroundColor: INDIA.timber,
+  },
+  nameBoard: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 13,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: INDIA.gold,
+    paddingHorizontal: 4,
+  },
+  nameBoardTop: {
+    left: 8,
+    top: 14,
+    width: 38,
+    backgroundColor: INDIA.board,
+  },
+  nameBoardBottom: {
+    right: 8,
+    top: 31,
+    width: 34,
+    backgroundColor: INDIA.timberShade,
+  },
+  boardLine: { height: 2, borderRadius: 999 },
+  padlock: {
+    position: 'absolute',
+    right: 4,
+    top: 26,
+    width: 13,
+    height: 13,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: INDIA.gold,
   },
   streak: {
     position: 'absolute',

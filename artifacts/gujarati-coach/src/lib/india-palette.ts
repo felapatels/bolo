@@ -16,6 +16,8 @@ export const INDIA = {
   cloth: "#FFF7EA",
   /** Signboard enamel: the deep green of an old shop board. */
   board: "#14503F",
+  /** The shadow under that green — spend buttons press into it. */
+  boardDeep: "#0C3428",
   /** Marigold: torans, board edging, price flags, festival dots. */
   gold: "#F0A32B",
   /** Painted lettering. */

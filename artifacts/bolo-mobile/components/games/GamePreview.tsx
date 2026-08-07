@@ -75,6 +75,8 @@ export type GamePreviewProps = {
   holdMidCycle?: boolean;
   /** Rendered when the game has no vignette (defensive; all current do). */
   fallback?: React.ReactNode;
+  /** Pins the shape colors (hub boards; see VignetteInk). */
+  ink?: VignetteInk;
 };
 
 type Clock = {
@@ -134,16 +136,32 @@ type Palette = {
   dim25: string;
 };
 
-function usePalette(): Palette {
+/**
+ * Ink override for vignettes that do NOT sit on the theme card. The hub's
+ * game boards are saturated painted tiles with a cream medallion, so their
+ * vignettes must keep the LIGHT-theme shape colors in both appearances -
+ * dark-theme ink on a cream medallion is unreadable. Same reasoning as the
+ * `palette` prop on TrainEngine: omit it and the vignette reads theme tokens,
+ * which is what any on-card usage wants.
+ */
+export type VignetteInk = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  mutedForeground: string;
+};
+
+function usePalette(ink?: VignetteInk): Palette {
   const colors = useColors();
+  const src = ink ?? colors;
   return {
-    primary: colors.primary,
-    secondary: colors.secondary,
-    accent: colors.accent,
-    dim25: `${colors.mutedForeground}40`,
-    dim30: `${colors.mutedForeground}4D`,
-    dim40: `${colors.mutedForeground}66`,
-    dim45: `${colors.mutedForeground}73`,
+    primary: src.primary,
+    secondary: src.secondary,
+    accent: src.accent,
+    dim25: `${src.mutedForeground}40`,
+    dim30: `${src.mutedForeground}4D`,
+    dim40: `${src.mutedForeground}66`,
+    dim45: `${src.mutedForeground}73`,
   };
 }
 
@@ -411,8 +429,9 @@ export function GamePreview({
   tempo,
   holdMidCycle,
   fallback,
+  ink,
 }: GamePreviewProps) {
-  const p = usePalette();
+  const p = usePalette(ink);
   const cycle = CYCLE_MS[gameId] ?? 4800;
   const phase = ((index * 1100) % cycle) / cycle;
   const clock = useVignetteClock(cycle, {

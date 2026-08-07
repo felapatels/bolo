@@ -10,41 +10,51 @@ import { INDIA } from "@/lib/india-palette";
 export const AWNING_STRIPES = `repeating-linear-gradient(90deg, ${INDIA.stripe} 0 22px, ${INDIA.cloth} 22px 44px)`;
 
 /**
- * A striped awning with its scalloped hem. `scallops` sets how many half-rounds
- * the hem is cut into — fewer for a narrow tile, more for a full-width shop.
+ * A striped market awning whose hem is cut into half-round scallops.
+ *
+ * ONE painted cloth, not a band plus a row of tabs: the stripes and the
+ * scallops are the same background, and the hem is carved out of it with a
+ * repeating circular mask. Tiling the mask at the stripe width is what keeps
+ * every scallop centred on its own stripe — the earlier version laid an
+ * independent flex row of rounded blocks under the band, so the two grids
+ * drifted apart and the hem read as loose red squares.
  */
 export function Awning({
   height = 28,
-  hemHeight = 12,
-  scallops = 16,
   stripeWidth = 22,
 }: {
   height?: number;
-  hemHeight?: number;
-  scallops?: number;
+  /** Width of one colour band. The scallops are one stripe wide. */
   stripeWidth?: number;
 }) {
+  const radius = stripeWidth / 2;
+  const maskImage = [
+    // the flat top of the awning
+    "linear-gradient(#000 0 0)",
+    // the hem: one half-round per stripe
+    `radial-gradient(circle ${radius}px at ${radius}px 0, #000 99%, transparent 100%)`,
+  ].join(", ");
+  const maskSize = `100% ${height}px, ${stripeWidth}px ${radius}px`;
+  const maskPosition = `0 0, 0 ${height}px`;
+  const maskRepeat = "no-repeat, repeat-x";
+
   return (
-    <div aria-hidden="true">
-      <div
-        style={{
-          height,
-          backgroundImage: `repeating-linear-gradient(90deg, ${INDIA.stripe} 0 ${stripeWidth}px, ${INDIA.cloth} ${stripeWidth}px ${stripeWidth * 2}px)`,
-        }}
-      />
-      <div className="flex w-full">
-        {Array.from({ length: scallops }).map((_, i) => (
-          <span
-            key={i}
-            className="flex-1 rounded-b-full"
-            style={{
-              height: hemHeight,
-              background: i % 2 === 0 ? INDIA.stripe : INDIA.cloth,
-            }}
-          />
-        ))}
-      </div>
-    </div>
+    <div
+      aria-hidden="true"
+      data-testid="awning"
+      style={{
+        height: height + radius,
+        backgroundImage: `repeating-linear-gradient(90deg, ${INDIA.stripe} 0 ${stripeWidth}px, ${INDIA.cloth} ${stripeWidth}px ${stripeWidth * 2}px)`,
+        maskImage,
+        maskSize,
+        maskPosition,
+        maskRepeat,
+        WebkitMaskImage: maskImage,
+        WebkitMaskSize: maskSize,
+        WebkitMaskPosition: maskPosition,
+        WebkitMaskRepeat: maskRepeat,
+      }}
+    />
   );
 }
 

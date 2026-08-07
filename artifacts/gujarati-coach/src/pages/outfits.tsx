@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Check } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,8 @@ import {
 import { Mascot } from "@/components/mascot";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { Awning, MarigoldString } from "@/components/india-decor";
+import { DressingRoom } from "@/components/dressing-room";
+import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +85,56 @@ export default function OutfitsPage() {
   const busy = buy.isPending || equip.isPending;
   const shownOutfit = data?.outfits.find((o) => o.id === shown) ?? null;
 
+  // The changing room. Every costume change draws the curtain, swaps the art
+  // behind it and opens again once the dressed bird has actually decoded —
+  // the wait is real (a first-time outfit is a fresh PNG), which is exactly
+  // why an in-place swap looked like a glitch. The failsafe matters more than
+  // the beat: a curtain that never reopens hides the product, so it opens on
+  // load, on error, and on a timer regardless.
+  const [changing, setChanging] = useState(false);
+  const dressedAs = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (dressedAs.current === shown) return;
+    const first = dressedAs.current === undefined;
+    dressedAs.current = shown;
+    if (first) return; // the shop opens with the curtain already up
+
+    setChanging(true);
+    const shutAt = Date.now();
+    let settled = false;
+    const timers: number[] = [];
+    // A cached image resolves instantly, and a curtain that opens the frame
+    // after it shut just flashes. Whatever happens, it stays closed for the
+    // whole beat and only then reveals.
+    const MIN_CLOSED_MS = 1100;
+    const openWhenDressed = () => {
+      if (settled) return;
+      settled = true;
+      timers.push(
+        window.setTimeout(
+          () => setChanging(false),
+          Math.max(0, MIN_CLOSED_MS - (Date.now() - shutAt)),
+        ),
+      );
+    };
+    const img = new Image();
+    img.onload = openWhenDressed;
+    img.onerror = openWhenDressed;
+    img.src = mascotAssetSrc("wave", shown);
+    // Failsafe: the art may never resolve, and the booth must still open.
+    timers.push(window.setTimeout(openWhenDressed, 2400));
+    return () => {
+      settled = true;
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, [shown]);
+
+  const tryOn = (outfitId: string) => {
+    setError(null);
+    setPreviewed(outfitId);
+  };
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6" data-testid="outfit-shop">
       <Link
@@ -141,7 +193,7 @@ export default function OutfitsPage() {
             style={{ color: INDIA.ink }}
           >
             Everything here is stitched for one bird. Buy it once and it stays
-            his.
+            hers.
           </p>
         </div>
 
@@ -151,13 +203,19 @@ export default function OutfitsPage() {
           data-testid="outfit-preview"
           className="flex flex-col items-center px-5 pb-0 pt-1"
         >
-          <Mascot pose="wave" size={180} outfit={shown} />
-          <p
-            className="mt-2 text-center text-sm font-black"
-            style={{ color: INDIA.board }}
-          >
-            {shownOutfit ? shownOutfit.name : "Bolo, as he comes"}
-          </p>
+          <DressingRoom closed={changing} className="w-full rounded-t-xl">
+            <div className="flex justify-center pt-3">
+              <Mascot pose="wave" size={180} outfit={shown} />
+            </div>
+          </DressingRoom>
+          {shownOutfit ? (
+            <p
+              className="mt-2 text-center text-sm font-black"
+              style={{ color: INDIA.board }}
+            >
+              {shownOutfit.name}
+            </p>
+          ) : null}
           {shownOutfit ? (
             <p
               className="mt-0.5 text-center text-xs font-bold"
@@ -229,7 +287,7 @@ export default function OutfitsPage() {
             data-testid="outfit-short"
             className="text-sm font-bold text-muted-foreground"
           >
-            {shownOutfit.cost - balance} more Chai and he can wear it.
+            {shownOutfit.cost - balance} more Chai and she can wear it.
           </p>
         ) : (
           <button
@@ -245,53 +303,123 @@ export default function OutfitsPage() {
         )}
       </div>
 
-      {/* The rack. Tapping a costume only previews it — nothing is spent and
-          nothing is worn until the learner says so above. */}
+      {/* The rack. Every bolt of cloth carries its own two doors: Try On is a
+          free preview (nothing is spent, nothing is worn), Buy Now is the
+          till. The card body still previews on click as a convenience, but
+          the buttons are the affordance — a whole-card tap gave the learner
+          no way to know that tapping was safe. */}
       <div className="mt-6 space-y-3">
-        {(data?.outfits ?? []).map((outfit) => (
-          <button
-            key={outfit.id}
-            type="button"
-            data-testid={`outfit-card-${outfit.id}`}
-            onClick={() => {
-              setError(null);
-              setPreviewed(outfit.id);
-            }}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-2xl border bg-card p-4 pl-3 text-left transition-colors",
-              shown === outfit.id
-                ? "border-primary"
-                : "border-card-border hover:border-primary/40",
-            )}
-          >
-            {/* The cloth-tag spine: a stitched edge down the left of every
-                bolt of cloth on the shelf. */}
-            <span
-              aria-hidden="true"
-              className="h-10 w-1.5 shrink-0 rounded-full"
-              style={{
-                background: outfit.owned ? INDIA.board : INDIA.gold,
-              }}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="font-black text-foreground">{outfit.name}</p>
-              <p className="text-xs leading-snug text-muted-foreground">
-                {outfit.tagline}
-              </p>
+        {(data?.outfits ?? []).map((outfit) => {
+          const isShown = shown === outfit.id;
+          const isWorn = outfit.id === equipped;
+          const short = outfit.cost - balance;
+          return (
+            <div
+              key={outfit.id}
+              data-testid={`outfit-card-${outfit.id}`}
+              onClick={() => tryOn(outfit.id)}
+              className={cn(
+                "rounded-2xl border bg-card p-4 pl-3 text-left transition-colors",
+                isShown
+                  ? "border-primary"
+                  : "border-card-border hover:border-primary/40",
+              )}
+            >
+              <div className="flex items-center gap-3">
+                {/* The cloth-tag spine: a stitched edge down the left of every
+                    bolt of cloth on the shelf. */}
+                <span
+                  aria-hidden="true"
+                  className="h-10 w-1.5 shrink-0 rounded-full"
+                  style={{
+                    background: outfit.owned ? INDIA.board : INDIA.gold,
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-foreground">{outfit.name}</p>
+                  <p className="text-xs leading-snug text-muted-foreground">
+                    {outfit.tagline}
+                  </p>
+                </div>
+                {outfit.owned ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wider text-primary">
+                    <Check className="h-4 w-4" />
+                    {isWorn ? "Wearing" : "Owned"}
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-black text-foreground">
+                    {outfit.cost}
+                    <ChaiGlyph className="h-4 w-4" />
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  data-testid={`outfit-tryon-${outfit.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    tryOn(outfit.id);
+                  }}
+                  className="flex-1 rounded-xl border-2 px-3 py-2 text-sm font-black transition-all active:translate-y-0.5"
+                  style={{
+                    borderColor: INDIA.gold,
+                    background: INDIA.cloth,
+                    color: INDIA.board,
+                  }}
+                >
+                  {isShown ? "On the bird" : "Try On"}
+                </button>
+
+                {outfit.owned ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    data-testid={
+                      isWorn
+                        ? `outfit-takeoff-${outfit.id}`
+                        : `outfit-wear-${outfit.id}`
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setError(null);
+                      equip.mutate({
+                        data: { outfitId: isWorn ? null : outfit.id },
+                      });
+                    }}
+                    className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+                  >
+                    {isWorn ? "Take it off" : "Wear this"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy || short > 0}
+                    data-testid={`outfit-buynow-${outfit.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setError(null);
+                      setPreviewed(outfit.id);
+                      buy.mutate({ data: { outfitId: outfit.id } });
+                    }}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-60"
+                    style={{
+                      backgroundImage: `linear-gradient(180deg, #1E7357 0%, ${INDIA.board} 58%, #103F31 100%)`,
+                      color: INDIA.cream,
+                      boxShadow: `0 4px 0 ${INDIA.boardDeep}, inset 0 1px 0 rgba(255,247,234,0.35)`,
+                    }}
+                  >
+                    <span>
+                      {short > 0 ? `${short} more` : `Buy Now · ${outfit.cost}`}
+                    </span>
+                    <ChaiGlyph className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
-            {outfit.owned ? (
-              <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wider text-primary">
-                <Check className="h-4 w-4" />
-                {outfit.id === equipped ? "Wearing" : "Owned"}
-              </span>
-            ) : (
-              <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-black text-foreground">
-                {outfit.cost}
-                <ChaiGlyph className="h-4 w-4" />
-              </span>
-            )}
-          </button>
-        ))}
+          );
+        })}
         {shown !== equipped ? (
           <button
             type="button"
@@ -299,7 +427,7 @@ export default function OutfitsPage() {
             onClick={() => setPreviewed(undefined)}
             className="w-full rounded-2xl border border-dashed border-card-border p-3 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
           >
-            Back out — show my Bolo as he is
+            Back out — show my Bolo as she is
           </button>
         ) : null}
       </div>

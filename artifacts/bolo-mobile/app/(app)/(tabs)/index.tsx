@@ -411,31 +411,47 @@ export default function HomeScreen() {
               </View>
             ) : (
               <>
-                <GradientStatCell
-                  index={0}
-                  icon="zap"
-                  value={summary.data?.currentStreakDays ?? 0}
-                  label="Day Streak"
-                  loading={summary.isLoading}
-                  arcAttemptsToday={summary.data?.attemptsToday}
-                  arcDailyGoal={dailyGoal}
-                />
-                <View style={styles.statsDivider} />
-                <GradientStatCell
-                  index={1}
-                  icon="star"
-                  value={summary.data?.xp ?? 0}
-                  label="Total XP"
-                  loading={summary.isLoading}
-                />
-                <View style={styles.statsDivider} />
-                <GradientStatCell
-                  index={2}
-                  icon="award"
-                  value={summary.data?.phrasesMastered ?? 0}
-                  label="Mastered"
-                  loading={summary.isLoading}
-                />
+                {/* Everything left of Chai is one target: the three
+                    progress figures all live on the Progress tab, so the whole
+                    run of cells opens it rather than being three inert numbers
+                    beside one tappable one. Chai stays separate — it opens the
+                    wallet. */}
+                <Pressable
+                  testID="stats-progress-link"
+                  accessibilityRole="button"
+                  accessibilityLabel="See your progress"
+                  onPress={() => {
+                    hapticLight();
+                    router.push('/(app)/(tabs)/progress');
+                  }}
+                  style={styles.statsProgressGroup}
+                >
+                  <GradientStatCell
+                    index={0}
+                    icon="zap"
+                    value={summary.data?.currentStreakDays ?? 0}
+                    label="Day Streak"
+                    loading={summary.isLoading}
+                    arcAttemptsToday={summary.data?.attemptsToday}
+                    arcDailyGoal={dailyGoal}
+                  />
+                  <View style={styles.statsDivider} />
+                  <GradientStatCell
+                    index={1}
+                    icon="star"
+                    value={summary.data?.xp ?? 0}
+                    label="Total XP"
+                    loading={summary.isLoading}
+                  />
+                  <View style={styles.statsDivider} />
+                  <GradientStatCell
+                    index={2}
+                    icon="award"
+                    value={summary.data?.phrasesMastered ?? 0}
+                    label="Mastered"
+                    loading={summary.isLoading}
+                  />
+                </Pressable>
                 <View style={styles.statsDivider} />
                 <GradientStatCell
                   index={3}
@@ -1098,6 +1114,11 @@ const styles = StyleSheet.create({
   // pass. Only enough gap that the pass looks like it is standing in front.
   stallBand: { marginBottom: 12 },
   statsRowWrapper: { marginBottom: 18 },
+  statsProgressGroup: {
+    flex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,

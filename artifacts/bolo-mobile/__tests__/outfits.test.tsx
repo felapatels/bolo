@@ -215,7 +215,7 @@ describe('the wardrobe previews before it charges', () => {
 
     expect(screen.queryByTestId('outfit-buy')).toBeNull();
     expect(screen.getByTestId('outfit-short')).toHaveTextContent(
-      '12 more Chai and he can wear it.',
+      '12 more Chai and she can wear it.',
     );
   });
 

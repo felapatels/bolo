@@ -46,6 +46,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAppearSkip } from '@/lib/entrance';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -55,7 +56,7 @@ import { AppFonts } from '@/constants/fonts';
 import { hapticTap } from '@/lib/haptics';
 import { Mascot } from '@/components/Mascot';
 import { GlobeButton } from '@/components/GlobeButton';
-import { GamePreview } from '@/components/games/GamePreview';
+import { GamePreview, type VignetteInk } from '@/components/games/GamePreview';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -181,27 +182,78 @@ const GAMES: GameDef[] = [
  * palettes: `tint` is the web pressGlow hue (sky/emerald/amber/rose/violet
  * 400), `icon` the 600-weight accent, `glow` the exact web press-bloom rgba.
  */
-type GameColor = { tint: string; icon: string; glow: string };
+type GameColor = {
+  /** Enamel gradient stops (top-left → bottom-right). */
+  from: string;
+  to: string;
+  /** Deeper edge: border and the chunky bottom edge the board sits on. */
+  deep: string;
+  /** Icon ink on the cream medallion. */
+  ink: string;
+  /** Press bloom (animated shadowOpacity). */
+  glow: string;
+};
 
+/**
+ * Per-game color identity, web parity. These are NOT tints over the theme
+ * card: every tile is a painted enamel signboard in a saturated Indian hue
+ * (marigold, kumkum, peacock, jamun, terracotta, rani pink), so the hub reads
+ * as a bazaar wall of boards. The tile carries the color, so all card text is
+ * cream/white and the badges sit on a scrim - theme foreground tokens are
+ * deliberately NOT used inside a tile (they would vanish), the same rule the
+ * chai stall and Bolo Bazaar follow.
+ *
+ * Gated cards render in FULL COLOR; the All-Access badge and lock chip carry
+ * the gate.
+ */
 const GAME_COLORS: Record<string, GameColor> = {
-  'word-match': { tint: '#38BDF8', icon: '#0284C7', glow: 'rgba(56,189,248,0.45)' },
-  'listen-and-pick': { tint: '#34D399', icon: '#059669', glow: 'rgba(52,211,153,0.45)' },
-  'phrase-builder': { tint: '#FBBF24', icon: '#D97706', glow: 'rgba(251,191,36,0.45)' },
-  'speed-round': { tint: '#FB7185', icon: '#E11D48', glow: 'rgba(251,113,133,0.45)' },
-  'bolo-quiz': { tint: '#A78BFA', icon: '#7C3AED', glow: 'rgba(167,139,250,0.45)' },
+  // peacock blue
+  'word-match': { from: '#1B7A8F', to: '#0E5567', deep: '#0A3F4D', ink: '#0E5567', glow: 'rgba(27,122,143,0.55)' },
+  // parrot green
+  'listen-and-pick': { from: '#2E9E4F', to: '#177038', deep: '#0F5228', ink: '#177038', glow: 'rgba(46,158,79,0.55)' },
+  // turmeric / marigold
+  'phrase-builder': { from: '#F0A11B', to: '#D2740A', deep: '#A85700', ink: '#B35F00', glow: 'rgba(240,161,27,0.55)' },
+  // kumkum red
+  'speed-round': { from: '#E14434', to: '#B3251D', deep: '#8A1912', ink: '#B3251D', glow: 'rgba(225,68,52,0.55)' },
+  // jamun purple
+  'bolo-quiz': { from: '#7B3FA8', to: '#57217D', deep: '#41165F', ink: '#57217D', glow: 'rgba(123,63,168,0.55)' },
+  // terracotta kulhad
+  'ticket-check': { from: '#D9702F', to: '#B04A15', deep: '#8A370C', ink: '#B04A15', glow: 'rgba(217,112,47,0.55)' },
+  // rani pink
+  'wrong-platform': { from: '#D33A7B', to: '#A81C58', deep: '#821242', ink: '#A81C58', glow: 'rgba(211,58,123,0.55)' },
+  // deep teal
+  'luggage-match': { from: '#17897E', to: '#0B5F58', deep: '#084741', ink: '#0B5F58', glow: 'rgba(23,137,126,0.55)' },
+  // express indigo
+  'express-listening': { from: '#4453B8', to: '#2A3390', deep: '#1F2670', ink: '#2A3390', glow: 'rgba(68,83,184,0.55)' },
+  // signal green
+  'signal-lights': { from: '#3E8E41', to: '#256A2B', deep: '#1A4E1F', ink: '#256A2B', glow: 'rgba(62,142,65,0.55)' },
 };
 
 /** Neutral fallback so an unmapped future game still renders sensibly. */
 const FALLBACK_COLOR: GameColor = {
-  tint: '#94A3B8',
-  icon: '#64748B',
-  glow: 'rgba(148,163,184,0.35)',
+  from: '#5B6474',
+  to: '#3E4653',
+  deep: '#2C333D',
+  ink: '#3E4653',
+  glow: 'rgba(91,100,116,0.5)',
 };
 
-const DIFFICULTY_COLORS: Record<GameDef['difficulty'], string> = {
-  Beginner: '#10B981',
-  Intermediate: '#F59E0B',
-  Advanced: '#6366F1',
+/**
+ * Vignettes sit on a cream medallion inside a saturated board, so their shape
+ * colors are pinned to the LIGHT theme in both appearances (see VignetteInk).
+ */
+const MEDALLION_INK: VignetteInk = {
+  primary: '#4F46E5',
+  secondary: '#0D9488',
+  accent: '#14B8A6',
+  mutedForeground: '#64748B',
+};
+
+/** Difficulty is a dot + white label; a hue alone can't carry it on a board. */
+const DIFFICULTY_DOT: Record<GameDef['difficulty'], string> = {
+  Beginner: '#5BE58A',
+  Intermediate: '#FFC93C',
+  Advanced: '#FF8A65',
 };
 
 /**
@@ -354,9 +406,7 @@ function GameCardTile({
   reduceMotion: boolean;
   onPress: () => void;
 }) {
-  const colors = useColors();
   const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
-  const diffColor = DIFFICULTY_COLORS[game.difficulty];
 
   // Pressed drives both the squash/glow and the vignette wake.
   const [pressed, setPressed] = React.useState(false);
@@ -403,92 +453,73 @@ function GameCardTile({
         style={[
           styles.card,
           {
-            backgroundColor: locked ? `${gc.tint}0D` : `${gc.tint}14`,
-            borderColor: locked ? `${gc.tint}33` : `${gc.tint}59`,
-            // Locked: same hue, washed out - colorful but obviously gated.
-            opacity: locked ? 0.8 : 1,
+            // The deeper hue is both the border and the chunky bottom edge
+            // the board appears to sit on (web parity: a hard 0 5px shadow).
+            borderColor: gc.deep,
+            borderBottomColor: gc.deep,
+            backgroundColor: gc.to,
             shadowColor: gc.glow,
           },
           motionStyle,
         ]}
       >
-        {/* Vignette bubble + pills row */}
+        {/* Painted enamel face. */}
+        <LinearGradient
+          colors={[gc.from, gc.to]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Vignette medallion + badge row */}
         <View style={styles.topRow}>
-          <View
-            style={[
-              styles.bubble,
-              { backgroundColor: locked ? `${gc.tint}17` : `${gc.tint}26` },
-            ]}
-          >
+          <View style={styles.medallion}>
             <GamePreview
               gameId={game.id}
               index={index}
               playing={!reduceMotion && (locked ? pressed : visible || pressed)}
               tempo={pressed ? 1 : 2.2}
               holdMidCycle={locked && !reduceMotion}
-              fallback={
-                <Feather
-                  name={game.icon}
-                  size={22}
-                  color={locked ? `${gc.icon}99` : gc.icon}
-                />
-              }
+              ink={MEDALLION_INK}
+              fallback={<Feather name={game.icon} size={32} color={gc.ink} />}
             />
           </View>
           <View style={styles.pillCol}>
             {game.plusOnly ? (
-              <View
-                style={[
-                  styles.pill,
-                  {
-                    backgroundColor: `${colors.primary}18`,
-                    borderColor: `${colors.primary}30`,
-                  },
-                ]}
-              >
-                <Feather name="star" size={9} color={colors.primary} />
-                <Text style={[styles.pillText, { color: colors.primary }]}>
-                  All-Access
-                </Text>
+              <View style={[styles.pill, styles.pillAllAccess]}>
+                <Feather name="star" size={10} color="#4A2C00" />
+                <Text style={[styles.pillText, { color: '#4A2C00' }]}>All-Access</Text>
               </View>
             ) : (
-              <View
-                style={[
-                  styles.pill,
-                  { backgroundColor: '#10B98118', borderColor: '#10B98130' },
-                ]}
-              >
-                <Text style={[styles.pillText, { color: '#10B981' }]}>Free</Text>
+              <View style={[styles.pill, styles.pillFree]}>
+                <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Free</Text>
               </View>
-            )}
-            {locked && (
-              <Feather
-                name="lock"
-                size={14}
-                color={colors.mutedForeground}
-                style={styles.lockIcon}
-              />
             )}
           </View>
         </View>
 
         {/* Title & description */}
         <View style={styles.cardBody}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
             {game.title}
           </Text>
-          <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
+          <Text style={styles.cardDesc} numberOfLines={2}>
             {game.description}
           </Text>
         </View>
 
-        {/* Difficulty badge, pinned to the card bottom like the web card */}
-        <View
-          style={[styles.difficultyPill, { backgroundColor: `${diffColor}1A` }]}
-        >
-          <Text style={[styles.difficultyText, { color: diffColor }]}>
-            {game.difficulty}
-          </Text>
+        {/* Difficulty badge, plus the lock chip on gated cards. */}
+        <View style={styles.footRow}>
+          <View style={styles.difficultyPill}>
+            <View
+              style={[styles.diffDot, { backgroundColor: DIFFICULTY_DOT[game.difficulty] }]}
+            />
+            <Text style={styles.difficultyText}>{game.difficulty}</Text>
+          </View>
+          {locked && (
+            <View style={styles.lockChip}>
+              <Feather name="lock" size={10} color="#FFFFFF" />
+            </View>
+          )}
         </View>
       </AnimatedPressable>
     </Animated.View>
@@ -524,10 +555,14 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    borderRadius: 18,
+    borderWidth: 2,
+    // Chunky bottom edge: the board sits on its own deeper hue (web parity
+    // with the hard `0 5px 0` shadow, which RN cannot express directly).
+    borderBottomWidth: 5,
+    overflow: 'hidden',
+    padding: 12,
+    gap: 8,
     // Press bloom: hue glow fades in via animated shadowOpacity.
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
@@ -538,13 +573,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  bubble: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+  medallion: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFF8EC',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   pillCol: {
     alignItems: 'flex-end',
@@ -554,39 +592,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 100,
-    borderWidth: 1,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.72)',
+  },
+  pillAllAccess: {
+    backgroundColor: '#F5B31B',
+  },
+  pillFree: {
+    backgroundColor: '#22C55E',
   },
   pillText: {
-    fontFamily: AppFonts.bold,
+    fontFamily: AppFonts.extrabold,
     fontSize: 10,
-  },
-  lockIcon: {
-    marginTop: 1,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   cardBody: {
-    gap: 3,
+    gap: 2,
   },
   cardTitle: {
-    fontFamily: AppFonts.bold,
+    fontFamily: AppFonts.extrabold,
     fontSize: 15,
+    color: '#FFFFFF',
   },
   cardDesc: {
     fontFamily: AppFonts.regular,
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.86)',
+  },
+  footRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 'auto',
   },
   difficultyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
-    marginTop: 'auto',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 100,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  diffDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   difficultyText: {
-    fontFamily: AppFonts.semibold,
-    fontSize: 11,
+    fontFamily: AppFonts.extrabold,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  lockChip: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
 });

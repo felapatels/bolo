@@ -74,6 +74,22 @@ jest.mock('@/constants/fonts', () => ({
   nativeTextStyle: () => ({}),
 }));
 
+// The Bazaar button navigates; outside a mounted root layout expo-router
+// refuses to route, so the router itself is the mock.
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockState.push }),
+}));
+
+// The wallet's language row is free-tier only, so the sheet now reads
+// entitlements (the real hook throws outside its provider).
+jest.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: () => ({
+    isPlus: mockState.isPlus ?? false,
+    isOneLanguage: mockState.isOneLanguage ?? false,
+    isLoading: false,
+  }),
+}));
+
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ApiError } from '@workspace/api-client-react';
 
@@ -89,6 +105,9 @@ function tokensQuery(data: unknown) {
 }
 
 beforeEach(() => {
+  mockState.push = jest.fn();
+  mockState.isPlus = false;
+  mockState.isOneLanguage = false;
   mockState.spendCalls = [];
   mockState.spendHandlers = undefined;
   mockState.invalidateQueries = jest.fn();
@@ -248,5 +267,52 @@ describe('express countdown', () => {
     expect(mockState.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['/api/tokens'],
     });
+  });
+
+  // Build 37: the Bazaar row's worded "Browse" link became a real button,
+  // matching the other rows; it still closes the sheet on the way out.
+  it('opens the wardrobe from a real Browse button', () => {
+    const onClose = jest.fn();
+    render(<ChaiWalletSheet visible onClose={onClose} />);
+
+    const browse = screen.getByTestId('wallet-open-wardrobe');
+    expect(browse).toHaveTextContent('Browse');
+    // Bolo is female; the row copy must not call her a boy.
+    expect(
+      screen.getByText('Outfits for Bolo. Buy once, hers for good.'),
+    ).toBeOnTheScreen();
+
+    fireEvent.press(browse);
+    expect(onClose).toHaveBeenCalled();
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/outfits');
+  });
+
+  // Build 37: Chai also buys stops beyond Hindi — but only a free learner
+  // needs telling, so the row is free-tier only and explains itself in place.
+  it('offers the language row to free learners and explains it', () => {
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    expect(screen.getByTestId('wallet-language-row')).toBeOnTheScreen();
+    expect(screen.queryByTestId('wallet-language-info-dialog')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('wallet-language-info'));
+    expect(
+      screen.getByText('Unlock a language with Chai'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'You can use Chai to unlock additional non-Hindi stops. Open the journey for a locked language and spend your Chai on a stop to ride it.',
+      ),
+    ).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('wallet-language-info-close'));
+    expect(screen.queryByTestId('wallet-language-info-dialog')).toBeNull();
+  });
+
+  it('hides the language row once a plan is paid for', () => {
+    mockState.isPlus = true;
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+
+    expect(screen.queryByTestId('wallet-language-row')).toBeNull();
   });
 });

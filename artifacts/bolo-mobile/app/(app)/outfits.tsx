@@ -16,6 +16,7 @@ import { Mascot } from '@/components/Mascot';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { Awning, MarigoldString } from '@/components/IndiaDecor';
+import { DressingRoom } from '@/components/DressingRoom';
 import { INDIA } from '@/constants/india';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -81,6 +82,28 @@ export default function OutfitsScreen() {
 
   const shownOutfit = data?.outfits.find((o) => o.id === shown) ?? null;
 
+  // The changing room. Every costume change draws the curtain, swaps the art
+  // behind it and opens again — an in-place swap read as a glitch. Outfit art
+  // is bundled here rather than fetched, so the wait is a dressing beat, not
+  // a load; the timer is still cleared on unmount so the curtain cannot be
+  // left shut over the product.
+  const [changing, setChanging] = React.useState(false);
+  const dressedAs = React.useRef<string | null | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (dressedAs.current === shown) return;
+    const first = dressedAs.current === undefined;
+    dressedAs.current = shown;
+    if (first) return; // the shop opens with the curtain already up
+
+    setChanging(true);
+    // Long enough to read as a change of clothes rather than a flicker.
+    const beat = setTimeout(() => setChanging(false), 1100);
+    return () => clearTimeout(beat);
+  }, [shown]);
+
+  const tryOn = (outfitId: string) => setPreviewed(outfitId);
+
   return (
     <Screen>
       <MilestoneToast message={notice} toastKey={noticeKey} />
@@ -136,17 +159,21 @@ export default function OutfitsScreen() {
             </View>
 
             <Text style={styles.shopLine}>
-              Everything here is stitched for one bird. Buy it once and it stays
-              his.
+              Everything here is stitched for one bird. Buy it once and it
+              stays hers.
             </Text>
 
             {/* Preview: the learner's own Bolo, at the counter in whatever is
                 selected. */}
             <View testID="outfit-preview" style={styles.preview}>
-              <Mascot pose="wave" size={180} motion="float" outfit={shown} />
-              <Text style={styles.previewName}>
-                {shownOutfit ? shownOutfit.name : 'Bolo, as he comes'}
-              </Text>
+              <DressingRoom closed={changing}>
+                <View style={styles.stage}>
+                  <Mascot pose="wave" size={180} motion="float" outfit={shown} />
+                </View>
+              </DressingRoom>
+              {shownOutfit ? (
+                <Text style={styles.previewName}>{shownOutfit.name}</Text>
+              ) : null}
               {shownOutfit ? (
                 <Text style={styles.previewTagline}>{shownOutfit.tagline}</Text>
               ) : null}
@@ -228,7 +255,7 @@ export default function OutfitsScreen() {
               testID="outfit-short"
               style={[styles.shortText, { color: colors.mutedForeground }]}
             >
-              {shownOutfit.cost - balance} more Chai and he can wear it.
+              {shownOutfit.cost - balance} more Chai and she can wear it.
             </Text>
           ) : (
             <Pressable
@@ -255,58 +282,136 @@ export default function OutfitsScreen() {
           )}
         </View>
 
-        {/* The rack. Tapping a costume only previews it — nothing is spent and
-            nothing is worn until the learner says so above. */}
+        {/* The rack. Every bolt of cloth carries its own two doors: Try On is
+            a free preview (nothing spent, nothing worn), Buy Now is the till.
+            The card body still previews on press as a convenience, but the
+            buttons are the affordance — a whole-card tap gave the learner no
+            way to know that tapping was safe. */}
         <View style={styles.rack}>
-          {(data?.outfits ?? []).map((outfit) => (
-            <Pressable
-              key={outfit.id}
-              testID={`outfit-card-${outfit.id}`}
-              accessibilityRole="button"
-              onPress={() => setPreviewed(outfit.id)}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.card,
-                  borderColor:
-                    shown === outfit.id ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              {/* The cloth-tag spine down the left of every bolt on the
-                  shelf: green once it is his, marigold while it is for sale. */}
-              <View
+          {(data?.outfits ?? []).map((outfit) => {
+            const isShown = shown === outfit.id;
+            const isWorn = outfit.id === equipped;
+            const short = outfit.cost - balance;
+            return (
+              <Pressable
+                key={outfit.id}
+                testID={`outfit-card-${outfit.id}`}
+                accessibilityRole="button"
+                onPress={() => tryOn(outfit.id)}
                 style={[
-                  styles.cardSpine,
+                  styles.card,
                   {
-                    backgroundColor: outfit.owned ? INDIA.board : INDIA.gold,
+                    backgroundColor: colors.card,
+                    borderColor: isShown ? colors.primary : colors.border,
                   },
                 ]}
-              />
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  {outfit.name}
-                </Text>
-                <Text
-                  style={[styles.cardDesc, { color: colors.mutedForeground }]}
-                >
-                  {outfit.tagline}
-                </Text>
-              </View>
-              {outfit.owned ? (
-                <Text style={[styles.ownedTag, { color: colors.primary }]}>
-                  {outfit.id === equipped ? 'Wearing' : 'Owned'}
-                </Text>
-              ) : (
-                <View style={styles.priceTag}>
-                  <Text style={[styles.priceText, { color: colors.foreground }]}>
-                    {outfit.cost}
-                  </Text>
-                  <ChaiGlyph size={14} />
+              >
+                <View style={styles.cardTop}>
+                  {/* The cloth-tag spine down the left of every bolt on the
+                      shelf: green once it is hers, marigold while it is for
+                      sale. */}
+                  <View
+                    style={[
+                      styles.cardSpine,
+                      {
+                        backgroundColor: outfit.owned ? INDIA.board : INDIA.gold,
+                      },
+                    ]}
+                  />
+                  <View style={styles.cardInfo}>
+                    <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+                      {outfit.name}
+                    </Text>
+                    <Text
+                      style={[styles.cardDesc, { color: colors.mutedForeground }]}
+                    >
+                      {outfit.tagline}
+                    </Text>
+                  </View>
+                  {outfit.owned ? (
+                    <Text style={[styles.ownedTag, { color: colors.primary }]}>
+                      {isWorn ? 'Wearing' : 'Owned'}
+                    </Text>
+                  ) : (
+                    <View style={styles.priceTag}>
+                      <Text
+                        style={[styles.priceText, { color: colors.foreground }]}
+                      >
+                        {outfit.cost}
+                      </Text>
+                      <ChaiGlyph size={14} />
+                    </View>
+                  )}
                 </View>
-              )}
-            </Pressable>
-          ))}
+
+                <View style={styles.cardActions}>
+                  <Pressable
+                    testID={`outfit-tryon-${outfit.id}`}
+                    accessibilityRole="button"
+                    onPress={() => tryOn(outfit.id)}
+                    style={({ pressed }) => [
+                      styles.tryOnBtn,
+                      pressed && styles.btnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.tryOnText}>
+                      {isShown ? 'On the bird' : 'Try On'}
+                    </Text>
+                  </Pressable>
+
+                  {outfit.owned ? (
+                    <Pressable
+                      testID={
+                        isWorn
+                          ? `outfit-takeoff-${outfit.id}`
+                          : `outfit-wear-${outfit.id}`
+                      }
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={() =>
+                        equip.mutate({
+                          data: { outfitId: isWorn ? null : outfit.id },
+                        })
+                      }
+                      style={({ pressed }) => [
+                        styles.cardPrimaryBtn,
+                        { backgroundColor: colors.primary },
+                        (pressed || busy) && styles.btnDisabled,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.cardBtnText,
+                          { color: colors.primaryForeground },
+                        ]}
+                      >
+                        {isWorn ? 'Take it off' : 'Wear this'}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      testID={`outfit-buynow-${outfit.id}`}
+                      accessibilityRole="button"
+                      disabled={busy || short > 0}
+                      onPress={() => {
+                        setPreviewed(outfit.id);
+                        buy.mutate({ data: { outfitId: outfit.id } });
+                      }}
+                      style={({ pressed }) => [
+                        styles.buyNowBtn,
+                        (pressed || busy || short > 0) && styles.btnDisabled,
+                      ]}
+                    >
+                      <Text style={[styles.cardBtnText, { color: INDIA.cream }]}>
+                        {short > 0 ? `${short} more` : `Buy Now · ${outfit.cost}`}
+                      </Text>
+                      <ChaiGlyph size={14} />
+                    </Pressable>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
 
           {shown !== equipped ? (
             <Pressable
@@ -318,7 +423,7 @@ export default function OutfitsScreen() {
               <Text
                 style={[styles.cancelText, { color: colors.mutedForeground }]}
               >
-                Back out — show my Bolo as he is
+                Back out — show my Bolo as she is
               </Text>
             </Pressable>
           ) : null}
@@ -388,6 +493,7 @@ const styles = StyleSheet.create({
     color: INDIA.ink,
   },
   preview: { alignItems: 'center', marginTop: 8 },
+  stage: { alignItems: 'center', paddingTop: 12 },
   previewName: {
     fontFamily: AppFonts.extrabold,
     fontSize: 15,
@@ -425,13 +531,41 @@ const styles = StyleSheet.create({
   shortText: { fontFamily: AppFonts.bold, fontSize: 14, textAlign: 'center' },
   rack: { marginTop: 24, gap: 12 },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     borderWidth: 1,
     borderRadius: 18,
     padding: 16,
   },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  tryOnBtn: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: INDIA.gold,
+    backgroundColor: INDIA.cloth,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  tryOnText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: INDIA.board },
+  cardPrimaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  buyNowBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 10,
+    backgroundColor: INDIA.board,
+    borderBottomWidth: 3,
+    borderBottomColor: INDIA.boardDeep,
+  },
+  cardBtnText: { fontFamily: AppFonts.extrabold, fontSize: 13 },
   cardSpine: { width: 6, height: 40, borderRadius: 999 },
   cardInfo: { flex: 1, minWidth: 0 },
   cardTitle: { fontFamily: AppFonts.extrabold, fontSize: 15 },

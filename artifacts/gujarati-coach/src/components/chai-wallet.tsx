@@ -4,16 +4,17 @@
 // derived from expressMultiplierActiveUntil, never from a client-side timer.
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { X } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
-import { MarigoldString } from "@/components/india-decor";
 import {
   BazaarTile,
   ExpressTile,
+  LanguagesTile,
   StationPauseTile,
 } from "@/components/wallet-art";
 import { INDIA } from "@/lib/india-palette";
+import { useEntitlements } from "@/lib/entitlements";
 import {
   ApiError,
   getGetTokensQueryKey,
@@ -26,6 +27,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +43,45 @@ const STATION_PAUSE_COST = 5;
 const EXPRESS_MULTIPLIER_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
 
-const VIGNETTE_SRC = `${import.meta.env.BASE_URL}mascot/chachaji-wallet-vignette.png`;
+// The wallet opens on Chacha-ji's stall itself — the painted scene, with the
+// balance struck across it. (The home band still composites the layered art;
+// this is a single flattened still, used only as a header.)
+const HEADER_SRC = `${import.meta.env.BASE_URL}stall/wallet-header.jpg`;
+
+// Spend buttons are bazaar green, not app indigo: the kulhad glyph is
+// terracotta, which muddied against indigo and pops against the signboard
+// enamel. Fixed scene colours (lib/india-palette.ts) with cream lettering —
+// contrast holds in both themes.
+const SPEND_BTN_CLASS =
+  "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50";
+// Enamel, not flat paint: a lit top edge fading into the board green, over the
+// deep-green shadow the button presses into.
+const SPEND_BTN_STYLE = {
+  backgroundImage: `linear-gradient(180deg, #1E7357 0%, ${INDIA.board} 58%, #103F31 100%)`,
+  color: INDIA.cream,
+  boxShadow: `0 4px 0 ${INDIA.boardDeep}, inset 0 1px 0 rgba(255,247,234,0.35)`,
+} as const;
+
+/**
+ * The kulhad on a spend button, lit. Terracotta on green is two mid-tone warm
+ * colours side by side and the cup disappeared into the enamel, so the glyph
+ * now sits on a cream coin with a marigold halo — the same trick the games
+ * hub uses to keep vignette art readable on a painted board.
+ */
+function ChaiCoin() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+      style={{
+        background: `radial-gradient(circle at 50% 45%, ${INDIA.cream} 52%, ${INDIA.gold} 100%)`,
+        boxShadow: `0 0 10px 1px rgba(240,163,43,0.75), inset 0 0 0 1px rgba(240,163,43,0.55)`,
+      }}
+    >
+      <ChaiGlyph className="h-4 w-4" />
+    </span>
+  );
+}
 
 // One dismissal hides the offer moment everywhere for the rest of the session.
 const EXPRESS_OFFER_DISMISS_KEY = "chai-express-offer-dismissed";
@@ -143,50 +189,54 @@ export function ChaiWalletSheet({
   const spend = useSpendWithRefresh();
   const tokens = tokensQuery.data;
   const countdown = useExpressCountdown(tokens?.expressMultiplierActiveUntil);
+  const [, navigate] = useLocation();
+  // The language row is a free-tier row only: a paid plan already owns the
+  // stops it would explain how to buy.
+  const { isPaid, isLoading: entitlementsLoading } = useEntitlements();
+  const [languageInfoOpen, setLanguageInfoOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="mx-auto max-w-md rounded-t-3xl"
+        className="mx-auto max-w-md overflow-hidden rounded-t-3xl p-0 [&>button]:z-10 [&>button]:text-white [&>button]:opacity-90"
         data-testid="chai-wallet-sheet"
       >
-        <SheetHeader className="text-left">
-          <SheetTitle>Chai Wallet</SheetTitle>
-        </SheetHeader>
-        {/* The tin, on a strip of bazaar wall with a toran over it. Fixed
-            scene colours (lib/india-palette.ts), so the band reads the same
-            in both themes; the rows below stay on design tokens. */}
-        <div
-          data-testid="wallet-balance-band"
-          className="mt-2 overflow-hidden rounded-2xl"
-          style={{ background: INDIA.wall }}
-        >
-          <MarigoldString className="px-4 pt-3" />
-          <div className="flex items-center gap-3 px-4 pb-3 pt-2">
-            <img
-              src={VIGNETTE_SRC}
-              alt="Chacha-ji offering a cup of chai"
-              className="h-14 w-14 shrink-0 object-contain"
-            />
-            <div className="flex items-baseline gap-2">
-              <span
-                className="text-4xl font-black leading-none"
-                style={{ color: INDIA.board }}
-              >
-                {tokens?.balance ?? "-"}
-              </span>
-              <span
-                className="text-sm font-bold uppercase tracking-wider"
-                style={{ color: INDIA.ink }}
-              >
-                Chai
-              </span>
-            </div>
+        {/* The wallet opens ON the stall: the painted scene as the header,
+            with the balance struck across the bottom of it. The scrim is what
+            keeps white lettering legible over a warm sunset. */}
+        <div className="relative" data-testid="wallet-header">
+          <img
+            src={HEADER_SRC}
+            alt=""
+            aria-hidden="true"
+            className="h-32 w-full object-cover"
+          />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(24,16,12,0.58) 0%, rgba(24,16,12,0.08) 44%, rgba(24,16,12,0.78) 100%)",
+            }}
+          />
+          <SheetHeader className="absolute inset-x-0 top-0 space-y-0 p-4 text-left">
+            <SheetTitle className="text-lg text-white">Chai Wallet</SheetTitle>
+          </SheetHeader>
+          <div
+            data-testid="wallet-balance-band"
+            className="absolute inset-x-0 bottom-0 flex items-end gap-2 px-4 pb-3"
+          >
+            <ChaiGlyph className="h-9 w-9" />
+            <span className="text-4xl font-black leading-none text-white">
+              {tokens?.balance ?? "-"}
+            </span>
+            <span className="pb-1 text-sm font-bold uppercase tracking-wider text-white/85">
+              Chai
+            </span>
           </div>
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="space-y-3 p-5">
           <div
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
             style={{
@@ -209,18 +259,16 @@ export function ChaiWalletSheet({
               disabled={spend.isPending}
               onClick={() => spend.mutate({ data: { item: "station_pause" } })}
               data-testid="wallet-equip-pause"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+              className={SPEND_BTN_CLASS}
+              style={SPEND_BTN_STYLE}
             >
-              <span>Equip · 5</span>
-              <ChaiGlyph className="h-4 w-4" />
+              <span>Equip · {STATION_PAUSE_COST}</span>
+              <ChaiCoin />
             </button>
           </div>
 
-          <Link
-            href="/outfits"
-            onClick={() => onOpenChange(false)}
-            data-testid="wallet-open-wardrobe"
-            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-primary/40"
+          <div
+            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
             style={{
               backgroundImage: `linear-gradient(90deg, ${INDIA.stripe}1A 0%, transparent 55%)`,
             }}
@@ -229,13 +277,22 @@ export function ChaiWalletSheet({
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Bolo Bazaar</p>
               <p className="text-xs leading-snug text-muted-foreground">
-                Outfits for Bolo. Buy once, his for good.
+                Outfits for Bolo. Buy once, hers for good.
               </p>
             </div>
-            <span className="shrink-0 text-sm font-black text-primary">
+            <button
+              type="button"
+              onClick={() => {
+                onOpenChange(false);
+                navigate("/outfits");
+              }}
+              data-testid="wallet-open-wardrobe"
+              className={SPEND_BTN_CLASS}
+              style={SPEND_BTN_STYLE}
+            >
               Browse
-            </span>
-          </Link>
+            </button>
+          </div>
 
           <div
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
@@ -265,14 +322,66 @@ export function ChaiWalletSheet({
                   spend.mutate({ data: { item: "express_multiplier" } })
                 }
                 data-testid="wallet-start-express"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+                className={SPEND_BTN_CLASS}
+                style={SPEND_BTN_STYLE}
               >
-                <span>Start · 10</span>
-                <ChaiGlyph className="h-4 w-4" />
+                <span>Start · {EXPRESS_MULTIPLIER_COST}</span>
+                <ChaiCoin />
               </button>
             )}
           </div>
+
+          {!entitlementsLoading && !isPaid && (
+            <div
+              data-testid="wallet-language-row"
+              className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+              style={{
+                backgroundImage: `linear-gradient(90deg, ${INDIA.board}1F 0%, transparent 55%)`,
+              }}
+            >
+              <LanguagesTile />
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-foreground">Unlock a Language</p>
+                <p className="text-xs leading-snug text-muted-foreground">
+                  Chai opens stops beyond Hindi.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLanguageInfoOpen(true)}
+                data-testid="wallet-language-info"
+                className={SPEND_BTN_CLASS}
+                style={SPEND_BTN_STYLE}
+              >
+                How it works
+              </button>
+            </div>
+          )}
         </div>
+
+        <Dialog open={languageInfoOpen} onOpenChange={setLanguageInfoOpen}>
+          <DialogContent
+            className="max-w-sm"
+            data-testid="wallet-language-info-dialog"
+          >
+            <DialogHeader>
+              <DialogTitle>Unlock a language with Chai</DialogTitle>
+              <DialogDescription>
+                You can use Chai to unlock additional non-Hindi stops. Open the
+                journey for a locked language and spend your Chai on a stop to
+                ride it.
+              </DialogDescription>
+            </DialogHeader>
+            <button
+              type="button"
+              onClick={() => setLanguageInfoOpen(false)}
+              className={cn(SPEND_BTN_CLASS, "w-full justify-center")}
+              style={SPEND_BTN_STYLE}
+            >
+              Got it
+            </button>
+          </DialogContent>
+        </Dialog>
       </SheetContent>
     </Sheet>
   );

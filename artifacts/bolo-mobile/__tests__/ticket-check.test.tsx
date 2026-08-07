@@ -334,23 +334,35 @@ describe('Ticket Check round', () => {
     expect(screen.queryByTestId('ticket-check-continue')).toBeNull();
   });
 
-  test('the reveal shows romanized on every tile and the meaning on the correct one', async () => {
+  test('every tile pairs script with reading from the first look, and the question shows no reading', async () => {
+    await startRun();
+
+    const english = screen.getByTestId('ticket-english').props.children as string;
+    const target = PHRASES.find((p) => p.english === english)!;
+
+    // The reading is part of the answer, not a post-pick reveal.
+    for (let i = 0; i < CHOICES; i++) {
+      const tile = screen.getByTestId(`ticket-choice-${i}`);
+      const shown = PHRASES.find((p) => within(tile).queryByText(p.nativeScript))!;
+      expect(within(tile).queryByText(shown.romanized)).toBeTruthy();
+    }
+    // The ticket being checked names the meaning ALONE: printing the reading
+    // on the prompt handed over the recognition the game is testing. (The
+    // tiles carry it, so scope the check to the ticket itself.)
+    expect(
+      within(screen.getByTestId('ticket-prompt')).queryByText(target.romanized),
+    ).toBeNull();
+  });
+
+  test('the meaning is revealed on the correct tile once answered', async () => {
     await startRun();
 
     const english = screen.getByTestId('ticket-english').props.children as string;
     const target = PHRASES.find((p) => p.english === english)!;
     const ci = correctIndexNow();
 
-    // Nothing revealed yet.
-    expect(within(screen.getByTestId(`ticket-choice-${ci}`)).queryByText(target.romanized)).toBeNull();
-
     fireEvent.press(screen.getByTestId(`ticket-choice-${ci}`));
 
-    for (let i = 0; i < CHOICES; i++) {
-      const tile = screen.getByTestId(`ticket-choice-${i}`);
-      const shown = PHRASES.find((p) => within(tile).queryByText(p.nativeScript))!;
-      expect(within(tile).queryByText(shown.romanized)).toBeTruthy();
-    }
     // Only the correct tile names its meaning.
     expect(within(screen.getByTestId(`ticket-choice-${ci}`)).queryByText(target.english)).toBeTruthy();
   });

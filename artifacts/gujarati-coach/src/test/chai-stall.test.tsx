@@ -46,22 +46,22 @@ function read(rel: string): string {
 
 /**
  * The Chai surfaces and how many amounts each one marks. Total is the
- * per-platform count; web carries SEVEN (the wallet sheet marks both spend
- * buttons). Mobile's twin census lives in
+ * per-platform count; the wallet sheet marks two (its balance on the stall
+ * header art, and one ChaiCoin shared by both spend buttons). Mobile's twin census lives in
  * artifacts/bolo-mobile/__tests__/chai-stall.test.tsx.
  */
 const GLYPH_SITES: Record<string, number> = {
   "components/chai-stall.tsx": 1, // the band's own balance readout
-  "components/chai-wallet.tsx": 2, // Equip · 5, Start · 10
+  "components/chai-wallet.tsx": 2, // balance on the header art + the shared ChaiCoin both spend buttons render
   "pages/home.tsx": 1, // Chai stat cell
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
   "pages/games/speed-round.tsx": 1, // +N Chai earned
   "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
   "pages/practice.tsx": 1, // session-chai-pill
-  "pages/outfits.tsx": 3, // wardrobe balance, Buy · 25, rack price
+  "pages/outfits.tsx": 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
 };
 
-const WEB_GLYPH_COUNT = 12;
+const WEB_GLYPH_COUNT = 13;
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {
