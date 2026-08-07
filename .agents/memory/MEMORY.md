@@ -130,4 +130,6 @@
 - [Stack-modal celebration guard](stack-modal-celebration-guard.md) — ported web overlays whose CTA navigates need a focus-cleared guard (parent stays mounted); mount query-running sheets on demand.
 - [Animated pose observability](animated-pose-observability.md) — keep a state POSE in a plain style, animate only the delta; otherwise reduced motion and tests see nothing.
 - [Games-route geometry](games-route-geometry.md) — aspect-ratio must be gated with the grid's column breakpoint; jsdom can't see layout and the auth-gated games routes need a real-browser probe.
+- [Chai stop unlocks](chai-stop-unlock.md) — ledger row IS the entitlement (refId = resource); unique index dedups replays but NOT budget — lock the balance row; split 402 cap vs 409 funds.
+- [Mascot outfits (Chai sink)](mascot-outfits.md) — ownership = ledger row (`outfit:<id>`), wearing = a column; one pose+outfit resolver per platform; crossfade makes DOM-order image assertions lie.
 - [Concurrency regression witness](concurrency-regression-witness.md) — carry the retired algorithm inline and interleave BETWEEN its two reads; interfering before the call leaves the old code passing too.

@@ -276,3 +276,24 @@ uri = "file://attached_assets/generated_images/chachaji-celebration.png"
 type = "image"
 title = "Chacha-ji — Celebration"
 description = "Kettle raised triumphantly, steam swirls and confetti."
+
+[[outputs]]
+id = "bYV-rUAx4iffY67275bfc"
+uri = "file://attached_assets/Listencholi_1786058935508.png"
+type = "image"
+title = "Navratri listen pose — original delivery"
+description = "The sixth Navratri PNG exactly as you sent it (opaque RGB, 1.19 MB). Nothing was written back to this file."
+
+[[outputs]]
+id = "H4dLmudFHd7SlIXn9GO9k"
+uri = "file://artifacts/gujarati-coach/public/mascot/outfits/navratri/mascot-listen.png"
+type = "image"
+title = "Navratri listen pose — installed (alpha, 137 KB)"
+description = "The processed copy sitting in the app: background flood-filled to transparency, feathered, quantized. Present on disk but unused, since there is no canonical listen pose to resolve against."
+
+[[outputs]]
+id = "VyQi7hRT2X2l8NygLw3Jq"
+uri = "file://artifacts/bolo-social-clips/public/images/mascot-listen.png"
+type = "image"
+title = "Canonical listen Bolo — un-costumed"
+description = "The original headphones listen pose, unchanged since July 13 and byte-identical to the committed version. Lives in the video artifacts only; the web and mobile apps ship five poses without it."
