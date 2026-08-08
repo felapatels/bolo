@@ -1397,6 +1397,22 @@ Two defects in `pages/games/express-listening.tsx`, both in the audio path that 
 
 **Debt.** None new. Known trap re-confirmed: dev-DB `drizzle-kit migrate` recorded the 0040 hash without executing the DDL; the committed SQL was applied by hand via psql and verified with to_regclass.
 
+## 10b-2. Referral R2: the web slice (August 8, 2026)
+
+R1 shipped the whole server side with nothing user-facing. R2 is web only (no mobile, no share card, no offer codes — referral rewards are Chai only, never subscription time). No R1 server changes: `pnpm --filter @workspace/api-spec run codegen` produced a zero diff, so R1's banked codegen step was already done and `useGetReferral` / `useRedeemReferral` were already in the generated client.
+
+**Carry-through (`src/lib/referral-code.ts`).** No prior pattern existed for surviving signup: `/family/join?invite=` sits behind `Guard`, which bounces a signed-out visitor to `/` and loses the token (a latent family-flow bug, untouched here). The two sessionStorage precedents are unrelated one-bit flags. So R2 introduces a localStorage slot `bolo.referralCode` = `{code, savedAt, attemptedAt?}` with a 30-day TTL. localStorage rather than sessionStorage because signup is not guaranteed to stay in one tab (social sign-up leaves the origin; emailed verification can open a fresh one). `REFERRAL_REWARD_CHAI = 25` mirrors `REFERRAL_REWARD_REFERRER_CHAI`/`_REFEREE_CHAI` (no shared constants package exists); it is the only reward literal on the web side.
+
+**One owner for the call (`src/components/referral-redeemer.tsx`).** A provider mounted above the router inside `QueryClientProvider` is the SINGLE caller of POST /referral/redeem, exposing `{status, message, attempt}`. Two callers (landing page + app-wide effect) would race and show the loser's 409 to a first-time referee. `startedRef` makes it single-flight within one mount; `attemptedAt` (written to storage *before* the POST) makes it single-flight across a reload mid-flight or a second tab — on a 409 where this browser had already attempted, the UI renders **redeemed**, not refused. Storage is cleared on every outcome so a refused code can never loop. Refusal text is echoed from the server's `error` body rather than duplicated client-side, so copy cannot drift from `REFERRAL_COPY`. Note R1's actual status split: 409 repeat, **400** self-referral, **404** unknown.
+
+**Surfaces.** `src/components/referral-card.tsx` renders inside account.tsx's local `Section` (icon `Gift`, "Invite friends"): code, Joined/Pending/Chai earned, copy-link and share (`navigator.share` with clipboard fallback). It is a Chai glyph census site (web total 14 → 15). `src/pages/join.tsx` is the public landing at `/join/:code` and `/join`, deliberately NOT behind `Guard`. It stores the code exactly once per code (a ref guard — re-running would re-store a code the redeemer had just cleared) and never dead-ends: signed-out gets the invite plus a sign-up CTA, signed-in gets confirmed / refused, both with a working way into the app.
+
+**`?redirect_url=` on the auth screens (`src/lib/auth-redirect.ts`).** New passthrough so the landing page can send the referee back to itself after signup instead of silently landing on home. Validated by canonical origin (`new URL(raw, origin).origin === origin`), NOT by prefix: `startsWith("/") && !startsWith("//")` waves through `/\evil.example`, which the URL parser reads as `//evil.example`. Percent-encoded `%5C` is a different, benign case (never re-decoded into a separator) and is pinned as same-origin.
+
+**Tests.** `src/test/referral.test.tsx`, 17 tests. Web suite 625 tests / 78 files, 623 pass; the 2 failures are the pre-existing `games-hub.test.tsx` pair from the games reorder commit, unrelated.
+
+**Debt.** (1) The `/family/join` guarded-invite token loss above. (2) `REFERRAL_REWARD_CHAI` is a hand-mirrored constant, same class of drift as the retired `TIER_PRICING`.
+
 ## 10c. Web prices come from Stripe, never from a constant (August 5, 2026)
 
 The web paywall and the public pricing preview showed hardcoded strings, and the Family strings had drifted from Stripe: displayed `$19.99`/mo and `$139.99`/yr against live prices of `$24.99`/mo and `$174.99`/yr (the annual gap was a second, unreported drift; All-Access `$12.99`/`$89.99` did match). Both tiers are genuinely purchasable on web through Stripe Checkout, so the displayed price was a real misquote, not decoration.

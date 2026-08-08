@@ -9,6 +9,7 @@ import {
   Route,
   Redirect,
   useLocation,
+  useSearch,
   Router as WouterRouter,
 } from 'wouter';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -21,6 +22,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
 import { ClerkAuthSync } from '@/components/clerk-auth-sync';
+import { ReferralRedemptionProvider } from '@/components/referral-redeemer';
+import { safeAuthRedirect } from '@/lib/auth-redirect';
 
 import Landing from '@/pages/landing';
 import Home from '@/pages/home';
@@ -87,6 +90,8 @@ const Privacy = lazyRoute(() => import('@/pages/privacy'));
 const Terms = lazyRoute(() => import('@/pages/terms'));
 // Public per-language SEO pages (/languages/<slug>), no auth required.
 const LearnLanguage = lazyRoute(() => import('@/pages/learn-language'));
+// Public: a shared referral link lands here, signed in or not.
+const Join = lazyRoute(() => import('@/pages/join'));
 const NotFound = lazyRoute(() => import('@/pages/not-found'));
 
 // Most-likely-next pages first; long tail after. Order matters because the
@@ -115,6 +120,7 @@ const PREFETCH_ORDER = [
   Privacy,
   Terms,
   LearnLanguage,
+  Join,
   NotFound,
 ];
 
@@ -249,25 +255,39 @@ const clerkAppearance = {
   },
 };
 
+// A `?redirect_url=` on the auth screens lets a landing page send the visitor
+// back to itself once the account exists (the referral link uses this, so the
+// referee sees their invite confirmed instead of silently arriving on home).
+// Same-origin app paths only, validated by canonical origin in
+// lib/auth-redirect: a shared link must never be able to bounce someone to
+// another site the moment they finish signing up.
+function useAuthRedirectUrl(): string | undefined {
+  return safeAuthRedirect(useSearch(), basePath);
+}
+
 function SignInPage() {
+  const redirectUrl = useAuthRedirectUrl();
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
+        forceRedirectUrl={redirectUrl}
       />
     </div>
   );
 }
 
 function SignUpPage() {
+  const redirectUrl = useAuthRedirectUrl();
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
+        forceRedirectUrl={redirectUrl}
       />
     </div>
   );
@@ -312,6 +332,11 @@ function AppRouter() {
       {/* Public per-language marketing/SEO pages. The /languages prefix is
           deliberate: /learn/:categoryId is the authenticated CategoryDetail. */}
       <Route path="/languages/:slug" component={LearnLanguage} />
+      {/* Referral landing. Deliberately NOT behind Guard: a signed-out visitor
+          arriving here is the whole point, and the family invite link shows
+          what guarding costs (Guard bounces to "/" and the token is lost). */}
+      <Route path="/join/:code" component={Join} />
+      <Route path="/join" component={Join} />
       <Route path="/choose-language">
         <Guard>
           <ChooseLanguage />
@@ -532,7 +557,12 @@ function ClerkProviderWithRoutes() {
               {/* What Bolo is wearing, resolved once for every mascot on
                   screen. Signed-out visitors fetch nothing (see the hook). */}
               <EquippedOutfitProvider>
-                <AppRouter />
+                {/* Owns the one POST /referral/redeem call. Sits above the
+                    router so a code stored before signup is still redeemed
+                    when Clerk drops the new learner on home. */}
+                <ReferralRedemptionProvider>
+                  <AppRouter />
+                </ReferralRedemptionProvider>
               </EquippedOutfitProvider>
               <IdleRoutePrefetch />
               <Toaster />

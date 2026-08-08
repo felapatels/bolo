@@ -221,7 +221,7 @@ function missedDayLabel(day: string | null | undefined): string {
  * reproach. Not dismissible: the 2-day eligibility window is its natural
  * expiry, and a dismissed offer + forgotten repair = permanent loss.
  */
-function HomeStreakRepairBanner() {
+function HomeStreakRepairBanner({ balance }: { balance?: number }) {
   const queryClient = useQueryClient();
   const offerQuery = useGetStreakRepair();
   const offer = offerQuery.data;
@@ -273,14 +273,35 @@ function HomeStreakRepairBanner() {
           </p>
         </div>
         {!notice && (
-          <button
-            data-testid="home-repair-streak"
-            disabled={repairMutation.isPending}
-            onClick={() => repairMutation.mutate()}
-            className="shrink-0 rounded-lg bg-amber-600 px-3.5 py-1.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-amber-500"
-          >
-            Mend · {offer.cost}
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {/* The balance is context, not a second action: this is the only
+                Chai sink that fires from outside the wallet, so what the
+                learner holds has to be visible next to what the tap costs.
+                Same glyph + number + unit treatment as the stall band and the
+                wallet balance band. Omitted ENTIRELY when the balance is
+                unknown — a "-" or a 0 sitting beside a real spend button
+                would be a wrong number, not a placeholder. */}
+            {balance !== undefined && (
+              <span
+                data-testid="home-repair-balance"
+                className="flex shrink-0 items-center gap-1.5 leading-none text-amber-900/70 dark:text-amber-100/70"
+              >
+                <ChaiGlyph className="h-4 w-4" />
+                <span className="text-sm font-bold">{balance}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  Chai
+                </span>
+              </span>
+            )}
+            <button
+              data-testid="home-repair-streak"
+              disabled={repairMutation.isPending}
+              onClick={() => repairMutation.mutate()}
+              className="shrink-0 rounded-lg bg-amber-600 px-3.5 py-1.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-amber-500"
+            >
+              Mend · {offer.cost}
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -796,7 +817,7 @@ export default function Home() {
           banner and the main grid so the learner sees it immediately when they
           open the app and notice the streak is gone. Absent entirely when
           nothing is repairable — see HomeStreakRepairBanner. */}
-      <HomeStreakRepairBanner />
+      <HomeStreakRepairBanner balance={tokensQuery.data?.balance} />
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-3">

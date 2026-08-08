@@ -43,7 +43,7 @@ function read(rel: string): string {
  */
 const GLYPH_SITES: Record<string, number> = {
   'components/ChaiStall.tsx': 1, // the band's own balance readout
-  'app/(app)/(tabs)/index.tsx': 1, // Chai stat cell
+  'app/(app)/(tabs)/index.tsx': 2, // Chai stat cell + streak-repair banner balance
   'components/ChaiWallet.tsx': 2, // balance badge + the shared ChaiCoin both spend buttons render
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
@@ -51,7 +51,7 @@ const GLYPH_SITES: Record<string, number> = {
   'app/(app)/outfits.tsx': 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
 };
 
-const MOBILE_GLYPH_COUNT = 11;
+const MOBILE_GLYPH_COUNT = 12;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {

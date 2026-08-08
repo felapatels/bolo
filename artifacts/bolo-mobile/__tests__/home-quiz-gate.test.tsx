@@ -52,7 +52,9 @@ jest.mock('@/lib/entrance', () => ({
 jest.mock('@workspace/api-client-react', () => ({
   // ONE token query feeds both Chai surfaces on this screen (the stat cell and
   // the stall band), which is exactly what the parity test below asserts.
-  useGetTokens: () => ({ data: { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // mockState.tokens so a test can drive the undefined (still loading) case
+  // the repair banner has to degrade through.
+  useGetTokens: () => ({ data: mockState.tokens, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // The wallet sheet and home contextual banner both read the streak-repair
   // offer; mockState.repairOffer lets each test control eligibility.
   useGetStreakRepair: () => ({ data: mockState.repairOffer, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -206,6 +208,7 @@ const UNLOCKED_COPY = 'Fresh questions, every day';
 beforeEach(() => {
   mockState.quiz = { data: undefined, isLoading: false };
   mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+  mockState.tokens = { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
   // Default: no repairable break — banner stays absent.
   mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
   mockState.repairFn = jest.fn();
@@ -286,6 +289,43 @@ describe('HomeScreen - contextual streak repair offer', () => {
     fireEvent.press(screen.getByTestId('home-repair-streak'));
     expect(mockState.repairFn).toHaveBeenCalledTimes(1);
     expect(mockState.repairFn.mock.calls[0]).toHaveLength(0);
+  });
+
+  // The tap IS the spend, so the balance has to be on screen next to the cost
+  // before the learner commits 25 Chai from outside the wallet.
+  it('shows the Chai balance beside the cost', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    mockState.tokens = { balance: 40, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
+    render(<HomeScreen />);
+    expect(screen.getByTestId('home-repair-balance')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-repair-balance-value')).toHaveTextContent('40');
+    expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
+  });
+
+  it('reads the balance from the same token query as the rest of home', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    mockState.tokens = { balance: 77, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
+    render(<HomeScreen />);
+    // One query feeds the banner and the stall band alike; a second query
+    // would let the two disagree about what the learner holds.
+    expect(screen.getByTestId('home-repair-balance-value')).toHaveTextContent('77');
+    // The band's overlay is a11y-hidden (the Pressable owns the one node a
+    // screen reader lands on), so it needs includeHiddenElements to query.
+    expect(
+      screen.getByTestId('chai-stall-balance', { includeHiddenElements: true }),
+    ).toHaveTextContent('77');
+  });
+
+  it('degrades to the offer alone while the balance is unavailable', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    mockState.tokens = undefined;
+    render(<HomeScreen />);
+    // Offer still actionable...
+    expect(screen.getByTestId('home-streak-repair-offer')).toBeOnTheScreen();
+    expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
+    // ...but no placeholder and no zero beside a real spend button.
+    expect(screen.queryByTestId('home-repair-balance')).toBeNull();
+    expect(screen.queryByTestId('home-repair-balance-value')).toBeNull();
   });
 });
 

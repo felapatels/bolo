@@ -195,6 +195,51 @@ describe("contextual streak repair offer (Ruling 2)", () => {
     expect(h.repair).toHaveBeenCalledTimes(1);
     expect(h.repair.mock.calls[0]).toHaveLength(0);
   });
+
+  // The tap IS the spend, so the balance has to be on screen next to the cost
+  // before the learner commits 25 Chai from outside the wallet.
+  test("shows the Chai balance beside the cost", () => {
+    h.repairOffer = OFFER_THURSDAY;
+    h.tokens = {
+      balance: 40,
+      stationPausesEquipped: 0,
+      expressMultiplierActiveUntil: null,
+    };
+    renderHome();
+    const balance = screen.getByTestId("home-repair-balance");
+    expect(balance).toHaveTextContent("40");
+    expect(balance).toHaveTextContent("Chai");
+    expect(screen.getByTestId("home-repair-streak")).toHaveTextContent(
+      "Mend · 25",
+    );
+  });
+
+  test("reads the balance from the same token query as the rest of home", () => {
+    h.repairOffer = OFFER_THURSDAY;
+    h.tokens = {
+      balance: 77,
+      stationPausesEquipped: 0,
+      expressMultiplierActiveUntil: null,
+    };
+    renderHome();
+    // One query feeds the banner and the stall band alike; a second query
+    // would let the two disagree about what the learner holds.
+    expect(screen.getByTestId("home-repair-balance")).toHaveTextContent("77");
+    expect(screen.getByTestId("chai-stall-balance")).toHaveTextContent("77");
+  });
+
+  test("degrades to the offer alone while the balance is unavailable", () => {
+    h.repairOffer = OFFER_THURSDAY;
+    h.tokens = undefined;
+    renderHome();
+    // Offer still actionable...
+    expect(screen.getByTestId("home-streak-repair-offer")).toBeInTheDocument();
+    expect(screen.getByTestId("home-repair-streak")).toHaveTextContent(
+      "Mend · 25",
+    );
+    // ...but no placeholder and no zero beside a real spend button.
+    expect(screen.queryByTestId("home-repair-balance")).toBeNull();
+  });
 });
 
 describe("home stats banner", () => {

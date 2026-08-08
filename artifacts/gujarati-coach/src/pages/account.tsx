@@ -24,6 +24,7 @@ import {
   Check,
   Play,
   Square,
+  Gift,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -71,6 +72,7 @@ import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref, saveCoachVoicePref } from "@/lib/coachVoicePref";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
+import { ReferralCard } from "@/components/referral-card";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -723,6 +725,15 @@ export default function Account() {
           </div>
           )}
 
+        </Section>
+
+        {/* Invite friends */}
+        <Section
+          icon={Gift}
+          title="Invite friends"
+          subtitle="Share Bolo! and earn Chai"
+        >
+          <ReferralCard />
         </Section>
 
         {/* Social */}

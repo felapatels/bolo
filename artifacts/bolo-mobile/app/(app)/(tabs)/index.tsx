@@ -100,7 +100,7 @@ function missedDayLabel(day: string | null | undefined): string {
  * boarding pass when a repairable break exists. Absent (returns null) when
  * nothing is repairable. Not dismissible: 2-day window is its natural expiry.
  */
-function HomeStreakRepairBanner() {
+function HomeStreakRepairBanner({ balance }: { balance?: number }) {
   const queryClient = useQueryClient();
   const colors = useColors();
   const offerQuery = useGetStreakRepair();
@@ -159,6 +159,29 @@ function HomeStreakRepairBanner() {
             <Text style={repairBannerStyles.bold}>{offer.restoresStreakDays}-day</Text>
             {' streak rides on.'}
           </Text>
+          {/* The balance is context, not a second action: this is the only
+              Chai sink that fires from outside the wallet, so what the learner
+              holds has to be visible next to what the tap costs. Same glyph +
+              number + unit treatment as the stall band and the wallet balance
+              band. Omitted ENTIRELY when the balance is unknown — a "-" or a 0
+              sitting beside a real spend button would be a wrong number, not a
+              placeholder. */}
+          {balance !== undefined && (
+            <View testID="home-repair-balance" style={repairBannerStyles.balance}>
+              <ChaiGlyph size={16} />
+              <Text
+                testID="home-repair-balance-value"
+                style={[repairBannerStyles.balanceValue, { color: colors.foreground }]}
+              >
+                {balance}
+              </Text>
+              <Text
+                style={[repairBannerStyles.balanceUnit, { color: colors.foreground }]}
+              >
+                Chai
+              </Text>
+            </View>
+          )}
           <Pressable
             testID="home-repair-streak"
             disabled={repair.isPending}
@@ -190,6 +213,22 @@ const repairBannerStyles = StyleSheet.create({
   icon: { flexShrink: 0 },
   copy: { flex: 1, fontSize: 13, lineHeight: 18 },
   bold: { fontFamily: AppFonts.semibold },
+  balance: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  balanceValue: { fontSize: 13, fontFamily: AppFonts.bold },
+  // Muted via opacity rather than a second colour token, so it stays quiet
+  // against the banner in both light and dark themes.
+  balanceUnit: {
+    fontSize: 10,
+    fontFamily: AppFonts.bold,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    opacity: 0.7,
+  },
   btn: {
     flexShrink: 0,
     backgroundColor: '#D97706',
@@ -593,7 +632,7 @@ export default function HomeScreen() {
             banner and the boarding pass so the learner sees it immediately
             when they open the app and notice the streak is gone. Absent
             entirely when nothing is repairable — see HomeStreakRepairBanner. */}
-        <HomeStreakRepairBanner />
+        <HomeStreakRepairBanner balance={tokensQuery.data?.balance} />
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
