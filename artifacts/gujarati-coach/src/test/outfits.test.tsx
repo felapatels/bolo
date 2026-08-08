@@ -1,9 +1,11 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { groupOutfits } from "@/components/outfit-card";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   mascotAssetSrc,
   CANONICAL_POSE_FILES,
+  OUTFIT_POSE_FILES,
   MASCOT_BASE,
 } from "@/lib/mascot-outfits";
 
@@ -48,8 +50,17 @@ vi.mock("@workspace/api-client-react", () => ({
 // exercised in mascot-outfit.test.tsx; here it only has to report which
 // costume the shop asked it to wear.
 vi.mock("@/components/mascot", () => ({
-  Mascot: ({ outfit }: { outfit?: string | null }) => (
-    <span data-testid="preview-outfit">{outfit ?? "canonical"}</span>
+  Mascot: ({
+    outfit,
+    accessory,
+  }: {
+    outfit?: string | null;
+    accessory?: string | null;
+  }) => (
+    <>
+      <span data-testid="preview-outfit">{outfit ?? "canonical"}</span>
+      <span data-testid="preview-accessory">{accessory ?? "bareheaded"}</span>
+    </>
   ),
 }));
 
@@ -61,11 +72,27 @@ const NAVRATRI = {
   tagline: "Nine nights of colour.",
   cost: 25,
   owned: false,
+  kind: "garment",
+  preview: "full",
+};
+
+// An accessory: cheaper than a garment, and framed on the head rather than
+// the whole bird.
+const PAGDI = {
+  id: "pagdi",
+  name: "Marigold pagdi",
+  tagline: "Marigold silk, gold zari and one peacock feather.",
+  cost: 10,
+  owned: false,
+  kind: "accessory",
+  preview: "head",
 };
 
 function renderShop(data: {
   balance: number;
   equipped: string | null;
+  /** The head slot. Omitted means bare-headed, as an older payload would be. */
+  equippedAccessory?: string | null;
   outfits: (typeof NAVRATRI)[];
 }) {
   mockState.outfits = { data };
@@ -82,6 +109,11 @@ function renderShop(data: {
 /** What the preview bird is wearing right now. */
 function previewOutfit(): string {
   return screen.getByTestId("preview-outfit").textContent ?? "";
+}
+
+/** What is on the preview bird's head right now. */
+function previewAccessory(): string {
+  return screen.getByTestId("preview-accessory").textContent ?? "";
 }
 
 beforeEach(() => {
@@ -108,6 +140,26 @@ describe("pose art resolves from the equipped outfit", () => {
       const src = mascotAssetSrc(pose, "navratri");
       expect(src).toContain("outfits/navratri/");
       expect(src).not.toBe(MASCOT_BASE + CANONICAL_POSE_FILES[pose]);
+    }
+  });
+
+  test("every outfit this app ships dresses all five poses", () => {
+    // The fallback below is right for an old client meeting a new server, and
+    // wrong as a shipping state: a pose missing from an outfit we DO ship is
+    // Bolo turning up undressed for that one pose, after the learner paid,
+    // with nothing raised anywhere. Completeness is the thing to pin.
+    const poses = Object.keys(CANONICAL_POSE_FILES) as Array<
+      keyof typeof CANONICAL_POSE_FILES
+    >;
+    const ids = Object.keys(OUTFIT_POSE_FILES);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      for (const pose of poses) {
+        expect(
+          OUTFIT_POSE_FILES[id]?.[pose],
+          `${id} is missing ${pose}`,
+        ).toBe(`outfits/${id}/mascot-${pose}.png`);
+      }
     }
   });
 
@@ -199,5 +251,154 @@ describe("the wardrobe previews before it charges", () => {
     expect(previewOutfit()).toBe("navratri");
     fireEvent.click(screen.getByTestId("outfit-unequip"));
     expect(mockState.equipCalls).toEqual([{ data: { outfitId: null } }]);
+  });
+});
+
+// ── Two slots ──────────────────────────────────────────────────────────────
+//
+// A hat and an outfit are worn at the same time (owner ruling, Aug 8 2026),
+// which is only true if every path keeps the slots apart: previewing one must
+// not strip the other, and taking one off must name which one.
+
+describe("a hat and an outfit are worn together", () => {
+  test("both slots ride the bird at once", () => {
+    renderShop({
+      balance: 40,
+      equipped: "navratri",
+      equippedAccessory: "pagdi",
+      outfits: [
+        { ...NAVRATRI, owned: true },
+        { ...PAGDI, owned: true },
+      ],
+    });
+
+    expect(previewOutfit()).toBe("navratri");
+    expect(previewAccessory()).toBe("pagdi");
+  });
+
+  test("trying a hat on leaves the outfit where it is", () => {
+    renderShop({
+      balance: 40,
+      equipped: "navratri",
+      outfits: [{ ...NAVRATRI, owned: true }, PAGDI],
+    });
+
+    fireEvent.click(screen.getByTestId("outfit-card-pagdi"));
+    expect(previewAccessory()).toBe("pagdi");
+    // The garment is untouched: this is the whole point of the second slot.
+    expect(previewOutfit()).toBe("navratri");
+  });
+
+  test("taking the hat off says which slot, so the outfit stays on", () => {
+    renderShop({
+      balance: 40,
+      equipped: "navratri",
+      equippedAccessory: "pagdi",
+      outfits: [
+        { ...NAVRATRI, owned: true },
+        { ...PAGDI, owned: true },
+      ],
+    });
+
+    fireEvent.click(screen.getByTestId("outfit-takeoff-pagdi"));
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: null, slot: "accessory" } },
+    ]);
+  });
+
+  test("wearing from the rack names the slot it lands in", () => {
+    renderShop({
+      balance: 40,
+      equipped: null,
+      outfits: [{ ...NAVRATRI, owned: true }, { ...PAGDI, owned: true }],
+    });
+
+    fireEvent.click(screen.getByTestId("outfit-wear-pagdi"));
+    fireEvent.click(screen.getByTestId("outfit-wear-navratri"));
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: "pagdi", slot: "accessory" } },
+      { data: { outfitId: "navratri", slot: "garment" } },
+    ]);
+  });
+
+  test("with nothing being tried on, the shop offers to strip both slots", () => {
+    renderShop({
+      balance: 40,
+      equipped: null,
+      equippedAccessory: "pagdi",
+      outfits: [NAVRATRI, { ...PAGDI, owned: true }],
+    });
+
+    // Nothing in the garment slot, but a hat is on — the bare "take it all
+    // off" must still be reachable, and it clears both slots.
+    fireEvent.click(screen.getByTestId("outfit-unequip"));
+    expect(mockState.equipCalls).toEqual([{ data: { outfitId: null } }]);
+  });
+});
+
+// ── The rack, as it grows ──────────────────────────────────────────────────
+
+describe("the rack shows stock as pictures, grouped by what it is", () => {
+  test("every card previews the item on Bolo, from the item's own art", () => {
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI, PAGDI] });
+
+    // The thumbnail is the item worn, not a separate illustration that could
+    // drift from what the learner actually gets.
+    const garment = screen
+      .getByTestId("outfit-card-navratri")
+      .querySelector("img");
+    const accessory = screen
+      .getByTestId("outfit-card-pagdi")
+      .querySelector("img");
+    expect(garment?.getAttribute("src")).toContain("outfits/navratri/");
+    expect(accessory?.getAttribute("src")).toContain("outfits/pagdi/");
+
+    // An accessory is framed on the head; a garment shows the whole bird.
+    // Without the crop a pagdi is a few unreadable pixels.
+    expect(accessory?.style.transform).toContain("scale(2.3)");
+    expect(garment?.style.transform).toBe("scale(1.04)");
+  });
+
+  test("garments and accessories are separate sections", () => {
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI, PAGDI] });
+
+    const garments = screen.getByTestId("outfit-section-garment");
+    const accessories = screen.getByTestId("outfit-section-accessory");
+    expect(within(garments).getByTestId("outfit-card-navratri")).toBeTruthy();
+    expect(within(accessories).getByTestId("outfit-card-pagdi")).toBeTruthy();
+    // The section a card is in is the only thing that moved — it still
+    // carries its own two doors.
+    expect(within(accessories).getByTestId("outfit-tryon-pagdi")).toBeTruthy();
+  });
+
+  test("each card sells at its own price, not one flat shop price", () => {
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI, PAGDI] });
+
+    expect(screen.getByTestId("outfit-buynow-pagdi")).toHaveTextContent(
+      "Buy · 10",
+    );
+    expect(screen.getByTestId("outfit-buynow-navratri")).toHaveTextContent(
+      "Buy · 25",
+    );
+
+    fireEvent.click(screen.getByTestId("outfit-buynow-pagdi"));
+    expect(mockState.buyCalls).toEqual([{ data: { outfitId: "pagdi" } }]);
+    // Buying previews what was just bought, so the curtain opens on it — a
+    // hat lands on the head slot, which is why the garment slot is untouched.
+    expect(previewAccessory()).toBe("pagdi");
+  });
+
+  test("stock whose kind this client does not know is still shoppable", () => {
+    // A newer server, an older app: an unrecognised kind must not fall
+    // through the floor and vanish from the rack.
+    const grouped = groupOutfits([
+      NAVRATRI,
+      PAGDI,
+      { ...NAVRATRI, id: "mystery", kind: "hovercraft" },
+    ]);
+    const ids = grouped.flatMap((s) => s.items.map((i) => i.id));
+    expect(ids).toContain("mystery");
+    // Empty sections do not print a heading over nothing.
+    expect(groupOutfits([PAGDI]).map((s) => s.kind)).toEqual(["accessory"]);
   });
 });

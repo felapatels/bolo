@@ -1575,7 +1575,8 @@ export const GetTokensResponse = zod.object({
   "balance": zod.number(),
   "stationPausesEquipped": zod.number(),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish(),
-  "equippedOutfit": zod.string().nullish().describe('The outfit id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.')
+  "equippedOutfit": zod.string().nullish().describe('The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.'),
+  "equippedAccessory": zod.string().nullish().describe('The accessory id Bolo is wearing, or null for none. A separate slot from equippedOutfit because she wears both at once: clients stack the accessory\'s overlay art on top of whichever base the garment selects.')
 })
 
 
@@ -1644,13 +1645,16 @@ export const RepairStreakResponse = zod.object({
  */
 export const GetOutfitsResponse = zod.object({
   "balance": zod.number(),
-  "equipped": zod.string().nullable(),
+  "equipped": zod.string().nullable().describe('The garment slot — see TokenState.equippedOutfit.'),
+  "equippedAccessory": zod.string().nullish().describe('The accessory slot, worn at the same time as the garment.'),
   "outfits": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "tagline": zod.string(),
-  "cost": zod.number().describe('Server-authoritative price in Chai. Clients must render this number, never a hardcoded one.'),
-  "owned": zod.boolean().describe('Bought once, owned forever — derived from the ledger.')
+  "cost": zod.number().describe('Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one.'),
+  "owned": zod.boolean().describe('Bought once, owned forever — derived from the ledger.'),
+  "kind": zod.enum(['garment', 'accessory']).describe('A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change.'),
+  "preview": zod.enum(['full', 'head']).describe('How to crop this item\'s thumbnail. A hat is unreadable in a full-body crop, so accessories ask for the head.')
 }))
 })
 
@@ -1669,7 +1673,8 @@ export const BuyOutfitResponse = zod.object({
   "owned": zod.boolean(),
   "charged": zod.boolean().describe('False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone.'),
   "cost": zod.number(),
-  "equipped": zod.string().nullable()
+  "equipped": zod.string().nullable(),
+  "equippedAccessory": zod.string().nullish()
 })
 
 
@@ -1678,11 +1683,13 @@ export const BuyOutfitResponse = zod.object({
  * @summary Wear an owned outfit, or go back to undressed Bolo
  */
 export const EquipOutfitBody = zod.object({
-  "outfitId": zod.string().nullable().describe('An owned outfit id, or null to go back to undressed Bolo.')
+  "outfitId": zod.string().nullable().describe('An owned item id, or null to take something off. The slot an item occupies is read from the catalog server-side, so equipping a hat never disturbs the garment she is wearing.'),
+  "slot": zod.enum(['garment', 'accessory']).optional().describe('Only consulted when outfitId is null, where there is no item to read the slot from: it says WHICH slot to clear. Omitting it with a null outfitId takes everything off.')
 })
 
 export const EquipOutfitResponse = zod.object({
-  "equipped": zod.string().nullable()
+  "equipped": zod.string().nullable(),
+  "equippedAccessory": zod.string().nullish()
 })
 
 

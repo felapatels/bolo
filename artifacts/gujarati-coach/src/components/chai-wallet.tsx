@@ -358,8 +358,14 @@ export function ChaiWalletSheet({
             <StationPauseTile />
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Station Pause</p>
+              {/* Deliberately forward-looking. The old line ("Covers a missed
+                  day...") read like the Mend row above it, so the two sinks
+                  were indistinguishable: this one is bought BEFORE the miss and
+                  spends itself automatically, and the copy has to say so or a
+                  learner has no reason to hold one on a day nothing is wrong. */}
               <p className="text-xs leading-snug text-muted-foreground">
-                Covers a missed day so your streak rides on.
+                Equip it before you need it. The next day you miss is already
+                covered, so your streak is safe.
               </p>
               <p className="mt-1 text-xs font-bold text-muted-foreground">
                 {tokens?.stationPausesEquipped ?? 0} of{" "}

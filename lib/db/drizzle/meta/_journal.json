@@ -295,6 +295,20 @@
       "when": 1786066862063,
       "tag": "0041_ordinary_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1786223785303,
+      "tag": "0042_mixed_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1786223845303,
+      "tag": "0043_legacy_pagdi_to_accessory",
+      "breakpoints": true
     }
   ]
 }

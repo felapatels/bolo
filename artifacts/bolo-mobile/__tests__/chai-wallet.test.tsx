@@ -156,7 +156,9 @@ describe('Chai wallet sheet content', () => {
     expect(screen.getByTestId('wallet-balance')).toHaveTextContent('12');
     expect(screen.getByText('Station Pause')).toBeOnTheScreen();
     expect(
-      screen.getByText('Covers a missed day so your streak rides on.'),
+      screen.getByText(
+        'Equip it before you need it. The next day you miss is already covered, so your streak is safe.',
+      ),
     ).toBeOnTheScreen();
     expect(screen.getByText('1 of 2 equipped')).toBeOnTheScreen();
     expect(screen.getByText('Equip · 10')).toBeOnTheScreen();

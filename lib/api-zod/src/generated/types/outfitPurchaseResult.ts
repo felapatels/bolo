@@ -14,4 +14,5 @@ export interface OutfitPurchaseResult {
   charged: boolean;
   cost: number;
   equipped: string | null;
+  equippedAccessory?: string | null;
 }

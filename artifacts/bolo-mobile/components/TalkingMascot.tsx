@@ -12,7 +12,7 @@ import Animated, {
 import { appear } from '@/lib/entrance';
 import { ZoomIn } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
-import { mascotSource } from '@/lib/mascotOutfits';
+import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 import type { MascotPose } from '@/components/Mascot';
 
@@ -48,7 +48,11 @@ export function TalkingMascot({
 }) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
-  const equippedOutfit = useEquippedOutfit();
+  const equipped = useEquippedOutfit();
+  const overlay = accessoryOverlaySource(
+    MODE_POSES[mode],
+    equipped.accessory,
+  );
 
   // ── Float loop (idle + thinking) ──────────────────────────────────────────
   const floatVal = useSharedValue(0);
@@ -176,19 +180,32 @@ export function TalkingMascot({
       {/* Mascot image */}
       <Animated.View key={mode} entering={appear(entrance)}>
         <Animated.View style={imageMotionStyle}>
-          <Image
-            source={mascotSource(MODE_POSES[mode], equippedOutfit)}
-            style={{ width: size, height: size }}
-            resizeMode="contain"
-            accessibilityRole="image"
-            accessibilityLabel={
-              mode === 'talking'
-                ? 'Bolo the parrot is speaking'
-                : mode === 'listening'
-                  ? 'Bolo the parrot is listening'
-                  : 'Bolo the parrot'
-            }
-          />
+          <View style={{ width: size, height: size }}>
+            <Image
+              source={mascotSource(MODE_POSES[mode], equipped.garment)}
+              style={{ width: size, height: size }}
+              resizeMode="contain"
+              accessibilityRole="image"
+              accessibilityLabel={
+                mode === 'talking'
+                  ? 'Bolo the parrot is speaking'
+                  : mode === 'listening'
+                    ? 'Bolo the parrot is listening'
+                    : 'Bolo the parrot'
+              }
+            />
+            {/* Head slot over the garment base — same 1024 frame, drawn at the
+                same size, so it lands where it belongs. Explicit width/height:
+                a bare absoluteFill Image takes its intrinsic size on iOS. */}
+            {overlay ? (
+              <Image
+                source={overlay}
+                style={[styles.overlay, { width: size, height: size }]}
+                resizeMode="contain"
+                accessible={false}
+              />
+            ) : null}
+          </View>
         </Animated.View>
       </Animated.View>
 
@@ -227,6 +244,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 3,
   },
+  overlay: { position: 'absolute', top: 0, left: 0 },
   soundBars: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,8 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EquipOutfitInputSlot } from './equipOutfitInputSlot';
 
 export interface EquipOutfitInput {
-  /** An owned outfit id, or null to go back to undressed Bolo. */
+  /** An owned item id, or null to take something off. The slot an item occupies is read from the catalog server-side, so equipping a hat never disturbs the garment she is wearing. */
   outfitId: string | null;
+  /** Only consulted when outfitId is null, where there is no item to read the slot from: it says WHICH slot to clear. Omitting it with a null outfitId takes everything off. */
+  slot?: EquipOutfitInputSlot;
 }

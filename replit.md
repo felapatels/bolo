@@ -115,4 +115,4 @@ Seed the DB (idempotent): run `tsx lib/db/src/seed.ts` (tsx bin lives under
 
 ## User preferences
 
-- (none recorded yet)
+- **No em dashes, ever.** Not in app copy (web or iOS), not in new code comments, not in chat replies. Use a comma, a colon, parentheses, or two sentences instead. Requested August 8, 2026.

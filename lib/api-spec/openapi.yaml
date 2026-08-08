@@ -4453,12 +4453,20 @@ components:
           type: string
           nullable: true
           description: >-
-            The outfit id Bolo is wearing, or null for canonical undressed
+            The garment id Bolo is wearing, or null for canonical undressed
             Bolo. Every mascot surface resolves its art from this value, so
             clients read it here rather than holding their own copy.
+        equippedAccessory:
+          type: string
+          nullable: true
+          description: >-
+            The accessory id Bolo is wearing, or null for none. A separate slot
+            from equippedOutfit because she wears both at once: clients stack
+            the accessory's overlay art on top of whichever base the garment
+            selects.
     OutfitCatalogItem:
       type: object
-      required: [id, name, tagline, cost, owned]
+      required: [id, name, tagline, cost, owned, kind, preview]
       properties:
         id: { type: string }
         name: { type: string }
@@ -4466,11 +4474,24 @@ components:
         cost:
           type: integer
           description: >-
-            Server-authoritative price in Chai. Clients must render this
-            number, never a hardcoded one.
+            Server-authoritative price in Chai, per item rather than one flat
+            price. Clients must render this number, never a hardcoded one.
         owned:
           type: boolean
           description: Bought once, owned forever — derived from the ledger.
+        kind:
+          type: string
+          enum: [garment, accessory]
+          description: >-
+            A garment redresses the whole bird; an accessory adds one thing to
+            her. The shop groups its rack by this, so a new kind of stock does
+            not need a client change.
+        preview:
+          type: string
+          enum: [full, head]
+          description: >-
+            How to crop this item's thumbnail. A hat is unreadable in a
+            full-body crop, so accessories ask for the head.
     OutfitCatalog:
       type: object
       required: [balance, equipped, outfits]
@@ -4479,6 +4500,11 @@ components:
         equipped:
           type: string
           nullable: true
+          description: The garment slot — see TokenState.equippedOutfit.
+        equippedAccessory:
+          type: string
+          nullable: true
+          description: The accessory slot, worn at the same time as the garment.
         outfits:
           type: array
           items:
@@ -4509,6 +4535,9 @@ components:
         equipped:
           type: string
           nullable: true
+        equippedAccessory:
+          type: string
+          nullable: true
     EquipOutfitInput:
       type: object
       required: [outfitId]
@@ -4516,12 +4545,25 @@ components:
         outfitId:
           type: string
           nullable: true
-          description: An owned outfit id, or null to go back to undressed Bolo.
+          description: >-
+            An owned item id, or null to take something off. The slot an item
+            occupies is read from the catalog server-side, so equipping a hat
+            never disturbs the garment she is wearing.
+        slot:
+          type: string
+          enum: [garment, accessory]
+          description: >-
+            Only consulted when outfitId is null, where there is no item to
+            read the slot from: it says WHICH slot to clear. Omitting it with a
+            null outfitId takes everything off.
     OutfitEquipResult:
       type: object
       required: [equipped]
       properties:
         equipped:
+          type: string
+          nullable: true
+        equippedAccessory:
           type: string
           nullable: true
     TokensSpendInput:

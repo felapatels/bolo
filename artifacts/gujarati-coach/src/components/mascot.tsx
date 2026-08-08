@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { mascotEntrance, floatIdle } from "@/lib/motion";
-import { mascotAssetSrc } from "@/lib/mascot-outfits";
+import { accessoryOverlaySrc, mascotAssetSrc } from "@/lib/mascot-outfits";
 import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
 
 // Bolo the Parrot — the friendly face of the app. Each pose maps to a mood so
@@ -73,6 +73,7 @@ export function Mascot({
   activity = null,
   talkAudioRef,
   outfit,
+  accessory,
 }: {
   pose: MascotPose;
   size?: number;
@@ -95,10 +96,19 @@ export function Mascot({
    * buy it; pass null to force canonical Bolo.
    */
   outfit?: string | null;
+  /**
+   * Force an accessory instead of the learner's equipped one — the head slot's
+   * twin of `outfit`, so the shop can preview a hat over whatever garment is
+   * already on the bird. Pass null for bare-headed.
+   */
+  accessory?: string | null;
 }) {
   void talkAudioRef;
-  const equippedOutfit = useEquippedOutfit();
-  const wornOutfit = outfit === undefined ? equippedOutfit : outfit;
+  const equipped = useEquippedOutfit();
+  const wornOutfit = outfit === undefined ? equipped.garment : outfit;
+  const wornAccessory =
+    accessory === undefined ? equipped.accessory : accessory;
+  const overlaySrc = accessoryOverlaySrc(pose, wornAccessory);
   const reduceMotion = useReducedMotion();
   const calm = ambient === "calm";
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -223,6 +233,29 @@ export function Mascot({
               )}
             />
           </AnimatePresence>
+          {/* The head slot, stacked over whatever base the garment picked.
+              Absolute so it cannot affect layout: the base img above is the
+              in-flow element that opens the box (an absolute base collapses
+              the fill chain), and this sits inside the same relative wrapper
+              at the same size, so the two 1024-frame images line up with no
+              per-pose maths here. */}
+          {overlaySrc ? (
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.img
+                key={`${wornAccessory}:${pose}`}
+                src={overlaySrc}
+                alt=""
+                draggable={false}
+                data-testid="mascot-accessory"
+                onContextMenu={(e) => e.preventDefault()}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+              />
+            </AnimatePresence>
+          ) : null}
           </motion.div>
         </motion.div>
       </motion.div>

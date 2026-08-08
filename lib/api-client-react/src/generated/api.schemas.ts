@@ -1281,23 +1281,54 @@ export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierActiveUntil?: string | null;
-  /** The outfit id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
+  /** The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
   equippedOutfit?: string | null;
+  /** The accessory id Bolo is wearing, or null for none. A separate slot from equippedOutfit because she wears both at once: clients stack the accessory's overlay art on top of whichever base the garment selects. */
+  equippedAccessory?: string | null;
 }
+
+/**
+ * A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change.
+ */
+export type OutfitCatalogItemKind = typeof OutfitCatalogItemKind[keyof typeof OutfitCatalogItemKind];
+
+
+export const OutfitCatalogItemKind = {
+  garment: 'garment',
+  accessory: 'accessory',
+} as const;
+
+/**
+ * How to crop this item's thumbnail. A hat is unreadable in a full-body crop, so accessories ask for the head.
+ */
+export type OutfitCatalogItemPreview = typeof OutfitCatalogItemPreview[keyof typeof OutfitCatalogItemPreview];
+
+
+export const OutfitCatalogItemPreview = {
+  full: 'full',
+  head: 'head',
+} as const;
 
 export interface OutfitCatalogItem {
   id: string;
   name: string;
   tagline: string;
-  /** Server-authoritative price in Chai. Clients must render this number, never a hardcoded one. */
+  /** Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one. */
   cost: number;
   /** Bought once, owned forever — derived from the ledger. */
   owned: boolean;
+  /** A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change. */
+  kind: OutfitCatalogItemKind;
+  /** How to crop this item's thumbnail. A hat is unreadable in a full-body crop, so accessories ask for the head. */
+  preview: OutfitCatalogItemPreview;
 }
 
 export interface OutfitCatalog {
   balance: number;
+  /** The garment slot — see TokenState.equippedOutfit. */
   equipped: string | null;
+  /** The accessory slot, worn at the same time as the garment. */
+  equippedAccessory?: string | null;
   outfits: OutfitCatalogItem[];
 }
 
@@ -1314,15 +1345,30 @@ export interface OutfitPurchaseResult {
   charged: boolean;
   cost: number;
   equipped: string | null;
+  equippedAccessory?: string | null;
 }
 
+/**
+ * Only consulted when outfitId is null, where there is no item to read the slot from: it says WHICH slot to clear. Omitting it with a null outfitId takes everything off.
+ */
+export type EquipOutfitInputSlot = typeof EquipOutfitInputSlot[keyof typeof EquipOutfitInputSlot];
+
+
+export const EquipOutfitInputSlot = {
+  garment: 'garment',
+  accessory: 'accessory',
+} as const;
+
 export interface EquipOutfitInput {
-  /** An owned outfit id, or null to go back to undressed Bolo. */
+  /** An owned item id, or null to take something off. The slot an item occupies is read from the catalog server-side, so equipping a hat never disturbs the garment she is wearing. */
   outfitId: string | null;
+  /** Only consulted when outfitId is null, where there is no item to read the slot from: it says WHICH slot to clear. Omitting it with a null outfitId takes everything off. */
+  slot?: EquipOutfitInputSlot;
 }
 
 export interface OutfitEquipResult {
   equipped: string | null;
+  equippedAccessory?: string | null;
 }
 
 export type TokensSpendInputItem = typeof TokensSpendInputItem[keyof typeof TokensSpendInputItem];

@@ -59,7 +59,8 @@ const GLYPH_SITES: Record<string, number> = {
   "pages/games/speed-round.tsx": 1, // +N Chai earned
   "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
   "pages/practice.tsx": 1, // session-chai-pill
-  "pages/outfits.tsx": 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
+  "pages/outfits.tsx": 2, // wardrobe balance, the action bar's Buy · N
+  "components/outfit-card.tsx": 2, // the card's price pill + its own Buy Now
 };
 
 const WEB_GLYPH_COUNT = 15;

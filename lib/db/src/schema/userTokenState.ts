@@ -24,6 +24,12 @@ export const userTokenStateTable = pgTable("user_token_state", {
   // is only the choice, so equipping is free and instant and unequipping is
   // a write of NULL that loses nothing.
   equippedOutfit: text("equipped_outfit"),
+  // Two slots, not one (owner ruling, Aug 8 2026): she wears a hat AND an
+  // outfit at the same time. A garment covers her belly and an accessory sits
+  // on her head, so they never contend for the same pixels — but they do need
+  // separate columns, because a single "equipped" value can only ever hold one
+  // of them and equipping either would silently take the other off.
+  equippedAccessory: text("equipped_accessory"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

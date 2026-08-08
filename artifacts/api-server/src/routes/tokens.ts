@@ -55,9 +55,12 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
     stationPausesEquipped: state.stationPausesEquipped,
     expressMultiplierActiveUntil:
       state.expressMultiplierExpiresAt?.toISOString() ?? null,
-    // Every mascot surface resolves its art from this, so it rides the wallet
-    // query clients already run rather than needing a fetch of its own.
+    // Every mascot surface resolves its art from these, so they ride the
+    // wallet query clients already run rather than needing a fetch of their
+    // own. Two slots: a garment on her belly and an accessory on her head,
+    // worn together.
     equippedOutfit: state.equippedOutfit,
+    equippedAccessory: state.equippedAccessory,
   });
 });
 

@@ -46,6 +46,21 @@ unit tests render canonical Bolo. Mutations must invalidate BOTH the outfit
 catalog and the token query keys, or the shop updates while the rest of the app
 stays undressed.
 
+## The shop's own layout rules
+
+The dressing room must be pinned and the rack must be the only scroller: on web
+a `sticky` block inside the page scroller with a negative horizontal margin so
+it covers cards passing under it (no height maths, unlike `fixed`); on RN by
+keeping that block OUTSIDE the `ScrollView`. Budget it — a pinned block over
+roughly half the viewport leaves no rack to scroll.
+
+Item thumbnails are the item ON Bolo, cropped from the pose art the shop
+already ships, so a card can never advertise something the learner will not
+get and a new item costs zero extra assets. An accessory needs a head crop;
+**RN has no `transformOrigin`**, so centre the head instead of pivoting on it,
+and remember that with `scale` first in the transform array the translate is in
+PRE-scale units: `(0.5 - headFraction) * size`.
+
 ## Test traps
 
 - The mascot CROSSFADES: mid-transition both the outgoing and incoming images

@@ -49,6 +49,19 @@ export const STOP_UNLOCK_COST = 50;
 // economy tuning.
 export const OUTFIT_COST = 25;
 
+// Accessories (pagdi, cap, muffler, garland...) are a lighter sink than a full
+// garment: one thing added to the bird rather than a whole redress, so they
+// price at a fraction of one. Per-item cost is carried on the catalog row and
+// charged from there — OUTFIT_COST is no longer the only price in the shop.
+export const ACCESSORY_COST = 10;
+
+// The top of the rack: wedding-grade garments (sherwani, Banarasi saree) that
+// are meant to be saved for rather than picked up. Priced above a standard
+// garment so the shop is a ladder instead of one flat price. Like every other
+// item, what a learner is actually charged is read off the catalog row — this
+// is only the tuning value that row points at.
+export const PREMIUM_OUTFIT_COST = 40;
+
 export const STATION_PAUSE_COST = 10;
 export const STATION_PAUSE_MAX_EQUIPPED = 2;
 export const EXPRESS_MULTIPLIER_COST = 10;

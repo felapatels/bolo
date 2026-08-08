@@ -10,6 +10,8 @@ export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierActiveUntil?: Date | null;
-  /** The outfit id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
+  /** The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
   equippedOutfit?: string | null;
+  /** The accessory id Bolo is wearing, or null for none. A separate slot from equippedOutfit because she wears both at once: clients stack the accessory's overlay art on top of whichever base the garment selects. */
+  equippedAccessory?: string | null;
 }

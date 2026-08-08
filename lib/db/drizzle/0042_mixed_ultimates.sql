@@ -1,0 +1,1 @@
+ALTER TABLE "user_token_state" ADD COLUMN "equipped_accessory" text;

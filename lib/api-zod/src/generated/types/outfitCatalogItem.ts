@@ -5,13 +5,19 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OutfitCatalogItemKind } from './outfitCatalogItemKind';
+import type { OutfitCatalogItemPreview } from './outfitCatalogItemPreview';
 
 export interface OutfitCatalogItem {
   id: string;
   name: string;
   tagline: string;
-  /** Server-authoritative price in Chai. Clients must render this number, never a hardcoded one. */
+  /** Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one. */
   cost: number;
   /** Bought once, owned forever — derived from the ledger. */
   owned: boolean;
+  /** A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change. */
+  kind: OutfitCatalogItemKind;
+  /** How to crop this item's thumbnail. A hat is unreadable in a full-body crop, so accessories ask for the head. */
+  preview: OutfitCatalogItemPreview;
 }

@@ -12,11 +12,17 @@ import {
   EXPRESS_MULTIPLIER_COST,
   EXPRESS_MULTIPLIER_MINUTES,
   STOP_UNLOCK_COST,
-  OUTFIT_COST,
   STREAK_REPAIR_COST,
 } from "./tokenEconomy";
 import { stopUnlockRefId } from "./stopUnlock";
-import { OUTFIT_REASON, outfitRefId, type OutfitId } from "./outfits";
+import {
+  getOutfit,
+  outfitCost,
+  OUTFIT_REASON,
+  outfitRefId,
+  type OutfitId,
+  type OutfitKind,
+} from "./outfits";
 import {
   STREAK_REPAIR_REASON,
   streakRepairDayKey,
@@ -34,6 +40,21 @@ export interface TokenStateRow {
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
   equippedOutfit: string | null;
+  equippedAccessory: string | null;
+}
+
+/**
+ * The column update for wearing (or removing) an item in its own slot.
+ *
+ * The slot is a property of the ITEM, read from the catalog, never taken from
+ * a client: otherwise a request could ask for a turban to be worn as a garment
+ * and silently strip whatever she has on. Writing one slot never touches the
+ * other, which is the whole point — a hat and an outfit at the same time.
+ */
+function slotSet(kind: OutfitKind, value: OutfitId | null) {
+  return kind === "accessory"
+    ? { equippedAccessory: value }
+    : { equippedOutfit: value };
 }
 
 export class InsufficientTokensError extends Error {
@@ -257,6 +278,14 @@ export async function buyOutfit(
   outfitId: OutfitId,
 ): Promise<{ state: TokenStateRow; charged: boolean }> {
   const refId = outfitRefId(outfitId);
+  // The shop is not one flat price — an accessory costs less than a garment —
+  // so the price is READ FROM THE CATALOG HERE, keyed by the same id being
+  // bought. It is deliberately not a parameter: a cost argument (even a
+  // defaulted one) lets a caller pair an id with the wrong price, which for a
+  // 10-Chai accessory means silently charging 25. Nothing client-supplied
+  // reaches this number.
+  const cost = outfitCost(outfitId);
+  const kind = getOutfit(outfitId)?.kind ?? "garment";
   return db.transaction(async (tx) => {
     // The row has to exist before it can be locked.
     const initial = await ensureState(tx, userId);
@@ -288,15 +317,14 @@ export async function buyOutfit(
     if (owned) return { state, charged: false };
 
     const balance = state.balance;
-    if (balance < OUTFIT_COST)
-      throw new InsufficientTokensError(balance, OUTFIT_COST);
+    if (balance < cost) throw new InsufficientTokensError(balance, cost);
 
     const inserted = await tx
       .insert(tokenLedgerTable)
       .values({
         userId,
-        delta: -OUTFIT_COST,
-        balanceAfter: balance - OUTFIT_COST,
+        delta: -cost,
+        balanceAfter: balance - cost,
         reason: OUTFIT_REASON,
         refId,
       })
@@ -304,11 +332,13 @@ export async function buyOutfit(
       .returning({ id: tokenLedgerTable.id });
     if (inserted.length === 0) return { state, charged: false };
 
+    // Buying wears it immediately, in the slot that item belongs to. A hat
+    // bought while she is in a saree puts the hat on and leaves the saree on.
     const [updated] = await tx
       .update(userTokenStateTable)
       .set({
-        balance: sql`${userTokenStateTable.balance} - ${OUTFIT_COST}`,
-        equippedOutfit: outfitId,
+        balance: sql`${userTokenStateTable.balance} - ${cost}`,
+        ...slotSet(kind, outfitId),
         updatedAt: new Date(),
       })
       .where(eq(userTokenStateTable.userId, userId))
@@ -318,14 +348,20 @@ export async function buyOutfit(
 }
 
 /**
- * Wear an owned outfit, or pass null to go back to canonical Bolo. Free, so
- * there is no ledger row here — only the choice column. Ownership is checked
- * inside the same transaction: an equip may never confer what a purchase did
- * not.
+ * Wear an owned item in its own slot, or pass null to take something off.
+ * Free, so there is no ledger row here — only the choice column. Ownership is
+ * checked inside the same transaction: an equip may never confer what a
+ * purchase did not.
+ *
+ * `slot` only matters when taking something off, because with nothing to look
+ * up the server cannot tell which slot the learner meant. Omitting it clears
+ * BOTH, which is what an old client sending `{outfitId: null}` to mean
+ * "undress her" expects.
  */
 export async function equipOutfit(
   userId: string,
   outfitId: OutfitId | null,
+  slot?: OutfitKind,
 ): Promise<{ state: TokenStateRow; owned: boolean }> {
   return db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
@@ -343,9 +379,15 @@ export async function equipOutfit(
         .limit(1);
       if (!owned) return { state, owned: false };
     }
+    const change =
+      outfitId != null
+        ? slotSet(getOutfit(outfitId)?.kind ?? "garment", outfitId)
+        : slot
+          ? slotSet(slot, null)
+          : { equippedOutfit: null, equippedAccessory: null };
     const [updated] = await tx
       .update(userTokenStateTable)
-      .set({ equippedOutfit: outfitId, updatedAt: new Date() })
+      .set({ ...change, updatedAt: new Date() })
       .where(eq(userTokenStateTable.userId, userId))
       .returning();
     return { state: toState(updated), owned: true };
@@ -535,9 +577,11 @@ const toState = (r: {
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
   equippedOutfit: string | null;
+  equippedAccessory: string | null;
 }): TokenStateRow => ({
   balance: r.balance,
   stationPausesEquipped: r.stationPausesEquipped,
   expressMultiplierExpiresAt: r.expressMultiplierExpiresAt ?? null,
   equippedOutfit: r.equippedOutfit ?? null,
+  equippedAccessory: r.equippedAccessory ?? null,
 });

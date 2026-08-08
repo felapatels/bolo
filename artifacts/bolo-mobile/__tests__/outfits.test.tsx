@@ -71,8 +71,17 @@ jest.mock('@/components/PressableScale', () => {
 jest.mock('@/components/Mascot', () => {
   const { Text: RNText } = require('react-native');
   return {
-    Mascot: ({ outfit }: { outfit?: string | null }) => (
-      <RNText testID="preview-outfit">{outfit ?? 'canonical'}</RNText>
+    Mascot: ({
+      outfit,
+      accessory,
+    }: {
+      outfit?: string | null;
+      accessory?: string | null;
+    }) => (
+      <>
+        <RNText testID="preview-outfit">{outfit ?? 'canonical'}</RNText>
+        <RNText testID="preview-accessory">{accessory ?? 'bareheaded'}</RNText>
+      </>
     ),
   };
 });
@@ -126,10 +135,22 @@ const NAVRATRI = {
   owned: false,
 };
 
+// An accessory: it lands on the head slot, so it can be worn WITH a garment.
+const PAGDI = {
+  id: 'pagdi',
+  name: 'Marigold pagdi',
+  tagline: 'Marigold silk, gold zari and one peacock feather.',
+  cost: 10,
+  owned: false,
+  kind: 'accessory',
+};
+
 function renderShop(data: {
   balance: number;
   equipped: string | null;
-  outfits: (typeof NAVRATRI)[];
+  /** The head slot. Omitted means bare-headed, as an older payload would be. */
+  equippedAccessory?: string | null;
+  outfits: Array<Record<string, unknown>>;
 }) {
   mockState.outfits = { data };
   return render(<OutfitsScreen />);
@@ -137,6 +158,10 @@ function renderShop(data: {
 
 function previewOutfit(): string {
   return screen.getByTestId('preview-outfit').props.children;
+}
+
+function previewAccessory(): string {
+  return screen.getByTestId('preview-accessory').props.children;
 }
 
 beforeEach(() => {
@@ -235,6 +260,60 @@ describe('the wardrobe previews before it charges', () => {
     expect(screen.queryByTestId('outfit-short')).toBeNull();
     fireEvent.press(screen.getByTestId('outfit-wear'));
     expect(mockState.equipCalls).toEqual([{ data: { outfitId: 'navratri' } }]);
+  });
+
+  test('a hat and an outfit ride the bird at once', () => {
+    renderShop({
+      balance: 40,
+      equipped: 'navratri',
+      equippedAccessory: 'pagdi',
+      outfits: [{ ...NAVRATRI, owned: true }, { ...PAGDI, owned: true }],
+    });
+
+    expect(previewOutfit()).toBe('navratri');
+    expect(previewAccessory()).toBe('pagdi');
+  });
+
+  test('trying a hat on leaves the outfit where it is', () => {
+    renderShop({
+      balance: 40,
+      equipped: 'navratri',
+      outfits: [{ ...NAVRATRI, owned: true }, PAGDI],
+    });
+
+    fireEvent.press(screen.getByTestId('outfit-card-pagdi'));
+    expect(previewAccessory()).toBe('pagdi');
+    // The garment is untouched: this is the whole point of the second slot.
+    expect(previewOutfit()).toBe('navratri');
+  });
+
+  test('taking the hat off says which slot, so the outfit stays on', () => {
+    renderShop({
+      balance: 40,
+      equipped: 'navratri',
+      equippedAccessory: 'pagdi',
+      outfits: [{ ...NAVRATRI, owned: true }, { ...PAGDI, owned: true }],
+    });
+
+    fireEvent.press(screen.getByTestId('outfit-takeoff-pagdi'));
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: null, slot: 'accessory' } },
+    ]);
+  });
+
+  test('wearing from the rack names the slot it lands in', () => {
+    renderShop({
+      balance: 40,
+      equipped: null,
+      outfits: [{ ...NAVRATRI, owned: true }, { ...PAGDI, owned: true }],
+    });
+
+    fireEvent.press(screen.getByTestId('outfit-wear-pagdi'));
+    fireEvent.press(screen.getByTestId('outfit-wear-navratri'));
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: 'pagdi', slot: 'accessory' } },
+      { data: { outfitId: 'navratri', slot: 'garment' } },
+    ]);
   });
 
   test('what he is wearing can be taken off', () => {

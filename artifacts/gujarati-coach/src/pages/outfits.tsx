@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetOutfitsQueryKey,
@@ -13,6 +13,7 @@ import { Mascot } from "@/components/mascot";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { Awning, MarigoldString } from "@/components/india-decor";
 import { DressingRoom } from "@/components/dressing-room";
+import { OutfitCard, groupOutfits } from "@/components/outfit-card";
 import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
@@ -38,15 +39,27 @@ export default function OutfitsPage() {
   const outfitsQuery = useGetOutfits();
   const data = outfitsQuery.data;
   const equipped = data?.equipped ?? null;
+  const equippedAccessory = data?.equippedAccessory ?? null;
   const balance = data?.balance ?? 0;
 
-  // Which costume the bird is showing. `undefined` means "whatever is
-  // equipped" — the moment the learner taps a card we hold their choice, and
-  // backing out returns to their real Bolo.
-  const [previewed, setPreviewed] = useState<string | null | undefined>(
-    undefined,
-  );
-  const shown = previewed === undefined ? equipped : previewed;
+  // Which item the learner is trying on. Null means "nothing being tried" —
+  // the bird stands in exactly what she is wearing.
+  //
+  // TWO SLOTS: trying a hat on must not take her outfit off, so the item under
+  // consideration only replaces ITS OWN slot and the other slot keeps showing
+  // what is equipped. That is the whole feature, seen from the shop floor.
+  const [previewed, setPreviewed] = useState<string | null>(null);
+  // The rack grows; what a learner already paid for should not need hunting
+  // for. One chip narrows it to their own wardrobe.
+  const [ownedOnly, setOwnedOnly] = useState(false);
+  const previewedItem = data?.outfits.find((o) => o.id === previewed) ?? null;
+  const previewedKind = previewedItem?.kind ?? "garment";
+  const shownGarment =
+    previewedItem && previewedKind === "garment" ? previewedItem.id : equipped;
+  const shownAccessory =
+    previewedItem && previewedKind === "accessory"
+      ? previewedItem.id
+      : equippedAccessory;
   const [error, setError] = useState<string | null>(null);
 
   const refresh = async () => {
@@ -65,7 +78,7 @@ export default function OutfitsPage() {
     mutation: {
       onSuccess: async () => {
         setError(null);
-        setPreviewed(undefined);
+        setPreviewed(null);
         await refresh();
       },
       onError,
@@ -75,7 +88,7 @@ export default function OutfitsPage() {
     mutation: {
       onSuccess: async () => {
         setError(null);
-        setPreviewed(undefined);
+        setPreviewed(null);
         await refresh();
       },
       onError,
@@ -83,7 +96,15 @@ export default function OutfitsPage() {
   });
 
   const busy = buy.isPending || equip.isPending;
-  const shownOutfit = data?.outfits.find((o) => o.id === shown) ?? null;
+  // The item the buttons under the bird act on: whatever is being tried on,
+  // and otherwise nothing (she is already wearing her own things).
+  const shownOutfit = previewedItem;
+  const isWorn = (id: string, kind?: string | null) =>
+    kind === "accessory" ? id === equippedAccessory : id === equipped;
+
+  const allItems = data?.outfits ?? [];
+  const ownedCount = allItems.filter((o) => o.owned).length;
+  const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
 
   // The changing room. Every costume change draws the curtain, swaps the art
   // behind it and opens again once the dressed bird has actually decoded —
@@ -92,7 +113,9 @@ export default function OutfitsPage() {
   // the beat: a curtain that never reopens hides the product, so it opens on
   // load, on error, and on a timer regardless.
   const [changing, setChanging] = useState(false);
-  const dressedAs = useRef<string | null | undefined>(undefined);
+  const dressedAs = useRef<string | undefined>(undefined);
+  // Both slots decide what is behind the curtain, so the key is the pair.
+  const shown = `${shownGarment ?? ""}|${shownAccessory ?? ""}`;
 
   useEffect(() => {
     if (dressedAs.current === shown) return;
@@ -118,10 +141,13 @@ export default function OutfitsPage() {
         ),
       );
     };
+    // The base is the slow one — a first-time garment is a fresh PNG — and
+    // the hat overlay is small and usually already cached, so the curtain
+    // waits on the garment and lets the overlay ride along.
     const img = new Image();
     img.onload = openWhenDressed;
     img.onerror = openWhenDressed;
-    img.src = mascotAssetSrc("wave", shown);
+    img.src = mascotAssetSrc("wave", shownGarment);
     // Failsafe: the art may never resolve, and the booth must still open.
     timers.push(window.setTimeout(openWhenDressed, 2400));
     return () => {
@@ -145,6 +171,16 @@ export default function OutfitsPage() {
         Back
       </Link>
 
+      {/* THE DRESSING ROOM STAYS PUT. The rack is the only thing that
+          scrolls: a learner comparing eight items should not have to scroll
+          the bird back into view to see what a costume looks like on her.
+          Sticky (not fixed) so it still sits inside the page's own scroller
+          and needs no height maths; the negative margin lets it cover the
+          rack sliding underneath it edge to edge. */}
+      <div
+        data-testid="outfit-dressing-room"
+        className="sticky top-0 z-20 -mx-4 bg-background px-4 pb-3 pt-1"
+      >
       {/* The storefront. Awning, toran, painted board, and the counter Bolo
           stands behind — one continuous shop rather than a header stacked on
           a card. */}
@@ -172,7 +208,7 @@ export default function OutfitsPage() {
                 className="mt-1 text-[10px] font-black uppercase tracking-[0.22em]"
                 style={{ color: INDIA.gold }}
               >
-                Outfits · paid in Chai
+                Outfits &amp; accessories · paid in Chai
               </p>
             </div>
             <span
@@ -188,13 +224,6 @@ export default function OutfitsPage() {
               <ChaiGlyph className="h-4 w-4" />
             </span>
           </div>
-          <p
-            className="mt-3 text-sm font-bold leading-snug"
-            style={{ color: INDIA.ink }}
-          >
-            Everything here is stitched for one bird. Buy it once and it stays
-            hers.
-          </p>
         </div>
 
         {/* Preview: the learner's own Bolo, standing at the counter in
@@ -205,7 +234,12 @@ export default function OutfitsPage() {
         >
           <DressingRoom closed={changing} className="w-full rounded-t-xl">
             <div className="flex justify-center pt-3">
-              <Mascot pose="wave" size={180} outfit={shown} />
+              <Mascot
+                pose="wave"
+                size={180}
+                outfit={shownGarment}
+                accessory={shownAccessory}
+              />
             </div>
           </DressingRoom>
           {shownOutfit ? (
@@ -244,10 +278,11 @@ export default function OutfitsPage() {
         </p>
       ) : null}
 
-      {/* Action for whatever is on the bird right now. */}
+      {/* Action for whatever is on the bird right now. Taking something off
+          always names its slot, so removing a hat leaves the outfit on. */}
       <div className="mt-4 flex justify-center">
         {shownOutfit == null ? (
-          equipped == null ? null : (
+          equipped == null && equippedAccessory == null ? null : (
             <button
               type="button"
               disabled={busy}
@@ -255,16 +290,20 @@ export default function OutfitsPage() {
               onClick={() => equip.mutate({ data: { outfitId: null } })}
               className="rounded-xl border border-card-border bg-card px-5 py-2.5 text-sm font-black text-foreground transition-all active:translate-y-0.5 disabled:opacity-50"
             >
-              Take it off
+              Take it all off
             </button>
           )
         ) : shownOutfit.owned ? (
-          shownOutfit.id === equipped ? (
+          isWorn(shownOutfit.id, shownOutfit.kind) ? (
             <button
               type="button"
               disabled={busy}
               data-testid="outfit-unequip"
-              onClick={() => equip.mutate({ data: { outfitId: null } })}
+              onClick={() =>
+                equip.mutate({
+                  data: { outfitId: null, slot: previewedKind as "garment" | "accessory" },
+                })
+              }
               className="rounded-xl border border-card-border bg-card px-5 py-2.5 text-sm font-black text-foreground transition-all active:translate-y-0.5 disabled:opacity-50"
             >
               Take it off
@@ -302,129 +341,106 @@ export default function OutfitsPage() {
           </button>
         )}
       </div>
+      </div>
 
-      {/* The rack. Every bolt of cloth carries its own two doors: Try On is a
-          free preview (nothing is spent, nothing is worn), Buy Now is the
-          till. The card body still previews on click as a convenience, but
-          the buttons are the affordance — a whole-card tap gave the learner
-          no way to know that tapping was safe. */}
-      <div className="mt-6 space-y-3">
-        {(data?.outfits ?? []).map((outfit) => {
-          const isShown = shown === outfit.id;
-          const isWorn = outfit.id === equipped;
-          const short = outfit.cost - balance;
-          return (
-            <div
-              key={outfit.id}
-              data-testid={`outfit-card-${outfit.id}`}
-              onClick={() => tryOn(outfit.id)}
-              className={cn(
-                "rounded-2xl border bg-card p-4 pl-3 text-left transition-colors",
-                isShown
-                  ? "border-primary"
-                  : "border-card-border hover:border-primary/40",
-              )}
-            >
-              <div className="flex items-center gap-3">
-                {/* The cloth-tag spine: a stitched edge down the left of every
-                    bolt of cloth on the shelf. */}
-                <span
-                  aria-hidden="true"
-                  className="h-10 w-1.5 shrink-0 rounded-full"
-                  style={{
-                    background: outfit.owned ? INDIA.board : INDIA.gold,
+      {/* The two facts the UI cannot show on its own: the pick is worn
+          app-wide, and the slots combine. */}
+      <p className="mt-4 text-sm font-bold leading-snug text-muted-foreground">
+        Buy once, keep forever. Bolo wears your pick everywhere in the app, and
+        a hat and an outfit go on at the same time.
+      </p>
+
+      {/* Quick filter. Owned stock is what a learner comes back for, and it
+          is scattered through a rack sorted by kind. */}
+      <div className="mt-4 flex items-center gap-2" data-testid="outfit-filters">
+        <button
+          type="button"
+          data-testid="outfit-filter-all"
+          aria-pressed={!ownedOnly}
+          onClick={() => setOwnedOnly(false)}
+          className={cn(
+            "rounded-full border px-3.5 py-1.5 text-xs font-black transition-colors",
+            ownedOnly
+              ? "border-card-border bg-card text-muted-foreground hover:text-foreground"
+              : "border-primary bg-primary text-primary-foreground",
+          )}
+        >
+          Everything
+        </button>
+        <button
+          type="button"
+          data-testid="outfit-filter-owned"
+          aria-pressed={ownedOnly}
+          onClick={() => setOwnedOnly(true)}
+          className={cn(
+            "rounded-full border px-3.5 py-1.5 text-xs font-black transition-colors",
+            ownedOnly
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-card-border bg-card text-muted-foreground hover:text-foreground",
+          )}
+        >
+          My wardrobe · {ownedCount}
+        </button>
+      </div>
+
+      {/* The rack. Stock is grouped by what it is and laid out as a grid of
+          pictures rather than a list of names: with one bolt of cloth a list
+          read fine, but the catalog is growing and a name alone does not tell
+          a learner what she is buying. Every card still carries its own two
+          doors — Try On is a free preview, Buy is the till — and the card
+          body previews on click as a convenience. */}
+      <div className="mt-4 space-y-5">
+        {rackItems.length === 0 ? (
+          <p
+            data-testid="outfit-filter-empty"
+            className="rounded-2xl border border-dashed border-card-border p-6 text-center text-sm font-bold text-muted-foreground"
+          >
+            Nothing bought yet. Everything on the rack is one tap away.
+          </p>
+        ) : null}
+        {groupOutfits(rackItems).map((section) => (
+          <section
+            key={section.kind}
+            data-testid={`outfit-section-${section.kind}`}
+          >
+            <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
+              {section.label}
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {section.items.map((outfit) => (
+                <OutfitCard
+                  key={outfit.id}
+                  outfit={outfit}
+                  isShown={previewed === outfit.id}
+                  isWorn={isWorn(outfit.id, outfit.kind)}
+                  balance={balance}
+                  busy={busy}
+                  onTryOn={tryOn}
+                  onBuy={(id) => {
+                    setError(null);
+                    setPreviewed(id);
+                    buy.mutate({ data: { outfitId: id } });
+                  }}
+                  onEquip={(id, slot) => {
+                    setError(null);
+                    equip.mutate({
+                      data: {
+                        outfitId: id,
+                        slot: slot as "garment" | "accessory",
+                      },
+                    });
                   }}
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="font-black text-foreground">{outfit.name}</p>
-                  <p className="text-xs leading-snug text-muted-foreground">
-                    {outfit.tagline}
-                  </p>
-                </div>
-                {outfit.owned ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wider text-primary">
-                    <Check className="h-4 w-4" />
-                    {isWorn ? "Wearing" : "Owned"}
-                  </span>
-                ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-black text-foreground">
-                    {outfit.cost}
-                    <ChaiGlyph className="h-4 w-4" />
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  data-testid={`outfit-tryon-${outfit.id}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    tryOn(outfit.id);
-                  }}
-                  className="flex-1 rounded-xl border-2 px-3 py-2 text-sm font-black transition-all active:translate-y-0.5"
-                  style={{
-                    borderColor: INDIA.gold,
-                    background: INDIA.cloth,
-                    color: INDIA.board,
-                  }}
-                >
-                  {isShown ? "On the bird" : "Try On"}
-                </button>
-
-                {outfit.owned ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    data-testid={
-                      isWorn
-                        ? `outfit-takeoff-${outfit.id}`
-                        : `outfit-wear-${outfit.id}`
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setError(null);
-                      equip.mutate({
-                        data: { outfitId: isWorn ? null : outfit.id },
-                      });
-                    }}
-                    className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
-                  >
-                    {isWorn ? "Take it off" : "Wear this"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy || short > 0}
-                    data-testid={`outfit-buynow-${outfit.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setError(null);
-                      setPreviewed(outfit.id);
-                      buy.mutate({ data: { outfitId: outfit.id } });
-                    }}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-60"
-                    style={{
-                      backgroundImage: `linear-gradient(180deg, #1E7357 0%, ${INDIA.board} 58%, #103F31 100%)`,
-                      color: INDIA.cream,
-                      boxShadow: `0 4px 0 ${INDIA.boardDeep}, inset 0 1px 0 rgba(255,247,234,0.35)`,
-                    }}
-                  >
-                    <span>
-                      {short > 0 ? `${short} more` : `Buy Now · ${outfit.cost}`}
-                    </span>
-                    <ChaiGlyph className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+              ))}
             </div>
-          );
-        })}
-        {shown !== equipped ? (
+          </section>
+        ))}
+
+        {previewedItem && !isWorn(previewedItem.id, previewedItem.kind) ? (
           <button
             type="button"
             data-testid="outfit-cancel-preview"
-            onClick={() => setPreviewed(undefined)}
+            onClick={() => setPreviewed(null)}
             className="w-full rounded-2xl border border-dashed border-card-border p-3 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
           >
             Back out — show my Bolo as she is

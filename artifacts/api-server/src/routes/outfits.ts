@@ -41,11 +41,14 @@ router.get("/outfits", async (req: Request, res: Response): Promise<void> => {
   res.json({
     balance: state.balance,
     equipped: state.equippedOutfit,
+    equippedAccessory: state.equippedAccessory,
     outfits: OUTFIT_CATALOG.map((outfit) => ({
       id: outfit.id,
       name: outfit.name,
       tagline: outfit.tagline,
       cost: outfit.cost,
+      kind: outfit.kind,
+      preview: outfit.preview,
       owned: owned.includes(outfit.id),
     })),
   });
@@ -77,6 +80,7 @@ router.post(
         charged,
         cost: catalogEntry.cost,
         equipped: state.equippedOutfit,
+        equippedAccessory: state.equippedAccessory,
       });
     } catch (e) {
       if (e instanceof InsufficientTokensError) {
@@ -106,12 +110,22 @@ router.post(
       res.status(404).json({ error: "Outfit not found" });
       return;
     }
-    const { state, owned } = await equipOutfit(getUserId(req), requested);
+    // Which slot is a property of the item, so it is looked up, not trusted.
+    // `slot` in the body is only consulted to take something off, where there
+    // is no item to look it up from; omitting it undresses her completely.
+    const { state, owned } = await equipOutfit(
+      getUserId(req),
+      requested,
+      parsed.data.slot ?? undefined,
+    );
     if (!owned) {
       res.status(409).json({ error: "outfit_not_owned" });
       return;
     }
-    res.json({ equipped: state.equippedOutfit });
+    res.json({
+      equipped: state.equippedOutfit,
+      equippedAccessory: state.equippedAccessory,
+    });
   },
 );
 

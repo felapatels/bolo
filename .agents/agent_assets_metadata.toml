@@ -297,3 +297,136 @@ uri = "file://artifacts/bolo-social-clips/public/images/mascot-listen.png"
 type = "image"
 title = "Canonical listen Bolo — un-costumed"
 description = "The original headphones listen pose, unchanged since July 13 and byte-identical to the committed version. Lives in the video artifacts only; the web and mobile apps ship five poses without it."
+
+[[outputs]]
+id = "bnPzN7ddTred7PKCSA6ma"
+uri = "file://attached_assets/generated_images/pagdi-montage-b-fitted.png"
+type = "image"
+title = "Pagdi on all five poses — fitted size (nothing clipped)"
+description = "The generated pagdi composited over the untouched canonical PNGs at ~0.68x head width. Order: wave, cheer, thumbsup, thinking, tryagain. No Bolo pixel regenerated."
+
+[[outputs]]
+id = "LPvV_bphqkDmw-SGFjp2w"
+uri = "file://attached_assets/generated_images/pagdi-montage-a-full-size.png"
+type = "image"
+title = "Pagdi on all five poses — festive size (feather clips the frame)"
+description = "Same accessory at ~0.86x head width. Reads better as a Diwali pagdi, but the plume runs past the top of the 1024 canvas on every pose."
+
+[[outputs]]
+id = "6UuX67pktRebun-FEi02o"
+uri = "file://attached_assets/generated_images/pagdi-compare-a-vs-b.png"
+type = "image"
+title = "Size comparison on the three riskiest poses"
+description = "Top row festive size, bottom row fitted size. Columns: wave, cheer, tryagain."
+
+[[outputs]]
+id = "COcKAc7B30ZofhDMGUC2o"
+uri = "file://attached_assets/generated_images/pagdi-tilted-montage.png"
+type = "image"
+title = "Pagdi tilted to the head — bigger size, all five poses"
+description = "Rotation measured per pose from the eye line, applied about the brim so the turban stays seated. Order: wave, cheer, thumbsup, thinking, tryagain."
+
+[[outputs]]
+id = "GTkNtHREwGJbGBsRsj797"
+uri = "file://attached_assets/generated_images/pagdi-tilted-montage-with-headroom.png"
+type = "image"
+title = "Same anchors, with headroom above the mascot box"
+description = "Identical placement on a taller canvas, showing the plume that the 1024 frame cuts off on four of the five poses."
+
+[[outputs]]
+id = "prjIO3-GIfmxrmqW-0-KR"
+uri = "file://attached_assets/generated_images/pagdi-tilt-strength-compare.png"
+type = "image"
+title = "Tilt strength: full measured angle vs 70%"
+description = "tryagain at 20.2 then 14.1 degrees, thinking at 17.6 then 12.3. The two strongest-tilt poses, for picking how hard the hat should lean."
+
+[[outputs]]
+id = "ZHhK53hLM2j6px7Zdpl0g"
+uri = "file://attached_assets/generated_images/pagdi-fullhead-all5.png"
+type = "image"
+title = "Full-head coverage — all five canonical poses, labelled"
+description = "wave, cheer, thumbsup, thinking, tryagain. Turban at 1.12x head width, seated so the brim reaches the brow. Measured crown coverage: 100% on every pose."
+
+[[outputs]]
+id = "OaQVmCaaoXoQpRwCkOz4i"
+uri = "file://attached_assets/generated_images/pagdi-depth-ladder.png"
+type = "image"
+title = "How deep the turban sits — perched vs covering vs too low"
+description = "tryagain on the top row, cheer on the bottom, each at three seating depths. The right-hand column drops the brim onto the eyebrows."
+
+[[outputs]]
+id = "itYSzYrBxCukBMAfDWxZc"
+uri = "file://attached_assets/generated_images/pagdi-toolow-all5.png"
+type = "image"
+title = "One step too far, for reference"
+description = "The deepest seating across all five poses. Full coverage and the least plume loss, but the brim starts eating the eyes on thinking and tryagain."
+
+[[outputs]]
+id = "4qyWVILh0ZqG507xBnh5S"
+uri = "file://attached_assets/generated_images/cap-all5.png"
+type = "image"
+title = "Station master's cap — all five canonical poses"
+description = "wave, cheer, thumbsup, thinking, tryagain. Cap at 1.05x head width, seated by a brow rule so the peak clears the eyes on every pose. Recommended."
+
+[[outputs]]
+id = "OXudeJN-eZKocuKLOu7EO"
+uri = "file://attached_assets/generated_images/cap-faces-closeup.png"
+type = "image"
+title = "Close-up — eyes clear on every pose"
+description = "Same five poses cropped to the face, to prove the peak is not sitting on the eyes."
+
+[[outputs]]
+id = "asaC0nYD4zrgf2C0D0lJr"
+uri = "file://attached_assets/generated_images/cap-all5-bigger.png"
+type = "image"
+title = "Bigger alternative"
+description = "Same cap at 1.18x head width. More authoritative, but more of the crown top runs past the top of the frame."
+
+[[outputs]]
+id = "VB45nAeRS3BCrOLyiz588"
+uri = "file://attached_assets/generated_images/cap-all5-nudged.png"
+type = "image"
+title = "Station master's cap — all five poses (thinking + tryagain nudged +20px right)"
+description = "The three you approved are byte-for-byte untouched. Only thinking and tryagain moved, 20px right in the 1024 frame (about 4% of her head width). Nothing was re-generated — the cap layer you signed off was shifted, so the seating, scale and per-pose rotation are identical."
+
+[[outputs]]
+id = "VjkQq-DEAFltNVIYazvvs"
+uri = "file://attached_assets/generated_images/cap-faces-nudged.png"
+type = "image"
+title = "Station master's cap — face close-ups"
+description = "Close crops for the fine check. Eye-white occlusion measured at 0% on all five poses, and the brim clears her brow everywhere."
+
+[[outputs]]
+id = "V79r5PbH8_rfoxoXJOrtN"
+uri = "file://attached_assets/generated_images/ked-all5.png"
+type = "image"
+title = "Navratri kediyu — all five poses (overlay, not a redraw)"
+description = "The first garment from your catalog list. Bolo's own pixels are untouched: the cloth is composited over her teal belly only, and every non-teal pixel of the canonical art — wings, beak, eyes, feet — is restacked in front of it, so the wings that fold across her chest still read as being in front of the cloth."
+
+[[outputs]]
+id = "adOD5jQXv1ZdRDHykXmuO"
+uri = "file://attached_assets/generated_images/ked-torsos.png"
+type = "image"
+title = "Navratri kediyu — torso close-ups"
+description = "Close crops of the join. Worth judging the neckline under her chin, the hem against her feet, and thumbsup/tryagain where a wing crosses the cloth."
+
+[[outputs]]
+id = "kVm7n8i8LXY_gLRg_O3qt"
+uri = "file://attached_assets/generated_images/garments-pass1.png"
+type = "image"
+title = "All nine garments, first pass"
+description = "Rows top to bottom: kediyu (the approved one), Diwali anarkali, Diwali kurta, wedding sherwani, Banarasi saree, denim jacket, Bolo! hoodie, retro track jacket, puffer vest. Six read as clothing. The kurta, sherwani and saree came out as open front coats, so they read as capes with the lining showing — re-cutting those three now."
+
+[[outputs]]
+id = "8tJ5ciRwuH72ueCSqIYWr"
+uri = "file://attached_assets/generated_images/garments-recut.png"
+type = "image"
+title = "Re-cut: Diwali kurta, wedding sherwani, Banarasi saree"
+description = "The three that read as capes, regenerated with a closed buttoned front. The kurta now shows white churidar below the hem, the sherwani reads as gold brocade, and the saree drapes with its zari border along the bottom."
+
+[[outputs]]
+id = "WV1GeMdyHqsPoA9AlIl3z"
+uri = "file://attached_assets/generated_images/bazaar-stock.png"
+type = "image"
+title = "The rack, stocked"
+description = "Everything on sale now: the hand-drawn Navratri choli, then the five new composited garments — kediyu, anarkali and kurta at 25 Chai, sherwani and saree at 40 — and the pagdi accessory at 10."

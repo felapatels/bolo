@@ -8,4 +8,5 @@
 
 export interface OutfitEquipResult {
   equipped: string | null;
+  equippedAccessory?: string | null;
 }

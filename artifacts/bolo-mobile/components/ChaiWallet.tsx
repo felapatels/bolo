@@ -382,8 +382,11 @@ export function ChaiWalletSheet({
                 <Text style={[styles.itemTitle, { color: colors.foreground }]}>
                   Station Pause
                 </Text>
+                {/* Verbatim web copy (house rule). Forward-looking on purpose:
+                    this sink is bought BEFORE the miss, unlike the Mend row. */}
                 <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Covers a missed day so your streak rides on.
+                  Equip it before you need it. The next day you miss is already
+                  covered, so your streak is safe.
                 </Text>
                 <Text style={[styles.itemMeta, { color: colors.mutedForeground }]}>
                   {tokens?.stationPausesEquipped ?? 0} of{' '}

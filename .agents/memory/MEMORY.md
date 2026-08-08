@@ -134,4 +134,8 @@
 - [Mascot outfits (Chai sink)](mascot-outfits.md) — ownership = ledger row (`outfit:<id>`), wearing = a column; one pose+outfit resolver per platform; crossfade makes DOM-order image assertions lie.
 - [Concurrency regression witness](concurrency-regression-witness.md) — carry the retired algorithm inline and interleave BETWEEN its two reads; interfering before the call leaves the old code passing too.
 - [RN Image absoluteFill sizing](rn-image-absolutefill-intrinsic-size.md) — bare absoluteFill on iOS = intrinsic size, corner-cropped, resizeMode inert; Expo web hides it. Predict-and-crop to diagnose.
+- [Open redirects & one-shot redeem races](open-redirect-and-redeem-races.md) — validate redirect params by canonical origin (literal `\` normalizes, `%5C` does not); ApiError takes a Response; claim one-shot grants in storage.
 - [RN absolute insets vs parent padding](rn-absolute-inset-padding-box.md) — insets resolve against the PADDING BOX, so parent padding never insets them; measure font width (opentype.js, skip GSUB) before corner-pinning.
+- [Mascot garment compositing](mascot-garment-compositing.md) — dress her by keying the belly (#0CA6A0, NOT brand teal) and restacking her own wings/feet in front; pin anchors once approved.
+- [/tmp is ephemeral](tmp-is-ephemeral.md) — it can be wiped mid-session; generators, measured constants and approved art belong in the repo immediately.
+- [Mascot accessory compositing](mascot-accessory-compositing.md) — accessory-only art over untouched canonical PNGs; head roll from eye centroids, rotate about the brim; hat+garment = two slots + an overlay layer, never a per-pair bake.

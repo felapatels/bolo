@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
-import { mascotSource } from '@/lib/mascotOutfits';
+import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 
 /**
@@ -82,6 +82,7 @@ export function Mascot({
   celebrateBounce = 0,
   style,
   outfit,
+  accessory,
 }: {
   pose: MascotPose;
   size?: number;
@@ -107,9 +108,17 @@ export function Mascot({
    * buy it; pass null to force canonical Bolo.
    */
   outfit?: string | null;
+  /**
+   * Force an accessory instead of the learner's equipped one — the head slot's
+   * twin of `outfit`, so the shop can preview a hat over whatever garment is
+   * already on the bird. Pass null for bare-headed.
+   */
+  accessory?: string | null;
 }) {
-  const equippedOutfit = useEquippedOutfit();
-  const wornOutfit = outfit === undefined ? equippedOutfit : outfit;
+  const equipped = useEquippedOutfit();
+  const wornOutfit = outfit === undefined ? equipped.garment : outfit;
+  const wornAccessory =
+    accessory === undefined ? equipped.accessory : accessory;
   const reduceMotion = useReducedMotion();
   const loop = useSharedValue(0);
 
@@ -312,7 +321,8 @@ export function Mascot({
       ? ZoomIn.springify().damping(10).stiffness(140).mass(0.6).delay(40)
       : undefined;
 
-  const image = (
+  const overlay = accessoryOverlaySource(pose, wornAccessory);
+  const base = (
     <Image
       source={mascotSource(pose, wornOutfit)}
       style={[{ width: size, height: size }, styles.img, style]}
@@ -320,6 +330,25 @@ export function Mascot({
       accessibilityRole="image"
       accessibilityLabel={`Bolo the parrot, ${pose}`}
     />
+  );
+
+  // The head slot, stacked over whatever base the garment picked. Both files
+  // are the same 1024 frame, so drawing the overlay at the same size in the
+  // same box lines them up with no per-pose maths. The overlay carries its own
+  // explicit width/height: a bare absoluteFill Image renders at intrinsic size
+  // on iOS and ignores resizeMode.
+  const image = overlay ? (
+    <View style={{ width: size, height: size }}>
+      {base}
+      <Image
+        source={overlay}
+        style={[styles.overlay, { width: size, height: size }]}
+        resizeMode="contain"
+                accessible={false}
+      />
+    </View>
+  ) : (
+    base
   );
 
   return (
@@ -339,6 +368,7 @@ export function Mascot({
 
 const styles = StyleSheet.create({
   img: {},
+  overlay: { position: 'absolute', top: 0, left: 0 },
   /** The hang itself — a plain transform, so it holds with animations off. */
   hanging: { transform: [{ rotate: '180deg' }] },
 });
