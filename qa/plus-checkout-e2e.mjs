@@ -17,7 +17,7 @@
 // Requires the `playwright` package to be available (install in a scratch dir so
 // the repo lockfile is untouched, e.g. `npm i -C /tmp/pw playwright`).
 
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const MODE = process.env.E2E_MODE || "success";

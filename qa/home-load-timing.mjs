@@ -1,7 +1,7 @@
 // Measure logged-in home (/app) load time on the dev preview: cold and warm,
 // with a breakdown of where the time goes (HTML, modules, API calls, render).
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<id> NODE_PATH=/tmp/pw/node_modules node qa/home-load-timing.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

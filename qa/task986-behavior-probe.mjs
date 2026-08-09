@@ -6,7 +6,7 @@
 //
 // Usage: CHROME_BIN=$(which chromium) E2E_USER_ID=<clerk user id> \
 //        node qa/task986-behavior-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 

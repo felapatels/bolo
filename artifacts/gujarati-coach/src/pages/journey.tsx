@@ -217,7 +217,7 @@ function StationMarker({
   if (isCurrent) {
     return (
       <div
-        className="w-[46px] h-8 rounded-full bg-white flex items-center justify-center px-1"
+        className="w-[46px] h-8 rounded-full bg-card flex items-center justify-center px-1"
         style={{
           boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33, var(--depth-shadow)`,
           color,
@@ -399,7 +399,7 @@ function ZonePostcard({
   return (
     <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
       {/* postcard frame — outer 2px border */}
-      <div className="rounded-lg border-2 bg-white depth-shadow overflow-hidden" style={{ borderColor: color }}>
+      <div className="rounded-lg border-2 bg-card depth-shadow overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
         <div className="m-1 rounded-md border border-dashed overflow-hidden" style={{ borderColor: `${color}66` }}>
           {/* picture side: the zone's landmark vista */}
@@ -458,7 +458,7 @@ function ZonePostcard({
               href={testOutHref}
               onClick={blessAudioPlayback}
               data-testid={`link-zone-test-out-${zoneIndex}`}
-              className="mx-1.5 mb-1.5 flex items-center justify-center rounded-md border-2 bg-white py-2 text-xs font-bold active:scale-[0.98] transition-transform"
+              className="mx-1.5 mb-1.5 flex items-center justify-center rounded-md border-2 bg-card py-2 text-xs font-bold active:scale-[0.98] transition-transform"
               style={{ borderColor: color, color }}
             >
               Test out of this zone
@@ -1633,7 +1633,7 @@ export default function Journey() {
                   href={`/practice/${lock.zoneId}?group=${lock.groupId}&mode=testout`}
                   onClick={() => { blessAudioPlayback(); setLock(null); }}
                   data-testid="link-test-out"
-                  className="flex w-full items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                  className="flex w-full items-center justify-center rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
                 >
                   Test out of this stop
                 </Link>
@@ -1646,7 +1646,7 @@ export default function Journey() {
                   href={`/practice/${lock.zoneId}?mode=testout&scope=zone`}
                   onClick={() => { blessAudioPlayback(); setLock(null); }}
                   data-testid="link-test-out-zone"
-                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-border bg-white px-4 py-3 active:scale-[0.98] transition-transform"
+                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-border bg-card px-4 py-3 active:scale-[0.98] transition-transform"
                 >
                   <span className="text-sm font-bold text-foreground">Test out of this whole zone</span>
                   <span className="mt-0.5 text-xs font-medium text-muted-foreground">One phrase from each stop. Pass to unlock everything here.</span>
@@ -1738,7 +1738,7 @@ export default function Journey() {
                           data: { lessonGroupId: lock.groupId! },
                         });
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-black text-foreground active:scale-[0.98] transition-transform disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-black text-foreground active:scale-[0.98] transition-transform disabled:opacity-60"
                     >
                       <ChaiGlyph className="h-4 w-4" />
                       {unlockStop.isPending
@@ -1903,7 +1903,7 @@ export default function Journey() {
                         "Waved through. The signalman kept your Chai warm, come back anytime.",
                     });
                   }}
-                  className="w-full rounded-xl border-2 border-border bg-white px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                  className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
                 >
                   Wave me through
                 </button>

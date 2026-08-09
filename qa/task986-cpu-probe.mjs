@@ -10,7 +10,7 @@
 // Usage (run with cwd = repo root so shots/paths resolve):
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<clerk user id> \
 //   node qa/task986-cpu-probe.mjs [label]
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const LABEL = process.argv[2] ?? "run";

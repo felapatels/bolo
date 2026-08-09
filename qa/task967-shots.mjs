@@ -14,7 +14,7 @@
 //
 // Usage: CHROME_BIN=<chromium> E2E_USER_ID=<clerk user id> \
 //        NODE_PATH=/tmp/pw/node_modules node qa/task967-shots.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

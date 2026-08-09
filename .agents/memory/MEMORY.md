@@ -138,4 +138,6 @@
 - [RN absolute insets vs parent padding](rn-absolute-inset-padding-box.md) — insets resolve against the PADDING BOX, so parent padding never insets them; measure font width (opentype.js, skip GSUB) before corner-pinning.
 - [Mascot garment compositing](mascot-garment-compositing.md) — dress her by keying the belly (#0CA6A0, NOT brand teal) and restacking her own wings/feet in front; pin anchors once approved.
 - [/tmp is ephemeral](tmp-is-ephemeral.md) — it can be wiped mid-session; generators, measured constants and approved art belong in the repo immediately.
+- [Seeded content corrections](seed-content-corrections.md) — insert-only seeding skips existing rows, so a library typo fix needs an explicit correction pass or dev+prod keep it forever.
+- [Dark mode contrast](dark-mode-contrast.md) — semantic text over hardcoded `bg-white` is the dominant failure; tokens fail as fill vs text differently; never regex a computed colour (oklab).
 - [Mascot accessory compositing](mascot-accessory-compositing.md) — accessory-only art over untouched canonical PNGs; head roll from eye centroids, rotate about the brim; hat+garment = two slots + an overlay layer, never a per-pair bake.

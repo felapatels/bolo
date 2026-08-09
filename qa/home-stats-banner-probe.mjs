@@ -4,7 +4,7 @@
 // "Day Streak" label), so we can tell "summary undefined" apart from "summary
 // populated but banner not rendering".
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<id> NODE_PATH=/tmp/pw/node_modules node qa/home-stats-banner-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

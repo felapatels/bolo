@@ -108,7 +108,7 @@ export function BottomNav() {
           <LanguagePicker
             trigger={
               <button
-                className="flex flex-col items-center gap-1 text-muted-foreground/70 hover:text-muted-foreground transition-colors button-spring"
+                className="flex flex-col items-center gap-1 text-muted-foreground/70 dark:text-muted-foreground hover:text-muted-foreground transition-colors button-spring"
                 aria-label="Change language"
               >
                 <Globe className="w-5 h-5" strokeWidth={1.75} />

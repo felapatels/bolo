@@ -1,7 +1,7 @@
 // Grab a large element screenshot of the rigged Bolo (BoloRig svg) for
 // visual comparison against the original PNG mascot art.
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<id> NODE_PATH=/tmp/pw/node_modules node qa/rig-shot.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

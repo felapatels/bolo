@@ -182,7 +182,7 @@ export default function CategoryDetail() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={springs.smooth}
-            className="bg-white rounded-3xl p-6 border-2 shadow-sm text-center flex flex-col items-center lg:sticky lg:top-24"
+            className="bg-card rounded-3xl p-6 border-2 shadow-sm text-center flex flex-col items-center lg:sticky lg:top-24"
             style={{ borderColor: category.accent || 'var(--color-primary)' }}
           >
             <Mascot pose="thumbsup" size={88} className="mb-2" />
@@ -222,7 +222,7 @@ export default function CategoryDetail() {
               <Link
                 href={`/practice/${id}?phrase=${phrase.id}`}
                 onClick={blessAudioPlayback}
-                className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-primary/50"
+                className="bg-card rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-primary/50"
               >
                 <div className="mt-1 shrink-0">
                   {phrase.mastered ? (
@@ -277,7 +277,7 @@ export default function CategoryDetail() {
           <button
             onClick={handleAddPhrases}
             disabled={addPhrases.isPending}
-            className="w-full bg-white rounded-2xl p-4 border-2 border-dashed border-primary/40 text-primary font-bold flex items-center justify-center gap-2 transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60 button-spring"
+            className="w-full bg-card rounded-2xl p-4 border-2 border-dashed border-primary/40 text-primary font-bold flex items-center justify-center gap-2 transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60 button-spring"
           >
             {addPhrases.isPending ? (
               <>
@@ -335,7 +335,7 @@ export default function CategoryDetail() {
                   href={upgradeHref({ plan: "plus" })}
                 />
               ) : sentencesQuery.isLoading ? (
-                <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-center gap-3 text-muted-foreground">
+                <div className="bg-card rounded-2xl p-4 border border-card-border shadow-sm flex items-center gap-3 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span className="font-medium text-sm">Preparing your sentences…</span>
                 </div>
@@ -351,7 +351,7 @@ export default function CategoryDetail() {
                       <Link
                         href={`/practice/${id}?stage=sentences&phrase=${sentence.id}`}
                         onClick={blessAudioPlayback}
-                        className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-secondary/60"
+                        className="bg-card rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 cursor-pointer card-lift hover:border-secondary/60"
                       >
                         <div className="mt-1 shrink-0">
                           {sentence.mastered ? (

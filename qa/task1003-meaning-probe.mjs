@@ -7,7 +7,7 @@
 //   3. barge-in during the meaning segment pauses it and starts recording.
 //
 //   CHROME_BIN=$(which chromium) NODE_PATH=/tmp/pw/node_modules node qa/task1003-meaning-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

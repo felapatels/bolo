@@ -285,7 +285,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="their@email.com"
-            className="min-w-0 flex-1 rounded-xl border-2 border-card-border bg-white px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary"
+            className="min-w-0 flex-1 rounded-xl border-2 border-card-border bg-card px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary"
             disabled={openSeats === 0 || invite.isPending}
           />
           <button
@@ -540,7 +540,7 @@ function NoneView() {
         </Link>
         <Link
           href="/family/join"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-card-border bg-white px-6 py-3.5 text-base font-black text-foreground hover:border-primary/40"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-card-border bg-card px-6 py-3.5 text-base font-black text-foreground hover:border-primary/40"
         >
           I have a join code
         </Link>

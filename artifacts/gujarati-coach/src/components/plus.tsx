@@ -50,7 +50,7 @@ export function UpgradeCard({
     <Link
       href={href}
       className={cn(
-        "relative flex items-center gap-4 overflow-hidden rounded-3xl border border-card-border bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 active:translate-y-0",
+        "relative flex items-center gap-4 overflow-hidden rounded-3xl border border-card-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 active:translate-y-0",
         className,
       )}
     >
@@ -115,7 +115,7 @@ export function UpgradeScreen({
         </Link>
       </header>
       <div className="flex-1 flex items-center justify-center px-8">
-        <div className="w-full max-w-sm rounded-[2rem] border border-card-border bg-white p-8 text-center shadow-sm flex flex-col items-center gap-4">
+        <div className="w-full max-w-sm rounded-[2rem] border border-card-border bg-card p-8 text-center shadow-sm flex flex-col items-center gap-4">
           <div
             className={cn(
               "inline-flex h-16 w-16 items-center justify-center rounded-full text-white shadow-md",

@@ -315,7 +315,7 @@ export const GUJARATI_LESSONS: Record<string, SeedLesson> = {
       { nativeScript: "સવાર", romanized: "savaar", english: "morning", difficulty: 1 },
       { nativeScript: "સાંજ", romanized: "saanj", english: "evening", difficulty: 1 },
       { nativeScript: "રાત", romanized: "raat", english: "night", difficulty: 1 },
-      { nativeScript: "જય શ્રી કૃષ્ણ", romanized: "jay shri krushna", english: "Hello / greetings", difficulty: 1 },
+      { nativeScript: "જય શ્રી કૃષ્ણ", romanized: "jay shri krishna", english: "Hello / greetings", difficulty: 1 },
       { nativeScript: "શુભેચ્છા", romanized: "shubhechchha", english: "Best wishes", difficulty: 2 },
       { nativeScript: "કોઈ વાત નહીં", romanized: "koi vaat nahi", english: "It's okay / No problem", difficulty: 1 },
       { nativeScript: "શુભ દિન", romanized: "shubh din", english: "Good day", difficulty: 1 },

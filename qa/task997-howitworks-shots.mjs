@@ -1,7 +1,7 @@
 // Task 997: capture fresh product screenshots for the public homepage
 // "how it works" section. Authed via a Clerk sign-in token.
 //   CHROME_BIN=<chromium> E2E_USER_ID=<id> node qa/task997-howitworks-shots.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

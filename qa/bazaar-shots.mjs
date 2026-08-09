@@ -2,7 +2,7 @@
 //
 // THUMBS_ONLY=1 skips the signed-in web pass and only re-renders the mobile
 // thumb crop (no Clerk token burned).
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

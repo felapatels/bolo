@@ -6,7 +6,7 @@
 // /app with session marker set and NO hasChosenLanguage write -> same-session
 // reload stays home -> FRESH browser context re-gates to /choose-language.
 //   CHROME_BIN=$(which chromium) NODE_PATH=/tmp/pw/node_modules node qa/b1-skip-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const SK = process.env.CLERK_SECRET_KEY;

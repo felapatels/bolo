@@ -63,7 +63,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
                 className={cn(
                   "relative flex flex-col items-center text-center rounded-2xl p-3 border shadow-sm",
                   badge.earned
-                    ? "bg-white border-card-border"
+                    ? "bg-card border-card-border"
                     : isNearest
                       ? "bg-secondary/5 border-secondary ring-1 ring-secondary/40"
                       : "bg-muted/40 border-dashed border-border",
@@ -150,7 +150,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
           )}
         </div>
       ) : (
-        <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-border">
+        <div className="text-center py-8 bg-card rounded-2xl border border-dashed border-border">
           <p className="text-muted-foreground font-medium">
             No badges available yet.
           </p>

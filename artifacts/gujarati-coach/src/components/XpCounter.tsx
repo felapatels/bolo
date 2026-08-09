@@ -104,7 +104,12 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
           className={cn(
             "font-semibold uppercase tracking-wide leading-none",
             isSession ? "text-[9px]" : "text-[10px]",
-            done ? "text-primary/70" : "text-muted-foreground/50",
+            // Half-strength muted grey is a soft touch on a white page and
+            // nearly invisible on a dark one, so the dark theme spends more
+            // of the ink it has.
+            done
+              ? "text-primary/70 dark:text-primary"
+              : "text-muted-foreground/50 dark:text-muted-foreground/80",
           )}
         >
           XP

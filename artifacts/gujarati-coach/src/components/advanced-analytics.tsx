@@ -50,7 +50,7 @@ function AnalyticsPanel({ lang }: { lang: string }) {
         </div>
       ) : data && data.categories.length > 0 ? (
         <div className="space-y-4">
-          <div className="rounded-3xl border border-card-border bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-card-border bg-card p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-black uppercase tracking-wider text-muted-foreground">
               Mastery by topic
             </h3>
@@ -108,7 +108,7 @@ function AnalyticsPanel({ lang }: { lang: string }) {
           </div>
 
           {data.daily.length > 0 && (
-            <div className="rounded-3xl border border-card-border bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-card-border bg-card p-5 shadow-sm">
               <h3 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground">
                 <TrendingUp className="h-4 w-4" />
                 Recent activity
@@ -140,7 +140,7 @@ function AnalyticsPanel({ lang }: { lang: string }) {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border bg-white py-8 text-center">
+        <div className="rounded-2xl border border-dashed border-border bg-card py-8 text-center">
           <p className="font-medium text-muted-foreground">
             Practice a few phrases to see your analytics here.
           </p>

@@ -403,7 +403,7 @@ function ManageView({
         {isFamilyOwner && (
           <Link
             href="/family"
-            className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-white p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99]"
+            className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-card p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -426,7 +426,7 @@ function ManageView({
           <button
             onClick={handleStripePortalGuarded}
             disabled={portalPending}
-            className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-white p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99] disabled:opacity-70"
+            className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-card p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99] disabled:opacity-70"
           >
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -453,7 +453,7 @@ function ManageView({
               href={sub.paymentMethod.managementUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="mt-4 flex items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-white p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99]"
+              className="mt-4 flex items-center justify-between gap-3 rounded-2xl border-2 border-card-border bg-card p-4 text-left transition-all hover:border-primary/40 active:scale-[0.99]"
             >
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -893,7 +893,7 @@ function RetentionFlow({
                         "rounded-xl border-2 px-3 py-2 text-sm font-black transition-all active:scale-[0.98] disabled:opacity-60",
                         selected
                           ? "border-primary bg-primary/10 text-primary"
-                          : "border-card-border bg-white text-muted-foreground hover:border-primary/40",
+                          : "border-card-border bg-card text-muted-foreground hover:border-primary/40",
                       )}
                     >
                       {n} mo
@@ -965,7 +965,7 @@ function OfferCard({
           ? "border-primary bg-primary/5"
           : destructive
             ? "border-destructive/20 bg-destructive/5"
-            : "border-card-border bg-white",
+            : "border-card-border bg-card",
       )}
     >
       <div className="flex items-start gap-3">
@@ -1004,8 +1004,8 @@ function OfferCard({
           highlight
             ? cn("text-white", PLUS_GRADIENT)
             : destructive
-              ? "border-2 border-destructive/30 bg-white text-destructive"
-              : "border-2 border-card-border bg-white text-foreground",
+              ? "border-2 border-destructive/30 bg-card text-destructive"
+              : "border-2 border-card-border bg-card text-foreground",
         )}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : cta}

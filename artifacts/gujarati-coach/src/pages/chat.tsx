@@ -1557,7 +1557,7 @@ export default function ChatPage() {
         <Link
           href="/app"
           aria-label="Go back"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-card-border bg-white shadow-sm transition-all hover:shadow active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-card-border bg-card shadow-sm transition-all hover:shadow active:scale-95"
         >
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </Link>
@@ -1590,7 +1590,7 @@ export default function ChatPage() {
         <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
           <DialogTrigger asChild>
             <button
-              className="flex items-center gap-2 rounded-2xl border border-card-border bg-white px-4 py-2 shadow-[0_4px_0_rgba(0,0,0,0.08)] text-sm font-bold transition-all active:translate-y-1 active:shadow-none"
+              className="flex items-center gap-2 rounded-2xl border border-card-border bg-card px-4 py-2 shadow-[0_4px_0_rgba(0,0,0,0.08)] text-sm font-bold transition-all active:translate-y-1 active:shadow-none"
               title="Change chat language"
             >
               <Globe className="h-4 w-4 text-primary" />
@@ -1628,7 +1628,7 @@ export default function ChatPage() {
                         ? "border-primary bg-primary/5"
                         : locked
                           ? "border-card-border bg-muted/40 hover:border-primary/40"
-                          : "border-card-border bg-white hover:border-primary/40",
+                          : "border-card-border bg-card hover:border-primary/40",
                     )}
                   >
                     <div className="min-w-0">
@@ -1675,11 +1675,11 @@ export default function ChatPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={springs.gentle}
           className={cn(
-            "mx-4 mb-3 rounded-xl border bg-white p-3",
+            "mx-4 mb-3 rounded-xl border bg-card p-3",
             capExhausted
               ? "border-destructive/40 bg-destructive/5"
               : timePercent < 0.25
-                ? "border-amber-300 bg-amber-50"
+                ? "border-amber-300 bg-amber-50 dark:border-amber-400/40 dark:bg-amber-400/10"
                 : "border-card-border",
           )}
         >
@@ -1709,7 +1709,9 @@ export default function ChatPage() {
                 <span
                   className={cn(
                     "shrink-0 text-[11px] font-semibold tabular-nums",
-                    timePercent < 0.25 ? "text-amber-600" : "text-muted-foreground",
+                    timePercent < 0.25
+                      ? "text-amber-600 dark:text-amber-300"
+                      : "text-muted-foreground",
                   )}
                 >
                   {formatSeconds(secondsRemaining!)} left
@@ -1729,7 +1731,9 @@ export default function ChatPage() {
               </div>
               {timePercent < 0.25 && (
                 <div className="mt-1.5 flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-amber-700">Running low — resets next week</p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Running low, resets next week
+                  </p>
                   <Link
                     href={upgradeHref({ plan: "plus", reason: "chat_cap_low" })}
                     className="shrink-0 text-[11px] font-black text-primary active:underline"
@@ -1856,7 +1860,7 @@ export default function ChatPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ ...springs.snappy, delay: 0.1 }}
-                  className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-white px-4 py-2.5 text-sm leading-relaxed text-foreground"
+                  className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-card px-4 py-2.5 text-sm leading-relaxed text-foreground"
                 >
                   I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}!
                 </motion.div>
@@ -1874,7 +1878,7 @@ export default function ChatPage() {
                   "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                   msg.role === "learner"
                     ? "self-end rounded-br-sm bg-primary text-primary-foreground"
-                    : "self-start rounded-bl-sm border border-card-border bg-white text-foreground",
+                    : "self-start rounded-bl-sm border border-card-border bg-card text-foreground",
                 )}
               >
                 {msg.role === "parrot" ? (() => {
@@ -1954,8 +1958,8 @@ export default function ChatPage() {
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
                   used
-                    ? "border-green-400 bg-green-100 text-green-700"
-                    : "border-border bg-white text-muted-foreground",
+                    ? "border-green-400 bg-green-100 text-green-700 dark:border-green-400/40 dark:bg-green-400/15 dark:text-green-300"
+                    : "border-border bg-card text-muted-foreground",
                 )}
                 data-testid={`phrase-chip-${tp.romanized}`}
               >
@@ -1974,7 +1978,7 @@ export default function ChatPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={springs.snappy}
-            className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-card-border bg-white p-3"
+            className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-card-border bg-card p-3"
           >
             <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
             <p className="text-sm text-foreground">{errorMsg}</p>
@@ -1998,7 +2002,7 @@ export default function ChatPage() {
           placeholder="Type a message…"
           disabled={phase === "processing" || phase === "recording"}
           aria-label="Type a message to Bolo"
-          className="flex-1 min-w-0 rounded-full border border-card-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+          className="flex-1 min-w-0 rounded-full border border-card-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
         />
 
         {/* Mic / stop button */}
@@ -2057,7 +2061,7 @@ export default function ChatPage() {
             transition={springs.poppy}
             onClick={stopPlayback}
             aria-label="Skip Bolo's reply"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-card-border bg-white text-muted-foreground shadow-sm transition-all hover:text-foreground active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-card-border bg-card text-muted-foreground shadow-sm transition-all hover:text-foreground active:scale-95"
           >
             <SkipForward className="h-5 w-5" />
           </motion.button>

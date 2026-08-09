@@ -6,7 +6,7 @@
 // only). Also counts the blocking API fetches per language: exactly one for
 // the server language, at most one transitional fetch for the local one.
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<id> NODE_PATH=/tmp/pw/node_modules node qa/home-lang-flip-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

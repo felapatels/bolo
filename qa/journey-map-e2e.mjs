@@ -17,7 +17,7 @@
 //             blast radius: home and chat stay upright with the locked
 //             language active. E2E_PICK_LANG_NAME picks the language
 //             (default "Tamil").
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const SCENARIO = process.env.E2E_SCENARIO || "teaser";

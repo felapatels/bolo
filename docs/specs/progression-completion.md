@@ -103,7 +103,7 @@ The guarantee is inherent in the schema -- `buildPhraseStats` computes `MAX(scor
 | kem cho? | કેમ છો? |
 | majaa-maan | મઝામાં |
 | aabhaar | આભાર |
-| jay shri krushna | જય શ્રી કૃષ્ણ |
+| jay shri krishna | જય શ્રી કૃષ્ણ |
 | tamaro divas kevo rahyo? | તમારો દિવસ કેવો રહ્યો? |
 
 **Steer instructions**: Play the chai-stall attendant. Greet the learner warmly, steer conversation naturally toward the target phrases, acknowledge warmly whenever the learner uses a target phrase, never grade or score, and deliver a warm closing line when the majority of target phrases have been used.

@@ -238,7 +238,7 @@ function LeaderboardRow({
         "flex items-center gap-3 rounded-2xl p-3 border shadow-sm card-lift",
         entry.isSelf
           ? "bg-primary text-primary-foreground border-primary"
-          : "bg-white border-card-border",
+          : "bg-card border-card-border",
       )}
     >
       <div
@@ -395,7 +395,7 @@ function AddFriend() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="mt-4 flex items-center gap-3 rounded-2xl bg-white p-3 border border-card-border shadow-sm"
+            className="mt-4 flex items-center gap-3 rounded-2xl bg-card p-3 border border-card-border shadow-sm"
           >
             <Avatar user={search.data} className="h-11 w-11" />
             <div className="min-w-0 flex-1">
@@ -522,7 +522,7 @@ function IncomingRequests() {
           return (
             <div
               key={req.id}
-              className="flex items-center gap-3 rounded-2xl bg-white p-3 border border-card-border shadow-sm"
+              className="flex items-center gap-3 rounded-2xl bg-card p-3 border border-card-border shadow-sm"
             >
               <Avatar user={req.user} className="h-11 w-11" />
               <div className="min-w-0 flex-1">
@@ -667,7 +667,7 @@ function FriendsList() {
           {friends.map((friend) => (
             <div
               key={friend.friendshipId}
-              className="flex items-center gap-3 rounded-2xl bg-white p-3 border border-card-border shadow-sm card-lift"
+              className="flex items-center gap-3 rounded-2xl bg-card p-3 border border-card-border shadow-sm card-lift"
             >
               <Avatar user={friend} className="h-11 w-11" />
               <div className="min-w-0 flex-1">
@@ -718,7 +718,7 @@ function ErrorState({
   retrying: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center text-center py-8 px-6 bg-white rounded-3xl border border-card-border">
+    <div className="flex flex-col items-center text-center py-8 px-6 bg-card rounded-3xl border border-card-border">
       <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
         <AlertCircle className="w-7 h-7 text-destructive" />
       </div>

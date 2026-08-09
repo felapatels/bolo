@@ -11,7 +11,7 @@
 //   CHROME_BIN=<chromium> E2E_USER_ID=<clerk user id> \
 //   NODE_PATH=<playwright install> node qa/demo-polish-shots.mjs
 // Requires CLERK_SECRET_KEY and REPLIT_DEV_DOMAIN in the environment.
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

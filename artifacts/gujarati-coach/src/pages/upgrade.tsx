@@ -254,7 +254,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
                   "relative rounded-2xl border-2 px-4 py-3 text-center text-sm font-black transition-all",
                   active
                     ? "border-primary bg-primary/5 text-foreground"
-                    : "border-card-border bg-white text-muted-foreground hover:border-primary/40",
+                    : "border-card-border bg-card text-muted-foreground hover:border-primary/40",
                 )}
               >
                 {key === "monthly" ? "Monthly" : "Annual"}
@@ -434,7 +434,7 @@ function PlanCard({
         "relative flex h-full w-full flex-col rounded-3xl border-2 p-5 text-left transition-all",
         selected
           ? "border-primary bg-primary/5 shadow-sm"
-          : "border-card-border bg-white hover:border-primary/40",
+          : "border-card-border bg-card hover:border-primary/40",
       )}
     >
       {recommended && (
@@ -484,7 +484,7 @@ function PlanCard({
               "mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full border-2",
               selected
                 ? "border-primary bg-primary text-white"
-                : "border-border bg-white",
+                : "border-border bg-card",
             )}
           >
             {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}

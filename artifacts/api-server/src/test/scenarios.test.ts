@@ -24,7 +24,7 @@ const ZONE_1_SCENARIO: Scenario = {
     { romanized: "kem cho?", native: "કેમ છો?" },
     { romanized: "majaa-maan", native: "મઝામાં" },
     { romanized: "aabhaar", native: "આભાર" },
-    { romanized: "jay shri krushna", native: "જય શ્રી કૃષ્ણ" },
+    { romanized: "jay shri krishna", native: "જય શ્રી કૃષ્ણ" },
     { romanized: "tamaro divas kevo rahyo?", native: "તમારો દિવસ કેવો રહ્યો?" },
   ],
   steerInstructions:

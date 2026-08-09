@@ -4,7 +4,7 @@
 //
 //   CHROME_BIN=$(which chromium) NODE_PATH=/tmp/pw/node_modules \
 //   PLUS_USER=<id> FREE_USER=<id> FRESH_USER=<id> node qa/task870-shots.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

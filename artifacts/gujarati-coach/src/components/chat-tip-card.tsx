@@ -35,7 +35,7 @@ export function ChatTipCard() {
           transition={
             reduceMotion ? { duration: 0.001 } : { duration: 0.4, ease: "easeOut" }
           }
-          className="rounded-xl border border-card-border bg-white p-3"
+          className="rounded-xl border border-card-border bg-card p-3"
         >
           <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary/70">
             <Lightbulb className="h-3 w-3" />

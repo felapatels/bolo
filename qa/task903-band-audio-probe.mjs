@@ -14,7 +14,7 @@
 // can be cross-checked in the api-server workflow logs (hit:"pending-prewarm").
 //
 //   CHROME_BIN=$(which chromium) NODE_PATH=/tmp/pw/node_modules node qa/task903-band-audio-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

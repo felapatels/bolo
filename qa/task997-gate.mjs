@@ -1,5 +1,5 @@
 // Task 997 gate: responsive screenshots + JSON-LD structured-data validation.
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const OUT = "qa/shots/task997-gate";

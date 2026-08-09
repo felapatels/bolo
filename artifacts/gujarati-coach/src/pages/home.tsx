@@ -784,7 +784,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href={upgradeHrefForDenial(summaryUpgrade, activeLang)}
-                  className="rounded-full bg-white px-4 py-1.5 text-sm font-black text-primary transition-colors hover:bg-white/90"
+                  className="rounded-full bg-card px-4 py-1.5 text-sm font-black text-primary transition-colors hover:bg-white/90"
                 >
                   Unlock
                 </Link>
@@ -948,7 +948,7 @@ export default function Home() {
                         <div className="mt-3 flex items-center gap-2">
                           <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
                             <div
-                              className="h-full rounded-full bg-white transition-all duration-700"
+                              className="h-full rounded-full bg-card transition-all duration-700"
                               style={{
                                 width: `${Math.round(
                                   (journey.current.masteredCount / journey.current.phraseCount) * 100,

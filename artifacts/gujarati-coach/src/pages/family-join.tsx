@@ -170,7 +170,7 @@ export default function FamilyJoin() {
                   autoCapitalize="characters"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full rounded-xl border-2 border-card-border bg-white px-4 py-3 text-center font-mono text-lg font-black tracking-[0.25em] text-foreground outline-none focus:border-primary"
+                  className="w-full rounded-xl border-2 border-card-border bg-card px-4 py-3 text-center font-mono text-lg font-black tracking-[0.25em] text-foreground outline-none focus:border-primary"
                 />
                 <button
                   type="submit"

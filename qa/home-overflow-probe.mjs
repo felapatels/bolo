@@ -4,7 +4,7 @@
 // Run (from repo root):
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<clerk user id> \
 //     NODE_PATH=/tmp/pw/node_modules node qa/home-overflow-probe.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null;

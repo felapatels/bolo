@@ -73,7 +73,7 @@ export function BadgeUnlock({
                           damping: 16,
                         }
                   }
-                  className="flex flex-col items-center text-center bg-white rounded-3xl px-6 py-6 w-full border border-card-border shadow-lg"
+                  className="flex flex-col items-center text-center bg-card rounded-3xl px-6 py-6 w-full border border-card-border shadow-lg"
                 >
                   <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-white shadow-lg shadow-secondary/40">
                     <Icon className="h-10 w-10" />

@@ -67,7 +67,7 @@ export function CategoryLessonSkeleton({
       </header>
 
       <main className="flex-1 p-6 space-y-6">
-        <div className="bg-white rounded-3xl p-8 border-2 border-border shadow-sm flex flex-col items-center gap-6">
+        <div className="bg-card rounded-3xl p-8 border-2 border-border shadow-sm flex flex-col items-center gap-6">
           <BuildingMessage languageName={languageName} />
           <FunFactLoader />
         </div>
@@ -77,7 +77,7 @@ export function CategoryLessonSkeleton({
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 animate-pulse"
+              className="bg-card rounded-2xl p-4 border border-card-border shadow-sm flex items-start gap-4 animate-pulse"
               style={{ animationDelay: `${i * 0.12}s` }}
             >
               <div className="mt-1 w-6 h-6 rounded-full bg-muted shrink-0" />
@@ -115,7 +115,7 @@ export function LessonBuildingScreen({
         </Link>
       </header>
       <div className="flex-1 flex items-center justify-center px-8">
-        <div className="bg-white rounded-[2rem] p-10 border border-card-border shadow-sm w-full max-w-sm flex flex-col items-center gap-6">
+        <div className="bg-card rounded-[2rem] p-10 border border-card-border shadow-sm w-full max-w-sm flex flex-col items-center gap-6">
           <BuildingMessage languageName={languageName} />
           <FunFactLoader />
         </div>
@@ -149,7 +149,7 @@ export function LessonErrorScreen({
         </Link>
       </header>
       <div className="flex-1 flex items-center justify-center px-8">
-        <div className="bg-white rounded-[2rem] p-8 border border-card-border shadow-sm w-full max-w-sm text-center flex flex-col items-center gap-4">
+        <div className="bg-card rounded-[2rem] p-8 border border-card-border shadow-sm w-full max-w-sm text-center flex flex-col items-center gap-4">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 text-destructive">
             <WifiOff className="w-8 h-8" />
           </div>

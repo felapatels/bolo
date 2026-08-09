@@ -9,7 +9,7 @@
 //
 //   E2E_USER_ID=user_... CHROME_BIN=... node qa/outfit-equip.mjs
 //   ITEM=station-cap GARMENT=kurta   (defaults)
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

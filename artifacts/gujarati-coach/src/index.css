@@ -111,7 +111,11 @@
   --popover-foreground: 210 40% 98%;
   --popover-border: 222 30% 22%;
 
-  --primary: 243 80% 68%;
+  /* Indigo has to carry two jobs in the dark: a fill under near-black text,
+     and small text ON the dark background. At 68% lightness both landed just
+     under 4.5:1 — legible-looking in a screenshot, tiring to read. 75% clears
+     it in both directions (about 5.9:1 as text on a card, 6.2:1 as a fill). */
+  --primary: 243 80% 75%;
   --primary-foreground: 222 47% 11%;
   --primary-shadow: 243 62% 40%;
 
@@ -133,7 +137,7 @@
 
   --border: 222 30% 22%;
   --input: 222 30% 22%;
-  --ring: 243 80% 68%;
+  --ring: 243 80% 75%;
 }
 
 @layer base {

@@ -111,7 +111,7 @@ export function SpeakingDemo() {
 
   return (
     <div ref={containerRef} className="mx-auto w-full max-w-sm">
-      <div className="relative rounded-[2.25rem] border border-card-border bg-white p-5 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)]">
+      <div className="relative rounded-[2.25rem] border border-card-border bg-card p-5 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)]">
         {/* faux status bar / progress like the real lesson */}
         <div className="mb-5 flex items-center gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -126,7 +126,7 @@ export function SpeakingDemo() {
         </div>
 
         {/* phrase card */}
-        <div className="relative rounded-[1.75rem] border border-card-border bg-white px-6 pb-6 pt-8 text-center shadow-sm">
+        <div className="relative rounded-[1.75rem] border border-card-border bg-card px-6 pb-6 pt-8 text-center shadow-sm">
           <motion.div
             className="absolute -top-5 left-1/2 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full bg-secondary text-white shadow-lg"
             animate={
@@ -195,7 +195,7 @@ export function SpeakingDemo() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.3 }}
-                className="rounded-3xl border border-card-border bg-white p-5 text-center shadow-sm"
+                className="rounded-3xl border border-card-border bg-card p-5 text-center shadow-sm"
               >
                 <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-success/15 px-3 py-1 text-lg font-black text-success">
                   <Check className="h-4 w-4" strokeWidth={3} />

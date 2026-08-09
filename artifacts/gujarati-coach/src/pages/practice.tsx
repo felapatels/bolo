@@ -1694,7 +1694,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <Link
                   href="/journey"
                   data-testid="link-testout-journey"
-                  className="block w-full bg-white text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl active:scale-95 transition-all"
+                  className="block w-full bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl active:scale-95 transition-all"
                 >
                   Back to the journey
                 </Link>
@@ -1797,7 +1797,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             transition={reduceMotion ? { duration: 0 } : { delay: 0.24, type: "spring", stiffness: 260, damping: 18 }}
             className={cn(
               "p-6 rounded-3xl w-full max-w-sm border shadow-sm",
-              isPerfect ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" : "bg-white border-card-border",
+              isPerfect ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" : "bg-card border-card-border",
             )}
           >
             <p className="text-muted-foreground font-medium">You practiced {attemptCount} {isSentences ? "sentences" : "phrases"}.</p>
@@ -2219,7 +2219,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={springs.snappy}
-            className="shrink-0 bg-white rounded-2xl border border-card-border shadow-sm overflow-hidden"
+            className="shrink-0 bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden"
           >
             <div className="flex items-center gap-3 px-4 py-3">
               {/* Play-again button */}
@@ -2302,12 +2302,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         */}
         {/* When the result/error panel is up, the parrot gives back most of its
             space so score + feedback stay above the fold on small (390x844)
-            viewports; it stays visible but compact. */}
+            viewports; it stays visible but compact. Measured with
+            qa/practice-fold-probe.mjs: at 110px the Retry / Next row sat ~32px
+            under the fold on a 390x844 phone, so the band is 72px, and shorter
+            windows (landscape, small laptops) squeeze it further. */}
         <div
           className={cn(
             "relative flex flex-col items-center justify-center min-h-0 mt-1",
             state === "result" || state === "error"
-              ? "flex-none h-[110px] shrink-0"
+              ? "flex-none h-[72px] shrink-0 [@media(max-height:720px)]:h-[52px]"
               : "flex-1",
           )}
         >
@@ -2595,7 +2598,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             transition={springs.bouncy}
             className="shrink-0 space-y-3 mt-2"
           >
-            <div className="bg-white rounded-2xl p-4 border border-card-border shadow-sm text-center">
+            <div className="bg-card rounded-2xl p-4 border border-card-border shadow-sm text-center">
               <p className="text-xl font-black mb-1 text-foreground">Nice work!</p>
               <p className="text-foreground font-medium text-sm leading-snug mb-3">
                 Play the phrase and your recording back to back, and listen for the difference.
@@ -2640,7 +2643,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={springs.bouncy}
-              className="shrink-0 space-y-3 mt-2"
+              className="shrink-0 space-y-2 mt-1"
             >
               {/* Retry-band shake: 3 horizontal cycles ≈80ms, ≤8px,
                   transform-only; retriggers via key. Never fires for nocatch. */}
@@ -2667,7 +2670,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               )}
 
               {state === "result" && result && (
-                <div className="bg-card rounded-2xl p-4 border border-card-border shadow-sm text-center">
+                <div className="bg-card rounded-2xl p-3 border border-card-border shadow-sm text-center">
                   <p className={cn(
                     "text-xl font-black mb-1",
                     result.band === "perfect" ? "text-success" :

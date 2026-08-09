@@ -47,7 +47,7 @@ export function EmptyState({ title, body, pose }: EmptyStateProps) {
 
   if (pose) {
     return (
-      <div className="flex flex-col items-center text-center py-8 px-6 bg-white rounded-3xl border border-dashed border-border">
+      <div className="flex flex-col items-center text-center py-8 px-6 bg-card rounded-3xl border border-dashed border-border">
         <Mascot pose={pose} size={80} idle="float" className="mb-3" />
         <motion.p
           {...fadeUp(reduceMotion, 0.08)}

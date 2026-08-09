@@ -1,7 +1,7 @@
 // Verify the canonical PNG Bolo renders everywhere the rig used to:
 //   home hero, bottom-nav centre button, landing header.
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<id> NODE_PATH=/tmp/pw/node_modules node qa/canonical-mascot-shots.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
 const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;

@@ -13,7 +13,10 @@ const buttonVariants = cva(
           // @replit: no hover, and add primary border
           'bg-primary text-primary-foreground border border-primary-border',
         destructive:
-          'bg-destructive text-destructive-foreground shadow-sm border-destructive-border',
+          // The destructive token is tuned for RED TEXT on a dark surface, so
+          // in dark mode it is too light to sit under white button text (3.9:1).
+          // A solid button is the one place that needs the deeper red.
+          'bg-destructive text-destructive-foreground shadow-sm border-destructive-border dark:bg-red-700 dark:border-red-800',
         outline:
           // @replit Shows the background color of whatever card / sidebar / accent background it is inside of.
           // Inherits the current text color. Uses shadow-xs. no shadow on active

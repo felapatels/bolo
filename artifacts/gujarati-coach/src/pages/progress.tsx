@@ -100,7 +100,7 @@ export default function Progress() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ ...springs.snappy, delay: Math.min(i * 0.04, 0.4) }}
-                    className="bg-white rounded-2xl p-4 border border-card-border shadow-sm flex flex-col gap-3"
+                    className="bg-card rounded-2xl p-4 border border-card-border shadow-sm flex flex-col gap-3"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-muted-foreground uppercase">
@@ -136,7 +136,7 @@ export default function Progress() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-border">
+              <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
                 <p className="text-muted-foreground font-medium">No practice history yet.</p>
               </div>
             )}
@@ -154,7 +154,7 @@ function StatCard({ icon, value, label, delay }: { icon: React.ReactNode, value:
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay }}
-      className="bg-white p-5 rounded-3xl border border-card-border shadow-sm flex flex-col items-center text-center button-spring"
+      className="bg-card p-5 rounded-3xl border border-card-border shadow-sm flex flex-col items-center text-center button-spring"
     >
       <div className="mb-3 p-2 bg-muted rounded-full">
         {icon}

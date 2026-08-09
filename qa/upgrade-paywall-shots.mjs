@@ -5,7 +5,7 @@
 // Run (from repo root):
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<clerk_user_id> \
 //     NODE_PATH=/tmp/pw/node_modules node qa/upgrade-paywall-shots.mjs
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 const USER_ID = process.env.E2E_USER_ID;
 const ORIGIN =

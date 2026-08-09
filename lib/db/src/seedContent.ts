@@ -58,7 +58,9 @@ async function topUpLesson(
 ): Promise<number> {
   const existingPhrases = await db
     .select({
+      id: phrasesTable.id,
       nativeScript: phrasesTable.nativeScript,
+      romanized: phrasesTable.romanized,
       english: phrasesTable.english,
       stage: phrasesTable.stage,
     })
@@ -122,6 +124,29 @@ async function topUpLesson(
       seenSentences.add(key);
       return true;
     });
+
+  // Romanization corrections. Inserts alone can never fix a typo in a phrase
+  // an environment already holds ("jay shri krushna"), because the dedup key
+  // matches and the row is skipped, so a spelling fix in the curated library
+  // would live forever in dev and production. The native script plus English
+  // gloss identify the phrase; the romanized line is the one field the
+  // curated library owns outright, so it is the only field rewritten here.
+  const curated = new Map<string, string>();
+  for (const p of lesson.phrases)
+    curated.set(phraseKey(p.nativeScript, p.english), p.romanized);
+  for (const s of lesson.sentences ?? [])
+    curated.set(phraseKey(s.nativeScript, s.english), s.romanized);
+  for (const row of existingPhrases) {
+    const want = curated.get(phraseKey(row.nativeScript, row.english));
+    if (!want || want === row.romanized) continue;
+    await db
+      .update(phrasesTable)
+      .set({ romanized: want })
+      .where(eq(phrasesTable.id, row.id));
+    console.log(
+      `Corrected ${languageCode} romanization: "${row.romanized}" -> "${want}".`,
+    );
+  }
 
   const allInserts = [...phraseInserts, ...sentenceInserts];
   if (allInserts.length === 0) return 0;

@@ -61,7 +61,7 @@ function PhraseChips({ scenario, usedPhrases }: PhraseChipsProps) {
             data-testid={`phrase-chip-${tp.romanized}`}
             className={cn(
               "rounded-full border px-2.5 py-0.5 text-xs",
-              used ? "bg-green-100 text-green-700" : "bg-white text-muted-foreground",
+              used ? "bg-green-100 text-green-700" : "bg-card text-muted-foreground",
             )}
           >
             {tp.romanized}
