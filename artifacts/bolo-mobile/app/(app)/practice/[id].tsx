@@ -2103,12 +2103,12 @@ export default function PracticeScreen() {
                   ? 'thinking' // system miss, not learner error (Spec 1 rule 16)
                   : 'tryagain'
             : 'wave';
-  // Evaluating is Bolo's job, not a throbber's: he hangs upside down and swings
-  // while the score comes back (build 36 — the ActivityIndicator that used to
-  // sit inside the record button is gone).
+  // Evaluating is Bolo's job, not a throbber's: he zooms out small and spins
+  // while the score comes back, then zooms back in (build 36 — the
+  // ActivityIndicator that used to sit inside the record button is gone).
   const mascotMotion =
     phase === 'evaluating'
-      ? 'flip'
+      ? 'working'
       : phase === 'recording'
         ? 'sway'
         : phase === 'result' && result && isFullCreditBand(result.band)

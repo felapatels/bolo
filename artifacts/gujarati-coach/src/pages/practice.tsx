@@ -2387,8 +2387,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       pose={mascotPose}
                       fill
                       idle={state === "result" && result?.passed ? "cheer" : "float"}
-                      // Evaluating state: he hangs upside down and swings
-                      // while the score comes back. Replaced the throbber.
+                      // Evaluating state: he zooms out small and spins while
+                      // the score comes back, then zooms back in. Replaced
+                      // the throbber.
                       activity={state === "evaluating" ? "evaluating" : null}
                     />
                   </div>

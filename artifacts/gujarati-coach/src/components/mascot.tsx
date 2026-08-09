@@ -19,8 +19,9 @@ export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain"
 
 /** Reactive mode: "talking" while Bolo's voice plays, "listening" while the
  * learner records, "evaluating" while something is being worked out for them —
- * he hangs upside down like a parrot and swings. Whole-image motion only
- * (pulse / lean / hang), so the canonical art rule holds. */
+ * he zooms out small and spins in place, then zooms back in when the answer
+ * lands. Whole-image motion only (pulse / lean / shrink / spin), so the
+ * canonical art rule holds. */
 export type MascotActivity = "talking" | "listening" | "evaluating";
 
 // Pose art (canonical and dressed) resolves in one place, so every surface
@@ -133,16 +134,18 @@ export function Mascot({
 
   // Whole-image activity layer: talking = soft rhythmic pulse, listening =
   // attentive lean. No part-level motion.
-  // The hang itself is a CSS class on an in-flow wrapper, not a framer value:
+  // The shrink itself is a CSS class on an in-flow wrapper, not a framer value:
   // it must hold with animations off, and the mascot's fill chain has no
   // definite ancestor height, so the wrapper stays in flow (see the crossfade
-  // note below — an absolute box collapses the whole parrot zone).
-  const hanging = activity === "evaluating";
-  // Reduced motion kills the tip-over transition and the swing, and a bird
-  // frozen upside down does not read as "working". A slow opacity breathe
+  // note below — an absolute box collapses the whole parrot zone). The class
+  // carries `transition-transform`, so adding and dropping it IS the zoom out
+  // and the zoom back in; the spin below rides on top.
+  const working = activity === "evaluating";
+  // Reduced motion kills the zoom transition and the spin, and a bird sitting
+  // shrunk and still does not read as "working". A slow opacity breathe
   // carries it instead: no movement, so it stays motion-safe.
-  const hangBreathe =
-    hanging && reduceMotion
+  const workingBreathe =
+    working && reduceMotion
       ? {
           animate: { opacity: [1, 0.5, 1] },
           transition: { duration: 1.7, repeat: Infinity, ease: "easeInOut" as const },
@@ -153,10 +156,11 @@ export function Mascot({
     ? undefined
     : activity === "evaluating"
       ? {
-          // Pendulum on the hang. The 180° lives on the wrapper class, so this
-          // is a small swing around it.
-          animate: { rotate: [-7, 7, -7] },
-          transition: { duration: 2.4, repeat: Infinity, ease: "easeInOut" as const },
+          // Continuous spin while he is shrunk. The shrink lives on the wrapper
+          // class below, so this layer is pure rotation — a small bird turning
+          // in place. Linear, because an eased spin reads as a stutter.
+          animate: { rotate: 360 },
+          transition: { duration: 1.4, repeat: Infinity, ease: "linear" as const },
         }
       : activity === "talking"
       ? {
@@ -187,13 +191,13 @@ export function Mascot({
           transition={activityAnim?.transition}
         >
           <motion.div
-            data-testid={hanging ? "mascot-hanging" : undefined}
+            data-testid={working ? "mascot-working" : undefined}
             className={cn(
               "h-full w-full transition-transform duration-500",
-              hanging && "rotate-180",
+              working && "scale-[0.45]",
             )}
-            animate={hangBreathe?.animate}
-            transition={hangBreathe?.transition}
+            animate={workingBreathe?.animate}
+            transition={workingBreathe?.transition}
           >
           {/* Pose changes crossfade between whole canonical images.
               The CURRENT pose img must stay IN-FLOW (not absolute): the

@@ -2,13 +2,15 @@
 //
 // Scoring used to be announced by an ActivityIndicator sitting inside the 88x88
 // record button (visibly off-centre on the iOS build). The throbber is gone:
-// Bolo himself plays the state, hanging upside down off his perch and swinging
-// while the score comes back, driven by the existing mascot pose/motion system
-// (`motion="flip"`) rather than a second animation stack.
+// Bolo himself plays the state, zooming out small and spinning in place while
+// the score comes back and zooming back in when it lands, driven by the
+// existing mascot pose/motion system (`motion="working"`) rather than a second
+// animation stack.
 //
-// Pinned here: while evaluation is in flight the bird hangs, NO ActivityIndicator
-// renders anywhere on the screen, and with reduced motion switched on the hang
-// still holds (the pose is a plain transform, not an animated one).
+// Pinned here: while evaluation is in flight the bird is shrunk, NO
+// ActivityIndicator renders anywhere on the screen, and with reduced motion
+// switched on the shrink still holds (it is a plain transform, not an animated
+// one).
 
 import React from 'react';
 import {
@@ -237,11 +239,11 @@ async function recordAndRelease() {
 }
 
 describe('practice — evaluating state', () => {
-  it('hangs Bolo upside down while the score comes back', async () => {
+  it('zooms Bolo out small while the score comes back', async () => {
     render(<PracticeScreen />);
     await recordAndRelease();
 
-    expect(screen.getByTestId('mascot-hanging')).toBeOnTheScreen();
+    expect(screen.getByTestId('mascot-working')).toBeOnTheScreen();
 
     await act(async () => {
       resolveEval(RESULT);
@@ -261,7 +263,7 @@ describe('practice — evaluating state', () => {
     });
   });
 
-  it('leaves the hang behind once the result lands', async () => {
+  it('zooms back in once the result lands', async () => {
     render(<PracticeScreen />);
     await recordAndRelease();
 
@@ -269,33 +271,34 @@ describe('practice — evaluating state', () => {
       resolveEval(RESULT);
     });
 
-    await waitFor(() => expect(screen.queryByTestId('mascot-hanging')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('mascot-working')).toBeNull());
   });
 });
 
-describe('Mascot — the flip itself', () => {
+describe('Mascot — the zoom-out itself', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('hangs on motion="flip" and sits upright otherwise', () => {
-    const { rerender } = render(<Mascot pose="thinking" motion="flip" />);
-    expect(screen.getByTestId('mascot-hanging')).toBeOnTheScreen();
+  it('shrinks on motion="working" and sits full size otherwise', () => {
+    const { rerender } = render(<Mascot pose="thinking" motion="working" />);
+    expect(screen.getByTestId('mascot-working')).toBeOnTheScreen();
 
     rerender(<Mascot pose="thinking" motion="float" />);
-    expect(screen.queryByTestId('mascot-hanging')).toBeNull();
+    expect(screen.queryByTestId('mascot-working')).toBeNull();
   });
 
-  it('still hangs with reduced motion on, and the hang is a plain transform', () => {
+  it('still shrinks with reduced motion on, and the shrink is a plain transform', () => {
     jest.spyOn(Reanimated, 'useReducedMotion').mockReturnValue(true);
 
-    render(<Mascot pose="thinking" motion="flip" />);
-    const hang = screen.getByTestId('mascot-hanging');
+    render(<Mascot pose="thinking" motion="working" />);
+    const shrunk = screen.getByTestId('mascot-working');
 
-    // The 180 deg lives in a static style, so it survives with animations off
-    // — the state reads as "working", never as an empty or frozen-upright bird.
-    expect(hang).toBeOnTheScreen();
-    expect(hang).toHaveStyle({ transform: [{ rotate: '180deg' }] });
+    // The scale lives in a static style, so it survives with animations off —
+    // the state reads as "away working", never as an empty or frozen full-size
+    // bird. The spin and the zoom springs are the parts that stay off.
+    expect(shrunk).toBeOnTheScreen();
+    expect(shrunk).toHaveStyle({ transform: [{ scale: 0.45 }] });
     expect(screen.getByLabelText('Bolo the parrot, thinking')).toBeOnTheScreen();
   });
 });

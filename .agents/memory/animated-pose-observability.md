@@ -29,6 +29,15 @@ slid-in panels that must persist. Two extras that go with it:
   value and the surface stays stuck at the dimmed extreme.
 - Keep the pose wrapper IN FLOW in percentage-height chains; an absolutely
   positioned one collapses the zone.
+- The delta multiplies for scale poses the way it offsets for rotation poses: a
+  plain `scale: S` plus an animated factor that starts at `1 / S` (full size,
+  cancelling the shrink) and springs to 1 reads as a zoom OUT; leaving the
+  state, the plain style is already gone, so the same factor runs `S -> 1` and
+  reads as a zoom back IN. On Reanimated, set that factor with
+  `withSequence(withTiming(start, { duration: 0 }), withSpring(1))` rather than
+  writing the shared value twice in one tick, so the spring is guaranteed to
+  start from the intended value. On web the wrapper's `transition-transform`
+  already animates adding and dropping the class, so no delta value is needed.
 
 The mobile jest reanimated stub is hand-rolled and only exports what has been
 needed so far — a config option referencing a missing export (`ReduceMotion`)

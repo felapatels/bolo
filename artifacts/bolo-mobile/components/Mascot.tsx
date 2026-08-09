@@ -43,11 +43,14 @@ export type MascotPose =
 /**
  * Idle motion applied while the mascot sits on screen.
  *
- * `flip` is the working/evaluating state: Bolo hangs upside down the way a
- * parrot does, swinging gently, while something is being worked out for the
- * learner. It replaced the throbber inside the practice record button.
+ * `working` is the evaluating state: Bolo zooms out small and spins in place
+ * while something is being worked out for the learner, then zooms back in when
+ * it lands. It replaced the throbber inside the practice record button.
  */
-export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway' | 'flip';
+export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway' | 'working';
+
+/** How small Bolo gets while he is working. */
+const WORKING_SCALE = 0.45;
 
 // Pose art (canonical and dressed) resolves in lib/mascotOutfits.ts, so every
 // surface that renders <Mascot> shows the equipped outfit without knowing
@@ -122,13 +125,15 @@ export function Mascot({
   const reduceMotion = useReducedMotion();
   const loop = useSharedValue(0);
 
-  // Hanging (evaluating) state. The 180° itself is a PLAIN style on an inner
-  // view, applied for as long as the mascot hangs; the shared value carries
-  // only the spring INTO the pose (-180 -> 0) and the pendulum rides the idle
-  // loop. Keeping the pose itself out of the worklet means it still reads as
-  // "upside down" wherever animations don't run at all.
-  const hanging = motion === 'flip';
-  const flipIn = useSharedValue(hanging ? 1 : 0);
+  // Working (evaluating) state. The shrink itself is a PLAIN style on an inner
+  // view, applied for as long as the mascot is working; the shared values carry
+  // only the zoom INTO and OUT OF it and the spin. Keeping the state itself out
+  // of the worklet means he still reads as "away and busy" wherever animations
+  // don't run at all.
+  const working = motion === 'working';
+  /** Multiplies the plain shrink: >1 cancels it, so the spring reads as a zoom. */
+  const zoom = useSharedValue(1);
+  const spin = useSharedValue(0);
   const breathe = useSharedValue(1);
 
   // Extra shared values for funny idle transforms.
@@ -145,14 +150,7 @@ export function Mascot({
       loop.value = 0;
       return;
     }
-    const duration =
-      motion === 'bounce'
-        ? 650
-        : motion === 'sway'
-          ? 1400
-          : motion === 'flip'
-            ? 1600
-            : 2200;
+    const duration = motion === 'bounce' ? 650 : motion === 'sway' ? 1400 : 2200;
     loop.value = withRepeat(
       withTiming(1, { duration, easing: Easing.inOut(Easing.sin) }),
       -1,
@@ -160,24 +158,45 @@ export function Mascot({
     );
   }, [motion, reduceMotion, loop]);
 
-  // Spring into (and out of) the hang.
+  // Zoom out into the working state and back in when it ends. The plain style
+  // has already snapped him to WORKING_SCALE by the time this runs, so the
+  // spring starts from a value that CANCELS it (1 / WORKING_SCALE = full size)
+  // and settles at 1. Leaving, the plain style is gone, so the same spring runs
+  // from WORKING_SCALE up to 1. Set through withSequence rather than two writes
+  // so the spring is guaranteed to start from the intended value.
+  const wasWorking = React.useRef(false);
   React.useEffect(() => {
-    if (hanging) {
-      flipIn.value = reduceMotion
-        ? 1
-        : withSpring(1, { damping: 12, stiffness: 150 });
-    } else {
-      flipIn.value = 0;
+    const was = wasWorking.current;
+    wasWorking.current = working;
+    if (reduceMotion || working === was) {
+      if (reduceMotion) zoom.value = 1;
+      return;
     }
-  }, [hanging, reduceMotion, flipIn]);
+    zoom.value = withSequence(
+      withTiming(working ? 1 / WORKING_SCALE : WORKING_SCALE, { duration: 0 }),
+      withSpring(1, { damping: 13, stiffness: 170 }),
+    );
+  }, [working, reduceMotion, zoom]);
 
-  // Reduced motion gets neither the flip-in nor the swing, and a bird simply
-  // frozen upside down does not read as "working". A slow opacity breathe
-  // carries that instead — no movement, so it stays motion-safe. It has to opt
-  // out of the system reduced-motion switch explicitly or reanimated snaps it
-  // straight to the end value and leaves the mascot dimmed.
+  // The spin itself — one revolution every 1.4s for as long as he is away
+  // working, then a quick unwind so he faces front again as he zooms back in.
   React.useEffect(() => {
-    if (hanging && reduceMotion) {
+    if (reduceMotion) {
+      spin.value = 0;
+      return;
+    }
+    spin.value = working
+      ? withRepeat(withTiming(360, { duration: 1400, easing: Easing.linear }), -1, false)
+      : withTiming(0, { duration: 220 });
+  }, [working, reduceMotion, spin]);
+
+  // Reduced motion gets neither the zoom nor the spin, and a bird sitting small
+  // and still does not read as "working". A slow opacity breathe carries that
+  // instead — no movement, so it stays motion-safe. It has to opt out of the
+  // system reduced-motion switch explicitly or reanimated snaps it straight to
+  // the end value and leaves the mascot dimmed.
+  React.useEffect(() => {
+    if (working && reduceMotion) {
       breathe.value = withRepeat(
         withTiming(0.5, { duration: 850, reduceMotion: ReduceMotion.Never }),
         -1,
@@ -186,7 +205,7 @@ export function Mascot({
     } else {
       breathe.value = 1;
     }
-  }, [hanging, reduceMotion, breathe]);
+  }, [working, reduceMotion, breathe]);
 
   // Cheer gets an extra celebratory wiggle whenever the pose becomes "cheer".
   React.useEffect(() => {
@@ -294,17 +313,16 @@ export function Mascot({
     if (motion === 'float') translateY = -6 * Math.sin(t * Math.PI);
     else if (motion === 'bounce') translateY = -10 * Math.sin(t * Math.PI);
     else if (motion === 'sway') rotate = (t - 0.5) * 6;
-    else if (motion === 'flip') rotate = (t - 0.5) * 14; // pendulum on the hang
     if (pose === 'cheer') rotate += (t - 0.5) * 10;
 
-    // Cancels the inner 180° until the spring lands, so he tips over into the
-    // hang rather than appearing upside down.
-    if (hanging) rotate += (flipIn.value - 1) * 180;
+    // The working spin, and the zoom that cancels (or restores) the plain
+    // shrink underneath it.
+    rotate += spin.value;
 
     // Layer funny transforms on top.
     translateY += funnyY.value;
     rotate += funnyRotate.value;
-    const scale = funnyScale.value;
+    const scale = funnyScale.value * zoom.value;
 
     return {
       opacity: breathe.value,
@@ -354,8 +372,8 @@ export function Mascot({
   return (
     <Animated.View key={pose} entering={appear(entrance)}>
       <Animated.View style={animatedStyle}>
-        {hanging ? (
-          <View style={styles.hanging} testID="mascot-hanging">
+        {working ? (
+          <View style={styles.working} testID="mascot-working">
             {image}
           </View>
         ) : (
@@ -369,6 +387,6 @@ export function Mascot({
 const styles = StyleSheet.create({
   img: {},
   overlay: { position: 'absolute', top: 0, left: 0 },
-  /** The hang itself — a plain transform, so it holds with animations off. */
-  hanging: { transform: [{ rotate: '180deg' }] },
+  /** The shrink itself — a plain transform, so it holds with animations off. */
+  working: { transform: [{ scale: WORKING_SCALE }] },
 });
