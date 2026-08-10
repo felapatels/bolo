@@ -111,6 +111,9 @@ function approxNoticeKey(code: string): string {
 // as retry, which counts against the learner. Shorter holds get the local
 // didn't-catch card instead: never sent, never scored, never counted.
 const MIN_CLIP_SECONDS = 0.8;
+/** Zero-XP encores per phrase before the session lets it go (owner-ruled:
+ *  every kind of zero counts, nocatch included, so the session always ends). */
+const ZERO_XP_STRIKE_LIMIT = 3;
 
 // Maps a pronunciation band to its CSS color (five-band ladder gradient;
 // retry/nocatch keep the pre-five-band destructive fallback).
@@ -448,6 +451,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const recorder = useVoiceRecorder();
   
   const [currentIndex, setCurrentIndex] = useState(0);
+  // ── Zero-XP encore (owner rule) ───────────────────────────────────────────
+  // A phrase that earns NO XP comes back at the END of the session, and keeps
+  // coming back until it earns something. Three zeros of ANY kind release it
+  // (owner-ruled: a nocatch burns a strike too) so a dead mic can never trap
+  // the learner in a session that will not end. Queue holds phrase IDs.
+  const [encoreQueue, setEncoreQueue] = useState<number[]>([]);
+  const [zeroStrikes, setZeroStrikes] = useState<Record<number, number>>({});
+  const zeroStrikesRef = useRef<Record<number, number>>({});
+  // Once the base list is exhausted the cursor stops moving forward, so every
+  // later advance must come from the queue, never from currentIndex + 1.
+  const [inEncore, setInEncore] = useState(false);
   const [state, setState] = useState<SessionState>("intro");
   const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string; transcript: string; transcriptRomanized: string } | null>(null);
   // Keyed by phraseId so retrying a phrase overwrites its previous entry
@@ -1171,6 +1185,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         },
       }));
 
+      // Zero-XP encore bookkeeping. Test-out is one take per phrase and is
+      // judged as a batch, so it never queues an encore.
+      if (!isTestout) {
+        const encoreId = phrase!.id;
+        if (evalRes.xpAwarded > 0) {
+          // Earned something: the debt is settled, even if an earlier take on
+          // this phrase had already queued it. Strikes are NOT reset — they
+          // are the record of what this phrase cost, not a live budget.
+          setEncoreQueue(q => q.filter(id => id !== encoreId));
+        } else {
+          // The ref mirrors the state so two attempts inside one render pass
+          // cannot both read strike 0 and queue the phrase twice.
+          const strikes = (zeroStrikesRef.current[encoreId] ?? 0) + 1;
+          zeroStrikesRef.current = { ...zeroStrikesRef.current, [encoreId]: strikes };
+          setZeroStrikes(zeroStrikesRef.current);
+          setEncoreQueue(q =>
+            strikes >= ZERO_XP_STRIKE_LIMIT
+              ? q.filter(id => id !== encoreId) // three goes: released
+              : q.includes(encoreId)
+                ? q
+                : [...q, encoreId],
+          );
+        }
+      }
+
       // Kick off spoken-feedback TTS in parallel with createAttempt so the
       // voice is ready (or nearly ready) when the result card appears.
       // gpt-audio synthesis takes ~1–2 s; pre-warming here cuts that delay.
@@ -1436,7 +1475,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     setResult(null);
     setShowConfetti(false);
     setOwnRecording(null); // release any ear-training playback for this phrase
-    if (phrases && currentIndex < phrases.length - 1) {
+    // Encore mode jumps the cursor backwards, so once it starts, forward
+    // progress must come from the queue alone or the tail of the base list
+    // would replay in full.
+    if (!inEncore && phrases && currentIndex < phrases.length - 1) {
       const nextIndex = currentIndex + 1;
       // Mid-session milestone toasts — fire at most once each per session.
       if (phrases.length >= 4 && nextIndex === Math.floor(phrases.length / 2) && !halfwayToastFiredRef.current) {
@@ -1449,6 +1491,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       setCurrentIndex(c => c + 1);
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentMode ? "idle" : "playing_coach");
+    } else if (!isTestout && phrases && encoreQueue.length > 0) {
+      // The list is done but something earned nothing. Bring the first such
+      // phrase back — it keeps its place in the queue order, so several
+      // zero-XP phrases return in the order they were missed.
+      const [head, ...rest] = encoreQueue;
+      const headIdx = phrases.findIndex(p => p.id === head);
+      setEncoreQueue(rest);
+      if (headIdx >= 0) {
+        setInEncore(true);
+        setCurrentIndex(headIdx);
+        setState(silentMode ? "idle" : "playing_coach");
+        showToast("One more go at this one 🎯");
+        return;
+      }
+      // The phrase vanished from the list (filter change mid-session): fall
+      // through on the next press rather than dead-ending the session.
+      setState("result");
     } else if (isTestout) {
       // End of a test-out run: hand the batch to the server for judgment. The
       // verdict screen reads the mutation state directly (pending, pass,
@@ -2037,6 +2096,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           </div>
         </div>
         <div className="font-bold text-sm text-muted-foreground shrink-0">{currentIndex + 1}/{phrases.length}</div>
+        {/* A returning zero-XP phrase: the counter alone would look like the
+            session went backwards, so name what is happening. */}
+        {inEncore && (
+          <div
+            data-testid="encore-chip"
+            className="shrink-0 rounded-full bg-secondary/15 px-2 py-0.5 text-[11px] font-bold text-secondary"
+          >
+            Another go
+          </div>
+        )}
         {/* Daily XP counter — compact session variant */}
         <XpCounter variant="session" />
         {/* Audio toggles — BOTH follow the same convention: teal filled pill =
@@ -2719,6 +2788,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   {saveFailed && (
                     <p className="mt-2 text-xs text-destructive font-medium">
                       Heads up — this attempt couldn't be saved to your progress.
+                    </p>
+                  )}
+                  {/* Zero XP: say out loud that the phrase is coming back, or
+                      that it has had its three goes and is being let go. */}
+                  {!isTestout && result.xpAwarded === 0 && (
+                    <p data-testid="encore-note" className="mt-2 text-xs font-medium text-muted-foreground">
+                      {(zeroStrikes[phrase?.id ?? -1] ?? 0) >= ZERO_XP_STRIKE_LIMIT
+                        ? "That's three goes — we'll leave this one for next time."
+                        : "No XP yet, so this one comes back at the end of the session."}
                     </p>
                   )}
                 </div>

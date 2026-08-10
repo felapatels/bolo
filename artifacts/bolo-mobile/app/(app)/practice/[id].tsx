@@ -111,6 +111,9 @@ const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 // Beat between the phrase clip and the spoken English meaning (web parity:
 // MEANING_SEGMENT_PAUSE_MS in gujarati-coach's practice page, Task 1003).
 const MEANING_SEGMENT_PAUSE_MS = 400;
+/** Zero-XP encores per phrase before the session lets it go (owner-ruled:
+ *  every kind of zero counts, nocatch included, so the session always ends). */
+const ZERO_XP_STRIKE_LIMIT = 3;
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
   great: 'Great',
@@ -581,6 +584,18 @@ export default function PracticeScreen() {
   const [comparedIdx, setComparedIdx] = React.useState<Set<number>>(new Set());
   // XP data per phrase index — xp earned and optional breakdown text.
   const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
+  // ── Zero-XP encore (owner rule, web practice.tsx parity) ─────────────────
+  // A phrase that earns NO XP comes back at the END of the session and keeps
+  // coming back until it earns something. Three zeros of ANY kind release it
+  // (owner-ruled: a nocatch burns a strike too) so a dead mic can never trap
+  // the learner in a session that will not end. Queue holds phrase indices,
+  // matching how bands/xpData/sessionFeedback are keyed.
+  const [encoreQueue, setEncoreQueue] = React.useState<number[]>([]);
+  const [zeroStrikes, setZeroStrikes] = React.useState<Record<number, number>>({});
+  const zeroStrikesRef = React.useRef<Record<number, number>>({});
+  // Once the base list is exhausted the cursor jumps backwards, so every later
+  // advance must come from the queue, never from index + 1.
+  const [inEncore, setInEncore] = React.useState(false);
   // Build 34B: server-granted Chai summed across the session's attempt
   // responses for the Session Complete receipt pill (web session-chai-pill).
   const [sessionChai, setSessionChai] = React.useState(0);
@@ -1480,6 +1495,31 @@ export default function PracticeScreen() {
       setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
       setPhaseSync('result');
 
+      // Zero-XP encore bookkeeping. Test-out is one take per phrase and is
+      // judged as a batch, so it never queues an encore.
+      if (!isTestout) {
+        const encoreIdx = index;
+        if (res.xpAwarded > 0) {
+          // Earned something: the debt is settled, even if an earlier take on
+          // this phrase had already queued it. Strikes are NOT reset — they
+          // are the record of what this phrase cost, not a live budget.
+          setEncoreQueue((q) => q.filter((i) => i !== encoreIdx));
+        } else {
+          // The ref mirrors the state so two attempts inside one render pass
+          // cannot both read strike 0 and queue the phrase twice.
+          const strikes = (zeroStrikesRef.current[encoreIdx] ?? 0) + 1;
+          zeroStrikesRef.current = { ...zeroStrikesRef.current, [encoreIdx]: strikes };
+          setZeroStrikes(zeroStrikesRef.current);
+          setEncoreQueue((q) =>
+            strikes >= ZERO_XP_STRIKE_LIMIT
+              ? q.filter((i) => i !== encoreIdx) // three goes: released
+              : q.includes(encoreIdx)
+                ? q
+                : [...q, encoreIdx],
+          );
+        }
+      }
+
       // Full-bleed color flash keyed to the five-band ladder color (green for
       // perfect through red for retry). Nocatch is a system miss, not a
       // learner error (Spec 1 rule 16): nothing negative may fire, so the
@@ -1626,7 +1666,10 @@ export default function PracticeScreen() {
     feedbackAudioRef.current = null;
     setResult(null);
     setSaveFailed(false);
-    if (index + 1 < list.length) {
+    // Encore mode jumps the cursor backwards, so once it starts, forward
+    // progress must come from the queue alone or the tail of the list would
+    // replay in full.
+    if (!inEncore && index + 1 < list.length) {
       const nextIdx = index + 1;
       // Mid-session milestone toasts — fire at the halfway phrase and the last phrase.
       if (!halfwayFiredRef.current && nextIdx === Math.floor(list.length / 2) && list.length > 2) {
@@ -1640,6 +1683,17 @@ export default function PracticeScreen() {
       }
       setIndex((i) => i + 1);
       setPhaseSync('idle');
+    } else if (!isTestout && encoreQueue.length > 0) {
+      // The list is done but something earned nothing. Bring the first such
+      // phrase back — queue order means several zero-XP phrases return in the
+      // order they were missed.
+      const [head, ...rest] = encoreQueue;
+      setEncoreQueue(rest);
+      setInEncore(true);
+      setIndex(head);
+      setPhaseSync('idle');
+      setToastMessage('One more go at this one 🎯');
+      setToastKey((k) => k + 1);
     } else if (isTestout) {
       // End of a test-out run: hand the batch to the server for judgment. The
       // verdict screen reads the mutation state directly (pending, pass,
@@ -2106,6 +2160,8 @@ export default function PracticeScreen() {
   // Evaluating is Bolo's job, not a throbber's: he zooms out small and spins
   // while the score comes back, then zooms back in (build 36 — the
   // ActivityIndicator that used to sit inside the record button is gone).
+  // "Finish" would lie while a zero-XP phrase is still queued to come back.
+  const hasNextStop = index + 1 < list.length || (!isTestout && encoreQueue.length > 0);
   const mascotMotion =
     phase === 'evaluating'
       ? 'working'
@@ -2119,7 +2175,11 @@ export default function PracticeScreen() {
     <Screen>
       <PracticeHeader
         onClose={() => router.back()}
-        label={`${index + 1} of ${list.length}`}
+        label={
+          // A returning zero-XP phrase: the counter alone would look like the
+          // session went backwards, so name what is happening.
+          inEncore ? `${index + 1} of ${list.length} · another go` : `${index + 1} of ${list.length}`
+        }
         silentMode={silentModeUI}
         onToggleSilentMode={toggleSilentModeUI}
         meaningAudio={meaningAudioUI}
@@ -2524,6 +2584,18 @@ export default function PracticeScreen() {
                 Heads up — this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
+            {/* Zero XP: say out loud that the phrase is coming back, or that
+                it has had its three goes and is being let go. */}
+            {!isTestout && result.xpAwarded === 0 ? (
+              <Text
+                testID="encore-note"
+                style={[styles.encoreNote, { color: colors.mutedForeground }]}
+              >
+                {(zeroStrikes[index] ?? 0) >= ZERO_XP_STRIKE_LIMIT
+                  ? "That's three goes — we'll leave this one for next time."
+                  : 'No XP yet, so this one comes back at the end of the session.'}
+              </Text>
+            ) : null}
             {/* Hear yourself — always shown so learners can compare their
                 voice to the coach model. Not affected by spoken-feedback mute. */}
             <Pressable
@@ -2576,12 +2648,12 @@ export default function PracticeScreen() {
             <Pressable
               onPress={next}
               accessibilityRole="button"
-              accessibilityLabel={index + 1 < list.length ? 'Next phrase' : 'Finish'}
+              accessibilityLabel={hasNextStop ? 'Next phrase' : 'Finish'}
               testID="next-secondary-button"
               style={[styles.nextSecondaryBtn, { borderColor: colors.border }]}
             >
               <Text style={[styles.nextSecondaryText, { color: colors.foreground }]}>
-                {index + 1 < list.length ? 'Next phrase' : 'Finish'}
+                {hasNextStop ? 'Next phrase' : 'Finish'}
               </Text>
             </Pressable>
             <ChunkyButton
@@ -2608,7 +2680,7 @@ export default function PracticeScreen() {
               </Pressable>
             )}
             <ChunkyButton
-              title={index + 1 < list.length ? 'Next phrase' : 'Finish'}
+              title={hasNextStop ? 'Next phrase' : 'Finish'}
               icon="arrow-right"
               onPress={next}
               style={{ flex: 1 }}
@@ -3140,6 +3212,7 @@ const styles = StyleSheet.create({
   recordHint: { fontFamily: AppFonts.semibold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
   errorTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   saveFailed: { fontFamily: AppFonts.semibold, fontSize: 13, marginTop: 12 },
+  encoreNote: { fontFamily: AppFonts.semibold, fontSize: 12, marginTop: 10, textAlign: 'center' },
   hearSelfBtn: {
     flexDirection: 'row',
     alignItems: 'center',

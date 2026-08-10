@@ -145,7 +145,7 @@ beforeEach(() => {
   toastMock.mockReset();
   setZones();
   sessionStorage.removeItem("bolo-signal-waved:gu");
-  sessionStorage.removeItem("bolo-signal-stop-shown:gu");
+  localStorage.removeItem("bolo-signal-stop-shown:gu");
   localStorage.removeItem("bolo-signal-cleared:gu");
   localStorage.removeItem("bolo-zone-closeout:gu");
 });
@@ -301,7 +301,7 @@ describe("the train stops at the signal (story 3)", () => {
 });
 
 describe("soft stop (prod hotfix item 3)", () => {
-  test("reaching a held signal auto-opens the encounter once per session", () => {
+  test("reaching a held signal auto-opens the encounter once, ever", () => {
     // Closeout state seeded (returning learner): unseeded state suppresses
     // the soft stop for that first render while the overlay seeds silently.
     localStorage.setItem("bolo-zone-closeout:gu", JSON.stringify({}));
@@ -312,8 +312,17 @@ describe("soft stop (prod hotfix item 3)", () => {
     expect(isSignalStopSeen("gu", 1)).toBe(true);
     first.unmount();
     // Same session: the stop was already seen, so a fresh mount stays quiet.
+    const second = renderJourney();
+    expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
+    second.unmount();
+    // A NEW session (signing in again tomorrow) must stay quiet too: the mark
+    // is device-scoped, so resuming at a signal never re-opens the dialog.
+    sessionStorage.clear();
     renderJourney();
     expect(screen.queryByText("Signal ahead")).not.toBeInTheDocument();
+    // ...and the signal is still there to tap when they choose to.
+    fireEvent.click(screen.getByTestId("trackside-signal-1"));
+    expect(screen.getByText("Signal ahead")).toBeInTheDocument();
   });
 
   test("a waved signal never auto-opens", () => {

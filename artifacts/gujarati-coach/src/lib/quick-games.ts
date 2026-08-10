@@ -147,13 +147,15 @@ export function markSignalWaved(lang: string, gap: number): void {
   }
 }
 
-/** Prod hotfix Item 3 (soft stop): the encounter dialog only auto-opens once
- *  per signal per session, remembered here (sessionStorage, like waves). */
+/** The encounter dialog auto-opens ONCE per signal, ever, on this device
+ *  (localStorage, like clears — not sessionStorage like waves). A learner
+ *  whose journey resumes at a signal was otherwise met by the same dialog on
+ *  every single sign-in; after the first offer the signal is theirs to tap. */
 const stopSeenKey = (lang: string) => `bolo-signal-stop-shown:${lang}`;
 
 export function isSignalStopSeen(lang: string, gap: number): boolean {
   try {
-    return readGapSet(sessionStorage, stopSeenKey(lang)).has(gap);
+    return readGapSet(localStorage, stopSeenKey(lang)).has(gap);
   } catch {
     return false;
   }
@@ -161,11 +163,11 @@ export function isSignalStopSeen(lang: string, gap: number): boolean {
 
 export function markSignalStopSeen(lang: string, gap: number): void {
   try {
-    const set = readGapSet(sessionStorage, stopSeenKey(lang));
+    const set = readGapSet(localStorage, stopSeenKey(lang));
     set.add(gap);
-    writeGapSet(sessionStorage, stopSeenKey(lang), set);
+    writeGapSet(localStorage, stopSeenKey(lang), set);
   } catch {
-    // Ignore: the soft stop may simply auto-open again this session.
+    // Ignore: the soft stop may simply auto-open again on a later visit.
   }
 }
 

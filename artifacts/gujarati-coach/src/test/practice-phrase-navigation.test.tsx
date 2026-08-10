@@ -168,7 +168,11 @@ async function attemptCurrentPhrase() {
     );
   });
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument(),
+    expect(
+      // "Try again" is the retry-band card's primary; other bands show the
+      // quieter "Retry" instead. Either one means the result card is up.
+      screen.getByRole("button", { name: /^(Try again|Retry)$/ }),
+    ).toBeInTheDocument(),
   );
 }
 
@@ -248,6 +252,18 @@ describe("practice manual prev/next navigation (task 973)", () => {
 
   test("attempts and bestScore survive any visit order, and navigating off a result clears the card", async () => {
     h.categoryPhrases = loaded([phrase(1, "phrase-1"), phrase(2, "phrase-2")]);
+    // Both attempts must EARN XP here: a zero-XP attempt now comes back for an
+    // encore at the end of the session (see practice-zero-xp-encore), which
+    // would keep this navigation test out of the summary it is checking.
+    h.evaluate.mockResolvedValue({
+      score: 85,
+      band: "great",
+      passed: true,
+      xpAwarded: 5,
+      feedback: "Nice!",
+      tip: "",
+      evaluationToken: "signed-token",
+    });
     renderPage();
     await expectOnPhrase("phrase-1", "1/2");
 
@@ -267,7 +283,9 @@ describe("practice manual prev/next navigation (task 973)", () => {
     // BOTH results are still there, so phrase 1's attempt survived the
     // detour (sessionResults is keyed by phrase id, not visit order).
     await attemptCurrentPhrase();
-    fireEvent.click(screen.getByRole("button", { name: "Next phrase" }));
+    // Scoring attempts get the plain "Next" primary (the "Next phrase"
+    // secondary only appears on retry-band cards).
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await waitFor(() =>
       expect(screen.getByText("You practiced 2 phrases.")).toBeInTheDocument(),
     );

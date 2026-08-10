@@ -180,6 +180,7 @@ jest.mock('@workspace/api-client-react', () => ({
 }));
 
 // Imported after the mocks are declared.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import JourneyScreen from '@/app/(app)/journey';
 import { resetSignalMemory } from '@/lib/signalMemory';
 
@@ -686,8 +687,12 @@ describe('journey header inset and stamp slot (build 30)', () => {
 // Signal memory is module-scoped and would otherwise leak between cases (a
 // stop marked seen never auto-opens again), so each case starts clean.
 describe('journey map — trackside signals', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetSignalMemory();
+    // Stop-seen and clears are DEVICE scoped now, so wiping the in-memory
+    // caches is not enough — hydration would restore the previous case's
+    // marks and every auto-open assertion would go quiet.
+    await AsyncStorage.clear();
     // The rotation only offers a game a zone can actually fill, so the zone
     // needs a visible phrase count or every signal becomes an auto-wave.
     mockState.categories = [1, 2, 3, 4, 5, 6].map((id) => ({ id, phraseCount: 12 }));

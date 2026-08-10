@@ -54,10 +54,13 @@ import { SignalEncounterDialog } from '@/components/journey/SignalEncounter';
 import {
   useSignalMemory,
   hydrateClearedSignals,
+  hydrateSignalStopSeen,
   isSignalCleared,
   isSignalWaved,
+  isSignalStopSeen,
   markSignalCleared,
   markSignalWaved,
+  markSignalStopSeen,
   resetSignalMemory,
   clearedStorageKey,
 } from '@/lib/signalMemory';
@@ -329,17 +332,24 @@ describe('signal memory', () => {
     await AsyncStorage.clear();
   });
 
-  it('survives a restart for clears and does not for waves', async () => {
+  it('survives a restart for clears and stop-seen, and does not for waves', async () => {
     markSignalWaved('gu', 1);
     await markSignalCleared('gu', 3);
+    markSignalStopSeen('gu', 2);
+    // The seen write is fire-and-forget; let it reach storage.
+    await Promise.resolve();
 
     // Simulate the app being killed and relaunched: in-memory state is gone.
     resetSignalMemory();
     expect(isSignalWaved('gu', 1)).toBe(false); // session scoped, like web
     expect(isSignalCleared('gu', 3)).toBe(false); // not hydrated YET
+    expect(isSignalStopSeen('gu', 2)).toBe(false); // not hydrated YET
 
-    await hydrateClearedSignals('gu');
+    await Promise.all([hydrateClearedSignals('gu'), hydrateSignalStopSeen('gu')]);
     expect(isSignalCleared('gu', 3)).toBe(true); // device scoped, restored
+    // A signal that already offered itself never auto-opens again, even on a
+    // fresh launch — the learner taps it when they want it.
+    expect(isSignalStopSeen('gu', 2)).toBe(true);
     expect(isSignalWaved('gu', 1)).toBe(false);
   });
 

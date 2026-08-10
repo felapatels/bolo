@@ -23,11 +23,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 /** Device-scoped clears. Per-language so two languages never share marks. */
 export const clearedStorageKey = (lang: string) => `bolo.signalCleared:${lang}`;
+/** Device-scoped "this signal has offered itself once". Same shape. */
+export const stopSeenStorageKey = (lang: string) => `bolo.signalStopSeen:${lang}`;
 
 const sessionWaves = new Map<string, Set<number>>();
-const sessionStopSeen = new Map<string, Set<number>>();
-/** Hydrated mirror of AsyncStorage. Absent language = not hydrated yet. */
+/** Hydrated mirrors of AsyncStorage. Absent language = not hydrated yet. */
 const clearedCache = new Map<string, Set<number>>();
+const stopSeenCache = new Map<string, Set<number>>();
 
 function bucket(m: Map<string, Set<number>>, lang: string): Set<number> {
   let s = m.get(lang);
@@ -71,6 +73,22 @@ export function isClearedHydrated(lang: string): boolean {
   return clearedCache.has(lang);
 }
 
+/** Same merge-not-replace hydration for the "already offered once" marks. */
+export async function hydrateSignalStopSeen(lang: string): Promise<void> {
+  try {
+    const stored = parseGaps(await AsyncStorage.getItem(stopSeenStorageKey(lang)));
+    const live = stopSeenCache.get(lang);
+    if (live) for (const gap of live) stored.add(gap);
+    stopSeenCache.set(lang, stored);
+  } catch {
+    if (!stopSeenCache.has(lang)) stopSeenCache.set(lang, new Set());
+  }
+}
+
+export function isStopSeenHydrated(lang: string): boolean {
+  return stopSeenCache.has(lang);
+}
+
 export function isSignalWaved(lang: string, gap: number): boolean {
   return sessionWaves.get(lang)?.has(gap) ?? false;
 }
@@ -80,11 +98,20 @@ export function markSignalWaved(lang: string, gap: number): void {
 }
 
 export function isSignalStopSeen(lang: string, gap: number): boolean {
-  return sessionStopSeen.get(lang)?.has(gap) ?? false;
+  return stopSeenCache.get(lang)?.has(gap) ?? false;
 }
 
+/** Device-scoped, like clears: a signal offers itself ONCE. A learner whose
+ *  journey resumes at a signal was otherwise met by the same dialog on every
+ *  app launch; after the first offer the signal is theirs to tap. */
 export function markSignalStopSeen(lang: string, gap: number): void {
-  bucket(sessionStopSeen, lang).add(gap);
+  bucket(stopSeenCache, lang).add(gap);
+  void AsyncStorage.setItem(
+    stopSeenStorageKey(lang),
+    JSON.stringify([...stopSeenCache.get(lang)!]),
+  ).catch(() => {
+    // Best-effort: the in-memory mark still holds for this session.
+  });
 }
 
 export function isSignalCleared(lang: string, gap: number): boolean {
@@ -114,7 +141,7 @@ export async function markSignalCleared(lang: string, gap: number): Promise<void
 /** Test seam. Never called by app code. */
 export function resetSignalMemory(): void {
   sessionWaves.clear();
-  sessionStopSeen.clear();
+  stopSeenCache.clear();
   clearedCache.clear();
 }
 
@@ -138,13 +165,16 @@ export type SignalMemory = {
  * happens in an effect, and `version` is what tells the map to look again.
  */
 export function useSignalMemory(lang: string): SignalMemory {
-  const [hydrated, setHydrated] = useState(() => isClearedHydrated(lang));
+  const isHydrated = (l: string) => isClearedHydrated(l) && isStopSeenHydrated(l);
+  const [hydrated, setHydrated] = useState(() => isHydrated(lang));
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setHydrated(isClearedHydrated(lang));
-    void hydrateClearedSignals(lang).then(() => {
+    setHydrated(isHydrated(lang));
+    // Both marks gate the auto-open, so neither may be read before its disk
+    // read lands: an un-hydrated "seen" set re-offers a signal already shown.
+    void Promise.all([hydrateClearedSignals(lang), hydrateSignalStopSeen(lang)]).then(() => {
       if (!alive) return;
       setHydrated(true);
       setVersion((v) => v + 1);

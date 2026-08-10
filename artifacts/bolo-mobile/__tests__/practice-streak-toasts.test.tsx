@@ -386,6 +386,17 @@ describe('session summary XP chip', () => {
     }));
     render(<PracticeScreen />);
 
+    // A zero-XP phrase comes back for an encore, so the only way to the
+    // summary is to burn all three strikes on it (see
+    // practice-zero-xp-encore for the rule itself).
+    await recordOnce('Good try, keep going!');
+    await act(async () => {
+      fireEvent.press(screen.getByText('Next phrase'));
+    });
+    await recordOnce('Good try, keep going!');
+    await act(async () => {
+      fireEvent.press(screen.getByText('Next phrase'));
+    });
     await recordOnce('Good try, keep going!');
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
