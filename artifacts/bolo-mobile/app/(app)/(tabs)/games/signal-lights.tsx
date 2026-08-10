@@ -148,6 +148,18 @@ function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
           phraseId: q.phrase.id,
           selectedPhraseId: q.decoy.id,
           correct: false,
+          // Nothing was called before the clock ran out.
+          review: {
+            prompt: `${q.phrase.nativeScript} means "${q.shownEnglish}"`,
+            // The prompt carries native script, so its reading leads the sub
+            // line; a false pairing then says what the phrase really means.
+            promptSub:
+              [q.phrase.romanized.trim(), q.isTrue ? '' : `It means "${q.phrase.english}"`]
+                .filter(Boolean)
+                .join(' · ') || null,
+            answer: null,
+            correct: q.isTrue ? 'True' : 'False',
+          },
         }),
       FEEDBACK_MS,
     );
@@ -181,6 +193,19 @@ function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
           phraseId: q.phrase.id,
           selectedPhraseId: correct ? q.phrase.id : q.decoy.id,
           correct,
+          // A true/false call: the review names the pairing that was on
+          // screen and what the phrase actually means.
+          review: {
+            prompt: `${q.phrase.nativeScript} means "${q.shownEnglish}"`,
+            // The prompt carries native script, so its reading leads the sub
+            // line; a false pairing then says what the phrase really means.
+            promptSub:
+              [q.phrase.romanized.trim(), q.isTrue ? '' : `It means "${q.phrase.english}"`]
+                .filter(Boolean)
+                .join(' · ') || null,
+            answer: saidTrue ? 'True' : 'False',
+            correct: q.isTrue ? 'True' : 'False',
+          },
         }),
       FEEDBACK_MS,
     );

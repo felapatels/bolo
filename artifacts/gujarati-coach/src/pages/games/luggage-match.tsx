@@ -51,10 +51,26 @@ function LuggageMatchRound({ phrases, api }: QuickRoundProps) {
       setMatched((prev) => new Set(prev).add(leftId));
       setLeftPick(null);
       setRightPick(null);
+      const wrongId = firstWrong.get(leftId);
+      const tag = board.pairs.find((p) => p.id === leftId);
+      const wrongPhrase =
+        wrongId !== undefined ? board.pairs.find((p) => p.id === wrongId) : undefined;
       api.submitRound({
         phraseId: leftId,
-        selectedPhraseId: firstWrong.get(leftId) ?? leftId,
+        selectedPhraseId: wrongId ?? leftId,
         correct: !firstWrong.has(leftId),
+        // Every tag ends up matched, so a "miss" here is the FIRST wrong twin
+        // the learner tried for this tag.
+        ...(tag && wrongPhrase
+          ? {
+              review: {
+                prompt: tag.nativeScript,
+                promptSub: tag.romanized.trim() || null,
+                answer: wrongPhrase.english,
+                correct: tag.english,
+              },
+            }
+          : {}),
       });
     } else {
       webHaptic("warning");

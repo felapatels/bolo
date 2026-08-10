@@ -39,6 +39,7 @@ import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GAME_CONFIG } from '@/lib/game-config';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ function EndScreen({
   score,
   total,
   xpEarned,
+  misses,
   onPlayAgain,
   onChooseTopic,
   colors,
@@ -169,11 +171,14 @@ function EndScreen({
   score: number;
   total: number;
   xpEarned: number | null;
+  misses: GameMiss[];
   onPlayAgain: () => void;
   onChooseTopic: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const router = useRouter();
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
   const isPerfect = score === total;
   const pose = isPerfect ? 'cheer' : score >= total / 2 ? 'thumbsup' : 'tryagain';
   const headline = isPerfect ? 'Perfect Round! 🎉' : score >= total / 2 ? 'Nice Work! 👍' : 'Keep Practising! 💪';
@@ -185,11 +190,30 @@ function EndScreen({
       <Text style={[styles.sub, { color: colors.mutedForeground }]}>{score} / {total} correct</Text>
 
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* The score is the first thing a learner reaches for to see WHICH
+            ones they missed, so it opens the review itself. A perfect run has
+            nothing to review, so it stays a plain, untappable card. */}
+        <Pressable
+          testID="listen-and-pick-score-card"
+          onPress={canReview ? () => setReviewOpen(true) : undefined}
+          disabled={!canReview}
+          accessibilityRole={canReview ? 'button' : undefined}
+          accessibilityLabel={
+            canReview ? `${score} of ${total} correct. See what you missed.` : undefined
+          }
+          style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <Feather name="check-circle" size={20} color="#10B981" />
           <Text style={[styles.statCardValue, { color: colors.foreground }]}>{score}/{total}</Text>
-          <Text style={[styles.statCardLabel, { color: colors.mutedForeground }]}>Score</Text>
-        </View>
+          <Text
+            style={[
+              styles.statCardLabel,
+              { color: canReview ? colors.primary : colors.mutedForeground },
+            ]}
+          >
+            {canReview ? 'See misses' : 'Score'}
+          </Text>
+        </Pressable>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="zap" size={20} color="#F59E0B" />
           <Text style={[styles.statCardValue, { color: colors.foreground }]}>{xpEarned !== null ? `+${xpEarned}` : '…'}</Text>
@@ -203,6 +227,7 @@ function EndScreen({
         onPress={onPlayAgain}
         style={{ width: '100%' }}
       />
+      <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
       <ChunkyButton
         title="Choose Topic"
         icon="list"
@@ -213,6 +238,8 @@ function EndScreen({
       <Pressable onPress={() => router.back()} style={styles.textBtn}>
         <Text style={[styles.textBtnLabel, { color: colors.mutedForeground }]}>← Back to Games</Text>
       </Pressable>
+
+      <MissReviewModal misses={misses} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </View>
   );
 }
@@ -231,7 +258,7 @@ function GameRound({
   phrases: Phrase[];
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
   soundOn: boolean;
-  onEnd: (score: number, results: PhraseResult[]) => void;
+  onEnd: (score: number, results: PhraseResult[], misses: GameMiss[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const nativeProps = nativeTextStyle(activeLanguage);
@@ -261,6 +288,11 @@ function GameRound({
   // busts stale entries — the new voice is fetched fresh automatically.
   const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
   const phraseResultsRef = useRef<PhraseResult[]>([]);
+  // Wrong picks, described the way the round was played: the phrase that was
+  // spoken (named by its meaning + reading, since the clip has no on-screen
+  // prompt), the choice the learner tapped, and the one they should have
+  // tapped — both shown by their native script, to match what was on screen.
+  const missesRef = useRef<GameMiss[]>([]);
   // Track the current question index in a ref so the async playback callback
   // can detect if we've already moved on (unmounted/advanced).
   const qIdxRef = useRef(0);
@@ -343,7 +375,7 @@ function GameRound({
       setAnswerState('idle');
       setPickedIdx(null);
       if (qIdxRef.current + 1 >= total) {
-        onEnd(finalScore, phraseResultsRef.current);
+        onEnd(finalScore, phraseResultsRef.current, missesRef.current);
       } else {
         setQIdx(i => i + 1);
       }
@@ -366,6 +398,22 @@ function GameRound({
       phraseId: q.phrase.id,
       selectedPhraseId: q.choices[choiceIdx].id,
     });
+
+    if (!isCorrect) {
+      // The clip is the prompt, so name what was played by its meaning and
+      // reading; the choices are shown by their native script so the miss
+      // matches what the learner tapped.
+      const picked = q.choices[choiceIdx];
+      missesRef.current.push({
+        prompt: `You heard "${q.phrase.english}"`,
+        // The script + reading sit on the answer lines below, where each one
+        // belongs to the phrase it names, so the prompt keeps the meaning only.
+        answer: picked.nativeScript,
+        answerSub: picked.romanized.trim() || null,
+        correct: q.phrase.nativeScript,
+        correctSub: q.phrase.romanized.trim() || null,
+      });
+    }
 
     if (isCorrect) {
       // Correct answers keep the short auto-advance beat.
@@ -560,6 +608,7 @@ export default function ListenAndPickScreen() {
   const [selectedCategory, setSelectedCategory] = useState<{ id: number; title: string } | null>(null);
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState<number | null>(null);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -576,12 +625,15 @@ export default function ListenAndPickScreen() {
 
   const handleTopicSelect = (id: number, title: string) => {
     setSelectedCategory({ id, title });
+    // A fresh topic must not carry the previous run's misses.
+    setFinalMisses([]);
     setGameKey(k => k + 1);
     setPhase('game');
   };
 
-  const handleEnd = (score: number, results: PhraseResult[]) => {
+  const handleEnd = (score: number, results: PhraseResult[], misses: GameMiss[]) => {
     setFinalScore(score);
+    setFinalMisses(misses);
     setPhase('end');
     if (selectedCategory && results.length > 0) {
       recordSession.mutate(
@@ -663,7 +715,9 @@ export default function ListenAndPickScreen() {
           score={finalScore}
           total={GAME_CONFIG.listenAndPick.roundSize}
           xpEarned={finalXp}
-          onPlayAgain={() => { setGameKey(k => k + 1); setPhase('game'); }}
+          misses={finalMisses}
+          // Clear last run's misses so the next end screen only shows this run's.
+          onPlayAgain={() => { setFinalMisses([]); setGameKey(k => k + 1); setPhase('game'); }}
           onChooseTopic={() => { setSelectedCategory(null); setPhase('picker'); }}
           colors={colors}
         />

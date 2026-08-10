@@ -5,6 +5,11 @@ import { Link } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { cn } from "@/lib/utils";
 import {
   LANG_CHAPTER_IDS,
@@ -1328,6 +1333,11 @@ function TraceSession({
   const [result, setResult] = useState<SessionResult>(null);
   const [passedSet, setPassedSet] = useState<Set<string>>(new Set());
   const [sessionDone, setSessionDone] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  // Best accuracy seen per character, so the end-of-chapter review can say how
+  // close a character came instead of only that it did not pass. A character
+  // the learner skipped past never lands here and reads as untraced.
+  const [bestScores, setBestScores] = useState<Record<string, number>>({});
 
   const character = chapter.characters[charIndex];
   const guidePoints = character ? parseSvgPath(character.guide) : [];
@@ -1343,6 +1353,11 @@ function TraceSession({
   const handleResult = useCallback(
     (score: number, passed: boolean) => {
       setResult({ score, passed });
+      if (character) {
+        setBestScores((prev) =>
+          score > (prev[character.id] ?? -1) ? { ...prev, [character.id]: score } : prev,
+        );
+      }
       if (passed && character) {
         setPassedSet((prev) => new Set([...prev, character.id]));
         // Persist to server (fire-and-forget; don't block UX)
@@ -1380,6 +1395,23 @@ function TraceSession({
   if (sessionDone) {
     const total = chapter.characters.length;
     const passed = passedSet.size;
+    // Tracing has no wrong "answer", so a miss here is a character that never
+    // reached the pass mark — worded with its own labels rather than the
+    // "You said / Answer" framing the answer games use.
+    const misses: GameMiss[] = chapter.characters
+      .filter((c) => !passedSet.has(c.id))
+      .map((c) => {
+        const best = bestScores[c.id];
+        return {
+          prompt: c.char,
+          promptSub: c.label,
+          answer: best === undefined ? "not traced" : `${best} out of 100`,
+          answerLabel: "Your best",
+          correct: `${PASS_THRESHOLD} out of 100`,
+          correctLabel: "Pass mark",
+        };
+      });
+    const canReview = misses.length > 0;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
         <Trophy className="h-16 w-16 text-primary" />
@@ -1387,9 +1419,28 @@ function TraceSession({
           <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
             Chapter Complete!
           </h2>
-          <p className="mt-2 text-muted-foreground">
+          {/* The tally itself opens the review — it is what a learner reaches
+              for when they want to know WHICH characters did not pass. */}
+          <button
+            type="button"
+            data-testid="script-trace-score-card"
+            onClick={canReview ? () => setReviewOpen(true) : undefined}
+            disabled={!canReview}
+            aria-label={
+              canReview
+                ? `You passed ${passed} of ${total} characters. See what you missed.`
+                : undefined
+            }
+            className={cn(
+              "mt-2 rounded-xl px-2 py-1 text-muted-foreground",
+              canReview && "hover:bg-muted transition-colors",
+            )}
+          >
             You passed {passed} of {total} characters in {chapter.title}.
-          </p>
+            {canReview && (
+              <span className="mt-0.5 block text-xs font-semibold text-primary">See misses</span>
+            )}
+          </button>
         </div>
         <div className="flex gap-3">
           <button
@@ -1403,6 +1454,7 @@ function TraceSession({
               setCharIndex(0);
               setResult(null);
               setPassedSet(new Set());
+              setBestScores({});
               setSessionDone(false);
             }}
             className="rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -1410,6 +1462,8 @@ function TraceSession({
             Replay
           </button>
         </div>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
+        <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
       </div>
     );
   }

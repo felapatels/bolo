@@ -149,6 +149,16 @@ function ExpressListeningRound({
       phraseId: q.phrase.id,
       selectedPhraseId: answered ? q.choices[picked!]!.id : wrongChoice.id,
       correct: false,
+      // The prompt was a clip, so the review has to say what the clip WAS;
+      // a round that ran out carries no answer at all.
+      review: {
+        prompt: "Which phrase was in the clip?",
+        promptSub: `It means "${q.phrase.english}"`,
+        answer: answered ? q.choices[picked!]!.nativeScript : null,
+        answerSub: answered ? q.choices[picked!]!.romanized.trim() || null : null,
+        correct: q.phrase.nativeScript,
+        correctSub: q.phrase.romanized.trim() || null,
+      },
     });
   };
 

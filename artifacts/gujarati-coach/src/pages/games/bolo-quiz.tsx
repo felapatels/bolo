@@ -5,6 +5,11 @@ import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +30,40 @@ function localIsCorrect(q: QuizQuestion, ans: string | null): boolean {
   if (q.type === "listen_identify") return ans === q.correctNativeScript;
   if (q.type === "order_words") return ans.trim() === q.nativeScript.trim();
   return false;
+}
+
+/** Word a wrong answer the way its question was actually presented so the
+ *  end-screen review reads like the round the learner just played, not like
+ *  the raw quiz schema. Each type states its own prompt (the script they
+ *  translated, the phrase they heard, the sentence they arranged), what they
+ *  chose, and the answer that was expected. */
+function questionMiss(q: QuizQuestion, ans: string | null): GameMiss {
+  if (q.type === "mcq_translation") {
+    return {
+      prompt: q.nativeScript,
+      promptSub: q.romanized || null,
+      answer: ans,
+      correct: q.correctEnglish,
+    };
+  }
+  if (q.type === "listen_identify") {
+    // The prompt was audio only — nothing was on screen to quote, so name the
+    // task and let the answer/correct lines carry the script.
+    return {
+      prompt: "The phrase you heard",
+      answer: ans,
+      correct: q.correctNativeScript,
+      // The reading belongs to the script it reads, not to the task line.
+      correctSub: q.romanized || null,
+    };
+  }
+  // order_words: the learner arranged tiles to say the English sentence.
+  return {
+    prompt: `Arrange to say "${q.english}"`,
+    answer: ans,
+    correct: q.nativeScript,
+    correctSub: q.romanized || null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -437,15 +476,19 @@ function ResultsScreen({
   total,
   xp,
   quizStreak,
+  misses,
   onReturnToGames,
 }: {
   score: number;
   total: number;
   xp: number;
   quizStreak: number;
+  misses: GameMiss[];
   onReturnToGames: () => void;
 }) {
   const perfect = score === total;
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
   const shareText = perfect
     ? `I scored ${score}/${total} on today's Bolo Quiz! 🦜🎉 Perfect score!`
     : `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
@@ -473,12 +516,27 @@ function ResultsScreen({
         <p className="text-muted-foreground text-sm">Today's quiz complete</p>
       </div>
 
-      {/* Score ring */}
+      {/* Score ring. The score is the affordance learners reach for to see
+          WHICH questions they missed, so it opens the review itself when there
+          is anything to review; a perfect run leaves it a plain figure. */}
       <div className="flex items-center gap-6">
-        <div className="flex flex-col items-center">
-          <span className="text-5xl font-extrabold text-foreground">{score}</span>
-          <span className="text-xs text-muted-foreground mt-0.5">out of {total}</span>
-        </div>
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="bolo-quiz-score-card"
+            aria-label={`${score} of ${total} correct. See what you missed.`}
+            className="flex flex-col items-center rounded-xl px-2 py-1 transition-all hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <span className="text-5xl font-extrabold text-foreground">{score}</span>
+            <span className="text-xs text-primary underline underline-offset-2 mt-0.5">See misses</span>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center" data-testid="bolo-quiz-score-card">
+            <span className="text-5xl font-extrabold text-foreground">{score}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">out of {total}</span>
+          </div>
+        )}
         <div className="w-px h-10 bg-border" />
         <div className="flex flex-col items-center">
           <span className="text-5xl font-extrabold text-primary">+{xp}</span>
@@ -505,6 +563,10 @@ function ResultsScreen({
       {/* Next quiz countdown */}
       <NextQuizCountdown />
 
+      {/* The quiz is once-a-day, so "Back to Games" is the primary action here
+          rather than a Play Again; the review CTA sits just below it. */}
+      <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
+
       <div className="flex w-full gap-3">
         <button
           onClick={handleShare}
@@ -521,6 +583,8 @@ function ResultsScreen({
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -656,6 +720,10 @@ export default function BoloQuizPage() {
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState(0);
   const [finalQuizStreak, setFinalQuizStreak] = useState(0);
+  // Misses derived from the per-question answers when the quiz finishes; the
+  // quiz only kept a numeric score before, so we build the review list here
+  // from the answers already collected against the loaded questions.
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
 
   // Transition state machine when data arrives.
   useEffect(() => {
@@ -689,8 +757,16 @@ export default function BoloQuizPage() {
         return acc + (q && localIsCorrect(q as QuizQuestion, ans) ? 1 : 0);
       }, 0);
       const xp = score * 10 + (score === 5 ? 20 : 0);
+      const misses = finalAnswers.reduce<GameMiss[]>((acc, ans, i) => {
+        const q = questions[i];
+        if (q && !localIsCorrect(q as QuizQuestion, ans)) {
+          acc.push(questionMiss(q as QuizQuestion, ans));
+        }
+        return acc;
+      }, []);
       setFinalScore(score);
       setFinalXp(xp);
+      setFinalMisses(misses);
       setQuizState("results");
       try {
         const result = await completeMutation.mutateAsync({
@@ -790,6 +866,7 @@ export default function BoloQuizPage() {
             total={5}
             xp={finalXp}
             quizStreak={finalQuizStreak}
+            misses={finalMisses}
             onReturnToGames={() => window.history.back()}
           />
         )}

@@ -31,6 +31,7 @@ import {
 } from '@workspace/api-client-react';
 import { playBase64Audio } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 import { confirmDiscardRun } from '@/lib/gameExit';
 
 /** Mirror of server-side isCorrectAnswer for instant local score display. */
@@ -40,6 +41,45 @@ function localIsCorrect(q: QuizQuestion, ans: string | null): boolean {
   if (q.type === 'listen_identify') return ans === q.correctNativeScript;
   if (q.type === 'order_words') return ans.trim() === q.nativeScript.trim();
   return false;
+}
+
+/**
+ * Describe a wrong question in the learner's own terms. The quiz keeps only a
+ * numeric score, so the misses are derived from the questions + answers arrays
+ * at completion. Each type is worded the way it was actually presented:
+ *   - mcq_translation  the native-script phrase they were asked to translate,
+ *                      romanization as the sub, English answer vs English.
+ *   - listen_identify  there is no text prompt (they heard audio), so the
+ *                      prompt states that; the answer/correct are the scripts.
+ *   - order_words      the English they were assembling, with the native
+ *                      answers shown.
+ * A skipped question (no answer captured) passes answer: null.
+ */
+function describeMiss(q: QuizQuestion, ans: string | null): GameMiss {
+  if (q.type === 'mcq_translation') {
+    return {
+      prompt: q.nativeScript,
+      promptSub: q.romanized || null,
+      answer: ans,
+      correct: q.correctEnglish,
+    };
+  }
+  if (q.type === 'listen_identify') {
+    return {
+      prompt: 'Which script matches the audio?',
+      answer: ans,
+      correct: q.correctNativeScript,
+      // The reading belongs to the script it reads, not to the task line.
+      correctSub: q.romanized || null,
+    };
+  }
+  // order_words
+  return {
+    prompt: `Arrange to say: "${q.english}"`,
+    answer: ans,
+    correct: q.nativeScript,
+    correctSub: q.romanized || null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -399,6 +439,9 @@ export function ResultsScreen({
   total,
   xp,
   quizStreak,
+  // Defaulted: the results screen is rendered directly (tests, and any caller
+  // that has only a score) and a run with nothing to review is a normal state.
+  misses = [],
   onBack,
   colors,
 }: {
@@ -406,11 +449,16 @@ export function ResultsScreen({
   total: number;
   xp: number;
   quizStreak: number;
+  misses?: GameMiss[];
   onBack: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const countdown = useCountdown(secondsUntilMidnightUtc());
   const perfect = score === total;
+  // Tapping the score opens the review — the affordance most learners reach
+  // for first. A perfect run has nothing to review, so the score stays inert.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
 
   const handleShare = async () => {
     const streakSuffix = quizStreak >= 2 ? ` 🔥 ${quizStreak}-day streak!` : '';
@@ -436,10 +484,26 @@ export function ResultsScreen({
       <StreakBadge streak={quizStreak} colors={colors} />
 
       <View style={s.scoreRow}>
-        <View style={s.scoreCol}>
+        <Pressable
+          onPress={canReview ? () => setReviewOpen(true) : undefined}
+          disabled={!canReview}
+          accessibilityRole={canReview ? 'button' : undefined}
+          accessibilityLabel={
+            canReview ? `${score} of ${total} correct. See what you missed.` : undefined
+          }
+          testID="bolo-quiz-score-card"
+          style={s.scoreCol}
+        >
           <Text style={[s.bigNum, { color: colors.foreground }]}>{score}</Text>
-          <Text style={[s.smallLabel, { color: colors.mutedForeground }]}>out of {total}</Text>
-        </View>
+          <Text
+            style={[
+              s.smallLabel,
+              { color: canReview ? colors.primary : colors.mutedForeground },
+            ]}
+          >
+            {canReview ? 'See misses' : `out of ${total}`}
+          </Text>
+        </Pressable>
         <View style={[s.divider, { backgroundColor: colors.border }]} />
         <View style={s.scoreCol}>
           <Text style={[s.bigNum, { color: colors.primary }]}>+{xp}</Text>
@@ -471,6 +535,12 @@ export function ResultsScreen({
           <Text style={s.primaryBtnText}>Back to Games</Text>
         </Pressable>
       </View>
+
+      <View style={{ alignSelf: 'stretch' }}>
+        <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
+      </View>
+
+      <MissReviewModal misses={misses} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </Animated.View>
   );
 }
@@ -587,6 +657,7 @@ export default function BoloQuizScreen() {
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState(0);
   const [finalStreak, setFinalStreak] = useState(0);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
 
   // Auto-advance timer — cleared on unmount or when quiz leaves 'playing'.
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -612,8 +683,19 @@ export default function BoloQuizScreen() {
         return acc + (q && localIsCorrect(q as QuizQuestion, ans) ? 1 : 0);
       }, 0);
       const xp = score * 10 + (score === 5 ? 20 : 0);
+      // Derive the misses from the same questions + answers the score used, so
+      // the review lists exactly the ones the score docked. A question with no
+      // captured answer (index past the answers array) reads as skipped.
+      const missList = questions.reduce<GameMiss[]>((acc, q, i) => {
+        const ans = i < finalAnswers.length ? finalAnswers[i] : null;
+        if (!localIsCorrect(q as QuizQuestion, ans)) {
+          acc.push(describeMiss(q as QuizQuestion, ans));
+        }
+        return acc;
+      }, []);
       setFinalScore(score);
       setFinalXp(xp);
+      setFinalMisses(missList);
       setQuizState('results');
       try {
         const result = await completeMutation.mutateAsync({
@@ -785,6 +867,7 @@ export default function BoloQuizScreen() {
             total={5}
             xp={finalXp}
             quizStreak={finalStreak}
+            misses={finalMisses}
             onBack={() => router.back()}
             colors={colors}
           />

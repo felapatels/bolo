@@ -138,10 +138,26 @@ function LuggageMatchRound({ phrases, api, activeLanguage }: QuickRoundProps) {
       // submits the phrase matched to ITSELF; a pair that took a wrong
       // attempt first submits the counterpart it was wrongly paired with,
       // which is in-category, so server validation passes unchanged.
+      const wrongId = firstWrong.get(leftId);
+      const tag = board.pairs.find((p) => p.id === leftId);
+      const wrongPhrase =
+        wrongId !== undefined ? board.pairs.find((p) => p.id === wrongId) : undefined;
       api.submitRound({
         phraseId: leftId,
-        selectedPhraseId: firstWrong.get(leftId) ?? leftId,
+        selectedPhraseId: wrongId ?? leftId,
         correct: !firstWrong.has(leftId),
+        // Every tag ends up matched, so a "miss" here is the FIRST wrong twin
+        // the learner tried for this tag.
+        ...(tag && wrongPhrase
+          ? {
+              review: {
+                prompt: tag.nativeScript,
+                promptSub: tag.romanized.trim() || null,
+                answer: wrongPhrase.english,
+                correct: tag.english,
+              },
+            }
+          : {}),
       });
     } else {
       hapticNotify(Haptics.NotificationFeedbackType.Warning);

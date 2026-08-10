@@ -37,6 +37,11 @@ import {
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -87,6 +92,11 @@ export type QuickRoundResult = {
   phraseId: number;
   selectedPhraseId: number;
   correct: boolean;
+  /** What to show on the end screen's miss review when this round was wrong.
+   *  Each game words its own round (the prompt it showed, the answer the
+   *  learner picked), so the frame never guesses it from the ids — a game
+   *  whose right answer is the odd one out would be described backwards. */
+  review?: GameMiss;
 };
 
 export type QuickRoundApi = {
@@ -169,6 +179,7 @@ function QuickEndScreen({
   total,
   xpEarned,
   chaiEarned,
+  misses,
   fromJourney,
   onPlayAgain,
   onChooseTopic,
@@ -177,12 +188,15 @@ function QuickEndScreen({
   total: number;
   xpEarned: number | null;
   chaiEarned: number | null;
+  misses: GameMiss[];
   fromJourney: boolean;
   onPlayAgain: () => void;
   onChooseTopic: (() => void) | null;
 }) {
   const isPerfect = score === total;
   const pose = isPerfect ? "cheer" : score >= total / 2 ? "thumbsup" : "tryagain";
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6" data-testid="quick-end">
@@ -197,11 +211,28 @@ function QuickEndScreen({
       </div>
 
       <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-        <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
-          <Check className="h-5 w-5 text-emerald-500" />
-          <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
-          <span className="text-xs text-muted-foreground">Score</span>
-        </div>
+        {/* The score is the first thing a learner reaches for when they want
+            to know WHICH ones they missed, so it opens the review itself.
+            With nothing to review (a perfect run) it stays a plain card. */}
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="quick-score-card"
+            aria-label={`${score} of ${total} correct. See what you missed.`}
+            className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <Check className="h-5 w-5 text-emerald-500" />
+            <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
+            <span className="text-xs text-primary underline underline-offset-2">See misses</span>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4" data-testid="quick-score-card">
+            <Check className="h-5 w-5 text-emerald-500" />
+            <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
+            <span className="text-xs text-muted-foreground">Score</span>
+          </div>
+        )}
         <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
           <Zap className="h-5 w-5 text-amber-500" />
           <span className="text-xl font-extrabold text-foreground">{xpEarned !== null ? `+${xpEarned}` : "…"}</span>
@@ -230,6 +261,7 @@ function QuickEndScreen({
           <RefreshCw className="h-4 w-4" />
           Play Again
         </button>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         {onChooseTopic && (
           <button
             onClick={onChooseTopic}
@@ -257,6 +289,8 @@ function QuickEndScreen({
           </Link>
         )}
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -338,6 +372,7 @@ export function QuickGameShell({
   const [finalTotal, setFinalTotal] = useState(0);
   const [finalXp, setFinalXp] = useState<number | null>(null);
   const [chaiEarned, setChaiEarned] = useState<number | null>(null);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
 
   const phraseQuery = useListCategoryPhrases(selectedCategory?.id ?? 0, activeLang, {
     query: {
@@ -392,11 +427,17 @@ export function QuickGameShell({
     setRoundAudioOn(false);
     setFinalXp(null);
     setChaiEarned(null);
+    setFinalMisses([]);
   };
 
   const finishRun = (results: QuickRoundResult[], score: number, roundTotal: number) => {
     setFinalScore(score);
     setFinalTotal(roundTotal);
+    // Only wrong rounds, in the order they were played, and only those the
+    // game described. A game that skips `review` simply shows no review.
+    setFinalMisses(
+      results.filter((r) => !r.correct && r.review).map((r) => r.review as GameMiss),
+    );
     setPhase("end");
     setRoundAudioOn(false);
     if (!selectedCategory || results.length === 0) return;
@@ -627,6 +668,7 @@ export function QuickGameShell({
           total={finalTotal}
           xpEarned={finalXp}
           chaiEarned={chaiEarned}
+          misses={finalMisses}
           fromJourney={launch.fromJourney}
           onPlayAgain={handlePlayAgain}
           onChooseTopic={pinnedLaunch ? null : handleChooseTopic}

@@ -10,6 +10,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
@@ -42,11 +47,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function buildOptions(correct: Phrase, pool: Phrase[], hardMode: boolean): { label: string; phraseId: number; isCorrect: boolean }[] {
+function buildOptions(correct: Phrase, pool: Phrase[], hardMode: boolean): { label: string; romanized: string; phraseId: number; isCorrect: boolean }[] {
   const distractors = shuffle(pool.filter((p) => p.id !== correct.id)).slice(0, 3);
   const all = shuffle([correct, ...distractors]);
   return all.map((p) => ({
     label: hardMode ? p.nativeScript : p.english,
+    // Carried for the end-of-run miss review only: hard-mode options ARE
+    // native script, and the review never shows script without its reading.
+    romanized: p.romanized ?? "",
     phraseId: p.id,
     isCorrect: p.id === correct.id,
   }));
@@ -185,7 +193,7 @@ function PlayingScreen({
   soundOn: boolean;
   onToggleSound: () => void;
   onExit: () => void;
-  onDone: (results: PhraseResult[], stats: QuestionStats) => void;
+  onDone: (results: PhraseResult[], stats: QuestionStats, misses: GameMiss[]) => void;
 }) {
   const { activeLang, activeLanguage } = useLanguage();
   const nativeText = useNativeText();
@@ -242,11 +250,16 @@ function PlayingScreen({
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [queue, setQueue] = useState<Phrase[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [options, setOptions] = useState<{ label: string; phraseId: number; isCorrect: boolean }[]>([]);
+  const [options, setOptions] = useState<{ label: string; romanized: string; phraseId: number; isCorrect: boolean }[]>([]);
   const [selected, setSelected] = useState<number | null>(null); // phraseId of selected option
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [stats, setStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  // A miss here is a phrase whose translation the learner tapped wrong: the
+  // native-script prompt they saw, the option they chose, and the right
+  // translation. Wording follows the mode — English options normally, native
+  // script in hard mode — so the review reads exactly as the round played.
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   const [started, setStarted] = useState(false);
 
   // Combo burst overlay state
@@ -319,17 +332,19 @@ function PlayingScreen({
   // When timer hits 0, finalize
   const resultsRef = useRef(results);
   const statsRef = useRef(stats);
+  const missesRef = useRef(misses);
   resultsRef.current = results;
   statsRef.current = stats;
+  missesRef.current = misses;
 
   useEffect(() => {
     if (timeLeft === 0 && started) {
-      onDone(resultsRef.current, statsRef.current);
+      onDone(resultsRef.current, statsRef.current, missesRef.current);
     }
   }, [timeLeft, started, onDone]);
 
   const handleAnswer = useCallback(
-    (opt: { phraseId: number; isCorrect: boolean }) => {
+    (opt: { label: string; romanized: string; phraseId: number; isCorrect: boolean }) => {
       if (selected !== null) return; // already answered
       setSelected(opt.phraseId);
       const correct = opt.isCorrect;
@@ -340,6 +355,26 @@ function PlayingScreen({
       // Send the tapped option's phraseId; server determines correct = (selectedPhraseId === phraseId)
       const newResult: PhraseResult = { phraseId: phrase.id, selectedPhraseId: opt.phraseId };
       setResults((prev) => [...prev, newResult]);
+
+      if (!correct) {
+        // The right answer is worded the same way the options are (English, or
+        // native script in hard mode), so the miss review matches the tiles the
+        // learner tapped rather than restating the prompt.
+        const correctLabel = hardMode ? phrase.nativeScript : phrase.english;
+        setMisses((prev) => [
+          ...prev,
+          {
+            prompt: phrase.nativeScript,
+            // The run is over, so hard mode's hidden reading comes back here:
+            // the review is a study list, not part of the challenge.
+            promptSub: phrase.romanized || null,
+            answer: opt.label,
+            answerSub: hardMode ? opt.romanized.trim() || null : null,
+            correct: correctLabel,
+            correctSub: hardMode ? phrase.romanized || null : null,
+          },
+        ]);
+      }
 
       setStats((prev) => {
         const newStreak = correct ? prev.streak + 1 : 0;
@@ -359,7 +394,7 @@ function PlayingScreen({
         setCurrentIndex((i) => i + 1);
       }, correct ? 400 : 1000);
     },
-    [selected, queue, currentIndex],
+    [selected, queue, currentIndex, hardMode],
   );
 
   if (isLoading) {
@@ -499,12 +534,14 @@ function DoneScreen({
   categoryId,
   stats,
   results,
+  misses,
   onPlayAgain,
   onChangeTopic,
 }: {
   categoryId: number;
   stats: QuestionStats;
   results: PhraseResult[];
+  misses: GameMiss[];
   onPlayAgain: () => void;
   onChangeTopic: () => void;
 }) {
@@ -514,6 +551,7 @@ function DoneScreen({
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   const [chaiEarned, setChaiEarned] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   // Chunk 6B: zone closeouts launch Speed Round with ?ctx=closeout; the
   // context rides along on the session POST so the server can grant Chai.
   // Hub launches carry no context key at all (payload unchanged).
@@ -552,6 +590,7 @@ function DoneScreen({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+  const canReview = misses.length > 0;
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 pb-8 pt-12">
@@ -565,7 +604,26 @@ function DoneScreen({
 
       {/* Stats grid */}
       <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">
-        <StatCard label="Correct" value={`${stats.correct}/${stats.total}`} color="text-emerald-600" />
+        {/* The score is the affordance learners reach for to see WHICH ones
+            they missed, so when there is something to review it opens the
+            dialog. A run with no misses stays a plain stat card. */}
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="speed-round-score-card"
+            aria-label={`${stats.correct} of ${stats.total} correct. See what you missed.`}
+            className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4 transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <p className="text-2xl font-extrabold text-emerald-600">{stats.correct}/{stats.total}</p>
+            <p className="mt-1 text-xs text-primary underline underline-offset-2">See misses</p>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4" data-testid="speed-round-score-card">
+            <p className="text-2xl font-extrabold text-emerald-600">{stats.correct}/{stats.total}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Correct</p>
+          </div>
+        )}
         <StatCard label="Accuracy" value={`${accuracy}%`} color="text-primary" />
         <StatCard label="Best Streak" value={String(stats.bestStreak)} color="text-amber-500" icon={<Flame className="h-3.5 w-3.5" />} />
         <StatCard
@@ -600,6 +658,7 @@ function DoneScreen({
           <RotateCcw className="h-4 w-4" />
           Play Again
         </button>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         <button
           onClick={onChangeTopic}
           className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3.5 font-bold text-foreground hover:bg-muted/50"
@@ -614,6 +673,8 @@ function DoneScreen({
           Back to Games
         </Link>
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -650,6 +711,7 @@ export default function SpeedRoundPage() {
   const [hardMode, setHardMode] = useState(false);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalStats, setFinalStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0); // reset key
 
   if (!isLoading && !isPlus) {
@@ -662,9 +724,10 @@ export default function SpeedRoundPage() {
     setPhase("playing");
   };
 
-  const handleDone = useCallback((results: PhraseResult[], stats: QuestionStats) => {
+  const handleDone = useCallback((results: PhraseResult[], stats: QuestionStats, misses: GameMiss[]) => {
     setFinalResults(results);
     setFinalStats(stats);
+    setFinalMisses(misses);
     setPhase("done");
   }, []);
 
@@ -704,6 +767,7 @@ export default function SpeedRoundPage() {
         categoryId={categoryId}
         stats={finalStats}
         results={finalResults}
+        misses={finalMisses}
         onPlayAgain={handlePlayAgain}
         onChangeTopic={handleChangeTopic}
       />

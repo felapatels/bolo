@@ -25,6 +25,11 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
+import {
+  MissReviewCta,
+  MissReviewModal,
+  type GameMiss,
+} from '@/components/GameMissReview';
 import { AppFonts } from '@/constants/fonts';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -1477,6 +1482,11 @@ function TraceSession({
   const [result, setResult] = useState<SessionResult>(null);
   const [passedSet, setPassedSet] = useState<Set<string>>(new Set());
   const [sessionDone, setSessionDone] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  // Best accuracy seen per character, so the end-of-chapter review can say how
+  // close a character came instead of only that it did not pass. A character
+  // the learner skipped past never lands here and reads as untraced.
+  const [bestScores, setBestScores] = useState<Record<string, number>>({});
 
   const character = chapter.characters[charIndex];
   const guidePoints = React.useMemo(
@@ -1495,6 +1505,11 @@ function TraceSession({
   const handleResult = useCallback(
     (score: number, passed: boolean) => {
       setResult({ score, passed });
+      if (character) {
+        setBestScores((prev) =>
+          score > (prev[character.id] ?? -1) ? { ...prev, [character.id]: score } : prev,
+        );
+      }
       if (passed && character) {
         setPassedSet((prev) => new Set([...prev, character.id]));
         // Persist via the generated API client — it uses customFetch which
@@ -1532,15 +1547,49 @@ function TraceSession({
   if (sessionDone) {
     const total = chapter.characters.length;
     const passed = passedSet.size;
+    // Tracing has no wrong "answer", so a miss here is a character that never
+    // reached the pass mark — worded with its own labels rather than the
+    // "You said / Answer" framing the answer games use.
+    const misses: GameMiss[] = chapter.characters
+      .filter((c) => !passedSet.has(c.id))
+      .map((c) => {
+        const best = bestScores[c.id];
+        return {
+          prompt: c.char,
+          promptSub: c.label,
+          answer: best === undefined ? 'not traced' : `${best} out of 100`,
+          answerLabel: 'Your best',
+          correct: `${PASS_THRESHOLD} out of 100`,
+          correctLabel: 'Pass mark',
+        };
+      });
+    const canReview = misses.length > 0;
     return (
       <View style={styles.doneContainer}>
         <Feather name="award" size={64} color={colors.primary} />
         <Text style={[styles.doneTitle, { color: colors.foreground }]}>
           Chapter Complete!
         </Text>
-        <Text style={[styles.doneSubtitle, { color: colors.mutedForeground }]}>
-          You passed {passed} of {total} characters in {chapter.title}.
-        </Text>
+        {/* The tally itself opens the review — it is what a learner reaches
+            for when they want to know WHICH characters did not pass. */}
+        <Pressable
+          testID="script-trace-score-card"
+          onPress={canReview ? () => setReviewOpen(true) : undefined}
+          disabled={!canReview}
+          accessibilityRole={canReview ? 'button' : undefined}
+          accessibilityLabel={
+            canReview
+              ? `You passed ${passed} of ${total} characters. See what you missed.`
+              : undefined
+          }
+        >
+          <Text style={[styles.doneSubtitle, { color: colors.mutedForeground }]}>
+            You passed {passed} of {total} characters in {chapter.title}.
+          </Text>
+          {canReview && (
+            <Text style={[styles.doneReviewHint, { color: colors.primary }]}>See misses</Text>
+          )}
+        </Pressable>
         <View style={styles.doneButtons}>
           <TouchableOpacity
             onPress={onBack}
@@ -1559,6 +1608,7 @@ function TraceSession({
               setCharIndex(0);
               setResult(null);
               setPassedSet(new Set());
+              setBestScores({});
               setSessionDone(false);
             }}
             style={[styles.btn, { backgroundColor: colors.primary }]}
@@ -1567,6 +1617,12 @@ function TraceSession({
             <Text style={[styles.btnText, { color: '#fff' }]}>Replay</Text>
           </TouchableOpacity>
         </View>
+        <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
+        <MissReviewModal
+          misses={misses}
+          visible={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+        />
       </View>
     );
   }
@@ -1831,6 +1887,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  doneReviewHint: {
+    fontFamily: AppFonts.bold,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 2,
   },
   doneButtons: { flexDirection: 'row', gap: 12, marginTop: 8 },
   stageHeader: {

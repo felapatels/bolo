@@ -56,6 +56,7 @@ import { FunFactLoader } from '@/components/FunFactLoader';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { Mascot } from '@/components/Mascot';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -151,6 +152,11 @@ export type QuickRoundResult = {
   phraseId: number;
   selectedPhraseId: number;
   correct: boolean;
+  /** What the end screen's miss review shows when this round was wrong. Each
+   *  game words its own round (the prompt it showed, the answer the learner
+   *  picked), so the shell never guesses it from the ids — a game whose right
+   *  answer is the odd one out would be described backwards. */
+  review?: GameMiss;
 };
 
 export type QuickRoundApi = {
@@ -273,6 +279,7 @@ export function QuickGameShell({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   const [chaiEarned, setChaiEarned] = useState(0);
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   /**
    * Identity of the CURRENT run, used only as a remount key for the round
    * subtree (web does the same with its `gameKey`).
@@ -435,6 +442,12 @@ export function QuickGameShell({
 
       resultsRef.current = [...resultsRef.current, result];
       if (result.correct) setCorrect((c) => c + 1);
+      // Only wrong rounds, in the order they were played, and only those the
+      // game described. A game that skips `review` simply shows no review.
+      if (!result.correct && result.review) {
+        const review = result.review;
+        setMisses((m) => [...m, review]);
+      }
 
       const nextRound = round + 1;
       if (nextRound >= resolvedRounds) {
@@ -464,6 +477,7 @@ export function QuickGameShell({
     setCorrect(0);
     setXpEarned(null);
     setChaiEarned(0);
+    setMisses([]);
     setSecondsLeft(secondsPerRound ?? null);
     setLocked(false);
     setTimedOut(false);
@@ -688,6 +702,7 @@ export function QuickGameShell({
           total={resolvedRounds}
           xpEarned={xpEarned}
           chaiEarned={chaiEarned}
+          misses={misses}
           pinned={pinned}
           fromJourney={launch.fromJourney}
           onPlayAgain={playAgain}
@@ -782,6 +797,7 @@ function EndScreen({
   total,
   xpEarned,
   chaiEarned,
+  misses,
   pinned,
   fromJourney,
   onPlayAgain,
@@ -794,6 +810,7 @@ function EndScreen({
   total: number;
   xpEarned: number | null;
   chaiEarned: number;
+  misses: GameMiss[];
   pinned: boolean;
   fromJourney: boolean;
   onPlayAgain: () => void;
@@ -802,6 +819,8 @@ function EndScreen({
   onBack: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
   const isPerfect = score === total;
   const pose = isPerfect ? 'cheer' : score >= total / 2 ? 'thumbsup' : 'tryagain';
   const headline = isPerfect
@@ -819,15 +838,32 @@ function EndScreen({
       </Text>
 
       <View style={styles.statsGrid}>
-        <View
+        {/* The score is the first thing a learner reaches for when they want
+            to know WHICH ones they missed, so it opens the review itself.
+            With nothing to review (a perfect run) it stays a plain card. */}
+        <Pressable
+          testID="quick-score-card"
+          onPress={canReview ? () => setReviewOpen(true) : undefined}
+          disabled={!canReview}
+          accessibilityRole={canReview ? 'button' : undefined}
+          accessibilityLabel={
+            canReview ? `${score} of ${total} correct. See what you missed.` : undefined
+          }
           style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Feather name="check-circle" size={20} color="#10B981" />
           <Text style={[styles.statCardValue, { color: colors.foreground }]}>
             {score}/{total}
           </Text>
-          <Text style={[styles.statCardLabel, { color: colors.mutedForeground }]}>Score</Text>
-        </View>
+          <Text
+            style={[
+              styles.statCardLabel,
+              { color: canReview ? colors.primary : colors.mutedForeground },
+            ]}
+          >
+            {canReview ? 'See misses' : 'Score'}
+          </Text>
+        </Pressable>
         <View
           style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
@@ -851,6 +887,7 @@ function EndScreen({
         onPress={onPlayAgain}
         style={{ width: '100%' }}
       />
+      <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
       {fromJourney ? (
         <ChunkyButton
           title="Back to the Journey"
@@ -875,6 +912,12 @@ function EndScreen({
           </Text>
         </Pressable>
       )}
+
+      <MissReviewModal
+        misses={misses}
+        visible={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+      />
     </View>
   );
 }

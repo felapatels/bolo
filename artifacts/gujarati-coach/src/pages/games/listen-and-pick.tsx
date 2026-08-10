@@ -24,6 +24,11 @@ import {
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -130,17 +135,21 @@ function EndScreen({
   score,
   total,
   xpEarned,
+  misses,
   onPlayAgain,
   onChooseTopic,
 }: {
   score: number;
   total: number;
   xpEarned: number | null;
+  misses: GameMiss[];
   onPlayAgain: () => void;
   onChooseTopic: () => void;
 }) {
   const isPerfect = score === total;
   const pose = isPerfect ? "cheer" : score >= total / 2 ? "thumbsup" : "tryagain";
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -155,11 +164,28 @@ function EndScreen({
       </div>
 
       <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-        <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
-          <Check className="h-5 w-5 text-emerald-500" />
-          <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
-          <span className="text-xs text-muted-foreground">Score</span>
-        </div>
+        {/* The score is the first thing a learner reaches for to see WHICH
+            ones they missed, so it opens the review itself. A perfect run has
+            nothing to review, so it stays a plain, untappable card. */}
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="listen-and-pick-score-card"
+            aria-label={`${score} of ${total} correct. See what you missed.`}
+            className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <Check className="h-5 w-5 text-emerald-500" />
+            <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
+            <span className="text-xs text-primary underline underline-offset-2">See misses</span>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4" data-testid="listen-and-pick-score-card">
+            <Check className="h-5 w-5 text-emerald-500" />
+            <span className="text-xl font-extrabold text-foreground">{score}/{total}</span>
+            <span className="text-xs text-muted-foreground">Score</span>
+          </div>
+        )}
         <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
           <Zap className="h-5 w-5 text-amber-500" />
           <span className="text-xl font-extrabold text-foreground">{xpEarned !== null ? `+${xpEarned}` : "…"}</span>
@@ -175,6 +201,7 @@ function EndScreen({
           <RefreshCw className="h-4 w-4" />
           Play Again
         </button>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         <button
           onClick={onChooseTopic}
           className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-3.5 font-bold text-foreground transition-all hover:bg-muted active:scale-[0.98]"
@@ -190,6 +217,8 @@ function EndScreen({
           Back to Games
         </Link>
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -209,7 +238,7 @@ function GameRound({
   activeLang: string;
   activeLanguageName: string | undefined;
   soundOn: boolean;
-  onEnd: (score: number, results: PhraseResult[]) => void;
+  onEnd: (score: number, results: PhraseResult[], misses: GameMiss[]) => void;
 }) {
   const native = useNativeText();
   const synthesize = useSynthesizeSpeech();
@@ -228,6 +257,11 @@ function GameRound({
   const [isPlaying, setIsPlaying] = useState(false);
   // Track per-question answer selections so the server can verify correctness.
   const phraseResultsRef = useRef<PhraseResult[]>([]);
+  // Wrong picks, described the way the round was played: the phrase that was
+  // spoken (its meaning + reading), the choice the learner tapped, and the
+  // choice they should have tapped. The clip itself has no on-screen prompt,
+  // so the review names the target by its English meaning.
+  const missesRef = useRef<GameMiss[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Cache synthesized audio per phrase id so replaying costs nothing extra
@@ -289,7 +323,7 @@ function GameRound({
       setAnswerState("idle");
       setPickedIdx(null);
       if (qIdx + 1 >= total) {
-        onEnd(finalScore, phraseResultsRef.current);
+        onEnd(finalScore, phraseResultsRef.current, missesRef.current);
       } else {
         setQIdx(i => i + 1);
       }
@@ -311,6 +345,22 @@ function GameRound({
       phraseId: q.phrase.id,
       selectedPhraseId: q.choices[choiceIdx].id,
     });
+
+    if (!isCorrect) {
+      // The clip is the prompt, so we name what was played by its meaning and
+      // reading; the choices are shown by their native script so the miss
+      // matches what the learner tapped.
+      const picked = q.choices[choiceIdx];
+      missesRef.current.push({
+        prompt: `You heard “${q.phrase.english}”`,
+        // The script + reading sit on the answer lines below, where each one
+        // belongs to the phrase it names, so the prompt keeps the meaning only.
+        answer: picked.nativeScript,
+        answerSub: picked.romanized.trim() || null,
+        correct: q.phrase.nativeScript,
+        correctSub: q.phrase.romanized.trim() || null,
+      });
+    }
 
     if (isCorrect) {
       // Correct answers keep the brisk auto-advance.
@@ -438,6 +488,7 @@ export default function ListenAndPickPage() {
   const [finalScore, setFinalScore] = useState(0);
   const [finalXp, setFinalXp] = useState<number | null>(null);
   const [finalPhraseResults, setFinalPhraseResults] = useState<PhraseResult[]>([]);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -454,13 +505,16 @@ export default function ListenAndPickPage() {
 
   const handleTopicSelect = (id: number, title: string) => {
     setSelectedCategory({ id, title });
+    // A fresh topic must not carry the previous run's misses.
+    setFinalMisses([]);
     setGameKey(k => k + 1);
     setPhase("game");
   };
 
-  const handleEnd = (score: number, results: PhraseResult[]) => {
+  const handleEnd = (score: number, results: PhraseResult[], misses: GameMiss[]) => {
     setFinalScore(score);
     setFinalPhraseResults(results);
+    setFinalMisses(misses);
     setPhase("end");
     // Post session to server for XP + badge evaluation; use server-returned XP.
     if (selectedCategory && results.length > 0) {
@@ -484,6 +538,8 @@ export default function ListenAndPickPage() {
   };
 
   const handlePlayAgain = () => {
+    // Clear last run's misses so the next end screen only shows this run's.
+    setFinalMisses([]);
     setGameKey(k => k + 1);
     setPhase("game");
   };
@@ -550,6 +606,7 @@ export default function ListenAndPickPage() {
           score={finalScore}
           total={GAME_CONFIG.listenAndPick.roundSize}
           xpEarned={finalXp}
+          misses={finalMisses}
           onPlayAgain={handlePlayAgain}
           onChooseTopic={handleChooseTopic}
         />

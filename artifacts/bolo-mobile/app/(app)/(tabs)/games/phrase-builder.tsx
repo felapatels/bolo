@@ -29,6 +29,7 @@ import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import * as Haptics from 'expo-haptics';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 
 const PHRASES_PER_ROUND = 6;
 
@@ -188,7 +189,7 @@ function PlayingScreen({
   soundOn: boolean;
   onToggleSound: () => void;
   onExit: () => void;
-  onDone: (results: PhraseResult[], correctCount: number) => void;
+  onDone: (results: PhraseResult[], correctCount: number, misses: GameMiss[]) => void;
 }) {
   const colors = useColors();
   const { activeLang, activeLanguage } = useLanguage();
@@ -200,6 +201,10 @@ function PlayingScreen({
   const [pState, setPState] = useState<PhraseBuilderState>({ placed: [], tiles: [], status: 'idle', wrongMask: [] });
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [correctCount, setCorrectCount] = useState(0);
+  // A miss here is a phrase the learner assembled in the wrong order: the
+  // English they were translating, the romanization as a hint, the order they
+  // submitted, and the right native-script sentence.
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   // Reorder support: tap a placed tile to select it, tap another placed tile
   // to swap positions, tap the selected tile again to return it to the tray.
   const [selectedPlacedIdx, setSelectedPlacedIdx] = useState<number | null>(null);
@@ -307,6 +312,17 @@ function PlayingScreen({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setMisses((prev) => [
+        ...prev,
+        {
+          prompt: phrase.english,
+          answer: submittedText,
+          // Per-word romanization exists nowhere, so what the learner built
+          // has no reading; the target's reading rides under the target.
+          correct: phrase.nativeScript,
+          correctSub: phrase.romanized || null,
+        },
+      ]);
     }
     // Send assembled text; server determines correctness server-side
     setResults((prev) => [...prev, { phraseId: phrase.id, submittedText }]);
@@ -316,7 +332,7 @@ function PlayingScreen({
     const next = phraseIdx + 1;
     if (next >= round.length) {
       // correctCount was already incremented in handleCheck for this phrase.
-      onDone(results, correctCount);
+      onDone(results, correctCount, misses);
       return;
     }
     setPhraseIdx(next);
@@ -530,12 +546,14 @@ function PlayingScreen({
 function DoneScreen({
   results,
   correctCount,
+  misses,
   categoryId,
   onPlayAgain,
   onChangeTopic,
 }: {
   results: PhraseResult[];
   correctCount: number;
+  misses: GameMiss[];
   categoryId: number;
   onPlayAgain: () => void;
   onChangeTopic: () => void;
@@ -546,6 +564,10 @@ function DoneScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  // The score card opens the same sheet as the CTA — tapping the 6/8 is the
+  // affordance most learners reach for first. A perfect run has nothing to
+  // review, so neither the card nor the CTA becomes interactive.
+  const [reviewOpen, setReviewOpen] = useState(false);
   const submitted = useRef(false);
 
   useEffect(() => {
@@ -565,6 +587,7 @@ function DoneScreen({
   const total = results.length;
   const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
   const pose = correctCount === total ? 'cheer' : correctCount >= total / 2 ? 'thumbsup' : 'tryagain';
+  const canReview = misses.length > 0;
 
   return (
     <Screen>
@@ -575,10 +598,28 @@ function DoneScreen({
         </Text>
 
         <View style={styles.resultGrid}>
-          <View style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Pressable
+            onPress={canReview ? () => setReviewOpen(true) : undefined}
+            disabled={!canReview}
+            accessibilityRole={canReview ? 'button' : undefined}
+            accessibilityLabel={
+              canReview
+                ? `${correctCount} of ${total} correct. See what you missed.`
+                : undefined
+            }
+            testID="phrase-builder-score-card"
+            style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
             <Text style={[styles.resultValue, { color: '#10B981' }]}>{correctCount}/{total}</Text>
-            <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>Correct</Text>
-          </View>
+            <Text
+              style={[
+                styles.resultLabel,
+                { color: canReview ? colors.primary : colors.mutedForeground },
+              ]}
+            >
+              {canReview ? 'See misses' : 'Correct'}
+            </Text>
+          </Pressable>
           <View style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.resultValue, { color: colors.primary }]}>{accuracy}%</Text>
             <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>Accuracy</Text>
@@ -593,12 +634,15 @@ function DoneScreen({
 
         <View style={styles.doneActions}>
           <ChunkyButton title="Play Again" onPress={onPlayAgain} icon="rotate-cw" />
+          <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
           <ChunkyButton title="Change Topic" onPress={onChangeTopic} variant="secondary" icon="home" />
           <Pressable onPress={() => router.back()}>
             <Text style={[styles.backLink, { color: colors.mutedForeground }]}>Back to Games</Text>
           </Pressable>
         </View>
       </View>
+
+      <MissReviewModal misses={misses} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </Screen>
   );
 }
@@ -620,11 +664,13 @@ export default function PhraseBuilderScreen() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalCorrect, setFinalCorrect] = useState(0);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
-  const handleDone = (results: PhraseResult[], correctCount: number) => {
+  const handleDone = (results: PhraseResult[], correctCount: number, misses: GameMiss[]) => {
     setFinalResults(results);
     setFinalCorrect(correctCount);
+    setFinalMisses(misses);
     setPhase('done');
   };
 
@@ -646,6 +692,7 @@ export default function PhraseBuilderScreen() {
       <DoneScreen
         results={finalResults}
         correctCount={finalCorrect}
+        misses={finalMisses}
         categoryId={categoryId}
         onPlayAgain={() => { setGameKey((k) => k + 1); setPhase('playing'); }}
         onChangeTopic={() => { setPhase('setup'); setCategoryId(null); }}

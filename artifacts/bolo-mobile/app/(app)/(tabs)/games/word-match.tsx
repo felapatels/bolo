@@ -41,6 +41,7 @@ import { GAME_CONFIG } from '@/lib/game-config';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,17 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
+}
+
+// One card in the learner's own words for the miss review: the native card by
+// its script (plus reading when the phrase has one), the english card by its
+// meaning. Quoted so a pair reads as "નમસ્તે" / "Hello", never a bare id.
+function cardText(card: GameCard): string {
+  if (card.type === 'native') {
+    const reading = (card.romanized ?? '').trim();
+    return reading !== '' ? `"${card.label}" (${reading})` : `"${card.label}"`;
+  }
+  return `"${card.label}"`;
 }
 
 // ─── Flip Card ────────────────────────────────────────────────────────────────
@@ -328,11 +340,18 @@ function GameBoard({
   difficulty: Difficulty;
   activeLanguage: ReturnType<typeof useLanguage>['activeLanguage'];
   soundOn: boolean;
-  onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
+  onEnd: (elapsed: number, usedPhraseIds: number[], misses: GameMiss[]) => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const nativeProps = nativeTextStyle(activeLanguage);
   const pairCount = difficulty === 'easy' ? 6 : 8;
+
+  // Wrong flip attempts, described in the learner's own terms: the card they
+  // turned over first and the card they wrongly paired it with, against the
+  // partner it actually belonged to. There is no numeric score in a memory
+  // game — every pair is eventually found — so a "miss" here is a mismatched
+  // guess, the only thing the learner got wrong on the way there.
+  const missesRef = useRef<GameMiss[]>([]);
 
   const synthesize = useSynthesizeSpeech();
   // ttsVoice keys the audio cache so a mid-session voice change fetches fresh
@@ -400,7 +419,7 @@ function GameBoard({
       if (timerRef.current) clearInterval(timerRef.current);
       const total = Math.floor((Date.now() - startRef.current) / 1000);
       const usedPhraseIds = [...new Set(cards.map(c => c.pairId))];
-      setTimeout(() => onEnd(total, usedPhraseIds), 600);
+      setTimeout(() => onEnd(total, usedPhraseIds, missesRef.current), 600);
     }
   }, [allMatched, onEnd]);
 
@@ -431,6 +450,19 @@ function GameBoard({
           setLocked(false);
           return updated;
         } else {
+          // A mismatch: record it framed from the first card the learner
+          // turned over. Each card is named the way it appears — the native
+          // card by its reading, the english card by its meaning — and the
+          // true partner of the first card is shown as the answer.
+          const partner = current.find(
+            c => c.pairId === a.pairId && c.id !== a.id,
+          );
+          missesRef.current.push({
+            prompt: `You paired ${cardText(a)}`,
+            promptSub: `with ${cardText(b)}`,
+            answer: cardText(b),
+            correct: partner ? cardText(partner) : cardText(a),
+          });
           const updated = current.map(c =>
             c.id === aId || c.id === bId ? { ...c, state: 'error' as const } : c
           );
@@ -520,6 +552,7 @@ function EndScreen({
   difficulty,
   categoryId,
   usedPhraseIds,
+  misses,
   activeLang,
   onPlayAgain,
   onChooseTopic,
@@ -529,6 +562,7 @@ function EndScreen({
   difficulty: Difficulty;
   categoryId: number;
   usedPhraseIds: number[];
+  misses: GameMiss[];
   activeLang: string;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
@@ -538,6 +572,8 @@ function EndScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const canReview = misses.length > 0;
   const submitted = useRef(false);
 
   useEffect(() => {
@@ -570,11 +606,34 @@ function EndScreen({
       </Text>
 
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* The result card is the first thing a learner reaches for to see the
+            pairs they slipped on, so it opens the review itself. A clean run
+            (no mismatches) has nothing to review, so it stays a plain,
+            untappable Time card. Word Match has no numeric score — the "miss"
+            is a mismatched flip — so the label counts those instead. */}
+        <Pressable
+          testID="word-match-score-card"
+          onPress={canReview ? () => setReviewOpen(true) : undefined}
+          disabled={!canReview}
+          accessibilityRole={canReview ? 'button' : undefined}
+          accessibilityLabel={
+            canReview
+              ? `${misses.length} ${misses.length === 1 ? 'mismatch' : 'mismatches'}. See what you missed.`
+              : undefined
+          }
+          style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <Feather name="clock" size={20} color={colors.mutedForeground} />
           <Text style={[styles.statCardValue, { color: colors.foreground }]}>{formatTime(elapsed)}</Text>
-          <Text style={[styles.statCardLabel, { color: colors.mutedForeground }]}>Time</Text>
-        </View>
+          <Text
+            style={[
+              styles.statCardLabel,
+              { color: canReview ? colors.primary : colors.mutedForeground },
+            ]}
+          >
+            {canReview ? 'See misses' : 'Time'}
+          </Text>
+        </Pressable>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="zap" size={20} color="#F59E0B" />
           <Text style={[styles.statCardValue, { color: colors.foreground }]}>{xpEarned !== null ? `+${xpEarned}` : '…'}</Text>
@@ -588,6 +647,7 @@ function EndScreen({
         onPress={onPlayAgain}
         style={{ width: '100%' }}
       />
+      <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
       <ChunkyButton
         title="Choose Topic"
         icon="list"
@@ -598,6 +658,8 @@ function EndScreen({
       <Pressable onPress={() => router.back()} style={styles.textBtn}>
         <Text style={[styles.textBtnLabel, { color: colors.mutedForeground }]}>← Back to Games</Text>
       </Pressable>
+
+      <MissReviewModal misses={misses} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </View>
   );
 }
@@ -615,6 +677,7 @@ export default function WordMatchScreen() {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [elapsed, setElapsed] = useState(0);
   const [usedPhraseIds, setUsedPhraseIds] = useState<number[]>([]);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   const phraseQuery = useListCategoryPhrases(
@@ -636,13 +699,16 @@ export default function WordMatchScreen() {
 
   const handleDifficultySelect = (d: Difficulty) => {
     setDifficulty(d);
+    // A fresh board must not carry the previous run's misses.
+    setFinalMisses([]);
     setGameKey(k => k + 1);
     setPhase('game');
   };
 
-  const handleEnd = (t: number, ids: number[]) => {
+  const handleEnd = (t: number, ids: number[], misses: GameMiss[]) => {
     setElapsed(t);
     setUsedPhraseIds(ids);
+    setFinalMisses(misses);
     setPhase('end');
   };
 
@@ -718,8 +784,10 @@ export default function WordMatchScreen() {
           difficulty={difficulty}
           categoryId={selectedCategory.id}
           usedPhraseIds={usedPhraseIds}
+          misses={finalMisses}
           activeLang={activeLang}
-          onPlayAgain={() => { setGameKey(k => k + 1); setPhase('game'); }}
+          // Clear last run's misses so the next end screen only shows this run's.
+          onPlayAgain={() => { setFinalMisses([]); setGameKey(k => k + 1); setPhase('game'); }}
           onChooseTopic={() => { setSelectedCategory(null); setPhase('picker'); }}
           colors={colors}
         />

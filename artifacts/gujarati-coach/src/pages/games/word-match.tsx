@@ -13,6 +13,11 @@ import {
   type Phrase,
 } from "@workspace/api-client-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -61,6 +66,17 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
+}
+
+// One card in the learner's own words for the miss review: the native card by
+// its script (plus reading when the phrase has one), the english card by its
+// meaning. Quoted so a pair reads as “નમસ્તે” / “Hello”, never a bare id.
+function cardText(card: GameCard): string {
+  if (card.type === "native") {
+    const reading = (card.romanized ?? "").trim();
+    return reading !== "" ? `“${card.label}” (${reading})` : `“${card.label}”`;
+  }
+  return `“${card.label}”`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -280,6 +296,7 @@ function EndScreen({
   difficulty,
   categoryId,
   usedPhraseIds,
+  misses,
   activeLang,
   onPlayAgain,
   onChooseTopic,
@@ -288,6 +305,7 @@ function EndScreen({
   difficulty: Difficulty;
   categoryId: number;
   usedPhraseIds: number[];
+  misses: GameMiss[];
   activeLang: string;
   onPlayAgain: () => void;
   onChooseTopic: () => void;
@@ -295,7 +313,9 @@ function EndScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const submitted = useRef(false);
+  const canReview = misses.length > 0;
 
   useEffect(() => {
     if (submitted.current || usedPhraseIds.length === 0) return;
@@ -329,11 +349,30 @@ function EndScreen({
       </div>
 
       <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-        <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <span className="text-xl font-extrabold text-foreground">{formatTime(elapsed)}</span>
-          <span className="text-xs text-muted-foreground">Time</span>
-        </div>
+        {/* A memory game has no correct/total score — every pair is found —
+            so the "misses" are the mismatched guesses made along the way.
+            The Time card is the headline stat a learner reaches for, so when
+            there were mismatches it doubles as the affordance that opens the
+            review; a clean run (no mismatches) leaves it a plain card. */}
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="word-match-score-card"
+            aria-label={`${misses.length} ${misses.length === 1 ? "mismatch" : "mismatches"} on the way to all ${usedPhraseIds.length} pairs. See what you missed.`}
+            className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xl font-extrabold text-foreground">{formatTime(elapsed)}</span>
+            <span className="text-xs text-primary underline underline-offset-2">See misses</span>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4" data-testid="word-match-score-card">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xl font-extrabold text-foreground">{formatTime(elapsed)}</span>
+            <span className="text-xs text-muted-foreground">Time</span>
+          </div>
+        )}
         <div className="flex flex-col items-center gap-1 rounded-2xl border border-border bg-card p-4">
           <Zap className="h-5 w-5 text-amber-500" />
           <span className="text-xl font-extrabold text-foreground">{xpEarned !== null ? `+${xpEarned}` : "…"}</span>
@@ -349,6 +388,7 @@ function EndScreen({
           <RefreshCw className="h-4 w-4" />
           Play Again
         </button>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         <button
           onClick={onChooseTopic}
           className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-3.5 font-bold text-foreground transition-all hover:bg-muted active:scale-[0.98]"
@@ -364,6 +404,8 @@ function EndScreen({
           Back to Games
         </Link>
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -383,12 +425,19 @@ function GameBoard({
   activeLang: string;
   activeLanguageName: string | undefined;
   soundOn: boolean;
-  onEnd: (elapsed: number, usedPhraseIds: number[]) => void;
+  onEnd: (elapsed: number, usedPhraseIds: number[], misses: GameMiss[]) => void;
 }) {
   const native = useNativeText();
   const synthesize = useSynthesizeSpeech();
   const pairCount = difficulty === "easy" ? 6 : 8;
   const cols = difficulty === "easy" ? 4 : 4; // always 4 cols; rows differ
+
+  // Wrong flip attempts, described in the learner's own terms: the card they
+  // turned over first and the card they wrongly paired it with, against the
+  // partner it actually belonged to. There is no numeric score in a memory
+  // game — every pair is eventually found — so a "miss" here is a mismatched
+  // guess, the only thing the learner got wrong on the way there.
+  const missesRef = useRef<GameMiss[]>([]);
 
   const [cards, setCards] = useState<GameCard[]>(() => buildCards(phrases, pairCount));
   const [flipped, setFlipped] = useState<string[]>([]);
@@ -464,7 +513,7 @@ function GameBoard({
       // matching is the only way to complete a pair.
       const usedPhraseIds = [...new Set(cards.map(c => c.pairId))];
       // Short delay so the final matched animation is visible
-      setTimeout(() => onEnd(total, usedPhraseIds), 600);
+      setTimeout(() => onEnd(total, usedPhraseIds, missesRef.current), 600);
     }
   }, [allMatched, onEnd]);
 
@@ -499,6 +548,18 @@ function GameBoard({
           setLocked(false);
           return updated;
         } else {
+          // A mismatch: record it framed from the first card the learner
+          // turned over. We name each card the way it appears — the native
+          // card by its reading, the english card by its meaning — and show
+          // the true partner of the first card as the answer.
+          const partner = current.find(
+            c => c.pairId === a.pairId && c.id !== a.id,
+          );
+          missesRef.current.push({
+            prompt: `Matching ${cardText(a)}`,
+            answer: cardText(b),
+            correct: partner ? cardText(partner) : cardText(a),
+          });
           const updated = current.map(c =>
             c.id === aId || c.id === bId ? { ...c, state: "error" as const } : c
           );
@@ -554,6 +615,7 @@ export default function WordMatchPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [elapsed, setElapsed] = useState(0);
   const [usedPhraseIds, setUsedPhraseIds] = useState<number[]>([]);
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0); // remount game board for play-again
 
   const phraseQuery = useListCategoryPhrases(
@@ -575,17 +637,22 @@ export default function WordMatchPage() {
 
   const handleDifficultySelect = (d: Difficulty) => {
     setDifficulty(d);
+    // A fresh board must not carry a previous run's mismatches.
+    setMisses([]);
     setGameKey(k => k + 1);
     setPhase("game");
   };
 
-  const handleEnd = (t: number, ids: number[]) => {
+  const handleEnd = (t: number, ids: number[], runMisses: GameMiss[]) => {
     setElapsed(t);
     setUsedPhraseIds(ids);
+    setMisses(runMisses);
     setPhase("end");
   };
 
   const handlePlayAgain = () => {
+    // Clear last run's mismatches so the next end screen only shows this run's.
+    setMisses([]);
     setGameKey(k => k + 1);
     setPhase("game");
   };
@@ -691,6 +758,7 @@ export default function WordMatchPage() {
           difficulty={difficulty}
           categoryId={selectedCategory.id}
           usedPhraseIds={usedPhraseIds}
+          misses={misses}
           activeLang={activeLang}
           onPlayAgain={handlePlayAgain}
           onChooseTopic={handleChooseTopic}

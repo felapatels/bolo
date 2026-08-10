@@ -32,6 +32,7 @@ import { hapticMedium, hapticNotify } from '@/lib/haptics';
 import * as Haptics from 'expo-haptics';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
+import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 import { confirmDiscardRun } from '@/lib/gameExit';
 
 const GAME_DURATION = 60;
@@ -74,11 +75,14 @@ function buildOptions(
   correct: Phrase,
   pool: Phrase[],
   hardMode: boolean,
-): { label: string; phraseId: number; isCorrect: boolean }[] {
+): { label: string; romanized: string; phraseId: number; isCorrect: boolean }[] {
   const distractors = shuffle(pool.filter((p) => p.id !== correct.id)).slice(0, 3);
   const all = shuffle([correct, ...distractors]);
   return all.map((p) => ({
     label: hardMode ? p.nativeScript : p.english,
+    // Carried for the end-of-run miss review only: hard-mode options ARE
+    // native script, and the review never shows script without its reading.
+    romanized: p.romanized ?? '',
     phraseId: p.id,
     isCorrect: p.id === correct.id,
   }));
@@ -214,7 +218,7 @@ function PlayingScreen({
   soundOn: boolean;
   onToggleSound: () => void;
   onExit: () => void;
-  onDone: (results: PhraseResult[], stats: GameStats) => void;
+  onDone: (results: PhraseResult[], stats: GameStats, misses: GameMiss[]) => void;
 }) {
   const colors = useColors();
   const { activeLang, activeLanguage } = useLanguage();
@@ -261,11 +265,16 @@ function PlayingScreen({
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [queue, setQueue] = useState<Phrase[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [options, setOptions] = useState<{ label: string; phraseId: number; isCorrect: boolean }[]>([]);
+  const [options, setOptions] = useState<{ label: string; romanized: string; phraseId: number; isCorrect: boolean }[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [stats, setStats] = useState<GameStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  // A miss is a phrase where the learner tapped the wrong option. The prompt
+  // is the native-script phrase they saw; the answer/correct are the OPTION
+  // labels (English by default, native script in hard mode) so the review
+  // reads in the same terms as the choices they tapped.
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   const [started, setStarted] = useState(false);
   // Combo burst overlay — message shown when streak crosses 3 / 5 / 10.
   const [comboBurst, setComboBurst] = useState<string | null>(null);
@@ -308,8 +317,10 @@ function PlayingScreen({
 
   const resultsRef = useRef(results);
   const statsRef = useRef(stats);
+  const missesRef = useRef(misses);
   resultsRef.current = results;
   statsRef.current = stats;
+  missesRef.current = misses;
 
   // Watch streak for milestone crossings and fire combo burst overlay.
   // The auto-clear timer lives in a ref (not returned as effect cleanup) so that
@@ -334,12 +345,12 @@ function PlayingScreen({
 
   useEffect(() => {
     if (timeLeft === 0 && started) {
-      onDone(resultsRef.current, statsRef.current);
+      onDone(resultsRef.current, statsRef.current, missesRef.current);
     }
   }, [timeLeft, started, onDone]);
 
   const handleAnswer = useCallback(
-    (opt: { phraseId: number; isCorrect: boolean }) => {
+    (opt: { label: string; romanized: string; phraseId: number; isCorrect: boolean }) => {
       if (selected !== null) return;
       setSelected(opt.phraseId);
       const correct = opt.isCorrect;
@@ -347,6 +358,24 @@ function PlayingScreen({
       const phrase = queue[currentIndex % queue.length];
       // Send the tapped option's phraseId; server determines correct = (selectedPhraseId === phraseId)
       setResults((prev) => [...prev, { phraseId: phrase.id, selectedPhraseId: opt.phraseId }]);
+      if (!correct) {
+        // The right label is the correct option's text: English by default,
+        // native script in hard mode — mirroring what the buttons showed.
+        const correctLabel = options.find((o) => o.isCorrect)?.label ?? '';
+        setMisses((prev) => [
+          ...prev,
+          {
+            prompt: phrase.nativeScript,
+            // The run is over, so hard mode's hidden reading comes back here:
+            // the review is a study list, not part of the challenge.
+            promptSub: phrase.romanized || null,
+            answer: opt.label,
+            answerSub: hardMode ? opt.romanized.trim() || null : null,
+            correct: correctLabel,
+            correctSub: hardMode ? phrase.romanized || null : null,
+          },
+        ]);
+      }
       setStats((prev) => {
         const newStreak = correct ? prev.streak + 1 : 0;
         const multiplier = newStreak >= STREAK_BONUS_THRESHOLD ? STREAK_MULTIPLIER : 1;
@@ -362,7 +391,7 @@ function PlayingScreen({
       hapticNotify(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning);
       setTimeout(() => setCurrentIndex((i) => i + 1), correct ? 400 : 1000);
     },
-    [selected, queue, currentIndex],
+    [selected, queue, currentIndex, options, hardMode],
   );
 
   if (isLoading || queue.length === 0) {
@@ -509,12 +538,14 @@ function PlayingScreen({
 function DoneScreen({
   stats,
   results,
+  misses,
   categoryId,
   onPlayAgain,
   onChangeTopic,
 }: {
   stats: GameStats;
   results: PhraseResult[];
+  misses: GameMiss[];
   categoryId: number;
   onPlayAgain: () => void;
   onChangeTopic: () => void;
@@ -525,6 +556,9 @@ function DoneScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  // Tapping the Correct card opens the same review the CTA does. A run with
+  // no misses (or an empty run) keeps the card inert — nothing to show.
+  const [reviewOpen, setReviewOpen] = useState(false);
   const submitted = useRef(false);
 
   useEffect(() => {
@@ -550,6 +584,7 @@ function DoneScreen({
 
   const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
   const pose = stats.correct >= 10 ? 'cheer' : stats.correct >= 3 ? 'thumbsup' : 'tryagain';
+  const canReview = misses.length > 0;
 
   return (
     <Screen>
@@ -560,7 +595,30 @@ function DoneScreen({
         </Text>
 
         <View style={styles.resultGrid}>
-          <ResultCard label="Correct" value={`${stats.correct}/${stats.total}`} valueColor="#10B981" colors={colors} />
+          <Pressable
+            onPress={canReview ? () => setReviewOpen(true) : undefined}
+            disabled={!canReview}
+            accessibilityRole={canReview ? 'button' : undefined}
+            accessibilityLabel={
+              canReview
+                ? `${stats.correct} of ${stats.total} correct. See what you missed.`
+                : undefined
+            }
+            testID="speed-round-score-card"
+            style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <Text style={[styles.resultValue, { color: '#10B981' }]}>
+              {stats.correct}/{stats.total}
+            </Text>
+            <Text
+              style={[
+                styles.resultLabel,
+                { color: canReview ? colors.primary : colors.mutedForeground },
+              ]}
+            >
+              {canReview ? 'See misses' : 'Correct'}
+            </Text>
+          </Pressable>
           <ResultCard label="Accuracy" value={`${accuracy}%`} valueColor={colors.primary} colors={colors} />
           <ResultCard
             label="Best Streak"
@@ -585,12 +643,15 @@ function DoneScreen({
 
         <View style={styles.doneActions}>
           <ChunkyButton title="Play Again" onPress={onPlayAgain} icon="rotate-cw" />
+          <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
           <ChunkyButton title="Change Topic" onPress={onChangeTopic} variant="secondary" icon="home" />
           <Pressable onPress={() => router.back()}>
             <Text style={[styles.backLink, { color: colors.mutedForeground }]}>Back to Games</Text>
           </Pressable>
         </View>
       </View>
+
+      <MissReviewModal misses={misses} visible={reviewOpen} onClose={() => setReviewOpen(false)} />
     </Screen>
   );
 }
@@ -637,11 +698,13 @@ export default function SpeedRoundScreen() {
   const [hardMode, setHardMode] = useState(false);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalStats, setFinalStats] = useState<GameStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
-  const handleDone = useCallback((results: PhraseResult[], stats: GameStats) => {
+  const handleDone = useCallback((results: PhraseResult[], stats: GameStats, misses: GameMiss[]) => {
     setFinalResults(results);
     setFinalStats(stats);
+    setFinalMisses(misses);
     setPhase('done');
   }, []);
 
@@ -669,6 +732,7 @@ export default function SpeedRoundScreen() {
       <DoneScreen
         stats={finalStats}
         results={finalResults}
+        misses={finalMisses}
         categoryId={categoryId}
         onPlayAgain={() => { setGameKey((k) => k + 1); setPhase('playing'); }}
         onChangeTopic={() => { setPhase('setup'); setCategoryId(null); }}

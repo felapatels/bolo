@@ -207,6 +207,15 @@ function WrongPlatformRound({ phrases, api, activeLang, activeLanguage }: QuickR
       phraseId: q.anchor.id,
       selectedPhraseId: wrongId,
       correct: false,
+      // The round asks which card came from another topic, so the review has
+      // to name the stray — the anchor the round is SCORED through would read
+      // as the wrong answer entirely.
+      review: {
+        prompt: 'Which one boarded at the wrong platform?',
+        promptSub: q.options.map((p) => p.english).join(' · '),
+        answer: pickedPhrase.english,
+        correct: q.stray.english,
+      },
     });
   };
 

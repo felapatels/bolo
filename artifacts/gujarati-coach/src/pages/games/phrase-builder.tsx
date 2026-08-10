@@ -14,6 +14,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
+import {
+  MissReviewCta,
+  MissReviewDialog,
+  type GameMiss,
+} from "@/components/game-miss-review";
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
@@ -178,7 +183,7 @@ function PlayingScreen({
   soundOn: boolean;
   onToggleSound: () => void;
   onExit: () => void;
-  onDone: (results: PhraseResult[], correctCount: number) => void;
+  onDone: (results: PhraseResult[], correctCount: number, misses: GameMiss[]) => void;
 }) {
   const { activeLang, activeLanguage } = useLanguage();
   const nativeText = useNativeText();
@@ -190,6 +195,10 @@ function PlayingScreen({
   const [pState, setPState] = useState<PhraseBuilderState>({ placed: [], tiles: [], status: "idle", wrongMask: [] });
   const [results, setResults] = useState<PhraseResult[]>([]);
   const [correctCount, setCorrectCount] = useState(0);
+  // A miss here is a phrase the learner assembled wrongly: the English they
+  // were translating, what they submitted (their word order), and the target
+  // native script. Kept alongside results so the done screen can review them.
+  const [misses, setMisses] = useState<GameMiss[]>([]);
   // Index into pState.placed of the tile selected for reordering, if any.
   const [selectedPlacedIdx, setSelectedPlacedIdx] = useState<number | null>(null);
 
@@ -307,6 +316,17 @@ function PlayingScreen({
     } else {
       const mask = pState.placed.map((t, i) => t.word !== targetWords[i]);
       setPState((prev) => ({ ...prev, status: "wrong", wrongMask: mask }));
+      setMisses((prev) => [
+        ...prev,
+        {
+          prompt: phrase.english,
+          answer: submittedText,
+          // Per-word romanization exists nowhere, so what the learner built
+          // has no reading; the target's reading rides under the target.
+          correct: phrase.nativeScript,
+          correctSub: phrase.romanized || null,
+        },
+      ]);
     }
     // Send the assembled text; server determines correctness server-side
     setResults((prev) => [...prev, { phraseId: phrase.id, submittedText }]);
@@ -317,7 +337,7 @@ function PlayingScreen({
     const next = phraseIdx + 1;
     if (next >= round.length) {
       // correctCount was already incremented in handleCheck for this phrase.
-      onDone(results, correctCount);
+      onDone(results, correctCount, misses);
       return;
     }
     setPhraseIdx(next);
@@ -496,12 +516,14 @@ function PlayingScreen({
 function DoneScreen({
   results,
   correctCount,
+  misses,
   categoryId,
   onPlayAgain,
   onChangeTopic,
 }: {
   results: PhraseResult[];
   correctCount: number;
+  misses: GameMiss[];
   categoryId: number;
   onPlayAgain: () => void;
   onChangeTopic: () => void;
@@ -511,6 +533,7 @@ function DoneScreen({
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     if (submitted || results.length === 0) return;
@@ -535,6 +558,7 @@ function DoneScreen({
 
   const total = results.length;
   const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+  const canReview = misses.length > 0;
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 pb-8 pt-12">
@@ -549,10 +573,26 @@ function DoneScreen({
       </h2>
 
       <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">
-        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4">
-          <p className="text-2xl font-extrabold text-emerald-600">{correctCount}/{total}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Correct</p>
-        </div>
+        {/* The score is the first thing a learner reaches for when they want
+            to know WHICH phrases they missed, so it opens the review itself.
+            A perfect run has nothing to review, so it stays a plain card. */}
+        {canReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewOpen(true)}
+            data-testid="phrase-builder-score-card"
+            aria-label={`${correctCount} of ${total} correct. See what you missed.`}
+            className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4 transition-all hover:border-primary/40 hover:bg-primary/5 active:scale-[0.98]"
+          >
+            <p className="text-2xl font-extrabold text-emerald-600">{correctCount}/{total}</p>
+            <p className="mt-1 text-xs text-primary underline underline-offset-2">See misses</p>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4" data-testid="phrase-builder-score-card">
+            <p className="text-2xl font-extrabold text-emerald-600">{correctCount}/{total}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Correct</p>
+          </div>
+        )}
         <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-4">
           <p className="text-2xl font-extrabold text-primary">{accuracy}%</p>
           <p className="mt-1 text-xs text-muted-foreground">Accuracy</p>
@@ -573,6 +613,7 @@ function DoneScreen({
           <RotateCcw className="h-4 w-4" />
           Play Again
         </button>
+        <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         <button
           onClick={onChangeTopic}
           className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 py-3.5 font-bold text-foreground hover:bg-muted/50"
@@ -587,6 +628,8 @@ function DoneScreen({
           Back to Games
         </Link>
       </div>
+
+      <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>
   );
 }
@@ -600,15 +643,17 @@ export default function PhraseBuilderPage() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [finalResults, setFinalResults] = useState<PhraseResult[]>([]);
   const [finalCorrect, setFinalCorrect] = useState(0);
+  const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0);
 
   if (!isLoading && !isPlus) {
     return <Redirect to="/upgrade" />;
   }
 
-  const handleDone = (results: PhraseResult[], correctCount: number) => {
+  const handleDone = (results: PhraseResult[], correctCount: number, misses: GameMiss[]) => {
     setFinalResults(results);
     setFinalCorrect(correctCount);
+    setFinalMisses(misses);
     setPhase("done");
   };
 
@@ -642,6 +687,7 @@ export default function PhraseBuilderPage() {
       <DoneScreen
         results={finalResults}
         correctCount={finalCorrect}
+        misses={finalMisses}
         categoryId={categoryId}
         onPlayAgain={() => {
           setGameKey((k) => k + 1);

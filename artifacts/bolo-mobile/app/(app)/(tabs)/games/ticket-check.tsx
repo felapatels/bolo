@@ -208,6 +208,16 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
               phraseId: q.phrase.id,
               selectedPhraseId: q.choices[picked!]!.id,
               correct: wasCorrect,
+              // The ticket showed the meaning; the pick was a script card.
+              review: {
+                prompt: q.phrase.english,
+                answer: q.choices[picked!]!.nativeScript,
+                answerSub: q.choices[picked!]!.romanized.trim() || null,
+                correct: q.phrase.nativeScript,
+                // The reading rides under the script it belongs to rather than
+                // under the English prompt, so each line reads on its own.
+                correctSub: q.phrase.romanized.trim() || null,
+              },
             })
           }
           style={[styles.continueBtn, { backgroundColor: colors.primary }]}
