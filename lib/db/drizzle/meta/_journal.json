@@ -309,6 +309,13 @@
       "when": 1786223845303,
       "tag": "0043_legacy_pagdi_to_accessory",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1786476090532,
+      "tag": "0044_brief_gunslinger",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ import {
   simToScore,
 } from "../lib/pronunciationGuards";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
+import { measureAttemptSnrDb } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario } from "../lib/scenarios";
@@ -796,6 +797,12 @@ router.post(
     // anyway. Band 'nocatch' = no XP, no streak break, no mastery penalty.
     if (speechCapability === "unsupported") {
       const nocatchBand: PronunciationBand = "nocatch";
+      // Cause label recorded for EVERY learner (the label alone; the
+      // transcript-bearing sidecar below stays on its allowlist). This branch
+      // returns before any audio work runs, so there is no SNR to report and
+      // adding a decode purely to measure one would delay a response that
+      // currently costs nothing.
+      const nocatchCause: NocatchCause = "unsupported_language";
       const feedback =
         `Speech recognition can't reliably hear ${language} yet, so we don't score it. Listen to the phrase, record yourself, and compare by ear. Your practice still counts!`;
       const nocatchTip =
@@ -827,6 +834,7 @@ router.post(
           band: nocatchBand,
           xpAwarded: 0,
           latencyMs: latencyMs ?? null,
+          nocatchCause,
         }),
       });
       // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
@@ -846,7 +854,7 @@ router.post(
           normalizedTranscript: null,
           normalizedTarget: null,
           similarityValues: {},
-          cause: "unsupported_language",
+          cause: nocatchCause,
           sttDisagreement: null,
           bridged: false,
           transcriptComparable: null,
@@ -872,6 +880,12 @@ router.post(
     let sttTranscriptHq = "";
     let sttDisagreement = false;
     let sttChosenEmptyWithEvidence = false;
+    // Noise production baseline: a derived signal-to-noise number for THIS
+    // recording, measured concurrently with the STT passes below so it adds no
+    // wall-clock time to the instant-feedback path. Null whenever the clip
+    // could not be measured — the measurement never changes a score and never
+    // fails an attempt.
+    let snrDb: number | null = null;
     try {
       // Pass the client-reported mimeType as a fallback hint so very short
       // recordings whose magic bytes aren't detected skip the ffmpeg path.
@@ -883,10 +897,16 @@ router.post(
       // the old toward-target tie-break silently preferred the pass that
       // matched the target, which is exactly the normalize-into-the-target
       // failure mode this defends against.
-      const [miniRaw, hqRaw] = await Promise.all([
+      // The SNR measurement rides in the SAME await as the two STT calls: it
+      // finishes in tens of milliseconds while STT takes ~1 s, so the learner
+      // waits exactly as long as before. measureAttemptSnrDb never rejects, so
+      // it can never take the scoring path down with it.
+      const [miniRaw, hqRaw, measuredSnrDb] = await Promise.all([
         speechToText(buffer, format, sttOptions),
         speechToText(buffer, format, { ...sttOptions, highQuality: true }),
+        measureAttemptSnrDb(buffer, format).catch(() => null),
       ]);
+      snrDb = measuredSnrDb;
       sttTranscriptMini = miniRaw.trim();
       sttTranscriptHq = hqRaw.trim();
       const choice = chooseConservativeTranscript({
@@ -922,6 +942,12 @@ router.post(
         ? "Nothing to fix on your end. Just try the same thing again."
         : "Hold your phone a little closer and speak up.";
       const nocatchBand: PronunciationBand = "nocatch";
+      // Cause label recorded for EVERY learner, not just the diagnostics
+      // allowlist: the label alone carries no transcript content, and without
+      // it nobody can say WHY attempts fail.
+      const nocatchCause: NocatchCause = sttChosenEmptyWithEvidence
+        ? "dual_pass_uncorroborated"
+        : "empty_audio_or_silence";
       // Task 903: eval-time fire-and-forget feedback-voice synthesis.
       prewarmFeedbackTts(feedback, emptyTip, req.log);
       res.json({
@@ -951,6 +977,8 @@ router.post(
           sttTranscriptMini,
           sttTranscriptHq,
           sttDisagreement,
+          snrDb,
+          nocatchCause,
         }),
       });
       // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
@@ -1198,6 +1226,7 @@ router.post(
             sttTranscriptMini,
             sttTranscriptHq,
             sttDisagreement,
+            snrDb,
           }),
         });
         // Fire-and-forget pilot capture — never delays the response.
@@ -1305,6 +1334,18 @@ router.post(
       // every language, including fully supported ones.
       if (guarded.nocatch) {
         const nocatchBand: PronunciationBand = "nocatch";
+        // Cause classification runs OUTSIDE the diagnostics allowlist now: the
+        // label rides the signed token for every learner, while the
+        // transcript-bearing sidecar below stays gated. A comparable raw
+        // result that still nocatched can only be guard 1b (Latin low sim); an
+        // incomparable one is script mismatch, split by whether the bridge
+        // achieved a shared space and similarity STILL failed.
+        const bridge = targetSim.bridge;
+        const nocatchCause: NocatchCause = targetSim.comparable
+          ? "latin_low_sim"
+          : bridge?.bridged
+            ? "no_match_after_bridge"
+            : "script_mismatch";
         const feedback =
           "Our listener glitched on that one and didn't catch what you said. That's on us, not you. Give it one more go!";
         const glitchTip =
@@ -1351,21 +1392,14 @@ router.post(
             sttTranscriptMini,
             sttTranscriptHq,
             sttDisagreement,
+            snrDb,
+            nocatchCause,
           }),
         });
         // A2 nocatch diagnostics: allowlist gate FIRST so no payload is ever
         // assembled for non-allowlisted accounts. Fire-and-forget after
-        // res.json. Cause classification: a comparable raw result that still
-        // nocatched can only be guard 1b (Latin low sim); an incomparable one
-        // is script mismatch, split by whether the bridge achieved a shared
-        // space and similarity STILL failed (the module's residue).
+        // res.json.
         if (isPilotCaptureUser(userId)) {
-          const bridge = targetSim.bridge;
-          const nocatchCause: NocatchCause = targetSim.comparable
-            ? "latin_low_sim"
-            : bridge?.bridged
-              ? "no_match_after_bridge"
-              : "script_mismatch";
           void writeNocatchDiagnostic({
             userId,
             languageCode,
@@ -1445,6 +1479,7 @@ router.post(
           sttTranscriptMini,
           sttTranscriptHq,
           sttDisagreement,
+          snrDb,
         }),
       });
       // Fire-and-forget pilot capture — never delays the response.

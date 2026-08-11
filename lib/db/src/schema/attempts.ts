@@ -56,6 +56,22 @@ export const attemptsTable = pgTable("attempts", {
   // True when the two passes disagreed after normalization; the band was then
   // computed from the transcript farther from the target (conservative reading).
   sttDisagreement: boolean("stt_disagreement"),
+  // ── Noise production baseline columns (nullable; null = not measured) ──
+  // Derived signal-to-noise estimate for the submitted recording, in dB:
+  // the loudest tenth of the clip measured against its quiet room-tone
+  // opening. Best-effort — null whenever the measurement could not run (older
+  // attempt, unmeasurable container, or a measurement failure). This is a
+  // DERIVED NUMBER only: no audio and no new transcript content is retained
+  // for it (see docs/specs/voice-data-program.md, which governs raw
+  // recordings).
+  audioSnrDb: real("audio_snr_db"),
+  // Why an attempt failed to score, when band = 'nocatch'. One of the
+  // NocatchCause labels ('empty_audio_or_silence' | 'dual_pass_uncorroborated'
+  // | 'script_mismatch' | 'latin_low_sim' | 'unsupported_language' |
+  // 'no_match_after_bridge'). Null for scored attempts and for nocatch
+  // attempts recorded before this column existed. The LABEL ONLY — the
+  // transcript-bearing nocatch diagnostic sidecars stay on their allowlist.
+  nocatchCause: text("nocatch_cause"),
 });
 
 export const insertAttemptSchema = createInsertSchema(attemptsTable).omit({

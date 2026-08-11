@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PronunciationBand } from "./fsrsScheduler";
+import type { NocatchCause } from "./nocatchDiagnostics";
 import { bandFromScore, normalizeBand } from "./scoreBands";
 
 // The authoritative evaluation the server computed for a single spoken attempt.
@@ -35,6 +36,16 @@ export interface EvaluationClaims {
   // True when the passes disagreed after normalization; the band was computed
   // from the transcript farther from the target (the conservative reading).
   sttDisagreement?: boolean;
+  // ── Noise production baseline (optional so tokens issued before this change
+  //    stay valid; both fields are simply absent on those, never invalid) ──
+  // Derived signal-to-noise estimate for the recording, in dB. Null/absent
+  // when the clip could not be measured. A DERIVED NUMBER only: no audio and
+  // no extra transcript content travels with it.
+  snrDb?: number | null;
+  // Why the attempt failed to score, when the band is 'nocatch'. The cause
+  // LABEL alone — the transcript-bearing nocatch diagnostic sidecars stay on
+  // their pilot allowlist.
+  nocatchCause?: NocatchCause;
   // ── Scoring v2 groundwork ──
   // True ONLY when an audio-aware judge actually listened to the clip and
   // certified the score (the scoring v2 promotion gate, test-out included).

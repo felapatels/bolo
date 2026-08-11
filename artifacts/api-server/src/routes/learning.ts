@@ -50,6 +50,7 @@ const GameSessionBody = z.object({
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { verifyEvaluation } from "../lib/evaluationToken";
+import { buildAttemptFlags } from "../lib/clientPlatform";
 import { activateReferralIfPending } from "../lib/referral";
 import {
   generateLesson,
@@ -1311,12 +1312,24 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     latencyMs: claims.latencyMs ?? null,
     // Flag attempts where the client did not report latency so we can measure
     // what fraction of attempts are unguarded before making the field required.
-    flags: claims.latencyMs == null ? "latency_missing" : null,
+    // The same tag list also carries the coarse client platform (derived from
+    // this request's User-Agent, no client change) so the noise baseline can
+    // answer whether failures concentrate on iOS.
+    flags: buildAttemptFlags({
+      latencyMissing: claims.latencyMs == null,
+      userAgent: req.get("user-agent"),
+    }),
     // S1 dual-pass honesty fields, replayed verbatim from the signed token.
     // Null (not empty string) when the token predates dual-pass STT.
     sttTranscriptMini: claims.sttTranscriptMini ?? null,
     sttTranscriptHq: claims.sttTranscriptHq ?? null,
     sttDisagreement: claims.sttDisagreement ?? null,
+    // Noise production baseline, replayed verbatim from the signed token the
+    // same way the dual-pass fields are. Both are optional claims: a token
+    // issued before this change simply carries neither, and records null
+    // rather than failing. Nothing about the attempt's score depends on them.
+    audioSnrDb: claims.snrDb ?? null,
+    nocatchCause: claims.nocatchCause ?? null,
   };
 
   let row: typeof attemptsTable.$inferSelect;
