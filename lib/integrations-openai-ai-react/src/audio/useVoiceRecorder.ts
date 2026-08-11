@@ -25,6 +25,36 @@ const PREFERRED_MIME_TYPES = [
   "audio/aac",
 ];
 
+/**
+ * Explicit microphone processing settings for speech capture.
+ *
+ * Requesting `{ audio: true }` leaves the choice to the browser, and every
+ * major browser defaults noise suppression and automatic gain control ON.
+ * Both are tuned for intelligible conference calls, not for phonetic detail:
+ * suppression smears the aspiration and fricative energy pronunciation
+ * scoring reads, and AGC rides the level between words, lifting the room tone
+ * the server profiles from the silent opening of each hold-to-talk clip.
+ * Turning them off hands every learner the unprocessed signal, in a quiet
+ * room and a loud one alike — the noise-robustness bench found no threshold
+ * at which extra processing earns its place
+ * (docs/specs/noise-robustness-bench.md).
+ *
+ * Echo cancellation stays ON deliberately. It subtracts a KNOWN playback
+ * reference — the coach's own voice coming back through the laptop speakers —
+ * rather than guessing at what in the learner's audio is unwanted, and
+ * practice lets learners barge in while the coach is still talking. Speaker
+ * bleed is what invalidated most of the pronunciation pilot corpus; AEC is
+ * the one processor that addresses it.
+ *
+ * Bare values are "ideal" under the Media Capture spec, so a browser that
+ * does not implement a constraint ignores it instead of failing acquisition.
+ */
+export const SPEECH_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: false,
+  autoGainControl: false,
+};
+
 function getSupportedMimeType(): string | undefined {
   for (const mimeType of PREFERRED_MIME_TYPES) {
     if (MediaRecorder.isTypeSupported(mimeType)) {
@@ -78,7 +108,7 @@ export function useVoiceRecorder() {
     if (isStreamLive(streamRef.current)) return;
     releaseStream();
     streamRef.current = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: SPEECH_AUDIO_CONSTRAINTS,
     });
   }, [releaseStream]);
 
@@ -143,7 +173,9 @@ export function useVoiceRecorder() {
         // to set below.
         prewarmTokenRef.current++;
         releaseStream();
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: SPEECH_AUDIO_CONSTRAINTS,
+        });
         streamRef.current = stream;
       }
       const mimeType = getSupportedMimeType();
@@ -287,7 +319,7 @@ export function useVoiceRecorder() {
         // has unmounted.
         const myToken = ++prewarmTokenRef.current;
         navigator.mediaDevices
-          .getUserMedia({ audio: true })
+          .getUserMedia({ audio: SPEECH_AUDIO_CONSTRAINTS })
           .then((s) => {
             // Only adopt this prewarm stream if:
             //   1. No newer prewarm/abort has started (token still matches).

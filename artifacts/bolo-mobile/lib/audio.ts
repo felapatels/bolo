@@ -8,16 +8,36 @@ import {
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Speech-optimised recording preset: 16 kHz mono at 32 kbps.
+// Speech-optimised recording preset: 16 kHz mono at 96 kbps.
 // Whisper resamples to 16 kHz internally regardless of input sample rate, so
-// sending 44.1 kHz stereo (HIGH_QUALITY default) wastes ~75 % of the upload
-// bandwidth without improving transcription. Smaller payload → faster upload
-// → Whisper starts sooner. Metering stays on for silence auto-stop.
+// sending 44.1 kHz stereo (HIGH_QUALITY default) wastes upload bandwidth
+// without improving transcription.
+//
+// BITRATE (96 kbps, was 32 kbps): the noise-robustness bench
+// (docs/specs/noise-robustness-bench.md §7) re-encoded the same clips at both
+// rates and scored them. 96 kbps gained +6.1 points at 12 dB SNR with the
+// no-score rate falling 15 % → 5 %, replicated at +3.1, and gained +2.4 on
+// clean audio — so a quieter encoder budget is never spent on the learner's
+// voice, only on the room. Read those deltas against the bench's ±3.8-point
+// measurement floor: this is a cheap bet, not a proven win. It is applied
+// unconditionally rather than switched on in noisy rooms because the same
+// bench found no loudness threshold worth switching anything on, so there is
+// no client-side room classifier to gate it with — and at +2.4 on clean audio
+// there is nothing to protect quiet rooms from.
+//
+// `bitRate` is deliberately a TOP-LEVEL field. expo-audio's
+// createRecordingOptions spreads the common options first and the platform
+// block second, and RecordingPresets.HIGH_QUALITY.ios carries no bitRate of
+// its own, so this value reaches AVEncoderBitRateKey on iOS as well as the
+// MediaRecorder encoder on Android. That matters: bitrate is the ONLY
+// capture-side lever available on iOS without a native build.
+//
+// Metering stays on for silence auto-stop.
 export const RECORDING_PRESET = {
   ...RecordingPresets.HIGH_QUALITY,
   sampleRate: 16000,
   numberOfChannels: 1,
-  bitRate: 32000,
+  bitRate: 96000,
   ios: {
     ...RecordingPresets.HIGH_QUALITY.ios,
     sampleRate: 16000,
