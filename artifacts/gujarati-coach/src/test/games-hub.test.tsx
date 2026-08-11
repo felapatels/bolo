@@ -23,17 +23,21 @@ vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
 
 import GamesPage from "@/pages/games/index";
 
-/** The curated shelves, in the exact order the hub must render them. */
+/**
+ * The curated shelves, in the exact order the hub must render them.
+ * Vocabulary leads so Luggage Match — the hero, and the first card of that
+ * group — takes the top-left slot, matching the mobile hub's ordering.
+ */
 const GROUPS: Array<{ id: string; title: string; gameIds: string[] }> = [
-  {
-    id: "listening",
-    title: "Listening",
-    gameIds: ["listen-and-pick", "express-listening", "signal-lights"],
-  },
   {
     id: "vocabulary",
     title: "Vocabulary",
     gameIds: ["luggage-match", "word-match", "ticket-check", "bolo-quiz"],
+  },
+  {
+    id: "listening",
+    title: "Listening",
+    gameIds: ["listen-and-pick", "express-listening", "signal-lights"],
   },
   {
     id: "building",
@@ -134,8 +138,8 @@ describe("Games hub grouping", () => {
       catalog().querySelectorAll("[data-testid^='games-group-']"),
     ).map((el) => el.getAttribute("data-testid"));
     expect(rendered).toEqual([
-      "games-group-listening",
       "games-group-vocabulary",
+      "games-group-listening",
       "games-group-building",
     ]);
   });

@@ -165,21 +165,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * Luggage Match shuffles the topic pool and plays only the first six phrases,
+ * so WHICH tags are on the board is random per run — naming a phrase (n1) is
+ * a one-in-four flake. Assert over whatever the board dealt instead: every
+ * native tag on it, and its own reading.
+ */
+const nativeTagsOnScreen = () => screen.getAllByText(/^n\d+$/);
+
 describe("Luggage Match tags", () => {
   test("every tag shows its romanized reading under the script", async () => {
     await openQuickGame(LuggageMatchPage, "/games/luggage-match?cat=1");
 
-    expect(screen.getByText("n1")).toBeTruthy();
-    expect(screen.getByText("r1")).toBeTruthy();
-    // One reading per native tag on the board.
-    expect(romanizedOnScreen().length).toBeGreaterThanOrEqual(4);
+    const tags = nativeTagsOnScreen();
+    expect(tags.length).toBeGreaterThanOrEqual(4);
+    // One reading per native tag on the board, and it is that tag's reading.
+    for (const tag of tags) {
+      const n = tag.textContent!.replace(/^n/, "");
+      expect(screen.getByText(`r${n}`)).toBeTruthy();
+    }
+    expect(romanizedOnScreen()).toHaveLength(tags.length);
   });
 
   test("no romanization degrades to the script alone", async () => {
     state.withRomanized = false;
     const { container } = await openQuickGame(LuggageMatchPage, "/games/luggage-match?cat=1");
 
-    expect(screen.getByText("n1")).toBeTruthy();
+    expect(nativeTagsOnScreen().length).toBeGreaterThanOrEqual(4);
     expect(romanizedOnScreen()).toHaveLength(0);
     expect(emptyMutedSlots(container)).toHaveLength(0);
   });
