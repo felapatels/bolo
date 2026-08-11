@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Guards the fail-closed quiz gate on the HomeScreen (Build 30 batch 3).
@@ -50,6 +50,18 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Stand-in for the real error class: the repair-refusal copy branches on
+  // `instanceof ApiError`, so the tests have to throw the mocked module's own
+  // class or every refusal would fall through to the generic line.
+  ApiError: class ApiError extends Error {
+    status: number;
+    data: unknown;
+    constructor(status: number, data: unknown) {
+      super(`api ${status}`);
+      this.status = status;
+      this.data = data;
+    }
+  },
   // ONE token query feeds both Chai surfaces on this screen (the stat cell and
   // the stall band), which is exactly what the parity test below asserts.
   // mockState.tokens so a test can drive the undefined (still loading) case
@@ -201,6 +213,7 @@ jest.mock('@/lib/tearAudio', () => ({
 
 // Imported after all mocks.
 import HomeScreen from '../app/(app)/(tabs)/index';
+import { ApiError } from '@workspace/api-client-react';
 
 const LOCKED_COPY = 'Upgrade to All-Access to unlock';
 const UNLOCKED_COPY = 'Fresh questions, every day';
@@ -326,6 +339,68 @@ describe('HomeScreen - contextual streak repair offer', () => {
     // ...but no placeholder and no zero beside a real spend button.
     expect(screen.queryByTestId('home-repair-balance')).toBeNull();
     expect(screen.queryByTestId('home-repair-balance-value')).toBeNull();
+  });
+
+  // A refusal used to read "Couldn't mend right now. Try from the Chai
+  // wallet." for every cause, which sent a learner with empty pockets to the
+  // wallet to be refused a second time. The server already names the cause;
+  // the banner now says it. Word for word with web.
+  describe('refusals name the cause', () => {
+    /** A 409 from POST /tokens/repair-streak, as the client would throw it. */
+    function refusal(body: Record<string, unknown>) {
+      return new ApiError(409, body);
+    }
+
+    function failWith(error: unknown) {
+      mockState.repairOffer = OFFER_THURSDAY;
+      render(<HomeScreen />);
+      act(() => {
+        mockState.repairHandlers?.onError?.(error);
+      });
+    }
+
+    it('empty pockets: names the gap and points at practice, not the wallet', () => {
+      failWith(refusal({ error: 'insufficient_tokens', balance: 3, cost: 25 }));
+      expect(
+        screen.getByText(
+          'Not enough Chai to mend. You have 3, mending costs 25. Keep practicing to earn more.',
+        ),
+      ).toBeOnTheScreen();
+      // Never a dead end into the wallet, and never a Plus paywall.
+      expect(screen.queryByText(/Chai wallet/)).toBeNull();
+    });
+
+    it('the window has closed: says so instead of inviting a retry', () => {
+      failWith(refusal({ error: 'repair_window_expired' }));
+      expect(
+        screen.getByText(
+          'That day has slipped too far back to mend. Today starts the next one.',
+        ),
+      ).toBeOnTheScreen();
+    });
+
+    it('an unrecognised failure keeps the honest generic line', () => {
+      failWith(new Error('network down'));
+      expect(
+        screen.getByText('That repair did not go through. Try again in a moment.'),
+      ).toBeOnTheScreen();
+    });
+
+    it('the notice expires and hands the Mend button back', () => {
+      jest.useFakeTimers();
+      try {
+        failWith(refusal({ error: 'insufficient_tokens', balance: 3, cost: 25 }));
+        // The notice replaces the offer row, so the button is gone while it is up.
+        expect(screen.queryByTestId('home-repair-streak')).toBeNull();
+        act(() => {
+          jest.advanceTimersByTime(4000);
+        });
+        // Earning the shortfall has to lead somewhere: the offer comes back.
+        expect(screen.getByTestId('home-repair-streak')).toBeOnTheScreen();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });
 

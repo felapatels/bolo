@@ -33,6 +33,7 @@ export function MilestoneToast({
               // to trigger removal after the enter completes + dwell time.
               // This is done via the parent key change pattern.
             }}
+            data-testid="milestone-toast"
             className="mb-4 rounded-full bg-foreground/90 px-5 py-2.5 text-sm font-black text-background shadow-lg backdrop-blur-sm"
           >
             {message}

@@ -21,6 +21,7 @@ import {
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { repairErrorMessage } from '@/lib/chai-errors';
 import {
   BazaarTile,
   ExpressTile,
@@ -129,32 +130,6 @@ function missedDayLabel(dayKey: string): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);
   if (Number.isNaN(d.getTime())) return 'That day';
   return d.toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' });
-}
-
-/**
- * Refusal copy for a repair, word for word with web. A broken streak is life
- * happening, so none of these may read as a telling-off, and none of them is a
- * paywall moment.
- */
-function repairErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.status === 409) {
-    const data = error.data as
-      | { error?: string; balance?: number; cost?: number }
-      | null;
-    if (data?.error === 'insufficient_tokens') {
-      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
-    }
-    if (data?.error === 'repair_window_expired') {
-      return 'That day has slipped too far back to mend. Today starts the next one.';
-    }
-    if (data?.error === 'break_too_long') {
-      return 'That was a proper break, not a missed day. Today starts the next one.';
-    }
-    if (data?.error === 'no_break_to_repair') {
-      return 'Nothing to mend — your streak is whole.';
-    }
-  }
-  return 'That repair did not go through. Try again in a moment.';
 }
 
 /**

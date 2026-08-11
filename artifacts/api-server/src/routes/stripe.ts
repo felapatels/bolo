@@ -5,9 +5,11 @@ import { getUncachableStripeClient } from "../lib/stripeClient";
 import {
   getPlusPriceId,
   getFamilyPriceId,
+  getChaiPackPriceId,
   intervalFromStripeRecurring,
   type PlusInterval,
 } from "../lib/stripePricing";
+import { getChaiPack, CHAI_PACK_SESSION_KIND } from "../lib/chaiPacks";
 import { applyFromStripeSubscription } from "../lib/stripeSync";
 import { applyStripeState } from "../lib/stripeApply";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -205,6 +207,90 @@ router.post(
       res.json({ url: session.url });
     } catch (err) {
       logger.error({ err }, "Failed to create Stripe checkout session");
+      res.status(502).json({ error: "Checkout is temporarily unavailable." });
+    }
+  },
+);
+
+// POST /stripe/chai-checkout — buys a one-time Chai pack (WEB ONLY).
+//
+// Reuses the subscription plumbing wholesale: same Stripe client, same router
+// and auth, same customer record, same return-URL builder. The only real
+// difference is `mode: "payment"`.
+//
+// The client names a PACK ID and nothing else. Everything that decides what is
+// being sold — the price and, later, how much Chai is credited — is resolved
+// server-side from the catalog, and the metadata that the webhook reads back
+// is written HERE, so a client cannot ask for more Chai than it paid for.
+//
+// This route never credits anything. Stripe's webhook is the only writer (see
+// middlewares/stripeWebhook.ts): a learner who closes the tab the moment the
+// card is charged still gets their Chai.
+router.post(
+  "/stripe/chai-checkout",
+  async (req: Request, res: Response): Promise<void> => {
+    const { userId } = req as AuthedRequest;
+    const pack = getChaiPack(req.body?.packId);
+    if (!pack) {
+      res.status(400).json({ error: "Unknown Chai pack." });
+      return;
+    }
+    const priceId = getChaiPackPriceId(pack.id);
+    if (!priceId) {
+      res.status(503).json({
+        error:
+          "Chai packs aren't configured yet. Run the seedStripeProducts script.",
+      });
+      return;
+    }
+
+    try {
+      const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, userId),
+      });
+      const stripe = await getUncachableStripeClient();
+
+      let customerId = user?.stripeCustomerId ?? null;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user?.email ?? undefined,
+          metadata: { userId },
+        });
+        customerId = customer.id;
+        await db
+          .insert(usersTable)
+          .values({ id: userId, stripeCustomerId: customerId })
+          .onConflictDoUpdate({
+            target: usersTable.id,
+            set: { stripeCustomerId: customerId },
+          });
+      }
+
+      const metadata = {
+        kind: CHAI_PACK_SESSION_KIND,
+        userId,
+        packId: pack.id,
+      };
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "payment",
+        line_items: [{ price: priceId, quantity: 1 }],
+        // On the session for the webhook to read, and on the PaymentIntent so
+        // the purchase is attributable from the Stripe dashboard and from any
+        // payment-side event handled later.
+        metadata,
+        payment_intent_data: { metadata },
+        success_url: returnUrl(req, req.body?.basePath, "?chai=success"),
+        cancel_url: returnUrl(req, req.body?.basePath, "?chai=cancel"),
+      });
+
+      if (!session.url) {
+        res.status(502).json({ error: "Stripe did not return a checkout URL." });
+        return;
+      }
+      res.json({ url: session.url });
+    } catch (err) {
+      logger.error({ err }, "Failed to create Chai pack checkout session");
       res.status(502).json({ error: "Checkout is temporarily unavailable." });
     }
   },

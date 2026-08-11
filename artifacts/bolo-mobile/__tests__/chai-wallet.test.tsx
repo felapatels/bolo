@@ -413,7 +413,7 @@ describe('streak repair row', () => {
     });
     expect(
       screen.getByText(
-        'Not enough Chai yet. You have 3, this costs 25. Keep riding to earn more.',
+        'Not enough Chai to mend. You have 3, mending costs 25. Keep practicing to earn more.',
       ),
     ).toBeOnTheScreen();
   });

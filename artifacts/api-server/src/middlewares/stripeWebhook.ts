@@ -17,6 +17,7 @@ import {
   applyFromStripeSubscription,
 } from "../lib/stripeSync";
 import { applyStripeState } from "../lib/stripeApply";
+import { chaiPackCreditFromSession, creditChaiPack } from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
 
 export async function stripeWebhookHandler(
@@ -62,6 +63,38 @@ export async function stripeWebhookHandler(
           event.data.object as Stripe.Subscription,
         );
         if (apply) await applyStripeState(apply);
+        break;
+      }
+      // One-time Chai pack (web). THE ONLY path that credits bought Chai: the
+      // client never mints any. Idempotent by Stripe transaction id, so a
+      // replay, a retry after the 500 below, or an out-of-order delivery all
+      // credit exactly once — and a learner who closed the tab mid-purchase is
+      // credited anyway, because nothing here needs the browser.
+      // ...and the second delivery for a slow payment method. A session can
+      // COMPLETE unpaid (bank debits and some wallets settle afterwards);
+      // Stripe then raises this once the money actually lands. Both events
+      // carry the same PaymentIntent, so handling both credits exactly once —
+      // and omitting this one would charge that learner and credit nothing.
+      case "checkout.session.async_payment_succeeded":
+      case "checkout.session.completed": {
+        const credit = chaiPackCreditFromSession(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        // Not a Chai pack (a subscription session, say), or not paid yet.
+        if (!credit) break;
+        const { granted } = await creditChaiPack(credit);
+        logger.info(
+          {
+            userId: credit.userId,
+            packId: credit.pack.id,
+            chai: credit.pack.chai,
+            transactionId: credit.transactionId,
+            granted,
+          },
+          granted
+            ? "Chai pack credited"
+            : "Chai pack replay ignored (already credited)",
+        );
         break;
       }
       case "customer.subscription.deleted": {

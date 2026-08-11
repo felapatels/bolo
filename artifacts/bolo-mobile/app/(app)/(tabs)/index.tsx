@@ -53,6 +53,7 @@ import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fo
 import { BAND_LABEL, normalizeBand, scoreColor } from '@/lib/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { repairErrorMessage } from '@/lib/chai-errors';
 import { openPrivacyPolicy, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
@@ -114,8 +115,11 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
           `${missedDayLabel(result.repairedDay)} is covered. Your ${result.restoredStreakDays}-day streak rides on.`,
         );
       },
-      onError: () => {
-        setNotice("Couldn't mend right now. Try from the Chai wallet.");
+      onError: (error: unknown) => {
+        // The server says WHY it refused (empty pockets, window gone, break
+        // too long); say that, rather than sending the learner to the wallet
+        // to meet the same refusal a second time.
+        setNotice(repairErrorMessage(error));
       },
       onSettled: () => {
         queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });

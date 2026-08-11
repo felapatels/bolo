@@ -110,6 +110,16 @@ export async function beginFamilyCheckout(
   return "redirected";
 }
 
+// Buy a one-time Chai pack (web only). Same hosted-Stripe hand-off as the
+// subscription paths: this redirects and does not return on success. The
+// client names the pack and nothing else — the price, the Chai, and the credit
+// are all server-side, and Stripe's webhook is what actually credits the
+// wallet, so closing the tab mid-purchase still delivers the Chai.
+export async function beginChaiPackCheckout(packId: string): Promise<void> {
+  const url = await postForRedirectUrl("/api/stripe/chai-checkout", { packId });
+  window.location.href = url;
+}
+
 // Open Stripe's hosted billing portal to manage/cancel the subscription.
 // Redirects the browser — does not return on success.
 export async function cancelPlus(): Promise<void> {

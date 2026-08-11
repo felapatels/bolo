@@ -7,6 +7,7 @@
 //   pnpm --filter @workspace/api-server run seed-stripe-products
 // ---------------------------------------------------------------------------
 import { getUncachableStripeClient } from "../src/lib/stripeClient";
+import { CHAI_PACKS } from "../src/lib/chaiPacks";
 
 const PRODUCT_NAME = "Bolo! Plus";
 // All-Access (Plus) pricing — matches the store (mobile) pricing ladder. These
@@ -45,6 +46,59 @@ async function findOrCreatePrice(
     recurring: { interval },
   });
   return price.id;
+}
+
+// One-time Chai packs (web only; iOS sells consumables through StoreKit
+// later). Amounts and prices come from the catalog so this script cannot drift
+// from what the credit path grants.
+async function findOrCreateOneTimePrice(
+  stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>,
+  productId: string,
+  unitAmount: number,
+): Promise<string> {
+  const existing = await stripe.prices.list({ product: productId, active: true });
+  const match = existing.data.find(
+    (p) =>
+      p.unit_amount === unitAmount && p.currency === "usd" && !p.recurring,
+  );
+  if (match) return match.id;
+
+  const price = await stripe.prices.create({
+    product: productId,
+    unit_amount: unitAmount,
+    currency: "usd",
+  });
+  return price.id;
+}
+
+async function seedChaiPacks(
+  stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>,
+): Promise<string[]> {
+  const envLines: string[] = [];
+  for (const pack of CHAI_PACKS) {
+    const found = await stripe.products.search({
+      query: `name:'${pack.productName}' AND active:'true'`,
+    });
+    const product =
+      found.data[0] ??
+      (await stripe.products.create({
+        name: pack.productName,
+        description: pack.description,
+        metadata: { chai: String(pack.chai), packId: pack.id },
+      }));
+    const priceId = await findOrCreateOneTimePrice(
+      stripe,
+      product.id,
+      pack.cents,
+    );
+    console.log(
+      `Chai pack ${pack.id}: ${pack.chai} Chai for $${(pack.cents / 100).toFixed(2)} (${priceId})`,
+    );
+    envLines.push(
+      `  STRIPE_CHAI_PACK_${pack.id.toUpperCase()}_PRICE_ID=${priceId}`,
+    );
+  }
+  return envLines;
 }
 
 async function main(): Promise<void> {
@@ -109,11 +163,14 @@ async function main(): Promise<void> {
     `Family annual price: ${(FAMILY_ANNUAL_CENTS / 100).toFixed(2)}/yr (${familyAnnualPriceId})`,
   );
 
+  const packEnvLines = await seedChaiPacks(stripe);
+
   console.log("\nSet these env vars for checkout to use them:");
   console.log(`  STRIPE_PLUS_MONTHLY_PRICE_ID=${monthlyPriceId}`);
   console.log(`  STRIPE_PLUS_ANNUAL_PRICE_ID=${annualPriceId}`);
   console.log(`  STRIPE_FAMILY_MONTHLY_PRICE_ID=${familyMonthlyPriceId}`);
   console.log(`  STRIPE_FAMILY_ANNUAL_PRICE_ID=${familyAnnualPriceId}`);
+  for (const line of packEnvLines) console.log(line);
 }
 
 main().catch((err) => {

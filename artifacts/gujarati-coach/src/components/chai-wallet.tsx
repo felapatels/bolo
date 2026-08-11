@@ -16,6 +16,8 @@ import {
 } from "@/components/wallet-art";
 import { INDIA } from "@/lib/india-palette";
 import { useEntitlements } from "@/lib/entitlements";
+import { repairErrorMessage } from "@/lib/chai-errors";
+import { ChaiPackShop } from "@/components/chai-packs";
 import {
   ApiError,
   getGetProgressSummaryQueryKey,
@@ -194,31 +196,6 @@ function missedDayLabel(dayKey: string): string {
 }
 
 /**
- * Refusal copy for a repair. A broken streak is life happening, so none of
- * these may read as a telling-off, and none of them is a paywall moment.
- */
-function repairErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.status === 409) {
-    const data = error.data as
-      | { error?: string; balance?: number; cost?: number }
-      | null;
-    if (data?.error === "insufficient_tokens") {
-      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
-    }
-    if (data?.error === "repair_window_expired") {
-      return "That day has slipped too far back to mend. Today starts the next one.";
-    }
-    if (data?.error === "break_too_long") {
-      return "That was a proper break, not a missed day. Today starts the next one.";
-    }
-    if (data?.error === "no_break_to_repair") {
-      return "Nothing to mend — your streak is whole.";
-    }
-  }
-  return "That repair did not go through. Try again in a moment.";
-}
-
-/**
  * Streak repair: shown ONLY when the server says there is a real break inside
  * the window, and silent otherwise — no greyed-out row, no "you could have",
  * nothing to notice on a day the learner did nothing wrong. Eligibility is
@@ -348,6 +325,10 @@ export function ChaiWalletSheet({
 
         <div className="space-y-3 p-5">
           <StreakRepairRow />
+
+          {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
+              while the flag is off, so the wallet is unchanged today. */}
+          <ChaiPackShop />
 
           <div
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"

@@ -19,8 +19,13 @@
 // TTL, so recovery is still prompt.
 
 import { getUncachableStripeClient } from "./stripeClient";
-import { getPlusPriceId, getFamilyPriceId } from "./stripePricing";
+import {
+  getPlusPriceId,
+  getFamilyPriceId,
+  getChaiPackPriceId,
+} from "./stripePricing";
 import type { PlusInterval } from "./stripePricing";
+import { CHAI_PACKS, type ChaiPackId } from "./chaiPacks";
 
 export type PricedTier = "plus" | "family";
 
@@ -32,10 +37,20 @@ export type PriceAmount = {
   currency: string;
 };
 
+// One-time Chai pack, priced the same way a plan is: the amount is whatever
+// the Stripe price behind the configured id holds, plus the Chai the pack
+// credits (which is OURS, not Stripe's — the ledger reads it from the catalog,
+// and the shop shows the same number so the two can never disagree).
+export type PackPrice = PriceAmount & { chai: number };
+
 export type PricingCatalog = Record<
   PricedTier,
   Partial<Record<PlusInterval, PriceAmount>>
->;
+> & {
+  // Absent packs (no price id configured) are simply missing; the shop renders
+  // only what it can price.
+  packs: Partial<Record<ChaiPackId, PackPrice>>;
+};
 
 // How long a successful catalog is reused before Stripe is asked again.
 export const PRICING_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -72,7 +87,7 @@ const INTERVALS: PlusInterval[] = ["monthly", "annual"];
 export async function buildPricingCatalog(
   fetchPrice: PriceFetcher,
 ): Promise<PricingCatalog> {
-  const catalog: PricingCatalog = { plus: {}, family: {} };
+  const catalog: PricingCatalog = { plus: {}, family: {}, packs: {} };
 
   for (const tier of Object.keys(TIER_PRICE_IDS) as PricedTier[]) {
     for (const interval of INTERVALS) {
@@ -89,6 +104,26 @@ export async function buildPricingCatalog(
         currency: price.currency,
       };
     }
+  }
+
+  // Chai packs, priced from Stripe exactly like a plan. A pack whose price id
+  // is unset is skipped (the shop shows fewer packs); a configured id Stripe
+  // cannot price is an error for the same reason a plan's is — a real charge
+  // exists behind it.
+  for (const pack of CHAI_PACKS) {
+    const priceId = getChaiPackPriceId(pack.id);
+    if (!priceId) continue;
+    const price = await fetchPrice(priceId);
+    if (price.unit_amount === null) {
+      throw new Error(
+        `Stripe price ${priceId} (chai pack ${pack.id}) has no unit_amount`,
+      );
+    }
+    catalog.packs[pack.id] = {
+      amountCents: price.unit_amount,
+      currency: price.currency,
+      chai: pack.chai,
+    };
   }
 
   const priced = INTERVALS.some(

@@ -525,6 +525,72 @@ export async function consumePausesForGap(
   });
 }
 
+/**
+ * The owner's manual compensating row — and the ZERO FLOOR.
+ *
+ * Ruling Aug 11, 2026: a Stripe refund does NOT claw Chai back automatically.
+ * Money and Chai part company the moment the pack is credited, because the
+ * Chai may already be spent, and reversing a spend would mean un-buying a stop
+ * or an outfit the learner is already using. A reversal is therefore a
+ * deliberate act: this function, with a negative delta.
+ *
+ * Which is exactly why the floor lives here. Every affordability check in the
+ * app compares against `balance`, and a negative balance would quietly break
+ * all of them (a learner "owing" Chai could never earn their way back to a
+ * spend). So a reversal larger than the balance takes the balance to zero and
+ * stops. The ledger still records the full delta the owner asked for — the row
+ * is the audit trail; `balanceAfter` and the state row record what actually
+ * happened.
+ *
+ * Idempotent on (userId, "adjust_manual", refId) like every other mutation, so
+ * a re-run of the same correction is a no-op rather than a second reversal.
+ *
+ * SCOPE OF THE FLOOR, honestly stated: this function cannot take a balance
+ * below zero, and no spend path can either (they all refuse when the balance
+ * is under the cost). What it does NOT do is serialise the other writers —
+ * `grantTokensDetailed` and `spendTokens` update the balance with an atomic
+ * SQL expression but do not lock the state row first, so a spend that read a
+ * positive balance concurrently with a large reversal can still land after it.
+ * That is a pre-existing property of every sink in the app, not something this
+ * reversal path introduced, and fixing it means putting every writer behind
+ * the same lock (or a CHECK constraint) — see the debt row in
+ * docs/CODEBASE-FACTS.md. Reversals are a rare, deliberate console act, so the
+ * exposure is a learner spending at the exact moment of a manual correction.
+ */
+export async function applyChaiAdjustment(
+  userId: string,
+  refId: string,
+  delta: number,
+): Promise<{ state: TokenStateRow; applied: boolean }> {
+  return db.transaction(async (tx) => {
+    // Lock the state row before reading the balance: the floor is computed
+    // from it, and two concurrent adjustments (or an adjustment racing a
+    // spend) reading the same stale balance would each floor against a number
+    // that is no longer true.
+    const [locked] = await tx
+      .select()
+      .from(userTokenStateTable)
+      .where(eq(userTokenStateTable.userId, userId))
+      .for("update");
+    const state = locked ? toState(locked) : await ensureState(tx, userId);
+    const balanceAfter = Math.max(0, state.balance + delta);
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({ userId, delta, balanceAfter, reason: "adjust_manual", refId })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    if (inserted.length === 0) return { state, applied: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({ balance: balanceAfter, updatedAt: new Date() })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), applied: true };
+  });
+}
+
 /** Read-or-create, for the GET route and hooks. */
 export async function getOrCreateTokenState(
   userId: string,

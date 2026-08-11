@@ -4,7 +4,11 @@ export const TOKEN_EARN_STREAK_DAY = 1;
 export const TOKEN_EARN_ZONE_COMPLETE = 10;
 export const TOKEN_EARN_EXPRESS_STAMP = 3;
 export const TOKEN_EARN_QUIZ = 2;
-export const TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 50;
+// Owner ruling Aug 11, 2026: dropped from 50 to 15. Server-side and granted
+// through the ledger, so this one constant covers web AND mobile with no client
+// release. The refId is the UTC month, so a month already granted at the old
+// amount keeps it; the new amount starts with the next month's grant.
+export const TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY = 15;
 // ruled Aug 2; once-ever per identity via the ledger index.
 // Hotfix 3S Item 4: the signal first-clear amount became a config object so
 // per-line values (keyed by language code, i.e. journey line) can land later
@@ -94,6 +98,11 @@ export type TokenReason =
   | "spend_stop_unlock"
   | "spend_outfit"
   | "spend_streak_repair"
-  | "station_pause_consumed";
+  | "station_pause_consumed"
+  // Chai bought with money (web packs). Credited only by the Stripe webhook.
+  | "purchase_chai_pack"
+  // The owner's manual compensating row — the only sanctioned way to reverse
+  // a credit, since a Stripe refund never claws back Chai automatically.
+  | "adjust_manual";
 
 export type SpendItem = "station_pause" | "express_multiplier";

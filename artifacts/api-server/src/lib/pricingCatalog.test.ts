@@ -17,6 +17,12 @@ const KEYS = [
   "STRIPE_PLUS_ANNUAL_PRICE_ID",
   "STRIPE_FAMILY_MONTHLY_PRICE_ID",
   "STRIPE_FAMILY_ANNUAL_PRICE_ID",
+  // Chai packs are configured in this environment, so they must be saved AND
+  // cleared per test — otherwise the ambient ids leak in and the fetcher is
+  // asked for prices these tests never stubbed.
+  "STRIPE_CHAI_PACK_SMALL_PRICE_ID",
+  "STRIPE_CHAI_PACK_MEDIUM_PRICE_ID",
+  "STRIPE_CHAI_PACK_LARGE_PRICE_ID",
 ];
 
 const saved: Record<string, string | undefined> = {};
@@ -26,6 +32,9 @@ const AMOUNTS: Record<string, number> = {
   price_plus_year: 8999,
   price_fam_month: 2499,
   price_fam_year: 17499,
+  price_pack_small: 199,
+  price_pack_medium: 499,
+  price_pack_large: 999,
 };
 
 function fetcherFor(calls: string[]): PriceFetcher {
@@ -43,6 +52,9 @@ beforeEach(() => {
   process.env.STRIPE_PLUS_ANNUAL_PRICE_ID = "price_plus_year";
   process.env.STRIPE_FAMILY_MONTHLY_PRICE_ID = "price_fam_month";
   process.env.STRIPE_FAMILY_ANNUAL_PRICE_ID = "price_fam_year";
+  delete process.env.STRIPE_CHAI_PACK_SMALL_PRICE_ID;
+  delete process.env.STRIPE_CHAI_PACK_MEDIUM_PRICE_ID;
+  delete process.env.STRIPE_CHAI_PACK_LARGE_PRICE_ID;
   __resetPricingCatalogCacheForTests();
 });
 
@@ -67,7 +79,42 @@ describe("buildPricingCatalog", () => {
         monthly: { amountCents: 2499, currency: "usd" },
         annual: { amountCents: 17499, currency: "usd" },
       },
+      packs: {},
     });
+  });
+
+  test("prices every configured Chai pack, carrying the Chai it credits", async () => {
+    process.env.STRIPE_CHAI_PACK_SMALL_PRICE_ID = "price_pack_small";
+    process.env.STRIPE_CHAI_PACK_MEDIUM_PRICE_ID = "price_pack_medium";
+    process.env.STRIPE_CHAI_PACK_LARGE_PRICE_ID = "price_pack_large";
+
+    const catalog = await buildPricingCatalog(fetcherFor([]));
+
+    // The amount comes from Stripe; the Chai count comes from the same catalog
+    // the credit path grants from, so the shop cannot advertise a pack size
+    // the purchase does not deliver.
+    assert.deepEqual(catalog.packs, {
+      small: { amountCents: 199, currency: "usd", chai: 50 },
+      medium: { amountCents: 499, currency: "usd", chai: 150 },
+      large: { amountCents: 999, currency: "usd", chai: 400 },
+    });
+  });
+
+  test("an unconfigured pack is absent, and packs alone never satisfy the price check", async () => {
+    process.env.STRIPE_CHAI_PACK_SMALL_PRICE_ID = "price_pack_small";
+
+    const catalog = await buildPricingCatalog(fetcherFor([]));
+    assert.deepEqual(catalog.packs, {
+      small: { amountCents: 199, currency: "usd", chai: 50 },
+    });
+
+    // A deployment with packs but no plans is still misconfigured: the paywall
+    // is the surface the check exists to protect.
+    for (const key of KEYS.slice(0, 4)) delete process.env[key];
+    await assert.rejects(
+      () => buildPricingCatalog(fetcherFor([])),
+      /No Stripe price ids/,
+    );
   });
 
   test("an unconfigured interval is absent, never guessed", async () => {

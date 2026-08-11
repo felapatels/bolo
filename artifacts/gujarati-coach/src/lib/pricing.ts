@@ -22,12 +22,23 @@ export const FAMILY_SEATS = 4;
 // One price as the server reports it: Stripe minor units plus currency.
 export type PriceAmount = { amountCents: number; currency: string };
 
+// The one-time Chai packs sold on web.
+export type ChaiPackId = 'small' | 'medium' | 'large';
+
+// A pack as the server reports it: the live Stripe amount plus how much Chai
+// the ledger credits for it. Both come from the server so the shop cannot
+// quote a price or a Chai count the purchase does not honour.
+export type PackPrice = PriceAmount & { chai: number };
+
 // GET /api/pricing. An interval is absent when no Stripe price is configured
 // for it.
 export type PricingCatalog = Record<
   SelectableTier,
   Partial<Record<PlusInterval, PriceAmount>>
->;
+> & {
+  // Older responses predate packs; treat a missing map as "no packs priced".
+  packs?: Partial<Record<ChaiPackId, PackPrice>>;
+};
 
 // One tier/interval ready to render.
 export type TierPrice = {
@@ -142,8 +153,31 @@ async function fetchCatalog(): Promise<PricingCatalog> {
   return (await res.json()) as PricingCatalog;
 }
 
+// One pack ready to render: the Chai count, the formatted price, and the id
+// checkout is started with. Ordered smallest first, and only packs the server
+// could price are present.
+export type PackOffer = {
+  id: ChaiPackId;
+  chai: number;
+  price: string;
+};
+
+const PACK_ORDER: ChaiPackId[] = ['small', 'medium', 'large'];
+
+export function buildPackOffers(catalog: PricingCatalog): PackOffer[] {
+  const packs = catalog.packs ?? {};
+  return PACK_ORDER.flatMap((id) => {
+    const pack = packs[id];
+    if (!pack) return [];
+    return [{ id, chai: pack.chai, price: formatMoney(pack) }];
+  });
+}
+
 export type UsePricingResult = {
   pricing: TierPricing | null;
+  // Empty until the catalog loads, and empty when no pack is priced — the
+  // shop renders nothing rather than an invented amount.
+  packs: PackOffer[];
   isLoading: boolean;
   isError: boolean;
 };
@@ -196,7 +230,12 @@ export function usePricing(): UsePricingResult {
     [catalog],
   );
 
-  return { pricing, isLoading, isError };
+  const packs = useMemo(
+    () => (catalog ? buildPackOffers(catalog) : []),
+    [catalog],
+  );
+
+  return { pricing, packs, isLoading, isError };
 }
 
 // Test seam: primes (or clears) the shared catalog so component tests render

@@ -114,6 +114,24 @@ const MEANING_SEGMENT_PAUSE_MS = 400;
 /** Zero-XP encores per phrase before the session lets it go (owner-ruled:
  *  every kind of zero counts, nocatch included, so the session always ends). */
 const ZERO_XP_STRIKE_LIMIT = 3;
+
+/**
+ * Confirmation copy for the three audio toggles (silent mode and meaning in
+ * the header, spoken feedback on the result card). State first; the
+ * consequence is spelled out only when turning something ON, since "off"
+ * explains itself.
+ *
+ * Mirrored verbatim on web in
+ * artifacts/gujarati-coach/src/pages/practice.tsx (TOGGLE_TOAST).
+ */
+const TOGGLE_TOAST = {
+  phraseAudioOn: 'Phrase audio on. Bolo reads each phrase first.',
+  phraseAudioOff: 'Phrase audio off. You speak first.',
+  feedbackAloudOn: 'Feedback aloud on. Your score is read out.',
+  feedbackAloudOff: 'Feedback aloud off.',
+  meaningAloudOn: 'Meaning aloud on. English after each phrase.',
+  meaningAloudOff: 'Meaning aloud off.',
+} as const;
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
   great: 'Great',
@@ -640,6 +658,16 @@ export default function PracticeScreen() {
   const [toastMessage, setToastMessage] = React.useState('');
   /** Increment to re-trigger the toast animation. */
   const [toastKey, setToastKey] = React.useState(0);
+  /**
+   * Shows a message in the same pill the session milestones use. A new key
+   * replaces whatever is on screen rather than stacking a second pill, which
+   * matters for the audio toggles: they sit together and get tapped in quick
+   * succession.
+   */
+  const showToast = React.useCallback((message: string) => {
+    setToastMessage(message);
+    setToastKey((k) => k + 1);
+  }, []);
   /** Increment to trigger a one-shot bounce on the mascot. */
   const [celebrateBounceCount, setCelebrateBounceCount] = React.useState(0);
   /** Guards so each mid-session milestone fires at most once per session. */
@@ -840,12 +868,13 @@ export default function PracticeScreen() {
     };
   }, []);
   const toggleSilentModeUI = React.useCallback(() => {
-    setSilentModeUI((prev) => {
-      const next = !prev;
-      void saveSilentMode(next);
-      return next;
-    });
-  }, []);
+    const next = !silentModeUI;
+    setSilentModeUI(next);
+    void saveSilentMode(next);
+    // Confirm the tap in words (web parity, Task 1038): the pill styling alone
+    // never said what just changed.
+    showToast(next ? TOGGLE_TOAST.phraseAudioOff : TOGGLE_TOAST.phraseAudioOn);
+  }, [silentModeUI, showToast]);
 
   // Meaning-aloud preference (web Task 1003 parity): the English meaning is
   // spoken right after each phrase clip. Mirrored in state for the header
@@ -875,13 +904,12 @@ export default function PracticeScreen() {
     };
   }, []);
   const toggleMeaningAudioUI = React.useCallback(() => {
-    setMeaningAudioUI((prev) => {
-      const next = !prev;
-      meaningPrefRef.current = next;
-      void saveMeaningAudio(next);
-      return next;
-    });
-  }, []);
+    const next = !meaningAudioUI;
+    setMeaningAudioUI(next);
+    meaningPrefRef.current = next;
+    void saveMeaningAudio(next);
+    showToast(next ? TOGGLE_TOAST.meaningAloudOn : TOGGLE_TOAST.meaningAloudOff);
+  }, [meaningAudioUI, showToast]);
 
   const stopPlayback = React.useCallback(() => {
     playTokenRef.current += 1;
@@ -931,14 +959,17 @@ export default function PracticeScreen() {
   }, [stopPlayback, stopSelfPlayback]);
 
   const toggleSpokenFeedback = React.useCallback(() => {
-    setSpokenEnabled((enabled) => {
-      const nextEnabled = !enabled;
-      void saveSpokenFeedback(nextEnabled);
-      // Muting mid-readout should silence the coach immediately.
-      if (!nextEnabled) stopPlayback();
-      return nextEnabled;
-    });
-  }, [stopPlayback]);
+    const nextEnabled = !spokenEnabled;
+    setSpokenEnabled(nextEnabled);
+    void saveSpokenFeedback(nextEnabled);
+    // Muting mid-readout should silence the coach immediately.
+    if (!nextEnabled) stopPlayback();
+    showToast(
+      nextEnabled
+        ? TOGGLE_TOAST.feedbackAloudOn
+        : TOGGLE_TOAST.feedbackAloudOff,
+    );
+  }, [spokenEnabled, stopPlayback, showToast]);
 
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every tap sometimes yields a different (wrong) reading from the TTS model.

@@ -115,6 +115,24 @@ const MIN_CLIP_SECONDS = 0.8;
  *  every kind of zero counts, nocatch included, so the session always ends). */
 const ZERO_XP_STRIKE_LIMIT = 3;
 
+/**
+ * Confirmation copy for the three header audio toggles. A tap used to change
+ * only the pill's own styling, which left a learner unsure whether it
+ * registered or what it now does. State first; the consequence is spelled out
+ * only when turning something ON, since "off" explains itself.
+ *
+ * Mirrored verbatim on mobile in
+ * artifacts/bolo-mobile/app/(app)/practice/[id].tsx (TOGGLE_TOAST).
+ */
+const TOGGLE_TOAST = {
+  phraseAudioOn: "Phrase audio on. Bolo reads each phrase first.",
+  phraseAudioOff: "Phrase audio off. You speak first.",
+  feedbackAloudOn: "Feedback aloud on. Your score is read out.",
+  feedbackAloudOff: "Feedback aloud off.",
+  meaningAloudOn: "Meaning aloud on. English after each phrase.",
+  meaningAloudOff: "Meaning aloud off.",
+} as const;
+
 // Maps a pronunciation band to its CSS color (five-band ladder gradient;
 // retry/nocatch keep the pre-five-band destructive fallback).
 function bandCss(band: Band): string {
@@ -2119,7 +2137,17 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             sr-only text keep them fully identifiable. */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
-          onClick={() => changeSilentMode(!silentMode)}
+          onClick={() => {
+            const next = !silentMode;
+            changeSilentMode(next);
+            // Toggles confirm themselves through the same MilestoneToast the
+            // session milestones use, so a tap is never silent (Task 1038).
+            showToast(
+              next
+                ? TOGGLE_TOAST.phraseAudioOff
+                : TOGGLE_TOAST.phraseAudioOn,
+            );
+          }}
           aria-pressed={!silentMode}
           title={
             silentMode
@@ -2145,7 +2173,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         {/* Spoken Feedback toggle — quick-access in the practice header,
             mirrors the mobile result-card mute button for web parity. */}
         <button
-          onClick={() => changeSpokenFeedback(!spokenFeedback)}
+          onClick={() => {
+            const next = !spokenFeedback;
+            changeSpokenFeedback(next);
+            showToast(
+              next
+                ? TOGGLE_TOAST.feedbackAloudOn
+                : TOGGLE_TOAST.feedbackAloudOff,
+            );
+          }}
           aria-pressed={spokenFeedback}
           title={
             spokenFeedback
@@ -2173,7 +2209,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             only. Read fresh at play time, so a flip applies to the very next
             play (Task 1003). */}
         <button
-          onClick={() => changeMeaningAudio(!meaningAudio)}
+          onClick={() => {
+            const next = !meaningAudio;
+            changeMeaningAudio(next);
+            showToast(
+              next
+                ? TOGGLE_TOAST.meaningAloudOn
+                : TOGGLE_TOAST.meaningAloudOff,
+            );
+          }}
           aria-pressed={meaningAudio}
           disabled={!coachVoiceRef.current}
           title={

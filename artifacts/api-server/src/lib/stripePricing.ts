@@ -22,6 +22,14 @@ export function intervalFromStripeRecurring(
   return recurring === "year" ? "annual" : "monthly";
 }
 
+// One-time Chai packs (web only). Same env-configured shape as the
+// subscription prices: `scripts/seedStripeProducts.ts` creates the products and
+// prints the ids to set. An unconfigured pack simply cannot be checked out.
+export function getChaiPackPriceId(packId: string): string | null {
+  const key = `STRIPE_CHAI_PACK_${packId.toUpperCase()}_PRICE_ID`;
+  return process.env[key]?.trim() || null;
+}
+
 // The Family plan (up to 4 people) — monthly or annual, like Plus.
 export function getFamilyPriceId(interval: PlusInterval): string | null {
   const key =

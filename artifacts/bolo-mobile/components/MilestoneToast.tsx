@@ -85,6 +85,7 @@ export function MilestoneToast({
       pointerEvents="none"
       entering={entering}
       exiting={exiting}
+      testID="milestone-toast"
       style={[styles.pill, { backgroundColor }]}
     >
       <Text style={[styles.text, { color }]}>{message}</Text>

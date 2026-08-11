@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -118,8 +118,11 @@ vi.mock("@workspace/api-client-react", async () => ({
   getGetTokensQueryKey: () => ["tokens"],
 }));
 
-// Imported after the mocks are declared.
+// Imported after the mocks are declared. ApiError is the real class: the
+// shared mock passes non-hook exports straight through, so `instanceof`
+// inside the refusal-copy mapper behaves exactly as it does at runtime.
 import Home from "@/pages/home";
+import { ApiError } from "@workspace/api-client-react";
 
 function renderHome(): ReturnType<typeof render> {
   const { hook } = memoryLocation({ path: "/app", record: true });
@@ -239,6 +242,87 @@ describe("contextual streak repair offer (Ruling 2)", () => {
     );
     // ...but no placeholder and no zero beside a real spend button.
     expect(screen.queryByTestId("home-repair-balance")).toBeNull();
+  });
+
+  // A refusal used to read "Couldn't mend right now. Open the Chai wallet to
+  // try again." for every cause, which sent a learner with empty pockets to
+  // the wallet to be refused a second time. The server already names the
+  // cause; the banner now says it.
+  describe("refusals name the cause", () => {
+    /** A 409 from POST /tokens/repair-streak, as the client would throw it. */
+    function refusal(body: Record<string, unknown>) {
+      return new ApiError(
+        new Response(null, { status: 409, statusText: "Conflict" }),
+        body,
+        { method: "POST", url: "/api/tokens/repair-streak" },
+      );
+    }
+
+    function failWith(error: unknown) {
+      h.repairOffer = OFFER_THURSDAY;
+      renderHome();
+      act(() => {
+        (h.repairHandlers?.onError as (e: unknown) => void)(error);
+      });
+    }
+
+    test("empty pockets: names the gap and points at practice, not the wallet", () => {
+      failWith(refusal({ error: "insufficient_tokens", balance: 3, cost: 25 }));
+      expect(
+        screen.getByText(
+          "Not enough Chai to mend. You have 3, mending costs 25. Keep practicing to earn more.",
+        ),
+      ).toBeInTheDocument();
+      // Never a dead end into the wallet, and never a Plus paywall.
+      expect(screen.queryByText(/Chai wallet/)).toBeNull();
+    });
+
+    test("the window has closed: says so instead of inviting a retry", () => {
+      failWith(refusal({ error: "repair_window_expired" }));
+      expect(
+        screen.getByText(
+          "That day has slipped too far back to mend. Today starts the next one.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    test("a break, not a missed day: says so", () => {
+      failWith(refusal({ error: "break_too_long" }));
+      expect(
+        screen.getByText(
+          "That was a proper break, not a missed day. Today starts the next one.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    test("an unrecognised failure keeps the honest generic line", () => {
+      failWith(new Error("network down"));
+      expect(
+        screen.getByText("That repair did not go through. Try again in a moment."),
+      ).toBeInTheDocument();
+    });
+
+    test("the notice expires and hands the Mend button back", () => {
+      vi.useFakeTimers();
+      try {
+        h.repairOffer = OFFER_THURSDAY;
+        renderHome();
+        act(() => {
+          (h.repairHandlers?.onError as (e: unknown) => void)(
+            refusal({ error: "insufficient_tokens", balance: 3, cost: 25 }),
+          );
+        });
+        // The notice replaces the offer row, so the button is gone while it is up.
+        expect(screen.queryByTestId("home-repair-streak")).toBeNull();
+        act(() => {
+          vi.advanceTimersByTime(4000);
+        });
+        // Earning the shortfall has to lead somewhere: the offer comes back.
+        expect(screen.getByTestId("home-repair-streak")).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
 

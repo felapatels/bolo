@@ -1,12 +1,14 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
+import { ChaiPurchaseReturn } from "@/components/chai-packs";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens, useGetStreakRepair, useRepairStreak, getGetStreakRepairQueryKey, getGetTokensQueryKey } from "@workspace/api-client-react";
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
+import { repairErrorMessage } from "@/lib/chai-errors";
 import { preloadTearAudio, playTearSfx } from "@/lib/tearAudio";
 import { loadSoundPref } from "@/lib/soundPref";
 import { blessAudioPlayback } from "@/lib/iosAudio";
@@ -221,6 +223,7 @@ function missedDayLabel(day: string | null | undefined): string {
  * reproach. Not dismissible: the 2-day eligibility window is its natural
  * expiry, and a dismissed offer + forgotten repair = permanent loss.
  */
+// Mounted alongside the streak-repair banner below; see components/chai-packs.
 function HomeStreakRepairBanner({ balance }: { balance?: number }) {
   const queryClient = useQueryClient();
   const offerQuery = useGetStreakRepair();
@@ -234,10 +237,11 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
           `${missedDayLabel(result.repairedDay)} is covered. Your ${result.restoredStreakDays}-day streak rides on.`,
         );
       },
-      onError: () => {
-        setNotice(
-          "Couldn't mend right now. Open the Chai wallet to try again.",
-        );
+      onError: (error: unknown) => {
+        // The server says WHY it refused (empty pockets, window gone, break
+        // too long); say that, rather than sending the learner to the wallet
+        // to meet the same refusal a second time.
+        setNotice(repairErrorMessage(error));
       },
       onSettled: () => {
         queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
@@ -248,6 +252,15 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
       },
     },
   });
+
+  // The notice replaces the offer row while it is up, so it has to expire:
+  // a refusal the learner can still act on (empty pockets today, full pockets
+  // tomorrow) must hand the Mend button back. Mobile does the same, 4s.
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
 
   if (!offer?.eligible || !offer.missedDay) return null;
 
@@ -818,6 +831,10 @@ export default function Home() {
           open the app and notice the streak is gone. Absent entirely when
           nothing is repairable — see HomeStreakRepairBanner. */}
       <HomeStreakRepairBanner balance={tokensQuery.data?.balance} />
+
+      {/* Return leg from a Stripe Chai-pack purchase (?chai=success|cancel).
+          Absent unless we just came back from checkout. */}
+      <ChaiPurchaseReturn />
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-3">
