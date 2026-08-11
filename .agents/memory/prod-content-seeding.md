@@ -1,9 +1,0 @@
----
-name: Production content seeding
-description: How language/phrase content reaches the production DB (startup seeding), and the esbuild bundling pitfall with runtime file reads.
----
-Rule: Publish syncs *schema* only — content tables (languages/categories/lessons/phrases) stay empty in a fresh prod DB unless the app seeds them. The api-server runs the idempotent seeder at startup behind a blocking `pg_advisory_lock` taken on ONE dedicated pool client (session-scoped; pooled db.execute may lock/unlock on different connections).
-**Why:** Prod launched with 0 languages → empty language dropdown for a paying user; seeder had only ever run in dev.
-**How to apply:** Content data lives in committed JSON, statically imported (NOT fs.readFile relative to import.meta.url — the server ships as an esbuild bundle where such reads silently miss and the seeder degraded to Gujarati-only). Losers of the lock wait then re-run the cheap idempotent seed, so no instance serves before content exists.
-
-**Startup pipeline vs autoscale promote (resolved July 29, 2026):** the pipeline (seed + backfills) originally ran BEFORE `listen`; the C1 16-language rollout seed exceeded the deployer's ~60 s port-open window in prod (no port opens, every probe 500s, publish fails at promote — deployer logs `not all artifact ports opened within timeout`). Fix: listen-first startup — the port opens immediately, the pipeline runs after, in the SAME order (seed → scoring backfill → scope triggers → group backfill; order is load-bearing), and a pipeline failure still `process.exit(1)`s. The startup probe (`/api/healthz`) must stay auth-free and content-free. Trade-off accepted: a request during the first-boot window can see not-yet-topped-up content or race the group backfill (advisory locks + unique index bound this to self-healing NULL-group inserts). Never reintroduce blocking pre-listen work that scales with content size.

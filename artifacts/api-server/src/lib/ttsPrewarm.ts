@@ -10,6 +10,7 @@ import {
   BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
 } from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
+import { synthesizeVerifiedPhraseAudio } from "./phraseAudioSynthesis";
 import { logger } from "./logger";
 import {
   greetingAudioCacheKey,
@@ -55,11 +56,13 @@ function charBudget(): number {
 type PhraseWithLanguageName = {
   id: number;
   nativeScript: string;
+  romanized: string;
   languageCode: string;
   premium: boolean;
   languageName: string;    // display name, e.g. "Gujarati" — matches what clients send
   elevenLabsVoiceId: string; // resolved per-language voice ID for synthesis + cache key
   languageId: string | undefined; // ElevenLabs language_id for phoneme selection, or undefined
+  speechCapability: "supported" | "degraded" | "unsupported" | null;
 };
 
 /**
@@ -75,6 +78,7 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       columns: {
         id: true,
         nativeScript: true,
+        romanized: true,
         languageCode: true,
         premium: true,
         difficulty: true,
@@ -82,11 +86,12 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       },
     }),
     db.query.languagesTable.findMany({
-      columns: { code: true, name: true },
+      columns: { code: true, name: true, speechCapability: true },
     }),
   ]);
 
   const nameByCode = new Map(languages.map((l) => [l.code, l.name]));
+  const capabilityByCode = new Map(languages.map((l) => [l.code, l.speechCapability]));
 
   const rank = (p: (typeof phrases)[number]): number =>
     // 0: Hindi starter, 1: Hindi Plus, 2: everything else.
@@ -105,11 +110,19 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
     .map((p) => ({
       id: p.id,
       nativeScript: p.nativeScript,
+      // Carried so the verifier can compare a take against the phrase's own
+      // authored romanization rather than re-transliterating the native text.
+      romanized: p.romanized,
       languageCode: p.languageCode,
       premium: p.premium,
       // Fall back to empty string if for some reason the language row is missing;
       // that matches how the route behaves when languageName is omitted.
       languageName: nameByCode.get(p.languageCode) ?? "",
+      // Languages the recognizer cannot hear skip verification entirely — a
+      // failing verdict there would only burn retries on good audio.
+      speechCapability:
+        (capabilityByCode.get(p.languageCode) as PhraseWithLanguageName["speechCapability"]) ??
+        null,
       // Resolve the per-language ElevenLabs voice ID so both the cache key and
       // the synthesis call use the same voice — matching what /openai/tts does
       // at runtime when a client passes languageCode.
@@ -255,37 +268,37 @@ export function scheduleTtsPrewarm(): void {
           }
 
           try {
-            let buffer: Buffer;
-            if (TTS_PROVIDER === "gpt-4o-mini-tts") {
-              const response = await openai.audio.speech.create({
-                model: "gpt-4o-mini-tts",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                voice: identity.voice as any,
-                input: phrase.nativeScript,
-                response_format: "mp3",
-              });
-              buffer = Buffer.from(await response.arrayBuffer());
-            } else if (TTS_PROVIDER === "elevenlabs") {
-              // Use resolver-derived voice so synthesis and cache key are consistent.
-              buffer = await textToSpeechElevenLabs(
-                phrase.nativeScript,
-                identity.voice,
-                phrase.languageName || undefined,
-                undefined,
-                phrase.languageId,
-              );
-            } else {
-              // gpt-audio (default)
-              buffer = await textToSpeech(
-                phrase.nativeScript,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                identity.voice as any,
-                "mp3",
-                phrase.languageName || undefined,
+            // Nothing enters the cache unheard: synthesis retries a take that
+            // demonstrably drops part of the phrase. Pre-warm is the right
+            // place to spend that time — no learner is waiting on it.
+            const { audio, verdict, takes } = await synthesizeVerifiedPhraseAudio({
+              nativeScript: phrase.nativeScript,
+              romanized: phrase.romanized,
+              languageCode: phrase.languageCode,
+              languageName: phrase.languageName,
+              speechCapability: phrase.speechCapability,
+              identity,
+              elevenLabsLanguageId: phrase.languageId,
+            });
+
+            if (!verdict.ok) {
+              // Every take fell short. Cache the best one anyway — audio a
+              // learner can hear beats silence — but leave a trail so the
+              // audit can pick the phrase up.
+              logger.warn(
+                {
+                  phraseId: phrase.id,
+                  language: phrase.languageCode,
+                  status: verdict.status,
+                  coverage: verdict.coverage,
+                  heard: verdict.heard,
+                  takes,
+                },
+                "TTS pre-warm: caching an unverified take after exhausting retries",
               );
             }
 
-            const audioBase64 = buffer.toString("base64");
+            const audioBase64 = audio.toString("base64");
 
             await db
               .insert(ttsCacheTable)

@@ -16,6 +16,7 @@ import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
 import outfitsRouter from "./outfits";
 import gamesRouter, { gamesPublicRouter } from "./games";
+import ttsAuditRouter from "./ttsAudit";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -38,6 +39,11 @@ router.use(revenuecatRouter);
 // Cron/internal endpoints that must be reachable without a user session.
 // Each route inside validates its own X-Cron-Secret header.
 router.use(gamesPublicRouter);
+
+// Operator-driven sweep of the cached phrase audio. Public section because the
+// operator driving it has no user session; the route validates its own
+// X-Audit-Secret header and fails closed when the secret is unset.
+router.use(ttsAuditRouter);
 
 // Everything below requires an authenticated user. loadEntitlements resolves the
 // caller's effective plan onto the request so every gated route reads it from a

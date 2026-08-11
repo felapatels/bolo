@@ -304,3 +304,37 @@ test("one empty pass resolves as a system miss (nocatch), never a score", async 
   assert.equal(claims!.sttTranscriptMini, "");
   assert.equal(claims!.sttTranscriptHq, "namaste");
 });
+
+test("recognizer drift to a foreign script: nocatch withholds the transcript from the learner, the token keeps it", async () => {
+  // Field report (Aug 10, 2026): a Gujarati attempt came back transcribed in
+  // Russian Cyrillic. The transcribe model treats the `language` option as a
+  // soft hint and can drift on short clips, so the script-mismatch guard
+  // correctly resolved it to nocatch — but the card still printed
+  // We heard: "вучит крашна" beside copy saying the listener glitched.
+  // The drifted text must not reach the client; the evidence must survive on
+  // the signed token (and from there the attempt row and the diagnostics).
+  const drifted = "вучит крашна";
+  stubbedTranscript = drifted; // both passes agree on the drifted reading
+  sttQueue = [];
+  sttCallCount = 0;
+  llmCallCount = 0;
+
+  const { status, json } = await postPronunciation("જય શ્રી કૃષ્ણ", "jay shri krishna");
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(json.band, "nocatch", "a script the target can't be compared against is a system miss");
+  assert.equal(json.score, 0);
+  assert.equal(json.xpAwarded, 0);
+  assert.equal(
+    json.transcript,
+    "",
+    'the "We heard" line must not quote a script the learner never spoke',
+  );
+  assert.equal(json.transcriptRomanized, "");
+
+  const claims = verifyEvaluation(json.evaluationToken);
+  assert.ok(claims, "evaluation token must verify");
+  assert.equal(claims!.transcript, drifted, "the drifted transcript is evidence and must survive on the token");
+  assert.equal(claims!.sttTranscriptMini, drifted);
+  assert.equal(claims!.sttTranscriptHq, drifted);
+});

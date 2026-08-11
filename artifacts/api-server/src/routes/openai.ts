@@ -41,6 +41,7 @@ import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
 import { getPendingFeedbackSynthesis, prewarmFeedbackTts } from "../lib/feedbackTts";
+import { verifyServedTakeInBackground } from "../lib/ttsCacheAudit";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
 import {
   USE_ELEVENLABS_TTS,
@@ -448,6 +449,18 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         .values({ cacheKey, audioBase64, format: "mp3" })
         .onConflictDoNothing()
         .execute()
+        // Verification runs only after the row exists, so a take that turns
+        // out to have dropped part of the phrase can actually be removed
+        // rather than racing its own insert.
+        .then(() =>
+          verifyServedTakeInBackground({
+            cacheKey,
+            audio: buffer,
+            text,
+            languageCode,
+            log: req.log,
+          }),
+        )
         .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
       req.log.info(
         {
@@ -486,6 +499,17 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         .values({ cacheKey, audioBase64, format: "mp3" })
         .onConflictDoNothing()
         .execute()
+        // Same reasoning as the gpt-audio branch: listen to the take we just
+        // served, and drop the row if it does not speak the phrase.
+        .then(() =>
+          verifyServedTakeInBackground({
+            cacheKey,
+            audio: buffer,
+            text,
+            languageCode,
+            log: req.log,
+          }),
+        )
         .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
       req.log.info(
         {
@@ -556,6 +580,17 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       .values({ cacheKey, audioBase64, format: "mp3" })
       .onConflictDoNothing()
       .execute()
+      .then(() =>
+        // Listen to what was just cached: ElevenLabs drops words too, and a
+        // cached take is served forever.
+        verifyServedTakeInBackground({
+          cacheKey,
+          audio: buffer,
+          text,
+          languageCode,
+          log: req.log,
+        }),
+      )
       .catch((err) => req.log.warn({ err }, "TTS cache write failed"));
 
     // Throttled, fire-and-forget quota visibility: logs remaining ElevenLabs
@@ -1277,7 +1312,18 @@ router.post(
         // Task 903: eval-time fire-and-forget feedback-voice synthesis.
         prewarmFeedbackTts(feedback, glitchTip, req.log);
         res.json({
-          transcript,
+          // A transcript in a script the target can't be compared against is
+          // withheld from the client for the same reason its romanization is:
+          // the recognizer drifted (the observed case is the mini pass writing
+          // Russian Cyrillic for a Gujarati phrase), so quoting
+          // We heard: "вучит крашна" under copy that says the listener glitched
+          // reads as the app mishearing the learner in a language they never
+          // spoke. The other nocatch cause — guard 1b, a LATIN transcript whose
+          // romanized similarity is too low to verify — stays visible: it is
+          // readable to the learner and may well be what they actually said.
+          // Either way the real transcript rides the signed token, the attempt
+          // row and the nocatch diagnostics, so no evidence is lost.
+          transcript: targetSim.comparable ? transcript : "",
           // nocatch paths carry no romanized form by design: the recognizer
           // glitched, so a transliteration of that transcript is noise.
           transcriptRomanized: "",
