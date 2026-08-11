@@ -218,9 +218,11 @@ describe("unsupported language: ear-training mode", () => {
       expect(screen.getByRole("button", { name: /Hear yourself/i })).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: /^Hear the phrase$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Practice again/i })).toBeInTheDocument();
-    // Anchored: the task 973 nav control "Go to next phrase" must not match.
-    expect(screen.getByRole("button", { name: /^Next( phrase)?$/i })).toBeInTheDocument();
+    // The same constant two-slot row as every other outcome (Task #1040),
+    // and ungated here: ear-training never produces a band to earn with.
+    expect(screen.getByTestId("try-again-button")).toHaveAccessibleName("Try again");
+    expect(screen.getByTestId("advance-button")).toHaveAccessibleName("Next phrase");
+    expect(screen.getByTestId("advance-button")).toBeEnabled();
 
     // Critically: no pronunciation evaluation was ever requested, and no
     // scored band verdict is shown.
@@ -289,8 +291,8 @@ describe("degraded language: one-time approximate-feedback notice", () => {
     await holdAndRelease();
 
     await waitFor(() => expect(h.evaluate).toHaveBeenCalledTimes(1));
-    // Mock band is "retry", so the flipped CTA layout renders "Try again".
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    // The result card is up, with its constant two-slot action row.
+    expect(screen.getByTestId("try-again-button")).toHaveAccessibleName("Try again");
   });
 });
 
@@ -305,7 +307,7 @@ describe("supported language: unchanged scored practice", () => {
 
     await holdAndRelease();
     await waitFor(() => expect(h.evaluate).toHaveBeenCalledTimes(1));
-    // Mock band is "retry", so the flipped CTA layout renders "Try again".
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    // The result card is up, with its constant two-slot action row.
+    expect(screen.getByTestId("try-again-button")).toHaveAccessibleName("Try again");
   });
 });

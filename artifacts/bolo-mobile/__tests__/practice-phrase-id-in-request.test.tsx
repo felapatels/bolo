@@ -354,7 +354,7 @@ describe('practice pronunciation request includes phraseId', () => {
   });
 
   test('phraseId is preserved on the second evaluate call after pressing "Try again"', async () => {
-    // Regression path: the rotate-ccw "Try again" button resets phase back to
+    // Regression path: the "Try again" button resets phase back to
     // idle without changing the phrase index. If currentPhrase were re-derived
     // incorrectly (e.g. reset to undefined or to a stale value) after the
     // retry, the re-recorded attempt would carry the wrong phraseId and Whisper
@@ -386,7 +386,7 @@ describe('practice pronunciation request includes phraseId', () => {
 
     // ── Tap "Try again" ───────────────────────────────────────────────────
     await act(async () => {
-      fireEvent.press(screen.getByTestId('retry-button'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
 
     // ── Attempt 2: record → result ────────────────────────────────────────

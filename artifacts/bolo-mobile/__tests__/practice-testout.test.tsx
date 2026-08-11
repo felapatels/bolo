@@ -310,8 +310,13 @@ describe('test-out run mechanics', () => {
     render(<PracticeScreen />);
     await recordCurrentPhrase();
     expect(mockState.createAttempt).not.toHaveBeenCalled();
+    // One take per phrase is a server-side batch rule, so the retry slot is
+    // inactive — but it still sits in its usual place (Task #1040): the row
+    // never collapses to a single full-width button.
     expect(screen.queryByTestId('retry-button')).toBeNull();
-    expect(screen.queryByTestId('try-again-button')).toBeNull();
+    expect(screen.getByTestId('try-again-button')).toBeDisabled();
+    // Test-out advancing is ungated: one go, then on you move.
+    expect(screen.getByTestId('advance-button')).not.toBeDisabled();
     expect(screen.getByText('Next phrase')).toBeOnTheScreen();
   });
 
@@ -340,8 +345,11 @@ describe('test-out run mechanics', () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
     await waitFor(() => expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen());
-    expect(screen.queryByTestId('try-again-button')).toBeNull();
+    // Even on a weak band there is no second take in test-out, and the
+    // advance stays ungated so nobody is stranded mid-run.
+    expect(screen.getByTestId('try-again-button')).toBeDisabled();
     expect(screen.queryByTestId('retry-button')).toBeNull();
+    expect(screen.getByTestId('advance-button')).not.toBeDisabled();
     expect(screen.getByText('Next phrase')).toBeOnTheScreen();
   });
 });

@@ -202,6 +202,23 @@ async function waitForRecordReady() {
 }
 
 /** Perform one full hold-record → release → wait-for-result cycle. */
+/**
+ * Move on to the next phrase. A weak take does not open the advance gate
+ * (Task #1040), so fall back to the deliberately ungated phrase-strip
+ * chevron rather than taking extra goes — extra goes would consume the
+ * queued evaluation results these streak scenarios depend on.
+ */
+async function goToNextPhrase() {
+  const advance = screen.getByTestId('advance-button');
+  const gateShut = Boolean(
+    advance.props.accessibilityState?.disabled ?? advance.props.disabled,
+  );
+  const target = gateShut ? screen.getByTestId('button-next-phrase') : advance;
+  await act(async () => {
+    fireEvent.press(target);
+  });
+}
+
 async function recordOnce(resultLabel: string | RegExp = /Nice work!|Good try, keep going!|Amazing!/) {
   await waitForRecordReady();
   await act(async () => {
@@ -281,9 +298,7 @@ describe('hot-streak toasts', () => {
     for (let i = 0; i < 3; i++) {
       const label = i === 1 ? 'Good try, keep going!' : 'Amazing!';
       await recordOnce(label);
-      await act(async () => {
-        fireEvent.press(screen.getByText('Next phrase'));
-      });
+      await goToNextPhrase();
     }
     // Phrase 4: streak=2, no three-in-a-row toast.
     await recordOnce('Amazing!');
@@ -388,18 +403,20 @@ describe('session summary XP chip', () => {
 
     // A zero-XP phrase comes back for an encore, so the only way to the
     // summary is to burn all three strikes on it (see
-    // practice-zero-xp-encore for the rule itself).
+    // practice-zero-xp-encore for the rule itself). Weak takes also keep the
+    // advance gate shut (Task #1040), so those goes are taken via "Try again"
+    // until the third one opens it.
     await recordOnce('Good try, keep going!');
     await act(async () => {
-      fireEvent.press(screen.getByText('Next phrase'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     await recordOnce('Good try, keep going!');
     await act(async () => {
-      fireEvent.press(screen.getByText('Next phrase'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     await recordOnce('Good try, keep going!');
     await act(async () => {
-      fireEvent.press(screen.getByText('Finish'));
+      fireEvent.press(screen.getByTestId('advance-button'));
     });
 
     await waitFor(() =>

@@ -183,10 +183,19 @@ async function scoreOnce(band: Band = "great", xpAwarded = 10) {
   await waitFor(() => expect(screen.getByText(bandLabel(band))).toBeInTheDocument(), WT);
 }
 
-/** Score a phrase and advance to the next one. */
+/**
+ * Score a phrase and advance to the next one. A take below "good" does not
+ * open the advance gate (Task #1040), so take the extra goes a learner would
+ * have to take before the forward slot goes live.
+ */
 async function scoreAndNext(band: Band = "great", xpAwarded = 10) {
   await scoreOnce(band, xpAwarded);
-  fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+  while ((screen.getByTestId("advance-button") as HTMLButtonElement).disabled) {
+    fireEvent.click(screen.getByTestId("try-again-button"));
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
+    await scoreOnce(band, xpAwarded);
+  }
+  fireEvent.click(screen.getByTestId("advance-button"));
   await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
 }
 
@@ -291,7 +300,7 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("great"); // index 0 → 1
     await scoreOnce("great");    // index 1 — next click will go to index 2
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
     await waitFor(
       () => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(),
       WT,
@@ -304,7 +313,7 @@ describe("mid-session toasts", () => {
     await scoreAndNext("great"); // → index 1
     await scoreAndNext("great"); // → index 2
     await scoreOnce("great");    // index 2 — next click will go to index 3 (last)
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
     await waitFor(
       () => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(),
       WT,
@@ -316,11 +325,11 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("great"); // → 1
     await scoreOnce("great");
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, halfway toast
+    fireEvent.click(screen.getByTestId("advance-button")); // → 2, halfway toast
     await waitFor(() => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(), WT);
 
     await scoreOnce("great");
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 3, last toast
+    fireEvent.click(screen.getByTestId("advance-button")); // → 3, last toast
     await waitFor(() => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(), WT);
 
     expect(screen.queryAllByText("Halfway there! 💪").length).toBeLessThanOrEqual(1);
@@ -332,7 +341,7 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("great"); // → 1
     await scoreOnce("great");
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ })); // → 2, no halfway toast
+    fireEvent.click(screen.getByTestId("advance-button")); // → 2, no halfway toast
 
     await new Promise((r) => setTimeout(r, 150));
     expect(screen.queryByText("Halfway there! 💪")).toBeNull();
@@ -378,7 +387,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("great", 8);
     await scoreOnce("great", 8);
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText(/\+16 XP earned/i)).toBeInTheDocument(),
@@ -392,7 +401,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("great", 10);
     await scoreOnce("good", 5);
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText(/\+15 XP earned/i)).toBeInTheDocument(),
@@ -405,7 +414,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("great");
     await scoreOnce("great");
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText("PERFECT SESSION! 🏆")).toBeInTheDocument(),
@@ -419,7 +428,7 @@ describe("session summary XP chip", () => {
 
     await scoreAndNext("great");
     await scoreOnce("good", 5);
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText("Session Complete!")).toBeInTheDocument(),
@@ -443,7 +452,7 @@ describe("session Chai receipt pill", () => {
 
     await scoreAndNext("great", 8);
     await scoreOnce("great", 8);
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText(/\+2 Chai earned/i)).toBeInTheDocument(),
@@ -458,7 +467,7 @@ describe("session Chai receipt pill", () => {
 
     await scoreAndNext("great", 8);
     await scoreOnce("great", 8);
-    fireEvent.click(screen.getByRole("button", { name: /^Next( phrase)?$/ }));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     await waitFor(
       () => expect(screen.getByText(/\+16 XP earned/i)).toBeInTheDocument(),

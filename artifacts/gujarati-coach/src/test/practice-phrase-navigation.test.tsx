@@ -168,11 +168,9 @@ async function attemptCurrentPhrase() {
     );
   });
   await waitFor(() =>
-    expect(
-      // "Try again" is the retry-band card's primary; other bands show the
-      // quieter "Retry" instead. Either one means the result card is up.
-      screen.getByRole("button", { name: /^(Try again|Retry)$/ }),
-    ).toBeInTheDocument(),
+    // The result card is up when its constant two-slot action row is (the
+    // band ladder also renders the words "Try again", so go by testID).
+    expect(screen.getByTestId("result-actions")).toBeInTheDocument(),
   );
 }
 
@@ -271,7 +269,7 @@ describe("practice manual prev/next navigation (task 973)", () => {
     await attemptCurrentPhrase();
     fireEvent.click(nextBtn());
     await expectOnPhrase("phrase-2", "2/2");
-    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("result-actions")).not.toBeInTheDocument();
 
     // Wander back and forth; nothing recorded, nothing lost.
     fireEvent.click(prevBtn());
@@ -283,9 +281,9 @@ describe("practice manual prev/next navigation (task 973)", () => {
     // BOTH results are still there, so phrase 1's attempt survived the
     // detour (sessionResults is keyed by phrase id, not visit order).
     await attemptCurrentPhrase();
-    // Scoring attempts get the plain "Next" primary (the "Next phrase"
-    // secondary only appears on retry-band cards).
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // The advance slot is always the right-hand button, always labelled
+    // "Next phrase"/"Finish" (Task #1040).
+    fireEvent.click(screen.getByTestId("advance-button"));
     await waitFor(() =>
       expect(screen.getByText("You practiced 2 phrases.")).toBeInTheDocument(),
     );

@@ -298,9 +298,10 @@ describe('scoring failure handling', () => {
       screen.getByText('Something went wrong while scoring. Please try again.'),
     ).toBeOnTheScreen();
 
-    // Retry returns to the mic, ready to record again.
+    // The recovery action is the constant left slot now, reading "Try again"
+    // like every other outcome (Task #1040), and it returns to the mic.
     await act(async () => {
-      fireEvent.press(screen.getByText('Record again'));
+      fireEvent.press(screen.getByTestId('try-again-button'));
     });
     expect(screen.getByTestId('record-button')).toBeOnTheScreen();
     expect(screen.queryByTestId('eval-error-card')).not.toBeOnTheScreen();

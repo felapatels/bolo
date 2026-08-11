@@ -125,6 +125,9 @@ const phraseB = { id: 11, nativeScript: "આભાર", romanized: "aabhar", eng
 
 const ZERO = { xp: 0, band: "retry" };
 const EARNED = { xp: 6, band: "good" };
+// Half credit: earns XP (so it settles the encore debt) but stays below
+// "good", so it never opens the advance gate on its own (Task #1040).
+const HALF = { xp: 3, band: "almost" };
 
 beforeEach(() => {
   h.silentMode = true;
@@ -168,10 +171,9 @@ async function holdAndRelease() {
   });
 }
 
-/** The forward button: "Next phrase" on a retry card, "Next" otherwise. */
+/** The forward slot — always the right-hand button, "Finish" at the end. */
 function forwardButton(): HTMLButtonElement | null {
-  return (screen.queryByRole("button", { name: "Next phrase" }) ??
-    screen.queryByRole("button", { name: "Next" })) as HTMLButtonElement | null;
+  return screen.queryByTestId("advance-button") as HTMLButtonElement | null;
 }
 
 /** One full attempt on whatever phrase is showing, landing on the result card. */
@@ -183,7 +185,23 @@ async function attempt() {
   await waitFor(() => expect(forwardButton()).not.toBeNull());
 }
 
+/**
+ * Another go at the SAME phrase. The advance gate (Task #1040) keeps the
+ * forward slot shut until a good take or a third go, so a phrase that only
+ * ever earns nothing is worked through here rather than walked past.
+ */
+async function retryAndAttempt() {
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("try-again-button"));
+  });
+  await waitFor(() =>
+    expect(screen.queryByTestId("result-actions")).not.toBeInTheDocument(),
+  );
+  await attempt();
+}
+
 async function goForward() {
+  expect(forwardButton()).toBeEnabled();
   await act(async () => {
     fireEvent.click(forwardButton()!);
   });
@@ -191,12 +209,20 @@ async function goForward() {
 
 describe("zero-XP encore", () => {
   test("a phrase that earned nothing comes back after the last phrase", async () => {
-    h.plan = [ZERO, EARNED]; // A earns nothing, B earns XP
+    // A: nothing, then half credit (settles the debt), then nothing again —
+    // three goes, so the advance gate is open when the learner moves on and
+    // A leaves the phrase queued on 2 strikes. B earns XP.
+    h.plan = [ZERO, HALF, ZERO, EARNED];
     renderPage(<Practice />);
 
     await attempt();
     // The card says what is about to happen — the learner should not be
     // surprised when the phrase reappears.
+    expect(screen.getByTestId("encore-note")).toHaveTextContent(
+      "No XP yet, so this one comes back at the end of the session.",
+    );
+    await retryAndAttempt(); // half credit clears the queue for now
+    await retryAndAttempt(); // and back into it
     expect(screen.getByTestId("encore-note")).toHaveTextContent(
       "No XP yet, so this one comes back at the end of the session.",
     );
@@ -215,10 +241,13 @@ describe("zero-XP encore", () => {
   });
 
   test("earning anything on the encore settles it and ends the session", async () => {
-    h.plan = [ZERO, EARNED, EARNED]; // A zero, B earns, A earns on its second go
+    // A leaves queued after three goes, B earns, A earns on its return visit.
+    h.plan = [ZERO, HALF, ZERO, EARNED, EARNED];
     renderPage(<Practice />);
 
     await attempt();
+    await retryAndAttempt();
+    await retryAndAttempt();
     await goForward();
     await attempt();
     await goForward();
@@ -232,27 +261,31 @@ describe("zero-XP encore", () => {
   });
 
   test("three zeros of any kind release the phrase", async () => {
-    // A: zero, zero (encore), nocatch (encore) — the third zero is a system
-    // miss, which the owner ruled still burns a strike.
-    h.plan = [ZERO, EARNED, ZERO, { xp: 0, band: "nocatch" }];
+    // A: zero, half, zero, then nocatch on the encore — the third zero is a
+    // system miss, which the owner ruled still burns a strike.
+    h.plan = [ZERO, HALF, ZERO, EARNED, { xp: 0, band: "nocatch" }];
     renderPage(<Practice />);
 
     await attempt(); // A, strike 1
+    await retryAndAttempt(); // A, half credit
+    await retryAndAttempt(); // A, strike 2
+    expect(screen.getByTestId("encore-note")).toHaveTextContent("comes back at the end");
     await goForward();
     await attempt(); // B, earns
     await goForward();
 
+    // The return visit.
     await waitFor(() => expect(screen.getByTestId("encore-chip")).toBeInTheDocument());
-    await attempt(); // A, strike 2
-    expect(screen.getByTestId("encore-note")).toHaveTextContent("comes back at the end");
-    await goForward();
-
-    // Third and final visit.
     await waitFor(() => expect(screen.getByText("namaste")).toBeInTheDocument());
     await attempt(); // A, strike 3 (nocatch)
     expect(screen.getByTestId("encore-note")).toHaveTextContent(
       "That's three goes — we'll leave this one for next time.",
     );
+    // Encore carry-over (Task #1040): the phrase comes back with its attempt
+    // count, so the advance is live on the first take of the return visit
+    // even though this one scored nothing. Re-shutting the gate on a phrase
+    // that has already cost three goes is exactly the trap it exists to stop.
+    expect(screen.getByTestId("advance-button")).toBeEnabled();
     await goForward();
 
     // Released: the session ends instead of asking a fourth time.

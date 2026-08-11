@@ -12,6 +12,7 @@ import {
   fireEvent,
   waitFor,
   act,
+  within,
 } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -232,5 +233,98 @@ describe('review screen: phrase card romanized guard (#914, Build 34A)', () => {
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
     expect(screen.queryByTestId('review-phrase-romanized')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task #1040: review runs the same constant two-slot action row as practice —
+// same order, same labels, same soft advance gate. Review was left out of the
+// original web-only fix, which is how the platforms drifted in the first
+// place.
+// ---------------------------------------------------------------------------
+
+/** The action row's slots, in render order (RNTL has no DOM-order primitive). */
+function slotOrder(): string[] {
+  return within(screen.getByTestId('result-actions'))
+    .getAllByTestId(/-button$/)
+    .map((node) => node.props.testID as string);
+}
+
+/** Record one take on the phrase already on screen. */
+async function recordOnce() {
+  await waitFor(() =>
+    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+  );
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressIn');
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+  );
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressOut');
+  });
+  await waitFor(() =>
+    expect(screen.getByTestId('result-actions')).toBeOnTheScreen(),
+  );
+}
+
+/** Another go at the same phrase, from the result card. */
+async function anotherGo() {
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('try-again-button'));
+  });
+  await waitFor(() => expect(screen.queryByTestId('result-actions')).toBeNull());
+  await recordOnce();
+}
+
+describe('review screen: constant result actions and advance gate (#1040)', () => {
+  test.each([
+    ['perfect', 12],
+    ['great', 10],
+    ['good', 4],
+    ['almost', 2],
+    ['retry', 0],
+    ['nocatch', 0],
+  ])('band %s: Try again leads, Next phrase follows', async (band, xp) => {
+    mockState.evaluate = jest.fn(async () =>
+      evalResult({ band, xpAwarded: xp, score: xp > 0 ? 70 : 20 }),
+    );
+    render(<ReviewScreen />);
+    await recordOnce();
+
+    expect(slotOrder()).toEqual(['try-again-button', 'advance-button']);
+    // The band ladder also reads "Try again", so scope the label check.
+    const row = within(screen.getByTestId('result-actions'));
+    expect(row.getByText('Try again')).toBeOnTheScreen();
+    // One phrase in this fixture, so the advance reads "Finish".
+    expect(row.getByText('Finish')).toBeOnTheScreen();
+  });
+
+  test('a weak take leaves the advance inactive; three goes open it', async () => {
+    mockState.evaluate = jest.fn(async () =>
+      evalResult({ band: 'retry', xpAwarded: 0 }),
+    );
+    render(<ReviewScreen />);
+
+    await recordOnce();
+    expect(screen.getByTestId('advance-button')).toBeDisabled();
+    expect(screen.getByTestId('try-again-button')).not.toBeDisabled();
+
+    await anotherGo();
+    expect(screen.getByTestId('advance-button')).toBeDisabled();
+
+    await anotherGo();
+    expect(screen.getByTestId('advance-button')).not.toBeDisabled();
+  });
+
+  test('a good score opens the gate on the first take', async () => {
+    mockState.evaluate = jest.fn(async () =>
+      evalResult({ band: 'good', xpAwarded: 4, score: 70, passed: true }),
+    );
+    render(<ReviewScreen />);
+    await recordOnce();
+
+    expect(screen.getByTestId('advance-button')).not.toBeDisabled();
   });
 });

@@ -225,9 +225,9 @@ describe('score flash band treatment', () => {
     // setFlashColor was skipped, so the overlay keeps its initial mount
     // color instead of the destructive red the old else-branch assigned.
     expect(overlayBackground()).not.toBe(COLORS.destructive);
-    // And the CTA layout stays the standard one (nocatch is not a retry
-    // band): primary "Next phrase" with the icon-only retry pressable.
-    expect(screen.getByTestId('retry-button')).toBeOnTheScreen();
-    expect(screen.queryByText('Try again')).toBeNull();
+    // And the action row is the standard constant one (Task #1040): retry
+    // left, advance right, whatever the band.
+    expect(screen.getByTestId('try-again-button')).toBeOnTheScreen();
+    expect(screen.getByTestId('advance-button')).toBeOnTheScreen();
   });
 });

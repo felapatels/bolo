@@ -223,7 +223,7 @@ async function recordAndStop() {
 async function finishRun() {
   await reachIdle();
   await recordAndStop();
-  fireEvent.click(screen.getByText("Next"));
+  fireEvent.click(screen.getByTestId("advance-button"));
   await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument());
   await recordAndStop();
   await act(async () => {
@@ -243,9 +243,13 @@ describe("test-out run mechanics", () => {
     await reachIdle();
     await recordAndStop();
     expect(h.createAttempt).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
-    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
+    // One take per phrase is a server-side batch rule, so the retry slot is
+    // inactive — but it is still THERE, in its usual place (Task #1040): the
+    // row never collapses to a single full-width button.
+    expect(screen.getByTestId("try-again-button")).toBeDisabled();
+    expect(screen.getByTestId("try-again-button")).toHaveAttribute("aria-disabled", "true");
+    // Test-out advancing is ungated: the learner gets one go and moves on.
+    expect(screen.getByTestId("advance-button")).toBeEnabled();
   });
 
   test("even a retry-band score moves forward without the try-again primary", async () => {
@@ -267,9 +271,16 @@ describe("test-out run mechanics", () => {
       fireEvent.pointerUp(releaseTarget);
     });
     await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
-    // The band pill itself may read "Try again"; the CONTROL must be absent.
-    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
-    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
+    // Order and labels are constant even here (Task #1040) — the band pill
+    // also reads "Try again", so address the CONTROLS by testID.
+    const retry = screen.getByTestId("try-again-button");
+    const advance = screen.getByTestId("advance-button");
+    expect(retry.compareDocumentPosition(advance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A weak take does not earn a retry in test-out: it is one take per phrase.
+    expect(retry).toBeDisabled();
+    // ...and the advance stays ungated, so nobody is stranded mid-run.
+    expect(advance).toBeEnabled();
+    expect(advance.className).toContain("bg-primary");
   });
 });
 

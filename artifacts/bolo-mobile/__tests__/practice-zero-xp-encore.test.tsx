@@ -134,6 +134,9 @@ const phraseB = {
 const ZERO = { xp: 0, band: 'retry' };
 const NOCATCH = { xp: 0, band: 'nocatch' };
 const EARNED = { xp: 6, band: 'good' };
+// Half credit: earns XP (so it settles the encore debt) but stays below
+// "good", so it never opens the advance gate on its own (Task #1040).
+const HALF = { xp: 3, band: 'almost' };
 
 function successQuery(data: unknown) {
   return {
@@ -195,17 +198,39 @@ async function attempt() {
 }
 
 async function goForward() {
+  expect(screen.getByTestId('advance-button')).not.toBeDisabled();
   await act(async () => {
     fireEvent.press(forward()!);
   });
 }
 
+/**
+ * Another go at the SAME phrase. The advance gate (Task #1040) keeps the
+ * forward slot shut until a good take or a third go, so a phrase that only
+ * ever earns nothing is worked through here rather than walked past.
+ */
+async function anotherGo() {
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('try-again-button'));
+  });
+  await waitFor(() => expect(screen.queryByTestId('result-actions')).toBeNull());
+  await attempt();
+}
+
 describe('zero-XP encore', () => {
   test('a phrase that earned nothing comes back after the last phrase', async () => {
-    mockState.plan = [ZERO, EARNED];
+    // A: nothing, then half credit (settles the debt), then nothing again —
+    // three goes, so the advance gate is open when the learner moves on and
+    // A leaves the phrase queued on 2 strikes. B earns XP.
+    mockState.plan = [ZERO, HALF, ZERO, EARNED];
     render(<PracticeScreen />);
 
     await attempt();
+    expect(screen.getByTestId('encore-note')).toHaveTextContent(
+      'No XP yet, so this one comes back at the end of the session.',
+    );
+    await anotherGo(); // half credit clears the queue for now
+    await anotherGo(); // and back into it
     expect(screen.getByTestId('encore-note')).toHaveTextContent(
       'No XP yet, so this one comes back at the end of the session.',
     );
@@ -226,10 +251,12 @@ describe('zero-XP encore', () => {
   });
 
   test('earning anything on the encore settles it and ends the session', async () => {
-    mockState.plan = [ZERO, EARNED, EARNED];
+    mockState.plan = [ZERO, HALF, ZERO, EARNED, EARNED];
     render(<PracticeScreen />);
 
     await attempt();
+    await anotherGo();
+    await anotherGo();
     await goForward();
     await attempt();
     await goForward();
@@ -248,10 +275,16 @@ describe('zero-XP encore', () => {
   test('three zeros of any kind release the phrase', async () => {
     // The third zero is a nocatch — a system miss, which the owner ruled
     // still burns a strike so the session can always end.
-    mockState.plan = [ZERO, EARNED, ZERO, NOCATCH];
+    mockState.plan = [ZERO, HALF, ZERO, EARNED, NOCATCH];
     render(<PracticeScreen />);
 
     await attempt(); // A, strike 1
+    await anotherGo(); // A, half credit
+    await anotherGo(); // A, strike 2
+    // RNTL's toHaveTextContent matches the WHOLE string, not a substring.
+    expect(screen.getByTestId('encore-note')).toHaveTextContent(
+      'No XP yet, so this one comes back at the end of the session.',
+    );
     await goForward();
     await attempt(); // B, earns
     await goForward();
@@ -259,18 +292,15 @@ describe('zero-XP encore', () => {
     await waitFor(() =>
       expect(screen.getByText('1 of 2 · another go')).toBeOnTheScreen(),
     );
-    await attempt(); // A, strike 2
-    // RNTL's toHaveTextContent matches the WHOLE string, not a substring.
-    expect(screen.getByTestId('encore-note')).toHaveTextContent(
-      'No XP yet, so this one comes back at the end of the session.',
-    );
-    await goForward();
-
     await waitFor(() => expect(screen.getByText('નમસ્તે')).toBeOnTheScreen());
     await attempt(); // A, strike 3 (nocatch)
     expect(screen.getByTestId('encore-note')).toHaveTextContent(
       "That's three goes — we'll leave this one for next time.",
     );
+    // Encore carry-over (Task #1040): the phrase comes back with its attempt
+    // count, so the advance is live on the first take of the return visit
+    // even though this one scored nothing.
+    expect(screen.getByTestId('advance-button')).not.toBeDisabled();
     await goForward();
 
     await waitFor(() =>

@@ -115,6 +115,13 @@ const MIN_CLIP_SECONDS = 0.8;
  *  every kind of zero counts, nocatch included, so the session always ends). */
 const ZERO_XP_STRIKE_LIMIT = 3;
 
+/** Per-phrase session tallies (Task #1040). One map, one write site:
+ *  `attempts` counts EVERY take on the phrase (all bands, nocatch included)
+ *  and drives the advance gate; `zeroStrikes` counts only the zero-XP takes
+ *  and drives the encore release. Strikes are therefore always <= attempts,
+ *  so the encore can never let a phrase go while the gate is still shut. */
+type PhraseTally = { attempts: number; zeroStrikes: number };
+
 /**
  * Confirmation copy for the three header audio toggles. A tap used to change
  * only the pill's own styling, which left a learner unsure whether it
@@ -150,7 +157,12 @@ type EvalErrorContent = {
   body: string;
   /** Optional tip line rendered under the body (deck NOCATCH entry). */
   tip?: string;
-  /** Label for the recovery button; defaults to "Record again". */
+  /**
+   * Deck copy for the recovery action. NOT rendered on the button any more
+   * (Task #1040): the result-actions row keeps constant labels in every
+   * state, so the recovery button always reads "Try again". Kept because the
+   * deck owns these strings and the card copy is quoted from it verbatim.
+   */
   action?: string;
 };
 
@@ -475,8 +487,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // (owner-ruled: a nocatch burns a strike too) so a dead mic can never trap
   // the learner in a session that will not end. Queue holds phrase IDs.
   const [encoreQueue, setEncoreQueue] = useState<number[]>([]);
-  const [zeroStrikes, setZeroStrikes] = useState<Record<number, number>>({});
-  const zeroStrikesRef = useRef<Record<number, number>>({});
+  // Per-phrase session tallies, keyed by phrase id: zero-XP strikes for the
+  // encore, all-band attempts for the advance gate (Task #1040). One map so
+  // there is exactly one write site for both.
+  const [phraseTallies, setPhraseTallies] = useState<Record<number, PhraseTally>>({});
+  const phraseTalliesRef = useRef<Record<number, PhraseTally>>({});
   // Once the base list is exhausted the cursor stops moving forward, so every
   // later advance must come from the queue, never from currentIndex + 1.
   const [inEncore, setInEncore] = useState(false);
@@ -1207,17 +1222,23 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       // judged as a batch, so it never queues an encore.
       if (!isTestout) {
         const encoreId = phrase!.id;
+        // The single write site for this phrase's tallies. The ref mirrors
+        // the state so two attempts inside one render pass cannot both read
+        // the same counts (and queue the phrase twice).
+        const prevTally = phraseTalliesRef.current[encoreId] ?? { attempts: 0, zeroStrikes: 0 };
+        const strikes = prevTally.zeroStrikes + (evalRes.xpAwarded > 0 ? 0 : 1);
+        phraseTalliesRef.current = {
+          ...phraseTalliesRef.current,
+          // Every take counts towards the advance gate, whatever the band.
+          [encoreId]: { attempts: prevTally.attempts + 1, zeroStrikes: strikes },
+        };
+        setPhraseTallies(phraseTalliesRef.current);
         if (evalRes.xpAwarded > 0) {
           // Earned something: the debt is settled, even if an earlier take on
           // this phrase had already queued it. Strikes are NOT reset — they
           // are the record of what this phrase cost, not a live budget.
           setEncoreQueue(q => q.filter(id => id !== encoreId));
         } else {
-          // The ref mirrors the state so two attempts inside one render pass
-          // cannot both read strike 0 and queue the phrase twice.
-          const strikes = (zeroStrikesRef.current[encoreId] ?? 0) + 1;
-          zeroStrikesRef.current = { ...zeroStrikesRef.current, [encoreId]: strikes };
-          setZeroStrikes(zeroStrikesRef.current);
           setEncoreQueue(q =>
             strikes >= ZERO_XP_STRIKE_LIMIT
               ? q.filter(id => id !== encoreId) // three goes: released
@@ -1618,9 +1639,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   };
 
   // ── Manual phrase navigation (Task #973) ────────────────────────────────
-  // Moving between phrases is FREE, never attempt-gated: attempts and
-  // bestScore live in sessionResults keyed by phrase id, so no visit order
-  // can lose progress. Navigation always lands in "idle" (never
+  // Moving between phrases is FREE, never attempt-gated (deliberately outside
+  // the result card's advance gate, Task #1040): every scored take is stored
+  // in sessionResults keyed by phrase id, and the per-phrase tallies are kept
+  // the same way, so no visit order can lose progress. Navigation always lands in "idle" (never
   // "playing_coach") and fires no recording, playback, or scoring side
   // effect; the playing_coach effect's cleanup pauses any in-flight coach
   // audio when state flips away, and the spoken-feedback effect does the same
@@ -2080,6 +2102,27 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     state === "recording" ||
     state === "playing_coach" ||
     state === "result";
+
+  // ── Result-actions row state (Task #1040) ────────────────────────────────
+  // "Finish" would lie while there is another stop ahead — the tail of the
+  // base list, or a zero-XP phrase still queued for its encore.
+  const hasNextStop = Boolean(
+    phrases &&
+      ((!inEncore && currentIndex < phrases.length - 1) ||
+        (!isTestout && encoreQueue.length > 0)),
+  );
+  const advanceLabel = hasNextStop ? "Next phrase" : "Finish";
+  const phraseAttempts = phraseTallies[phrase?.id ?? -1]?.attempts ?? 0;
+  // Test-out is one take per phrase (a server-side batch rule), so the retry
+  // is inactive there; the error card's retry is the recovery action.
+  const retrySlotActive = state === "error" || !isTestout;
+  // The error card has no band and no token: there is nothing to advance
+  // from. Test-out is ungated for the same reason its retry is off.
+  const advanceSlotActive =
+    state !== "error" && (isTestout || isAdvanceUnlocked(result?.band, phraseAttempts));
+  // Emphasis only: the recovery/retry side leads until the take is good.
+  const retrySlotPrimary =
+    retrySlotActive && (state === "error" || !result || !isGoodOrBetterBand(result.band));
 
   return (
     <div className="app-surface min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
@@ -2733,20 +2776,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 </button>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleRetry}
-                className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <RefreshCcw className="w-5 h-5" /> Practice again
-              </button>
-              <button
-                onClick={handleNext}
-                className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-              >
-                Next <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Same constant two-slot row as the result card. Ear-training
+                never produces a band, so the advance gate is off here. */}
+            <ResultActions
+              onRetry={handleRetry}
+              onAdvance={handleNext}
+              advanceLabel={advanceLabel}
+              retryPrimary={false}
+            />
           </motion.div>
         )}
 
@@ -2838,7 +2875,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       that it has had its three goes and is being let go. */}
                   {!isTestout && result.xpAwarded === 0 && (
                     <p data-testid="encore-note" className="mt-2 text-xs font-medium text-muted-foreground">
-                      {(zeroStrikes[phrase?.id ?? -1] ?? 0) >= ZERO_XP_STRIKE_LIMIT
+                      {(phraseTallies[phrase?.id ?? -1]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
                         ? "That's three goes — we'll leave this one for next time."
                         : "No XP yet, so this one comes back at the end of the session."}
                     </p>
@@ -2868,60 +2905,96 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   indicator while it runs, and nothing on short balances. */}
               {state === "result" && <ExpressOfferMoment surface="result" />}
 
-              {/* Action buttons */}
-              {state === "error" ? (
-                <button
-                  onClick={handleErrorRetry}
-                  className="w-full bg-primary text-primary-foreground font-black text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-                >
-                  <RefreshCcw className="w-5 h-5" /> {evalError?.action ?? "Record again"}
-                </button>
-              ) : state === "result" && result?.band === "retry" && !isTestout ? (
-                /* Retry band (batch 1 addendum, mobile parity): another take is
-                   the productive default, so "Try again" gets the primary
-                   treatment and "Next phrase" drops to a quieter bordered
-                   secondary. Hard evaluation failures (state "error" above)
-                   keep their own "Record again" primary. (The capture-session
-                   mis-tap concern is handled by capture mode, which never
-                   shows this card at all.) */
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleNext}
-                    className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    Next phrase <ArrowRight className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleRetry}
-                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-                  >
-                    <RefreshCcw className="w-5 h-5" /> Try again
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-3">
-                  {/* Test-out is one take per phrase: no retry, only forward.
-                      (The retry-band branch above is also bypassed in
-                      test-out mode for the same reason.) */}
-                  {!isTestout && (
-                    <button 
-                      onClick={handleRetry}
-                      className="flex-1 bg-card text-foreground border-2 border-border font-bold text-base py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-                    >
-                      <RefreshCcw className="w-5 h-5" /> Retry
-                    </button>
-                  )}
-                  <button 
-                    onClick={handleNext}
-                    className="flex-1 bg-primary text-primary-foreground font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-                  >
-                    {isTestout && phrases && currentIndex === phrases.length - 1 ? "Finish" : "Next"} <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
+              {/* Action buttons — one row, constant order, constant labels
+                  (Task #1040). Error and test-out use the same two slots as
+                  every other outcome, with the impermissible side dimmed,
+                  rather than collapsing to a single full-width button. The
+                  error card's varied recovery wording stays in the card body
+                  above; the button label never moves. */}
+              <ResultActions
+                onRetry={state === "error" ? handleErrorRetry : handleRetry}
+                onAdvance={handleNext}
+                advanceLabel={advanceLabel}
+                retryPrimary={retrySlotPrimary}
+                retryDisabled={!retrySlotActive}
+                advanceDisabled={!advanceSlotActive}
+              />
             </motion.div>
           )}
       </main>
+    </div>
+  );
+}
+
+const SLOT_BASE =
+  "flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:pointer-events-none";
+
+const SLOT_PRIMARY =
+  "bg-primary text-primary-foreground font-black text-base shadow-[0_6px_0_hsl(var(--primary-shadow))] active:translate-y-1.5 active:shadow-[0_0px_0_hsl(var(--primary-shadow))]";
+
+/**
+ * The advance gate (Task #1040): is moving on offered yet on this phrase?
+ * Earned by scoring good or better, or by simply having had enough goes.
+ * Callers apply the state exemptions from the slot table (test-out and the
+ * ear-training compare stage are ungated; the error card never advances).
+ */
+function isAdvanceUnlocked(band: Band | null | undefined, attempts: number): boolean {
+  if (band && isGoodOrBetterBand(band)) return true;
+  return attempts >= ADVANCE_ATTEMPT_LIMIT;
+}
+
+const SLOT_SECONDARY =
+  "bg-card text-foreground border-2 border-border font-bold text-base active:scale-95";
+
+/** Takes on one phrase after which advancing unlocks whatever the band
+ *  (owner-ruled): a dead mic or a brutally hard phrase must never strand
+ *  the learner. Deliberately the same number as the strike limit, but
+ *  counting a different thing. */
+const ADVANCE_ATTEMPT_LIMIT = 3;
+
+/** "Good or better" — the earned half of the advance gate. */
+function isGoodOrBetterBand(band: Band): boolean {
+  return isFullCreditBand(band) || band === "good";
+}
+
+function ResultActions({
+  onRetry,
+  onAdvance,
+  advanceLabel,
+  retryPrimary,
+  retryDisabled = false,
+  advanceDisabled = false,
+}: {
+  onRetry: () => void;
+  onAdvance: () => void;
+  advanceLabel: string;
+  /** Which slot carries the filled treatment. Position never changes. */
+  retryPrimary: boolean;
+  retryDisabled?: boolean;
+  advanceDisabled?: boolean;
+}) {
+  return (
+    <div className="flex gap-3" data-testid="result-actions">
+      <button
+        type="button"
+        data-testid="try-again-button"
+        onClick={onRetry}
+        disabled={retryDisabled}
+        aria-disabled={retryDisabled || undefined}
+        className={cn(SLOT_BASE, retryPrimary ? SLOT_PRIMARY : SLOT_SECONDARY)}
+      >
+        <RefreshCcw className="w-5 h-5" /> Try again
+      </button>
+      <button
+        type="button"
+        data-testid="advance-button"
+        onClick={onAdvance}
+        disabled={advanceDisabled}
+        aria-disabled={advanceDisabled || undefined}
+        className={cn(SLOT_BASE, retryPrimary ? SLOT_SECONDARY : SLOT_PRIMARY)}
+      >
+        {advanceLabel} <ArrowRight className="w-5 h-5" />
+      </button>
     </div>
   );
 }

@@ -93,6 +93,40 @@ export function isPassingBand(band: Band): boolean {
   return isFullCreditBand(band) || isHalfCreditBand(band);
 }
 
+// ── Advance gate (Task #1040, owner-ruled) ──────────────────────────────────
+// Moving on is offered once the learner has earned it or has clearly had
+// enough goes. Shared by practice and review so the two screens can never
+// drift apart.
+
+/** Per-phrase session tallies. One map, one write site: `attempts` counts
+ *  EVERY take (all bands, nocatch included) and drives the advance gate;
+ *  `zeroStrikes` counts only zero-XP takes and drives the encore release.
+ *  Strikes are therefore always <= attempts, so the encore can never let a
+ *  phrase go while the gate is still shut. */
+export type PhraseTally = { attempts: number; zeroStrikes: number };
+
+/** Takes on one phrase after which advancing unlocks whatever the band: a
+ *  dead mic or a brutally hard phrase must never strand the learner.
+ *  Deliberately the same number as the zero-XP strike limit, but counting a
+ *  different thing. */
+export const ADVANCE_ATTEMPT_LIMIT = 3;
+
+/** "Good or better" — the earned half of the advance gate. */
+export function isGoodOrBetterBand(band: Band): boolean {
+  return isFullCreditBand(band) || band === 'good';
+}
+
+/**
+ * Is moving on offered yet on this phrase? Earned by scoring good or better,
+ * or by simply having had enough goes. Callers apply the state exemptions:
+ * test-out and the ear-training compare stage are ungated, and the error card
+ * never advances at all.
+ */
+export function isAdvanceUnlocked(band: Band | null | undefined, attempts: number): boolean {
+  if (band && isGoodOrBetterBand(band)) return true;
+  return attempts >= ADVANCE_ATTEMPT_LIMIT;
+}
+
 /**
  * Brand-token color for a band, forming the ladder's top-to-bottom gradient:
  * success green → accent teal → primary indigo → muted slate → destructive

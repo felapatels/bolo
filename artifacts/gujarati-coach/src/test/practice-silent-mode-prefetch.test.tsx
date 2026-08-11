@@ -229,8 +229,8 @@ async function scoreAndNext() {
   });
   // Wait for result screen.
   await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
-  // Tap "Next".
-  fireEvent.click(screen.getByText("Next"));
+  // Tap the advance slot (always the right-hand button, Task #1040).
+  fireEvent.click(screen.getByTestId("advance-button"));
 }
 
 /** Hold belly → wait for startRecording → release → wait for score. */
@@ -325,7 +325,7 @@ describe("silent mode — retry", () => {
     h.synth.mockClear();
     audioInstances.length = 0;
 
-    fireEvent.click(screen.getByText("Retry"));
+    fireEvent.click(screen.getByTestId("try-again-button"));
 
     // Should land back at idle without playing coach audio.
     await waitFor(() =>
@@ -349,7 +349,7 @@ describe("silent mode — retry", () => {
     // Audio instance, so pin the play() count on the singleton.
     const coach = getCoachAudioElement() as unknown as FakeAudio;
     const coachPlaysBefore = coach.play.mock.calls.length;
-    fireEvent.click(screen.getByText("Retry"));
+    fireEvent.click(screen.getByTestId("try-again-button"));
 
     // The coach re-play must start: the singleton plays again with a clip src.
     await waitFor(() =>
@@ -522,7 +522,7 @@ describe("audio prefetch", () => {
     const coach = getCoachAudioElement() as unknown as FakeAudio;
     const coachPlaysBefore = coach.play.mock.calls.length;
 
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByTestId("advance-button"));
 
     // Coach for phrase1 starts playing on the singleton element.
     await waitFor(() =>

@@ -34,7 +34,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
 import { BandLadder } from '@/components/BandLadder';
-import { isFullCreditBand, isHalfCreditBand, isPassingBand, normalizeBand } from '@/lib/ui';
+import {
+  isAdvanceUnlocked,
+  isFullCreditBand,
+  isGoodOrBetterBand,
+  isHalfCreditBand,
+  isPassingBand,
+  normalizeBand,
+  type PhraseTally,
+} from '@/lib/ui';
+import { ResultActions } from '@/components/ResultActions';
 import { XpCounter } from '@/components/XpCounter';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import { playBandClip, type BandClipHandle } from '@/lib/band-audio';
@@ -609,8 +618,11 @@ export default function PracticeScreen() {
   // the learner in a session that will not end. Queue holds phrase indices,
   // matching how bands/xpData/sessionFeedback are keyed.
   const [encoreQueue, setEncoreQueue] = React.useState<number[]>([]);
-  const [zeroStrikes, setZeroStrikes] = React.useState<Record<number, number>>({});
-  const zeroStrikesRef = React.useRef<Record<number, number>>({});
+  // Per-phrase session tallies, keyed by list index like bands/xpData: zero-XP
+  // strikes for the encore, all-band attempts for the advance gate (Task
+  // #1040). One map so there is exactly one write site for both.
+  const [phraseTallies, setPhraseTallies] = React.useState<Record<number, PhraseTally>>({});
+  const phraseTalliesRef = React.useRef<Record<number, PhraseTally>>({});
   // Once the base list is exhausted the cursor jumps backwards, so every later
   // advance must come from the queue, never from index + 1.
   const [inEncore, setInEncore] = React.useState(false);
@@ -1530,17 +1542,23 @@ export default function PracticeScreen() {
       // judged as a batch, so it never queues an encore.
       if (!isTestout) {
         const encoreIdx = index;
+        // The single write site for this phrase's tallies. The ref mirrors
+        // the state so two attempts inside one render pass cannot both read
+        // the same counts (and queue the phrase twice).
+        const prevTally = phraseTalliesRef.current[encoreIdx] ?? { attempts: 0, zeroStrikes: 0 };
+        const strikes = prevTally.zeroStrikes + (res.xpAwarded > 0 ? 0 : 1);
+        phraseTalliesRef.current = {
+          ...phraseTalliesRef.current,
+          // Every take counts towards the advance gate, whatever the band.
+          [encoreIdx]: { attempts: prevTally.attempts + 1, zeroStrikes: strikes },
+        };
+        setPhraseTallies(phraseTalliesRef.current);
         if (res.xpAwarded > 0) {
           // Earned something: the debt is settled, even if an earlier take on
           // this phrase had already queued it. Strikes are NOT reset — they
           // are the record of what this phrase cost, not a live budget.
           setEncoreQueue((q) => q.filter((i) => i !== encoreIdx));
         } else {
-          // The ref mirrors the state so two attempts inside one render pass
-          // cannot both read strike 0 and queue the phrase twice.
-          const strikes = (zeroStrikesRef.current[encoreIdx] ?? 0) + 1;
-          zeroStrikesRef.current = { ...zeroStrikesRef.current, [encoreIdx]: strikes };
-          setZeroStrikes(zeroStrikesRef.current);
           setEncoreQueue((q) =>
             strikes >= ZERO_XP_STRIKE_LIMIT
               ? q.filter((i) => i !== encoreIdx) // three goes: released
@@ -2193,6 +2211,25 @@ export default function PracticeScreen() {
   // ActivityIndicator that used to sit inside the record button is gone).
   // "Finish" would lie while a zero-XP phrase is still queued to come back.
   const hasNextStop = index + 1 < list.length || (!isTestout && encoreQueue.length > 0);
+
+  // ── Result-actions row state (Task #1040) ────────────────────────────────
+  // Test-out is one take per phrase (a server-side batch rule), so the retry
+  // is inactive there; the error card's retry IS the recovery action.
+  const retrySlotActive = phase === 'error' || !isTestout;
+  // The error card has no band and no token: there is nothing to advance
+  // from. Test-out and the ear-training compare stage are ungated (compare
+  // never produces a band at all).
+  const advanceSlotActive =
+    phase !== 'error' &&
+    (isTestout ||
+      phase === 'compare' ||
+      isAdvanceUnlocked(result?.band, phraseTallies[index]?.attempts ?? 0));
+  // Emphasis only, never position: the recovery/retry side leads until the
+  // take is good.
+  const retrySlotPrimary =
+    retrySlotActive &&
+    (phase === 'error' ||
+      (phase === 'result' && (!result || !isGoodOrBetterBand(result.band))));
   const mascotMotion =
     phase === 'evaluating'
       ? 'working'
@@ -2622,7 +2659,7 @@ export default function PracticeScreen() {
                 testID="encore-note"
                 style={[styles.encoreNote, { color: colors.mutedForeground }]}
               >
-                {(zeroStrikes[index] ?? 0) >= ZERO_XP_STRIKE_LIMIT
+                {(phraseTallies[index]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
                   ? "That's three goes — we'll leave this one for next time."
                   : 'No XP yet, so this one comes back at the end of the session.'}
               </Text>
@@ -2670,58 +2707,18 @@ export default function PracticeScreen() {
 
       {/* Controls */}
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
-        {phase === 'result' && result?.band === 'retry' && !isTestout ? (
-          // Retry band: another take is the productive default, so "Try
-          // again" gets the primary chunky button and "Next phrase" drops to
-          // a quieter bordered secondary. Hard evaluation failures (phase
-          // 'error' below) keep their own "Record again" primary.
-          <View style={styles.resultButtons}>
-            <Pressable
-              onPress={next}
-              accessibilityRole="button"
-              accessibilityLabel={hasNextStop ? 'Next phrase' : 'Finish'}
-              testID="next-secondary-button"
-              style={[styles.nextSecondaryBtn, { borderColor: colors.border }]}
-            >
-              <Text style={[styles.nextSecondaryText, { color: colors.foreground }]}>
-                {hasNextStop ? 'Next phrase' : 'Finish'}
-              </Text>
-            </Pressable>
-            <ChunkyButton
-              title="Try again"
-              icon="rotate-ccw"
-              onPress={tryAgain}
-              style={{ flex: 1 }}
-              testID="try-again-button"
-            />
-          </View>
-        ) : phase === 'result' || phase === 'compare' ? (
-          <View style={styles.resultButtons}>
-            {/* Test-out is one take per phrase: no retry, only forward. (The
-                retry-band branch above is also bypassed in test-out mode.) */}
-            {!isTestout && (
-              <Pressable
-                onPress={tryAgain}
-                accessibilityRole="button"
-                accessibilityLabel={phase === 'compare' ? 'Practice again' : 'Record again'}
-                testID="retry-button"
-                style={[styles.retryBtn, { borderColor: colors.border }]}
-              >
-                <Feather name="rotate-ccw" size={20} color={colors.foreground} />
-              </Pressable>
-            )}
-            <ChunkyButton
-              title={hasNextStop ? 'Next phrase' : 'Finish'}
-              icon="arrow-right"
-              onPress={next}
-              style={{ flex: 1 }}
-            />
-          </View>
-        ) : phase === 'error' ? (
-          <ChunkyButton
-            title="Record again"
-            icon="rotate-ccw"
-            onPress={retryAfterError}
+        {phase === 'result' || phase === 'compare' || phase === 'error' ? (
+          /* One row, constant order, constant labels (Task #1040). Error and
+             test-out use the same two slots as every other outcome, with the
+             impermissible side dimmed, rather than collapsing to a single
+             full-width button. */
+          <ResultActions
+            onRetry={phase === 'error' ? retryAfterError : tryAgain}
+            onAdvance={next}
+            advanceLabel={hasNextStop ? 'Next phrase' : 'Finish'}
+            retryPrimary={retrySlotPrimary}
+            retryDisabled={!retrySlotActive}
+            advanceDisabled={!advanceSlotActive}
           />
         ) : (
           <RecordButton
@@ -3180,7 +3177,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 28,
   },
-  resultButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   muteBtn: {
     minWidth: 44,
     minHeight: 44,
@@ -3194,28 +3190,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  retryBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Retry-band secondary "Next phrase": quiet bordered pill sized to sit
-  // beside the primary "Try again" chunky button without competing with it.
-  nextSecondaryBtn: {
-    height: 56,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextSecondaryText: {
-    fontFamily: AppFonts.bold,
-    fontSize: 15,
   },
   recordWrap: { alignItems: 'center', gap: 14 },
   recordCenter: { alignItems: 'center', justifyContent: 'center' },

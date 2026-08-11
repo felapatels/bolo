@@ -194,6 +194,58 @@ async function holdAndRelease() {
   });
 }
 
+/** Point the mocked evaluator at a band for the next attempt. */
+function mockBand(band: string, xpAwarded = 0, score = 42) {
+  h.evaluate.mockResolvedValue({
+    score,
+    band,
+    passed: xpAwarded > 0,
+    xpAwarded,
+    feedback: "Almost!",
+    tip: "Slow down.",
+    evaluationToken: "signed-token",
+  });
+}
+
+const tryAgainSlot = () => screen.getByTestId("try-again-button");
+const advanceSlot = () => screen.getByTestId("advance-button");
+
+/**
+ * The order pin (Task #1040): "Try again" must precede the advance button in
+ * DOM order, not merely both be present. Presence assertions are what let the
+ * Aug 2 revert slip through unnoticed.
+ */
+function expectRetryBeforeAdvance() {
+  const retry = tryAgainSlot();
+  const advance = advanceSlot();
+  expect(
+    retry.compareDocumentPosition(advance) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(screen.getByTestId("result-actions")).toContainElement(retry);
+  expect(screen.getByTestId("result-actions")).toContainElement(advance);
+}
+
+/** Silent mode skips coach playback, so attempts can be chained tersely. */
+async function driveToResultSilent() {
+  h.silentMode = true;
+  renderPage(<Practice />);
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+  );
+  await holdAndRelease();
+  await waitFor(() => expect(screen.getByTestId("result-actions")).toBeInTheDocument());
+}
+
+/** Another go at the SAME phrase, landing back on the result card. */
+async function anotherGo() {
+  fireEvent.click(tryAgainSlot());
+  await waitFor(() =>
+    expect(screen.queryByTestId("result-actions")).not.toBeInTheDocument(),
+  );
+  await holdAndRelease();
+  await waitFor(() => expect(screen.getByTestId("result-actions")).toBeInTheDocument());
+}
+
 async function driveToResult() {
   renderPage(<Practice />);
 
@@ -245,6 +297,8 @@ describe("web practice retry", () => {
   });
 
   test("Next advances to the following phrase as before", async () => {
+    // A good take opens the advance gate on the first go.
+    mockBand("good", 5, 70);
     await driveToResult();
 
     fireEvent.click(screen.getByRole("button", { name: "Next phrase" }));
@@ -254,11 +308,10 @@ describe("web practice retry", () => {
   });
 
   test("retry band flips the CTA emphasis: Try again primary, Next phrase secondary", async () => {
-    // Batch 1 addendum (web CTA parity with mobile): on band "retry" another
-    // take is the productive default, so "Try again" carries the filled
-    // primary treatment and "Next phrase" drops to the bordered secondary.
-    // (The capture protocol's mis-tap concern is handled by capture mode,
-    // which never renders this card — the flip stays for normal learners.)
+    // Emphasis — and ONLY emphasis — moves with the band: on band "retry"
+    // another take is the productive default, so "Try again" carries the
+    // filled primary treatment and "Next phrase" drops to the bordered
+    // secondary. Their positions do not move (see the order pins below).
     await driveToResult();
 
     const tryAgainBtn = screen.getByRole("button", { name: "Try again" });
@@ -266,6 +319,124 @@ describe("web practice retry", () => {
     expect(tryAgainBtn.className).toContain("bg-primary");
     expect(nextPhraseBtn.className).toContain("border-border");
     expect(nextPhraseBtn.className).not.toContain("bg-primary");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task #1040: the two result buttons never change places, and never change
+// labels. This shipped once before and was reverted along with the order
+// assertion that would have caught it, so these pins are load-bearing.
+// ---------------------------------------------------------------------------
+describe("constant result-actions layout", () => {
+  const BANDS: Array<[string, number, number]> = [
+    ["perfect", 10, 95],
+    ["great", 8, 85],
+    ["good", 5, 70],
+    ["almost", 2, 60],
+    ["retry", 0, 42],
+    ["nocatch", 0, 0],
+  ];
+
+  test.each(BANDS)(
+    "band %s: Try again is the left slot and Next phrase the right one",
+    async (band, xp, score) => {
+      mockBand(band, xp, score);
+      await driveToResultSilent();
+
+      expectRetryBeforeAdvance();
+      // Labels are constant too: no Retry/Try again or Next/Next phrase
+      // switching between branches.
+      expect(tryAgainSlot()).toHaveAccessibleName("Try again");
+      expect(advanceSlot()).toHaveAccessibleName("Next phrase");
+    },
+  );
+
+  test("the emphasis, not the position, follows the band", async () => {
+    mockBand("great", 8, 85);
+    await driveToResultSilent();
+
+    expectRetryBeforeAdvance();
+    // Good take: the advance leads, the retry is the quiet bordered slot.
+    expect(advanceSlot().className).toContain("bg-primary");
+    expect(tryAgainSlot().className).toContain("border-border");
+    expect(tryAgainSlot().className).not.toContain("bg-primary");
+  });
+
+  test("the error card keeps both slots: retry leads, advance is inactive", async () => {
+    h.silentMode = true;
+    h.evaluate.mockRejectedValue(new Error("network down"));
+    renderPage(<Practice />);
+    await waitFor(() =>
+      expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
+    );
+    await holdAndRelease();
+    await waitFor(() => expect(screen.getByTestId("result-actions")).toBeInTheDocument());
+
+    // Same two-slot row as everywhere else — it never collapses to a single
+    // full-width button.
+    expectRetryBeforeAdvance();
+    expect(tryAgainSlot()).toHaveAccessibleName("Try again");
+    expect(tryAgainSlot()).toBeEnabled();
+    expect(tryAgainSlot().className).toContain("bg-primary");
+    // There is no band and no token: nothing to advance from.
+    expect(advanceSlot()).toBeDisabled();
+    expect(advanceSlot()).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task #1040: the soft advance gate. Moving on is offered once the learner
+// has earned it, or has clearly had enough goes.
+// ---------------------------------------------------------------------------
+describe("advance gate", () => {
+  test("a weak take leaves the advance rendered but inactive", async () => {
+    await driveToResultSilent(); // band "retry"
+
+    expect(advanceSlot()).toBeInTheDocument();
+    expect(advanceSlot()).toBeDisabled();
+    expect(advanceSlot()).toHaveAttribute("aria-disabled", "true");
+    // The retry is always live: the learner is never stuck with nothing to do.
+    expect(tryAgainSlot()).toBeEnabled();
+  });
+
+  test("a good score opens the gate immediately", async () => {
+    mockBand("good", 5, 70);
+    await driveToResultSilent();
+
+    expect(advanceSlot()).toBeEnabled();
+    expect(advanceSlot()).not.toHaveAttribute("aria-disabled");
+  });
+
+  test("still shut on the second weak take, open on the third", async () => {
+    await driveToResultSilent(); // attempt 1, band "retry"
+    expect(advanceSlot()).toBeDisabled();
+
+    await anotherGo(); // attempt 2
+    expect(advanceSlot()).toBeDisabled();
+
+    await anotherGo(); // attempt 3 — enough goes, whatever the score
+    expect(advanceSlot()).toBeEnabled();
+  });
+
+  test("a dead mic is never a trap: three no-catches open the gate too", async () => {
+    // nocatch is a system miss, so the learner can do nothing to score at
+    // all. Three goes must still let them move on.
+    mockBand("nocatch", 0, 0);
+    await driveToResultSilent();
+    expect(advanceSlot()).toBeDisabled();
+    await anotherGo();
+    expect(advanceSlot()).toBeDisabled();
+    await anotherGo();
+    expect(advanceSlot()).toBeEnabled();
+  });
+
+  test("the third take advances for real", async () => {
+    await driveToResultSilent();
+    await anotherGo();
+    await anotherGo();
+
+    fireEvent.click(advanceSlot());
+    await waitFor(() => expect(screen.getByText("aabhar")).toBeInTheDocument());
   });
 });
 
@@ -305,6 +476,8 @@ describe("web practice silent mode", () => {
     expect(audioInstances.length).toBe(audioCountBeforeRetry);
 
     // Drive another attempt to reach the result card again, then test Next.
+    // Score it well so the advance gate is open on this take (Task #1040).
+    mockBand("good", 5, 70);
     await holdAndRelease();
     await waitFor(() => expect(screen.getByRole("button", { name: "Next phrase" })).toBeInTheDocument());
 

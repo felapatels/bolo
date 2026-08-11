@@ -42,7 +42,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
 import { BandLadder } from '@/components/BandLadder';
-import { isFullCreditBand, isHalfCreditBand, isPassingBand, normalizeBand } from '@/lib/ui';
+import {
+  isAdvanceUnlocked,
+  isFullCreditBand,
+  isGoodOrBetterBand,
+  isHalfCreditBand,
+  isPassingBand,
+  normalizeBand,
+} from '@/lib/ui';
+import { ResultActions } from '@/components/ResultActions';
 import { XpCounter } from '@/components/XpCounter';
 import { EmptyState } from '@/components/EmptyState';
 import { appear, useAppearSkip } from '@/lib/entrance';
@@ -447,6 +455,10 @@ export default function ReviewScreen() {
   // set of phrase indices the learner reached the compare stage on.
   const [comparedIdx, setComparedIdx] = React.useState<Set<number>>(new Set());
   const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
+  // Every take on a phrase, whatever the band, keyed by list index like bands
+  // and xpData. Drives the advance gate (Task #1040). Review has no zero-XP
+  // encore, so attempts are all this screen needs to tally.
+  const [attempts, setAttempts] = React.useState<Record<number, number>>({});
   const [xpExpanded, setXpExpanded] = React.useState(false);
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [selfPlaying, setSelfPlaying] = React.useState(false);
@@ -926,6 +938,8 @@ export default function ReviewScreen() {
 
       setResult(res);
       setBands((prev) => ({ ...prev, [index]: res.band }));
+      // The single write site for the attempt tally behind the advance gate.
+      setAttempts((prev) => ({ ...prev, [index]: (prev[index] ?? 0) + 1 }));
       // Accumulate across retries so the session chip matches the server's
       // per-attempt xp_ledger writes (overwriting under-reports on retakes).
       setXpData((prev) => ({
@@ -1551,26 +1565,24 @@ export default function ReviewScreen() {
       </ScrollView>
 
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
-        {phase === 'result' || phase === 'compare' ? (
-          <View style={styles.resultButtons}>
-            <Pressable
-              onPress={tryAgain}
-              accessibilityRole="button"
-              accessibilityLabel={phase === 'compare' ? 'Practice again' : 'Record again'}
-              testID="retry-button"
-              style={[styles.retryBtn, { borderColor: colors.border }]}
-            >
-              <Feather name="rotate-ccw" size={20} color={colors.foreground} />
-            </Pressable>
-            <ChunkyButton
-              title={index + 1 < list.length ? 'Next phrase' : 'Finish'}
-              icon="arrow-right"
-              onPress={next}
-              style={{ flex: 1 }}
-            />
-          </View>
-        ) : phase === 'error' ? (
-          <ChunkyButton title="Record again" icon="rotate-ccw" onPress={retryAfterError} />
+        {phase === 'result' || phase === 'compare' || phase === 'error' ? (
+          /* The same constant two-slot row as practice — same order, same
+             labels, same gate (Task #1040). The ear-training compare stage
+             produces no band, so it is ungated; the error card has nothing to
+             advance from, so its advance slot stays inactive. */
+          <ResultActions
+            onRetry={phase === 'error' ? retryAfterError : tryAgain}
+            onAdvance={next}
+            advanceLabel={index + 1 < list.length ? 'Next phrase' : 'Finish'}
+            retryPrimary={
+              phase === 'error' ||
+              (phase === 'result' && (!result || !isGoodOrBetterBand(result.band)))
+            }
+            advanceDisabled={
+              phase === 'error' ||
+              (phase === 'result' && !isAdvanceUnlocked(result?.band, attempts[index] ?? 0))
+            }
+          />
         ) : (
           <RecordButton
             phase={phase}
@@ -1744,15 +1756,6 @@ const styles = StyleSheet.create({
   hearSelfText: { fontFamily: AppFonts.semibold, fontSize: 14 },
   errorTitle: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   controls: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  resultButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  retryBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   recordWrap: { alignItems: 'center', gap: 14 },
   recordCenter: { alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 88, height: 88, borderRadius: 44 },
