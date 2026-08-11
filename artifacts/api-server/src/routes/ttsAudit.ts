@@ -44,7 +44,7 @@ function secretMatches(supplied: unknown, expected: string): boolean {
 /**
  * POST /tts-audit/batch
  *
- * Body: { afterPhraseId?, limit?, languageCodes?, dryRun? }
+ * Body: { afterPhraseId?, limit?, languageCodes?, dryRun?, maxWrites? }
  * Header: X-Audit-Secret must match TTS_AUDIT_SECRET (or SESSION_SECRET).
  *
  * Audits one batch and returns counts, the findings, and the cursor to pass
@@ -62,6 +62,7 @@ router.post("/tts-audit/batch", async (req: Request, res: Response): Promise<voi
     limit?: unknown;
     languageCodes?: unknown;
     dryRun?: unknown;
+    maxWrites?: unknown;
   };
 
   const afterPhraseId = Number(body.afterPhraseId ?? 0);
@@ -88,6 +89,17 @@ router.post("/tts-audit/batch", async (req: Request, res: Response): Promise<voi
     languageCodes = (body.languageCodes as string[]).map((c) => c.trim());
   }
 
+  // The cap is the operator's brake on an unattended repair pass; a malformed
+  // value must not silently become "no limit".
+  let maxWrites: number | undefined;
+  if (body.maxWrites != null) {
+    maxWrites = Number(body.maxWrites);
+    if (!Number.isInteger(maxWrites) || maxWrites < 0 || maxWrites > 500) {
+      res.status(400).json({ error: "maxWrites must be an integer between 0 and 500" });
+      return;
+    }
+  }
+
   const client = await pool.connect();
   let locked = false;
   try {
@@ -106,6 +118,7 @@ router.post("/tts-audit/batch", async (req: Request, res: Response): Promise<voi
       limit: limitRaw,
       languageCodes,
       dryRun: body.dryRun === true,
+      ...(maxWrites == null ? {} : { maxWrites }),
       log: req.log,
     });
     res.json(result);

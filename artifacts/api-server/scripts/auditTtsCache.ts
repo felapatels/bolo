@@ -17,6 +17,9 @@
  *   pnpm --filter @workspace/api-server run audit-tts-cache -- [options]
  *
  *   --dry-run              report bad clips without evicting or re-synthesizing
+ *   --max-writes 100       stop the run once N cache rows have been overwritten
+ *                          (default 100; a repair pass is meant to be reviewed,
+ *                          not to rewrite a library unattended)
  *   --languages gu,hi      restrict to these language codes
  *   --batch 40             phrases per batch
  *   --max-batches 5        stop after N batches (sampling / chunked runs)
@@ -32,6 +35,7 @@ import type { AuditBatchResult, AuditFinding } from "../src/lib/ttsCacheAudit";
 
 type Options = {
   dryRun: boolean;
+  maxWrites: number;
   languages?: string[];
   batch: number;
   maxBatches: number;
@@ -53,6 +57,7 @@ function parseArgs(argv: string[]): Options {
   const scope = remote ? "prod" : "dev";
   return {
     dryRun: has("--dry-run"),
+    maxWrites: Number(get("--max-writes") ?? 100),
     languages: get("--languages")?.split(",").map((s) => s.trim()).filter(Boolean),
     batch: Number(get("--batch") ?? 40),
     maxBatches: Number(get("--max-batches") ?? Number.MAX_SAFE_INTEGER),
@@ -101,6 +106,8 @@ async function main(): Promise<void> {
     evicted: 0,
     replaced: 0,
     replacementFailures: 0,
+    unfixable: 0,
+    capSkipped: 0,
   };
   const findings: AuditFinding[] = [];
   const coverages: number[] = [];
@@ -149,6 +156,9 @@ async function main(): Promise<void> {
       limit: opts.batch,
       ...(opts.languages?.length ? { languageCodes: opts.languages } : {}),
       dryRun: opts.dryRun,
+      // Hand each batch only what is left of the run-wide budget, so the cap
+      // limits the RUN and not merely each individual batch.
+      maxWrites: Math.max(0, opts.maxWrites - totals.replaced),
     });
 
     for (const key of Object.keys(totals) as (keyof typeof totals)[]) {
@@ -220,6 +230,7 @@ async function main(): Promise<void> {
   console.log(
     `\n${totals.audited} clips heard · ${findings.length} bad · ${totals.evicted} evicted · ` +
       `${totals.replaced} replaced · ${totals.replacementFailures} kept (replacement failed) · ` +
+      `${totals.unfixable} kept (no better take) · ${totals.capSkipped} left for a later run · ` +
       `${totals.unverifiable} unverifiable · report: ${opts.reportPath}`,
   );
   process.exit(0);

@@ -23,6 +23,17 @@
  * re-synthesis) is higher than the cost of leaving a questionable clip for the
  * next sweep. Nothing is deleted until its replacement has been synthesized,
  * so a phrase is never left with no audio at all.
+ *
+ * Three further brakes, because an overwrite destroys the previous take:
+ *   - a replacement that fails verification is only written if it carried MORE
+ *     of the phrase than the clip it replaces; otherwise the original stays and
+ *     the phrase is reported unfixable. Swapping one unverified take for
+ *     another with no evidence it is better is churn, not repair.
+ *   - the take being replaced is copied to R2 first (ttsAuditBackup.ts). If the
+ *     backup cannot be made, the row is left alone.
+ *   - writes are capped per batch, and consecutive write failures trip a
+ *     breaker for the rest of the batch, so a systematically wrong judge or a
+ *     broken backup path cannot rewrite a whole library unattended.
  */
 import { db, phrasesTable, languagesTable, ttsCacheTable } from "@workspace/db";
 import { and, asc, eq, gt, inArray } from "drizzle-orm";
@@ -36,6 +47,7 @@ import {
   type TranscribeFn,
 } from "./phraseAudioVerify";
 import { synthesizeVerifiedPhraseAudio, type SynthesizeFn } from "./phraseAudioSynthesis";
+import { backupReplacedTake, type BackupFn } from "./ttsAuditBackup";
 import { logger as defaultLogger } from "./logger";
 import { pool } from "./ttsUtils";
 
@@ -45,6 +57,10 @@ export const DEFAULT_BATCH_SIZE = 40;
 export const DEFAULT_CONCURRENCY = 3;
 /** Minimum gap between recognizer calls per worker slot, for the same reason. */
 export const AUDIT_PACING_MS = 250;
+/** Cache rows one batch may overwrite before it stops writing and reports back. */
+export const DEFAULT_MAX_WRITES = 25;
+/** Consecutive failed writes that trip the breaker for the rest of the batch. */
+export const WRITE_FAILURE_BREAKER = 3;
 
 export type AuditFinding = {
   phraseId: number;
@@ -60,6 +76,8 @@ export type AuditFinding = {
   replaced: boolean;
   /** Set when the replacement itself could not be verified. */
   replacementNote?: string;
+  /** R2 key of the take that was overwritten, so a bad call can be undone. */
+  backupKey?: string;
 };
 
 export type AuditBatchResult = {
@@ -74,8 +92,14 @@ export type AuditBatchResult = {
   notCached: number;
   evicted: number;
   replaced: number;
-  /** Bad clips left in place because the replacement could not be synthesized. */
+  /** Bad clips left in place because the replacement could not be synthesized or backed up. */
   replacementFailures: number;
+  /** Bad clips left in place because no replacement take beat them. */
+  unfixable: number;
+  /** Bad clips left for a later run because the write cap was reached. */
+  capSkipped: number;
+  /** True when the batch stopped writing: cap reached or the failure breaker tripped. */
+  writeCapReached: boolean;
   /**
    * Coverage ratio of every clip that could be length-checked, passing ones
    * included. The distribution is what tells an operator whether the pass mark
@@ -99,10 +123,16 @@ export type AuditBatchOptions = {
   phraseIds?: number[];
   /** Report what would be evicted without touching the cache. */
   dryRun?: boolean;
+  /**
+   * Most cache rows this batch may overwrite. The driver carries a run-wide
+   * cap on top of this: the point is that a first repair pass rewrites a
+   * reviewable handful, not a library.
+   */
+  maxWrites?: number;
   concurrency?: number;
   log?: { info: (obj: object, msg: string) => void; warn: (obj: object, msg: string) => void };
   /** Injected for tests. */
-  deps?: { transcribe?: TranscribeFn; synthesize?: SynthesizeFn };
+  deps?: { transcribe?: TranscribeFn; synthesize?: SynthesizeFn; backup?: BackupFn };
 };
 
 /**
@@ -201,10 +231,16 @@ export async function auditPhraseAudioBatch(
     limit = DEFAULT_BATCH_SIZE,
     languageCodes,
     dryRun = false,
+    maxWrites = DEFAULT_MAX_WRITES,
     concurrency = DEFAULT_CONCURRENCY,
     log = defaultLogger,
     deps = {},
   } = options;
+  const backup: BackupFn = deps.backup ?? backupReplacedTake;
+  const runAt = new Date().toISOString();
+  /** Reserved before the work starts, released when the write does not happen. */
+  let writesUsed = 0;
+  let consecutiveWriteFailures = 0;
 
   const explicitIds = options.phraseIds?.length ? options.phraseIds : null;
   const where = explicitIds
@@ -229,6 +265,9 @@ export async function auditPhraseAudioBatch(
     evicted: 0,
     replaced: 0,
     replacementFailures: 0,
+    unfixable: 0,
+    capSkipped: 0,
+    writeCapReached: false,
     coverages: [],
     findings: [],
     nextPhraseId:
@@ -318,47 +357,96 @@ export async function auditPhraseAudioBatch(
       };
 
       if (!dryRun) {
-        // Synthesize the replacement BEFORE evicting, so a synthesis failure
-        // leaves the learner with the old clip rather than with silence.
-        try {
-          const replacement = await synthesizeVerifiedPhraseAudio({
-            nativeScript: phrase.nativeScript,
-            romanized: phrase.romanized,
-            languageCode: phrase.languageCode,
-            languageName,
-            speechCapability: capabilityByCode.get(phrase.languageCode),
-            identity,
-            elevenLabsLanguageId: getLanguageIdForCode(phrase.languageCode),
-            synthesize: deps.synthesize,
-            transcribe: deps.transcribe,
-          });
-          // Compare-and-swap on the exact take that was audited: a playback
-          // request or a concurrent sweep may have replaced the row while the
-          // recognizer and the synthesizer were working, and that newer take
-          // has not been judged. Overwriting it blind would discard a good
-          // clip on the strength of a verdict about a clip that is gone.
-          await db
-            .update(ttsCacheTable)
-            .set({ audioBase64: replacement.audio.toString("base64"), format: "mp3" })
-            .where(
-              and(
-                eq(ttsCacheTable.cacheKey, cacheKey),
-                eq(ttsCacheTable.audioBase64, cached.audioBase64),
-              ),
-            );
-          finding.evicted = true;
-          finding.replaced = true;
-          result.evicted++;
-          result.replaced++;
-          if (!replacement.verdict.ok) {
-            finding.replacementNote = `replacement still ${replacement.verdict.status} after ${replacement.takes} takes`;
+        // Reserve the write slot before any await: the pool runs several
+        // phrases concurrently, and a check made before a synthesis call would
+        // let every in-flight worker pass a cap that only one of them fits in.
+        const breakerTripped = consecutiveWriteFailures >= WRITE_FAILURE_BREAKER;
+        if (writesUsed >= maxWrites || breakerTripped) {
+          result.capSkipped++;
+          result.writeCapReached = true;
+          finding.replacementNote = breakerTripped
+            ? `writes stopped after ${consecutiveWriteFailures} consecutive failures — left for the next run`
+            : `write cap (${maxWrites}) reached — left for the next run`;
+        } else {
+          writesUsed++;
+          let wrote = false;
+          try {
+            const replacement = await synthesizeVerifiedPhraseAudio({
+              nativeScript: phrase.nativeScript,
+              romanized: phrase.romanized,
+              languageCode: phrase.languageCode,
+              languageName,
+              speechCapability: capabilityByCode.get(phrase.languageCode),
+              identity,
+              elevenLabsLanguageId: getLanguageIdForCode(phrase.languageCode),
+              synthesize: deps.synthesize,
+              transcribe: deps.transcribe,
+            });
+
+            // An unverified replacement is only an improvement if it carried
+            // more of the phrase than the clip it would destroy. Otherwise this
+            // is one unjudged take swapped for another, and the cached clip —
+            // which at least a learner has been hearing — stays.
+            const oldCoverage = second.coverage ?? 0;
+            const newCoverage = replacement.verdict.coverage ?? 0;
+            if (!replacement.verdict.ok && newCoverage <= oldCoverage) {
+              result.unfixable++;
+              finding.replacementNote =
+                `no take beat the cached clip after ${replacement.takes} tries ` +
+                `(best ${newCoverage.toFixed(2)} vs cached ${oldCoverage.toFixed(2)}) — original kept`;
+            } else {
+              // Copy the condemned take out before destroying it. A failed
+              // backup throws, so the row is never overwritten unrecoverably.
+              finding.backupKey = await backup({
+                phraseId: phrase.id,
+                languageCode: phrase.languageCode,
+                cacheKey,
+                audio,
+                format: verifyArgs.format,
+                nativeScript: phrase.nativeScript,
+                verdict: {
+                  status: second.status,
+                  heard: second.heard,
+                  coverage: second.coverage,
+                },
+                runAt,
+              });
+
+              // Compare-and-swap on the exact take that was audited: a playback
+              // request or a concurrent sweep may have replaced the row while the
+              // recognizer and the synthesizer were working, and that newer take
+              // has not been judged. Overwriting it blind would discard a good
+              // clip on the strength of a verdict about a clip that is gone.
+              await db
+                .update(ttsCacheTable)
+                .set({ audioBase64: replacement.audio.toString("base64"), format: "mp3" })
+                .where(
+                  and(
+                    eq(ttsCacheTable.cacheKey, cacheKey),
+                    eq(ttsCacheTable.audioBase64, cached.audioBase64),
+                  ),
+                );
+              wrote = true;
+              finding.evicted = true;
+              finding.replaced = true;
+              result.evicted++;
+              result.replaced++;
+              if (!replacement.verdict.ok) {
+                finding.replacementNote = `replacement still ${replacement.verdict.status} after ${replacement.takes} takes, but carried more of the phrase (${newCoverage.toFixed(2)} vs ${oldCoverage.toFixed(2)})`;
+              }
+            }
+            consecutiveWriteFailures = 0;
+          } catch (err) {
+            // Could not re-synthesize or could not back the old take up
+            // (provider outage, quota, empty response, R2 unreachable). The old
+            // row stays: a clip that speaks one of its two words is still
+            // better than silence, and the next sweep will try again.
+            finding.replacementNote = `replacement failed, old clip kept: ${(err as Error).message}`;
+            result.replacementFailures++;
+            consecutiveWriteFailures++;
           }
-        } catch (err) {
-          // Could not re-synthesize (provider outage, quota, empty response).
-          // The old row stays: a clip that speaks one of its two words is
-          // still better than silence, and the next sweep will try again.
-          finding.replacementNote = `replacement failed, old clip kept: ${(err as Error).message}`;
-          result.replacementFailures++;
+          // Only an actual overwrite consumes the cap.
+          if (!wrote) writesUsed--;
         }
       }
 

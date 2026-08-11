@@ -102,12 +102,36 @@ function nextTranscript(): string {
   return transcripts.length > 1 ? (transcripts.shift() as string) : (transcripts[0] ?? "");
 }
 
+/** Takes copied out to R2 before their row was overwritten. */
+let backups: { phraseId: number; audio: string }[] = [];
+
+const stubBackup = async (b: { phraseId: number; audio: Buffer }): Promise<string> => {
+  backups.push({ phraseId: b.phraseId, audio: b.audio.toString() });
+  return `tts-audit-replaced/gu/${b.phraseId}.mp3`;
+};
+
 const deps = {
   transcribe: async () => nextTranscript(),
   synthesize: async () => {
     synthesisCalls++;
     return Buffer.from("fresh-take");
   },
+  backup: stubBackup,
+};
+
+/**
+ * Reads keyed off the audio itself rather than a shared queue, so a test with
+ * several phrases in flight at once stays deterministic: the cached take is
+ * heard as one word, any fresh take as the whole phrase.
+ */
+const depsByAudio = {
+  transcribe: async (audio: Buffer) =>
+    audio.toString() === "fresh-take" ? "saachvine jajo" : "saachvine",
+  synthesize: async () => {
+    synthesisCalls++;
+    return Buffer.from("fresh-take");
+  },
+  backup: stubBackup,
 };
 
 beforeEach(() => {
@@ -118,6 +142,7 @@ beforeEach(() => {
   updatedKeys = [];
   updatedClauses = [];
   deletedKeys = [];
+  backups = [];
 });
 
 test("a clip that speaks the whole phrase is left alone", async () => {
@@ -198,13 +223,77 @@ test("the cursor advances only while batches come back full", async () => {
   assert.equal(partial.nextPhraseId, null);
 });
 
-test("when every replacement take falls short the finding says so", async () => {
-  // Cached clip fails twice, then all three replacement takes fail too.
+test("an unverified replacement is written only when it beats the cached clip", async () => {
+  // Cached clip is heard as one syllable; every replacement take still falls
+  // short of the pass mark but carries far more of the phrase, so it wins.
+  transcripts = ["saach", "saach", "saachvine"];
+  const result = await auditPhraseAudioBatch({ limit: 10, log: silentLog, deps });
+
+  assert.equal(result.replaced, 1, "the learner gets the better of two imperfect takes");
+  assert.equal(result.unfixable, 0);
+  assert.equal(backups.length, 1, "the take it destroyed is recoverable");
+  assert.match(result.findings[0]?.replacementNote ?? "", /still short after \d+ takes/);
+  assert.match(result.findings[0]?.replacementNote ?? "", /carried more of the phrase/);
+});
+
+test("a replacement that carries no more of the phrase is not written", async () => {
+  // Cached clip says one word; so does every replacement take. Swapping one
+  // unjudged take for another would be churn, and it destroys the old audio.
   transcripts = ["saachvine"];
   const result = await auditPhraseAudioBatch({ limit: 10, log: silentLog, deps });
 
-  assert.equal(result.replaced, 1, "the learner still gets the best take we could make");
-  assert.match(result.findings[0]?.replacementNote ?? "", /still short after \d+ takes/);
+  assert.equal(result.unfixable, 1);
+  assert.equal(result.replaced, 0);
+  assert.equal(result.evicted, 0);
+  assert.equal(updatedKeys.length, 0);
+  assert.equal(backups.length, 0, "nothing was destroyed, so nothing needed backing up");
+  assert.match(result.findings[0]?.replacementNote ?? "", /no take beat the cached clip/);
+});
+
+test("the take being overwritten is copied out first", async () => {
+  transcripts = ["saachvine", "saachvine", "saachvine jajo"];
+  const result = await auditPhraseAudioBatch({ limit: 10, log: silentLog, deps });
+
+  assert.equal(result.replaced, 1);
+  assert.deepEqual(backups, [{ phraseId: PHRASE.id, audio: "cached-audio" }]);
+  assert.match(result.findings[0]?.backupKey ?? "", /tts-audit-replaced/);
+});
+
+test("a clip whose backup fails is left alone rather than destroyed", async () => {
+  transcripts = ["saachvine", "saachvine", "saachvine jajo"];
+  const result = await auditPhraseAudioBatch({
+    limit: 10,
+    log: silentLog,
+    deps: {
+      ...deps,
+      backup: async () => {
+        throw new Error("R2 unreachable");
+      },
+    },
+  });
+
+  assert.equal(result.replaced, 0);
+  assert.equal(result.replacementFailures, 1);
+  assert.equal(updatedKeys.length, 0, "an unrecoverable overwrite must not happen");
+  assert.match(result.findings[0]?.replacementNote ?? "", /R2 unreachable/);
+});
+
+test("the write cap stops a run rewriting more than it was allowed", async () => {
+  stubPhrases = [PHRASE, { ...PHRASE, id: 1428 }, { ...PHRASE, id: 1429 }];
+  const result = await auditPhraseAudioBatch({
+    limit: 10,
+    maxWrites: 1,
+    log: silentLog,
+    deps: depsByAudio,
+  });
+
+  assert.equal(result.replaced, 1);
+  assert.equal(result.capSkipped, 2);
+  assert.equal(result.writeCapReached, true);
+  assert.equal(updatedKeys.length, 1);
+  const skipped = result.findings.filter((f) => !f.replaced);
+  assert.equal(skipped.length, 2);
+  assert.match(skipped[0]?.replacementNote ?? "", /write cap \(1\) reached/);
 });
 
 test("a failed replacement leaves the old clip in place rather than silence", async () => {
