@@ -61,3 +61,6 @@ qa/pilot-results/calibration/
 # Owner ruling (August 4, 2026): keep platform publish commits from sweeping these in
 attached_assets/
 .agents/
+
+# Noise robustness bench raw runs (learner transcripts; sample.json + summary.md are committed)
+qa/pilot-results/noise-bench/results.jsonl
