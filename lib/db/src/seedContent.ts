@@ -11,6 +11,7 @@ import { eq, and } from "drizzle-orm";
 // import.meta.url-relative file reads silently miss, which would leave a
 // fresh production database with only Gujarati content.
 import curatedLessonsJson from "./data/curatedLessons.json";
+import { normalizePhraseText } from "./phraseText";
 import {
   LANGUAGES,
   CATEGORIES,
@@ -81,6 +82,25 @@ async function topUpLesson(
       .map((p) => phraseKey(p.nativeScript, p.english)),
   );
 
+  // A second, narrower key on the native script alone — the one
+  // `phrases_topic_stage_text_unique` enforces. The key above includes the
+  // English gloss, so CORRECTING a gloss in the curated library used to make
+  // this top-up insert a second row for a phrase the topic already held; that
+  // is where several of the duplicates this constraint cleaned up came from,
+  // and now it would abort seeding at boot instead. A corrected gloss keeps
+  // the stored row untouched (like every other field but `romanized`) and is
+  // logged rather than inserted.
+  const seenText = new Set(
+    existingPhrases
+      .filter((p) => p.stage !== "sentence")
+      .map((p) => normalizePhraseText(p.nativeScript)),
+  );
+  const seenSentenceText = new Set(
+    existingPhrases
+      .filter((p) => p.stage === "sentence")
+      .map((p) => normalizePhraseText(p.nativeScript)),
+  );
+
   const phraseInserts = lesson.phrases
     .map((p, index) => ({
       lessonId,
@@ -100,7 +120,15 @@ async function topUpLesson(
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
       if (seen.has(key)) return false;
+      const textKey = normalizePhraseText(row.nativeScript);
+      if (seenText.has(textKey)) {
+        console.log(
+          `Skipped ${languageCode} phrase "${row.nativeScript}" (category ${categoryId}): the topic already teaches this text under a different English gloss.`,
+        );
+        return false;
+      }
       seen.add(key);
+      seenText.add(textKey);
       return true;
     });
 
@@ -121,7 +149,15 @@ async function topUpLesson(
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
       if (seenSentences.has(key)) return false;
+      const textKey = normalizePhraseText(row.nativeScript);
+      if (seenSentenceText.has(textKey)) {
+        console.log(
+          `Skipped ${languageCode} sentence "${row.nativeScript}" (category ${categoryId}): the topic already teaches this text under a different English gloss.`,
+        );
+        return false;
+      }
       seenSentences.add(key);
+      seenSentenceText.add(textKey);
       return true;
     });
 

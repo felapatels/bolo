@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
+    "./phrase-text": "./src/phraseText.ts",
     "./seed-data": "./src/seedData.ts",
     "./seed-content": "./src/seedContent.ts"
   },

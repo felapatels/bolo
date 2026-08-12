@@ -16,6 +16,8 @@ import {
   phrasesTable,
   lessonGroupsTable,
   lessonGenerationsTable,
+  normalizePhraseText,
+  isDuplicatePhraseTextError,
 } from "@workspace/db";
 import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 import {
@@ -85,9 +87,12 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 // Loose key for de-duplicating phrases by their native-script text (shared
-// with the manual "Add more phrases" endpoint's guard).
+// with the manual "Add more phrases" endpoint's guard). Delegates to the one
+// definition the database's own unique index mirrors, so the application guard
+// and `phrases_topic_stage_text_unique` can never disagree about what counts
+// as the same phrase.
 export function phraseKey(nativeScript: string): string {
-  return nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
+  return normalizePhraseText(nativeScript);
 }
 
 // Pure trigger decision: should a fetch of this topic's phrase list kick off
@@ -464,15 +469,36 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
       return rows.length;
     };
 
+    // A duplicate-TEXT violation is not a failure: the topic already holds
+    // this phrase, so there is genuinely nothing new to add. It is distinct
+    // from the position/group violations the retry ladder below exists for
+    // (those mean "the layout moved under us, recompute"), which is why the
+    // two are told apart by constraint name rather than by bare 23505.
+    // Retrying or falling back to an unassigned insert would only hit the
+    // text index again, so both stop here and report zero added.
+    const nothingNew = (): number => {
+      console.log(
+        `Replenishment for ${languageCode}/${categoryId} produced only phrases the topic already holds; nothing added.`,
+      );
+      return 0;
+    };
+
     try {
       return await insertAssigned();
     } catch (err) {
+      if (isDuplicatePhraseTextError(err)) return nothingNew();
       if (!isUniqueViolation(err)) throw err;
       try {
         return await insertAssigned();
       } catch (err2) {
+        if (isDuplicatePhraseTextError(err2)) return nothingNew();
         if (!isUniqueViolation(err2)) throw err2;
-        return await insertUnassigned();
+        try {
+          return await insertUnassigned();
+        } catch (err3) {
+          if (isDuplicatePhraseTextError(err3)) return nothingNew();
+          throw err3;
+        }
       }
     }
   } finally {

@@ -19,6 +19,8 @@ import {
   zoneTestoutsTable,
   tokenLedgerTable,
   signalWavesTable,
+  normalizePhraseText,
+  isDuplicatePhraseTextError,
 } from "@workspace/db";
 import { asc, desc, eq, and, ne, inArray, sql, gte, isNull, like } from "drizzle-orm";
 import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
@@ -196,6 +198,24 @@ async function fetchUserAttempts(
     );
 }
 
+// Drops repeats inside one freshly generated batch, on the same normalized
+// text `phrases_topic_stage_text_unique` compares. The model occasionally
+// hands back the same word twice in a single response; without this the whole
+// insert (and so the whole lesson build) would fail on the constraint.
+function dedupeByPhraseText<T extends { nativeScript: string }>(
+  rows: T[],
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const key = normalizePhraseText(row.nativeScript);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
 function serializePhrase(
   p: typeof phrasesTable.$inferSelect,
   stats: Map<number, PhraseStats>,
@@ -347,8 +367,11 @@ export async function getOrCreateLessonPhrases(
     const already = await loadTx();
     if (already.length > 0) return already;
 
+    // A topic holds each phrase once, enforced by the database. The model can
+    // repeat itself inside a single batch, so drop the repeats here rather
+    // than losing the whole lesson build to a constraint violation.
     await tx.insert(phrasesTable).values(
-      generated.phrases.map((p, i) => ({
+      dedupeByPhraseText(generated.phrases).map((p, i) => ({
         lessonId,
         languageCode,
         categoryId,
@@ -797,7 +820,10 @@ router.get(
         const already = await loadTx();
         if (already.length > 0) return already;
         await tx.insert(phrasesTable).values(
-          generated.map((s, i) => ({
+          // Same rule as the phrase stage: one sentence text per topic, so a
+          // model that repeats itself inside the batch loses the repeat, not
+          // the whole stage.
+          dedupeByPhraseText(generated).map((s, i) => ({
             lessonId: lessonRow.id,
             languageCode: lang,
             categoryId: id,
@@ -1053,6 +1079,21 @@ router.post(
         )
         .returning();
     } catch (err) {
+      // The topic already holds one of these phrases. Asking a language model
+      // for more words on a topic it has already covered is expected to
+      // produce a near-duplicate now and then, and the database now rejects
+      // one even when it slips past the guard above (a case- or spacing-
+      // variant, or a racing writer). That is "nothing new to add", the same
+      // answer the de-duplication guard gives, not an error worth alarming a
+      // learner with.
+      if (isDuplicatePhraseTextError(err)) {
+        req.log.info(
+          { lang, categoryId: id },
+          "Append produced only phrases this topic already holds",
+        );
+        res.json([]);
+        return;
+      }
       req.log.error({ err }, "Adding phrases failed");
       res.status(502).json({ error: "Could not add new phrases" });
       return;

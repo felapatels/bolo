@@ -198,11 +198,14 @@ before(async () => {
   group1Id = group1.id;
   group2Id = group2.id;
 
+  // Native text is derived from the row's label so every fixture row is a
+  // distinct phrase: one topic cannot hold the same text twice (enforced by
+  // the phrases_topic_stage_text_unique index).
   const phrase = (over: Partial<typeof phrasesTable.$inferInsert>) => ({
     lessonId: greetLesson.id,
     languageCode: LANG,
     categoryId: greetingsId,
-    nativeScript: "x",
+    nativeScript: `x-${over.english ?? over.sortOrder ?? "0"}`,
     romanized: "x",
     english: "x",
     hint: null,

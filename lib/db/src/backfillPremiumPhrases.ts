@@ -5,6 +5,7 @@ import {
   phrasesTable,
 } from "./index";
 import { eq, and } from "drizzle-orm";
+import { normalizePhraseText } from "./phraseText";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -113,6 +114,21 @@ async function backfillLesson(
       .map((p) => phraseKey(p.nativeScript, p.english)),
   );
 
+  // Narrower key on the native script alone, matching the database's
+  // `phrases_topic_stage_text_unique`: a curated entry whose ENGLISH GLOSS was
+  // corrected is the same phrase, and inserting it again would now be
+  // rejected outright. Mirrors the seeder's top-up guard.
+  const seenText = new Set(
+    existingPhrases
+      .filter((p) => p.stage !== "sentence")
+      .map((p) => normalizePhraseText(p.nativeScript)),
+  );
+  const seenSentenceText = new Set(
+    existingPhrases
+      .filter((p) => p.stage === "sentence")
+      .map((p) => normalizePhraseText(p.nativeScript)),
+  );
+
   const toInsert = lesson.phrases
     .map((p, index) => ({
       lessonId: existingLesson.id,
@@ -132,8 +148,11 @@ async function backfillLesson(
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
       if (seen.has(key)) return false;
+      const textKey = normalizePhraseText(row.nativeScript);
+      if (seenText.has(textKey)) return false;
       // Guard against duplicates within the curated lesson itself.
       seen.add(key);
+      seenText.add(textKey);
       return true;
     });
 
@@ -156,7 +175,10 @@ async function backfillLesson(
     .filter((row) => {
       const key = phraseKey(row.nativeScript, row.english);
       if (seenSentences.has(key)) return false;
+      const textKey = normalizePhraseText(row.nativeScript);
+      if (seenSentenceText.has(textKey)) return false;
       seenSentences.add(key);
+      seenSentenceText.add(textKey);
       return true;
     });
 

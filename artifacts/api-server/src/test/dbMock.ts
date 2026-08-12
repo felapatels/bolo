@@ -28,6 +28,14 @@
 // of silently returning undefined rows.
 
 import type * as Db from "@workspace/db";
+// Imported from the standalone subpath, NOT the barrel: these are pure string
+// helpers with no database import, so pulling them in here cannot create a pg
+// Pool the way importing "@workspace/db" itself would.
+import {
+  normalizePhraseText,
+  isDuplicatePhraseTextError,
+  PHRASE_TEXT_UNIQUE_INDEX,
+} from "@workspace/db/phrase-text";
 
 type DbValueExports = { [K in keyof typeof Db]: unknown };
 
@@ -103,6 +111,13 @@ export function createDbMockExports(
     insertPhraseSchema: {},
     lessonGenerationKindEnum: {},
     PHRASE_REPORT_REASONS: [],
+
+    // Phrase-text normalization: the real implementations, not stubs. They are
+    // pure string helpers the barrel re-exports, and callers under test rely
+    // on them agreeing with the database's unique index.
+    normalizePhraseText,
+    isDuplicatePhraseTextError,
+    PHRASE_TEXT_UNIQUE_INDEX,
   } satisfies DbValueExports;
 
   return { ...base, ...overrides };

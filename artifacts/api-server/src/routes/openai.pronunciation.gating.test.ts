@@ -221,7 +221,9 @@ before(async () => {
     lessonId: lesson!.id,
     languageCode: LANG,
     categoryId: greetingsId,
-    nativeScript: "kem chho",
+    // Distinct per row: one topic cannot hold the same phrase text twice
+    // (phrases_topic_stage_text_unique).
+    nativeScript: `kem chho ${over.sortOrder ?? 0}`,
     romanized: "kem chho",
     english: "x",
     hint: null,

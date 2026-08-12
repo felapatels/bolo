@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, jsonb, real, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lessonsTable } from "./lessons";
@@ -79,6 +80,22 @@ export const phrasesTable = pgTable("phrases", {
   uniqueIndex("phrases_lesson_group_position_unique").on(
     table.lessonGroupId,
     table.lessonGroupPosition,
+  ),
+  // One topic never holds the same phrase twice. The key is the NORMALIZED
+  // native script (trimmed, lower-cased, internal whitespace collapsed), which
+  // is the SQL twin of `normalizePhraseText` in lib/db/src/phraseText.ts — the
+  // comparison every writer already makes in application code. Indexing the
+  // raw column instead would let a case- or spacing-variant through, which is
+  // exactly what a writer that skipped the application guard would produce.
+  //
+  // Scoped to (language, category, stage): the same word in two topics is
+  // legitimate content, and a sentence may reuse a word the phrase list
+  // teaches. Change this expression only together with normalizePhraseText.
+  uniqueIndex("phrases_topic_stage_text_unique").on(
+    table.languageCode,
+    table.categoryId,
+    table.stage,
+    sql`lower(regexp_replace(btrim(${table.nativeScript}), '\\s+', ' ', 'g'))`,
   ),
   // D1a Slice 2 hardening — TRIGGER FALLBACK (July 29, 2026): the composite
   // scope FK `phrases_lesson_group_scope_fk` was removed from the declarative
