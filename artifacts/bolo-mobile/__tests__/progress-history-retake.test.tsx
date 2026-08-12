@@ -14,6 +14,13 @@ import type { Attempt } from '@workspace/api-client-react';
 const mockState: Record<string, any> = {
   push: jest.fn(),
   attempts: { data: [], isLoading: false, isError: false, isRefetching: false, refetch: jest.fn() },
+  summary: {
+    phrasesMastered: 0,
+    totalPhrases: 0,
+    totalAttempts: 0,
+    bestScore: 0,
+    currentStreakDays: 0,
+  },
 };
 
 // ─── module mocks ─────────────────────────────────────────────────────────────
@@ -29,7 +36,7 @@ jest.mock('@workspace/api-client-react', () => ({
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetProgressSummary: () => ({
-    data: { phrasesMastered: 0, totalPhrases: 0, totalAttempts: 0, bestScore: 0, currentStreakDays: 0 },
+    data: mockState.summary,
     isLoading: false,
     isError: false,
     isRefetching: false,
@@ -275,6 +282,55 @@ function attemptsQuery(items: Attempt[]) {
 beforeEach(() => {
   mockState.push = jest.fn();
   mockState.attempts = attemptsQuery([]);
+  mockState.summary = {
+    phrasesMastered: 0,
+    totalPhrases: 0,
+    totalAttempts: 0,
+    bestScore: 0,
+    currentStreakDays: 0,
+  };
+});
+
+// Task #1057: the Progress-tab stat grid is FOUR cards, matching the
+// four-card loading skeleton above it. Speaking streak is still tracked and
+// still returned by the server (`speakingStreakDays`), but the owner ruled it
+// is not worth a permanent tile, so it has no display here.
+describe('progress stat grid', () => {
+  test('renders exactly the four summary stats, with no speaking streak', () => {
+    mockState.summary = {
+      phrasesMastered: 8,
+      totalPhrases: 40,
+      totalAttempts: 31,
+      bestScore: 92,
+      currentStreakDays: 3,
+      // Still on the payload — the display is what was removed.
+      speakingStreakDays: 2,
+    };
+
+    render(<ProgressScreen />);
+
+    for (const label of [
+      'Phrases mastered',
+      'Total practices',
+      'Best score',
+      'Day streak',
+    ]) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.queryByText(/speaking streak/i)).toBeNull();
+
+    // Each remaining stat still shows its own value…
+    expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.getByText('31')).toBeTruthy();
+    expect(screen.getByText('92')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+    // …and the speaking-streak value is nowhere on the grid.
+    expect(screen.queryByText('2')).toBeNull();
+
+    // The removed stat was the grid's second `mic` icon; Total practices keeps
+    // the only one.
+    expect(screen.getAllByTestId('icon-mic')).toHaveLength(1);
+  });
 });
 
 describe('progress history retake navigation', () => {

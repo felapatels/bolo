@@ -1,5 +1,4 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, Mic, ChevronRight, HelpCircle } from "lucide-react";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
 import { ChaiPurchaseReturn } from "@/components/chai-packs";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
@@ -47,6 +46,7 @@ import { useUser } from "@clerk/react";
 // shimmer, glow, arrow, train) live in index.css under "Boarding pass and
 // journey CTA idle motion"; these two cover the framer press spring only.
 // Low damping is what produces the overshoot spring-back on release.
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, ChevronRight, HelpCircle } from "lucide-react";
 const PASS_PRESS_SCALE = 0.94;
 const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
 
@@ -728,15 +728,15 @@ export default function Home() {
             className={`relative flex items-stretch ${summary ? "" : "invisible"}`}
             aria-hidden={!summary}
           >
-            {/* Everything left of Chai is one target: the four progress
+            {/* Everything left of Chai is one target: the three progress
                 figures all live on /progress, so the whole run of cells opens
-                it rather than being four inert numbers next to one tappable
+                it rather than being three inert numbers next to one tappable
                 one. Chai stays separate — it opens the wallet. */}
             <Link
               href="/progress"
               data-testid="stats-progress-link"
               aria-label="See your progress"
-              className="flex flex-[4] items-stretch rounded-2xl transition-colors hover:bg-white/10"
+              className="flex flex-[3] items-stretch rounded-2xl transition-colors hover:bg-white/10"
             >
               <StatCell
                 icon={
@@ -751,15 +751,9 @@ export default function Home() {
                 label="Day Streak"
                 delay={0.16}
               />
-              <div className="w-px self-stretch bg-white/25" />
-              {/* Spec D2: speaking streak — days with a nailed/close attempt.
-                  Mic icon so it reads as distinct from the general streak. */}
-              <StatCell
-                icon={<Mic className="w-6 h-6" />}
-                value={summary?.speakingStreakDays ?? 0}
-                label="Speaking Streak"
-                delay={0.2}
-              />
+              {/* Spec D2 speaking streak is still tracked server-side
+                  (`speakingStreakDays`), but it no longer earns a permanent
+                  tile here — the bar reads as four figures. */}
               <div className="w-px self-stretch bg-white/25" />
               <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
               <div className="w-px self-stretch bg-white/25" />

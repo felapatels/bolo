@@ -341,7 +341,13 @@ describe("home stats banner", () => {
     expect(row.className).not.toMatch(/\binvisible\b/);
     expect(within(row).getByText("120")).toBeInTheDocument();
     expect(within(row).getByText("8")).toBeInTheDocument();
-    expect(within(row).getByText("Speaking Streak")).toBeInTheDocument();
+    // Task #1057: the bar is four tiles — Day Streak, Total XP, Mastered,
+    // Chai. Speaking streak is still tracked server-side, but it no longer
+    // earns a permanent tile here.
+    for (const label of ["Day Streak", "Total XP", "Mastered", "Chai"]) {
+      expect(within(row).getByText(label)).toBeInTheDocument();
+    }
+    expect(within(row).queryByText(/speaking streak/i)).toBeNull();
     expect(screen.queryByText(/couldn't load/i)).toBeNull();
   });
 
@@ -362,10 +368,10 @@ describe("home stats banner", () => {
     expect(within(cell).getByText("-")).toBeInTheDocument();
     expect(within(cell).getByText("Chai")).toBeInTheDocument();
     // Tappable cell contract: a real button element with a trailing chevron
-    // affordance next to the label. The four static cells stay plain divs.
+    // affordance next to the label. The three static cells stay plain divs.
     expect(cell.tagName).toBe("BUTTON");
     expect(cell.querySelector("svg.lucide-chevron-right")).not.toBeNull();
-    for (const staticId of ["Day Streak", "Speaking Streak", "Total XP", "Mastered"]) {
+    for (const staticId of ["Day Streak", "Total XP", "Mastered"]) {
       const staticCell = within(row).getByText(staticId).closest("div");
       expect(staticCell?.querySelector("svg.lucide-chevron-right")).toBeNull();
     }
@@ -377,10 +383,11 @@ describe("home stats banner", () => {
     expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
   });
 
-  // Build 37: the four figures left of Chai all live on /progress, so the
-  // whole run of them is one link into that page. Chai stays outside it — it
-  // opens the wallet, and nesting a button inside a link would break both.
-  test("the four progress figures are one link to /progress", () => {
+  // Build 37: the figures left of Chai all live on /progress, so the whole
+  // run of them is one link into that page. Chai stays outside it — it opens
+  // the wallet, and nesting a button inside a link would break both.
+  // Task #1057 dropped Speaking Streak, so the run is three figures.
+  test("the three progress figures are one link to /progress", () => {
     h.summary = {
       currentStreakDays: 3,
       speakingStreakDays: 2,
