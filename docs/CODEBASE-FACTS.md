@@ -1827,6 +1827,12 @@ Reported as "not enough padding around the badges on iOS". The badge sat hard ag
 
 **Known gap:** roughly a third of clips come back unverifiable — mostly phrases under the 6-letter floor, plus recognizer drift into scripts we cannot transliterate. The sweep is blind there by design.
 
+**The first production repair ran on August 12, 2026, and it was a single clip.** Phrase 3975 (`gu`, `સાચવીને જજો`), the take from the original field report, was condemned twice (coverage 0.667 then 0.583, heard "Sačuvane") and overwritten with a verified replacement, confirmed good by ear. Targeting one phrase needs the cursor window, not an id: `ttsCacheAudit` accepts explicit `phraseIds`, but the HTTP endpoint never parses them, so a single-clip repair is expressed as `afterPhraseId: <id - 1>` with `limit: 1` after checking that the next id in that language really is the intended one. Always dry-run the identical window first; it costs one transcription and proves both the parameters and the verdict before anything is written. The condemned take is at `tts-audit-replaced/gu/3975-2026-08-12T15-28-57-198Z.mp3`.
+
+**Nothing can read those backups back.** The backup half of the contract works; there is no reader, no restore script, no endpoint, and the workspace has no production write channel, so restoring a wrongly-replaced take today requires shipping code and publishing. Acceptable only while the replaced clip is known-worthless. Deliberately not fixed yet.
+
+**`qa/tts-envelope.mjs` measures a take's shape without a recognizer.** It decodes with ffmpeg and reports burst count, speech seconds, leading and trailing silence, and romanized letters per speech-second. Its value is separating a real truncation from recognizer noise: the bad 3975 take showed one burst, 0.74s of speech and 1.27s of trailing silence at 17.6 letters/speech-second (implausibly fast for the full phrase), while its verified replacement runs 1.54s of speech at 8.4. Burst count alone is not a verdict, because the 200ms merge threshold folds a short inter-word gap into one burst; the rate and the trailing silence are the discriminating numbers. Use it to size a suspicion, then listen.
+
 
 ## 10ac. Noise robustness bench: cleanup measured, cleanup dropped (August 11, 2026, measurement only)
 

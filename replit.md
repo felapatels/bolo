@@ -116,3 +116,4 @@ Seed the DB (idempotent): run `tsx lib/db/src/seed.ts` (tsx bin lives under
 ## User preferences
 
 - **No em dashes, ever.** Not in app copy (web or iOS), not in new code comments, not in chat replies. Use a comma, a colon, parentheses, or two sentences instead. Requested August 8, 2026.
+- **Audio work: hand over the clip first, measure second.** Deliver the audio file before any analysis. Measure only the NEW take, and only as a stop condition (does it still fail the way the old one did). Do not measure before-clips, twins, or anything else to corroborate a judgement the user is about to make by ear. A two-word clip is judged in three seconds by listening. Requested August 12, 2026.
