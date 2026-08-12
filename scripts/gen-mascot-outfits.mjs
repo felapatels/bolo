@@ -89,13 +89,24 @@ const ART = "scripts/mascot-garment-art";
 const ITEMS = [
   { id: "kediyu", art: `${ART}/gar-kediyu-wide.png` },
   { id: "anarkali", art: `${ART}/gar-anarkali.png`, squash: 1.0 },
-  { id: "kurta", art: `${ART}/gar-kurta.png`, squash: 1.0 },
+  // These three run on the RECUT art (`-c`, see scripts/recut-garment-yoke.mjs):
+  // their collars taper inward over the top quarter, which left her shoulders
+  // bare no matter where the cloth was placed. squash 1.05 on all three is the
+  // hem: at 1.0 the cloth stops ~11px above her feet and a teal band shows
+  // between hem and foot in cheer and tryagain.
+  //
+  // The kurta is the odd one. Short sleeves mean it tapers a SECOND time below
+  // the cuff and a third time at the ankles, so its art is widened full height
+  // with interior gaps filled — and a full-height widen is only safe at
+  // freefrac 1.0, because below the hem line cloth hangs unclipped and the
+  // widened rows become a slab through her feet.
+  { id: "kurta", art: `${ART}/gar-kurta-c.png`, squash: 1.05, freefrac: 1.0 },
   // The sherwani's cuffs sit lower than any other garment's, well inside the
   // default free zone, so they survived the silhouette clip as two tabs
   // floating beside her wings. Clipped almost to the hem instead: the coat's
   // flare is in the bottom quarter, so nothing real is lost.
-  { id: "sherwani", art: `${ART}/gar-sherwani.png`, squash: 1.0, freefrac: 0.78 },
-  { id: "saree", art: `${ART}/gar-saree.png`, squash: 1.0 },
+  { id: "sherwani", art: `${ART}/gar-sherwani-c.png`, squash: 1.05, freefrac: 0.78 },
+  { id: "saree", art: `${ART}/gar-saree-c.png`, squash: 1.05, freefrac: 0.5 },
 ];
 
 // Alternates generated and NOT chosen, committed beside the shipped art:
