@@ -391,57 +391,8 @@ describe("home stats banner", () => {
     renderHome();
     const row = bannerRow();
     const link = within(row).getByTestId("stats-progress-link");
-    expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toBe("/progress");
-    for (const label of ["Day Streak", "Speaking Streak", "Total XP", "Mastered"]) {
-      expect(link.contains(within(row).getByText(label))).toBe(true);
-    }
-    expect(link.contains(within(row).getByTestId("stat-chai"))).toBe(false);
-  });
 
-  // The band names itself and shows the balance, so it has to read from the
-  // page's ONE token query — a second source could drift from the stat cell
-  // and from the wallet after a spend.
-  test("the stall band shows the same balance as the Chai cell", () => {
-    h.summary = {
-      currentStreakDays: 3,
-      speakingStreakDays: 2,
-      xp: 120,
-      phrasesMastered: 8,
-      attemptsToday: 0,
-    };
-    h.tokens = {
-      balance: 12,
-      stationPausesEquipped: 0,
-      expressMultiplierActiveUntil: null,
-    };
-    renderHome();
-    expect(screen.getByTestId("chai-stall-title")).toHaveTextContent(
-      "Chacha-ji's Chai Stall",
-    );
-    expect(screen.getByTestId("chai-stall-balance")).toHaveTextContent("12");
-    expect(
-      within(bannerRow()).getByTestId("stat-chai"),
-    ).toHaveTextContent("12");
-  });
-
-  // Owner correction (Aug 6): the stall band above the boarding pass is a
-  // second door into the SAME wallet sheet — no new wallet surface.
-  test("the stall band opens the same wallet sheet", async () => {
-    renderHome();
-    expect(screen.queryByTestId("chai-wallet-sheet")).toBeNull();
-    await userEvent
-      .setup()
-      .click(
-        screen.getByRole("button", {
-          name: "Chacha-ji's Chai stall — open your Chai wallet",
-        }),
-      );
-    expect(screen.getByTestId("chai-wallet-sheet")).toBeInTheDocument();
-  });
-
-  test("keeps the reserved shell hidden while summary is pending", () => {
-    renderHome();
+    const pass = screen.getByTestId("journey-pass-card");
     const row = bannerRow();
     expect(row.getAttribute("aria-hidden")).toBe("true");
     expect(row.className).toMatch(/\binvisible\b/);
@@ -487,3 +438,5 @@ describe("home stats banner", () => {
     expect(screen.queryByRole("button", { name: "Audio settings" })).toBeNull();
   });
 });
+
+    const stall = screen.getByTestId("chai-stall-vignette");

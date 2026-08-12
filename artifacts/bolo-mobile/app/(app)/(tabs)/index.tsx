@@ -61,6 +61,7 @@ import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
+import { HomeReferralCard } from '@/components/HomeReferralCard';
 import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
@@ -641,10 +642,18 @@ export default function HomeScreen() {
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
+          {/* Task #1049 (web parity): the pass renders FIRST, with the stall
+              directly beneath it — home's order of intent is practise →
+              progress → spend, so the primary "start practising" action is
+              never pushed below a spend surface. Both still enter together
+              inside this one entrance wrapper. */}
+          <JourneyPassCard
+            onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
+          />
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
-              at its natural aspect, directly above the pass — the platform the
-              boarding pass stands in front of. It enters WITH the pass and
-              opens the same wallet sheet the Chai stat cell opens. */}
+              at its natural aspect, directly below the pass — the platform the
+              boarding pass has just pulled away from. It enters WITH the pass
+              and opens the same wallet sheet the Chai stat cell opens. */}
           {/* The balance is the SAME query the Chai stat cell reads
               (tokensQuery above), passed down rather than fetched again:
               spends are server-authoritative and every surface refetches on
@@ -657,9 +666,6 @@ export default function HomeScreen() {
               hapticLight();
               setWalletOpen(true);
             }}
-          />
-          <JourneyPassCard
-            onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
           />
         </Animated.View>
 
@@ -887,6 +893,12 @@ export default function HomeScreen() {
             })}
           </>
         ) : null}
+
+        {/* Task #1049: the referral entry point. Last content card, after
+            Recent plays and above the Privacy Policy link. Absent entirely
+            while the referral query is loading or failed, and when no web
+            domain is configured to point the link at. */}
+        <HomeReferralCard />
 
         {/* Privacy policy — App/Play review expects an in-app link learners can
             reach. Opens the hosted /privacy page in an in-app browser. */}

@@ -3,8 +3,9 @@
 // same asset, same loop, same layer map on both platforms, built once.
 //
 // TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
-// aspect, directly above the boarding pass so the pass reads as standing in
-// front of the stall. It carries one slow ambient steam plume over the kettle,
+// aspect, directly below the boarding pass (Task #1049) so the pass reads as
+// standing in front of the stall. It carries one slow ambient steam plume over
+// the kettle,
 // and tapping it opens the Chai wallet sheet — the same sheet the Chai stat
 // cell opens, never a second wallet surface. (It shipped at wallet-vignette
 // scale, 56px and right-aligned; at that size a detailed scene read as a stray
@@ -306,7 +307,7 @@ export function ChaiStallVignette({
         style={styles.scrim}
       />
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
-          compete with the orange boarding pass directly below. */}
+          compete with the orange boarding pass directly above. */}
       <View pointerEvents="none" style={styles.overlayRow}>
         <Text testID="chai-stall-title" numberOfLines={1} style={styles.title}>
           {STALL_TITLE}

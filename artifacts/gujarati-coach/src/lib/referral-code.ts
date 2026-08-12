@@ -10,17 +10,24 @@
 // that can outlive the visit, so every read is TTL-bounded and every redeem
 // attempt clears the slot whatever the outcome (see referral-redeemer).
 
+import {
+  REFERRAL_REWARD_CHAI,
+  buildReferralLink,
+  normalizeReferralCode,
+  referralJoinPath,
+} from "@workspace/referral-link";
+
 const STORAGE_KEY = "bolo.referralCode";
 
 // Long enough that someone can sit on a link for a few weeks, short enough
 // that a forgotten code does not follow a shared browser around forever.
 export const REFERRAL_CODE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Mirrors REFERRAL_REWARD_REFERRER_CHAI / REFERRAL_REWARD_REFEREE_CHAI in
-// artifacts/api-server/src/lib/tokenEconomy.ts, which grants both sides the
-// same amount. Copy quoting the reward reads this, so there is one literal on
-// the web side to change if the server number ever moves.
-export const REFERRAL_REWARD_CHAI = 25;
+// The reward number and the link shape are NOT web-owned: @workspace/referral-link
+// is the single module both this app and the mobile app build referral links
+// from (Task #1049). Re-exported here so every existing web import site keeps
+// working unchanged.
+export { REFERRAL_REWARD_CHAI, normalizeReferralCode };
 
 // `attemptedAt` is what makes redemption single-flight across a reload or a
 // second tab. localStorage is shared and its writes are synchronous, so the
@@ -31,23 +38,22 @@ export const REFERRAL_REWARD_CHAI = 25;
 // already used a code for the redemption that just succeeded on their behalf.
 type StoredCode = { code: string; savedAt: number; attemptedAt?: number };
 
-// Codes are stored uppercase server-side and redemption input is normalized
-// the same way, so a hand-typed or hand-edited link still matches.
-export function normalizeReferralCode(raw: string): string {
-  return raw.trim().toUpperCase();
-}
-
-/** The shareable link for a code. Includes the artifact base path. */
+/**
+ * The shareable link for a code, from this browser's origin and the artifact
+ * base path. The URL itself is shaped by @workspace/referral-link, which
+ * mobile calls with its own origin — one builder, one link.
+ */
 export function referralLink(code: string): string {
-  const base = import.meta.env.BASE_URL || "/";
-  return `${window.location.origin}${base}join/${encodeURIComponent(
-    normalizeReferralCode(code),
-  )}`;
+  return buildReferralLink(
+    window.location.origin,
+    code,
+    import.meta.env.BASE_URL || "/",
+  );
 }
 
 /** The in-app path a referral link lands on, for wouter navigation. */
 export function referralLandingPath(code: string): string {
-  return `/join/${encodeURIComponent(normalizeReferralCode(code))}`;
+  return referralJoinPath(code);
 }
 
 export function rememberReferralCode(raw: string): void {

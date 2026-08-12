@@ -1,10 +1,10 @@
 // Chacha-ji's Chai Stall — the two-tier Chai treatment.
 //
 // TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
-// aspect, sitting directly above the boarding pass so the pass reads as
-// standing in front of the stall. It carries one slow ambient steam plume over
-// the kettle, and tapping it opens the Chai wallet — the same sheet the Chai
-// stat cell opens, never a second wallet surface. (It shipped at
+// aspect, sitting directly below the boarding pass (Task #1049) so the pass
+// reads as standing in front of the stall. It carries one slow ambient steam
+// plume over the kettle, and tapping it opens the Chai wallet — the same sheet
+// the Chai stat cell opens, never a second wallet surface. (It shipped at
 // wallet-vignette scale, 56px and right-aligned; at that size a detailed scene
 // read as a stray thumbnail rather than a place. Owner correction, Aug 6.)
 //
@@ -179,7 +179,7 @@ export function ChaiStallVignette({
         className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 via-black/40 to-transparent"
       />
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
-          compete with the orange boarding pass directly below. */}
+          compete with the orange boarding pass directly above. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 px-3 pb-2.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
         <span
           data-testid="chai-stall-title"

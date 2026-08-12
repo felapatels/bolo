@@ -15,6 +15,7 @@ import { blessAudioPlayback } from "@/lib/iosAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
 import { AddToHomeScreen } from "@/components/add-to-home-screen";
+import { HomeReferralCard } from "@/components/home-referral-card";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { HomeSkeleton } from "@/components/home-skeleton";
@@ -857,22 +858,11 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...springs.gentle, delay: 0.05 }}
             >
-              {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
-                  natural aspect, directly above the pass — the platform the
-                  boarding pass stands in front of. It enters WITH the pass
-                  (inside this entrance wrapper, outside the breathe wrapper
-                  below, which must keep driving the ticket alone) and opens
-                  the same wallet sheet the Chai stat cell opens. */}
-              {/* The balance is the SAME query the Chai stat cell reads
-                  (tokensQuery above), passed down rather than fetched again:
-                  spends are server-authoritative and every surface refetches
-                  on change, so the band can never drift from the wallet. */}
-              <ChaiStallVignette
-                className="mb-3"
-                label="Chacha-ji's Chai stall — open your Chai wallet"
-                onClick={() => setWalletOpen(true)}
-                balance={tokensQuery.data?.balance}
-              />
+              {/* Task #1049: the pass renders FIRST, with Chacha-ji's stall
+                  directly beneath it — home's order of intent is practise →
+                  progress → spend, so the primary "start practising" action
+                  is never pushed below a spend surface. Both still enter
+                  together inside this one entrance wrapper. */}
               {/* The idle breathe lives on a dedicated wrapper: framer drives
                   the entrance motion.div and press motion.div inline
                   transforms, and a CSS transform animation on either of those
@@ -891,6 +881,9 @@ export default function Home() {
               >
               <Link
                 href="/journey"
+                // Stable hook for the order pin (Task #1049): the pass must
+                // render ABOVE the stall inside the entrance wrapper.
+                data-testid="journey-pass-card"
                 onClick={handlePassActivate}
                 className={cn(
                   "group relative block w-full rounded-3xl text-white transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]",
@@ -1058,6 +1051,23 @@ export default function Home() {
               )}
               </motion.div>
               </div>
+              {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
+                  natural aspect, directly BELOW the pass (Task #1049) — the
+                  platform the boarding pass has just pulled away from. It
+                  enters WITH the pass (inside this entrance wrapper, outside
+                  the breathe wrapper above, which must keep driving the ticket
+                  alone) and opens the same wallet sheet the Chai stat cell
+                  opens. */}
+              {/* The balance is the SAME query the Chai stat cell reads
+                  (tokensQuery above), passed down rather than fetched again:
+                  spends are server-authoritative and every surface refetches
+                  on change, so the band can never drift from the wallet. */}
+              <ChaiStallVignette
+                className="mt-3"
+                label="Chacha-ji's Chai stall — open your Chai wallet"
+                onClick={() => setWalletOpen(true)}
+                balance={tokensQuery.data?.balance}
+              />
             </motion.div>
 
             {/* Phrasebook door (Task #906): the topic grid moved to the
@@ -1174,6 +1184,12 @@ export default function Home() {
             <div className="lg:hidden">{recentSection}</div>
           </aside>
         </div>
+
+        {/* Task #1049: the referral entry point. Last content card, outside
+            the two-column grid so it lands after Recent plays at every width,
+            and above the add-to-home chrome. Absent entirely while the
+            referral query is loading or failed. */}
+        <HomeReferralCard />
 
         {/* Secondary chrome: how to keep Bolo on the home screen, plus the
             App Store badge for iOS. Quiet, bottom of the page, never

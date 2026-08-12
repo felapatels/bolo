@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Router, Route } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
@@ -93,6 +93,56 @@ describe("referral surface", () => {
     expect(screen.getByTestId("referral-stat-chai-earned")).toHaveTextContent(
       "75",
     );
+  });
+
+  // Task #1049 lifted the share text and the navigator.share call out of this
+  // card into lib/referral-share so the new home card shares through the same
+  // path. The card is meant to be BYTE-for-byte unchanged in behaviour, so its
+  // two buttons are pinned here: Copy link still copies and still flips to
+  // "Copied!", Share still opens the sheet with the link, and Share with no
+  // share sheet at all still falls back to the copy affordance.
+  test("Copy link and Share still behave exactly as before the share refactor", async () => {
+    h.referral = {
+      data: {
+        code: "K7XM2P",
+        pendingCount: 0,
+        activatedCount: 0,
+        chaiEarned: 0,
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+    const writeText = vi.fn(async () => undefined);
+    const share = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", { ...navigator, share, clipboard: { writeText } });
+
+    render(<ReferralCard />);
+    const link = `${window.location.origin}/join/K7XM2P`;
+
+    // fireEvent, not userEvent: userEvent.setup() installs its own
+    // navigator.clipboard stub, which would displace the one under test.
+    fireEvent.click(screen.getByTestId("referral-copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
+    await waitFor(() => {
+      expect(screen.getByTestId("referral-copy")).toHaveTextContent("Copied!");
+    });
+
+    fireEvent.click(screen.getByTestId("referral-share"));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(share.mock.calls[0][0]).toMatchObject({ url: link });
+
+    // No share sheet: Share falls back to the copy affordance, as it always has.
+    writeText.mockClear();
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      share: undefined,
+      clipboard: { writeText },
+    });
+    fireEvent.click(screen.getByTestId("referral-share"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
+
+    vi.unstubAllGlobals();
   });
 
   test("the shareable link carries the code", () => {

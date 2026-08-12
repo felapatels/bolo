@@ -11,7 +11,10 @@
  * or vice-versa.
  */
 import { describe, test, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { bandFromScore } from "@/components/ui/band-pill";
+import { REFERRAL_REWARD_CHAI } from "@workspace/referral-link";
 
 // ── Server constants mirrored here for cross-platform contract testing ─────
 // These must match the values exported from:
@@ -55,6 +58,31 @@ describe("shared constants contract", () => {
     expect(bandFromScore(BAND_THRESHOLDS.good - 1)).toBe("almost");
     expect(bandFromScore(BAND_THRESHOLDS.almost)).toBe("almost");
     expect(bandFromScore(BAND_THRESHOLDS.almost - 1)).toBe("retry");
+  });
+
+  // Task #1049: home and settings both advertise "You both get N Chai". N is
+  // REFERRAL_REWARD_CHAI from @workspace/referral-link, and this test is the
+  // only thing standing between that copy and a promise the ledger will not
+  // pay. It reads the SERVER file rather than mirroring the number as a
+  // literal, so moving the server constants without moving the shared one
+  // fails here instead of shipping.
+  test("REFERRAL_REWARD_CHAI equals the server's referral reward constants", () => {
+    const root = path.resolve(__dirname, "../../../..");
+    const source = fs.readFileSync(
+      path.join(root, "artifacts/api-server/src/lib/tokenEconomy.ts"),
+      "utf8",
+    );
+    const read = (name: string) => {
+      const match = source.match(
+        new RegExp(`export const ${name}\\s*=\\s*(\\d+)`),
+      );
+      if (!match) throw new Error(`${name} not found in tokenEconomy.ts`);
+      return Number(match[1]);
+    };
+
+    // Both sides are paid the same amount, which is what "You both get N" says.
+    expect(read("REFERRAL_REWARD_REFERRER_CHAI")).toBe(REFERRAL_REWARD_CHAI);
+    expect(read("REFERRAL_REWARD_REFEREE_CHAI")).toBe(REFERRAL_REWARD_CHAI);
   });
 
   test("the mastery rule in five-band terms: mastered = best attempt at least Great", () => {

@@ -50,6 +50,9 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Task #1049: the home referral card reads the learner's code. Idle here —
+  // an undefined code hides the card, which is not what these files pin.
+  useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // Stand-in for the real error class: the repair-refusal copy branches on
   // `instanceof ApiError`, so the tests have to throw the mocked module's own
   // class or every refusal would fall through to the generic line.
@@ -440,8 +443,34 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
     expect(screen.getByTestId('stat-chai')).toHaveTextContent(/12/);
   });
 
-  // Owner correction (Aug 6): the stall band above the boarding pass is a
-  // second door into the SAME wallet sheet — no new wallet surface.
+  // Task #1049: home's order of intent is practise → progress → spend, so the
+  // boarding pass renders ABOVE Chacha-ji's stall. Both still live inside the
+  // one entrance wrapper; only their order changed. The serialized tree is in
+  // render order, so index comparison is the order proof.
+  it('renders the boarding pass above the stall', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
+    mockState.quiz = { data: undefined, isLoading: false };
+    render(<HomeScreen />);
+
+    const ids: string[] = [];
+    const walk = (node: any) => {
+      const id = node?.props?.testID;
+      if (typeof id === 'string') ids.push(id);
+      for (const child of node?.children ?? []) {
+        if (typeof child !== 'string') walk(child);
+      }
+    };
+    walk(screen.UNSAFE_root);
+
+    const pass = ids.indexOf('journey-pass-card');
+    const stall = ids.indexOf('chai-stall-vignette');
+    expect(pass).toBeGreaterThan(-1);
+    expect(stall).toBeGreaterThan(-1);
+    expect(pass).toBeLessThan(stall);
+  });
+
+  // Owner correction (Aug 6): the stall band, now below the boarding pass, is
+  // a second door into the SAME wallet sheet — no new wallet surface.
   it('opens the same wallet sheet from the stall band', () => {
     mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
     mockState.quiz = { data: undefined, isLoading: false };

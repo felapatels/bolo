@@ -3,6 +3,7 @@ import { Check, Copy, Loader2, Share2 } from "lucide-react";
 import { useGetReferral } from "@workspace/api-client-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { REFERRAL_REWARD_CHAI, referralLink } from "@/lib/referral-code";
+import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { cn } from "@/lib/utils";
 
 // Referral R2, web slice. The signed-in learner's own referral surface: their
@@ -64,28 +65,20 @@ export function ReferralCard() {
   }
 
   const link = referralLink(data.code);
-  const shareText = `Learn your family's language with me on Bolo! Use my link and we both get ${REFERRAL_REWARD_CHAI} Chai.`;
 
   async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(link);
+    if (await copyReferralLink(link)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard unavailable. The link is on screen to copy by hand.
     }
+    // Clipboard unavailable. The link is on screen to copy by hand.
   }
 
+  // Same share text and same no-share-sheet fallback as before; the invocation
+  // itself now lives in lib/referral-share so the home card (Task #1049)
+  // shares through the identical path instead of a second copy of it.
   async function shareLink() {
-    if (!navigator.share) {
-      void copyLink();
-      return;
-    }
-    try {
-      await navigator.share({ text: shareText, url: link });
-    } catch {
-      // A dismissed share sheet is not an error.
-    }
+    await shareReferralLink(link, copyLink);
   }
 
   return (
