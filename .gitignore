@@ -67,3 +67,6 @@ attached_assets/
 
 # Noise robustness bench raw runs (learner transcripts; sample.json + summary.md are committed)
 qa/pilot-results/noise-bench/results.jsonl
+
+# Downloaded production audio clips (task 1047 dry run) — regenerable from the prod cache; never commit
+qa/tts-audit-prod-gu-clips/
