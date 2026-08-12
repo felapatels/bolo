@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-08-12T14:17:09.606Z",
+  "mode": "remote",
+  "options": {
+    "dryRun": true,
+    "maxWrites": 100,
+    "languages": [
+      "gu"
+    ],
+    "batch": 25,
+    "maxBatches": 8,
+    "sample": 0,
+    "restart": false,
+    "remote": "https://bolo-india.app",
+    "reportPath": "../../qa/tts-audit-prod-gu-chunk4.json",
+    "cursorPath": "qa/.tts-audit-prod.cursor"
+  },
+  "totals": {
+    "audited": 7,
+    "verified": 5,
+    "unverifiable": 2,
+    "notCached": 0,
+    "evicted": 0,
+    "replaced": 0,
+    "replacementFailures": 0,
+    "unfixable": 0,
+    "capSkipped": 0
+  },
+  "unverifiableReasons": {
+    "phrase too short to length-check (N letters)": 2
+  },
+  "coverages": [
+    0.7,
+    0.865,
+    0.923,
+    1,
+    1
+  ],
+  "findings": []
+}

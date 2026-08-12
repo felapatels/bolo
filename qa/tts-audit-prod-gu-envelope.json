@@ -1,0 +1,196 @@
+[
+  {
+    "phraseId": 128,
+    "file": "128-bagichama-chha-jhaad-chhe.mp3",
+    "durationS": 3.12,
+    "speechS": 1.94,
+    "spokenBursts": 2,
+    "expectedWords": 4,
+    "lettersPerSpeechSecond": 11.3,
+    "burstsMs": [
+      [
+        60,
+        920
+      ],
+      [
+        1600,
+        2680
+      ]
+    ]
+  },
+  {
+    "phraseId": 226,
+    "file": "226-parikshaa-pahela-hu-gabhraau-chhu.mp3",
+    "durationS": 3.36,
+    "speechS": 2.02,
+    "spokenBursts": 3,
+    "expectedWords": 5,
+    "lettersPerSpeechSecond": 14.4,
+    "burstsMs": [
+      [
+        400,
+        1380
+      ],
+      [
+        1780,
+        2040
+      ],
+      [
+        2200,
+        2980
+      ]
+    ]
+  },
+  {
+    "phraseId": 3967,
+    "file": "3967-ghana-vakhte-malya.mp3",
+    "durationS": 2.304,
+    "speechS": 1.48,
+    "spokenBursts": 2,
+    "expectedWords": 3,
+    "lettersPerSpeechSecond": 10.8,
+    "burstsMs": [
+      [
+        100,
+        1080
+      ],
+      [
+        1420,
+        1920
+      ]
+    ]
+  },
+  {
+    "phraseId": 3975,
+    "file": "3975-saachvine-jajo.mp3",
+    "durationS": 2.448,
+    "speechS": 0.58,
+    "spokenBursts": 1,
+    "expectedWords": 2,
+    "lettersPerSpeechSecond": 22.4,
+    "burstsMs": [
+      [
+        580,
+        1160
+      ]
+    ]
+  },
+  {
+    "phraseId": 3981,
+    "file": "3981-kshama-karo.mp3",
+    "durationS": 1.968,
+    "speechS": 0.74,
+    "spokenBursts": 1,
+    "expectedWords": 2,
+    "lettersPerSpeechSecond": 13.5,
+    "burstsMs": [
+      [
+        520,
+        1260
+      ]
+    ]
+  },
+  {
+    "phraseId": 5954,
+    "file": "5954-saachvine-jajo-bhai.mp3",
+    "durationS": 2.208,
+    "speechS": 1.42,
+    "spokenBursts": 2,
+    "expectedWords": 3,
+    "lettersPerSpeechSecond": 12,
+    "burstsMs": [
+      [
+        200,
+        1260
+      ],
+      [
+        1580,
+        1940
+      ]
+    ]
+  },
+  {
+    "phraseId": 5971,
+    "file": "5971-shubh-raatri-saachvine-jajo.mp3",
+    "durationS": 4.2,
+    "speechS": 2.16,
+    "spokenBursts": 4,
+    "expectedWords": 4,
+    "lettersPerSpeechSecond": 11.1,
+    "burstsMs": [
+      [
+        80,
+        480
+      ],
+      [
+        640,
+        940
+      ],
+      [
+        1100,
+        1300
+      ],
+      [
+        1920,
+        3180
+      ]
+    ]
+  },
+  {
+    "phraseId": 5975,
+    "file": "5975-kaale-malishu-saachvine-jajo.mp3",
+    "durationS": 3.216,
+    "speechS": 1.92,
+    "spokenBursts": 2,
+    "expectedWords": 4,
+    "lettersPerSpeechSecond": 13,
+    "burstsMs": [
+      [
+        500,
+        1460
+      ],
+      [
+        1980,
+        2940
+      ]
+    ]
+  },
+  {
+    "phraseId": 5985,
+    "file": "5985-saachvine-jajo-fari-malie.mp3",
+    "durationS": 4.056,
+    "speechS": 1.92,
+    "spokenBursts": 3,
+    "expectedWords": 4,
+    "lettersPerSpeechSecond": 11.5,
+    "burstsMs": [
+      [
+        240,
+        1000
+      ],
+      [
+        1380,
+        1940
+      ],
+      [
+        2900,
+        3500
+      ]
+    ]
+  },
+  {
+    "phraseId": 69,
+    "file": "69-shubhechchha.mp3",
+    "durationS": 1.248,
+    "speechS": 0.78,
+    "spokenBursts": 1,
+    "expectedWords": 1,
+    "lettersPerSpeechSecond": 15.4,
+    "burstsMs": [
+      [
+        80,
+        860
+      ]
+    ]
+  }
+]
