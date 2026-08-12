@@ -94,6 +94,10 @@ jest.mock('@/constants/fonts', () => ({
   isTallCascadingScript: () => false,
 }));
 
+// Stable across the mock factory so a test can prove that DRAWING Chacha-ji's
+// stall records no encounter (rendering is not triggering).
+var mockRecordChachaEncounter = jest.fn();
+
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     primary: '#6C3FC5',
@@ -164,7 +168,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useUnlockStop: () => ({ mutate: jest.fn(), isPending: false }),
   // Chacha-ji's stall: the map records the arrival, and his dialog can buy
   // from the rack and speak its phrase.
-  useRecordChachaEncounter: () => ({ mutate: jest.fn(), isPending: false }),
+  useRecordChachaEncounter: () => ({ mutate: mockRecordChachaEncounter, isPending: false }),
   useBuyOutfit: () => ({ mutate: jest.fn(), isPending: false }),
   useSynthesizeSpeech: () => ({ mutateAsync: jest.fn(), isPending: false }),
   ApiError: class ApiError extends Error {
@@ -640,9 +644,11 @@ describe('journey map - trackside scenery (web Task 985 port)', () => {
     const { planZoneScenery } = require('@/components/journey/Scenery');
     expect(planZoneScenery(0, 0)).toEqual([]);
     expect(planZoneScenery(0, 2)).toEqual([{ kind: 'tuktuk', row: 1 }]);
+    // The chai stall is retired from the decorative table: on the map that
+    // art now means Chacha-ji's landmark and nothing else.
     expect(planZoneScenery(0, 9)).toEqual([
       { kind: 'tuktuk', row: 1 },
-      { kind: 'chaiStall', row: 4 },
+      { kind: 'fruitCart', row: 4 },
       { kind: 'banyan', row: 7 },
     ]);
     // Final zone leads with the river ghat, the Varanasi-approach finale.
@@ -797,5 +803,66 @@ describe('journey map — trackside signals', () => {
     render(<JourneyScreen />);
     await waitFor(() => expect(screen.getByTestId('signal-1')).toBeOnTheScreen());
     expect(screen.queryByTestId('signal-dialog-title')).toBeNull();
+  });
+});
+
+// Chacha-ji's stall as a permanent map LANDMARK, mirroring the web map. Two
+// rules are load-bearing: it stands at EVERY encounter station (ahead of the
+// learner and behind), and RENDERING IS NOT TRIGGERING — drawing it records
+// no encounter and mints no Chai. Only arrival does that.
+describe('journey map — Chacha-ji stall landmark', () => {
+  const stallStations = () =>
+    screen
+      .getAllByTestId(/^chacha-stall-/)
+      .map((el) => Number(String(el.props.testID).replace('chacha-stall-', '')))
+      .sort((a, b) => a - b);
+
+  it('plans a stall at exactly the stations the arrival check pays at', () => {
+    const { planChachaStalls, STALL_PLACEMENT } = require('@/components/journey/Scenery');
+    const { isChachaEncounterStation } = require('@/lib/chachaMemory');
+    expect(planChachaStalls(0)).toEqual([]);
+    expect(planChachaStalls(12)).toEqual([3, 7, 11]);
+    for (let s = 1; s <= 40; s++) {
+      expect(planChachaStalls(40).includes(s)).toBe(isChachaEncounterStation(s));
+    }
+    // Web parity: identical lane and ground line, so the stall sits in the
+    // same relative spot on both platforms.
+    expect(STALL_PLACEMENT).toEqual({ laneX: 20, groundDy: 46 });
+  });
+
+  it('renders at every encounter station whatever the learner position', () => {
+    const fresh = Array.from({ length: 11 }, () => grp({ status: 'locked' }));
+    fresh[0] = grp({ status: 'in_progress', masteredCount: 1, attemptedCount: 2 });
+    setZones([fresh, Array.from({ length: 10 }, () => grp({ status: 'locked' }))]);
+    render(<JourneyScreen />);
+    expect(stallStations()).toEqual([3, 7, 11, 15, 19]);
+    // Nothing was recorded by drawing them.
+    expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
+    screen.unmount();
+
+    // Learner deep into zone 2: the stalls behind them render the same.
+    const done = Array.from({ length: 11 }, () =>
+      grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+    );
+    setZones([done, Array.from({ length: 10 }, () => grp({ status: 'locked' }))]);
+    render(<JourneyScreen />);
+    expect(stallStations()).toEqual([3, 7, 11, 15, 19]);
+    expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
+  });
+
+  it('seats every stall in its own left lane, one pitch apart per interval', () => {
+    const { STALL_PLACEMENT } = require('@/components/journey/Scenery');
+    setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
+    render(<JourneyScreen />);
+    const seats = screen
+      .getAllByTestId(/^chacha-stall-/)
+      .map((el) => /translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(String(el.props.transform))!)
+      .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+    expect(seats.length).toBe(3); // stations 3, 7 and 11
+    for (const s of seats) expect(s.x).toBe(STALL_PLACEMENT.laneX);
+    // One zone, so the rows are a clean 100px pitch apart: four stations
+    // between encounters every time.
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 100);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 100);
   });
 });

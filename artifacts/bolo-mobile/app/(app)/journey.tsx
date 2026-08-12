@@ -84,6 +84,8 @@ import {
   ZoneVista,
   SCENERY_GRAY,
   SCENERY_PLACEMENT,
+  STALL_PLACEMENT,
+  planChachaStalls,
   planZoneScenery,
 } from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
@@ -757,22 +759,76 @@ export default function JourneyScreen() {
   // in the free strip beside a station row, same side as the marker
   // (opposite its card), on the same edge inset and ground line the web map
   // uses. Locked showroom zones gray out with their postcards.
-  const sceneryPlacements = zones.flatMap((zone, zi) => {
-    const zonePts = stationPts.filter((p) => p.station!.zoneIndex === zi);
+  //
+  // Chacha-ji's stall rides in the same layer as a permanent LANDMARK at every
+  // encounter station, ahead of the learner and behind, so the stop that pays
+  // is visible before it is reached (web parity, identical lane and ground
+  // line). Pure client geometry off the same predicate the arrival check uses:
+  // no server call, no state, no encounter row. Rendering is NOT triggering.
+  const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
+    const p = stationPts[station - 1];
+    if (!p) return [];
+    const zone = zones[p.station!.zoneIndex]!;
     const zoneAccessible = zone.stations.some(
       (st) => isStatusAccessible(st.status) || st.teaserStation,
     );
-    return planZoneScenery(zi, zonePts.length).map(({ kind, row }, i) => {
-      const p = zonePts[row]!;
-      return {
-        key: `${zi}-${i}`,
-        kind,
-        x: p.x < mapW / 2 ? SCENERY_PLACEMENT.edgeX : mapW - SCENERY_PLACEMENT.edgeX,
-        y: p.y + SCENERY_PLACEMENT.groundDy,
+    return [
+      {
+        key: `chacha-stall-${station}`,
+        testID: `chacha-stall-${station}`,
+        kind: 'chaiStall' as const,
+        station,
+        zoneIndex: p.station!.zoneIndex,
+        x: STALL_PLACEMENT.laneX,
+        y: p.y + STALL_PLACEMENT.groundDy,
         gray: showroom && !zoneAccessible,
-      };
-    });
+      },
+    ];
   });
+  // Zone-local rows carrying a stall, so the decorative plan leaves that strip
+  // alone: decoration there would double as a second, meaningless stall right
+  // beside the landmark.
+  const stallRowsByZone = new Map<number, Set<number>>();
+  for (const stall of chachaStalls) {
+    const zonePts = stationPts.filter((p) => p.station!.zoneIndex === stall.zoneIndex);
+    const row = zonePts.findIndex(
+      (p) => p.station!.id === stationPts[stall.station - 1]!.station!.id,
+    );
+    if (row < 0) continue;
+    const rows = stallRowsByZone.get(stall.zoneIndex) ?? new Set<number>();
+    rows.add(row);
+    stallRowsByZone.set(stall.zoneIndex, rows);
+  }
+  const sceneryPlacements = [
+    ...zones.flatMap((zone, zi) => {
+      const zonePts = stationPts.filter((p) => p.station!.zoneIndex === zi);
+      const zoneAccessible = zone.stations.some(
+        (st) => isStatusAccessible(st.status) || st.teaserStation,
+      );
+      const stallRows = stallRowsByZone.get(zi);
+      return planZoneScenery(zi, zonePts.length)
+        .filter(({ row }) => !stallRows?.has(row))
+        .map(({ kind, row }, i) => {
+          const p = zonePts[row]!;
+          return {
+            key: `${zi}-${i}`,
+            testID: undefined as string | undefined,
+            kind,
+            x: p.x < mapW / 2 ? SCENERY_PLACEMENT.edgeX : mapW - SCENERY_PLACEMENT.edgeX,
+            y: p.y + SCENERY_PLACEMENT.groundDy,
+            gray: showroom && !zoneAccessible,
+          };
+        });
+    }),
+    ...chachaStalls.map(({ key, testID, kind, x, y, gray }) => ({
+      key,
+      testID,
+      kind,
+      x,
+      y,
+      gray,
+    })),
+  ];
 
   // ── Trackside signals (Build 35 mobile parity) ─────────────────────────
   // TRAP 1: signals are NOT pushed into `pts`. `segs` draws the rail between
@@ -1083,6 +1139,7 @@ export default function JourneyScreen() {
                       y={sp.y}
                       accent={line.accent}
                       gray={sp.gray}
+                      testID={sp.testID}
                     />
                   ))}
                 </Svg>

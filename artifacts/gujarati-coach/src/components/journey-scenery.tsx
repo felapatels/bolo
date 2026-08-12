@@ -9,6 +9,8 @@
 // (Greetings), family homes (Family), clock tower (Numbers), chai stall
 // (Food), bazaar street (Everyday Words), festival palace (Feelings finale).
 
+import { isChachaEncounterStation } from "@/lib/quick-games";
+
 const AMBER = "#f59e0b";
 const LEAF = "#10b981";
 const LEAF2 = "#34d399";
@@ -577,12 +579,48 @@ export const SCENERY_PLACEMENT = {
   groundDy: 22,
 } as const;
 
+/** Chacha-ji's stall is a LANDMARK, not decoration: it marks every encounter
+ *  station so the learner sees him coming, and it is seated in the gap AFTER
+ *  that stop, beside the track. Its own lane, because the row's usual strip
+ *  is already busy:
+ *
+ *  - Encounter stations are odd stops (3, 7, 11 ...), so their 0-based index
+ *    is even and the serpentine always puts their marker on the LEFT flank,
+ *    with the station card on the right. The lane is therefore always left.
+ *  - Every odd stop also carries a trackside signal, whose glyph occupies
+ *    x 42..82 from y-5 to y+55. `laneX` sits the stall outboard of it.
+ *  - `groundDy` seats the stall past the stop in the travel direction, below
+ *    the station card (which ends at y+39 at its tallest) and above the next
+ *    zone postcard (which starts at y+60 when the stop ends a fare zone).
+ *
+ *  RENDERING IS NOT TRIGGERING: this is scenery in the pointer-events-none
+ *  layer. The gift, the phrase and the offer still fire only on arrival.
+ */
+export const STALL_PLACEMENT = {
+  /** Center x of the stall lane, outboard of the signal strip. */
+  laneX: 20,
+  /** Ground line offset below the encounter station row's center y. */
+  groundDy: 46,
+} as const;
+
+/** The stations Chacha-ji's stall stands at, 1-based on the flattened global
+ *  station list. Pure and deterministic, and it reads the interval off the
+ *  same predicate the arrival check uses, so the landmark can never drift
+ *  from the stop that actually pays. */
+export function planChachaStalls(totalStations: number): number[] {
+  const out: number[] = [];
+  for (let station = 1; station <= totalStations; station += 1) {
+    if (isChachaEncounterStation(station)) out.push(station);
+  }
+  return out;
+}
+
 /** Zone themes progress Delhi-urban toward Varanasi-riverine: early zones
  *  urban-weighted, middle zones market-and-town, final zones river-and-temple.
  *  Keyed by zone INDEX (fixed across all 22 lines). */
 export const ZONE_SCENERY_THEMES: readonly (readonly SceneryKind[])[] = [
-  ["tuktuk", "chaiStall", "banyan"],
-  ["cycleRickshaw", "tuktuk", "chaiStall"],
+  ["tuktuk", "fruitCart", "banyan"],
+  ["cycleRickshaw", "tuktuk", "marigolds"],
   ["fruitCart", "cow", "marigolds"],
   ["cow", "fruitCart", "cycleRickshaw"],
   ["temple", "banyan", "marigolds"],
@@ -642,9 +680,13 @@ export function planTracksideSignals(
 export function planZoneSignpost(
   zoneIndex: number,
   stationCount: number,
+  avoidRows: ReadonlySet<number> = new Set(),
 ): { row: number } | null {
   if (stationCount <= 0) return null;
   const taken = new Set(planZoneScenery(zoneIndex, stationCount).map((s) => s.row));
+  // Rows hosting a Chacha-ji stall are taken too: the stall's lane clips the
+  // signpost's board at the same ground line.
+  for (const row of avoidRows) taken.add(row);
   for (let row = stationCount - 1; row >= 0; row -= 1) {
     if (!taken.has(row)) return { row };
   }
@@ -848,17 +890,21 @@ export function SceneryElement({
   y,
   accent,
   gray,
+  testId,
 }: {
   kind: SceneryKind;
   x: number;
   y: number;
   accent: string;
   gray: boolean;
+  /** Overrides the generic scenery test id for placed landmarks (the
+   *  Chacha-ji stall), which tests locate by station. */
+  testId?: string;
 }) {
   return (
     <g
       transform={`translate(${x} ${y})`}
-      data-testid="scenery-item"
+      data-testid={testId ?? "scenery-item"}
       data-scenery={kind}
       style={gray ? { filter: "grayscale(1)", opacity: 0.45 } : { opacity: 0.95 }}
       aria-hidden

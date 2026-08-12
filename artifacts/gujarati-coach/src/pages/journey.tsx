@@ -68,8 +68,10 @@ import {
   SignpostGlyph,
   ZoneVista,
   planTracksideSignals,
+  planChachaStalls,
   planZoneScenery,
   planZoneSignpost,
+  STALL_PLACEMENT,
 } from "@/components/journey-scenery";
 import { factForZone, factRotationForZone } from "@/lib/india-facts";
 import { toast } from "@/hooks/use-toast";
@@ -1129,6 +1131,41 @@ export default function Journey() {
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
   // Chacha-ji counts stations 1-based off that same flattened list.
   const currentStationNumber = currentGlobalIdx >= 0 ? currentGlobalIdx + 1 : -1;
+  // His stall is a permanent map LANDMARK at every encounter station, ahead of
+  // the learner and behind, so the stop that pays is visible before it is
+  // reached. Pure client geometry off the same predicate the arrival check
+  // uses: no server call, no state, and no encounter row. Rendering is NOT
+  // triggering — the gift still happens only on arrival, below.
+  const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
+    const p = stationPts[station - 1];
+    if (!p) return [];
+    const zone = zones[p.station!.zoneIndex]!;
+    const zoneAccessible = zone.stations.some(
+      (st) => isStatusAccessible(st.status) || st.teaserStation,
+    );
+    return [
+      {
+        station,
+        x: STALL_PLACEMENT.laneX,
+        y: p.y + STALL_PLACEMENT.groundDy,
+        gray: showroom && !zoneAccessible,
+      },
+    ];
+  });
+  // Zone-local rows carrying a stall, so the decorative scenery plan and the
+  // zone signpost both leave that strip alone.
+  const stallRowsByZone = new Map<number, Set<number>>();
+  for (const { station } of chachaStalls) {
+    const p = stationPts[station - 1]!;
+    const zi = p.station!.zoneIndex;
+    const row = stationPts
+      .filter((q) => q.station!.zoneIndex === zi)
+      .findIndex((q) => q.station!.id === p.station!.id);
+    if (row < 0) continue;
+    const rows = stallRowsByZone.get(zi) ?? new Set<number>();
+    rows.add(row);
+    stallRowsByZone.set(zi, rows);
+  }
   const activeChachaStation =
     currentStationNumber > 0 && isChachaEncounterStation(currentStationNumber)
       ? currentStationNumber
@@ -1197,7 +1234,7 @@ export default function Journey() {
   // row the zone's scenery plan left free, on the marker's side of the track.
   const signposts = zones.flatMap((zone, zi) => {
     const zonePts = pts.filter((p) => p.kind === "station" && p.station!.zoneIndex === zi);
-    const spot = planZoneSignpost(zi, zonePts.length);
+    const spot = planZoneSignpost(zi, zonePts.length, stallRowsByZone.get(zi));
     if (!spot) return [];
     const p = zonePts[spot.row];
     if (!p) return [];
@@ -1320,24 +1357,45 @@ export default function Journey() {
                   const zoneAccessible = zone.stations.some(
                     (st) => isStatusAccessible(st.status) || st.teaserStation,
                   );
-                  return planZoneScenery(zi, zonePts.length).map(({ kind, row }, i) => {
-                    const p = zonePts[row]!;
-                    return (
-                      <SceneryElement
-                        key={`${zone.id}-${i}`}
-                        kind={kind}
-                        x={
-                          p.x < mapW / 2
-                            ? SCENERY_PLACEMENT.edgeX
-                            : mapW - SCENERY_PLACEMENT.edgeX
-                        }
-                        y={p.y + SCENERY_PLACEMENT.groundDy}
-                        accent={line.accent}
-                        gray={showroom && !zoneAccessible}
-                      />
-                    );
-                  });
+                  // A row hosting Chacha-ji's stall keeps its strip for him:
+                  // decoration there would double as a second, meaningless
+                  // stall right beside the landmark.
+                  const stallRows = stallRowsByZone.get(zi);
+                  return planZoneScenery(zi, zonePts.length)
+                    .filter(({ row }) => !stallRows?.has(row))
+                    .map(({ kind, row }, i) => {
+                      const p = zonePts[row]!;
+                      return (
+                        <SceneryElement
+                          key={`${zone.id}-${i}`}
+                          kind={kind}
+                          x={
+                            p.x < mapW / 2
+                              ? SCENERY_PLACEMENT.edgeX
+                              : mapW - SCENERY_PLACEMENT.edgeX
+                          }
+                          y={p.y + SCENERY_PLACEMENT.groundDy}
+                          accent={line.accent}
+                          gray={showroom && !zoneAccessible}
+                        />
+                      );
+                    });
                 })}
+                {/* Chacha-ji's stall: the same shipped trackside chai-stall
+                    scene, seated in the gap after EVERY encounter station,
+                    ahead of the learner and behind. Scenery only — this layer
+                    is pointer-events-none and carries no state. */}
+                {chachaStalls.map((s) => (
+                  <SceneryElement
+                    key={`chacha-stall-${s.station}`}
+                    kind="chaiStall"
+                    x={s.x}
+                    y={s.y}
+                    accent={line.accent}
+                    gray={s.gray}
+                    testId={`chacha-stall-${s.station}`}
+                  />
+                ))}
               </g>
               <g data-testid="journey-rail-layer">
                 {segs.map((s, i) => (

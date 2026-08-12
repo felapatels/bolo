@@ -17,6 +17,9 @@ import type { ReactElement } from "react";
 const h = vi.hoisted(() => ({
   groupsByZone: {} as Record<number, unknown[]>,
   reduceMotion: false as boolean | null,
+  // Stable across the module mock so a test can prove that DRAWING Chacha-ji's
+  // stall records no encounter (rendering is not triggering).
+  recordChachaEncounter: vi.fn(),
 }));
 
 vi.mock("framer-motion", async (importOriginal) => ({
@@ -43,6 +46,7 @@ vi.mock("@/lib/entitlements", async (importOriginal) => ({
 
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
+  useRecordChachaEncounter: () => ({ mutate: h.recordChachaEncounter, isPending: false }),
   useListCategories: () => ({
     data: undefined,
     isLoading: false,
@@ -67,10 +71,13 @@ import {
   SCENERY_HALF_W,
   SCENERY_MAX_H,
   SCENERY_PLACEMENT,
+  STALL_PLACEMENT,
   ZONE_SCENERY_THEMES,
+  planChachaStalls,
   planZoneScenery,
   planZoneSignpost,
 } from "@/components/journey-scenery";
+import { isChachaEncounterStation } from "@/lib/quick-games";
 import { factForZone, factRotationForZone, INDIA_FACTS } from "@/lib/india-facts";
 
 function renderJourney() {
@@ -162,11 +169,13 @@ describe("scenery placement plan (story 2)", () => {
       zoneOf(3, 600),
     );
     const { container } = renderJourney();
+    // Zone 4's planned row is station 11, an encounter station, so Chacha-ji's
+    // stall takes that strip and the decoration there stands down: a landmark
+    // outranks scenery on the row it marks.
     expect(kinds(sceneryItems(container))).toEqual([
       "tuktuk",
       "cycleRickshaw",
       "fruitCart",
-      "cow",
       "temple",
       "ghat",
     ]);
@@ -387,5 +396,129 @@ describe("zone signposts + line facts (Chunk 6B story 5)", () => {
     );
     expect(picks.size).toBeGreaterThan(1);
     for (const f of picks) expect(INDIA_FACTS).toContain(f);
+  });
+});
+
+// Chacha-ji's stall as a permanent map LANDMARK. Two rules are load-bearing:
+// (1) it stands at EVERY encounter station, ahead of the learner and behind,
+//     seated in the gap after that stop; and
+// (2) RENDERING IS NOT TRIGGERING — drawing the stall must never record an
+//     encounter, mint Chai, or mark a stop seen. Only arrival does that.
+describe("Chacha-ji stall landmark", () => {
+  function stalls(container: HTMLElement) {
+    return [...container.querySelectorAll('[data-testid^="chacha-stall-"]')];
+  }
+  function stallStations(container: HTMLElement) {
+    return stalls(container)
+      .map((el) => Number(el.getAttribute("data-testid")!.replace("chacha-stall-", "")))
+      .sort((a, b) => a - b);
+  }
+  function stallY(el: Element) {
+    const m = /translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(el.getAttribute("transform") ?? "");
+    return { x: Number(m![1]), y: Number(m![2]) };
+  }
+
+  test("plans a stall at exactly the stations the arrival check pays at", () => {
+    expect(planChachaStalls(0)).toEqual([]);
+    expect(planChachaStalls(2)).toEqual([]);
+    expect(planChachaStalls(12)).toEqual([3, 7, 11]);
+    // Single source of truth: the plan can never drift from the predicate the
+    // soft stop uses, in either direction.
+    for (let s = 1; s <= 40; s++) {
+      expect(planChachaStalls(40).includes(s)).toBe(isChachaEncounterStation(s));
+    }
+    expect(planChachaStalls(21)).toEqual(planChachaStalls(21));
+  });
+
+  test("renders at every encounter station whatever the learner's position", () => {
+    // Learner at station 1: the whole line is still ahead of them.
+    setZones(zoneOf(11, 100), zoneOf(10, 200));
+    const fresh = renderJourney();
+    expect(stallStations(fresh.container)).toEqual([3, 7, 11, 15, 19, 23]);
+
+    // Learner deep in zone 2: the stalls behind them render identically, and
+    // the ones ahead are unchanged.
+    const done = Array.from({ length: 11 }, (_, i) => grp(100 + i, "completed"));
+    setZones(done, zoneOf(10, 200));
+    const later = renderJourney();
+    expect(stallStations(later.container)).toEqual([3, 7, 11, 15, 19, 23]);
+    expect(stalls(later.container).map(stallY)).toEqual(stalls(fresh.container).map(stallY));
+  });
+
+  test("seats each stall in the gap after its stop, in its own left lane", () => {
+    setZones(zoneOf(11, 100), zoneOf(10, 200));
+    const { container } = renderJourney();
+    const seats = stalls(container).map(stallY);
+    // Its own lane, outboard of everything the row already carries.
+    for (const s of seats) expect(s.x).toBe(STALL_PLACEMENT.laneX);
+    // Tied to real row geometry, not to a constant: the trackside signal in
+    // the same gap is laid out from its station's center y, so the stall must
+    // sit a fixed distance below it at every encounter station.
+    const stations = stallStations(container);
+    stations.forEach((station, i) => {
+      const signal = container.querySelector<HTMLElement>(
+        `[data-testid="trackside-signal-${station}"]`,
+      );
+      expect(signal).not.toBeNull();
+      const signalY = Number.parseFloat(signal!.style.top);
+      expect(seats[i]!.y - signalY).toBe(STALL_PLACEMENT.groundDy - 30);
+    });
+    // Past the stop, and clear of the next row's ground line, so the stall
+    // reads as belonging to the station it follows.
+    expect(STALL_PLACEMENT.groundDy).toBeGreaterThan(0);
+    expect(STALL_PLACEMENT.groundDy).toBeLessThan(SERPENTINE.STATION_H);
+  });
+
+  test("the lane clears the marker, the current-stop pill and the station card", () => {
+    // Encounter stations are odd stops, so their 0-based index is even and the
+    // serpentine always seats their marker on the left flank with the card on
+    // the right. One rule therefore covers every encounter station and every
+    // supported map width.
+    const { LEFT_X, CARD_GAP, MARKER_HALF_W } = SERPENTINE;
+    for (const station of planChachaStalls(40)) expect((station - 1) % 2).toBe(0);
+    const box: [number, number] = [
+      STALL_PLACEMENT.laneX - SCENERY_HALF_W.chaiStall,
+      STALL_PLACEMENT.laneX + SCENERY_HALF_W.chaiStall,
+    ];
+    for (const mapW of [320, 360, 390]) {
+      expect(box[0]).toBeGreaterThanOrEqual(0);
+      expect(box[1]).toBeLessThanOrEqual(mapW);
+      // Marker, and the wider current-stop pill drawn around it.
+      expect(box[1]).toBeLessThan(LEFT_X - MARKER_HALF_W);
+      expect(box[1]).toBeLessThan(LEFT_X - 23);
+      // Station card, which is always on the opposite flank here.
+      expect(box[1]).toBeLessThan(LEFT_X + CARD_GAP);
+    }
+  });
+
+  test("a stall row keeps its strip: no decoration and no signpost beside it", () => {
+    // The decorative chai stall is retired from the theme table, so the only
+    // stall on the map is Chacha-ji's landmark.
+    for (const theme of ZONE_SCENERY_THEMES) expect(theme).not.toContain("chaiStall");
+    for (let zi = 0; zi < 6; zi++) {
+      for (const n of [3, 8, 10, 11]) {
+        const avoid = new Set(planZoneScenery(zi, n).map((s) => s.row));
+        const busy = new Set([...avoid, 0, 1]);
+        const spot = planZoneSignpost(zi, n, busy);
+        expect(spot).not.toBeNull();
+        if (busy.size < n) expect(busy.has(spot!.row)).toBe(false);
+        // Pure: the avoided set is the only new input.
+        expect(planZoneSignpost(zi, n, busy)).toEqual(spot);
+      }
+    }
+  });
+
+  test("rendering the stalls records no encounter and marks no stop seen", () => {
+    const seen = vi.spyOn(Storage.prototype, "setItem");
+    h.recordChachaEncounter.mockClear();
+    setZones(zoneOf(11, 100), zoneOf(10, 200));
+    const { container } = renderJourney();
+    expect(stallStations(container)).toEqual([3, 7, 11, 15, 19, 23]);
+    // The encounter that pays is never asked for by scenery...
+    expect(h.recordChachaEncounter).not.toHaveBeenCalled();
+    // ...and no arrival bookkeeping is written either.
+    const chachaWrites = seen.mock.calls.filter(([k]) => String(k).startsWith("chacha-"));
+    expect(chachaWrites).toEqual([]);
+    seen.mockRestore();
   });
 });
