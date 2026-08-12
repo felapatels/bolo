@@ -82,9 +82,9 @@ function arg(name, fallback = null) {
   return i === -1 ? fallback : process.argv[i + 1];
 }
 
-function recut({ id, yoke, legs, hem, gaps, outDir, srcSuffix }) {
+function recut({ id, yoke, legs, hem, gaps, outDir, srcSuffix, srcPath }) {
   const legStart = gaps ?? LEG_START;
-  const src = `${ART}/gar-${id}${srcSuffix ?? "-b"}.png`;
+  const src = srcPath ?? `${ART}/gar-${id}${srcSuffix ?? "-b"}.png`;
   const out = `${outDir ?? ART}/gar-${id}-c.png`;
 
   // Trim first, for the same reason the generator does: the width we widen to
@@ -220,13 +220,35 @@ const yokeOverride = arg("yoke");
 const hem = arg("hem");
 const gaps = arg("gaps");
 const outDir = arg("out");
-for (const item of ITEMS) {
-  if (only && item.id !== only) continue;
+const srcPath = arg("src");
+
+// EVIDENCE ONLY, additive. `--src` recuts a piece that has no ITEMS row, which
+// is what a review candidate is. It exists so a trial pass can never read or
+// overwrite installed art, so it insists on both `--id` and `--out`. Job B is
+// declared by `legs` on an ITEMS row and a candidate has no row, so here
+// `--gaps` is what turns it on. With no `--src` nothing below changes.
+if (srcPath) {
+  if (!only || !outDir) {
+    throw new Error("--src requires --id (names the output) and --out (keeps it out of the art dir)");
+  }
   recut({
-    ...item,
-    yoke: yokeOverride ? Number(yokeOverride) : item.yoke,
+    id: only,
+    srcPath,
+    yoke: yokeOverride ? Number(yokeOverride) : 0.24,
+    legs: gaps != null,
     hem: hem ? Number(hem) : null,
     gaps: gaps ? Number(gaps) : null,
     outDir,
   });
+} else {
+  for (const item of ITEMS) {
+    if (only && item.id !== only) continue;
+    recut({
+      ...item,
+      yoke: yokeOverride ? Number(yokeOverride) : item.yoke,
+      hem: hem ? Number(hem) : null,
+      gaps: gaps ? Number(gaps) : null,
+      outDir,
+    });
+  }
 }
