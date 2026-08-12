@@ -1268,6 +1268,11 @@ export default function ChatPage() {
       if (holdPointerId === null || activeHoldPointerRef.current !== holdPointerId) {
         recorder.abortRecording();
         setPhase("idle");
+        // Re-warm the mic the grant just produced and the abort just released
+        // (granted now, so no prompt). Otherwise this session stays cold:
+        // every later press re-acquires the device, outlives a normal-length
+        // press, and lands right back in this discard branch.
+        void recorder.prepare().catch(() => {});
         return;
       }
       setPhase("recording");

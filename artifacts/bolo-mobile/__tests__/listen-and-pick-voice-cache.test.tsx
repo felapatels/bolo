@@ -219,33 +219,32 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
   });
 });
 
-// ─── Romanized reading on the choices ────────────────────────────────────────
+// ─── What a choice card says (owner ruling, Aug 12, 2026) ────────────────────
 //
-// Owner ruling: native script on a game surface always carries its romanized
-// form during play. The choice cards showed script + English only, which left
-// a learner who cannot read the script picking shapes against a clip. Empty
-// romanized renders nothing at all.
+// The clip IS the question here, so the romanized reading spelled out the
+// answer: matching Latin letters to the sounds just played wins every round
+// without reading the script or knowing the word. Choices now carry the
+// script and its MEANING, never the reading. (The always-visible romanization
+// ruling still holds on reading surfaces — this game is the exception.)
 
-describe('romanized reading on the choices', () => {
-  test('every choice carries its romanized line beneath the script', async () => {
-    render(<ListenAndPickScreen />);
-    await enterGamePhase();
-
-    for (const p of PHRASES) {
-      expect(screen.getByTestId(`listen-and-pick-romanized-${p.id}`)).toHaveTextContent(
-        p.romanized,
-      );
-    }
-  });
-
-  test('a phrase with no romanization shows the script alone, never an empty line', async () => {
-    mockState.phrases = successQuery(PHRASES.map((p) => ({ ...p, romanized: '' })));
+describe('choice cards: script + meaning, never the reading', () => {
+  test('every choice shows its English meaning under the script', async () => {
     render(<ListenAndPickScreen />);
     await enterGamePhase();
 
     for (const p of PHRASES) {
       expect(screen.getByText(p.nativeScript)).toBeTruthy();
+      expect(screen.getByText(p.english)).toBeTruthy();
+    }
+  });
+
+  test('no choice carries its romanized reading', async () => {
+    render(<ListenAndPickScreen />);
+    await enterGamePhase();
+
+    for (const p of PHRASES) {
       expect(screen.queryByTestId(`listen-and-pick-romanized-${p.id}`)).toBeNull();
+      expect(screen.queryByText(p.romanized)).toBeNull();
     }
   });
 });

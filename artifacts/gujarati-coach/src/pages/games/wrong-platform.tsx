@@ -207,6 +207,8 @@ export default function WrongPlatformPage() {
     <QuickGameShell
       def={def}
       instruction="One of these boarded at the wrong platform. Spot the stray!"
+      // SILENT: the odd-one-out is read, never heard (mobile already declares it).
+      usesAudio={false}
       totalRounds={() => ROUNDS}
       renderRound={(props) => <WrongPlatformRound {...props} />}
     />

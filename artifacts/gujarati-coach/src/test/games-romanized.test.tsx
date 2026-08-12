@@ -9,9 +9,9 @@ import { memoryLocation } from "wouter/memory-location";
 // learner who cannot read the script yet is otherwise guessing at shapes.
 //
 // This file pins the ruling on every web surface that was missing the line:
-// Luggage Match tags, Listen & Pick choices, Express Listening choices, the
-// Word Match native card, the Signal Lights prompt and the Wrong Platform
-// tiles. Two things are pinned per surface:
+// Luggage Match tags, Express Listening choices, the Word Match native card,
+// the Signal Lights prompt and the Wrong Platform tiles. Two things are
+// pinned per surface:
 //
 //   1. the romanized reading renders during play, straight off phrase.romanized
 //      (no transliteration engine ships to the client), and
@@ -269,13 +269,20 @@ describe("Listen & Pick choices", () => {
     return view;
   }
 
-  test("every choice shows its romanized reading under the script", async () => {
+  // EXCEPTION to the ruling above (owner, Aug 12, 2026). Here the clip IS the
+  // question, so a reading under the script spells out the answer: match the
+  // Latin letters to the sounds just played and you never read the script or
+  // learn the word. These choices carry the MEANING instead. The behaviour
+  // itself is pinned in listen-and-pick-choices.test.tsx; this stays so the
+  // ruling's own file records the carve-out rather than looking like a gap.
+  test("choices carry the meaning, NOT the reading (the clip is the question)", async () => {
     await openGame();
 
-    expect(romanizedOnScreen()).toHaveLength(4);
+    expect(romanizedOnScreen()).toHaveLength(0);
+    expect(screen.getAllByText(/^e\d+$/).length).toBe(4);
   });
 
-  test("no romanization degrades to the script alone", async () => {
+  test("no empty slot is left where the reading used to sit", async () => {
     state.withRomanized = false;
     const { container } = await openGame();
 

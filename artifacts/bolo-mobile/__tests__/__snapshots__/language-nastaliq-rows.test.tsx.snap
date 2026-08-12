@@ -226,14 +226,33 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                 },
                 false,
                 {
-                  "backgroundColor": "#A78BFA14",
-                  "borderColor": "#A78BFA",
+                  "backgroundColor": "#65a30d14",
+                  "borderColor": "#65a30d",
                 },
               ]
             }
           >
             <View
-              color="#A78BFA"
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#65a30d",
+                  },
+                ]
+              }
+              testID="lang-rail-hi"
+            />
+            <View
+              color="#65a30d"
               name="check-circle"
               size={18}
               style={
@@ -336,6 +355,25 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               ]
             }
           >
+            <View
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#047857",
+                  },
+                ]
+              }
+              testID="lang-rail-ur"
+            />
             <Text
               style={
                 [
@@ -447,6 +485,25 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               ]
             }
           >
+            <View
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#0284c7",
+                  },
+                ]
+              }
+              testID="lang-rail-ta"
+            />
             <View
               name="crown"
               size={18}
@@ -728,14 +785,33 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                 },
                 false,
                 {
-                  "backgroundColor": "#6C3FC514",
-                  "borderColor": "#6C3FC5",
+                  "backgroundColor": "#65a30d14",
+                  "borderColor": "#65a30d",
                 },
               ]
             }
           >
             <View
-              color="#6C3FC5"
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#65a30d",
+                  },
+                ]
+              }
+              testID="lang-rail-hi"
+            />
+            <View
+              color="#65a30d"
               name="check-circle"
               size={18}
               style={
@@ -838,6 +914,25 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               ]
             }
           >
+            <View
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#047857",
+                  },
+                ]
+              }
+              testID="lang-rail-ur"
+            />
             <Text
               style={
                 [
@@ -949,6 +1044,25 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               ]
             }
           >
+            <View
+              style={
+                [
+                  {
+                    "borderBottomLeftRadius": 20.5,
+                    "borderTopLeftRadius": 20.5,
+                    "bottom": 0,
+                    "left": 0,
+                    "position": "absolute",
+                    "top": 0,
+                    "width": 5,
+                  },
+                  {
+                    "backgroundColor": "#0284c7",
+                  },
+                ]
+              }
+              testID="lang-rail-ta"
+            />
             <View
               name="crown"
               size={18}

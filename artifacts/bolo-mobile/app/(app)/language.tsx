@@ -16,6 +16,7 @@ import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
+import { getJourneyLine } from '@/lib/journeyLines';
 import { hapticLight } from '@/lib/haptics';
 import type { Language } from '@workspace/api-client-react';
 
@@ -106,6 +107,14 @@ export default function LanguageModal() {
 // Rounded tile matching the web picker: prominent native script on top, the
 // full English name below (wrapping, never truncated), and a single corner
 // glyph — gold crown when the language needs All-Access, check when active.
+//
+// Each tile also wears its language's RAIL LINE ACCENT (lib/journeyLines.ts —
+// the same colour its boarding pass and journey map use), as a stub stripe
+// down the left edge. Picking a language is picking a line, so the colour a
+// learner chooses here is the colour they then travel on. The accent replaces
+// the theme primary for the selected border, tint and check too; it never
+// touches text, so contrast is unchanged in both themes. An unknown code
+// falls back to the generic indigo line inside getJourneyLine.
 function LanguageTile({
   language,
   active,
@@ -119,6 +128,7 @@ function LanguageTile({
 }) {
   const colors = useColors();
   const tall = isTallCascadingScript(language);
+  const accent = getJourneyLine(language.code).accent;
   return (
     <Pressable
       onPress={() => {
@@ -134,11 +144,15 @@ function LanguageTile({
         styles.tile,
         tall && styles.tileTall,
         {
-          backgroundColor: active ? `${colors.primary}14` : colors.card,
-          borderColor: active ? colors.primary : colors.border,
+          backgroundColor: active ? `${accent}14` : colors.card,
+          borderColor: active ? accent : colors.border,
         },
       ]}
     >
+      <View
+        testID={`lang-rail-${language.code}`}
+        style={[styles.rail, { backgroundColor: accent }]}
+      />
       {locked ? (
         <MaterialCommunityIcons
           name="crown"
@@ -150,7 +164,7 @@ function LanguageTile({
         <Feather
           name="check-circle"
           size={18}
-          color={colors.primary}
+          color={accent}
           style={styles.corner}
         />
       ) : null}
@@ -204,6 +218,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   corner: { position: 'absolute', top: 12, right: 12 },
+  // The ticket stub edge. Absolute insets resolve against the PADDING box, so
+  // top/left/bottom 0 sits just inside the 1.5px border — the stripe reads as
+  // part of the card stock rather than a bar floating on top of it. Its inner
+  // radius is the tile radius minus that border.
+  rail: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    borderTopLeftRadius: 20.5,
+    borderBottomLeftRadius: 20.5,
+  },
   native: { fontSize: 24, textAlign: 'left' },
   // Nastaliq calligraphic glyphs cascade steeply above/below the baseline.
   // Extra lineHeight gives the cascade room; extra min-height on the tile

@@ -158,6 +158,8 @@ export default function LuggageMatchPage() {
     <QuickGameShell
       def={def}
       instruction="Pair each luggage tag with its English twin"
+      // SILENT: pure matching, nothing is spoken (mobile already declares it).
+      usesAudio={false}
       totalRounds={pairCount}
       renderRound={(props) => <LuggageMatchRound {...props} />}
     />

@@ -159,6 +159,10 @@ export default function TicketCheckPage() {
     <QuickGameShell
       def={def}
       instruction="Punch the ticket that matches the script"
+      // SILENT: the round is a script-to-script read, nothing is ever spoken.
+      // Reported from a phone — the header showed a speaker button over a game
+      // that has no sound to mute.
+      usesAudio={false}
       totalRounds={() => ROUNDS}
       renderRound={(props) => <TicketCheckRound {...props} />}
     />

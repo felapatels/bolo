@@ -62,6 +62,7 @@ import { webHaptic } from "@/lib/haptics";
 import { BandPill, isFullCreditBand, isPassingBand, normalizeBand, type Band } from "@/components/ui/band-pill";
 import { getCoachAudioElement, getFeedbackAudioElement, getMeaningAudioElement } from "@/lib/iosAudio";
 import { BandLadder } from "@/components/ui/band-ladder";
+import { ClampedText } from "@/components/ui/clamped-text";
 import { PhraseReportButton } from "@/components/phrase-report";
 import { playCue } from "@/lib/sound";
 import { XpArc } from "@/components/XpArc";
@@ -548,6 +549,22 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // with the unconditional hooks — the loading/error early returns below would
   // otherwise change the hook count between renders.
   const [showHint, setShowHint] = useState(false);
+  // Re-shown (with its own copy) when a press was discarded because the
+  // recorder was still acquiring the mic — the learner pressed, nothing
+  // happened, and they deserve to know why and what to do instead.
+  const [readyHint, setReadyHint] = useState(false);
+  const readyHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashHoldHint = () => {
+    setReadyHint(true);
+    if (readyHintTimerRef.current) clearTimeout(readyHintTimerRef.current);
+    readyHintTimerRef.current = setTimeout(() => setReadyHint(false), 3500);
+  };
+  useEffect(
+    () => () => {
+      if (readyHintTimerRef.current) clearTimeout(readyHintTimerRef.current);
+    },
+    [],
+  );
   // Polish card dismissal state: set true when the learner taps "Skip".
   const [polishDismissed, setPolishDismissed] = useState(false);
   useEffect(() => {
@@ -1414,6 +1431,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       if (holdPointerId === null || activeHoldPointerRef.current !== holdPointerId) {
         recorder.abortRecording();
         setState("idle");
+        // The learner has just granted the microphone, and abortRecording
+        // released the stream that grant produced. Re-warm it in the
+        // background (permission is granted now, so this never prompts):
+        // otherwise every later press pays a full device acquisition, a
+        // normal-length click finishes before the recorder goes live, this
+        // same guard discards it, and the bird looks dead for the rest of the
+        // session — reloading the stop was the only cure.
+        void recorder.prepare().catch(() => {});
+        // ...and say so, because a discarded press is otherwise silent.
+        flashHoldHint();
         return;
       }
       isRecordingRef.current = true;
@@ -2556,7 +2583,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 auto-fades after 3.5s, then never shown again. Motion-safe:
                 the outer div is static; only the framer child animates. */}
             <AnimatePresence>
-              {showHint && state === "idle" && (
+              {(showHint || readyHint) && state === "idle" && (
                 <motion.div
                   initial={{ opacity: 0, y: 8, scale: 0.94 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -2566,7 +2593,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   aria-hidden="true"
                 >
                   <p className="whitespace-nowrap text-xs font-black text-primary-foreground">
-                    Hold Bolo to speak 🦜
+                    {readyHint ? "Mic's on — hold Bolo while you speak 🦜" : "Hold Bolo to speak 🦜"}
                   </p>
                   {/* speech-bubble tail */}
                   <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 bg-primary" />
@@ -2862,7 +2889,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                         "{result.transcriptRomanized}"
                       </p>
                     )}
-                  <p className="text-foreground font-medium text-sm leading-snug mb-2">"{result.feedback}"</p>
+                  {/* Clamped: the coach's feedback can run to eight lines on a
+                      phone, which pushed the action buttons below the fold and
+                      made the learner scroll to reach "Next" after every
+                      attempt. Nothing is cut — the rest is one tap away. */}
+                  <ClampedText
+                    text={`"${result.feedback}"`}
+                    lines={4}
+                    data-testid="result-feedback"
+                    className="text-foreground font-medium text-sm leading-snug mb-2"
+                  />
                   {result.tip && (
                     <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-xl">Tip: {result.tip}</p>
                   )}
@@ -2899,12 +2935,6 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 )}
               </motion.div>
 
-              {/* Express Multiplier offer moment (Chunk 5B): after the result
-                  card's primary content. Shows the one-line offer when the
-                  multiplier is idle and the balance covers it, a small 2x XP
-                  indicator while it runs, and nothing on short balances. */}
-              {state === "result" && <ExpressOfferMoment surface="result" />}
-
               {/* Action buttons — one row, constant order, constant labels
                   (Task #1040). Error and test-out use the same two slots as
                   every other outcome, with the impermissible side dimmed,
@@ -2919,6 +2949,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 retryDisabled={!retrySlotActive}
                 advanceDisabled={!advanceSlotActive}
               />
+
+              {/* Express Multiplier offer moment (Chunk 5B). Sits BELOW the
+                  action row on purpose: it is an aside, and above the buttons
+                  it pushed Retry/Next further down the phone screen. Shows the
+                  one-line offer when the multiplier is idle and the balance
+                  covers it, a small 2x XP indicator while it runs, and nothing
+                  on short balances. */}
+              {state === "result" && <ExpressOfferMoment surface="result" />}
             </motion.div>
           )}
       </main>

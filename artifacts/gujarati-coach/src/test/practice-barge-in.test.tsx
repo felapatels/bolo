@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   evaluate: vi.fn(),
   createAttempt: vi.fn(),
   silentMode: false,
+  tokens: undefined as undefined | Record<string, unknown>,
 }));
 
 vi.mock("@/lib/silent-mode", () => ({
@@ -78,6 +79,15 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useReportPhrase: () => ({ mutate: vi.fn() }),
+  // Chai balance drives the express-multiplier offer on the result card.
+  useGetTokens: () => ({
+    data: h.tokens,
+    isLoading: false,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
   useListLessonGroupPhrases: () => ({
     data: undefined,
     isLoading: false,
@@ -177,6 +187,7 @@ beforeEach(() => {
     evaluationToken: "signed-token",
   });
   h.createAttempt.mockReset().mockResolvedValue({ newlyEarnedBadges: [] });
+  h.tokens = undefined;
 });
 
 const coachCalls = () =>
@@ -332,5 +343,83 @@ describe("We heard transcript on the result card", () => {
     expect(screen.getByText('We heard: "kem cho"')).toBeInTheDocument();
     // Exactly one quoted rendering — the raw line, no duplicate romanized line.
     expect(screen.queryByText('"kem cho"')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reachability of the action row on a phone (Aug 12, 2026). Reported from an
+// iPhone: the coach's feedback plus the XP offer pushed Retry/Next below the
+// fold, so every attempt ended with a scroll. Two rules hold the fix:
+// the offer is an aside that sits AFTER the buttons, and long feedback is
+// clamped rather than cut.
+// ---------------------------------------------------------------------------
+describe("result card: the action row stays reachable", () => {
+  test("the Chai XP offer renders below the action buttons, not above them", async () => {
+    h.tokens = { balance: 40, expressMultiplierActiveUntil: null };
+    await driveToResult();
+
+    const offer = screen.getByTestId("express-offer");
+    const retry = screen.getByRole("button", { name: "Try again" });
+    // DOCUMENT_POSITION_FOLLOWING: the offer comes after the button in
+    // document order, so on a phone the buttons are what you reach first.
+    expect(
+      retry.compareDocumentPosition(offer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test("long feedback is clamped until the learner opens it", async () => {
+    // jsdom reports 0 for both heights, so overflow has to be simulated.
+    const clientHeight = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "clientHeight",
+    );
+    const scrollHeight = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollHeight",
+    );
+    Object.defineProperty(Element.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 80,
+    });
+    Object.defineProperty(Element.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 240,
+    });
+
+    try {
+      h.evaluate.mockResolvedValue({
+        score: 42,
+        band: "retry",
+        passed: false,
+        xpAwarded: 0,
+        feedback: "A ".repeat(300).trim(),
+        tip: "Slow down.",
+        transcript: "કેમ છો",
+        transcriptRomanized: "kem cho",
+        evaluationToken: "signed-token",
+      });
+      await driveToResult();
+
+      const feedback = screen.getByTestId("result-feedback");
+      expect(feedback.style.getPropertyValue("-webkit-line-clamp")).toBe("4");
+      expect(feedback).not.toHaveAttribute("data-expanded");
+
+      // Nothing is lost — the full text is one tap away, and it collapses again.
+      fireEvent.click(screen.getByTestId("result-feedback-toggle"));
+      expect(feedback).toHaveAttribute("data-expanded", "true");
+      expect(feedback.style.getPropertyValue("-webkit-line-clamp")).toBe("");
+
+      fireEvent.click(screen.getByTestId("result-feedback-toggle"));
+      expect(feedback).not.toHaveAttribute("data-expanded");
+    } finally {
+      if (clientHeight) Object.defineProperty(Element.prototype, "clientHeight", clientHeight);
+      if (scrollHeight) Object.defineProperty(Element.prototype, "scrollHeight", scrollHeight);
+    }
+  });
+
+  test("short feedback shows no toggle at all", async () => {
+    await driveToResult();
+    expect(screen.getByTestId("result-feedback")).toBeInTheDocument();
+    expect(screen.queryByTestId("result-feedback-toggle")).not.toBeInTheDocument();
   });
 });

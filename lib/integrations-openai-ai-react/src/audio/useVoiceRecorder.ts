@@ -106,10 +106,21 @@ export function useVoiceRecorder() {
    */
   const prepare = useCallback(async (): Promise<void> => {
     if (isStreamLive(streamRef.current)) return;
+    // Same cancellation-token discipline as the post-stop prewarm: prepare can
+    // now be called mid-session (after a permission grant), so its acquisition
+    // may resolve after an abort, an unmount, or a press that already claimed
+    // its own stream. Adopting the stream in any of those cases would hold the
+    // microphone open with no cleanup path.
+    const myToken = ++prewarmTokenRef.current;
     releaseStream();
-    streamRef.current = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: SPEECH_AUDIO_CONSTRAINTS,
     });
+    if (prewarmTokenRef.current !== myToken || streamRef.current !== null) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    streamRef.current = stream;
   }, [releaseStream]);
 
   // Live audio analysis (one AudioContext + AnalyserNode per recording).

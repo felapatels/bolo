@@ -15,13 +15,30 @@
  */
 export function prewarmMicIfGranted(prepare: () => Promise<void>): () => void {
   let cancelled = false;
+  let status: PermissionStatus | null = null;
+
+  // A grant can arrive LONG after mount: the learner flips the microphone on
+  // in the browser's site settings (the address-bar toggle) with the practice
+  // screen already open. Without this listener that session stays cold — the
+  // screen only prewarms at mount — so every press pays a full device
+  // acquisition and a normal-length click can finish before the recorder is
+  // live, which reads as a dead bird until the page is reloaded.
+  const onChange = () => {
+    if (!cancelled && status?.state === "granted") {
+      prepare().catch(() => {});
+    }
+  };
+
   try {
     navigator.permissions
       ?.query({ name: "microphone" as PermissionName })
-      .then((status) => {
-        if (!cancelled && status.state === "granted") {
+      .then((s) => {
+        if (cancelled) return;
+        status = s;
+        if (s.state === "granted") {
           prepare().catch(() => {});
         }
+        s.addEventListener?.("change", onChange);
       })
       .catch(() => {
         // Descriptor unsupported — skip the prewarm.
@@ -31,5 +48,6 @@ export function prewarmMicIfGranted(prepare: () => Promise<void>): () => void {
   }
   return () => {
     cancelled = true;
+    status?.removeEventListener?.("change", onChange);
   };
 }

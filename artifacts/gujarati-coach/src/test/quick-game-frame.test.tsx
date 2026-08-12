@@ -56,6 +56,8 @@ import {
   type QuickRoundProps,
 } from "@/pages/games/quick-game-frame";
 import TicketCheckPage from "@/pages/games/ticket-check";
+import LuggageMatchPage from "@/pages/games/luggage-match";
+import WrongPlatformPage from "@/pages/games/wrong-platform";
 import { quickGameById, isSignalCleared } from "@/lib/quick-games";
 import type { Phrase } from "@workspace/api-client-react";
 
@@ -320,6 +322,40 @@ describe("malformed launches", () => {
     expect(
       screen.getByText("Need at least 2 phrases for this game. Choose another topic."),
     ).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Silent-game declaration (Aug 12, 2026, reported from a phone: Ticket Check
+// showed a speaker button over a game that never makes a sound). Web now has
+// mobile's `usesAudio` opt-out. It defaults to TRUE, which is the trap — a
+// silent game that predates the prop keeps a live mute control over silence —
+// so every silent game must declare it and be pinned here.
+// ---------------------------------------------------------------------------
+describe("silent games hide the mute control", () => {
+  test("a game that speaks keeps its mute button (the default)", () => {
+    renderFrame("/games/x?cat=7");
+    expect(screen.getByTestId("game-mute-btn")).toBeInTheDocument();
+  });
+
+  test.each([
+    ["Ticket Check", TicketCheckPage, "/games/ticket-check?cat=7"],
+    ["Luggage Match", LuggageMatchPage, "/games/luggage-match?cat=7"],
+    ["Wrong Platform", WrongPlatformPage, "/games/wrong-platform?cat=7"],
+  ])("%s renders no mute control at all", (_name, Page, path) => {
+    const { hook } = memoryLocation({ path });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <Router hook={hook}>
+          <Page />
+        </Router>
+      </QueryClientProvider>,
+    );
+    // The header renders regardless of the phrase floor, so this holds whether
+    // or not the pool is big enough to actually start a run.
+    expect(screen.getByTestId("quick-game-frame")).toBeInTheDocument();
+    expect(screen.queryByTestId("game-mute-btn")).not.toBeInTheDocument();
   });
 });
 

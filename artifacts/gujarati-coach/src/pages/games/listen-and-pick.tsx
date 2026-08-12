@@ -441,11 +441,16 @@ function GameRound({
               >
                 {choice.nativeScript}
               </span>
-              {/* Romanized reading, always visible: native script primary,
-                  this quieter and smaller beneath it. Empty romanized (a
-                  script with no romanization) renders nothing at all. */}
-              {choice.romanized.trim() !== "" && (
-                <span className="text-xs font-medium text-muted-foreground">{choice.romanized}</span>
+              {/* MEANING, not romanization (owner ruling, Aug 12, 2026). The
+                  romanized reading spells out what the clip just said, so a
+                  learner could win every round by matching Latin letters to
+                  sounds without reading the script or knowing the word. The
+                  English meaning makes the round sound -> meaning, which is
+                  the skill this game exists to drill. The always-visible
+                  romanization ruling still holds on READING surfaces; this
+                  game is the exception because the clip is the question. */}
+              {choice.english.trim() !== "" && (
+                <span className="text-xs font-medium text-muted-foreground">{choice.english}</span>
               )}
               {answerState !== "idle" && idx === q.correctIdx && (
                 <span className="absolute right-2 top-2">

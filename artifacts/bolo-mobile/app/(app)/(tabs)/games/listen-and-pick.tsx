@@ -524,28 +524,13 @@ function GameRound({
                 >
                   {choice.nativeScript}
                 </Text>
-                {/* Romanized reading between the script and its meaning —
-                    quieter and smaller, always visible. Empty romanized
-                    renders nothing. */}
-                {choice.romanized.trim() !== '' ? (
-                  <Text
-                    testID={`listen-and-pick-romanized-${choice.id}`}
-                    style={[
-                      styles.choiceRomanized,
-                      {
-                        color: isCorrect
-                          ? '#10B981'
-                          : isWrong
-                          ? '#EF4444'
-                          : colors.mutedForeground,
-                      },
-                    ]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {choice.romanized}
-                  </Text>
-                ) : null}
+                {/* MEANING ONLY under the script (owner ruling, Aug 12, 2026).
+                    The romanized reading used to sit here, but it spells out
+                    what the clip just said: a learner could win every round by
+                    matching Latin letters to sounds, without reading the script
+                    or knowing the word. The always-visible romanization ruling
+                    still holds on READING surfaces; this game is the exception
+                    because the clip is the question. Web matches. */}
                 <Text
                   style={[
                     styles.choiceEnglish,
@@ -814,13 +799,6 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.bold,
     fontSize: 16,
     textAlign: 'center',
-  },
-  choiceRomanized: {
-    fontFamily: AppFonts.regular,
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 2,
-    opacity: 0.75,
   },
   choiceEnglish: {
     fontFamily: AppFonts.regular,

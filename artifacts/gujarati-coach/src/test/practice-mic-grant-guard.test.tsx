@@ -26,6 +26,7 @@ const h = vi.hoisted(() => ({
   startRecording: vi.fn(),
   stopRecording: vi.fn(),
   abortRecording: vi.fn(),
+  prepare: vi.fn(),
   silentMode: true,
 }));
 
@@ -60,7 +61,7 @@ vi.mock("@workspace/integrations-openai-ai-react", () => ({
     startRecording: h.startRecording,
     stopRecording: h.stopRecording,
     abortRecording: h.abortRecording,
-    prepare: vi.fn().mockResolvedValue(undefined),
+    prepare: h.prepare,
   }),
 }));
 
@@ -156,6 +157,7 @@ beforeEach(() => {
     arrayBuffer: async () => new ArrayBuffer(4),
   });
   h.abortRecording.mockReset();
+  h.prepare.mockReset().mockResolvedValue(undefined);
 });
 
 describe("practice mic grant guard", () => {
@@ -188,6 +190,16 @@ describe("practice mic grant guard", () => {
 
     // Grant guard: abort, no attempt, no result/error card, back to idle.
     await waitFor(() => expect(h.abortRecording).toHaveBeenCalledTimes(1));
+
+    // ...and the mic is re-warmed straight after the abort. Without this the
+    // stream the grant produced is thrown away and never replaced, so every
+    // later press re-acquires the device, outlives a normal click, and gets
+    // discarded by this same guard — the bird goes dead until a reload.
+    await waitFor(() => expect(h.prepare).toHaveBeenCalled());
+    // The discarded press is explained rather than silently swallowed.
+    expect(
+      screen.getByText(/hold Bolo while you speak/i),
+    ).toBeInTheDocument();
     expect(h.stopRecording).not.toHaveBeenCalled();
     expect(h.evaluate).not.toHaveBeenCalled();
     expect(screen.queryByText(/Didn't catch that one/)).not.toBeInTheDocument();

@@ -23,7 +23,7 @@ export function BandLadder({ band }: { band: Band }) {
   return (
     <ol
       aria-label={`Pronunciation result: ${bandLabel(band)}`}
-      className="w-full max-w-[240px] mx-auto flex flex-col gap-1"
+      className="w-full max-w-[240px] mx-auto flex flex-col gap-0.5"
     >
       {BAND_LADDER.map((rung) => {
         const achieved = rung === band;
@@ -34,7 +34,7 @@ export function BandLadder({ band }: { band: Band }) {
             data-achieved={achieved || undefined}
             aria-current={achieved ? "true" : undefined}
             className={cn(
-              "flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold transition-colors",
+              "flex items-center gap-2 rounded-full px-3 py-0.5 text-sm font-bold transition-colors",
               achieved
                 ? "text-white shadow-sm"
                 : "text-muted-foreground/50",

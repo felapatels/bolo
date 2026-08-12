@@ -307,6 +307,7 @@ export function QuickGameShell({
   instruction,
   secondsPerRound,
   requiresAudio,
+  usesAudio = true,
   totalRounds,
   renderRound,
 }: {
@@ -319,6 +320,12 @@ export function QuickGameShell({
    *  refused while sound is off, because the round surface carries nothing
    *  readable without it. Omit for every game that merely speaks. */
   requiresAudio?: boolean;
+  /** Declare that this game speaks NOTHING, so the header's mute control is
+   *  removed entirely (mobile's QuickGameShell prop of the same name).
+   *  Defaults to true, which is the trap: a silent game that predates this
+   *  prop keeps a live speaker button over silence — reported on Ticket Check.
+   *  Every game passed to this shell must state it deliberately. */
+  usesAudio?: boolean;
   /** Rounds for a given phrase pool (pairs count for Luggage Match). */
   totalRounds: (phrases: Phrase[]) => number;
   renderRound: (props: QuickRoundProps) => ReactNode;
@@ -553,13 +560,15 @@ export function QuickGameShell({
           </Link>
         )}
         <h1 className="text-lg font-extrabold text-foreground">{def.title}</h1>
-        <div className="ml-auto">
-          <GameMuteButton
-            soundOn={soundOn}
-            onToggle={toggleSound}
-            active={soundOn && roundAudioOn}
-          />
-        </div>
+        {usesAudio && (
+          <div className="ml-auto">
+            <GameMuteButton
+              soundOn={soundOn}
+              onToggle={toggleSound}
+              active={soundOn && roundAudioOn}
+            />
+          </div>
+        )}
       </div>
 
       {phase === "picker" && (
