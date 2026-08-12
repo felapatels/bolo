@@ -120,8 +120,9 @@ export default function PaywallScreen() {
   const { languages, activeLang } = useLanguage();
   const setChosenLanguage = useSetChosenLanguage();
 
-  // A locked language tapped elsewhere lands here as ?lang=<code>, so we can
-  // open on the One-Language tier with that language pre-selected.
+  // A locked language tapped elsewhere lands here as ?lang=<code>. This only
+  // preselects the One-Language tier below if that tier is actually
+  // purchasable; it can never force a tier the store can't sell.
   // ?reason=daily_lesson_limit is forwarded by paywallHrefForDenial so we can
   // surface a contextual trial banner when the learner arrived from the cap.
   const params = useLocalSearchParams<{ lang?: string; reason?: string }>();
@@ -136,11 +137,11 @@ export default function PaywallScreen() {
   const hasOfferings = hasOneLanguage || hasAllAccess;
 
   // A One-Language subscriber can only meaningfully move to all-access; a Free
-  // learner may choose either tier. A tapped locked language opens on the
-  // One-Language tier; otherwise all-access is the default emphasis.
-  const [tier, setTier] = useState<PurchaseTier>(
-    requestedLang ? 'one_language' : 'all_access',
-  );
+  // learner may choose either tier — but ONLY when a real, purchasable
+  // one_language package exists. The tier is resolved from purchasability in
+  // the effect below, never from the `?lang=` param alone: a locked-language
+  // deep link must not be able to open a tier the store can't actually sell.
+  const [tier, setTier] = useState<PurchaseTier>('all_access');
   const [interval, setInterval] = useState<'annual' | 'monthly'>('annual');
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [langPickerVisible, setLangPickerVisible] = useState(false);
@@ -168,16 +169,26 @@ export default function PaywallScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep the tier valid for what the store actually exposes and the caller's
-  // plan (a One-Language subscriber can only buy all-access).
+  // Resolve the tier from what the store can actually sell — never from the
+  // `?lang=` param by itself. A One-Language subscriber can only buy
+  // all-access. If only one tier has a real package, that's the tier. If
+  // both are purchasable, honor a locked-language deep link as a (harmless)
+  // preselection; otherwise all-access is the default emphasis.
   useEffect(() => {
     if (plan === 'one_language') {
       setTier('all_access');
       return;
     }
-    if (!hasAllAccess && hasOneLanguage) setTier('one_language');
-    else if (!hasOneLanguage && hasAllAccess) setTier('all_access');
-  }, [plan, hasAllAccess, hasOneLanguage]);
+    if (!hasAllAccess && hasOneLanguage) {
+      setTier('one_language');
+      return;
+    }
+    if (!hasOneLanguage) {
+      setTier('all_access');
+      return;
+    }
+    setTier(requestedLang ? 'one_language' : 'all_access');
+  }, [plan, hasAllAccess, hasOneLanguage, requestedLang]);
 
   // Once on the middle tier the language is fixed to the server's record.
   useEffect(() => {
