@@ -880,6 +880,12 @@ router.post(
     let sttTranscriptHq = "";
     let sttDisagreement = false;
     let sttChosenEmptyWithEvidence = false;
+    // True when the recognizer-glitch rescue fired: one pass drifted into a
+    // script the target cannot be compared against while the other read the
+    // learner in a comparable script, so the comparable pass was scored (owner
+    // ruling, Aug 12, 2026). Recorded on the signed token and, from there, as
+    // a tag on the attempt row so the firing rate is measurable.
+    let sttGlitchRescue = false;
     // Noise production baseline: a derived signal-to-noise number for THIS
     // recording, measured concurrently with the STT passes below so it adds no
     // wall-clock time to the instant-feedback path. Null whenever the clip
@@ -918,7 +924,15 @@ router.post(
       transcript = choice.transcript;
       sttDisagreement = choice.disagreement;
       sttChosenEmptyWithEvidence = choice.chosenEmptyWithEvidence;
-      if (sttDisagreement) {
+      sttGlitchRescue = choice.glitchRescue;
+      if (sttGlitchRescue) {
+        // Distinct message so the firing rate of the rescue is greppable in
+        // production logs independently of ordinary disagreements.
+        req.log.info(
+          { mini: sttTranscriptMini, hq: sttTranscriptHq, chosen: transcript },
+          "STT recognizer glitch: one pass was unverifiable script; scoring the comparable pass",
+        );
+      } else if (sttDisagreement) {
         req.log.info(
           { mini: sttTranscriptMini, hq: sttTranscriptHq, chosen: transcript },
           "STT passes disagree; scoring the transcript farther from the target",
@@ -1226,6 +1240,7 @@ router.post(
             sttTranscriptMini,
             sttTranscriptHq,
             sttDisagreement,
+            sttGlitchRescue,
             snrDb,
           }),
         });
@@ -1392,6 +1407,7 @@ router.post(
             sttTranscriptMini,
             sttTranscriptHq,
             sttDisagreement,
+            sttGlitchRescue,
             snrDb,
             nocatchCause,
           }),
@@ -1479,6 +1495,7 @@ router.post(
           sttTranscriptMini,
           sttTranscriptHq,
           sttDisagreement,
+          sttGlitchRescue,
           snrDb,
         }),
       });

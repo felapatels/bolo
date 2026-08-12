@@ -1318,6 +1318,10 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     flags: buildAttemptFlags({
       latencyMissing: claims.latencyMs == null,
       userAgent: req.get("user-agent"),
+      // Replayed from the signed token: the attempt was scored from the one
+      // comparable STT pass after the other drifted into an unverifiable
+      // script. Absent on tokens issued before the rescue existed.
+      sttGlitchRescue: claims.sttGlitchRescue === true,
     }),
     // S1 dual-pass honesty fields, replayed verbatim from the signed token.
     // Null (not empty string) when the token predates dual-pass STT.

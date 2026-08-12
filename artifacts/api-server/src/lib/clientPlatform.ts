@@ -57,20 +57,30 @@ export function platformFromUserAgent(
   return "web";
 }
 
+/** Tag written when the dual-pass recognizer-glitch rescue scored the attempt. */
+export const STT_GLITCH_RESCUE_FLAG = "stt_glitch_rescue";
+
 /**
  * Builds the attempts row's `flags` value.
  *
  * Keeps the existing `latency_missing` tag byte-identical and appends the
  * platform tag when it could be identified. Returns null when there is nothing
  * to record, exactly as before.
+ *
+ * The recognizer-glitch rescue (owner ruling, Aug 12, 2026) rides here too, as
+ * another tag rather than a new column or store: an attempt scored only
+ * because one STT pass came back in an unverifiable script is countable
+ * afterwards without touching the schema.
  */
 export function buildAttemptFlags(opts: {
   latencyMissing: boolean;
   userAgent?: string | null;
+  sttGlitchRescue?: boolean;
 }): string | null {
   const tags: string[] = [];
   if (opts.latencyMissing) tags.push("latency_missing");
   const platform = platformFromUserAgent(opts.userAgent);
   if (platform !== "unknown") tags.push(`${PLATFORM_FLAG_PREFIX}${platform}`);
+  if (opts.sttGlitchRescue) tags.push(STT_GLITCH_RESCUE_FLAG);
   return tags.length > 0 ? tags.join(",") : null;
 }

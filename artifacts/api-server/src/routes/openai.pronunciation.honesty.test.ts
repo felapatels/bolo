@@ -143,6 +143,7 @@ test("agreeing passes: no disagreement, high-quality rendering kept", () => {
   assert.equal(c.disagreement, false, "normalized-equal passes must agree");
   assert.equal(c.transcript, "Namaste", "the high-quality rendering is kept");
   assert.equal(c.bothEmpty, false);
+  assert.equal(c.glitchRescue, false, "agreeing passes are not a glitch rescue");
 });
 
 test("disagreeing passes: the transcript FARTHER from the target is chosen", () => {
@@ -151,12 +152,87 @@ test("disagreeing passes: the transcript FARTHER from the target is chosen", () 
   assert.equal(c.disagreement, true);
   assert.equal(c.transcript, "namasto",
     "the conservative reading must never prefer the target-matching pass");
+  assert.equal(c.glitchRescue, false,
+    "two comparable transcripts are the anti-flattery case; the rescue must not fire");
 });
 
 test("disagreeing passes, farther transcript first: mini is chosen when it is farther", () => {
   const c = chooseConservativeTranscript({ mini: "hello world", hq: "namaste", ...TARGET });
   assert.equal(c.disagreement, true);
   assert.equal(c.transcript, "hello world");
+});
+
+// ─── Recognizer-glitch rescue (owner ruling, Aug 12, 2026) ───────────────────
+//
+// Fixtures are the REAL transcripts from the production nocatch sidecars of
+// Aug 11-12, 2026: the mini pass drifting into Cyrillic or Perso-Arabic for a
+// Gujarati phrase while the high-quality pass read the learner correctly. The
+// old distance ladder ranked the wrong-script transcript farther than any
+// comparable one, so the broken pass always won and a correct attempt landed
+// as script_mismatch → nocatch.
+
+const GU_BAPOR = { targetNative: "શુભ બપોર", targetRomanized: "shubh bapor" };
+const GU_SALAAM = { targetNative: "સલામ", targetRomanized: "salaam" };
+const GU_MALTA = { targetNative: "મળતા રહેજો", targetRomanized: "malta rahejo" };
+
+test("glitch rescue: mini drifts to Cyrillic, hq reads the learner → the comparable pass is scored", () => {
+  const c = chooseConservativeTranscript({
+    mini: "Шубарбор.", // sidecar 2026-08-12T02:16:49Z
+    hq: "શુભ બરનોર.",
+    ...GU_BAPOR,
+  });
+  assert.equal(c.glitchRescue, true, "exactly one non-comparable pass is a recognizer glitch");
+  assert.equal(c.transcript, "શુભ બરનોર.", "the comparable pass must be scored");
+  assert.equal(c.disagreement, true, "the passes still disagreed");
+  assert.equal(c.chosenEmptyWithEvidence, false);
+});
+
+test("glitch rescue: mini drifts to Perso-Arabic, hq reads the learner → the comparable pass is scored", () => {
+  const c = chooseConservativeTranscript({
+    mini: "ملتા રહેજો.", // sidecar 2026-08-12T02:21:44Z
+    hq: "મળતા રહેજો.",
+    ...GU_MALTA,
+  });
+  assert.equal(c.glitchRescue, true);
+  assert.equal(c.transcript, "મળતા રહેજો.",
+    "a correct reading must not lose to a wrong-script one");
+});
+
+test("glitch rescue, other direction: hq is the garbled pass → mini is scored", () => {
+  // Same sidecar pair as સલામ (mini "سلام", hq "સલામ."), with the passes
+  // swapped: the rule is about comparability, not about which recognizer.
+  const c = chooseConservativeTranscript({
+    mini: "સલામ.",
+    hq: "سلام",
+    ...GU_SALAAM,
+  });
+  assert.equal(c.glitchRescue, true);
+  assert.equal(c.transcript, "સલામ.", "the comparable pass wins whichever recognizer produced it");
+});
+
+test("both passes non-comparable: unchanged, no rescue, still resolves as today", () => {
+  const c = chooseConservativeTranscript({
+    mini: "سلام",
+    hq: "Шубарбор.",
+    ...GU_BAPOR,
+  });
+  assert.equal(c.glitchRescue, false, "the rescue needs a comparable pass to rescue TO");
+  assert.equal(c.disagreement, true);
+  assert.equal(c.transcript, "Шубарбор.", "the tie at the non-comparable rung still keeps the hq pass");
+  assert.equal(c.chosenEmptyWithEvidence, false);
+});
+
+test("both passes comparable and disagreeing: anti-flattery rule untouched by the rescue", () => {
+  // Native-script disagreement, both readable against the target: the farther
+  // one is still scored, exactly as before.
+  const c = chooseConservativeTranscript({
+    mini: "શુભ બપોર.", // exact target
+    hq: "શુભ બરનોર.", // one sound off
+    ...GU_BAPOR,
+  });
+  assert.equal(c.glitchRescue, false);
+  assert.equal(c.transcript, "શુભ બરનોર.", "the farther comparable transcript is still the one scored");
+  assert.equal(c.disagreement, true);
 });
 
 test("one empty pass: disagreement with chosenEmptyWithEvidence (system miss, not a score)", () => {
@@ -337,4 +413,49 @@ test("recognizer drift to a foreign script: nocatch withholds the transcript fro
   assert.equal(claims!.transcript, drifted, "the drifted transcript is evidence and must survive on the token");
   assert.equal(claims!.sttTranscriptMini, drifted);
   assert.equal(claims!.sttTranscriptHq, drifted);
+});
+
+test("recognizer glitch on ONE pass: the attempt is scored from the comparable pass, not nocatched", async () => {
+  // Field evidence (production sidecars, Aug 11-12, 2026): the mini pass wrote
+  // Gujarati speech in Cyrillic while the high-quality pass returned the target
+  // exactly. Before the owner's Aug 12 ruling the wrong-script transcript
+  // sorted farthest and the correct attempt died as nocatch.
+  sttQueue = ["Шубарбор.", "શુભ બપોર."];
+  sttCallCount = 0;
+  llmCallCount = 0;
+
+  const { status, json } = await postPronunciation("શુભ બપોર", "shubh bapor");
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.notEqual(json.band, "nocatch", "a correctly read attempt must not be a system miss");
+  assert.equal(json.transcript, "શુભ બપોર.", "the comparable pass is the one scored");
+  assert.ok(json.score >= 80, `expected a scored attempt, got score ${json.score}`);
+  assert.equal(sttCallCount, 2, "both passes still run");
+
+  const claims = verifyEvaluation(json.evaluationToken);
+  assert.ok(claims, "evaluation token must verify");
+  assert.equal(claims!.sttGlitchRescue, true, "the rescue must be identifiable afterwards");
+  assert.equal(claims!.sttDisagreement, true, "the passes did disagree; that record is unchanged");
+  assert.equal(claims!.sttTranscriptMini, "Шубарбор.", "the glitched pass stays on the token as evidence");
+  assert.equal(claims!.sttTranscriptHq, "શુભ બપોર.");
+});
+
+test("both passes drift to unverifiable scripts: still a nocatch, unchanged", async () => {
+  // The rescue needs something comparable to rescue to. Two broken passes are
+  // exactly what the script-mismatch nocatch exists for.
+  sttQueue = ["Шубарбор.", "سلام"];
+  sttCallCount = 0;
+  llmCallCount = 0;
+
+  const { status, json } = await postPronunciation("શુભ બપોર", "shubh bapor");
+
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
+  assert.equal(json.band, "nocatch");
+  assert.equal(json.score, 0);
+  assert.equal(json.transcript, "", "an unverifiable script is never quoted back to the learner");
+
+  const claims = verifyEvaluation(json.evaluationToken);
+  assert.ok(claims, "evaluation token must verify");
+  assert.equal(claims!.sttGlitchRescue, false, "no rescue fired");
+  assert.equal(claims!.nocatchCause, "script_mismatch");
 });

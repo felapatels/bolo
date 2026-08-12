@@ -36,6 +36,11 @@ export interface EvaluationClaims {
   // True when the passes disagreed after normalization; the band was computed
   // from the transcript farther from the target (the conservative reading).
   sttDisagreement?: boolean;
+  // True when the recognizer-glitch rescue fired (owner ruling, Aug 12, 2026):
+  // exactly one pass came back in a script the target cannot be compared
+  // against, so that broken pass was excluded and the comparable pass was
+  // scored normally. Absent on tokens issued before the rescue existed.
+  sttGlitchRescue?: boolean;
   // ── Noise production baseline (optional so tokens issued before this change
   //    stay valid; both fields are simply absent on those, never invalid) ──
   // Derived signal-to-noise estimate for the recording, in dB. Null/absent

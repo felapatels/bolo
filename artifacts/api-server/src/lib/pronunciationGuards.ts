@@ -440,6 +440,13 @@ export interface DualPassChoice {
    * the route must resolve this as a system miss (nocatch), never a score.
    */
   chosenEmptyWithEvidence: boolean;
+  /**
+   * True when the recognizer-glitch rescue fired: exactly one pass was
+   * non-comparable (wrong script) while the other was comparable, so the
+   * comparable pass was taken and is scored normally. Recorded so the owner
+   * can measure how often this path fires; it changes no other behavior.
+   */
+  glitchRescue: boolean;
 }
 
 /** Normalizes a transcript for pass-vs-pass agreement checks: Latin transcripts
@@ -461,6 +468,22 @@ export function normalizeForAgreement(text: string): string {
  * (-1: unverifiable script), then effectively-empty (-2: no content at all).
  * Ties keep the high-quality pass; a tie is equidistant, so preferring the
  * better recognizer carries no toward-target bias.
+ *
+ * Recognizer-glitch rescue (owner ruling, Aug 12, 2026). The ladder above
+ * ranks a non-comparable transcript FARTHER than any comparable one, so a pass
+ * that drifted into the wrong script (the observed cases: Cyrillic or
+ * Perso-Arabic for a Gujarati phrase) always beat a pass that read the learner
+ * correctly, and the attempt died as script_mismatch → nocatch. When EXACTLY
+ * ONE non-empty pass is non-comparable and the other non-empty pass IS
+ * comparable, that is a recognizer failure, not distance: a wrong-script
+ * transcript is not a kinder reading of the learner's speech, it is a broken
+ * one. The comparable pass is taken and scored normally, and excluding the
+ * broken pass does not weaken the anti-flattery rule.
+ *
+ * Everything else is untouched: two comparable passes that disagree still
+ * score the farther one (the case the rule exists for), two non-comparable
+ * passes still resolve as before, and an empty pass is still the farthest rung
+ * (its own uncorroborated-system-miss path), never a glitch rescue.
  */
 export function chooseConservativeTranscript(input: {
   mini: string;
@@ -478,6 +501,7 @@ export function chooseConservativeTranscript(input: {
       disagreement: false,
       bothEmpty: true,
       chosenEmptyWithEvidence: false,
+      glitchRescue: false,
     };
   }
   const agree =
@@ -491,20 +515,48 @@ export function chooseConservativeTranscript(input: {
       disagreement: false,
       bothEmpty: false,
       chosenEmptyWithEvidence: false,
+      glitchRescue: false,
     };
   }
-  const effectiveSim = (t: string, empty: boolean): number => {
-    if (empty) return -2;
-    const cmp = compareToTarget(t, input.targetNative, input.targetRomanized);
+  const miniCmp = miniEmpty
+    ? null
+    : compareToTarget(mini, input.targetNative, input.targetRomanized);
+  const hqCmp = hqEmpty
+    ? null
+    : compareToTarget(hq, input.targetNative, input.targetRomanized);
+  const miniComparable = miniCmp?.comparable === true;
+  const hqComparable = hqCmp?.comparable === true;
+
+  // Recognizer-glitch rescue: both passes heard SOMETHING, exactly one of them
+  // in a script the target can be compared against. The unverifiable one is a
+  // broken reading, not a farther one, so it is excluded and the comparable
+  // pass is scored normally. Deliberately placed BEFORE the distance ladder;
+  // every other combination falls through to it unchanged.
+  if (!miniEmpty && !hqEmpty && miniComparable !== hqComparable) {
+    return {
+      transcript: miniComparable ? mini : hq,
+      disagreement: true,
+      bothEmpty: false,
+      chosenEmptyWithEvidence: false,
+      glitchRescue: true,
+    };
+  }
+
+  const effectiveSim = (
+    empty: boolean,
+    cmp: PhoneticComparison | null,
+  ): number => {
+    if (empty || !cmp) return -2;
     return cmp.comparable ? cmp.sim : -1;
   };
-  const miniEff = effectiveSim(mini, miniEmpty);
-  const hqEff = effectiveSim(hq, hqEmpty);
+  const miniEff = effectiveSim(miniEmpty, miniCmp);
+  const hqEff = effectiveSim(hqEmpty, hqCmp);
   const chooseMini = miniEff < hqEff;
   return {
     transcript: chooseMini ? mini : hq,
     disagreement: true,
     bothEmpty: false,
     chosenEmptyWithEvidence: chooseMini ? miniEmpty : hqEmpty,
+    glitchRescue: false,
   };
 }

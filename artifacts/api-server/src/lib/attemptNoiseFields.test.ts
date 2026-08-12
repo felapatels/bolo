@@ -196,6 +196,27 @@ describe("platform tagging", () => {
     );
   });
 
+  test("the recognizer-glitch rescue rides the same flags column, off by default", () => {
+    assert.equal(
+      buildAttemptFlags({ latencyMissing: false, userAgent: "okhttp/4.12.0" }),
+      "platform:android_app",
+      "an ordinary attempt must not gain the rescue tag",
+    );
+    assert.equal(
+      buildAttemptFlags({
+        latencyMissing: false,
+        userAgent: "okhttp/4.12.0",
+        sttGlitchRescue: true,
+      }),
+      "platform:android_app,stt_glitch_rescue",
+      "a rescued attempt must be countable from the flags column",
+    );
+    assert.equal(
+      buildAttemptFlags({ latencyMissing: false, userAgent: undefined, sttGlitchRescue: true }),
+      "stt_glitch_rescue",
+    );
+  });
+
   test("the tag lands in the row's flags column in a form the report can read", async () => {
     const claims = verifyEvaluation(signEvaluation(LEGACY_CLAIMS));
     const row = await insertFromClaims(
