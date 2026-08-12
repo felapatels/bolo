@@ -253,3 +253,23 @@ export function seedCloseoutStages(lang: string, doneZoneIndices: number[]): voi
     // Ignore.
   }
 }
+
+/**
+ * Chacha-ji turns up trackside at every fourth station from the third, counted
+ * on the flattened global station list (3, 7, 11, ...). The server owns the
+ * same rule (api-server lib/chachaEncounters.ts); this copy only decides when
+ * the client bothers to ask, so a drift can never mint or skip a gift.
+ */
+export function isChachaEncounterStation(station: number): boolean {
+  return station >= 3 && (station - 3) % 4 === 0;
+}
+
+export function isChachaStopSeen(lang: string, station: number): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  return sessionStorage.getItem(`chacha-${lang}-${station}`) === "1";
+}
+
+export function markChachaStopSeen(lang: string, station: number): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(`chacha-${lang}-${station}`, "1");
+}

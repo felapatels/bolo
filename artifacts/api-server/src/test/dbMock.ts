@@ -66,6 +66,7 @@ export function createDbMockExports(
     attemptsTable: {},
     badgesTable: {},
     categoriesTable: {},
+    chachaEncountersTable: {},
     chatTurnsTable: {},
     contactSubmissionsTable: {},
     dailyQuizCompletionsTable: {},

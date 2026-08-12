@@ -145,6 +145,7 @@ export const SubmitLessonGroupTestoutParams = zod.object({
 export const submitLessonGroupTestoutBodyAttemptsMax = 5;
 
 
+
 export const SubmitLessonGroupTestoutBody = zod.object({
   "attempts": zod.array(zod.object({
   "phraseId": zod.number(),
@@ -202,7 +203,9 @@ export const SubmitZoneTestoutParams = zod.object({
 })
 
 
+
 export const submitZoneTestoutBodyAttemptsMax = 10;
+
 
 
 export const SubmitZoneTestoutBody = zod.object({
@@ -327,6 +330,7 @@ export const addCategoryPhrasesBodyCountDefault = 3;
 export const addCategoryPhrasesBodyCountMax = 5;
 
 
+
 export const AddCategoryPhrasesBody = zod.object({
   "count": zod.number().min(1).max(addCategoryPhrasesBodyCountMax).default(addCategoryPhrasesBodyCountDefault).describe('How many new phrases to generate and append.')
 })
@@ -414,6 +418,7 @@ export const GetPhraseResponse = zod.object({
 /**
  * @summary Record a pronunciation practice attempt
  */
+
 
 
 export const CreateAttemptBody = zod.object({
@@ -819,6 +824,7 @@ export const CancelAccountSubscriptionResponse = zod.object({
 export const pauseAccountSubscriptionBodyMonthsMax = 3;
 
 
+
 export const PauseAccountSubscriptionBody = zod.object({
   "months": zod.number().min(1).max(pauseAccountSubscriptionBodyMonthsMax).optional().describe('Number of months to pause (1–3). Defaults to 1 if omitted.')
 }).describe('How long to pause the subscription for.')
@@ -1109,6 +1115,7 @@ export const recordScriptTraceProgressBodyScoreMin = 0;
 export const recordScriptTraceProgressBodyScoreMax = 100;
 
 
+
 export const RecordScriptTraceProgressBody = zod.object({
   "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants']),
   "characterId": zod.string().min(1).max(recordScriptTraceProgressBodyCharacterIdMax),
@@ -1176,6 +1183,7 @@ export const completeDailyQuizBodyAnswersMin = 5;
 export const completeDailyQuizBodyAnswersMax = 5;
 
 
+
 export const CompleteDailyQuizBody = zod.object({
   "lang": zod.string().describe('Language code (e.g. \"gu\")'),
   "answers": zod.array(zod.string().nullable()).min(completeDailyQuizBodyAnswersMin).max(completeDailyQuizBodyAnswersMax).describe('Array of 5 selected answers (one per question). For mcq_translation supply the chosen English string; for listen_identify supply the chosen nativeScript string; for order_words supply the tiles joined by spaces. null means the question was skipped or unanswered.')
@@ -1199,6 +1207,7 @@ export const submitContactFormBodyNameMax = 200;
 export const submitContactFormBodyMessageMax = 2000;
 
 
+
 export const SubmitContactFormBody = zod.object({
   "name": zod.string().min(1).max(submitContactFormBodyNameMax),
   "email": zod.string().describe('The submitter\'s email address (validated as a valid email format).'),
@@ -1220,6 +1229,7 @@ export const ReportPhraseParams = zod.object({
 })
 
 export const reportPhraseBodyNoteMax = 280;
+
 
 
 export const ReportPhraseBody = zod.object({
@@ -1252,6 +1262,7 @@ export const ListTtsVoicesResponse = zod.object({
  */
 
 
+
 export const SynthesizeSpeechBody = zod.object({
   "text": zod.string().min(1),
   "voice": zod.string().optional(),
@@ -1272,6 +1283,7 @@ export const SynthesizeSpeechResponse = zod.object({
 
 
 export const evaluatePronunciationBodyCaptureAttemptOfFourMax = 4;
+
 
 
 export const EvaluatePronunciationBody = zod.object({
@@ -1325,6 +1337,7 @@ export const DiscardLastPilotCaptureResponse = zod.object({
 export const generatePhraseBodyDifficultyMax = 3;
 
 
+
 export const GeneratePhraseBody = zod.object({
   "languageName": zod.string().optional(),
   "categoryTitle": zod.string().optional(),
@@ -1342,6 +1355,8 @@ export const GeneratePhraseResponse = zod.object({
  * Given a learner's recorded speech and a target language, transcribes the audio, has Bolo the parrot reply in character and in-language (naturally answering "how do you say X" / translation-style meta questions), synthesizes the reply to speech, and returns all three plus the caller's remaining weekly chat-time allowance. Validates the requested language against the caller's plan and, for Free, the 2-minutes-per-week chat cap before doing any AI work. One Language and Plus subscribers are never time-capped (still subject to the plan-based language allowlist). Accepts a short recent-turn history so replies stay contextual without server-side chat storage.
  * @summary One turn of a live conversation with Bolo the parrot
  */
+
+
 
 
 export const ChatTurnBody = zod.object({
@@ -1525,6 +1540,7 @@ export const GetReferralResponse = zod.object({
 export const redeemReferralBodyCodeMax = 32;
 
 
+
 export const RedeemReferralBody = zod.object({
   "code": zod.string().min(1).max(redeemReferralBodyCodeMax).describe('The referral code to redeem. Case-insensitive; normalized server-side.')
 })
@@ -1543,6 +1559,7 @@ export const recordSignalWaveBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$')
 export const recordSignalWaveBodyGapMax = 999;
 
 
+
 export const RecordSignalWaveBody = zod.object({
   "languageCode": zod.string().regex(recordSignalWaveBodyLanguageCodeRegExp),
   "categoryId": zod.number().min(1),
@@ -1551,6 +1568,42 @@ export const RecordSignalWaveBody = zod.object({
 
 export const RecordSignalWaveResponse = zod.object({
   "ref": zod.string().describe('The stored ref, languageCode:categoryId:gap-N.')
+})
+
+
+/**
+ * The learner has reached one of Chacha-ji's roadside stall stations (global station index 3, 7, 11, and every fourth station after that). Pours the Chai for a first arrival, returns the short phrase he says and, on every third encounter, an offer from the stall. Idempotent: the gift is paid once per learner per station, so a revisit replays the same encounter with granted false. 404 when the station is not one of his or does not exist in this language's journey.
+ * @summary Arrive at a Chacha-ji encounter station
+ */
+export const recordChachaEncounterBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$');
+export const recordChachaEncounterBodyStationMax = 999;
+
+
+
+export const RecordChachaEncounterBody = zod.object({
+  "languageCode": zod.string().regex(recordChachaEncounterBodyLanguageCodeRegExp),
+  "station": zod.number().min(1).max(recordChachaEncounterBodyStationMax).describe('Global station index across the six zones, not the per-zone \"Stop N of M\" number. Must be one of Chacha-ji\'s stations.')
+}).describe('Where the learner has arrived, on the global station index.')
+
+export const RecordChachaEncounterResponse = zod.object({
+  "station": zod.number(),
+  "ordinal": zod.number().describe('Which encounter of the journey this is, 1-based.'),
+  "granted": zod.boolean().describe('True only when this call paid the Chai. The celebration plays on this and nothing else, so a revisit stays quiet.'),
+  "chaiGranted": zod.number(),
+  "balance": zod.number().describe('Chai balance after the gift.'),
+  "phrase": zod.object({
+  "id": zod.number(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string().nullish(),
+  "english": zod.string()
+}).describe('The short line Chacha-ji says, read-only (never scored).').nullish(),
+  "offer": zod.object({
+  "outfitId": zod.string(),
+  "name": zod.string(),
+  "tagline": zod.string(),
+  "cost": zod.number(),
+  "kind": zod.enum(['garment', 'accessory'])
+}).describe('An item from the stall, already filtered to something the learner does not own and can afford right now.').nullish()
 })
 
 
@@ -1677,4 +1730,5 @@ export const EquipOutfitResponse = zod.object({
   "equipped": zod.string().nullable(),
   "equippedAccessory": zod.string().nullish()
 })
+
 

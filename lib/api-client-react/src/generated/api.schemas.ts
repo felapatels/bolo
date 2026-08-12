@@ -467,6 +467,62 @@ export interface SignalWaveResult {
   ref: string;
 }
 
+/**
+ * Where the learner has arrived, on the global station index.
+ */
+export interface ChachaEncounterInput {
+  /** @pattern ^[a-z]{2,3}$ */
+  languageCode: string;
+  /**
+     * Global station index across the six zones, not the per-zone "Stop N of M" number. Must be one of Chacha-ji's stations.
+     * @minimum 1
+     * @maximum 999
+     */
+  station: number;
+}
+
+/**
+ * The short line Chacha-ji says, read-only (never scored).
+ */
+export interface ChachaEncounterPhrase {
+  id: number;
+  nativeScript: string;
+  romanized?: string | null;
+  english: string;
+}
+
+export type ChachaEncounterOfferKind = typeof ChachaEncounterOfferKind[keyof typeof ChachaEncounterOfferKind];
+
+
+export const ChachaEncounterOfferKind = {
+  garment: 'garment',
+  accessory: 'accessory',
+} as const;
+
+/**
+ * An item from the stall, already filtered to something the learner does not own and can afford right now.
+ */
+export interface ChachaEncounterOffer {
+  outfitId: string;
+  name: string;
+  tagline: string;
+  cost: number;
+  kind: ChachaEncounterOfferKind;
+}
+
+export interface ChachaEncounterResult {
+  station: number;
+  /** Which encounter of the journey this is, 1-based. */
+  ordinal: number;
+  /** True only when this call paid the Chai. The celebration plays on this and nothing else, so a revisit stays quiet. */
+  granted: boolean;
+  chaiGranted: number;
+  /** Chai balance after the gift. */
+  balance: number;
+  phrase?: ChachaEncounterPhrase | null;
+  offer?: ChachaEncounterOffer | null;
+}
+
 export interface ReferralSummary {
   /** The caller's shareable referral code (uppercase, no 0/O/1/I). */
   code: string;

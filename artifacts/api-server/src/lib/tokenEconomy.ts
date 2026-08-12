@@ -4,6 +4,9 @@ export const TOKEN_EARN_STREAK_DAY = 1;
 export const TOKEN_EARN_ZONE_COMPLETE = 10;
 export const TOKEN_EARN_EXPRESS_STAMP = 3;
 export const TOKEN_EARN_QUIZ = 2;
+// Chacha-ji's trackside gift, once per learner per station (owner ruling
+// Aug 12, 2026: 3, not the 5 the draft contract carried).
+export const TOKEN_EARN_CHACHA_ENCOUNTER = 3;
 // Owner ruling Aug 11, 2026: dropped from 50 to 15. Server-side and granted
 // through the ledger, so this one constant covers web AND mobile with no client
 // release. The refId is the UTC month, so a month already granted at the old
@@ -91,6 +94,7 @@ export type TokenReason =
   | "earn_allowance_monthly"
   | "earn_signal_first_clear"
   | "earn_closeout_first"
+  | "earn_chacha_encounter"
   | "earn_referral_referrer"
   | "earn_referral_referee"
   | "spend_station_pause"

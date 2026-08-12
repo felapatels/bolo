@@ -2025,6 +2025,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/SignalWaveResult"
 
+  /journey/chacha-encounters:
+    post:
+      operationId: recordChachaEncounter
+      tags: [learning]
+      summary: Arrive at a Chacha-ji encounter station
+      description: >-
+        The learner has reached one of Chacha-ji's roadside stall stations
+        (global station index 3, 7, 11, and every fourth station after that).
+        Pours the Chai for a first arrival, returns the short phrase he says
+        and, on every third encounter, an offer from the stall. Idempotent:
+        the gift is paid once per learner per station, so a revisit replays
+        the same encounter with granted false. 404 when the station is not
+        one of his or does not exist in this language's journey.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChachaEncounterInput"
+      responses:
+        "200":
+          description: The encounter at this station
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaEncounterResult"
+        "404":
+          description: No encounter at this station
+
   /tokens:
     get:
       operationId: getTokens
@@ -3049,6 +3078,99 @@ components:
           description: The stored ref, languageCode:categoryId:gap-N.
       required:
         - ref
+
+    ChachaEncounterInput:
+      type: object
+      description: Where the learner has arrived, on the global station index.
+      properties:
+        languageCode:
+          type: string
+          pattern: "^[a-z]{2,3}$"
+        station:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: >-
+            Global station index across the six zones, not the per-zone
+            "Stop N of M" number. Must be one of Chacha-ji's stations.
+      required:
+        - languageCode
+        - station
+
+    ChachaEncounterPhrase:
+      type: object
+      description: The short line Chacha-ji says, read-only (never scored).
+      properties:
+        id:
+          type: integer
+        nativeScript:
+          type: string
+        romanized:
+          type: string
+          nullable: true
+        english:
+          type: string
+      required:
+        - id
+        - nativeScript
+        - english
+
+    ChachaEncounterOffer:
+      type: object
+      description: >-
+        An item from the stall, already filtered to something the learner does
+        not own and can afford right now.
+      properties:
+        outfitId:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        cost:
+          type: integer
+        kind:
+          type: string
+          enum: [garment, accessory]
+      required:
+        - outfitId
+        - name
+        - tagline
+        - cost
+        - kind
+
+    ChachaEncounterResult:
+      type: object
+      properties:
+        station:
+          type: integer
+        ordinal:
+          type: integer
+          description: Which encounter of the journey this is, 1-based.
+        granted:
+          type: boolean
+          description: >-
+            True only when this call paid the Chai. The celebration plays on
+            this and nothing else, so a revisit stays quiet.
+        chaiGranted:
+          type: integer
+        balance:
+          type: integer
+          description: Chai balance after the gift.
+        phrase:
+          allOf:
+            - $ref: "#/components/schemas/ChachaEncounterPhrase"
+          nullable: true
+        offer:
+          allOf:
+            - $ref: "#/components/schemas/ChachaEncounterOffer"
+          nullable: true
+      required:
+        - station
+        - ordinal
+        - granted
+        - chaiGranted
+        - balance
 
     ReferralSummary:
       type: object

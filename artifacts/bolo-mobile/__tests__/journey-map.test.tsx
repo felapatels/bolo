@@ -10,6 +10,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
+// The journey screen mounts Chacha-ji's stall, which can speak its phrase, so
+// the real expo-audio module is now in this screen's import graph and blows up
+// under jest without a native module behind it.
+jest.mock('@/lib/audio', () => ({
+  playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
+    onDone?.();
+    return { stop: jest.fn() };
+  }),
+}));
+
 const mockState: Record<string, any> = {
   zones: {},
   isPlus: true,
@@ -152,6 +162,11 @@ jest.mock('@workspace/api-client-react', () => ({
   useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
   getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   useUnlockStop: () => ({ mutate: jest.fn(), isPending: false }),
+  // Chacha-ji's stall: the map records the arrival, and his dialog can buy
+  // from the rack and speak its phrase.
+  useRecordChachaEncounter: () => ({ mutate: jest.fn(), isPending: false }),
+  useBuyOutfit: () => ({ mutate: jest.fn(), isPending: false }),
+  useSynthesizeSpeech: () => ({ mutateAsync: jest.fn(), isPending: false }),
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;

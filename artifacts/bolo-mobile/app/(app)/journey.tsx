@@ -14,7 +14,7 @@
 // completed segments solid, locked segments faded and dashed. Rendering
 // approach (approved): react-native-svg with the web's exact path geometry,
 // split into per-zone Svg blocks inside the ScrollView for scroll perf.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -44,9 +44,11 @@ import {
   useListCategories,
   useListCategoryLessonGroups,
   useRecordSignalWave,
+  useRecordChachaEncounter,
   useUnlockStop,
   type LessonGroupList,
   type LessonGroupSummary,
+  type ChachaEncounterResult,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
@@ -71,6 +73,8 @@ import { MilestoneToast } from '@/components/MilestoneToast';
 import { planTracksideSignals, signalContextRef } from '@/lib/tracksideSignals';
 import { gameForSignal } from '@/lib/quick-games';
 import { useSignalMemory } from '@/lib/signalMemory';
+import { isChachaEncounterStation, useChachaMemory } from '@/lib/chachaMemory';
+import { ChachaEncounterDialog } from '@/components/journey/ChachaEncounter';
 import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
@@ -400,6 +404,36 @@ function SignalSoftStop({
   }, [sig, gap, blocked, hydrated, isStopSeen, markStopSeen, onOpen]);
   return null;
 }
+/**
+ * Seen is written when the server answers, not here: a request that never
+ * lands must not cost the learner this station's chai. The in-flight guard
+ * keeps a re-render from firing a second arrival, and it resets on remount so
+ * a failed one is retried the next time they open the map.
+ */
+function ChachaSoftStop({
+  station,
+  blocked,
+  hydrated,
+  isSeen,
+  onOpen,
+}: {
+  station: number | null;
+  blocked: boolean;
+  hydrated: boolean;
+  isSeen: (station: number) => boolean;
+  onOpen: (station: number) => void;
+}) {
+  const asked = useRef<number | null>(null);
+  useEffect(() => {
+    if (station === null || blocked || !hydrated) return;
+    if (isSeen(station)) return;
+    if (asked.current === station) return;
+    asked.current = station;
+    onOpen(station);
+  }, [station, blocked, hydrated, isSeen, onOpen]);
+  return null;
+}
+
 
 export default function JourneyScreen() {
   const colors = useColors();
@@ -463,6 +497,9 @@ export default function JourneyScreen() {
   // Signal memory hydrates off AsyncStorage; render only ever reads the
   // synchronous snapshot it exposes (see lib/signalMemory.ts).
   const signalMemory = useSignalMemory(activeLang);
+  const chachaMemory = useChachaMemory(activeLang);
+  const recordChachaEncounter = useRecordChachaEncounter();
+  const [chachaDlg, setChachaDlg] = useState<ChachaEncounterResult | null>(null);
   // Zone closeout stages hydrate the same way, and for the same reason.
   const closeoutMemory = useCloseoutMemory(activeLang);
   const recordSignalWave = useRecordSignalWave();
@@ -747,6 +784,43 @@ export default function JourneyScreen() {
   void signalMemory.version; // re-derive after any local mark
   const currentGlobalIdx =
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
+
+  // Chacha-ji counts stations 1-based off the same flattened list. The
+  // showroom has no live progress, so he never turns up there.
+  const chachaStationIdx =
+    !showroom && currentGlobalIdx >= 0 && isChachaEncounterStation(currentGlobalIdx + 1)
+      ? currentGlobalIdx + 1
+      : null;
+
+  // Leaving the stall carries on into that stop's first item, which is where
+  // tapping the stop card would have landed anyway. Decline does the same: he
+  // never asks twice.
+  const leaveChachaStall = () => {
+    const stop = chachaDlg ? allStations[chachaDlg.station - 1] : undefined;
+    setChachaDlg(null);
+    if (!stop) return;
+    router.push({
+      pathname: '/(app)/practice/[id]',
+      params: { id: String(stop.zoneId), group: String(stop.id) },
+    });
+  };
+
+  const openChachaEncounter = (stationIdx: number) => {
+    recordChachaEncounter.mutate(
+      { data: { languageCode: activeLang, station: stationIdx } },
+      {
+        onSuccess: (res) => {
+          // Spent only once he has actually answered; see ChachaSoftStop.
+          chachaMemory.markSeen(stationIdx);
+          setChachaDlg(res);
+          if (res.granted) {
+            void tokensQuery.refetch();
+          }
+        }
+      }
+    );
+  };
+
   const visibleCountForZone = (zoneId: number) =>
     categories?.find((c) => c.id === zoneId)?.phraseCount ?? 0;
   const signals: SignalSpot[] = showroom
@@ -1685,6 +1759,23 @@ export default function JourneyScreen() {
         onPlay={playSignalGame}
         onWave={waveSignal}
         onClose={() => setSignalDlg(null)}
+      />
+      {/* Chacha-ji's stall, under the same soft-stop discipline as the signal:
+          it waits for a lock, a signal or an owed closeout to clear, and opens
+          once per station. */}
+      <ChachaSoftStop
+        station={chachaStationIdx}
+        blocked={lock !== null || signalDlg !== null || chachaDlg !== null || closeoutPending}
+        hydrated={chachaMemory.hydrated}
+        isSeen={chachaMemory.isSeen}
+        onOpen={openChachaEncounter}
+      />
+      <ChachaEncounterDialog
+        encounter={chachaDlg}
+        colors={colors}
+        languageName={languageName}
+        onDismiss={leaveChachaStall}
+        onDecline={leaveChachaStall}
       />
       {/* Zone closeout: beat one the result, beat two the Chai payoff.
           Showroom callers have no live progress to close out. Direction two

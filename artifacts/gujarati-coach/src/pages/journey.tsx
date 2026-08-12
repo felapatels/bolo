@@ -76,9 +76,12 @@ import { toast } from "@/hooks/use-toast";
 import {
   closeoutStateUnseeded,
   gameForSignal,
+  isChachaEncounterStation,
+  isChachaStopSeen,
   isSignalCleared,
   isSignalStopSeen,
   isSignalWaved,
+  markChachaStopSeen,
   markSignalStopSeen,
   markSignalWaved,
   readCloseoutStages,
@@ -86,6 +89,7 @@ import {
   type QuickGameId,
 } from "@/lib/quick-games";
 import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
+import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
@@ -786,6 +790,41 @@ function SignalSoftStop({
   return null;
 }
 
+/**
+ * Chacha-ji's stall auto-opens the same way a signal soft stop does: once per
+ * arrival, never over another dialog or an owed closeout.
+ *
+ * Seen is written by the caller once the server has answered, not here: a
+ * request that never lands must not cost the learner the encounter. The
+ * in-flight guard below is what stops a re-render firing a second one in the
+ * meantime, and it resets on remount so a failed arrival is retried on the
+ * learner's next visit to the map.
+ */
+function ChachaSoftStop({
+  station,
+  dialogOpen,
+  closeoutPending,
+  lang,
+  onOpen,
+}: {
+  station: number | null;
+  dialogOpen: boolean;
+  closeoutPending: boolean;
+  lang: string;
+  onOpen: (station: number) => void;
+}) {
+  const asked = useRef<string | null>(null);
+  useEffect(() => {
+    if (station === null || dialogOpen || closeoutPending) return;
+    if (isChachaStopSeen(lang, station)) return;
+    const key = `${lang}:${station}`;
+    if (asked.current === key) return;
+    asked.current = key;
+    onOpen(station);
+  }, [station, dialogOpen, closeoutPending, lang]);
+  return null;
+}
+
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
@@ -794,6 +833,9 @@ export default function Journey() {
   // only forces a re-render after a wave so states re-derive from storage.
   const [signalDlg, setSignalDlg] = useState<SignalSpot | null>(null);
   const [factDlg, setFactDlg] = useState<{ geoName: string; fact: string } | null>(null);
+
+  const [chachaDlg, setChachaDlg] = useState<number | null>(null);
+
   const [signalTick, setSignalTick] = useState(0);
   const { ref: mapRef, w: mapW } = useMapWidth();
   const reduceMotion = useReducedMotion();
@@ -1085,6 +1127,22 @@ export default function Journey() {
   // with N === that index (N previous stops are done).
   const currentGlobalIdx =
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
+  // Chacha-ji counts stations 1-based off that same flattened list.
+  const currentStationNumber = currentGlobalIdx >= 0 ? currentGlobalIdx + 1 : -1;
+  const activeChachaStation =
+    currentStationNumber > 0 && isChachaEncounterStation(currentStationNumber)
+      ? currentStationNumber
+      : null;
+  // The open encounter carries its stop with it: leaving the stall walks on
+  // into that stop's first item, never back to the map.
+  const chachaStopEntry = chachaDlg != null ? allStations[chachaDlg - 1] : undefined;
+  const chachaStop =
+    chachaDlg != null && chachaStopEntry
+      ? {
+          station: chachaDlg,
+          href: `/practice/${chachaStopEntry.zoneId}?group=${chachaStopEntry.id}`,
+        }
+      : null;
   const signals: SignalSpot[] = showroom
     ? []
     : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
@@ -1923,13 +1981,40 @@ export default function Journey() {
         </DialogContent>
       </Dialog>
 
+      {/* Chacha-ji's stall. Dismissing it carries on into the stop's first
+          item, which is the same place tapping the stop card would land. */}
+      {chachaStop && (
+        <ChachaEncounterDialog
+          stationIndex={chachaStop.station}
+          firstItemHref={chachaStop.href}
+          open
+          onOpenChange={(open) => !open && setChachaDlg(null)}
+        />
+      )}
+
       {/* Chunk 6B Story 4: zone closeout celebration (client-detected, never
           gating). Showroom callers have no live progress to close out. */}
       {!showroom && (
         <>
+          
+          <ChachaSoftStop
+            station={activeChachaStation}
+            dialogOpen={lock !== null || signalDlg !== null || factDlg !== null || chachaDlg !== null}
+            closeoutPending={
+              closeoutStateUnseeded(activeLang) ||
+              zones.some(
+                (z, zi) =>
+                  z.zoneAllDone === true &&
+                  readCloseoutStages(activeLang)[zi] !== "done",
+              )
+            }
+            lang={activeLang}
+            onOpen={setChachaDlg}
+          />
+
           <SignalSoftStop
             sig={signals.find((s) => s.held) ?? null}
-            dialogOpen={lock !== null || signalDlg !== null || factDlg !== null}
+            dialogOpen={lock !== null || signalDlg !== null || factDlg !== null || chachaDlg !== null}
             closeoutPending={
               closeoutStateUnseeded(activeLang) ||
               zones.some(

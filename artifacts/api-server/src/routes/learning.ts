@@ -113,6 +113,11 @@ import {
   upgradeRequired,
 } from "../lib/entitlements";
 import {
+  arriveAtEncounter,
+  StationNotReachedError,
+  UnknownStationError,
+} from "../lib/chachaEncounters";
+import {
   deriveGroupStatuses,
   isZoneComplete,
   testoutRequiredCorrect,
@@ -3525,6 +3530,56 @@ router.post(
       .values({ userId, ref })
       .onConflictDoNothing();
     res.json({ ref });
+  },
+);
+
+// POST /journey/chacha-encounters — the learner has arrived at a Chacha-ji
+// station. One call does the whole encounter: it pours the Chai (idempotent,
+// so a revisit or a double tap pays once), picks the line he says, and prices
+// an offer when this is a third encounter. Nothing here is client-asserted
+// beyond WHERE the learner is, and even that is checked against the server's
+// own station ordering before a single Chai moves.
+const ChachaEncounterBody = z.object({
+  // Same strict grammar as signal waves: bare language codes only.
+  languageCode: z.string().regex(/^[a-z]{2,3}$/),
+  // Global station index. The upper bound is a sanity rail; the real check is
+  // that the station resolves to a lesson group in this language.
+  station: z.number().int().positive().lte(999),
+});
+
+router.post(
+  "/journey/chacha-encounters",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = ChachaEncounterBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid encounter" });
+      return;
+    }
+    const { languageCode, station } = parsed.data;
+    const userId = getUserId(req);
+    const { resolvedPlan } = req as EntitledRequest;
+    try {
+      const result = await arriveAtEncounter({
+        userId,
+        languageCode,
+        station,
+        extendedLibrary: featuresForPlan(resolvedPlan.plan).extendedLibrary,
+      });
+      res.json(result);
+    } catch (err) {
+      // A station that is not his, or not in this language's journey at all.
+      if (err instanceof UnknownStationError) {
+        res.status(404).json({ error: "No encounter at this station" });
+        return;
+      }
+      // A real station of his, but further down the line than this learner has
+      // opened. Refused before any chai moves.
+      if (err instanceof StationNotReachedError) {
+        res.status(403).json({ error: "Station not reached" });
+        return;
+      }
+      throw err;
+    }
   },
 );
 
