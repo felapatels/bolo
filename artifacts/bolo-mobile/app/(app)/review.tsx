@@ -93,7 +93,13 @@ import {
 } from '@/lib/audio';
 import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
-import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
+import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
+import {
+  LessonSettingsMenu,
+  LanguageChip,
+  LESSON_AUDIO_LABELS,
+  type LessonSettingsItem,
+} from '@/components/LessonSettingsMenu';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
@@ -104,6 +110,16 @@ import { glyphsForLanguage } from '@/lib/scriptGlyphs';
 // never sent an evaluation, so instead of a scored 'result' they get a
 // listen-record-compare card (no band, no XP).
 type Phase = 'idle' | 'recording' | 'evaluating' | 'result' | 'compare' | 'error' | 'done';
+
+// Toggle confirmations for the header settings menu. Deliberately a local copy
+// of the practice screen's TOGGLE_TOAST strings (same house pattern as
+// BAND_LABEL below), so the two screens confirm a flip in identical words.
+const TOGGLE_TOAST = {
+  phraseAudioOn: 'Phrase audio on. Bolo reads each phrase first.',
+  phraseAudioOff: 'Phrase audio off. You speak first.',
+  feedbackAloudOn: 'Feedback aloud on. Your score is read out.',
+  feedbackAloudOff: 'Feedback aloud off.',
+} as const;
 
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
@@ -283,7 +299,23 @@ function describeEvaluationError(error: unknown): string {
 
 // ── Header ───────────────────────────────────────────────────────────────────
 
-function ReviewHeader({ onClose, label }: { onClose: () => void; label: string }) {
+function ReviewHeader({
+  onClose,
+  label,
+  settingsItems,
+  languageCode,
+}: {
+  onClose: () => void;
+  label: string;
+  /** When provided, shows the settings gear + menu as the rightmost control.
+   *  Review is a practice screen, so it carries the same gear, menu and
+   *  language chip the practice header does (minus Meaning, which review has
+   *  no code path for). The loading / empty / summary header variants pass
+   *  nothing and keep the plain spacer. */
+  settingsItems?: LessonSettingsItem[];
+  /** Active language code for the display-only chip left of the gear. */
+  languageCode?: string;
+}) {
   const colors = useColors();
   return (
     <View style={styles.header}>
@@ -298,7 +330,14 @@ function ReviewHeader({ onClose, label }: { onClose: () => void; label: string }
         <Text style={[styles.headerLabel, { color: colors.foreground }]}>{label}</Text>
         <XpCounter variant="session" />
       </View>
-      <View style={{ width: 44 }} />
+      {settingsItems ? (
+        <View style={styles.headerRight}>
+          {languageCode ? <LanguageChip code={languageCode} /> : null}
+          <LessonSettingsMenu items={settingsItems} />
+        </View>
+      ) : (
+        <View style={{ width: 44 }} />
+      )}
     </View>
   );
 }
@@ -627,6 +666,68 @@ export default function ReviewScreen() {
       return nextEnabled;
     });
   }, [stopPlayback]);
+
+  // Silent-mode preference — review already honours it at every coach autoplay
+  // (it re-reads the stored value there), but had no control for it. Mirrored
+  // in state so the header menu can show its on/off condition; the autoplay
+  // reads stay fresh, so a flip applies from the very next phrase.
+  const [silentModeUI, setSilentModeUI] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSilentMode().then((v) => {
+      if (!cancelled) setSilentModeUI(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const toggleSilentMode = React.useCallback(() => {
+    const next = !silentModeUI;
+    setSilentModeUI(next);
+    void saveSilentMode(next);
+    setToastMessage(next ? TOGGLE_TOAST.phraseAudioOff : TOGGLE_TOAST.phraseAudioOn);
+    setToastKey((k) => k + 1);
+  }, [silentModeUI]);
+
+  // The two audio items behind the header gear. Meaning is deliberately absent:
+  // review has no meaning-audio segment at all, and porting it is a separate,
+  // banked task — a disabled or stand-in item here would promise a control that
+  // does not exist. Both items read and write the screen's own state, so the
+  // Feedback item and the result-card mute are one value, not two copies.
+  const settingsItems = React.useMemo<LessonSettingsItem[]>(
+    () => [
+      {
+        key: 'phrase',
+        label: LESSON_AUDIO_LABELS.phrase,
+        description: silentModeUI
+          ? 'You speak first'
+          : 'Bolo reads each phrase first',
+        enabled: !silentModeUI,
+        iconOn: 'volume-2',
+        iconOff: 'volume-x',
+        onToggle: toggleSilentMode,
+      },
+      {
+        key: 'feedback',
+        label: LESSON_AUDIO_LABELS.feedback,
+        description: spokenEnabled
+          ? 'Your score is read out'
+          : 'Your score is not read out',
+        enabled: spokenEnabled,
+        iconOn: 'headphones',
+        iconOff: 'headphones',
+        onToggle: () => {
+          const next = !spokenEnabled;
+          toggleSpokenFeedback();
+          setToastMessage(
+            next ? TOGGLE_TOAST.feedbackAloudOn : TOGGLE_TOAST.feedbackAloudOff,
+          );
+          setToastKey((k) => k + 1);
+        },
+      },
+    ],
+    [silentModeUI, spokenEnabled, toggleSilentMode, toggleSpokenFeedback],
+  );
 
   const audioCacheRef = React.useRef(new Map<number, { audioBase64: string; format: string }>());
 
@@ -1258,7 +1359,12 @@ export default function ReviewScreen() {
 
   return (
     <Screen>
-      <ReviewHeader onClose={() => router.back()} label={`${index + 1} of ${list.length}`} />
+      <ReviewHeader
+        onClose={() => router.back()}
+        label={`${index + 1} of ${list.length}`}
+        settingsItems={settingsItems}
+        languageCode={activeLang}
+      />
 
       <View style={styles.progressOuter}>
         <ScoreTrail total={list.length} bands={bands} currentIndex={index} colors={colors} />
@@ -1642,6 +1748,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerLabel: { fontFamily: AppFonts.bold, fontSize: 16 },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   progressOuter: { paddingHorizontal: 20, paddingBottom: 8 },
   progressBg: { height: 8, borderRadius: 999, overflow: 'hidden' },
   scoreTrailOuter: { marginBottom: 8 },
