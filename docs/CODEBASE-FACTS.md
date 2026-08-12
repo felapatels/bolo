@@ -567,6 +567,8 @@ Paste this block into every spec.
 11. If a named file, component, or line does not match this document, STOP and ask. Then report the discrepancy so this document can be corrected.
 12. Before submitting any schema-bearing publish, read the generated-migrations panel and confirm the pending delta is exactly what you expect. Migration-stage publish failures produce NO deployment logs, so the panel is the only pre-flight visibility.
 13. The lesson-group scope trigger DDL lives in TWO places: migration 0030 and the api-server startup guard (which reads the migration file as its single source of truth). Never edit the trigger functions in one place only, and never reorder the boot sequence so the guard runs after the lesson-group backfill.
+14. Untracking files that remain on disk causes the NEXT platform rebase to fail with DIRTY_WORKTREE, because the replayed earlier commit still tries to add those exact paths. Workaround: move the files outside the repo for the duration of the rebase, then move them back. Better: add the `.gitignore` entry BEFORE producing the files, which avoids the situation entirely.
+15. Work reported as committed has three times failed to survive a platform rebase in a single session: a working rule written to this file, a `.gitignore` entry, and working rule 14 itself. After any rebase, VERIFY on disk that the change is actually present rather than trusting the prior report. grep the file; do not assume.
 
 ---
 

@@ -88,7 +88,17 @@ const FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const ART = "scripts/mascot-garment-art";
 const ITEMS = [
   { id: "kediyu", art: `${ART}/gar-kediyu-wide.png` },
-  { id: "anarkali", art: `${ART}/gar-anarkali.png`, squash: 1.0 },
+  // The anarkali runs on RECUT art (`-c`, srcSuffix: "" in the recut tool since
+  // there was no prior `-b` closed-front pass for this piece). Its waist band
+  // has interior transparency gaps (embroidery/fold highlighting, not holes at
+  // the silhouette edge) that job A's edge-widen alone never closes — the
+  // yoke fraction plateaus once it reaches the gap band because the resize is
+  // a single uniform horizontal scale, so extending MORE rows to full width
+  // doesn't add width where the source pixels themselves are transparent.
+  // Needs job B (interior gap fill) run almost the full height (`--gaps`
+  // near 0) plus a full-height yoke AND freefrac 1.0 (same full-clip
+  // reasoning as the kurta) to close the remaining hem-to-foot band.
+  { id: "anarkali", art: `${ART}/gar-anarkali-c.png`, squash: 1.05, freefrac: 1.0 },
   // These three run on the RECUT art (`-c`, see scripts/recut-garment-yoke.mjs):
   // their collars taper inward over the top quarter, which left her shoulders
   // bare no matter where the cloth was placed. squash 1.05 on all three is the

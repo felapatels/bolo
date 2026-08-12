@@ -54,6 +54,9 @@ qa/shots/
 # Pronunciation pilot — WAV clip files (large; stay in /tmp)
 qa/pilot-clips/
 
+# Production voice-audit clips pulled from tts_cache (binary audio; never committed)
+qa/tts-audit-prod-gu-clips/
+
 # Pilot corpus manifest + raw calibration results (reference R2 keys; recordings never enter the repo)
 qa/pilot-results/manifest.json
 qa/pilot-results/calibration/

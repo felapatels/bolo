@@ -50,6 +50,11 @@ const ITEMS = [
   { id: "kurta", yoke: 0.24, legs: true },
   { id: "sherwani", yoke: 0.24, legs: false },
   { id: "saree", yoke: 0.24, legs: false },
+  // anarkali never went through the closed-front "-b" re-cut the other three
+  // did (it was excluded from every earlier pass), so there is no gar-anarkali-b.png
+  // to read from. srcSuffix lets this one item source straight from the
+  // original art instead of the default "-b".
+  { id: "anarkali", yoke: 0.24, legs: true, srcSuffix: "" },
 ];
 
 /**
@@ -77,9 +82,9 @@ function arg(name, fallback = null) {
   return i === -1 ? fallback : process.argv[i + 1];
 }
 
-function recut({ id, yoke, legs, hem, gaps, outDir }) {
+function recut({ id, yoke, legs, hem, gaps, outDir, srcSuffix }) {
   const legStart = gaps ?? LEG_START;
-  const src = `${ART}/gar-${id}-b.png`;
+  const src = `${ART}/gar-${id}${srcSuffix ?? "-b"}.png`;
   const out = `${outDir ?? ART}/gar-${id}-c.png`;
 
   // Trim first, for the same reason the generator does: the width we widen to
