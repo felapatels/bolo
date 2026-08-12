@@ -80,6 +80,9 @@ import {
   localDayKey,
   type PhraseStats,
 } from "../lib/progressMetrics";
+// THE streak (Task #1081): one source for the DAY STREAK number here, for the
+// repair offer's promise in routes/tokens.ts, and for streak-badge progress.
+import { loadStreakLadder } from "../lib/streakDays";
 import {
   denyLockedFeature,
   denyLockedLanguage,
@@ -1898,8 +1901,14 @@ router.get(
     // candidate; we then bucket by local calendar day using localDayKey().
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
-    const [attempts, phrases, [gameXpRow], [userRow], recentXpRows, pausedDayKeys] =
-      await Promise.all([
+    const [
+      attempts,
+      phrases,
+      [gameXpRow],
+      [userRow],
+      recentXpRows,
+      streakLadder,
+    ] = await Promise.all([
         db
           .select()
           .from(attemptsTable)
@@ -1946,15 +1955,22 @@ router.get(
               gte(xpLedgerTable.createdAt, twoDaysAgo),
             ),
           ),
-        // HOOK 6: covered day keys for streak derivation — pauses equipped
-        // ahead of the gap and breaks repaired after it. Both are user-level
-        // and cover the gap in every language's streak (deliberately
-        // generous); the repair is priced on that basis too.
-        listCoveredDayKeys(userId),
+        // THE streak (Task #1081): one computation shared with the repair
+        // offer, the repair write and badge evaluation. It also carries the
+        // covered day keys — pauses equipped ahead of a gap and breaks
+        // repaired after it, both user-level and generous across every
+        // language — which the SPEAKING streak (untouched by that task) reads
+        // below rather than fetching a second time on this hot path.
+        loadStreakLadder(userId, timezone),
       ]);
 
     const totalPhrases = phrases.length;
-    const metrics = computeProgressMetrics(attempts, timezone, pausedDayKeys);
+    // Task #1081: the DAY STREAK number comes from THE streak source
+    // (lib/streakDays.ts) — all languages, lessons completed or mini-games
+    // played — not from this language's attempt dates. The streak-repair
+    // offer reads the very same helper, so the card can no longer promise a
+    // number this banner is incapable of showing.
+    const metrics = computeProgressMetrics(attempts, streakLadder.currentStreakDays);
     const totalXp = Number(gameXpRow?.total ?? 0);
     const dailyGoal = userRow?.dailyGoal ?? 50;
 
@@ -1988,7 +2004,11 @@ router.get(
       // Spec D2: consecutive days with at least one passing-band attempt.
       // Derived at query time from the same attempts rows; optional field
       // for installed-client back-compat.
-      speakingStreakDays: computeSpeakingStreakDays(attempts, timezone, pausedDayKeys),
+      speakingStreakDays: computeSpeakingStreakDays(
+        attempts,
+        timezone,
+        streakLadder.coveredDayKeys,
+      ),
       attemptsToday,
       xp: totalXp,
       todayXp,
@@ -2044,7 +2064,10 @@ router.get(
 
     const stats = buildPhraseStats(attempts);
     const schedule = buildReviewSchedule(attempts);
-    const metrics = computeProgressMetrics(attempts, getUserTimezone(req));
+    const metrics = computeProgressMetrics(
+      attempts,
+      (await loadStreakLadder(userId, getUserTimezone(req))).currentStreakDays,
+    );
 
     // Map each phrase to its category so attempts roll up per topic.
     const categoryByPhrase = new Map(phrases.map((p) => [p.id, p.categoryId]));

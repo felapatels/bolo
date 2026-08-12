@@ -27,7 +27,7 @@ import {
   computeExtendedProgressMetrics,
   type GameSessionSummary,
 } from "./progressMetrics";
-import { listCoveredDayKeys } from "./tokenService";
+import { loadStreakLadder } from "./streakDays";
 
 export interface NewlyEarnedBadge {
   key: string;
@@ -188,14 +188,18 @@ export async function loadExtendedMetrics(
   const sessions: GameSessionSummary[] = gameSessions;
   const quizDates = quizCompletions.map((c) => c.quizDate);
 
-  const pausedDayKeys = await listCoveredDayKeys(userId);
+  // Task #1081: the streak comes from THE streak source, not from this
+  // function's per-language attempt rows. Streak badges are still awarded
+  // per-language (invariant 2 above), but the number they are measured
+  // against is the user-level one the home banner shows — a learner whose
+  // banner reads 7 must not find their "7-day streak" badge still unearned.
+  const { currentStreakDays } = await loadStreakLadder(userId, timeZone);
   return computeExtendedProgressMetrics(
     attempts,
     sessions,
     gameXp,
     scriptTraceChaptersCompleted,
     quizDates,
-    timeZone,
-    pausedDayKeys,
+    currentStreakDays,
   );
 }

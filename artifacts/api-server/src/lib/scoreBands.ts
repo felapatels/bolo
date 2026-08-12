@@ -86,6 +86,23 @@ export function isPassingBand(band: PronunciationBand): boolean {
   return isFullCreditBand(band) || isHalfCreditBand(band);
 }
 
+/**
+ * "Good or better" — perfect | great | good. The earned half of the advance
+ * gate (Task #1040): the point at which moving on stops being a mercy and
+ * starts being deserved. NOT a frozen credit-group edge — it sits ON the
+ * good/almost split (68), which is still tuning-pending, so it is deliberately
+ * expressed against band names rather than a bare score comparison.
+ *
+ * Server-side twin of the client predicates it must agree with, byte for byte:
+ * web `pages/practice.tsx` isGoodOrBetterBand and mobile `lib/ui.ts`
+ * isGoodOrBetterBand. Added here (Task #1081) because the streak's lesson-
+ * completion rule needs it server-side, and a fourth copy of the same
+ * three-name test is exactly the kind of drift this task exists to end.
+ */
+export function isGoodOrBetterBand(band: PronunciationBand): boolean {
+  return isFullCreditBand(band) || band === "good";
+}
+
 // ── Legacy normalization ─────────────────────────────────────────────────────
 
 const NEW_BANDS: ReadonlySet<string> = new Set([

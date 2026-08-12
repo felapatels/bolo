@@ -9,7 +9,7 @@ import {
 } from "@workspace/db";
 import { and, eq, or, inArray, sql, sum } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
-import { computeProgressMetrics } from "../lib/progressMetrics";
+import { sumAttemptXp } from "../lib/progressMetrics";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendFriendInviteEmail } from "../lib/inviteEmail";
 
@@ -532,7 +532,7 @@ router.get(
         displayName: null,
         email: null,
       };
-      const practiceXp = computeProgressMetrics(byUser.get(id) ?? []).xp;
+      const practiceXp = sumAttemptXp(byUser.get(id) ?? []);
       const xp = practiceXp + (gameXpByUser.get(id) ?? 0);
       return {
         userId: id,

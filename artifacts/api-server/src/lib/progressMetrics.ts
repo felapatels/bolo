@@ -227,13 +227,27 @@ export function computeDailyQuizStreak(
   return streak;
 }
 
+// Practice XP from a set of attempts: the plain sum of their scores. Exported
+// for callers that want only this figure (the friends leaderboard) and have no
+// business asking for a streak they will not read.
+export function sumAttemptXp(attempts: { score: number }[]): number {
+  return attempts.reduce((sum, a) => sum + a.score, 0);
+}
+
 // Derives the server-authoritative per-language progress metrics used by both
 // the progress summary and badge evaluation, from the learner's full set of
 // attempts for one language.
+//
+// `currentStreakDays` is passed IN, never computed here (Task #1081). The
+// streak is the one metric on this interface that is NOT per-language and NOT
+// derived from attempts: it counts days on which the learner completed a
+// lesson or played a mini-game in ANY language, and lib/streakDays.ts is its
+// single source. Taking it as an argument is what makes it impossible for a
+// caller to end up with a streak number that disagrees with the one the
+// repair card sold them.
 export function computeProgressMetrics(
-  attempts: { phraseId: number | null; score: number; createdAt: Date }[],
-  timeZone?: string | null,
-  pausedDayKeys?: Set<string>,
+  attempts: { phraseId: number | null; score: number }[],
+  currentStreakDays: number,
 ): ProgressMetrics {
   const stats = buildPhraseStats(attempts);
   let phrasesMastered = 0;
@@ -250,12 +264,8 @@ export function computeProgressMetrics(
     phrasesPracticed: stats.size,
     phrasesMastered,
     bestScore: scores.length > 0 ? Math.max(...scores) : 0,
-    xp: scores.reduce((sum, s) => sum + s, 0),
-    currentStreakDays: computeStreakDays(
-      attempts.map((a) => a.createdAt),
-      timeZone,
-      pausedDayKeys,
-    ),
+    xp: sumAttemptXp(attempts),
+    currentStreakDays,
   };
 }
 
@@ -272,15 +282,17 @@ export type GameSessionSummary = {
 // and daily quiz streak. Used for badge evaluation wherever game badges may
 // be relevant (after any game session, quiz, or practice attempt).
 export function computeExtendedProgressMetrics(
-  attempts: { phraseId: number | null; score: number; createdAt: Date }[],
+  attempts: { phraseId: number | null; score: number }[],
   gameSessions: GameSessionSummary[],
   gameXp: number,
   scriptTraceChaptersCompleted: number,
   quizDates: string[],
-  timeZone?: string | null,
-  pausedDayKeys?: Set<string>,
+  // Task #1081: from lib/streakDays.ts, exactly as the banner reads it, so a
+  // learner's streak-badge progress can never disagree with the number on
+  // their home screen.
+  currentStreakDays: number,
 ): ExtendedProgressMetrics {
-  const base = computeProgressMetrics(attempts, timeZone, pausedDayKeys);
+  const base = computeProgressMetrics(attempts, currentStreakDays);
 
   // Game XP supplements pronunciation XP in the total shown on the progress
   // screen, so XP-milestone badges reflect all earning activity.

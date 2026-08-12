@@ -1,5 +1,3 @@
-import { db, attemptsTable } from "@workspace/db";
-import { and, eq, gte } from "drizzle-orm";
 import {
   localDayKey,
   previousDayKey,
@@ -9,7 +7,8 @@ import {
 // Streak repair eligibility (owner ruling, Aug 7 2026).
 //
 // This codebase stores no streak. `currentStreakDays` is derived on every read
-// from the days the learner has attempts on (lib/progressMetrics.ts), and a
+// from the days the learner EARNED — completed a lesson or played a mini-game,
+// in any language (lib/streakDays.ts) — and a
 // station pause "covers" a missed day so the ladder climbs straight through
 // it. A break therefore destroys no data — it destroys CONTIGUITY, one empty
 // day between two real runs. So a repair writes no number: it buys the same
@@ -36,8 +35,13 @@ import {
 //
 // Activity is judged across ALL languages, matching the cover it buys: a
 // station pause is deliberately user-level and rescues every language's
-// streak at once (routes/learning.ts HOOK 6). A day with practice in any
-// language is not a day lost, so there is nothing to sell.
+// streak at once (routes/learning.ts HOOK 6). A day earned in any language is
+// not a day lost, so there is nothing to sell.
+//
+// Task #1081: "activity" here is now exactly what the banner counts — a lesson
+// completed or a mini-game played — read from the one source in
+// lib/streakDays.ts. A day of bare attempts that finished nothing is a hole in
+// BOTH, so the offer and the banner cannot disagree about whether it exists.
 export const STREAK_REPAIR_WINDOW_DAYS = 2;
 
 // How far back the scan looks before concluding the ladder is simply intact.
@@ -109,24 +113,9 @@ export function findRepairableBreak(
   return { ok: true, dayKey: hole, restoresStreakDays };
 }
 
-/**
- * The learner's practice days, as local day keys, over the scan horizon. All
- * languages: see the note above on why activity is judged user-level.
- */
-export async function loadPracticeDayKeys(
-  userId: string,
-  timeZone?: string | null,
-  now: Date = new Date(),
-): Promise<Set<string>> {
-  const horizon = new Date(now.getTime() - (MAX_SCAN_DAYS + 3) * 86_400_000);
-  const rows = await db
-    .select({ createdAt: attemptsTable.createdAt })
-    .from(attemptsTable)
-    .where(
-      and(
-        eq(attemptsTable.userId, userId),
-        gte(attemptsTable.createdAt, horizon),
-      ),
-    );
-  return new Set(rows.map((r) => localDayKey(r.createdAt, timeZone)));
-}
+// The earned-day scan that used to live here (loadPracticeDayKeys — any
+// attempt, any language) was HALF THE DEFECT this file's offer was built on:
+// the banner counted attempt days in the active language while this counted
+// them in all of them, so the card could promise a number the banner could
+// never show, for 25 Chai. It is gone. Callers read lib/streakDays.ts, the one
+// source both surfaces now share.

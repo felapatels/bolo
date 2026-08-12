@@ -12,6 +12,7 @@ import {
   languagesTable,
   categoriesTable,
   lessonsTable,
+  lessonGroupsTable,
   phrasesTable,
   xpLedgerTable,
 } from "@workspace/db";
@@ -155,6 +156,31 @@ before(async () => {
       sort_order integer NOT NULL DEFAULT 0
     );
   `);
+  // Task #1081: the DAY STREAK is now earned by COMPLETING A LESSON (or
+  // playing a mini-game), so the streak this suite asserts needs a real
+  // lesson group for the attempts to finish off.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lesson_groups (
+      id serial PRIMARY KEY,
+      language_code text NOT NULL REFERENCES languages(code),
+      category_id integer NOT NULL REFERENCES categories(id),
+      position integer NOT NULL,
+      title text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(
+    `ALTER TABLE phrases ADD COLUMN IF NOT EXISTS lesson_group_id integer REFERENCES lesson_groups(id)`,
+  );
+  await pool.query(
+    `ALTER TABLE phrases ADD COLUMN IF NOT EXISTS lesson_group_position integer`,
+  );
+  await pool.query(
+    `ALTER TABLE phrases ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'phrase'`,
+  );
+  await pool.query(
+    `ALTER TABLE phrases ADD COLUMN IF NOT EXISTS premium boolean NOT NULL DEFAULT false`,
+  );
   // xp_ledger: the progress/summary and /badges routes read xp from here, not attempts.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS xp_ledger (
@@ -204,7 +230,18 @@ before(async () => {
     .insert(lessonsTable)
     .values({ languageCode: LANG, categoryId: category.id, titleNative: "T" })
     .returning();
-  const mkPhrase = (english: string, sortOrder: number) => ({
+  // One station, holding phrases a and b. Clearing BOTH in a day is what earns
+  // a streak day now; c, d and the unpracticed phrase sit outside any station
+  // so no amount of practice on them can anchor one.
+  const [group] = await db
+    .insert(lessonGroupsTable)
+    .values({ languageCode: LANG, categoryId: category.id, position: 1 })
+    .returning();
+  const mkPhrase = (
+    english: string,
+    sortOrder: number,
+    lessonGroupId: number | null = null,
+  ) => ({
     lessonId: lesson.id,
     languageCode: LANG,
     categoryId: category.id,
@@ -212,12 +249,14 @@ before(async () => {
     romanized: english,
     english,
     sortOrder,
+    lessonGroupId,
+    lessonGroupPosition: lessonGroupId == null ? null : sortOrder + 1,
   });
   const created = await db
     .insert(phrasesTable)
     .values([
-      mkPhrase("a", 0),
-      mkPhrase("b", 1),
+      mkPhrase("a", 0, group!.id),
+      mkPhrase("b", 1, group!.id),
       mkPhrase("c", 2),
       mkPhrase("d", 3),
       mkPhrase("unpracticed", 4),
@@ -240,6 +279,9 @@ before(async () => {
   //   unpracticed:  no attempts
   // => totalAttempts 6, phrasesPracticed 4, phrasesMastered 2, bestScore 100,
   //    xp 380, averageScore round(380/6)=63, streak 1, attemptsToday 6.
+  // The streak is 1 because a and b — the whole of station 1 — both clear the
+  // item rule today (100, and best-of-day 90); c and d belong to no station,
+  // so their attempts contribute nothing to it.
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
   await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
@@ -297,8 +339,11 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
-  // FK order: phrases → lessons → category, then the language + user.
+  // FK order: phrases → lesson groups → lessons → category, then language + user.
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  await db
+    .delete(lessonGroupsTable)
+    .where(eq(lessonGroupsTable.languageCode, LANG));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
   await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
   await db.delete(languagesTable).where(eq(languagesTable.code, LANG));
@@ -388,8 +433,8 @@ test("GET /progress/summary reports the computed per-language numbers", async ()
   assert.equal(json.bestScore, 100);
   assert.equal(json.averageScore, 63); // round((100+90+40+50+70+30)/6)
   assert.equal(json.xp, 380);
-  // All attempts were seeded "today" (UTC), so both the streak and today's
-  // count reflect the full seeded set.
+  // All attempts were seeded "today" (UTC). attemptsToday counts every one of
+  // them; the streak counts the DAY, earned by finishing station 1 (Task #1081).
   assert.equal(json.currentStreakDays, 1);
   assert.equal(json.attemptsToday, 6);
 });

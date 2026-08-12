@@ -15,10 +15,21 @@ jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { firstName: 'Priya' } }),
 }));
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
-  useFocusEffect: (cb: () => void) => { cb(); },
-}));
+// One stable push spy per test (reset in beforeEach): Task #1081 asserts that
+// the Day Streak cell still reaches the Progress tab when there is nothing to
+// mend, which a fresh jest.fn() per render could never see.
+jest.mock('expo-router', () => {
+  const router = {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+  };
+  return {
+    useRouter: () => router,
+    useFocusEffect: (cb: () => void) => { cb(); },
+    __router: router,
+  };
+});
 
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn(), setQueryData: jest.fn() }),
@@ -222,10 +233,12 @@ const LOCKED_COPY = 'Upgrade to All-Access to unlock';
 const UNLOCKED_COPY = 'Fresh questions, every day';
 
 beforeEach(() => {
+  mockState.push = (require('expo-router') as { __router: { push: jest.Mock } }).__router.push;
+  mockState.push.mockClear();
   mockState.quiz = { data: undefined, isLoading: false };
   mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
   mockState.tokens = { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
-  // Default: no repairable break — banner stays absent.
+  // Default: no repairable break — the popup can't be opened at all.
   mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
   mockState.repairFn = jest.fn();
   mockState.repairHandlers = undefined;
@@ -277,31 +290,66 @@ describe('HomeScreen - contextual streak repair offer', () => {
     balance: 100,
   };
 
-  it('absent while offer data is undefined (still loading)', () => {
-    mockState.repairOffer = undefined;
+  /**
+   * Task #1081: the offer is a popup anchored on the Day Streak cell, so every
+   * assertion about it has to open it the way a learner does.
+   */
+  function openRepairPopup() {
     render(<HomeScreen />);
-    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
-  });
+    fireEvent.press(screen.getByTestId('stat-day-streak'));
+  }
 
-  it('absent when eligible is false (no repairable break)', () => {
-    mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
-    render(<HomeScreen />);
-    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
-  });
-
-  it('shows the banner with missed-day label and mend button when eligible', () => {
+  // Task #1081: it never opens by itself. A 25 Chai spend surface that appears
+  // unbidden on load is the thing this task removed.
+  it('never opens on load, even with a repairable break waiting', () => {
     mockState.repairOffer = OFFER_THURSDAY;
     render(<HomeScreen />);
+    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
+  });
+
+  it('while the offer is still loading, Day Streak just goes to progress', () => {
+    mockState.repairOffer = undefined;
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('stat-day-streak'));
+    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/(tabs)/progress');
+  });
+
+  it('with no repairable break, Day Streak still goes to progress', () => {
+    mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('stat-day-streak'));
+    expect(screen.queryByTestId('home-streak-repair-offer')).toBeNull();
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/(tabs)/progress');
+  });
+
+  it('tapping Day Streak opens the popup with the missed day and the mend button', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    openRepairPopup();
     expect(screen.getByTestId('home-streak-repair-offer')).toBeOnTheScreen();
     expect(screen.getByTestId('home-repair-streak')).toBeOnTheScreen();
     // Day label derived from 2026-08-06 (noon anchor, en-US weekday).
     expect(screen.getByText(/Thursday/)).toBeOnTheScreen();
     expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
+    // The promised figure is the POST-REPAIR streak, and the copy says so.
+    expect(screen.getByText(/5-day/)).toBeOnTheScreen();
+    expect(screen.getByText(/rides on/)).toBeOnTheScreen();
+    // Opening the popup is not navigating away from home.
+    expect(mockState.push).not.toHaveBeenCalled();
+  });
+
+  it('the popup can be dismissed without repairing, and nothing is charged', () => {
+    mockState.repairOffer = OFFER_THURSDAY;
+    openRepairPopup();
+    // The backdrop is the dismiss target, exactly as on the wallet sheet.
+    fireEvent.press(screen.getByTestId('home-streak-repair-backdrop'));
+    expect(screen.queryByTestId('home-repair-streak')).toBeNull();
+    expect(mockState.repairFn).not.toHaveBeenCalled();
   });
 
   it('pressing mend calls repair mutate() with no arguments', () => {
     mockState.repairOffer = OFFER_THURSDAY;
-    render(<HomeScreen />);
+    openRepairPopup();
     fireEvent.press(screen.getByTestId('home-repair-streak'));
     expect(mockState.repairFn).toHaveBeenCalledTimes(1);
     expect(mockState.repairFn.mock.calls[0]).toHaveLength(0);
@@ -312,7 +360,7 @@ describe('HomeScreen - contextual streak repair offer', () => {
   it('shows the Chai balance beside the cost', () => {
     mockState.repairOffer = OFFER_THURSDAY;
     mockState.tokens = { balance: 40, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
-    render(<HomeScreen />);
+    openRepairPopup();
     expect(screen.getByTestId('home-repair-balance')).toBeOnTheScreen();
     expect(screen.getByTestId('home-repair-balance-value')).toHaveTextContent('40');
     expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
@@ -321,8 +369,8 @@ describe('HomeScreen - contextual streak repair offer', () => {
   it('reads the balance from the same token query as the rest of home', () => {
     mockState.repairOffer = OFFER_THURSDAY;
     mockState.tokens = { balance: 77, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
-    render(<HomeScreen />);
-    // One query feeds the banner and the stall band alike; a second query
+    openRepairPopup();
+    // One query feeds the popup and the stall band alike; a second query
     // would let the two disagree about what the learner holds.
     expect(screen.getByTestId('home-repair-balance-value')).toHaveTextContent('77');
     // The band's overlay is a11y-hidden (the Pressable owns the one node a
@@ -335,7 +383,7 @@ describe('HomeScreen - contextual streak repair offer', () => {
   it('degrades to the offer alone while the balance is unavailable', () => {
     mockState.repairOffer = OFFER_THURSDAY;
     mockState.tokens = undefined;
-    render(<HomeScreen />);
+    openRepairPopup();
     // Offer still actionable...
     expect(screen.getByTestId('home-streak-repair-offer')).toBeOnTheScreen();
     expect(screen.getByText(/Mend · 25/)).toBeOnTheScreen();
@@ -356,7 +404,7 @@ describe('HomeScreen - contextual streak repair offer', () => {
 
     function failWith(error: unknown) {
       mockState.repairOffer = OFFER_THURSDAY;
-      render(<HomeScreen />);
+      openRepairPopup();
       act(() => {
         mockState.repairHandlers?.onError?.(error);
       });

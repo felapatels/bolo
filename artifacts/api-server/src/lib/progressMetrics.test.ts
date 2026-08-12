@@ -85,10 +85,10 @@ test("attempts with no phrase id are ignored by phrase stats", () => {
 
 test("progress metrics: XP is the sum of every attempt score", () => {
   const metrics = computeProgressMetrics([
-    { phraseId: 1, score: 40, createdAt: daysAgo(REF_TODAY, 3) },
-    { phraseId: 1, score: 85, createdAt: daysAgo(REF_TODAY, 2) },
-    { phraseId: 2, score: 70, createdAt: daysAgo(REF_TODAY, 1) },
-  ]);
+    { phraseId: 1, score: 40 },
+    { phraseId: 1, score: 85 },
+    { phraseId: 2, score: 70 },
+  ], 0);
   assert.equal(metrics.xp, 40 + 85 + 70, "XP sums all scores, not best scores");
   assert.equal(metrics.totalAttempts, 3);
 });
@@ -96,13 +96,13 @@ test("progress metrics: XP is the sum of every attempt score", () => {
 test("progress metrics: distinct phrases and mastery counts are independent", () => {
   const metrics = computeProgressMetrics([
     // phrase 1: two attempts, best 85 -> mastered
-    { phraseId: 1, score: 60, createdAt: daysAgo(REF_TODAY, 2) },
-    { phraseId: 1, score: 85, createdAt: daysAgo(REF_TODAY, 2) },
+    { phraseId: 1, score: 60 },
+    { phraseId: 1, score: 85 },
     // phrase 2: one attempt, 79 -> not mastered
-    { phraseId: 2, score: 79, createdAt: daysAgo(REF_TODAY, 1) },
+    { phraseId: 2, score: 79 },
     // phrase 3: one attempt, 80 -> mastered
-    { phraseId: 3, score: 80, createdAt: daysAgo(REF_TODAY, 0) },
-  ]);
+    { phraseId: 3, score: 80 },
+  ], 0);
   assert.equal(metrics.phrasesPracticed, 3, "three distinct phrases");
   assert.equal(metrics.phrasesMastered, 2, "phrases 1 and 3 are mastered");
   assert.equal(metrics.bestScore, 85, "best score across all attempts");
@@ -110,7 +110,7 @@ test("progress metrics: distinct phrases and mastery counts are independent", ()
 });
 
 test("progress metrics: empty attempts yield zeroed metrics", () => {
-  const metrics = computeProgressMetrics([]);
+  const metrics = computeProgressMetrics([], 0);
   assert.deepEqual(metrics, {
     totalAttempts: 0,
     phrasesPracticed: 0,
@@ -209,12 +209,22 @@ test("zone-aware streak still anchors on local yesterday when today is untouched
   assert.equal(computeStreakDays(attempts, NEG_ZONE), 2);
 });
 
-test("progress metrics thread the learner's zone through to the streak", () => {
+// Task #1081: computeProgressMetrics no longer derives the streak at all — it
+// carries the one the caller was handed by lib/streakDays.ts, which is what
+// makes the banner and the 25 Chai repair card structurally incapable of
+// disagreeing. The zone-threading this test used to guard now lives on
+// computeStreakDays (covered above) and on the streakDays derivation itself.
+test("progress metrics carry the streak they are given, and derive none", () => {
   const metrics = computeProgressMetrics(
-    [{ phraseId: 1, score: 90, createdAt: todayLocalAt(21, 0) }],
-    NEG_ZONE,
+    [{ phraseId: 1, score: 90 }],
+    7,
   );
-  assert.equal(metrics.currentStreakDays, 1);
+  assert.equal(metrics.currentStreakDays, 7);
+  // Same attempts, different streak in: the attempts have no say.
+  assert.equal(
+    computeProgressMetrics([{ phraseId: 1, score: 90 }], 0).currentStreakDays,
+    0,
+  );
 });
 
 // --- Spaced-repetition scheduling -------------------------------------------

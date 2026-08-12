@@ -18,7 +18,8 @@ import {
   STREAK_REPAIR_COST,
   TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
 } from "../lib/tokenEconomy";
-import { findRepairableBreak, loadPracticeDayKeys } from "../lib/streakRepair";
+import { findRepairableBreak } from "../lib/streakRepair";
+import { loadStreakLadder } from "../lib/streakDays";
 import { checkStopUnlockEligibility } from "../lib/stopUnlock";
 import { getLanguageAccess, sendLockedLanguageDenial } from "../lib/gating";
 
@@ -215,11 +216,18 @@ async function readStreakRepairOffer(req: Request): Promise<{
 }> {
   const userId = getUserId(req);
   const timeZone = (req as EntitledRequest).userTimezone;
-  const [practiceDays, coveredDays] = await Promise.all([
-    loadPracticeDayKeys(userId, timeZone),
-    listCoveredDayKeys(userId),
-  ]);
-  const found = findRepairableBreak(practiceDays, coveredDays, timeZone);
+  // Task #1081: the day set this offer is priced on is THE day set the home
+  // banner climbs — lessons completed or mini-games played, any language,
+  // from lib/streakDays.ts. Previously this scanned bare attempts in every
+  // language while the banner scanned them in one, which is how a 25 Chai
+  // card came to promise a 4-day streak to a learner whose banner then read
+  // 1. The POST below re-derives through this same function, so the promise
+  // and the delivery are literally the same expression.
+  const { earnedDayKeys, coveredDayKeys } = await loadStreakLadder(
+    userId,
+    timeZone,
+  );
+  const found = findRepairableBreak(earnedDayKeys, coveredDayKeys, timeZone);
   return found.ok
     ? {
         eligible: true,
@@ -273,10 +281,20 @@ router.post(
     }
     try {
       const { state, charged } = await repairStreak(userId, offer.missedDay);
+      // The delivered number is re-derived AFTER the cover is written, from
+      // the same source the banner reads (lib/streakDays.ts). The offer's
+      // figure was a hypothetical computed before the debit; returning it
+      // here would let anything that landed in between — a lesson finished in
+      // another tab, midnight — put the receipt and the banner at odds on a
+      // paid surface. This is the number the learner will see.
+      const ladder = await loadStreakLadder(
+        userId,
+        (req as EntitledRequest).userTimezone,
+      );
       res.json({
         balance: state.balance,
         repairedDay: offer.missedDay,
-        restoredStreakDays: offer.restoresStreakDays,
+        restoredStreakDays: ladder.currentStreakDays,
         charged,
         cost: STREAK_REPAIR_COST,
       });

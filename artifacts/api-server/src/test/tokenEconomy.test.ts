@@ -19,7 +19,7 @@
  *   - zone-complete grant: dedupes across repeated calls with the same refId
  *   - express stamp: grants on stop-level pass (refId = groupId string)
  *   - GET /tokens response shape matches generated types
- *   - computeProgressMetrics: pausedDayKeys bridges a covered gap in the streak
+ *   - streakFromDayKeys: a covered day bridges a gap in the streak ladder
  *
  * Runs with: node --import tsx --test src/test/tokenEconomy.test.ts
  */
@@ -47,7 +47,7 @@ import {
   EXPRESS_MULTIPLIER_COST,
   EXPRESS_MULTIPLIER_FACTOR,
 } from "../lib/tokenEconomy.js";
-import { computeProgressMetrics } from "../lib/progressMetrics.js";
+import { streakFromDayKeys } from "../lib/progressMetrics.js";
 
 const TEST_USER_ID = "test-token-economy-user-5a";
 
@@ -364,29 +364,26 @@ describe("multiplier: doubles xp during window, not after", () => {
 });
 
 describe("pausedDayKeys: streak derivation bridges a covered gap", () => {
-  it("computeProgressMetrics counts a paused day as active in the streak", () => {
-    // Simple verifiable case: attempts only on day D-2, pause on D-1, today D.
+  it("a covered day counts as active in the ladder climb", () => {
+    // Simple verifiable case: a day earned on D-2, a cover on D-1, today D.
     // Dates are computed relative to the real current UTC date so the test is
-    // never fragile to run-date (computeStreakDays uses new Date() internally).
+    // never fragile to run-date.
     const utcDay = (daysAgo: number) => {
       const d = new Date();
       d.setUTCDate(d.getUTCDate() - daysAgo);
       return d.toISOString().slice(0, 10);
     };
-    const d1 = utcDay(1); // yesterday — will be marked as paused
-    const d2 = utcDay(2); // two days ago — has an attempt
-    const attemptsSimple = [
-      { phraseId: 1, score: 80, createdAt: new Date(`${d2}T10:00:00Z`) },
-    ];
-    const pausedDayKeys = new Set([d1]);
-    // Without pausedDayKeys: cursor backs from today to d1 (yesterday), no
-    // attempt or pause → streak=0.
-    // With pausedDayKeys: d1 is paused (active), d2 has attempt → streak=2.
-    const withoutPaused = computeProgressMetrics(attemptsSimple, "UTC");
-    const withPaused = computeProgressMetrics(attemptsSimple, "UTC", pausedDayKeys);
+    const d1 = utcDay(1); // yesterday — will be marked as covered
+    const d2 = utcDay(2); // two days ago — earned
+    const earned = new Set([d2]);
+    // Without the cover: the cursor backs from today to d1 (yesterday), which
+    // is neither earned nor covered → streak 0.
+    // With the cover: d1 is covered (active), d2 is earned → streak 2.
+    const withoutCover = streakFromDayKeys(earned, new Set(), "UTC");
+    const withCover = streakFromDayKeys(earned, new Set([d1]), "UTC");
     assert.ok(
-      withPaused.currentStreakDays > withoutPaused.currentStreakDays,
-      `pausedDayKeys must increase streak: got ${withPaused.currentStreakDays} vs ${withoutPaused.currentStreakDays}`,
+      withCover > withoutCover,
+      `a cover must increase the streak: got ${withCover} vs ${withoutCover}`,
     );
   });
 });

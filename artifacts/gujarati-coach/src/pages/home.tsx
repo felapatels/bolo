@@ -1,9 +1,17 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ChaiPurchaseReturn } from "@/components/chai-packs";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens, useGetStreakRepair, useRepairStreak, getGetStreakRepairQueryKey, getGetTokensQueryKey } from "@workspace/api-client-react";
+import type { StreakRepairOffer } from "@workspace/api-client-react";
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { webHaptic } from "@/lib/haptics";
@@ -218,17 +226,34 @@ function missedDayLabel(day: string | null | undefined): string {
 }
 
 /**
- * Contextual streak-repair offer. Sits between the stats banner and the main
- * content on home. Absent (returns null) when nothing is repairable — no
- * greyed-out state, because a permanent "mend your streak" is a daily
- * reproach. Not dismissible: the 2-day eligibility window is its natural
- * expiry, and a dismissed offer + forgotten repair = permanent loss.
+ * Streak-repair popup, anchored on the DAY STREAK cell (Task #1081).
+ *
+ * This used to be an inline card wedged between the stats banner and the main
+ * grid: a 25 Chai spend surface floating with nothing to tie it to the number
+ * it was talking about. It is now a bottom sheet that opens only when the
+ * learner taps DAY STREAK, so the promise and the figure it mends are the same
+ * object. Built on ChaiWalletSheet's shape (components/chai-wallet.tsx) — the
+ * house pattern for a Chai spend surface, and one mobile can twin with an RN
+ * Modal. Deliberately NOT a popover: mobile has no equivalent and the two
+ * platforms would fork.
+ *
+ * It never opens by itself, it is dismissible without repairing, and when
+ * there is no repairable break the cell it hangs off does not open it at all
+ * (see the DAY STREAK cell below) — a permanent "mend your streak" is a daily
+ * reproach.
  */
-// Mounted alongside the streak-repair banner below; see components/chai-packs.
-function HomeStreakRepairBanner({ balance }: { balance?: number }) {
+function StreakRepairSheet({
+  open,
+  onOpenChange,
+  offer,
+  balance,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  offer: StreakRepairOffer | undefined;
+  balance?: number;
+}) {
   const queryClient = useQueryClient();
-  const offerQuery = useGetStreakRepair();
-  const offer = offerQuery.data;
   const [notice, setNotice] = useState<string | null>(null);
 
   const repairMutation = useRepairStreak({
@@ -263,31 +288,43 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
     return () => window.clearTimeout(t);
   }, [notice]);
 
+  // A fresh open starts from the offer, never from the last visit's notice.
+  useEffect(() => {
+    if (!open) setNotice(null);
+  }, [open]);
+
   if (!offer?.eligible || !offer.missedDay) return null;
 
   return (
-    <div
-      data-testid="home-streak-repair-offer"
-      className="mx-auto mt-4 w-full max-w-6xl px-6 lg:px-10"
-    >
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5 dark:border-amber-900/40 dark:bg-amber-950/30">
-        <div className="flex min-w-0 items-center gap-3">
-          <Flame
-            className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
-            aria-hidden
-          />
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="mx-auto max-w-md rounded-t-3xl"
+        data-testid="home-streak-repair-offer"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2">
+            <Flame className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden />
+            Mend your streak
+          </SheetTitle>
+          {/* The number here is the POST-REPAIR streak — what the learner
+              walks away with, not what they have now — and the copy says so.
+              It comes from the same server computation the banner climbs
+              (lib/streakDays.ts), so the figure sold and the figure shown
+              cannot drift. */}
+          <SheetDescription className="text-foreground">
             {notice ?? (
               <>
                 <span className="font-bold">{missedDayLabel(offer.missedDay)}</span>{" "}
-                got away from you. Cover it and your {offer.restoresStreakDays}-day streak
-                rides on.
+                got away from you. Cover it and your {offer.restoresStreakDays}-day
+                streak rides on.
               </>
             )}
-          </p>
-        </div>
+          </SheetDescription>
+        </SheetHeader>
+
         {!notice && (
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="mt-5 flex items-center justify-between gap-3">
             {/* The balance is context, not a second action: this is the only
                 Chai sink that fires from outside the wallet, so what the
                 learner holds has to be visible next to what the tap costs.
@@ -295,10 +332,10 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
                 wallet balance band. Omitted ENTIRELY when the balance is
                 unknown — a "-" or a 0 sitting beside a real spend button
                 would be a wrong number, not a placeholder. */}
-            {balance !== undefined && (
+            {balance !== undefined ? (
               <span
                 data-testid="home-repair-balance"
-                className="flex shrink-0 items-center gap-1.5 leading-none text-amber-900/70 dark:text-amber-100/70"
+                className="flex shrink-0 items-center gap-1.5 leading-none text-muted-foreground"
               >
                 <ChaiGlyph className="h-4 w-4" />
                 <span className="text-sm font-bold">{balance}</span>
@@ -306,6 +343,8 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
                   Chai
                 </span>
               </span>
+            ) : (
+              <span />
             )}
             <button
               data-testid="home-repair-streak"
@@ -317,8 +356,8 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -334,6 +373,15 @@ export default function Home() {
   // dash, never a spinner (5B ruling).
   const tokensQuery = useGetTokens();
   const [walletOpen, setWalletOpen] = useState(false);
+  // The streak-repair offer is read HERE, not inside the popup, because the
+  // DAY STREAK cell has to know whether there is anything to open before it is
+  // tapped: with a repairable break it opens the popup, without one it keeps
+  // taking the learner to /progress exactly as it always has (Task #1081).
+  const streakRepairOffer = useGetStreakRepair().data;
+  const streakRepairable = Boolean(
+    streakRepairOffer?.eligible && streakRepairOffer.missedDay,
+  );
+  const [streakRepairOpen, setStreakRepairOpen] = useState(false);
   // Boarding-pass stub tear (home pass only). `tearing` toggles the CSS
   // classes; the timer ref lets unmount cancel a pending delayed navigation.
   const [tearing, setTearing] = useState(false);
@@ -728,33 +776,47 @@ export default function Home() {
             className={`relative flex items-stretch ${summary ? "" : "invisible"}`}
             aria-hidden={!summary}
           >
-            {/* Everything left of Chai is one target: the three progress
-                figures all live on /progress, so the whole run of cells opens
-                it rather than being three inert numbers next to one tappable
-                one. Chai stays separate — it opens the wallet. */}
+            {/* DAY STREAK stands on its own, exactly as the Chai cell does:
+                it owns the streak-repair popup, and a button cannot be nested
+                inside an anchor. It still reaches /progress — that is what it
+                does when there is nothing to mend — so nothing is lost by
+                pulling it out of the link (Task #1081). Total XP and Mastered
+                remain one target into /progress; Chai stays separate and opens
+                the wallet. */}
+            <StatCell
+              icon={
+                <motion.div
+                  animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <Flame className="w-6 h-6" fill="currentColor" />
+                </motion.div>
+              }
+              value={summary?.currentStreakDays ?? 0}
+              label="Day Streak"
+              delay={0.16}
+              onClick={() =>
+                streakRepairable ? setStreakRepairOpen(true) : navigate("/progress")
+              }
+              // The chevron is the popup's affordance, so it appears only when
+              // there is a repair behind the tap. Without one the cell behaves
+              // like the two beside it, and must look like them too.
+              showChevron={streakRepairable}
+              ariaLabel={
+                streakRepairable ? "Mend your streak" : "See your progress"
+              }
+              testId="stat-day-streak"
+            />
+            {/* Spec D2 speaking streak is still tracked server-side
+                (`speakingStreakDays`), but it no longer earns a permanent
+                tile here — the bar reads as four figures. */}
+            <div className="w-px self-stretch bg-white/25" />
             <Link
               href="/progress"
               data-testid="stats-progress-link"
               aria-label="See your progress"
-              className="flex flex-[3] items-stretch rounded-2xl transition-colors hover:bg-white/10"
+              className="flex flex-[2] items-stretch rounded-2xl transition-colors hover:bg-white/10"
             >
-              <StatCell
-                icon={
-                  <motion.div
-                    animate={reduceMotion ? {} : { scale: [1, 1.15, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <Flame className="w-6 h-6" fill="currentColor" />
-                  </motion.div>
-                }
-                value={summary?.currentStreakDays ?? 0}
-                label="Day Streak"
-                delay={0.16}
-              />
-              {/* Spec D2 speaking streak is still tracked server-side
-                  (`speakingStreakDays`), but it no longer earns a permanent
-                  tile here — the bar reads as four figures. */}
-              <div className="w-px self-stretch bg-white/25" />
               <StatCell icon={<Star className="w-6 h-6" fill="currentColor" />} value={summary?.xp ?? 0} label="Total XP" delay={0.24} />
               <div className="w-px self-stretch bg-white/25" />
               <StatCell icon={<Trophy className="w-6 h-6" fill="currentColor" />} value={summary?.phrasesMastered ?? 0} label="Mastered" delay={0.32} />
@@ -819,13 +881,16 @@ export default function Home() {
         </motion.div>
 
         <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
+        {/* Streak repair (Ruling 2), now anchored on the DAY STREAK cell above
+            rather than floating below the banner. It opens only from that tap
+            — never on load — and closes without charging anything. */}
+        <StreakRepairSheet
+          open={streakRepairOpen}
+          onOpenChange={setStreakRepairOpen}
+          offer={streakRepairOffer}
+          balance={tokensQuery.data?.balance}
+        />
       </header>
-
-      {/* Contextual streak-repair offer (Ruling 2). Sits between the stats
-          banner and the main grid so the learner sees it immediately when they
-          open the app and notice the streak is gone. Absent entirely when
-          nothing is repairable — see HomeStreakRepairBanner. */}
-      <HomeStreakRepairBanner balance={tokensQuery.data?.balance} />
 
       {/* Return leg from a Stripe Chai-pack purchase (?chai=success|cancel).
           Absent unless we just came back from checkout. */}
@@ -1205,6 +1270,7 @@ function StatCell({
   label,
   delay = 0,
   onClick,
+  showChevron,
   ariaLabel,
   testId,
 }: {
@@ -1213,6 +1279,13 @@ function StatCell({
   label: string;
   delay?: number;
   onClick?: () => void;
+  /**
+   * Whether to show the trailing chevron. Defaults to "this cell is tappable",
+   * which is what every caller but DAY STREAK wants; that one is always
+   * tappable but only sometimes opens something, so it drives the affordance
+   * off the offer instead (Task #1081).
+   */
+  showChevron?: boolean;
   ariaLabel?: string;
   testId?: string;
 }) {
@@ -1222,6 +1295,7 @@ function StatCell({
   // and a trailing chevron affordance; static cells stay exactly as they are.
   const reduceMotion = useReducedMotion();
   const Cell = onClick ? motion.button : motion.div;
+  const withChevron = showChevron ?? Boolean(onClick);
   return (
     <Cell
       type={onClick ? "button" : undefined}
@@ -1244,7 +1318,7 @@ function StatCell({
       </motion.div>
       <div className="text-2xl font-black leading-none lg:text-3xl">{value}</div>
       <div className="text-[11px] font-bold uppercase tracking-wider text-white">
-        {onClick ? (
+        {withChevron ? (
           <span className="inline-flex items-center gap-0.5">
             {label}
             <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />

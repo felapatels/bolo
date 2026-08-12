@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,6 +41,7 @@ import {
   getGetStreakRepairQueryKey,
   getGetTokensQueryKey,
 } from '@workspace/api-client-react';
+import type { StreakRepairOffer } from '@workspace/api-client-react';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
@@ -98,15 +100,35 @@ function missedDayLabel(day: string | null | undefined): string {
 }
 
 /**
- * Contextual streak-repair offer. Shown between the stats banner and the
- * boarding pass when a repairable break exists. Absent (returns null) when
- * nothing is repairable. Not dismissible: 2-day window is its natural expiry.
+ * Streak-repair popup, anchored on the Day Streak cell (Task #1081).
+ *
+ * This used to be an inline card wedged between the stats banner and the
+ * boarding pass: a 25 Chai spend surface floating with nothing to tie it to
+ * the number it was talking about. It is now a bottom sheet that opens only
+ * when the learner taps Day Streak, so the promise and the figure it mends are
+ * the same object. Built on ChaiWalletSheet's shape
+ * (components/ChaiWallet.tsx) — an RN Modal over a dismissing backdrop
+ * Pressable, which is the house pattern for a Chai spend surface here and the
+ * twin of web's bottom Sheet.
+ *
+ * It never opens by itself, it is dismissible without repairing, and when
+ * there is no repairable break the cell it hangs off does not open it at all
+ * (see the Day Streak cell below) — a permanent "mend your streak" is a daily
+ * reproach.
  */
-function HomeStreakRepairBanner({ balance }: { balance?: number }) {
+function StreakRepairSheet({
+  visible,
+  onClose,
+  offer,
+  balance,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  offer: StreakRepairOffer | undefined;
+  balance?: number;
+}) {
   const queryClient = useQueryClient();
   const colors = useColors();
-  const offerQuery = useGetStreakRepair();
-  const offer = offerQuery.data;
   const [notice, setNotice] = React.useState<string | null>(null);
 
   const repair = useRepairStreak({
@@ -136,88 +158,128 @@ function HomeStreakRepairBanner({ balance }: { balance?: number }) {
     return () => clearTimeout(t);
   }, [notice]);
 
+  // A fresh open starts from the offer, never from the last visit's notice.
+  React.useEffect(() => {
+    if (!visible) setNotice(null);
+  }, [visible]);
+
   if (!offer?.eligible || !offer.missedDay) return null;
 
   return (
-    <View
-      testID="home-streak-repair-offer"
-      style={[
-        repairBannerStyles.wrap,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <Feather name="zap" size={16} color="#D97706" style={repairBannerStyles.icon} />
-      {notice ? (
-        <Text style={[repairBannerStyles.copy, { color: colors.foreground }]}>
-          {notice}
-        </Text>
-      ) : (
-        <>
-          <Text
-            style={[repairBannerStyles.copy, { color: colors.foreground }]}
-            numberOfLines={2}
-          >
-            <Text style={repairBannerStyles.bold}>
-              {missedDayLabel(offer.missedDay)}
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable
+        testID="home-streak-repair-backdrop"
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        style={repairSheetStyles.backdrop}
+        onPress={onClose}
+      >
+        <Pressable
+          testID="home-streak-repair-offer"
+          style={[
+            repairSheetStyles.sheet,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={repairSheetStyles.titleRow}>
+            <Feather name="zap" size={18} color="#D97706" />
+            <Text style={[repairSheetStyles.title, { color: colors.foreground }]}>
+              Mend your streak
             </Text>
-            {' got away from you. Cover it and your '}
-            <Text style={repairBannerStyles.bold}>{offer.restoresStreakDays}-day</Text>
-            {' streak rides on.'}
-          </Text>
-          {/* The balance is context, not a second action: this is the only
-              Chai sink that fires from outside the wallet, so what the learner
-              holds has to be visible next to what the tap costs. Same glyph +
-              number + unit treatment as the stall band and the wallet balance
-              band. Omitted ENTIRELY when the balance is unknown — a "-" or a 0
-              sitting beside a real spend button would be a wrong number, not a
-              placeholder. */}
-          {balance !== undefined && (
-            <View testID="home-repair-balance" style={repairBannerStyles.balance}>
-              <ChaiGlyph size={16} />
-              <Text
-                testID="home-repair-balance-value"
-                style={[repairBannerStyles.balanceValue, { color: colors.foreground }]}
-              >
-                {balance}
+          </View>
+
+          {/* The number here is the POST-REPAIR streak — what the learner walks
+              away with, not what they have now — and the copy says so. It
+              comes from the same server computation the banner climbs
+              (lib/streakDays.ts), so the figure sold and the figure shown
+              cannot drift. */}
+          {notice ? (
+            <Text style={[repairSheetStyles.copy, { color: colors.foreground }]}>
+              {notice}
+            </Text>
+          ) : (
+            <Text style={[repairSheetStyles.copy, { color: colors.foreground }]}>
+              <Text style={repairSheetStyles.bold}>
+                {missedDayLabel(offer.missedDay)}
               </Text>
-              <Text
-                style={[repairBannerStyles.balanceUnit, { color: colors.foreground }]}
+              {' got away from you. Cover it and your '}
+              <Text style={repairSheetStyles.bold}>{offer.restoresStreakDays}-day</Text>
+              {' streak rides on.'}
+            </Text>
+          )}
+
+          {!notice && (
+            <View style={repairSheetStyles.actions}>
+              {/* The balance is context, not a second action: this is the only
+                  Chai sink that fires from outside the wallet, so what the
+                  learner holds has to be visible next to what the tap costs.
+                  Same glyph + number + unit treatment as the stall band and the
+                  wallet balance band. Omitted ENTIRELY when the balance is
+                  unknown — a "-" or a 0 sitting beside a real spend button
+                  would be a wrong number, not a placeholder. */}
+              {balance !== undefined ? (
+                <View testID="home-repair-balance" style={repairSheetStyles.balance}>
+                  <ChaiGlyph size={16} />
+                  <Text
+                    testID="home-repair-balance-value"
+                    style={[repairSheetStyles.balanceValue, { color: colors.foreground }]}
+                  >
+                    {balance}
+                  </Text>
+                  <Text
+                    style={[repairSheetStyles.balanceUnit, { color: colors.foreground }]}
+                  >
+                    Chai
+                  </Text>
+                </View>
+              ) : (
+                <View />
+              )}
+              <Pressable
+                testID="home-repair-streak"
+                disabled={repair.isPending}
+                onPress={() => repair.mutate()}
+                style={({ pressed }) => [
+                  repairSheetStyles.btn,
+                  (pressed || repair.isPending) && repairSheetStyles.btnPressed,
+                ]}
               >
-                Chai
-              </Text>
+                <Text style={repairSheetStyles.btnText}>Mend · {offer.cost}</Text>
+              </Pressable>
             </View>
           )}
-          <Pressable
-            testID="home-repair-streak"
-            disabled={repair.isPending}
-            onPress={() => repair.mutate()}
-            style={({ pressed }) => [
-              repairBannerStyles.btn,
-              (pressed || repair.isPending) && repairBannerStyles.btnPressed,
-            ]}
-          >
-            <Text style={repairBannerStyles.btnText}>Mend · {offer.cost}</Text>
-          </Pressable>
-        </>
-      )}
-    </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
-const repairBannerStyles = StyleSheet.create({
-  wrap: {
+const repairSheetStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    paddingBottom: 34,
+    gap: 12,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  copy: { fontSize: 14, lineHeight: 20 },
+  bold: { fontFamily: AppFonts.semibold },
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 14,
+    marginTop: 4,
   },
-  icon: { flexShrink: 0 },
-  copy: { flex: 1, fontSize: 13, lineHeight: 18 },
-  bold: { fontFamily: AppFonts.semibold },
   balance: {
     flexShrink: 0,
     flexDirection: 'row',
@@ -226,7 +288,7 @@ const repairBannerStyles = StyleSheet.create({
   },
   balanceValue: { fontSize: 13, fontFamily: AppFonts.bold },
   // Muted via opacity rather than a second colour token, so it stays quiet
-  // against the banner in both light and dark themes.
+  // against the sheet in both light and dark themes.
   balanceUnit: {
     fontSize: 10,
     fontFamily: AppFonts.bold,
@@ -238,11 +300,11 @@ const repairBannerStyles = StyleSheet.create({
     flexShrink: 0,
     backgroundColor: '#D97706',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   btnPressed: { opacity: 0.7 },
-  btnText: { color: '#fff', fontSize: 13, fontFamily: AppFonts.bold },
+  btnText: { color: '#fff', fontSize: 14, fontFamily: AppFonts.bold },
 });
 
 export default function HomeScreen() {
@@ -261,6 +323,15 @@ export default function HomeScreen() {
   // language-independent, so it loads even when the summary 402s.
   const tokensQuery = useGetTokens();
   const [walletOpen, setWalletOpen] = useState(false);
+  // The streak-repair offer is read HERE, not inside the popup, because the
+  // Day Streak cell has to know whether there is anything to open before it is
+  // tapped: with a repairable break it opens the popup, without one it keeps
+  // taking the learner to the Progress tab exactly as it always has (#1081).
+  const streakRepairOffer = useGetStreakRepair().data;
+  const streakRepairable = Boolean(
+    streakRepairOffer?.eligible && streakRepairOffer.missedDay,
+  );
+  const [streakRepairOpen, setStreakRepairOpen] = useState(false);
 
   // R4: decode the boarding-pass tear SFX at home mount (web's
   // preload-at-mount pattern) so the first pass activation plays with zero
@@ -573,11 +644,37 @@ export default function HomeScreen() {
               </View>
             ) : (
               <>
-                {/* Everything left of Chai is one target: the three
-                    progress figures all live on the Progress tab, so the whole
-                    run of cells opens it rather than being three inert numbers
-                    beside one tappable one. Chai stays separate — it opens the
-                    wallet. */}
+                {/* Day Streak stands on its own, exactly as the Chai cell
+                    does: it owns the streak-repair popup, and a tappable cell
+                    cannot live inside another tappable group. It still reaches
+                    the Progress tab — that is what it does when there is
+                    nothing to mend — so nothing is lost by pulling it out
+                    (Task #1081). Total XP and Mastered remain one target into
+                    Progress; Chai stays separate and opens the wallet. */}
+                <GradientStatCell
+                  index={0}
+                  icon="zap"
+                  value={summary.data?.currentStreakDays ?? 0}
+                  label="Day Streak"
+                  loading={summary.isLoading}
+                  arcAttemptsToday={summary.data?.attemptsToday}
+                  arcDailyGoal={dailyGoal}
+                  testID="stat-day-streak"
+                  accessibilityLabel={
+                    streakRepairable ? 'Mend your streak' : 'See your progress'
+                  }
+                  onPress={() => {
+                    hapticLight();
+                    if (streakRepairable) setStreakRepairOpen(true);
+                    else router.push('/(app)/(tabs)/progress');
+                  }}
+                  // The chevron is the popup's affordance, so it appears only
+                  // when there is a repair behind the tap. Without one the
+                  // cell behaves like the two beside it, and must look like
+                  // them too.
+                  showChevron={streakRepairable}
+                />
+                <View style={styles.statsDivider} />
                 <Pressable
                   testID="stats-progress-link"
                   accessibilityRole="button"
@@ -588,16 +685,6 @@ export default function HomeScreen() {
                   }}
                   style={styles.statsProgressGroup}
                 >
-                  <GradientStatCell
-                    index={0}
-                    icon="zap"
-                    value={summary.data?.currentStreakDays ?? 0}
-                    label="Day Streak"
-                    loading={summary.isLoading}
-                    arcAttemptsToday={summary.data?.attemptsToday}
-                    arcDailyGoal={dailyGoal}
-                  />
-                  <View style={styles.statsDivider} />
                   <GradientStatCell
                     index={1}
                     icon="star"
@@ -633,11 +720,15 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
-        {/* Contextual streak-repair offer (Ruling 2). Sits between the stats
-            banner and the boarding pass so the learner sees it immediately
-            when they open the app and notice the streak is gone. Absent
-            entirely when nothing is repairable — see HomeStreakRepairBanner. */}
-        <HomeStreakRepairBanner balance={tokensQuery.data?.balance} />
+        {/* Streak repair (Ruling 2), now anchored on the Day Streak cell
+            above rather than floating below the banner. It opens only from
+            that tap — never on load — and closes without charging anything. */}
+        <StreakRepairSheet
+          visible={streakRepairOpen}
+          onClose={() => setStreakRepairOpen(false)}
+          offer={streakRepairOffer}
+          balance={tokensQuery.data?.balance}
+        />
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
@@ -1113,6 +1204,7 @@ function GradientStatCell({
   arcAttemptsToday,
   arcDailyGoal,
   onPress,
+  showChevron,
   testID,
   accessibilityLabel,
 }: {
@@ -1126,6 +1218,13 @@ function GradientStatCell({
   arcDailyGoal?: number;
   /** Makes the cell tappable (press state + chevron affordance). */
   onPress?: () => void;
+  /**
+   * Whether to show the trailing chevron. Defaults to "this cell is tappable",
+   * which is what every caller but Day Streak wants; that one is always
+   * tappable but only sometimes opens something, so it drives the affordance
+   * off the offer instead (Task #1081).
+   */
+  showChevron?: boolean;
   testID?: string;
   accessibilityLabel?: string;
 }) {
@@ -1221,7 +1320,7 @@ function GradientStatCell({
       ) : (
         <Text style={styles.gradientStatValue}>{value}</Text>
       )}
-      {onPress ? (
+      {showChevron ?? onPress != null ? (
         <View style={styles.gradientStatLabelRow}>
           <Text style={styles.gradientStatLabel}>{label}</Text>
           <Feather
@@ -1295,8 +1394,11 @@ const styles = StyleSheet.create({
   // pass. Only enough gap that the pass looks like it is standing in front.
   stallBand: { marginBottom: 12 },
   statsRowWrapper: { marginBottom: 18 },
+  // Two cells now (Task #1081 pulled Day Streak out), so the group is worth
+  // two shares of the row — Day Streak keeps its own one beside it and every
+  // cell stays the width it was.
   statsProgressGroup: {
-    flex: 3,
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
   },
