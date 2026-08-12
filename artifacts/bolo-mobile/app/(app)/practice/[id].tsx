@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -2253,6 +2254,12 @@ export default function PracticeScreen() {
         meaningAudio={meaningAudioUI}
         onToggleMeaningAudio={toggleMeaningAudioUI}
         meaningAudioDisabled={!coachVoiceEnabled}
+        // The result-card mute and this menu item are two doors onto ONE
+        // state: both read spokenEnabled and both write through
+        // toggleSpokenFeedback, so a change in either shows in the other.
+        spokenFeedback={spokenEnabled}
+        onToggleSpokenFeedback={toggleSpokenFeedback}
+        languageCode={activeLang}
       />
       {/* Express test-out banner: one quiet line so the learner knows the
           rules of the run (one take per phrase, pass mark). */}
@@ -2771,6 +2778,64 @@ export default function PracticeScreen() {
   );
 }
 
+/**
+ * One row of the audio settings sheet: a text label, the state in words, and a
+ * checkmark. The label is the whole point of the menu — the two header toggles
+ * this replaced were icon-only, so nothing told a learner them apart.
+ */
+function AudioSettingRow({
+  label,
+  enabled,
+  disabled,
+  onPress,
+  testID,
+}: {
+  label: string;
+  enabled: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: enabled, disabled: !!disabled }}
+      accessibilityLabel={label}
+      testID={testID}
+      style={[
+        styles.settingRow,
+        {
+          backgroundColor: colors.card,
+          borderColor: enabled ? colors.secondary : colors.border,
+          opacity: disabled ? 0.4 : 1,
+        },
+      ]}
+    >
+      <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+        {label}
+      </Text>
+      <View style={styles.settingRight}>
+        <Text
+          style={[
+            styles.settingState,
+            { color: enabled ? colors.secondary : colors.mutedForeground },
+          ]}
+        >
+          {enabled ? 'On' : 'Off'}
+        </Text>
+        <Feather
+          name={enabled ? 'check-circle' : 'circle'}
+          size={18}
+          color={enabled ? colors.secondary : colors.mutedForeground}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
 function PracticeHeader({
   onClose,
   label,
@@ -2779,21 +2844,34 @@ function PracticeHeader({
   meaningAudio,
   onToggleMeaningAudio,
   meaningAudioDisabled,
+  spokenFeedback,
+  onToggleSpokenFeedback,
+  languageCode,
 }: {
   onClose: () => void;
   label: string;
-  /** When provided, shows a Silent Mode quick-toggle button on the right.
-   *  Mirrors the web practice header toggle for cross-platform parity. */
+  /** When provided, shows the audio settings gear on the right. Phrase audio
+   *  (silent mode inverted) is the first item in that menu. */
   silentMode?: boolean;
   onToggleSilentMode?: () => void;
-  /** When provided, shows a Meaning-aloud quick-toggle beside the silent
-   *  toggle. Mirrors the web practice header Meaning pill (Task 1003). */
+  /** Meaning-aloud: the English meaning spoken after each phrase clip
+   *  (web Task 1003 parity). Second item in the menu. */
   meaningAudio?: boolean;
   onToggleMeaningAudio?: () => void;
-  /** When true, visibly disables the meaning-audio toggle (coach voice is off). */
+  /** When true, visibly disables the meaning item (coach voice is off). */
   meaningAudioDisabled?: boolean;
+  /** Spoken feedback: the score read aloud. The SAME state the result-card
+   *  mute owns — this is a second entry point to it, never a second copy. */
+  spokenFeedback?: boolean;
+  onToggleSpokenFeedback?: () => void;
+  /** Active language code, shown as an inert uppercase chip left of the gear. */
+  languageCode?: string;
 }) {
   const colors = useColors();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  // The gear only exists where the toggles do: the loading / express / summary
+  // header variants pass none of them and keep their bare row.
+  const hasSettings = onToggleSilentMode !== undefined;
   return (
     <View style={styles.header}>
       <Pressable
@@ -2809,60 +2887,95 @@ function PracticeHeader({
         </Text>
         <XpCounter variant="session" />
       </View>
-      {onToggleMeaningAudio !== undefined ? (
-        <Pressable
-          onPress={onToggleMeaningAudio}
-          disabled={meaningAudioDisabled}
-          accessibilityRole="togglebutton"
-          accessibilityLabel={
-            meaningAudio
-              ? 'Meaning aloud on, the English meaning is spoken after each phrase. Tap to turn off'
-              : 'Meaning aloud off, tap to hear the English meaning after each phrase'
-          }
-          hitSlop={8}
-          testID="meaning-audio-header-toggle"
-          style={[
-            styles.closeBtn,
-            {
-              backgroundColor: meaningAudio ? colors.secondary : colors.card,
-              opacity: meaningAudioDisabled ? 0.4 : 1,
-            },
-          ]}
+      {hasSettings && languageCode ? (
+        // Display-only language code. Deliberately inert: no press handler and
+        // no role that implies interactivity — the language cannot be changed
+        // mid-lesson. The slot is a fixed three-character width so the row
+        // never reflows between HI and SAT; codes are NEVER truncated ("sat"
+        // clipped to "SA" would collide with Sanskrit).
+        <View
+          testID="lesson-language-chip"
+          style={[styles.langChip, { backgroundColor: colors.card }]}
         >
-          <Feather
-            name="globe"
-            size={20}
-            color={meaningAudio ? '#fff' : colors.mutedForeground}
-          />
-        </Pressable>
+          <Text style={[styles.langChipText, { color: colors.mutedForeground }]}>
+            {languageCode.toUpperCase()}
+          </Text>
+        </View>
       ) : null}
-      {onToggleSilentMode !== undefined ? (
+      {hasSettings ? (
         <Pressable
-          onPress={onToggleSilentMode}
-          accessibilityRole="togglebutton"
-          accessibilityLabel={
-            silentMode
-              ? 'Silent mode on — tap to hear coach first'
-              : 'Tap to skip coach voice'
-          }
+          onPress={() => setMenuOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Audio settings"
           hitSlop={8}
-          testID="silent-mode-header-toggle"
-          style={[
-            styles.closeBtn,
-            {
-              backgroundColor: silentMode ? colors.primary : colors.card,
-            },
-          ]}
+          testID="practice-settings-trigger"
+          style={[styles.closeBtn, { backgroundColor: colors.card }]}
         >
-          <Feather
-            name={silentMode ? 'volume-x' : 'volume-2'}
-            size={20}
-            color={silentMode ? '#fff' : colors.mutedForeground}
-          />
+          <Feather name="settings" size={20} color={colors.mutedForeground} />
         </Pressable>
       ) : (
         <View style={{ width: 44 }} />
       )}
+      {/* House pattern: a Modal styled as a bottom sheet (same shape as the
+          chat language picker and the phrase report sheet). onRequestClose is
+          what wires the Android back gesture; the backdrop Pressable closes on
+          an outside tap; every item closes on select. */}
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          accessibilityLabel="Close audio settings"
+          testID="practice-settings-backdrop"
+          onPress={() => setMenuOpen(false)}
+        >
+          <Pressable
+            style={[
+              styles.modalSheet,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+            onPress={() => {}}
+          >
+            <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              Audio
+            </Text>
+            <View style={styles.settingList}>
+              <AudioSettingRow
+                label="Autoplay phrase"
+                enabled={!silentMode}
+                testID="setting-phrase-audio"
+                onPress={() => {
+                  setMenuOpen(false);
+                  onToggleSilentMode?.();
+                }}
+              />
+              <AudioSettingRow
+                label="Spoken feedback"
+                enabled={!!spokenFeedback}
+                testID="setting-spoken-feedback"
+                onPress={() => {
+                  setMenuOpen(false);
+                  onToggleSpokenFeedback?.();
+                }}
+              />
+              <AudioSettingRow
+                label="Speak meaning"
+                enabled={!!meaningAudio}
+                disabled={meaningAudioDisabled}
+                testID="setting-meaning-audio"
+                onPress={() => {
+                  setMenuOpen(false);
+                  onToggleMeaningAudio?.();
+                }}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -3033,6 +3146,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerLabel: { fontFamily: AppFonts.bold, fontSize: 16 },
+  // Fixed three-character slot so switching between HI and SAT never reflows
+  // the header row.
+  langChip: {
+    width: 40,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  langChipText: { fontFamily: AppFonts.bold, fontSize: 12, letterSpacing: 0.5 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    maxHeight: '80%',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: { fontFamily: AppFonts.bold, fontSize: 18, marginBottom: 12 },
+  settingList: { gap: 8 },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    minHeight: 52,
+  },
+  settingLabel: { fontFamily: AppFonts.semibold, fontSize: 16 },
+  settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  settingState: { fontFamily: AppFonts.bold, fontSize: 13 },
   progressOuter: { paddingHorizontal: 20, paddingBottom: 8 },
   progressBg: { height: 8, borderRadius: 999, overflow: 'hidden' },
   scoreTrailOuter: { marginBottom: 8 },

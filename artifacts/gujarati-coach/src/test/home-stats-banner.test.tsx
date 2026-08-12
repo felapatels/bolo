@@ -478,4 +478,12 @@ describe("home stats banner", () => {
     );
     expect(screen.getByRole("link", { name: /^unlock$/i })).toBeInTheDocument();
   });
+
+  // Task 1044: the lesson language chip and the audio settings gear belong to
+  // practice screens only. Home must not grow a second language affordance.
+  test("no lesson language chip and no audio settings gear on home", () => {
+    renderHome();
+    expect(screen.queryByTestId("lesson-language-chip")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Audio settings" })).toBeNull();
+  });
 });

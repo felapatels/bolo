@@ -226,3 +226,66 @@ describe('spoken feedback after scoring', () => {
     expect(mockState.synth).toHaveBeenCalledTimes(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 1044: spoken feedback now has two doors — the result-card mute (a
+// moment-of-playback control, unchanged) and the header settings menu. They
+// are two entry points onto ONE state; neither holds its own copy. These
+// tests drive each door and read the other.
+// ---------------------------------------------------------------------------
+async function openSettings() {
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('practice-settings-trigger'));
+  });
+}
+
+/** The result-card mute reads "volume-x" when spoken feedback is off. */
+function resultCardMuted(): boolean {
+  return (
+    screen.getByLabelText('Turn on spoken feedback', {
+      includeHiddenElements: true,
+    }) !== null
+  );
+}
+
+describe('one shared spoken-feedback state, two entry points', () => {
+  test('turning Feedback off in the menu flips the result-card mute', async () => {
+    await renderReady();
+    await recordAndScore();
+
+    // Result card starts unmuted (spoken feedback defaults on).
+    expect(
+      screen.getByLabelText('Turn off spoken feedback'),
+    ).toBeOnTheScreen();
+
+    await openSettings();
+    expect(screen.getByTestId('setting-spoken-feedback')).toHaveTextContent(
+      /^Spoken feedbackOn$/,
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('setting-spoken-feedback'));
+    });
+
+    // The result-card control — untouched by this task and still on the card —
+    // now shows the muted affordance without any state of its own.
+    await waitFor(() => expect(resultCardMuted()).toBe(true));
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem('bolo.spokenFeedback')).toBe('off'),
+    );
+  });
+
+  test('the result-card mute flips the menu item the other way', async () => {
+    await renderReady();
+    await recordAndScore();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('spoken-feedback-quick-toggle'));
+    });
+    await waitFor(() => expect(resultCardMuted()).toBe(true));
+
+    await openSettings();
+    expect(screen.getByTestId('setting-spoken-feedback')).toHaveTextContent(
+      /^Spoken feedbackOff$/,
+    );
+  });
+});

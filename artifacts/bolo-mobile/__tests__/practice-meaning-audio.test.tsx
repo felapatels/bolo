@@ -196,6 +196,17 @@ async function renderReady() {
   );
 }
 
+/**
+ * Task 1044: the header toggles moved behind a settings gear, so every item
+ * is now reached by opening the sheet first. It closes on select, so each
+ * press needs its own open.
+ */
+async function openSettings() {
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('practice-settings-trigger'));
+  });
+}
+
 describe('meaning audio after the phrase clip', () => {
   test('synthesizes the "means <english>" line in English and plays it after the coach clip', async () => {
     await renderReady();
@@ -232,17 +243,22 @@ describe('meaning audio after the phrase clip', () => {
     expect(playBase64Audio).toHaveBeenCalledTimes(1);
   });
 
-  test('the header toggle persists the preference', async () => {
+  test('the Meaning menu item persists the preference', async () => {
     await renderReady();
-    const toggle = screen.getByTestId('meaning-audio-header-toggle');
+    await openSettings();
+    // The item states its condition in words, not just an icon.
+    expect(screen.getByTestId('setting-meaning-audio')).toHaveTextContent(
+      /Speak meaning/,
+    );
     await act(async () => {
-      fireEvent.press(toggle);
+      fireEvent.press(screen.getByTestId('setting-meaning-audio'));
     });
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MEANING_AUDIO_KEY)).toBe('off'),
     );
+    await openSettings();
     await act(async () => {
-      fireEvent.press(toggle);
+      fireEvent.press(screen.getByTestId('setting-meaning-audio'));
     });
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MEANING_AUDIO_KEY)).toBe('on'),
@@ -262,8 +278,9 @@ describe('meaning toggle disabled when Coach voice is off', () => {
     await act(async () => {
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     });
+    await openSettings();
     // Pressable propagates disabled to accessibilityState.disabled on the host View.
-    expect(screen.getByTestId('meaning-audio-header-toggle').props.accessibilityState?.disabled).toBe(true);
+    expect(screen.getByTestId('setting-meaning-audio').props.accessibilityState?.disabled).toBe(true);
   });
 
   it('Pressable is not disabled when Coach voice is on (default)', async () => {
@@ -272,7 +289,8 @@ describe('meaning toggle disabled when Coach voice is off', () => {
     await act(async () => {
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     });
-    const toggle = screen.getByTestId('meaning-audio-header-toggle');
+    await openSettings();
+    const toggle = screen.getByTestId('setting-meaning-audio');
     expect(toggle.props.accessibilityState?.disabled).not.toBe(true);
   });
 });

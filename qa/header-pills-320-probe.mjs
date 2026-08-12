@@ -1,10 +1,18 @@
-// Practice header pill fit probe (follow-up to #1003).
+// Practice header fit probe (follow-up to #1003, re-aimed for #1044).
 //
 // Signs in a throwaway Clerk test user and loads /practice/1 at 320px width.
-// Verifies all three header pills (Phrase / Feedback / Meaning) are fully
-// inside the viewport with no horizontal page overflow, in light and dark
-// themes and with enlarged root text (accessibility approximation), plus a
-// 375px sanity pass. Screenshots land in shots/header-pills/.
+// The three audio pills this probe was written for now live behind a settings
+// gear, so it measures the two controls that replaced them — the display-only
+// language chip and the gear — plus, once the menu is open, the three menu
+// items. Everything must be fully inside the viewport with no horizontal page
+// overflow, in light and dark themes and with enlarged root text
+// (accessibility approximation), plus a 375px sanity pass.
+//
+// The chip is forced to a three-character code (SAT) for the measurement:
+// the slot is fixed-width so the header must not reflow between HI and SAT,
+// and three characters is the worst case.
+//
+// Screenshots land in shots/header-pills/.
 //
 //   cd qa && CHROME_BIN=$(which chromium) node header-pills-320-probe.mjs
 import { chromium } from "playwright-core";
@@ -45,18 +53,36 @@ const mintToken = async () => {
 const results = [];
 const check = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` | ${detail}` : ""}`); };
 
-// Measures the three pills against the viewport. Runs inside the page.
+// Measures the header chip + gear against the viewport. Runs inside the page.
+// Widening the chip text to a three-character code is the worst case for fit,
+// and proves the fixed slot does not reflow the row.
 const MEASURE = `(() => {
-  const names = ["phrase", "feedback", "meaning"];
-  const pills = [...document.querySelectorAll("header button[aria-pressed]")];
+  const chip = document.querySelector('header [data-testid="lesson-language-chip"]');
+  const gear = document.querySelector('header [data-testid="practice-settings-trigger"]');
+  const controls = [chip, gear].filter(Boolean);
   const vw = document.documentElement.clientWidth;
   const overflowX = document.documentElement.scrollWidth - vw;
-  const detail = pills.map((b) => {
-    const r = b.getBoundingClientRect();
-    return { name: (b.textContent || "pill").trim().toLowerCase() || "icon", left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width) };
+  const detail = controls.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { name: el.dataset.testid, text: (el.textContent || "").trim().slice(0, 8), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width) };
   });
-  const allIn = pills.length === 3 && detail.every((d) => d.left >= 0 && d.right <= vw);
-  return { count: pills.length, vw, overflowX, allIn, detail: JSON.stringify(detail) };
+  const allIn = controls.length === 2 && detail.every((d) => d.left >= 0 && d.right <= vw);
+  // No leftover pills: the three controls must be in the menu now, not loose.
+  const strayPills = document.querySelectorAll("header button[aria-pressed]").length;
+  return { count: controls.length, strayPills, vw, overflowX, allIn, detail: JSON.stringify(detail) };
+})()`;
+
+// Opens the gear menu and measures the three items. Radix opens on pointerdown.
+const MEASURE_MENU = `(() => {
+  const items = [...document.querySelectorAll('[role="menuitemcheckbox"]')];
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const detail = items.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { text: (el.textContent || "").trim(), left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) };
+  });
+  const allIn = items.length === 3 && detail.every((d) => d.left >= 0 && d.right <= vw && d.top >= 0 && d.bottom <= vh);
+  return { count: items.length, vw, allIn, detail: JSON.stringify(detail) };
 })()`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN, args: ["--no-sandbox"] });
@@ -65,7 +91,15 @@ try {
   const page = await ctx.newPage();
   await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await mintToken()}`, { waitUntil: "networkidle" });
   await page.goto(`${ORIGIN}/practice/1`, { waitUntil: "domcontentloaded" });
-  await page.locator("header button[aria-pressed]").nth(2).waitFor({ timeout: 45000 });
+  const gear = page.locator('header [data-testid="practice-settings-trigger"]');
+  await gear.waitFor({ timeout: 45000 });
+
+  // Worst case for the fixed slot: a three-character code (SAT / MNI). The
+  // chip must never truncate — "SA" already means Sanskrit.
+  const WIDEN_CHIP = () => {
+    const chip = document.querySelector('header [data-testid="lesson-language-chip"]');
+    if (chip) chip.firstChild.textContent = "SAT";
+  };
 
   const scenarios = [
     { name: "320 light", setup: null },
@@ -75,18 +109,29 @@ try {
   ];
   for (const s of scenarios) {
     if (s.setup) await page.evaluate(s.setup);
+    await page.evaluate(WIDEN_CHIP);
     await page.waitForTimeout(300);
     const m = await page.evaluate(MEASURE);
-    check(`${s.name}: 3 pills fully on screen, no page overflow`, m.allIn && m.overflowX <= 0, `count=${m.count} vw=${m.vw} overflowX=${m.overflowX} ${m.detail}`);
+    check(`${s.name}: chip + gear fully on screen, no page overflow`, m.allIn && m.overflowX <= 0 && m.strayPills === 0, `count=${m.count} strayPills=${m.strayPills} vw=${m.vw} overflowX=${m.overflowX} ${m.detail}`);
     await page.screenshot({ path: `${OUT}/${s.name.replaceAll(" ", "-")}.png` });
+
+    // The three controls now live in the gear menu; check they fit too.
+    await gear.click();
+    await page.waitForTimeout(300);
+    const mm = await page.evaluate(MEASURE_MENU);
+    check(`${s.name}: 3 menu items fully on screen`, mm.allIn, `count=${mm.count} ${mm.detail}`);
+    await page.screenshot({ path: `${OUT}/${s.name.replaceAll(" ", "-")}-menu.png` });
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
   }
 
   // 375px sanity pass at normal text, light theme.
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
   await page.setViewportSize({ width: 375, height: 750 });
+  await page.evaluate(WIDEN_CHIP);
   await page.waitForTimeout(300);
   const m375 = await page.evaluate(MEASURE);
-  check("375 light: 3 pills fully on screen, no page overflow", m375.allIn && m375.overflowX <= 0, `overflowX=${m375.overflowX} ${m375.detail}`);
+  check("375 light: chip + gear fully on screen, no page overflow", m375.allIn && m375.overflowX <= 0 && m375.strayPills === 0, `overflowX=${m375.overflowX} ${m375.detail}`);
   await page.screenshot({ path: `${OUT}/375-light.png` });
 
   await ctx.close();

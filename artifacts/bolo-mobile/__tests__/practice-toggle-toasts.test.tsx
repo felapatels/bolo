@@ -24,7 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const mockState: Record<string, any> = {};
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: '5' }),
+  // Driven from mockState so one test can switch to a sentence session and
+  // reach the empty-state header variant (Task 1044: no gear, no chip there).
+  useLocalSearchParams: () => mockState.params,
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
 }));
 
@@ -50,14 +52,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useReportPhrase: () => ({ mutate: jest.fn() }),
   ApiError: class ApiError extends Error {},
   useListCategoryPhrases: () => mockState.phrases,
-  useListCategorySentences: () => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-    error: null,
-    isFetching: false,
-    refetch: jest.fn(),
-  }),
+  useListCategorySentences: () => mockState.sentences,
   getListCategorySentencesQueryKey: () => ['sentences'],
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
@@ -142,6 +137,7 @@ jest.mock('@/lib/coachVoicePref', () => ({
 
 // Imported after the mocks are declared.
 import PracticeScreen from '@/app/(app)/practice/[id]';
+import { playBase64Audio } from '@/lib/audio';
 
 const phraseA = {
   id: 1,
@@ -165,6 +161,8 @@ function successQuery(data: unknown) {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
+  mockState.params = { id: '5' };
+  mockState.sentences = successQuery(undefined);
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
   mockState.evaluate = jest.fn(async () => ({
@@ -193,6 +191,19 @@ async function press(testID: string) {
   });
 }
 
+/**
+ * Task 1044: the header toggles now live behind a settings gear. The sheet
+ * closes on select, so every item press needs its own open.
+ */
+async function openSettings() {
+  await press('practice-settings-trigger');
+}
+
+async function pressSetting(testID: string) {
+  await openSettings();
+  await press(testID);
+}
+
 /** Record and release so the result card (and its mute control) is on screen. */
 async function recordAndRelease() {
   await act(async () => {
@@ -213,14 +224,14 @@ describe('toggle confirmation toasts', () => {
 
     // Silent mode defaults off (phrase audio on), so the first tap turns
     // phrase audio off.
-    await press('silent-mode-header-toggle');
+    await pressSetting('setting-phrase-audio');
     await waitFor(() =>
       expect(
         screen.getByText('Phrase audio off. You speak first.'),
       ).toBeTruthy(),
     );
 
-    await press('silent-mode-header-toggle');
+    await pressSetting('setting-phrase-audio');
     await waitFor(() =>
       expect(
         screen.getByText('Phrase audio on. Bolo reads each phrase first.'),
@@ -232,12 +243,12 @@ describe('toggle confirmation toasts', () => {
     await renderReady();
 
     // Meaning aloud defaults on, so the first tap turns it off.
-    await press('meaning-audio-header-toggle');
+    await pressSetting('setting-meaning-audio');
     await waitFor(() =>
       expect(screen.getByText('Meaning aloud off.')).toBeTruthy(),
     );
 
-    await press('meaning-audio-header-toggle');
+    await pressSetting('setting-meaning-audio');
     await waitFor(() =>
       expect(
         screen.getByText('Meaning aloud on. English after each phrase.'),
@@ -248,7 +259,7 @@ describe('toggle confirmation toasts', () => {
   test('a second tap replaces the toast instead of stacking one', async () => {
     await renderReady();
 
-    await press('silent-mode-header-toggle');
+    await pressSetting('setting-phrase-audio');
     await waitFor(() =>
       expect(
         screen.getByText('Phrase audio off. You speak first.'),
@@ -257,7 +268,7 @@ describe('toggle confirmation toasts', () => {
 
     // Tap the neighbouring toggle right away, as a learner adjusting the
     // cluster would: one pill, new message.
-    await press('meaning-audio-header-toggle');
+    await pressSetting('setting-meaning-audio');
     await waitFor(() =>
       expect(screen.getByText('Meaning aloud off.')).toBeTruthy(),
     );
@@ -289,9 +300,121 @@ describe('toggle confirmation toasts', () => {
   test('the toggle still persists what it controls', async () => {
     await renderReady();
 
-    await press('silent-mode-header-toggle');
+    await pressSetting('setting-phrase-audio');
     await waitFor(async () =>
       expect(await AsyncStorage.getItem('bolo.silentMode')).toBe('on'),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 1044: the three audio controls moved behind a settings gear, and the
+// header finally names the language being practised.
+// ---------------------------------------------------------------------------
+describe('the audio settings gear', () => {
+  test('the gear is on the lesson screen and its menu is closed until tapped', async () => {
+    await renderReady();
+
+    expect(screen.getByTestId('practice-settings-trigger')).toBeOnTheScreen();
+    // Nothing from the menu is on screen before the gear is tapped.
+    expect(screen.queryByTestId('setting-phrase-audio')).toBeNull();
+    expect(screen.queryByTestId('setting-spoken-feedback')).toBeNull();
+    expect(screen.queryByTestId('setting-meaning-audio')).toBeNull();
+  });
+
+  test('the menu holds all three items, each with a text label and an on/off state', async () => {
+    await renderReady();
+    await openSettings();
+
+    // Labels are the whole point of the menu — the toggles this replaced were
+    // icon-only. Defaults: phrase audio on, feedback on, meaning on.
+    expect(screen.getByTestId('setting-phrase-audio')).toHaveTextContent(
+      /^Autoplay phraseOn$/,
+    );
+    expect(screen.getByTestId('setting-spoken-feedback')).toHaveTextContent(
+      /^Spoken feedbackOn$/,
+    );
+    expect(screen.getByTestId('setting-meaning-audio')).toHaveTextContent(
+      /^Speak meaningOn$/,
+    );
+  });
+
+  test('an item states Off once its control is off', async () => {
+    await renderReady();
+    await pressSetting('setting-phrase-audio');
+    await openSettings();
+
+    expect(screen.getByTestId('setting-phrase-audio')).toHaveTextContent(
+      /^Autoplay phraseOff$/,
+    );
+  });
+
+  test('selecting an item closes the menu', async () => {
+    await renderReady();
+    await pressSetting('setting-phrase-audio');
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('setting-phrase-audio')).toBeNull(),
+    );
+  });
+
+  test('an outside tap closes the menu without changing anything', async () => {
+    await renderReady();
+    await openSettings();
+    await press('practice-settings-backdrop');
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('setting-phrase-audio')).toBeNull(),
+    );
+    expect(await AsyncStorage.getItem('bolo.silentMode')).toBeNull();
+  });
+
+  test('the phrase card speaker still plays the target phrase in one tap', async () => {
+    await renderReady();
+    // The auto-play on entry has to settle before the control is tappable.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Listen to coach')).toBeOnTheScreen(),
+    );
+    // Replays serve the per-session cached clip, so the proof of "it played"
+    // is a fresh playback, not a fresh synthesis.
+    const before = (playBase64Audio as jest.Mock).mock.calls.length;
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Listen to coach'));
+    });
+
+    await waitFor(() =>
+      expect((playBase64Audio as jest.Mock).mock.calls.length).toBeGreaterThan(
+        before,
+      ),
+    );
+  });
+});
+
+describe('the display-only language chip', () => {
+  test('renders the active language code uppercased, with no press handler', async () => {
+    await renderReady();
+
+    const chip = screen.getByTestId('lesson-language-chip');
+    expect(chip).toHaveTextContent('GU');
+    // Inert: the language cannot be changed mid-lesson, so the chip carries
+    // no handler and no role that implies it can be pressed.
+    expect(chip.props.onPress).toBeUndefined();
+    expect(chip.props.onStartShouldSetResponder).toBeUndefined();
+    expect(chip.props.accessibilityRole).toBeUndefined();
+  });
+
+  test('does not appear on the non-lesson header variant', async () => {
+    // A sentence session with no phrases renders the bare empty-state header:
+    // no toggles, so no gear and no chip.
+    mockState.params = { id: '5', stage: 'sentences' };
+    mockState.sentences = successQuery([]);
+    render(<PracticeScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByText('No sentences to practice here yet.')).toBeOnTheScreen(),
+    );
+    expect(screen.queryByTestId('lesson-language-chip')).toBeNull();
+    expect(screen.queryByTestId('practice-settings-trigger')).toBeNull();
   });
 });

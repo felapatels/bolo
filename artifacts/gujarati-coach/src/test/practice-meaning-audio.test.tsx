@@ -201,8 +201,31 @@ async function renderToCoachPlaying() {
   return audioInstances[0];
 }
 
-const meaningPill = () =>
-  screen.getByRole("button", { name: /meaning/i }) as HTMLButtonElement;
+/**
+ * Task 1044: Meaning moved out of the header pill row and into the settings
+ * gear menu. Radix opens on pointerdown and closes on select, so reading or
+ * flipping the item means opening the menu first.
+ */
+async function openMenu() {
+  await act(async () => {
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Audio settings" }),
+      { button: 0, ctrlKey: false, pointerType: "mouse" },
+    );
+  });
+}
+
+const meaningItem = () =>
+  screen.getByRole("menuitemcheckbox", { name: /^Speak meaning/ });
+
+async function closeMenu() {
+  await act(async () => {
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+  });
+  await waitFor(() => expect(screen.queryByRole("menuitemcheckbox")).toBeNull());
+}
 
 describe("meaning segment after the phrase clip", () => {
   test("phrase end triggers an English-voiced means segment on a second element", async () => {
@@ -236,12 +259,22 @@ describe("meaning segment after the phrase clip", () => {
     );
   });
 
-  test("the pill defaults to pressed and turning it off applies to the very next play", async () => {
+  test("the menu item defaults to checked and turning it off applies to the very next play", async () => {
     const coachClip = await renderToCoachPlaying();
 
-    expect(meaningPill().getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(meaningPill());
-    expect(meaningPill().getAttribute("aria-pressed")).toBe("false");
+    await openMenu();
+    expect(meaningItem().getAttribute("aria-checked")).toBe("true");
+    expect(meaningItem()).toHaveTextContent(/^Speak meaningOn$/);
+    await act(async () => {
+      fireEvent.click(meaningItem());
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("menuitemcheckbox")).toBeNull(),
+    );
+    await openMenu();
+    expect(meaningItem().getAttribute("aria-checked")).toBe("false");
+    expect(meaningItem()).toHaveTextContent(/^Speak meaningOff$/);
+    await closeMenu();
     // Persisted per device, same pattern as the other audio preferences.
     expect(localStorage.getItem(MEANING_AUDIO_STORAGE_KEY)).toBe("off");
 
@@ -265,10 +298,11 @@ describe("meaning segment after the phrase clip", () => {
     expect(audioInstances).toHaveLength(1);
   });
 
-  test("a stored off preference renders the pill unpressed", async () => {
+  test("a stored off preference renders the menu item unchecked", async () => {
     localStorage.setItem(MEANING_AUDIO_STORAGE_KEY, "off");
     await renderToCoachPlaying();
-    expect(meaningPill().getAttribute("aria-pressed")).toBe("false");
+    await openMenu();
+    expect(meaningItem().getAttribute("aria-checked")).toBe("false");
   });
 });
 

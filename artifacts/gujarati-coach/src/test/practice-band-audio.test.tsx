@@ -264,21 +264,31 @@ describe("instant band audio on results", () => {
     expect(h.synth).toHaveBeenCalledTimes(0);
   });
 
-  // Build 35: meaning toggle is disabled (HTML disabled attribute) when Coach
-  // voice is off. coachVoiceRef is initialized synchronously from localStorage
-  // so the disabled state is set on first render, no waiting required.
+  // Build 35: the meaning control is disabled when Coach voice is off.
+  // coachVoiceRef is initialized synchronously from localStorage so the
+  // disabled state is set on first render, no waiting required. Task 1044
+  // moved the control from a header pill into the settings gear menu, so it
+  // is read there now — the rule itself is unchanged.
+  async function meaningMenuItem() {
+    await act(async () => {
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Audio settings" }),
+        { button: 0, ctrlKey: false, pointerType: "mouse" },
+      );
+    });
+    return screen.getByRole("menuitemcheckbox", { name: /^Speak meaning/ });
+  }
+
   test("meaning toggle is disabled when Coach voice is off", async () => {
     localStorage.setItem("bolo.coachVoice", "off");
     await reachIdle();
-    const toggle = screen.getByTitle(/meaning aloud/i);
-    expect(toggle).toBeDisabled();
+    expect(await meaningMenuItem()).toHaveAttribute("data-disabled");
   });
 
   test("meaning toggle is enabled when Coach voice is on", async () => {
     // default: coachVoice not stored → true
     await reachIdle();
-    const toggle = screen.getByTitle(/meaning aloud/i);
-    expect(toggle).not.toBeDisabled();
+    expect(await meaningMenuItem()).not.toHaveAttribute("data-disabled");
   });
 
   test("feedback synthesis failure still shows the result card; band clip alone plays", async () => {

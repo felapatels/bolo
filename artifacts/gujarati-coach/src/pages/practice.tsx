@@ -28,7 +28,7 @@ import {
 import { ApiError } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Volume2, VolumeX, ArrowRight, Check, ChevronLeft, ChevronRight, Languages, RefreshCcw, Headphones, HeadphoneOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Volume2, ArrowRight, Check, ChevronLeft, ChevronRight, RefreshCcw, Headphones, Settings, Sparkles } from "lucide-react";
 // TEMPORARY capture mode (BRIEF 32.1 respin): remove these imports together
 // with the ?mode=capture scaffolding once the calibration corpus is complete.
 import {
@@ -57,6 +57,14 @@ import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ExpressOfferMoment } from "@/components/chai-wallet";
 import { webHaptic } from "@/lib/haptics";
 import { BandPill, isFullCreditBand, isPassingBand, normalizeBand, type Band } from "@/components/ui/band-pill";
@@ -2196,118 +2204,106 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         )}
         {/* Daily XP counter — compact session variant */}
         <XpCounter variant="session" />
-        {/* Audio toggles — BOTH follow the same convention: teal filled pill =
-            that audio plays, gray = it's off. (They used to have opposite
-            active states: the mute button lit up when sound was OFF while
-            Read Aloud lit up when sound was ON — confusing.) Labels name what
-            each controls: PHRASE = the coach reads the phrase before you
-            speak; FEEDBACK = your score result is read aloud. Below the sm
-            breakpoint the text labels collapse to sr-only so all three pills
-            fit at 320px as icon-only controls; titles, aria-pressed, and the
-            sr-only text keep them fully identifiable. */}
+        {/* Language chip + audio settings gear (Task 1044).
+            The three audio controls used to sit here as loose pills; they now
+            live behind the gear so the row has room, and the chip finally
+            names the language being practised — nothing on a lesson screen
+            said so before. */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
-        <button
-          onClick={() => {
-            const next = !silentMode;
-            changeSilentMode(next);
-            // Toggles confirm themselves through the same MilestoneToast the
-            // session milestones use, so a tap is never silent (Task 1038).
-            showToast(
-              next
-                ? TOGGLE_TOAST.phraseAudioOff
-                : TOGGLE_TOAST.phraseAudioOn,
-            );
-          }}
-          aria-pressed={!silentMode}
-          title={
-            silentMode
-              ? "Phrase audio off — tap to hear the coach read each phrase first"
-              : "Phrase audio on — the coach reads each phrase before you speak. Tap to turn off"
-          }
-          className={cn(
-            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
-            !silentMode
-              ? "bg-secondary text-white shadow-sm"
-              : "bg-muted text-muted-foreground",
-          )}
+        {/* Display-only language code. Deliberately inert: no handler, no
+            button role, not focusable — the language cannot be changed
+            mid-lesson. The slot is fixed at three characters wide so the row
+            never reflows between a two-letter code (HI) and a three-letter
+            one (SAT); codes are NEVER truncated, since "sat" clipped to "SA"
+            collides with Sanskrit. */}
+        <span
+          data-testid="lesson-language-chip"
+          className="shrink-0 w-9 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold uppercase tracking-wide leading-none"
         >
-          {silentMode ? (
-            <VolumeX className="w-4 h-4" />
-          ) : (
-            <Volume2 className="w-4 h-4" />
-          )}
-          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
-            Phrase
-          </span>
-        </button>
-        {/* Spoken Feedback toggle — quick-access in the practice header,
-            mirrors the mobile result-card mute button for web parity. */}
-        <button
-          onClick={() => {
-            const next = !spokenFeedback;
-            changeSpokenFeedback(next);
-            showToast(
-              next
-                ? TOGGLE_TOAST.feedbackAloudOn
-                : TOGGLE_TOAST.feedbackAloudOff,
-            );
-          }}
-          aria-pressed={spokenFeedback}
-          title={
-            spokenFeedback
-              ? "Feedback aloud on — your score is read out. Tap to turn off"
-              : "Feedback aloud off — tap to hear your score read out"
-          }
-          className={cn(
-            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
-            spokenFeedback
-              ? "bg-secondary text-white shadow-sm"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {spokenFeedback ? (
-            <Headphones className="w-4 h-4" />
-          ) : (
-            <HeadphoneOff className="w-4 h-4" />
-          )}
-          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
-            Feedback
-          </span>
-        </button>
-        {/* Meaning toggle, same convention: teal filled pill = the English
-            meaning is spoken right after each phrase clip, gray = phrase
-            only. Read fresh at play time, so a flip applies to the very next
-            play (Task 1003). */}
-        <button
-          onClick={() => {
-            const next = !meaningAudio;
-            changeMeaningAudio(next);
-            showToast(
-              next
-                ? TOGGLE_TOAST.meaningAloudOn
-                : TOGGLE_TOAST.meaningAloudOff,
-            );
-          }}
-          aria-pressed={meaningAudio}
-          disabled={!coachVoiceRef.current}
-          title={
-            meaningAudio
-              ? "Meaning aloud on, the English meaning is spoken after each phrase. Tap to turn off"
-              : "Meaning aloud off, tap to hear the English meaning after each phrase"
-          }
-          className={cn(
-            "shrink-0 h-8 px-2.5 flex items-center justify-center gap-1 rounded-full text-xs font-bold transition-all",
-            meaningAudio
-              ? "bg-secondary text-white shadow-sm"
-              : "bg-muted text-muted-foreground",
-            "disabled:opacity-40 disabled:pointer-events-none",
-          )}
-        >
-          <Languages className="w-4 h-4" />
-          <span className="sr-only sm:not-sr-only text-[10px] font-bold uppercase tracking-wide leading-none">
-            Meaning
-          </span>
-        </button>
+          {activeLang.toUpperCase()}
+          <span className="sr-only"> — practising {languageName}</span>
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="Audio settings"
+              title="Audio settings"
+              data-testid="practice-settings-trigger"
+              className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-secondary data-[state=open]:text-white"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </DropdownMenuTrigger>
+          {/* Each item keeps its own handler, preference write and
+              confirmation toast exactly as it had on the pill. The pill fill
+              no longer communicates state, so every item spells it out: a
+              checkmark (menuitemcheckbox) plus an explicit On/Off word. */}
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Audio</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={!silentMode}
+              onCheckedChange={() => {
+                const next = !silentMode;
+                changeSilentMode(next);
+                // Toggles confirm themselves through the same MilestoneToast
+                // the session milestones use, so a tap is never silent
+                // (Task 1038).
+                showToast(
+                  next
+                    ? TOGGLE_TOAST.phraseAudioOff
+                    : TOGGLE_TOAST.phraseAudioOn,
+                );
+              }}
+            >
+              <span className="flex-1">Autoplay phrase</span>
+              <span className="ml-auto text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {silentMode ? "Off" : "On"}
+              </span>
+            </DropdownMenuCheckboxItem>
+            {/* Spoken Feedback — the same preference the mobile result-card
+                mute writes; kept here for cross-platform parity. */}
+            <DropdownMenuCheckboxItem
+              checked={spokenFeedback}
+              onCheckedChange={() => {
+                const next = !spokenFeedback;
+                changeSpokenFeedback(next);
+                showToast(
+                  next
+                    ? TOGGLE_TOAST.feedbackAloudOn
+                    : TOGGLE_TOAST.feedbackAloudOff,
+                );
+              }}
+            >
+              <span className="flex-1">Spoken feedback</span>
+              <span className="ml-auto text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {spokenFeedback ? "On" : "Off"}
+              </span>
+            </DropdownMenuCheckboxItem>
+            {/* Meaning: the English meaning spoken right after each phrase
+                clip. Read fresh at play time, so a flip applies to the very
+                next play (Task 1003). Disabled while the coach voice is off,
+                exactly as the pill was. */}
+            <DropdownMenuCheckboxItem
+              checked={meaningAudio}
+              disabled={!coachVoiceRef.current}
+              onCheckedChange={() => {
+                const next = !meaningAudio;
+                changeMeaningAudio(next);
+                showToast(
+                  next
+                    ? TOGGLE_TOAST.meaningAloudOn
+                    : TOGGLE_TOAST.meaningAloudOff,
+                );
+              }}
+            >
+              <span className="flex-1">Speak meaning</span>
+              <span className="ml-auto text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {meaningAudio ? "On" : "Off"}
+              </span>
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         </div>
       </header>
 
