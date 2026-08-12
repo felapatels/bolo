@@ -66,9 +66,10 @@ export const attemptsTable = pgTable("attempts", {
   // recordings).
   audioSnrDb: real("audio_snr_db"),
   // Why an attempt failed to score, when band = 'nocatch'. One of the
-  // NocatchCause labels ('empty_audio_or_silence' | 'dual_pass_uncorroborated'
-  // | 'script_mismatch' | 'latin_low_sim' | 'unsupported_language' |
-  // 'no_match_after_bridge'). Null for scored attempts and for nocatch
+  // NocatchCause labels ('empty_audio_or_silence' | 'undecodable_audio' |
+  // 'dual_pass_uncorroborated' | 'script_mismatch' | 'latin_low_sim' |
+  // 'unsupported_language' | 'no_match_after_bridge'). Null for scored
+  // attempts and for nocatch
   // attempts recorded before this column existed. The LABEL ONLY — the
   // transcript-bearing nocatch diagnostic sidecars stay on their allowlist.
   nocatchCause: text("nocatch_cause"),

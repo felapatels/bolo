@@ -7,6 +7,7 @@ import {
   textToSpeechElevenLabs,
   speechToText,
   ensureCompatibleFormat,
+  UndecodableAudioError,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { elevenLabsQuotaMonitor } from "../lib/elevenLabsQuotaMonitor";
 import {
@@ -892,6 +893,13 @@ router.post(
     // could not be measured — the measurement never changes a score and never
     // fails an attempt.
     let snrDb: number | null = null;
+    // True when the transcription API rejected the recording as corrupted or
+    // in an unsupported format (e.g. a silent WebM the browser emitted with no
+    // audio track, or a partial buffer from a cancelled recording). This is a
+    // system miss, not a learner error and not an outage, so it degrades to
+    // the same nocatch outcome as an empty transcript instead of a 502 —
+    // mirroring the chat route's existing UndecodableAudioError handling.
+    let sttUndecodableAudio = false;
     try {
       // Pass the client-reported mimeType as a fallback hint so very short
       // recordings whose magic bytes aren't detected skip the ffmpeg path.
@@ -939,9 +947,25 @@ router.post(
         );
       }
     } catch (err) {
-      req.log.error({ err }, "Speech-to-text failed");
-      res.status(502).json({ error: "Could not understand the recording" });
-      return;
+      if (err instanceof UndecodableAudioError) {
+        // Match ONLY the dedicated undecodable-audio error. Converter
+        // failures (ensureCompatibleFormat/convertToWav never raise this
+        // type), transcription-service outages, and rate limits all fall
+        // through to the loud 502 below. Log what actually arrived so a
+        // future report can tell a zero-byte upload from a non-empty but
+        // undecodable one.
+        req.log.warn(
+          { format: err.format, byteLength: err.byteLength },
+          "Recording undecodable; degrading to nocatch",
+        );
+        sttUndecodableAudio = true;
+        // transcript stays "" so the empty-transcript nocatch block below
+        // handles the response — same shape, distinct cause label.
+      } else {
+        req.log.error({ err }, "Speech-to-text failed");
+        res.status(502).json({ error: "Could not understand the recording" });
+        return;
+      }
     }
 
     if (isEffectivelyEmpty(transcript)) {
@@ -949,19 +973,23 @@ router.post(
       // disagreed and the farther transcript is the empty one. In the second
       // case the passes could not corroborate each other, so the honest
       // resolution is a system miss with no-fault copy, never a score.
-      const feedback = sttChosenEmptyWithEvidence
-        ? "Our two listeners heard that one differently, so we can't score it fairly. That's on us, not you. Give it one more go!"
-        : "I couldn't hear anything that time! Tap the button and say it nice and clear.";
-      const emptyTip = sttChosenEmptyWithEvidence
+      const feedback = sttUndecodableAudio
+        ? "That recording didn't come through on our end. That's on us, not you. Give it one more go!"
+        : sttChosenEmptyWithEvidence
+          ? "Our two listeners heard that one differently, so we can't score it fairly. That's on us, not you. Give it one more go!"
+          : "I couldn't hear anything that time! Tap the button and say it nice and clear.";
+      const emptyTip = sttUndecodableAudio || sttChosenEmptyWithEvidence
         ? "Nothing to fix on your end. Just try the same thing again."
         : "Hold your phone a little closer and speak up.";
       const nocatchBand: PronunciationBand = "nocatch";
       // Cause label recorded for EVERY learner, not just the diagnostics
       // allowlist: the label alone carries no transcript content, and without
       // it nobody can say WHY attempts fail.
-      const nocatchCause: NocatchCause = sttChosenEmptyWithEvidence
-        ? "dual_pass_uncorroborated"
-        : "empty_audio_or_silence";
+      const nocatchCause: NocatchCause = sttUndecodableAudio
+        ? "undecodable_audio"
+        : sttChosenEmptyWithEvidence
+          ? "dual_pass_uncorroborated"
+          : "empty_audio_or_silence";
       // Task 903: eval-time fire-and-forget feedback-voice synthesis.
       prewarmFeedbackTts(feedback, emptyTip, req.log);
       res.json({

@@ -26,6 +26,7 @@ import crypto from "node:crypto";
 /** What the code could determine about why the attempt was a nocatch. */
 export type NocatchCause =
   | "empty_audio_or_silence"
+  | "undecodable_audio"
   | "dual_pass_uncorroborated"
   | "script_mismatch"
   | "latin_low_sim"
