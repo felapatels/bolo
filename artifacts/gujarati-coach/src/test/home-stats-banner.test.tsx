@@ -398,8 +398,16 @@ describe("home stats banner", () => {
     renderHome();
     const row = bannerRow();
     const link = within(row).getByTestId("stats-progress-link");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("/progress");
+    for (const label of ["Day Streak", "Total XP", "Mastered"]) {
+      expect(link.contains(within(row).getByText(label))).toBe(true);
+    }
+    expect(link.contains(within(row).getByTestId("stat-chai"))).toBe(false);
+  });
 
-    const pass = screen.getByTestId("journey-pass-card");
+  test("keeps the reserved shell hidden while summary is pending", () => {
+    renderHome();
     const row = bannerRow();
     expect(row.getAttribute("aria-hidden")).toBe("true");
     expect(row.className).toMatch(/\binvisible\b/);
@@ -445,5 +453,3 @@ describe("home stats banner", () => {
     expect(screen.queryByRole("button", { name: "Audio settings" })).toBeNull();
   });
 });
-
-    const stall = screen.getByTestId("chai-stall-vignette");
