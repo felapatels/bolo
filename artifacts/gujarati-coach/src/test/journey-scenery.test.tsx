@@ -406,7 +406,11 @@ describe("zone signposts + line facts (Chunk 6B story 5)", () => {
 //     encounter, mint Chai, or mark a stop seen. Only arrival does that.
 describe("Chacha-ji stall landmark", () => {
   function stalls(container: HTMLElement) {
-    return [...container.querySelectorAll('[data-testid^="chacha-stall-"]')];
+    // Only the stall groups, never the figure inside them (both testids share
+    // the chacha-stall- prefix).
+    return [...container.querySelectorAll('[data-testid^="chacha-stall-"]')].filter((el) =>
+      /^chacha-stall-\d+$/.test(el.getAttribute("data-testid") ?? ""),
+    );
   }
   function stallStations(container: HTMLElement) {
     return stalls(container)
@@ -445,14 +449,16 @@ describe("Chacha-ji stall landmark", () => {
     expect(stalls(later.container).map(stallY)).toEqual(stalls(fresh.container).map(stallY));
   });
 
-  test("seats each stall in the gap after its stop, in its own left lane", () => {
+  test("seats each stall in the halt row after its stop, right of the track", () => {
     setZones(zoneOf(11, 100), zoneOf(10, 200));
     const { container } = renderJourney();
     const seats = stalls(container).map(stallY);
-    // Its own lane, outboard of everything the row already carries.
-    for (const s of seats) expect(s.x).toBe(STALL_PLACEMENT.laneX);
-    // Tied to real row geometry, not to a constant: the trackside signal in
-    // the same gap is laid out from its station's center y, so the stall must
+    const { STATION_H, HALT_H, LEFT_X } = SERPENTINE;
+    // The halt row holds the rail on the encounter station's own flank, which
+    // is always the left one, and the stall stands out to the RIGHT of it.
+    for (const s of seats) expect(s.x).toBe(LEFT_X + STALL_PLACEMENT.laneDx);
+    // Tied to real row geometry, not to a constant: the trackside signal at
+    // the same stop is laid out from its station's center y, so the stall must
     // sit a fixed distance below it at every encounter station.
     const stations = stallStations(container);
     stations.forEach((station, i) => {
@@ -461,33 +467,113 @@ describe("Chacha-ji stall landmark", () => {
       );
       expect(signal).not.toBeNull();
       const signalY = Number.parseFloat(signal!.style.top);
-      expect(seats[i]!.y - signalY).toBe(STALL_PLACEMENT.groundDy - 30);
+      expect(seats[i]!.y - signalY).toBe(
+        STATION_H / 2 + HALT_H / 2 + STALL_PLACEMENT.groundDy - 30,
+      );
     });
-    // Past the stop, and clear of the next row's ground line, so the stall
-    // reads as belonging to the station it follows.
-    expect(STALL_PLACEMENT.groundDy).toBeGreaterThan(0);
-    expect(STALL_PLACEMENT.groundDy).toBeLessThan(SERPENTINE.STATION_H);
+    // The whole landmark lives inside the halt row, which exists for it.
+    const top = STALL_PLACEMENT.groundDy - STALL_PLACEMENT.extentH;
+    const bottom = STALL_PLACEMENT.groundDy + STALL_PLACEMENT.shadowH;
+    expect(top).toBeGreaterThan(-HALT_H / 2);
+    expect(bottom).toBeLessThan(HALT_H / 2);
   });
 
-  test("the lane clears the marker, the current-stop pill and the station card", () => {
+  test("the halt is layout only: no stop, no number, nothing to tap", () => {
+    // The map got longer, the line did not. Whatever the halts do to the
+    // geometry, the stops keep their numbers and the count is unchanged.
+    setZones(zoneOf(11, 100), zoneOf(10, 200));
+    const { container } = renderJourney();
+    expect(stallStations(container).length).toBeGreaterThan(0);
+    const stops = new Set(
+      [...container.querySelectorAll("[aria-label^='Stop ']")].map(
+        (el) => /^Stop \d+ of \d+/.exec(el.getAttribute("aria-label")!)![0],
+      ),
+    );
+    // Both fixture zones still number 1..N with N unchanged: the halts add
+    // rows to the map without adding a stop to either line.
+    expect([...stops].filter((l) => l.endsWith("of 11"))).toHaveLength(11);
+    expect([...stops].filter((l) => l.endsWith("of 10"))).toHaveLength(10);
+    expect(stops.has("Stop 1 of 11")).toBe(true);
+    expect(stops.has("Stop 11 of 11")).toBe(true);
+    expect(stops.has("Stop 10 of 10")).toBe(true);
+    // Nothing in the halt row answers to a press: the stall group and the
+    // figure inside it are the only things seated there, and they ride the
+    // scenery layer, which takes no pointer events.
+    for (const el of stalls(container)) {
+      expect(el.closest("[data-testid='journey-scenery-layer']")).not.toBeNull();
+      expect(el.querySelector("button, a, [role='button']")).toBeNull();
+    }
+  });
+
+  test("the lane clears the rail, the station card and the next row", () => {
     // Encounter stations are odd stops, so their 0-based index is even and the
-    // serpentine always seats their marker on the left flank with the card on
-    // the right. One rule therefore covers every encounter station and every
-    // supported map width.
-    const { LEFT_X, CARD_GAP, MARKER_HALF_W } = SERPENTINE;
+    // serpentine always seats their marker on the left flank. One rule
+    // therefore covers every encounter station and every supported map width.
+    const { LEFT_X, RAIL_HALF_W, STATION_H, HALT_H } = SERPENTINE;
     for (const station of planChachaStalls(40)) expect((station - 1) % 2).toBe(0);
+    const laneX = LEFT_X + STALL_PLACEMENT.laneDx;
     const box: [number, number] = [
-      STALL_PLACEMENT.laneX - SCENERY_HALF_W.chaiStall,
-      STALL_PLACEMENT.laneX + SCENERY_HALF_W.chaiStall,
+      laneX - SCENERY_HALF_W.chaiStall,
+      laneX + SCENERY_HALF_W.chaiStall,
     ];
+    // Offsets from the encounter station's row center.
+    const haltY = STATION_H / 2 + HALT_H / 2;
+    const top = haltY + STALL_PLACEMENT.groundDy - STALL_PLACEMENT.extentH;
+    const bottom = haltY + STALL_PLACEMENT.groundDy + STALL_PLACEMENT.shadowH;
     for (const mapW of [320, 360, 390]) {
-      expect(box[0]).toBeGreaterThanOrEqual(0);
-      expect(box[1]).toBeLessThanOrEqual(mapW);
-      // Marker, and the wider current-stop pill drawn around it.
-      expect(box[1]).toBeLessThan(LEFT_X - MARKER_HALF_W);
-      expect(box[1]).toBeLessThan(LEFT_X - 23);
-      // Station card, which is always on the opposite flank here.
-      expect(box[1]).toBeLessThan(LEFT_X + CARD_GAP);
+      // VIEWPORT CONTAINMENT. The map runs full bleed at or below 390 CSS px,
+      // so the map column IS the screen there: every pixel of the landmark has
+      // to be inside it, with a margin so it never reads as falling off the
+      // edge (the defect the first cut shipped with).
+      expect(box[0]).toBeGreaterThanOrEqual(4);
+      expect(box[1]).toBeLessThanOrEqual(mapW - 4);
+      // Clear of the trackside signal, whose glyph ends at x82 in this gap.
+      expect(box[0]).toBeGreaterThan(82);
+      // RIGHT OF THE TRACK AT EVERY POINT BESIDE IT. The halt holds the rail
+      // on the left flank, then it sweeps back out to the next station across
+      // the lower half of the row, so checking the halt point alone would miss
+      // the part of the curve that comes closest. A zone postcard instead of a
+      // station leaves the halt later and gentler, so this is the worst case.
+      const a = { x: LEFT_X, y: haltY };
+      const b = { x: mapW - 94, y: STATION_H / 2 + HALT_H + STATION_H / 2 };
+      const dy = (b.y - a.y) / 2;
+      for (let i = 0; i <= 400; i++) {
+        const t = i / 400;
+        const u = 1 - t;
+        const y =
+          u * u * u * a.y + 3 * u * u * t * (a.y + dy) + 3 * u * t * t * (b.y - dy) + t * t * t * b.y;
+        if (y < top || y > bottom) continue;
+        const x = u * u * u * a.x + 3 * u * u * t * a.x + 3 * u * t * t * b.x + t * t * t * b.x;
+        expect(x + RAIL_HALF_W).toBeLessThan(box[0]);
+      }
+    }
+    // Vertical: the whole landmark, awning rail and pooled shadow included,
+    // sits below the encounter station's card (which ends at y+39 at its
+    // tallest), above a zone postcard (which starts where the halt ends when
+    // the stop closes a fare zone), and above the next row's card.
+    expect(top).toBeGreaterThan(39);
+    expect(bottom).toBeLessThan(STATION_H / 2 + HALT_H);
+    expect(bottom).toBeLessThan(STATION_H + HALT_H + STATION_H / 2 - 39);
+  });
+
+  test("Chacha-ji himself stands at every stall, as the delivered figure", () => {
+    // The first cut drew an unmanned prop, so the man the encounter is named
+    // after was nowhere on the map. He is the shipped art, never a redraw.
+    setZones(zoneOf(11, 100), zoneOf(10, 200));
+    const { container } = renderJourney();
+    const stallEls = stalls(container);
+    const figures = container.querySelectorAll<SVGImageElement>(
+      '[data-testid="chacha-stall-figure"]',
+    );
+    expect(stallEls.length).toBeGreaterThan(0);
+    expect(figures.length).toBe(stallEls.length);
+    for (const el of stallEls) {
+      const figure = el.querySelector('[data-testid="chacha-stall-figure"]');
+      expect(figure).not.toBeNull();
+      expect(figure!.getAttribute("href")).toContain("chachaji.png");
+      // Full height, feet on the stall's ground line: he reads as a person,
+      // not a smudge behind the counter.
+      expect(Number(figure!.getAttribute("height"))).toBeGreaterThanOrEqual(30);
     }
   });
 

@@ -55,6 +55,8 @@ jest.mock('react-native-svg', () => {
     Circle: passthrough,
     Rect: passthrough,
     Ellipse: passthrough,
+    // Chacha-ji's delivered figure renders through react-native-svg's Image.
+    Image: passthrough,
     Line: passthrough,
     Pattern: passthrough,
     Defs: passthrough,

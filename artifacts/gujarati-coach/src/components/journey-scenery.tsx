@@ -10,6 +10,10 @@
 // (Food), bazaar street (Everyday Words), festival palace (Feelings finale).
 
 import { isChachaEncounterStation } from "@/lib/quick-games";
+// Chacha-ji himself is delivered art, not a drawing: the map pulls the SAME
+// isolated figure the home vignette does, straight out of the shared path
+// registry, so swapping the art still means editing one place.
+import { STALL_ASSETS } from "@/components/chai-stall";
 
 const AMBER = "#f59e0b";
 const LEAF = "#10b981";
@@ -383,32 +387,55 @@ function FruitCart() {
   );
 }
 
-/** Chai stall per the token-economy spec's stall description: striped awning,
- *  wooden counter, kettle and glasses. Deliberately unmanned — the Chaiwala
- *  character (separate task) steps in behind this counter later. */
+/** Chacha-ji's stall, MANNED. The stall itself is drawn in the map's flat
+ *  vector language (striped awning, wooden counter, kettle and glass) so it
+ *  sits with the rest of the trackside scenery, and Chacha-ji himself is the
+ *  DELIVERED figure, chachaji.png from the shared STALL_ASSETS registry, the
+ *  same layer the home vignette uses. No new character art: the map and the
+ *  wallet show the same man.
+ *
+ *  He stands out front of the counter at full height (24 x 32.3, his own
+ *  386:520 aspect), which is why the structure is drawn tall: the awning rail
+ *  clears his head, and the counter sits behind him with the kettle to his
+ *  right. Reads at the train's visual weight rather than as a doodad, which
+ *  the earlier unmanned 37x33 prop did not. Total footprint 36 wide and 49.2
+ *  tall above the ground line, which is what SCENERY_HALF_W.chaiStall and
+ *  STALL_PLACEMENT are sized against. */
 function ChaiStall() {
   return (
     <g>
-      <GroundShadow rx={18} />
+      {/* Shadow re-centered under the structure: the house shadow carries a
+          +2 down-light offset, which on a landmark this size pushed the
+          bounding box into the trackside signal's glyph. */}
+      <GroundShadow rx={16} cx={-3} />
       {/* posts */}
-      <rect x={-14} y={-21} width={2} height={21} fill={TRUNK} />
-      <rect x={10.5} y={-21} width={2} height={21} fill={TRUNK} />
+      <rect x={-15.5} y={-44} width={2} height={44} fill={TRUNK} />
+      <rect x={11.5} y={-44} width={2} height={44} fill={TRUNK} />
       {/* counter front + side */}
-      <rect x={-13} y={-13} width={24} height={9.5} rx={1} fill={TRUNK} />
-      <path d="M11 -3.5 l4 -1.7 v-7.6 l-4 -0.7 Z" fill={AMBER_SHADE} />
+      <rect x={-14} y={-18} width={26} height={14} rx={1} fill={TRUNK} />
+      <path d="M12 -4 l3.5 -1.5 v-11.4 l-3.5 -0.6 Z" fill={AMBER_SHADE} />
       {/* counter skirt panel */}
-      <rect x={-11} y={-11} width={20} height={5.5} rx={1} fill={AMBER} opacity={0.35} />
+      <rect x={-12} y={-16} width={22} height={7} rx={1} fill={AMBER} opacity={0.35} />
       {/* striped awning front + side */}
       {[0, 1, 2, 3].map((i) => (
-        <rect key={i} x={-16 + i * 7} y={-26.5} width={7} height={6} fill={i % 2 === 0 ? AMBER : "#ffffff"} />
+        <rect key={i} x={-17 + i * 7} y={-48} width={7} height={7} fill={i % 2 === 0 ? AMBER : "#ffffff"} />
       ))}
-      <path d="M12 -26.5 l3.6 1.3 v4.7 h-3.6 Z" fill={AMBER_SHADE} />
-      <rect x={-16.5} y={-27.6} width={29} height={1.6} rx={0.8} fill={AMBER_SHADE} />
-      {/* kettle + glasses (steam wisp deferred to the motion pass) */}
-      <circle cx={-6} cy={-15.4} r={2.8} fill={SLATE} />
-      <rect x={-10.2} y={-16.6} width={2.2} height={1.6} rx={0.8} fill={SLATE} />
-      <rect x={1} y={-16} width={3} height={3} rx={0.8} fill="#ffffff" opacity={0.95} />
-      <rect x={5.6} y={-16} width={3} height={3} rx={0.8} fill="#ffffff" opacity={0.95} />
+      <path d="M11 -48 l3.5 1.3 v5.7 h-3.5 Z" fill={AMBER_SHADE} />
+      <rect x={-17.5} y={-49.2} width={31.5} height={1.7} rx={0.85} fill={AMBER_SHADE} />
+      {/* kettle + glass on the counter top, to his right */}
+      <circle cx={9} cy={-21.4} r={3.2} fill={SLATE} />
+      <rect x={4.4} y={-22.6} width={2.4} height={1.8} rx={0.9} fill={SLATE} />
+      <rect x={0.4} y={-21.6} width={3.2} height={3.6} rx={0.9} fill="#ffffff" opacity={0.95} />
+      {/* Chacha-ji himself, drawn last so he stands in front of his counter */}
+      <image
+        data-testid="chacha-stall-figure"
+        href={STALL_ASSETS.chachaji}
+        x={-17}
+        y={-32.3}
+        width={24}
+        height={32.3}
+        preserveAspectRatio="xMidYMax meet"
+      />
     </g>
   );
 }
@@ -555,7 +582,7 @@ export const SCENERY_HALF_W: Record<SceneryKind, number> = {
   tuktuk: 19,
   cow: 17,
   fruitCart: 20,
-  chaiStall: 20,
+  chaiStall: 18,
   temple: 16,
   banyan: 16,
   marigolds: 19,
@@ -580,27 +607,42 @@ export const SCENERY_PLACEMENT = {
 } as const;
 
 /** Chacha-ji's stall is a LANDMARK, not decoration: it marks every encounter
- *  station so the learner sees him coming, and it is seated in the gap AFTER
- *  that stop, beside the track. Its own lane, because the row's usual strip
- *  is already busy:
+ *  station so the learner sees him coming, and it stands on the RIGHT of the
+ *  track in that station's HALT ROW (`SERPENTINE.HALT_H`), the scenery-only
+ *  row the map inserts after every encounter stop. Both platforms use these
+ *  numbers, and both seat the stall off the halt point, never off the station:
  *
- *  - Encounter stations are odd stops (3, 7, 11 ...), so their 0-based index
- *    is even and the serpentine always puts their marker on the LEFT flank,
- *    with the station card on the right. The lane is therefore always left.
- *  - Every odd stop also carries a trackside signal, whose glyph occupies
- *    x 42..82 from y-5 to y+55. `laneX` sits the stall outboard of it.
- *  - `groundDy` seats the stall past the stop in the travel direction, below
- *    the station card (which ends at y+39 at its tallest) and above the next
- *    zone postcard (which starts at y+60 when the stop ends a fare zone).
+ *  - The halt keeps the rail on the encounter station's own flank (always the
+ *    LEFT, since encounter stations are odd stops and so even-indexed), which
+ *    is what frees the right side of the row.
+ *  - `laneDx` is measured RIGHT from the rail at the halt point. The rail
+ *    sweeps back out toward the next station across the lower half of the
+ *    row, so the lane has to clear that sweep, not just the halt point.
+ *  - `groundDy` centers the stall in the halt row, clear of the encounter
+ *    station's card above it and the next row's card below it.
  *
  *  RENDERING IS NOT TRIGGERING: this is scenery in the pointer-events-none
  *  layer. The gift, the phrase and the offer still fire only on arrival.
  */
 export const STALL_PLACEMENT = {
-  /** Center x of the stall lane, outboard of the signal strip. */
-  laneX: 20,
-  /** Ground line offset below the encounter station row's center y. */
-  groundDy: 46,
+  /** Center x of the stall lane, measured RIGHT from the rail at the halt
+   *  point. The stall spans -19..+15.5 around its center, so this puts it at
+   *  x 153..187.5 on a full-width map: 18px clear of the rail at the stall's
+   *  lowest point (where the sweep toward the next station has carried the
+   *  track furthest right), and further clear at every point above that. */
+  laneDx: 80,
+  /** Ground line offset below the HALT POINT (the halt row's center y). The
+   *  stall stands 49.2 above its ground line and its shadow pools 5.1 below
+   *  it, so this centers the whole landmark in the 74-tall halt row at
+   *  y-27.2..y+27.1, with about 10px of row to spare at each end. */
+  groundDy: 22,
+  /** How far the stall reaches ABOVE its ground line (the awning rail), so
+   *  the geometry tests can prove the whole landmark, not just its footprint,
+   *  stays inside the gap. */
+  extentH: 49.2,
+  /** How far the ground shadow pools BELOW that line (cy 1.2 + ry 3.84). It is
+   *  part of the drawing, so it is part of the clearance budget. */
+  shadowH: 5.1,
 } as const;
 
 /** The stations Chacha-ji's stall stands at, 1-based on the flattened global

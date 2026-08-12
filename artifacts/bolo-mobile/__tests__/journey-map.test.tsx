@@ -56,6 +56,8 @@ jest.mock('react-native-svg', () => {
     Circle: passthrough,
     Rect: passthrough,
     Ellipse: passthrough,
+    // Chacha-ji's delivered figure renders through react-native-svg's Image.
+    Image: passthrough,
     Line: passthrough,
     Pattern: passthrough,
     Defs: passthrough,
@@ -813,7 +815,7 @@ describe('journey map — trackside signals', () => {
 describe('journey map — Chacha-ji stall landmark', () => {
   const stallStations = () =>
     screen
-      .getAllByTestId(/^chacha-stall-/)
+      .getAllByTestId(/^chacha-stall-\d+$/)
       .map((el) => Number(String(el.props.testID).replace('chacha-stall-', '')))
       .sort((a, b) => a - b);
 
@@ -827,7 +829,7 @@ describe('journey map — Chacha-ji stall landmark', () => {
     }
     // Web parity: identical lane and ground line, so the stall sits in the
     // same relative spot on both platforms.
-    expect(STALL_PLACEMENT).toEqual({ laneX: 20, groundDy: 46 });
+    expect(STALL_PLACEMENT).toEqual({ laneDx: 80, groundDy: 22, extentH: 49.2, shadowH: 5.1 });
   });
 
   it('renders at every encounter station whatever the learner position', () => {
@@ -850,19 +852,46 @@ describe('journey map — Chacha-ji stall landmark', () => {
     expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
   });
 
-  it('seats every stall in its own left lane, one pitch apart per interval', () => {
+  it('seats every stall right of the track in its halt row, one pitch apart', () => {
     const { STALL_PLACEMENT } = require('@/components/journey/Scenery');
     setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
     render(<JourneyScreen />);
     const seats = screen
-      .getAllByTestId(/^chacha-stall-/)
+      .getAllByTestId(/^chacha-stall-\d+$/)
       .map((el) => /translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(String(el.props.transform))!)
       .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
     expect(seats.length).toBe(3); // stations 3, 7 and 11
-    for (const s of seats) expect(s.x).toBe(STALL_PLACEMENT.laneX);
-    // One zone, so the rows are a clean 100px pitch apart: four stations
-    // between encounters every time.
-    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 100);
-    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 100);
+    // Right of the rail, which the halt row holds at the left flank marker x
+    // (92 on both platforms).
+    for (const s of seats) expect(s.x).toBe(92 + STALL_PLACEMENT.laneDx);
+    // One zone, so the interval is a clean four station rows plus the one
+    // halt row those four rows contain (74 tall, web parity).
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 100 + 74);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 100 + 74);
+  });
+
+  it('adds no stop, no number and nothing tappable with the halt row', () => {
+    // The map got longer, the line did not.
+    setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
+    render(<JourneyScreen />);
+    expect(screen.getAllByTestId(/^chacha-stall-\d+$/).length).toBe(3);
+    expect(screen.getAllByText(/^Stop \d+ of 11$/).length).toBe(11);
+    expect(screen.getByText('Stop 1 of 11')).toBeOnTheScreen();
+    expect(screen.getByText('Stop 11 of 11')).toBeOnTheScreen();
+    expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
+  });
+
+  it('stands Chacha-ji himself at every stall, as the delivered figure', () => {
+    // Web parity: the man the encounter is named after is on the map, and he
+    // is the shipped chachaji art rather than a second drawing of him.
+    setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
+    render(<JourneyScreen />);
+    const stalls = screen.getAllByTestId(/^chacha-stall-\d+$/);
+    const figures = screen.getAllByTestId('chacha-stall-figure');
+    expect(figures.length).toBe(stalls.length);
+    for (const figure of figures) {
+      expect(Number(figure.props.height)).toBeGreaterThanOrEqual(30);
+      expect(figure.props.href).toBeTruthy();
+    }
   });
 });

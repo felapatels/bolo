@@ -103,6 +103,12 @@ const STATION_H = 100; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
+// Chacha-ji's halt (web parity): a scenery-only row inserted after every
+// encounter station so his stall has a lane on the RIGHT of the track. It is
+// NOT a stop — no number, no marker, no card, nothing tappable, and it never
+// enters the station list, so stop numbering and the station count are
+// untouched. It only lengthens the map.
+const HALT_H = 74;
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
 
@@ -682,10 +688,12 @@ export default function JourneyScreen() {
   type Pt = {
     x: number;
     y: number;
-    kind: 'station' | 'postcard' | 'terminus';
+    kind: 'station' | 'postcard' | 'terminus' | 'halt';
     lit: boolean;
     station?: Station;
     zoneIndex?: number;
+    /** Halt rows only: the 1-based global station number this halt follows. */
+    haltAfterStation?: number;
   };
   const pts: Pt[] = [];
   const postcardYs: { y: number; zoneIndex: number }[] = [];
@@ -718,7 +726,24 @@ export default function JourneyScreen() {
         s.status === 'unlocked';
       pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: 'station', lit, station: s });
       layoutY += STATION_H;
+      const stationNumber = k + 1;
       k++;
+      // Chacha-ji's halt (web parity). Encounter stations are odd stops, so
+      // their 0-based index is even and the marker is always on the LEFT
+      // flank; the halt carries the rail straight down that same flank for a
+      // row, which frees the whole right side of the row for the stall. It
+      // advances the layout only: `k` does not move, so the serpentine phase,
+      // the stop numbers and the station count are all exactly what they were.
+      if (isChachaEncounterStation(stationNumber)) {
+        pts.push({
+          x: stationX(k - 1),
+          y: layoutY + HALT_H / 2,
+          kind: 'halt',
+          lit,
+          haltAfterStation: stationNumber,
+        });
+        layoutY += HALT_H;
+      }
     }
   }
   // Closeout suppression, direction one (web parity): the signal soft stop
@@ -731,6 +756,12 @@ export default function JourneyScreen() {
   const termX = k > 0 ? stationX(k - 1) : LEFT_X;
   const termY = layoutY + TERM_H / 2;
   pts.push({ x: termX, y: termY, kind: 'terminus', lit: allDone });
+  // A halt is a gap in the line, not a stop, so it takes the rail colour of
+  // the point it leads to. Inserting one therefore cannot change how any run
+  // of track is drawn, only how long it is.
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (pts[i]!.kind === 'halt') pts[i]!.lit = pts[i + 1]!.lit;
+  }
   const totalH = layoutY + TERM_H + 8;
 
   const segs = pts.slice(1).map((p, i) => {
@@ -765,9 +796,13 @@ export default function JourneyScreen() {
   // is visible before it is reached (web parity, identical lane and ground
   // line). Pure client geometry off the same predicate the arrival check uses:
   // no server call, no state, no encounter row. Rendering is NOT triggering.
+  const haltPts = new Map(
+    pts.filter((p) => p.kind === 'halt').map((p) => [p.haltAfterStation!, p]),
+  );
   const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
     const p = stationPts[station - 1];
-    if (!p) return [];
+    const halt = haltPts.get(station);
+    if (!p || !halt) return [];
     const zone = zones[p.station!.zoneIndex]!;
     const zoneAccessible = zone.stations.some(
       (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -779,8 +814,10 @@ export default function JourneyScreen() {
         kind: 'chaiStall' as const,
         station,
         zoneIndex: p.station!.zoneIndex,
-        x: STALL_PLACEMENT.laneX,
-        y: p.y + STALL_PLACEMENT.groundDy,
+        // RIGHT of the track: the halt keeps the rail on the left flank, and
+        // the lane clears the sweep back out toward the next station.
+        x: halt.x + STALL_PLACEMENT.laneDx,
+        y: halt.y + STALL_PLACEMENT.groundDy,
         gray: showroom && !zoneAccessible,
       },
     ];
