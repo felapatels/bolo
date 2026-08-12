@@ -94,6 +94,7 @@ import {
 import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
+import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from '@/lib/meaning-audio';
 import {
   LessonSettingsMenu,
   LanguageChip,
@@ -119,7 +120,14 @@ const TOGGLE_TOAST = {
   phraseAudioOff: 'Phrase audio off. You speak first.',
   feedbackAloudOn: 'Feedback aloud on. Your score is read out.',
   feedbackAloudOff: 'Feedback aloud off.',
+  meaningAloudOn: 'Meaning aloud on. English after each phrase.',
+  meaningAloudOff: 'Meaning aloud off.',
 } as const;
+
+// Beat between the phrase clip and the spoken English meaning. Same constant
+// as the practice screen (which took it from web's MEANING_SEGMENT_PAUSE_MS,
+// Task 1003) so all three surfaces leave the same gap.
+const MEANING_SEGMENT_PAUSE_MS = 400;
 
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',
@@ -309,9 +317,9 @@ function ReviewHeader({
   label: string;
   /** When provided, shows the settings gear + menu as the rightmost control.
    *  Review is a practice screen, so it carries the same gear, menu and
-   *  language chip the practice header does (minus Meaning, which review has
-   *  no code path for). The loading / empty / summary header variants pass
-   *  nothing and keep the plain spacer. */
+   *  language chip the practice header does — all three audio items included,
+   *  since Task 1046 gave review its own meaning segment. The loading / empty
+   *  / summary header variants pass nothing and keep the plain spacer. */
   settingsItems?: LessonSettingsItem[];
   /** Active language code for the display-only chip left of the gear. */
   languageCode?: string;
@@ -689,11 +697,45 @@ export default function ReviewScreen() {
     setToastKey((k) => k + 1);
   }, [silentModeUI]);
 
-  // The two audio items behind the header gear. Meaning is deliberately absent:
-  // review has no meaning-audio segment at all, and porting it is a separate,
-  // banked task — a disabled or stand-in item here would promise a control that
-  // does not exist. Both items read and write the screen's own state, so the
-  // Feedback item and the result-card mute are one value, not two copies.
+  // Meaning-aloud preference (Task 1046, practice parity): the English meaning
+  // is spoken right after each phrase clip. Mirrored in state for the header
+  // item. The ref starts null (unknown) because AsyncStorage is async: the
+  // first play awaits the stored value through readMeaningPref so a saved
+  // "off" is never raced by an optimistic default, and every later read is
+  // synchronous. The ref is read fresh at each step of the play chain so a
+  // flip applies to the very next segment without waiting for a re-render.
+  const [meaningAudioUI, setMeaningAudioUI] = React.useState(true);
+  const meaningPrefRef = React.useRef<boolean | null>(null);
+  const readMeaningPref = React.useCallback(async () => {
+    if (meaningPrefRef.current === null) {
+      meaningPrefRef.current = await loadMeaningAudio();
+    }
+    return meaningPrefRef.current;
+  }, []);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadMeaningAudio().then((enabled) => {
+      if (cancelled) return;
+      if (meaningPrefRef.current === null) meaningPrefRef.current = enabled;
+      setMeaningAudioUI(meaningPrefRef.current);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const toggleMeaningAudio = React.useCallback(() => {
+    const next = !meaningAudioUI;
+    setMeaningAudioUI(next);
+    meaningPrefRef.current = next;
+    void saveMeaningAudio(next);
+    setToastMessage(next ? TOGGLE_TOAST.meaningAloudOn : TOGGLE_TOAST.meaningAloudOff);
+    setToastKey((k) => k + 1);
+  }, [meaningAudioUI]);
+
+  // The three audio items behind the header gear, matching practice (Task 1046
+  // gave review its own meaning segment, so the item is real here now). Every
+  // item reads and writes the screen's own state, so the Feedback item and the
+  // result-card mute are one value, not two copies.
   const settingsItems = React.useMemo<LessonSettingsItem[]>(
     () => [
       {
@@ -725,11 +767,41 @@ export default function ReviewScreen() {
           setToastKey((k) => k + 1);
         },
       },
+      {
+        key: 'meaning',
+        label: LESSON_AUDIO_LABELS.meaning,
+        description: meaningAudioUI
+          ? 'English after each phrase'
+          : 'No English after each phrase',
+        enabled: meaningAudioUI,
+        iconOn: 'message-circle',
+        iconOff: 'message-circle',
+        // Same rule as practice: the coach-voice master gate silences the
+        // segment outright, so the item reads as unavailable rather than
+        // claiming a control that would do nothing.
+        disabled: !coachVoiceEnabled,
+        onToggle: toggleMeaningAudio,
+      },
     ],
-    [silentModeUI, spokenEnabled, toggleSilentMode, toggleSpokenFeedback],
+    [
+      silentModeUI,
+      spokenEnabled,
+      meaningAudioUI,
+      coachVoiceEnabled,
+      toggleSilentMode,
+      toggleSpokenFeedback,
+      toggleMeaningAudio,
+    ],
   );
 
   const audioCacheRef = React.useRef(new Map<number, { audioBase64: string; format: string }>());
+
+  // Per-session cache for the synthesized English meaning clips, keyed by
+  // phrase id alone: the meaning segment always speaks English, so the phrase
+  // cache's key shape does not apply. Practice parity (meaningCacheRef there).
+  const meaningCacheRef = React.useRef(
+    new Map<number, { audioBase64: string; format: string }>(),
+  );
 
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
@@ -749,8 +821,84 @@ export default function ReviewScreen() {
         format: res.format || 'mp3',
       });
       if (token !== playTokenRef.current) return;
+      // Second segment of the play chain (Task 1046, practice parity): after
+      // the phrase clip ends, a short pause, then the English meaning in an
+      // English voice. Best-effort by design: any synthesis or playback
+      // failure here falls back silently to the phrase-only behavior.
+      const synthMeaning = async () => {
+        const cachedMeaning = meaningCacheRef.current.get(phrase.id);
+        if (cachedMeaning) return cachedMeaning;
+        const fresh = await synth.mutateAsync({
+          data: {
+            // Review has no stage flag on its phrases, so the shared helper's
+            // own rules (sentence-final punctuation, six-or-more words) decide
+            // whether the meaning is prefixed.
+            text: meaningSpeechText(phrase.english),
+            languageName: 'English',
+            languageCode: 'en',
+          },
+        });
+        const entry = {
+          audioBase64: fresh.audioBase64,
+          format: fresh.format || 'mp3',
+        };
+        meaningCacheRef.current.set(phrase.id, entry);
+        return entry;
+      };
+      // Pre-warm the meaning clip while the phrase clip plays so the beat
+      // after it stays near MEANING_SEGMENT_PAUSE_MS even on a cold cache. On
+      // failure the handle resets so playMeaning retries fresh and keeps
+      // owning the fail-silent fallback.
+      let meaningPrewarm: ReturnType<typeof synthMeaning> | null = null;
+      const meaningOn = await readMeaningPref();
+      if (token !== playTokenRef.current) return;
+      if (meaningOn && phrase.english) {
+        const prewarm = synthMeaning();
+        meaningPrewarm = prewarm;
+        prewarm.catch(() => {
+          if (meaningPrewarm === prewarm) meaningPrewarm = null;
+        });
+      }
+      const playMeaning = async () => {
+        if (token !== playTokenRef.current) return;
+        // Read the preference fresh at play time so a toggle flip applies to
+        // the very next play without a reload (practice parity).
+        if (!meaningPrefRef.current || !phrase.english) {
+          setCoachPlaying(false);
+          return;
+        }
+        try {
+          // The pause and the (pre-warmed or fresh) synthesis overlap so the
+          // gap between the two segments stays close to the intended beat.
+          const [meaningRes] = await Promise.all([
+            meaningPrewarm ?? synthMeaning(),
+            new Promise((resolve) =>
+              setTimeout(resolve, MEANING_SEGMENT_PAUSE_MS),
+            ),
+          ]);
+          if (token !== playTokenRef.current) return;
+          playbackRef.current = await playBase64Audio(
+            meaningRes.audioBase64,
+            meaningRes.format || 'mp3',
+            () => {
+              if (token === playTokenRef.current) setCoachPlaying(false);
+            },
+          );
+          if (token !== playTokenRef.current) {
+            playbackRef.current?.stop();
+            playbackRef.current = null;
+          }
+        } catch {
+          // Fail silent to phrase-only: the phrase clip already played in
+          // full, so simply drop back as if the meaning were off.
+          if (token === playTokenRef.current) setCoachPlaying(false);
+        }
+      };
       playbackRef.current = await playBase64Audio(res.audioBase64, res.format || 'mp3', () => {
-        setCoachPlaying(false);
+        // coachPlaying (and the disabled listen buttons) span the meaning
+        // segment too, so the whole chain rides one playback token: barge-in
+        // and iOS routing need no extra handling.
+        void playMeaning();
       });
       if (token !== playTokenRef.current) {
         playbackRef.current?.stop();

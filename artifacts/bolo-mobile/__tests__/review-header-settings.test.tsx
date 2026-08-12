@@ -1,9 +1,11 @@
 // Task #1045: mobile review header parity. Review is a practice screen, so it
 // carries the same settings gear, the same labeled audio menu, and the same
-// display-only language chip the practice header does — with TWO items only,
-// Phrase and Feedback. Meaning is deliberately absent: review has no
-// meaning-audio segment at all (porting it is banked separately), and a
-// disabled stand-in would promise a control that does not exist.
+// display-only language chip the practice header does.
+//
+// Task #1046 closed the last gap: review now has its own meaning-audio
+// segment, so the menu carries all THREE items — Phrase, Feedback and
+// Meaning. The segment's own behaviour is pinned in
+// review-meaning-audio.test.tsx; this file only covers the header.
 //
 // Harness shape copied from review-we-heard-romanized.test.tsx.
 
@@ -125,6 +127,7 @@ jest.mock('@/components/Screen', () => {
 // Imported after the mocks are declared.
 import ReviewScreen from '@/app/(app)/review';
 import { playBase64Audio } from '@/lib/audio';
+import { LESSON_AUDIO_LABELS } from '@/components/LessonSettingsMenu';
 
 const phraseA = {
   id: 1,
@@ -173,6 +176,11 @@ function evalResult(overrides: Record<string, unknown> = {}) {
 beforeEach(async () => {
   await AsyncStorage.clear();
   await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
+  // Meaning audio off for this file: it is a header test, and leaving the
+  // segment on would put a 400ms beat + a second synth/playback on every
+  // autoplay, coupling the playBase64Audio assertions below to that timer.
+  // The segment itself is covered in review-meaning-audio.test.tsx.
+  await AsyncStorage.setItem('bolo.meaningAudio', 'off');
   mockState.activeLang = 'gu';
   mockState.phrases = successQuery([phraseA]);
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
@@ -228,7 +236,7 @@ describe('review header: settings gear and menu (#1045)', () => {
     expect(screen.getByTestId('lesson-settings-sheet')).toBeOnTheScreen();
   });
 
-  test('the menu carries exactly two labeled items — Autoplay phrase and Spoken feedback, never Speak meaning', async () => {
+  test('the menu carries all three labeled items — Autoplay phrase, Spoken feedback and Speak meaning', async () => {
     await openReview();
     await openMenu();
 
@@ -237,22 +245,26 @@ describe('review header: settings gear and menu (#1045)', () => {
     expect(items.map((node) => node.props.testID)).toEqual([
       'settings-item-phrase',
       'settings-item-feedback',
+      'settings-item-meaning',
     ]);
-    // Owner-approved wording, verbatim (#1044) — not the implementer's to pick.
-    expect(sheet.getByText('Autoplay phrase')).toBeOnTheScreen();
-    expect(sheet.getByText('Spoken feedback')).toBeOnTheScreen();
-    expect(sheet.queryByText('Speak meaning')).toBeNull();
-    expect(screen.queryByText(/meaning/i)).toBeNull();
+    // Owner-approved wording, verbatim (#1044) — not the implementer's to
+    // pick. Each label must be the LESSON_AUDIO_LABELS string, so practice and
+    // review can never word the same control differently.
+    expect(sheet.getByText(LESSON_AUDIO_LABELS.phrase)).toBeOnTheScreen();
+    expect(sheet.getByText(LESSON_AUDIO_LABELS.feedback)).toBeOnTheScreen();
+    expect(sheet.getByText(LESSON_AUDIO_LABELS.meaning)).toBeOnTheScreen();
+    expect(sheet.getByText('Speak meaning')).toBeOnTheScreen();
   });
 
   test('each item shows its on/off state', async () => {
     await openReview();
     await openMenu();
 
-    // Silent mode defaults off (coach speaks first); spoken feedback is off
-    // for this fixture.
+    // Silent mode defaults off (coach speaks first); spoken feedback and
+    // meaning audio are off for this fixture.
     expect(screen.getByTestId('settings-item-phrase-state')).toHaveTextContent('ON');
     expect(screen.getByTestId('settings-item-feedback-state')).toHaveTextContent('OFF');
+    expect(screen.getByTestId('settings-item-meaning-state')).toHaveTextContent('OFF');
   });
 
   test('the menu closes on selecting an item, and on an outside tap', async () => {

@@ -21,9 +21,9 @@ import { AppFonts } from '@/constants/fonts';
 /**
  * OWNER-APPROVED item wording, verbatim (#1044). These strings are not the
  * implementer's to pick — both lesson screens read them from here so the two
- * can never word the same control differently. `meaning` is listed because
- * practice carries that item; mobile review omits it entirely (it has no
- * meaning-audio code path).
+ * can never word the same control differently. All three items are real on
+ * both screens: review gained its own meaning-audio segment in #1046, so it
+ * no longer omits `meaning`.
  */
 export const LESSON_AUDIO_LABELS = {
   phrase: 'Autoplay phrase',
