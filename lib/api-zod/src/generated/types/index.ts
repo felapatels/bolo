@@ -16,6 +16,7 @@ export * from './accountProfile';
 export * from './accountProfileResult';
 export * from './accountSubscriptionSummary';
 export * from './addPhrasesInput';
+export * from './appendRefused';
 export * from './attempt';
 export * from './attemptBand';
 export * from './attemptInput';

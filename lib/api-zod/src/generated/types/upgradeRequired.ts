@@ -15,7 +15,7 @@ export interface UpgradeRequired {
   error: string;
   /** Always true. */
   upgradeRequired: boolean;
-  /** language_locked | daily_lesson_limit | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language). */
+  /** language_locked | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language) | phrase_ceiling (the topic holds as many phrases as this plan allows; only All-Access lifts it). daily_lesson_limit is retired and no longer sent. */
   reason: string;
   message: string;
   /** The related feature flag, when applicable (e.g. "allLanguages"). */

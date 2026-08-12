@@ -10,6 +10,7 @@ import {
 export const lessonGenerationKindEnum = pgEnum("lesson_generation_kind", [
   "initial",
   "replenishment",
+  "manual",
 ]);
 import { usersTable } from "./users";
 import { languagesTable } from "./languages";
@@ -30,9 +31,13 @@ export const lessonGenerationsTable = pgTable("lesson_generations", {
   // Metadata only (which topic was generated); not foreign-keyed so a category
   // change never blocks recording an already-incurred generation.
   categoryId: integer("category_id").notNull(),
-  // 'initial' = a brand-new topic the learner opened for the first time (counts
-  // toward the Free daily cap). 'replenishment' = a background top-up on an
-  // existing topic (never counted toward the cap).
+  // 'initial'       = a brand-new topic the learner opened for the first time.
+  // 'replenishment' = a background top-up on an existing topic.
+  // 'manual'        = a learner-initiated "Add more phrases" append. Kept
+  //                   distinct from 'initial' so append rate is answerable, and
+  //                   so the background replenisher's per-topic cooldown can
+  //                   ignore it: one learner's tap must not suppress background
+  //                   top-ups for everyone else on that topic.
   kind: lessonGenerationKindEnum("kind").notNull().default("initial"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

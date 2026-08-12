@@ -50,8 +50,9 @@ export const ListCategoriesResponseItem = zod.object({
   "accent": zod.string(),
   "sortOrder": zod.number(),
   "titleNative": zod.string().nullable(),
-  "phraseCount": zod.number(),
+  "phraseCount": zod.number().describe('How many phrase rows this caller can see in the topic. This is the number the topic\'s phrase ceiling is measured against.'),
   "masteredCount": zod.number(),
+  "phraseCeiling": zod.number().optional().describe('The most phrases this topic may grow to on the caller\'s plan (visible rows, phrase stage only). Server-authoritative: clients must not hardcode it. When phraseCount has reached it, \"Add more phrases\" is not offered.'),
   "lockedPhraseCount": zod.number().describe('How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library.'),
   "sentenceCount": zod.number().describe('How many full sentences the topic\'s Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language.'),
   "sentencesLocked": zod.boolean().describe('Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences.'),
@@ -316,6 +317,8 @@ export const ListCategoryPhrasesResponse = zod.array(ListCategoryPhrasesResponse
 
 /**
  * Generates additional beginner phrases in the language's native script, avoiding phrases already in the lesson, and appends them to the existing lesson so they persist and count toward progress.
+ *
+ * Bounded three ways. Appends to one topic are serialized on a topic-keyed lock, so concurrent taps can never insert duplicates: a caller who loses the race gets 409 append_in_progress. The topic may not grow past the plan's phraseCeiling (see Category), counted in visible rows; a request near the boundary is clamped to the remaining headroom rather than refused, and only zero headroom refuses: 402 phrase_ceiling when an upgrade would lift it, 409 topic_full on All-Access and Family, where nothing would. Each learner may append ten times per rolling hour across all topics; beyond that, 429 append_rate_limited with retryAfterSeconds. Every refusal happens before any AI call, so a blocked tap costs nothing.
  * @summary Generate and append fresh AI phrases to a category's lesson
  */
 export const AddCategoryPhrasesParams = zod.object({
@@ -579,7 +582,7 @@ export const GetProgressAnalyticsResponse = zod.object({
 
 
 /**
- * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked, and today's remaining daily new-lesson allowance. Clients call this to know what is unlocked and how to render the paywall.
+ * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked. The daily new-lesson meter is retired: dailyNewLessons reports null limits for every plan and is kept only for installed builds. Clients call this to know what is unlocked and how to render the paywall.
  * @summary The caller's plan, unlocked features, and daily limits
  */
 export const GetEntitlementsResponse = zod.object({

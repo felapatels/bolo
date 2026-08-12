@@ -1,11 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  FREE_DAILY_NEW_LESSON_CAP,
   FREE_LANGUAGE,
   allowedLanguagesForPlan,
   buildEntitlements,
-  dailyNewLessonLimit,
   featuresForPlan,
   isLanguageAllowed,
   resolvePlan,
@@ -133,9 +131,9 @@ test("free entitlements report unlimited daily lessons and only the free languag
   assert.equal(e.limits.dailyNewLessons.remaining, null);
 });
 
-test("free usage above the retired cap still reports unlimited", () => {
+test("heavy daily usage still reports unlimited (no daily meter)", () => {
   const r = resolvePlan(state(), NOW);
-  const e = buildEntitlements(r, FREE_DAILY_NEW_LESSON_CAP + 5, ["hi"]);
+  const e = buildEntitlements(r, 8, ["hi"]);
   assert.equal(e.limits.dailyNewLessons.limit, null);
   assert.equal(e.limits.dailyNewLessons.remaining, null);
 });
@@ -196,10 +194,24 @@ test("one_language features: unlimited lessons on, everything else off", () => {
   assert.equal(f.extendedLibrary, false);
 });
 
-test("every tier has an unlimited daily-lesson allowance (Free cap retired)", () => {
-  assert.equal(dailyNewLessonLimit("one_language"), null);
-  assert.equal(dailyNewLessonLimit("plus"), null);
-  assert.equal(dailyNewLessonLimit("free"), null);
+test("every tier reports an unlimited daily-lesson allowance", () => {
+  // There is no daily meter on any tier: AI cost is bounded per topic by the
+  // phrase ceiling and per user by the manual-append burst bound. The wire
+  // field stays for installed builds and always reports unlimited.
+  for (const tier of ["free", "one_language", "plus"] as const) {
+    const r = resolvePlan(
+      state(
+        tier === "free"
+          ? {}
+          : { tier, subscriptionStatus: "active", chosenLanguage: "gu" },
+      ),
+      NOW,
+    );
+    const e = buildEntitlements(r, 12, ["hi"]);
+    assert.equal(e.limits.dailyNewLessons.limit, null);
+    assert.equal(e.limits.dailyNewLessons.remaining, null);
+    assert.equal(e.limits.dailyNewLessons.used, 12);
+  }
 });
 
 test("one_language allows Hindi plus the chosen language, nothing else", () => {

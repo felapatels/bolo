@@ -261,8 +261,11 @@ export interface Category {
   sortOrder: number;
   /** @nullable */
   titleNative: string | null;
+  /** How many phrase rows this caller can see in the topic. This is the number the topic's phrase ceiling is measured against. */
   phraseCount: number;
   masteredCount: number;
+  /** The most phrases this topic may grow to on the caller's plan (visible rows, phrase stage only). Server-authoritative: clients must not hardcode it. When phraseCount has reached it, "Add more phrases" is not offered. */
+  phraseCeiling?: number;
   /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
   lockedPhraseCount: number;
   /** How many full sentences the topic's Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language. */
@@ -916,7 +919,7 @@ export interface UpgradeRequired {
   error: string;
   /** Always true. */
   upgradeRequired: boolean;
-  /** language_locked | daily_lesson_limit | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language). */
+  /** language_locked | feature_locked | chat_time_limit | teaser_exhausted (the caller used up their free teaser phrases in this locked language) | phrase_ceiling (the topic holds as many phrases as this plan allows; only All-Access lifts it). daily_lesson_limit is retired and no longer sent. */
   reason: string;
   message: string;
   /** The related feature flag, when applicable (e.g. "allLanguages"). */
@@ -924,6 +927,18 @@ export interface UpgradeRequired {
   /** The cheapest plan that unlocks the action ("one_language" or "plus"). */
   requiredPlan: string;
   teaser?: TeaserProgress;
+}
+
+/**
+ * A refused "Add more phrases" tap that no upgrade would fix. Clients must branch on `reason`, never on the message text.
+ */
+export interface AppendRefused {
+  /** Learner-facing explanation, safe to show as-is. */
+  error: string;
+  /** append_in_progress (an append for this topic is already running) | topic_full (top tier, topic at its ceiling, no upgrade exists) | append_rate_limited (hourly per-learner burst bound reached). */
+  reason: string;
+  /** Seconds until the learner may append again. Only sent with append_rate_limited. */
+  retryAfterSeconds?: number;
 }
 
 export interface PlanFeatures {

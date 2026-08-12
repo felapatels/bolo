@@ -12,7 +12,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MASTERY_THRESHOLD, REVIEW_PASS_THRESHOLD } from "./progressMetrics.js";
-import { FREE_DAILY_NEW_LESSON_CAP, FREE_WEEKLY_CHAT_SECONDS_CAP } from "./entitlements.js";
+import { FREE_WEEKLY_CHAT_SECONDS_CAP } from "./entitlements.js";
+import {
+  MANUAL_APPENDS_PER_HOUR,
+  PHRASE_CEILINGS,
+} from "./phraseCeilings.js";
 import { BAND_THRESHOLDS } from "./scoreBands.js";
 
 test("MASTERY_THRESHOLD = 80", () => {
@@ -23,8 +27,19 @@ test("REVIEW_PASS_THRESHOLD = 60", () => {
   assert.strictEqual(REVIEW_PASS_THRESHOLD, 60);
 });
 
-test("FREE_DAILY_NEW_LESSON_CAP = 3", () => {
-  assert.strictEqual(FREE_DAILY_NEW_LESSON_CAP, 3);
+// The topic phrase ceiling replaced the retired daily new-lesson cap as the
+// bound on AI cost. Clients read the ceiling off the category listing rather
+// than hardcoding it, so only the tier map is pinned here.
+test("PHRASE_CEILINGS = { free: 20, one_language: 20, plus: 60 }", () => {
+  assert.deepStrictEqual(PHRASE_CEILINGS, {
+    free: 20,
+    one_language: 20,
+    plus: 60,
+  });
+});
+
+test("MANUAL_APPENDS_PER_HOUR = 10", () => {
+  assert.strictEqual(MANUAL_APPENDS_PER_HOUR, 10);
 });
 
 test("FREE_WEEKLY_CHAT_SECONDS_CAP = 120", () => {

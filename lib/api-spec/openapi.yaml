@@ -377,7 +377,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Phrase"
         "402":
-          description: Upgrade required (Plus-only language or Free daily lesson cap reached)
+          description: Upgrade required (Plus-only language)
           content:
             application/json:
               schema:
@@ -396,6 +396,19 @@ paths:
         Generates additional beginner phrases in the language's native script,
         avoiding phrases already in the lesson, and appends them to the existing
         lesson so they persist and count toward progress.
+
+
+        Bounded three ways. Appends to one topic are serialized on a
+        topic-keyed lock, so concurrent taps can never insert duplicates: a
+        caller who loses the race gets 409 append_in_progress. The topic may not
+        grow past the plan's phraseCeiling (see Category), counted in visible
+        rows; a request near the boundary is clamped to the remaining headroom
+        rather than refused, and only zero headroom refuses: 402
+        phrase_ceiling when an upgrade would lift it, 409 topic_full on
+        All-Access and Family, where nothing would. Each learner may append ten
+        times per rolling hour across all topics; beyond that, 429
+        append_rate_limited with retryAfterSeconds. Every refusal happens before
+        any AI call, so a blocked tap costs nothing.
       parameters:
         - name: id
           in: path
@@ -415,7 +428,9 @@ paths:
               $ref: "#/components/schemas/AddPhrasesInput"
       responses:
         "200":
-          description: The newly added phrases
+          description: >-
+            The newly added phrases. An empty array means the request succeeded
+            but the model only returned phrases the topic already had.
           content:
             application/json:
               schema:
@@ -423,7 +438,10 @@ paths:
                 items:
                   $ref: "#/components/schemas/Phrase"
         "402":
-          description: Upgrade required (Plus-only language or Free daily lesson cap reached)
+          description: >-
+            Upgrade required, for a Plus-only language, or reason
+            phrase_ceiling: the topic holds as many phrases as this plan allows
+            and All-Access would lift it.
           content:
             application/json:
               schema:
@@ -434,6 +452,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "409":
+          description: >-
+            Refused with nothing to upgrade to. reason append_in_progress: an
+            append for this topic is already running, retry shortly. reason
+            topic_full: the caller is on the top tier and the topic is at its
+            ceiling, so no upgrade prompt should be shown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppendRefused"
+        "429":
+          description: >-
+            reason append_rate_limited: the learner has used their ten manual
+            appends for this rolling hour. retryAfterSeconds says when they may
+            continue; also sent as the Retry-After header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppendRefused"
 
   /review/phrases:
     get:
@@ -637,7 +674,8 @@ paths:
       description: >-
         Returns the authenticated user's effective plan (Free vs Bolo! Plus),
         subscription status, the languages they may access, the feature flags
-        they have unlocked, and today's remaining daily new-lesson allowance.
+        they have unlocked. The daily new-lesson meter is retired: dailyNewLessons
+        reports null limits for every plan and is kept only for installed builds.
         Clients call this to know what is unlocked and how to render the paywall.
       responses:
         "200":
@@ -2685,8 +2723,18 @@ components:
           type: ["string", "null"]
         phraseCount:
           type: integer
+          description: >-
+            How many phrase rows this caller can see in the topic. This is the
+            number the topic's phrase ceiling is measured against.
         masteredCount:
           type: integer
+        phraseCeiling:
+          type: integer
+          description: >-
+            The most phrases this topic may grow to on the caller's plan
+            (visible rows, phrase stage only). Server-authoritative: clients
+            must not hardcode it. When phraseCount has reached it, "Add more
+            phrases" is not offered.
         lockedPhraseCount:
           type: integer
           description: >-
@@ -3788,9 +3836,11 @@ components:
         reason:
           type: string
           description: >-
-            language_locked | daily_lesson_limit | feature_locked |
-            chat_time_limit | teaser_exhausted (the caller used up their free
-            teaser phrases in this locked language).
+            language_locked | feature_locked | chat_time_limit |
+            teaser_exhausted (the caller used up their free teaser phrases in
+            this locked language) | phrase_ceiling (the topic holds as many
+            phrases as this plan allows; only All-Access lifts it).
+            daily_lesson_limit is retired and no longer sent.
         message:
           type: string
         feature:
@@ -3811,6 +3861,30 @@ components:
         - message
         - feature
         - requiredPlan
+
+    AppendRefused:
+      type: object
+      description: >-
+        A refused "Add more phrases" tap that no upgrade would fix. Clients must
+        branch on `reason`, never on the message text.
+      properties:
+        error:
+          type: string
+          description: Learner-facing explanation, safe to show as-is.
+        reason:
+          type: string
+          description: >-
+            append_in_progress (an append for this topic is already running) |
+            topic_full (top tier, topic at its ceiling, no upgrade exists) |
+            append_rate_limited (hourly per-learner burst bound reached).
+        retryAfterSeconds:
+          type: integer
+          description: >-
+            Seconds until the learner may append again. Only sent with
+            append_rate_limited.
+      required:
+        - error
+        - reason
 
     TeaserProgress:
       type: object

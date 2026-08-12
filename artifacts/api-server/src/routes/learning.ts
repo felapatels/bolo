@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db,
+  pool,
   categoriesTable,
   lessonsTable,
   lessonGroupsTable,
@@ -95,9 +96,15 @@ import {
   listUnlockedStopIds,
 } from "../lib/stopUnlock";
 import {
-  dailyLessonCapDenial,
+  manualAppendBurstDenial,
   recordLessonGeneration,
 } from "../lib/lessonLimits";
+import {
+  countVisiblePhrases,
+  phraseCeilingForPlan,
+  remainingHeadroom,
+  MANUAL_APPENDS_PER_HOUR,
+} from "../lib/phraseCeilings";
 import {
   UpgradeRequiredError,
   featuresForPlan,
@@ -115,6 +122,7 @@ import {
   replenishPhrases,
   shouldReplenish,
   shouldReplenishFree,
+  topicLockKey,
   FREE_REPLENISH_COOLDOWN_MS,
   FREE_PHRASE_CEILING,
 } from "../lib/phraseReplenisher";
@@ -447,8 +455,17 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       accent: c.accent,
       sortOrder: c.sortOrder,
       titleNative: titleByCategory.get(c.id) ?? null,
+      // phraseCount IS the caller's visible phrase-row count: the ceiling below
+      // is measured against exactly this number, so a client never needs to
+      // recount or hardcode either side.
       phraseCount: phraseIds.length,
       masteredCount,
+      // The most phrases this topic may grow to on the caller's plan. Served so
+      // no client hardcodes the number: it decides whether "Add more phrases"
+      // is offered at all.
+      phraseCeiling: phraseCeilingForPlan(
+        (req as EntitledRequest).resolvedPlan.plan,
+      ),
       // How many additional phrases upgrading to Bolo! Plus would unlock for
       // this topic. Always 0 for a caller who already has the extended library.
       lockedPhraseCount: lockedByCategory.get(c.id) ?? 0,
@@ -535,14 +552,10 @@ router.get(
 
     let phrases: typeof phrasesTable.$inferSelect[];
     try {
-      // Enforce the Free daily new-lesson cap only when a real generation is
-      // about to happen (a cache miss) — opening an already-cached lesson is
-      // always free and costs nothing.
+      // Opening a topic is never metered: AI cost is bounded per topic by the
+      // phrase ceiling and per user by the manual-append burst bound, so a
+      // first open just generates and records the build for cost visibility.
       phrases = await getOrCreateLessonPhrases(lang, id, generateLesson, {
-        beforeGenerate: async () => {
-          const denial = await dailyLessonCapDenial(resolvedPlan, userId);
-          if (denial) throw new UpgradeRequiredError(denial);
-        },
         afterGenerate: async () => {
           await recordLessonGeneration(userId, lang, id);
         },
@@ -588,11 +601,15 @@ router.get(
     // never delays or interrupts the current session. Two independent paths:
     //
     //  Plus: triggers at 60 % engagement (REPLENISH_THRESHOLD), 10-min
-    //        cooldown, no ceiling — dedup-protected inside replenishPhrases.
+    //        cooldown, All-Access ceiling.
     //
     //  Free/One Language: triggers at 80 % engagement, 24-hour cooldown,
-    //        hard ceiling of FREE_PHRASE_CEILING phrases per topic, uses a
-    //        distinct advisory-lock prefix so the two paths never collide.
+    //        starter ceiling.
+    //
+    // Both paths pass the caller's plan and its ceiling, and both take the SAME
+    // topic advisory lock the manual append path takes. One writer per topic at
+    // a time is the whole point: distinct lock prefixes let two writers generate
+    // against one snapshot, which is how duplicates got in.
     //
     // Engagement is measured against the FULL accessible list, not the
     // unlock-filtered one: locked-group phrases can't be attempted, so
@@ -604,6 +621,8 @@ router.get(
         languageCode: lang,
         categoryId: id,
         userId,
+        phraseCeiling: phraseCeilingForPlan(resolvedPlan.plan),
+        plan: resolvedPlan.plan,
       }).catch((err) => {
         req.log.error({ err }, "Background phrase replenishment failed");
       });
@@ -614,7 +633,10 @@ router.get(
         userId,
         cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
         phraseCeiling: FREE_PHRASE_CEILING,
-        lockKeyPrefix: "phrase-replenish-free",
+        // The ceiling counts rows this plan can SEE, not every row in the
+        // topic. Without the plan it would count premium rows a Free learner
+        // cannot open and bail on every live topic.
+        plan: resolvedPlan.plan,
       }).catch((err) => {
         req.log.error({ err }, "Background Free phrase replenishment failed");
       });
@@ -845,18 +867,57 @@ router.post(
       return;
     }
 
-    // Free is limited to Hindi, and appending fresh AI phrases is a real
-    // generation, so it counts against the Free daily new-lesson cap.
+    // Free is limited to Hindi. Appending fresh AI phrases is a real generation,
+    // bounded by the topic ceiling below and the per-user burst bound here.
     if (await denyLockedLanguage(req, res, lang)) return;
     const { resolvedPlan } = req as EntitledRequest;
-    const capDenial = await dailyLessonCapDenial(resolvedPlan, userId);
-    if (capDenial) {
-      sendUpgradeRequired(res, capDenial);
-      return;
-    }
+    const plan = resolvedPlan.plan;
 
     let created: (typeof phrasesTable.$inferSelect)[];
+    // Two session-level advisory locks, both held on one dedicated pooled
+    // client and both released in `finally`: leaking either would wedge future
+    // appends until the process restarted. They are ALWAYS taken in this order,
+    // learner then topic, so they cannot deadlock against each other.
+    const lockClient = await pool.connect();
+    const userLockKey = `phrase-append-user:${userId}`;
+    const lockKey = topicLockKey(lang, id);
+    let userLocked = false;
+    let topicLocked = false;
     try {
+      // ── One append at a time per learner ──
+      // The burst bound below is a read, so counting it outside a lock let one
+      // learner fire taps at several topics at once: every one of them counted
+      // the same nine rows, and every one of them paid for a generation. Taken
+      // before the count, this makes the count exact, because nobody else can
+      // add manual rows for this learner while it is held.
+      const userLockRes = await lockClient.query<{ locked: boolean }>(
+        "SELECT pg_try_advisory_lock(hashtext($1)) AS locked",
+        [userLockKey],
+      );
+      userLocked = userLockRes.rows[0]?.locked === true;
+      if (!userLocked) {
+        res.status(409).json({
+          error:
+            "New phrases are already on their way. Try again in a moment.",
+          reason: "append_in_progress",
+        });
+        return;
+      }
+
+      // Per-user burst bound: ten manual appends per rolling hour, every tier,
+      // across all topics. Checked before the lesson build and before any AI
+      // call, so a refused tap costs nothing.
+      const burst = await manualAppendBurstDenial(userId);
+      if (burst) {
+        res.setHeader("Retry-After", String(burst.retryAfterSeconds));
+        res.status(429).json({
+          error: `That's ${MANUAL_APPENDS_PER_HOUR} batches of new phrases in an hour. Practice what you have and try again shortly.`,
+          reason: "append_rate_limited",
+          retryAfterSeconds: burst.retryAfterSeconds,
+        });
+        return;
+      }
+
       // Make sure the lesson (and its original phrases) exist first so the new
       // phrases attach to the same lesson and show up alongside the originals.
       await getOrCreateLessonPhrases(lang, id);
@@ -869,11 +930,69 @@ router.post(
         return;
       }
 
+      // ── Serialize the append path (the data defect) ──
+      // The de-duplication below is only as good as the snapshot it runs
+      // against. Ten concurrent taps used to read the SAME snapshot, each pass
+      // their own duplicate check, and each insert, permanently duplicating a
+      // learner's phrases. This is the same topic-keyed advisory lock the
+      // background replenisher already uses (same key format, same default
+      // prefix), so a tap and a background top-up for one topic can never
+      // generate against the same snapshot at once.
+      const lockRes = await lockClient.query<{ locked: boolean }>(
+        "SELECT pg_try_advisory_lock(hashtext($1)) AS locked",
+        [lockKey],
+      );
+      topicLocked = lockRes.rows[0]?.locked === true;
+      if (!topicLocked) {
+        // Losing the race is not a success and not a duplicate: say so, so the
+        // client can retry instead of showing an add that added nothing.
+        res.status(409).json({
+          error:
+            "New phrases for this topic are already on their way. Try again in a moment.",
+          reason: "append_in_progress",
+        });
+        return;
+      }
+
+      // Read the snapshot INSIDE the lock. Reading it before taking the lock
+      // would leave the race exactly as it was.
       const existing = await db.query.phrasesTable.findMany({
         where: (t, { eq: eqFn, and: andFn }) =>
           andFn(eqFn(t.lessonId, lesson.id), eqFn(t.stage, "phrase")),
         orderBy: (t, { asc: ascFn }) => [ascFn(t.sortOrder)],
       });
+
+      // ── Ceiling, before any AI call (the cost defect) ──
+      // Counted on rows VISIBLE to this caller's tier: counting premium rows a
+      // Free learner cannot open would refuse their very first tap as "full"
+      // while they can see 8 phrases. A request near the boundary is clamped to
+      // the headroom rather than refused; only zero headroom refuses.
+      const visibleCount = countVisiblePhrases(existing, plan);
+      const headroom = remainingHeadroom(visibleCount, plan);
+      if (headroom === 0) {
+        if (featuresForPlan(plan).extendedLibrary) {
+          // Top tier: there is nothing to upgrade to, so this must never render
+          // an upgrade prompt.
+          res.status(409).json({
+            error: "This topic is full. It holds every phrase it can.",
+            reason: "topic_full",
+          });
+        } else {
+          sendUpgradeRequired(
+            res,
+            upgradeRequired(
+              "phrase_ceiling",
+              `This topic is full at ${phraseCeilingForPlan(plan)} phrases on your plan. All-Access raises every topic to ${phraseCeilingForPlan("plus")}.`,
+              "extendedLibrary",
+              // One Language shares Free's ceiling, so All-Access is the only
+              // plan that actually lifts it.
+              "plus",
+            ),
+          );
+        }
+        return;
+      }
+      const requested = Math.min(count, headroom);
 
       const generated = await generateAdditionalPhrases({
         languageName: language.name,
@@ -886,12 +1005,15 @@ router.post(
           romanized: p.romanized,
           english: p.english,
         })),
-        count,
+        count: requested,
       });
 
-      // The AI generation happened (a cost was incurred) — record it against the
-      // caller's daily allowance regardless of how many survive de-duplication.
-      await recordLessonGeneration(userId, lang, id);
+      // The AI generation happened (a cost was incurred), so record it as a
+      // MANUAL append, distinct from a first-time lesson build, regardless of
+      // how many survive de-duplication. This is what makes tap rate answerable
+      // and what keeps one learner's tap from suppressing background top-ups
+      // for everyone else on this topic.
+      await recordLessonGeneration(userId, lang, id, "manual");
 
       // Server-side guard against the model echoing existing phrases (or
       // duplicating within its own batch) despite the prompt.
@@ -902,6 +1024,9 @@ router.post(
         if (!key || seen.has(key)) continue;
         seen.add(key);
         fresh.push(g);
+        // The model can hand back more than it was asked for. The ceiling binds
+        // what is inserted, not what was requested.
+        if (fresh.length >= headroom) break;
       }
 
       if (fresh.length === 0) {
@@ -931,6 +1056,23 @@ router.post(
       req.log.error({ err }, "Adding phrases failed");
       res.status(502).json({ error: "Could not add new phrases" });
       return;
+    } finally {
+      // Release only what this request actually holds, in reverse order, and
+      // never let a release failure mask the response.
+      for (const [held, key] of [
+        [topicLocked, lockKey],
+        [userLocked, userLockKey],
+      ] as const) {
+        if (!held) continue;
+        try {
+          await lockClient.query("SELECT pg_advisory_unlock(hashtext($1))", [
+            key,
+          ]);
+        } catch (err) {
+          req.log.error({ err }, "Releasing the phrase-append lock failed");
+        }
+      }
+      lockClient.release();
     }
 
     const attempts = await fetchUserAttempts(userId, lang);

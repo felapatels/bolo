@@ -28,9 +28,10 @@ import type {
 } from "../lib/lessonGenerator";
 import {
   countLessonGenerationsToday,
-  dailyLessonCapDenial,
+  countManualAppendsInWindow,
+  manualAppendBurstDenial,
 } from "../lib/lessonLimits";
-import type { ResolvedPlan } from "../lib/entitlements";
+import { MANUAL_APPENDS_PER_HOUR } from "../lib/phraseCeilings";
 
 // Covers the Plus auto-replenishment contract:
 //   - the pure trigger: Plus-only, fires only once the learner has engaged
@@ -262,7 +263,6 @@ test("replenishPhrases with Free options respects the phrase ceiling", async () 
     generate: gen.generate,
     cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
     phraseCeiling: FREE_PHRASE_CEILING,
-    lockKeyPrefix: "phrase-replenish-free",
   });
   assert.equal(added, 0, "ceiling guard must block generation");
   assert.equal(gen.calls(), 0, "AI must not be called when at ceiling");
@@ -448,16 +448,6 @@ test("replenishment records generation tracking but never hits a cap for Plus", 
   // ...but because it is kind='replenishment', it does NOT count toward the
   // Free daily cap (countLessonGenerationsToday only counts 'initial' rows).
   assert.equal(await countLessonGenerationsToday(USER), 0);
-  // Consequently a Plus caller is never denied.
-  const plus: ResolvedPlan = {
-    plan: "plus",
-    status: "active",
-    trialEndsAt: null,
-    currentPeriodEnd: null,
-    chosenLanguage: null,
-    pauseUntil: null,
-  };
-  assert.equal(await dailyLessonCapDenial(plus, USER), null);
 });
 
 test("Free background replenishment does NOT reduce countLessonGenerationsToday", async () => {
@@ -474,7 +464,6 @@ test("Free background replenishment does NOT reduce countLessonGenerationsToday"
     generate: gen.generate,
     cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
     phraseCeiling: FREE_PHRASE_CEILING,
-    lockKeyPrefix: "phrase-replenish-free",
     generationKind: "replenishment",
   });
   assert.equal(added, 1, "phrase should be added");
@@ -487,19 +476,223 @@ test("Free background replenishment does NOT reduce countLessonGenerationsToday"
     0,
     "Free replenishment must not consume a daily lesson slot",
   );
+});
 
-  // Verify that a Free caller is still allowed to open all their new topics.
-  const free: ResolvedPlan = {
-    plan: "free",
-    status: "active",
-    trialEndsAt: null,
-    currentPeriodEnd: null,
-    chosenLanguage: null,
-    pauseUntil: null,
-  };
+// ---------------------------------------------------------------------------
+// Manual appends and background top-ups share a topic but not a budget.
+// ---------------------------------------------------------------------------
+
+test("a learner's manual append does not suppress background top-ups", async () => {
+  await resetLessonPhrases();
+  // One learner tapped "Add more phrases" for this exact (language, topic)
+  // moments ago. Lessons are cached globally per topic, so counting that tap in
+  // the cooldown would freeze background top-ups for EVERY learner on the topic
+  // for a full day on the Free cadence.
+  await db.insert(lessonGenerationsTable).values({
+    userId: USER,
+    languageCode: LANG,
+    categoryId,
+    kind: "manual",
+  });
+  const gen = makeGenerator([
+    { nativeScript: "agiyar", romanized: "agiyar", english: "eleven", difficulty: 2 },
+  ]);
   assert.equal(
-    await dailyLessonCapDenial(free, USER),
-    null,
-    "daily cap must not be tripped by a replenishment",
+    await replenishPhrases({
+      languageCode: LANG,
+      categoryId,
+      userId: USER,
+      generate: gen.generate,
+    }),
+    1,
+    "a manual append must not start the background cooldown",
+  );
+
+  // Control: a BACKGROUND generation inside the window still suppresses, so the
+  // exclusion above is specific to manual rows and not a broken cooldown.
+  await db
+    .delete(lessonGenerationsTable)
+    .where(eq(lessonGenerationsTable.userId, USER));
+  await resetLessonPhrases();
+  await db.insert(lessonGenerationsTable).values({
+    userId: USER,
+    languageCode: LANG,
+    categoryId,
+    kind: "replenishment",
+  });
+  const gen2 = makeGenerator([
+    { nativeScript: "bar", romanized: "bar", english: "twelve", difficulty: 2 },
+  ]);
+  assert.equal(
+    await replenishPhrases({
+      languageCode: LANG,
+      categoryId,
+      userId: USER,
+      generate: gen2.generate,
+    }),
+    0,
+    "a recent background top-up must still hold the cooldown",
+  );
+  assert.equal(gen2.calls(), 0, "no AI call while on cooldown");
+});
+
+test("the ceiling counts rows the learner can SEE, not every row in the topic", async () => {
+  await resetLessonPhrases(); // 4 rows, all visible to Free
+  // 20 premium rows: invisible to a Free learner, and on their own enough to
+  // exceed the ceiling if the check counted raw rows. This is the regression
+  // witness for the units defect: live topics really do carry ~40 rows against
+  // ~8 visible, so the old row-count basis bailed on every Free top-up.
+  await db.insert(phrasesTable).values(
+    Array.from({ length: 20 }, (_, i) => ({
+      lessonId,
+      languageCode: LANG,
+      categoryId,
+      nativeScript: `__prem_${i}`,
+      romanized: `prem${i}`,
+      english: `premium ${i}`,
+      difficulty: 1,
+      sortOrder: 100 + i,
+      stage: "phrase",
+      premium: true,
+    })),
+  );
+  const gen = makeGenerator([
+    { nativeScript: "ter", romanized: "ter", english: "thirteen", difficulty: 2 },
+  ]);
+  assert.equal(
+    await replenishPhrases({
+      languageCode: LANG,
+      categoryId,
+      userId: USER,
+      generate: gen.generate,
+      cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+      phraseCeiling: FREE_PHRASE_CEILING,
+      plan: "free",
+        generationKind: "replenishment",
+    }),
+    1,
+    "24 rows but only 4 visible to Free: the top-up must still run",
+  );
+
+  // ...and a learner genuinely at their visible ceiling is skipped, without
+  // paying for a generation.
+  await db
+    .delete(lessonGenerationsTable)
+    .where(eq(lessonGenerationsTable.userId, USER));
+  await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
+  await db.insert(phrasesTable).values(
+    Array.from({ length: FREE_PHRASE_CEILING }, (_, i) => ({
+      lessonId,
+      languageCode: LANG,
+      categoryId,
+      nativeScript: `__vis_${i}`,
+      romanized: `vis${i}`,
+      english: `visible ${i}`,
+      difficulty: 1,
+      sortOrder: i,
+      stage: "phrase",
+    })),
+  );
+  const gen2 = makeGenerator([
+    { nativeScript: "chaud", romanized: "chaud", english: "fourteen", difficulty: 2 },
+  ]);
+  assert.equal(
+    await replenishPhrases({
+      languageCode: LANG,
+      categoryId,
+      userId: USER,
+      generate: gen2.generate,
+      cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+      phraseCeiling: FREE_PHRASE_CEILING,
+      plan: "free",
+        generationKind: "replenishment",
+    }),
+    0,
+    "at the visible ceiling the top-up must skip",
+  );
+  assert.equal(gen2.calls(), 0, "a skipped top-up must not call the AI");
+});
+
+test("manual appends are bounded per learner per rolling hour", async () => {
+  assert.equal(await manualAppendBurstDenial(USER), null);
+
+  const row = (createdAt?: Date) => ({
+    userId: USER,
+    languageCode: LANG,
+    categoryId,
+    kind: "manual" as const,
+    ...(createdAt ? { createdAt } : {}),
+  });
+
+  await db
+    .insert(lessonGenerationsTable)
+    .values(Array.from({ length: MANUAL_APPENDS_PER_HOUR }, () => row()));
+  const denial = await manualAppendBurstDenial(USER);
+  assert.ok(denial, "the hourly bound must fire at the limit");
+  assert.ok(
+    denial.retryAfterSeconds > 0 && denial.retryAfterSeconds <= 3600,
+    "retryAfterSeconds must land inside the rolling window",
+  );
+
+  // The bound is a ROLLING hour, not a bucket: appends older than the window
+  // age out on their own.
+  await db
+    .delete(lessonGenerationsTable)
+    .where(eq(lessonGenerationsTable.userId, USER));
+  const stale = new Date(Date.now() - 61 * 60 * 1000);
+  await db
+    .insert(lessonGenerationsTable)
+    .values(Array.from({ length: MANUAL_APPENDS_PER_HOUR }, () => row(stale)));
+  assert.equal(await manualAppendBurstDenial(USER), null);
+  assert.equal(await countManualAppendsInWindow(USER), 0);
+
+  // Manual appends are never counted as first-time lesson builds.
+  assert.equal(await countLessonGenerationsToday(USER), 0);
+});
+
+test("a top-up near the ceiling is clamped to the headroom, not skipped", async () => {
+  await resetLessonPhrases(); // 4 visible
+  await db.insert(phrasesTable).values(
+    Array.from({ length: FREE_PHRASE_CEILING - 5 }, (_, i) => ({
+      lessonId,
+      languageCode: LANG,
+      categoryId,
+      nativeScript: `__fill_${i}`,
+      romanized: `fill${i}`,
+      english: `filler ${i}`,
+      difficulty: 1,
+      sortOrder: 200 + i,
+      stage: "phrase",
+    })),
+  );
+  // One row of headroom against a three-phrase batch: the model's extras must
+  // not push the topic past the number the clients are showing the learner.
+  const gen = makeGenerator([
+    { nativeScript: "pandar", romanized: "pandar", english: "fifteen", difficulty: 2 },
+    { nativeScript: "sol", romanized: "sol", english: "sixteen", difficulty: 2 },
+    { nativeScript: "sattar", romanized: "sattar", english: "seventeen", difficulty: 2 },
+  ]);
+  assert.equal(
+    await replenishPhrases({
+      languageCode: LANG,
+      categoryId,
+      userId: USER,
+      generate: gen.generate,
+      cooldownMs: FREE_REPLENISH_COOLDOWN_MS,
+      phraseCeiling: FREE_PHRASE_CEILING,
+      plan: "free",
+      generationKind: "replenishment",
+    }),
+    1,
+    "one row of headroom must add exactly one phrase",
+  );
+  const rows = await db
+    .select({ id: phrasesTable.id })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.languageCode, LANG));
+  assert.equal(
+    rows.length,
+    FREE_PHRASE_CEILING,
+    "the topic must land exactly ON the ceiling, never past it",
   );
 });

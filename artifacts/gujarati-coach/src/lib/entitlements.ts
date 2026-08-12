@@ -126,6 +126,28 @@ export function asUpgradeRequired(err: unknown): UpgradeRequired | null {
   return null;
 }
 
+// A refused "Add more phrases" tap that no upgrade would fix: the topic is at
+// its ceiling on the top tier (409 topic_full), an append for this topic is
+// already running (409 append_in_progress), or the learner has used their
+// hourly appends (429 append_rate_limited). Read the machine-readable `reason`
+// Never branch on the message text, which is copy and will change.
+export type AppendRefusal = {
+  error: string;
+  reason: string;
+  retryAfterSeconds?: number;
+};
+
+export function asAppendRefusal(err: unknown): AppendRefusal | null {
+  if (!err || typeof err !== "object") return null;
+  const status = (err as { status?: unknown }).status;
+  if (status !== 409 && status !== 429) return null;
+  const data = (err as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return null;
+  const reason = (data as { reason?: unknown }).reason;
+  if (typeof reason !== "string") return null;
+  return data as AppendRefusal;
+}
+
 // Builds a deep link into the paywall that preselects a plan card. Web sells
 // All-Access ("plus") and Family — the One Language tier stays mobile-only, so
 // every locked surface points at All-Access. See upgrade.tsx for how the

@@ -19,11 +19,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { CategoryLessonSkeleton, LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeCard, UpgradeScreen } from "@/components/plus";
-import { asUpgradeRequired, upgradeHref, upgradeHrefForDenial, useEntitlements } from "@/lib/entitlements";
-
-// Matches FREE_PHRASE_CEILING in phraseReplenisher.ts — the hard cap on how
-// many phrases a Free topic may grow to via background replenishment.
-const FREE_PHRASE_CEILING = 20;
+import { asAppendRefusal, asUpgradeRequired, upgradeHref, upgradeHrefForDenial, useEntitlements } from "@/lib/entitlements";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -146,14 +142,21 @@ export default function CategoryDetail() {
   // has made some progress but hasn't mastered everything yet.
   const canResume = masteredCount > 0 && masteredCount < totalCount;
 
+  // How large this topic may grow on the caller's plan, and whether it is
+  // already there. Both come from the server's category listing: the ceiling
+  // differs by tier and must never be hardcoded here.
+  const phraseCeiling = category?.phraseCeiling ?? null;
+  const atPhraseCeiling =
+    phraseCeiling !== null && (phrases?.length ?? 0) >= phraseCeiling;
+
   // Show the "more phrases coming" hint only to Free learners who have engaged
   // (attempted or mastered) at least 80 % of the topic's visible phrases and
-  // are still below the free ceiling — the exact condition that triggers
+  // are still below their ceiling, the exact condition that triggers
   // background replenishment in phraseReplenisher.shouldReplenishFree.
   const showReplenishHint = (() => {
     if (isPlus) return false;
     const list = phrases ?? [];
-    if (list.length === 0 || list.length >= FREE_PHRASE_CEILING) return false;
+    if (list.length === 0 || atPhraseCeiling) return false;
     const engaged = list.filter(p => p.mastered || p.bestScore !== null).length;
     return engaged / list.length >= 0.8;
   })();
@@ -270,27 +273,37 @@ export default function CategoryDetail() {
           {showReplenishHint && (
             <div className="flex items-center gap-3 rounded-2xl bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-primary font-medium">
               <Sparkles className="w-4 h-4 shrink-0" />
-              <span>More phrases on the way — check back tomorrow.</span>
+              <span>More phrases are on their way. They will appear here in a moment.</span>
             </div>
           )}
 
-          <button
-            onClick={handleAddPhrases}
-            disabled={addPhrases.isPending}
-            className="w-full bg-card rounded-2xl p-4 border-2 border-dashed border-primary/40 text-primary font-bold flex items-center justify-center gap-2 transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60 button-spring"
-          >
-            {addPhrases.isPending ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Creating new phrases…</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5" />
-                <span>Add more phrases</span>
-              </>
-            )}
-          </button>
+          {/* At the ceiling there is nothing left to add, so the button goes
+              away rather than sitting there ready to fail. Free and One
+              Language learners still have the upgrade card above them; on the
+              top tier this is simply the end of the topic. */}
+          {atPhraseCeiling ? (
+            <div className="w-full rounded-2xl border border-border bg-muted/40 px-4 py-3 text-center text-sm font-medium text-muted-foreground">
+              This topic is full at {phraseCeiling} phrases.
+            </div>
+          ) : (
+            <button
+              onClick={handleAddPhrases}
+              disabled={addPhrases.isPending}
+              className="w-full bg-card rounded-2xl p-4 border-2 border-dashed border-primary/40 text-primary font-bold flex items-center justify-center gap-2 transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60 button-spring"
+            >
+              {addPhrases.isPending ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Creating new phrases…</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  <span>Add more phrases</span>
+                </>
+              )}
+            </button>
+          )}
 
           {addPhrases.isError &&
             (asUpgradeRequired(addPhrases.error) ? (
@@ -302,10 +315,15 @@ export default function CategoryDetail() {
                 className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-center text-base font-black text-white shadow-sm active:scale-[0.98]"
               >
                 <Sparkles className="h-5 w-5" />
-                {asUpgradeRequired(addPhrases.error)?.reason === "daily_lesson_limit"
-                  ? "Out of free lessons — keep going with All-Access"
-                  : "Unlock with All-Access"}
+                Unlock with All-Access
               </Link>
+            ) : asAppendRefusal(addPhrases.error) ? (
+              /* Full on the top tier, an append already running, or the hourly
+                 bound reached. None of these are fixed by upgrading, so this
+                 shows the server's explanation and no upgrade prompt. */
+              <p className="text-sm text-muted-foreground text-center font-medium">
+                {asAppendRefusal(addPhrases.error)!.error}
+              </p>
             ) : (
               <p className="text-sm text-destructive text-center font-medium">
                 Couldn't add new phrases. Please try again.

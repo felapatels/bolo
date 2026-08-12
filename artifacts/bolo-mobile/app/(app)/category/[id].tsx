@@ -28,10 +28,6 @@ import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
-
-// Matches FREE_PHRASE_CEILING in phraseReplenisher.ts — the hard cap on how
-// many phrases a Free topic may grow to via background replenishment.
-const FREE_PHRASE_CEILING = 20;
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 
@@ -60,13 +56,19 @@ export default function CategoryScreen() {
   const category = (categories.data ?? []).find((c) => c.id === categoryId);
   const nativeProps = nativeTextStyle(activeLanguage);
 
+  // How large this topic may grow on the caller's plan. Server-reported on the
+  // category listing: the ceiling differs by tier and is never hardcoded here.
+  const phraseCeiling = category?.phraseCeiling ?? null;
+  const atPhraseCeiling =
+    phraseCeiling !== null && (phrases.data ?? []).length >= phraseCeiling;
+
   // Show the "more phrases coming" hint only to Free learners who have engaged
-  // at least 80 % of the topic's visible phrases and are still below the
+  // at least 80 % of the topic's visible phrases and are still below their
   // ceiling — mirrors the shouldReplenishFree trigger in phraseReplenisher.ts.
   const showReplenishHint = (() => {
     if (isPlus) return false;
     const list = phrases.data ?? [];
-    if (list.length === 0 || list.length >= FREE_PHRASE_CEILING) return false;
+    if (list.length === 0 || atPhraseCeiling) return false;
     const engaged = list.filter((p) => p.mastered || p.bestScore !== null).length;
     return engaged / list.length >= 0.8;
   })();
@@ -184,8 +186,8 @@ export default function CategoryScreen() {
           ))
         )}
 
-        {/* Free-tier replenishment hint: background AI is queuing more phrases
-            but they won't appear until tomorrow's cadence fires. Let the
+        {/* Free-tier replenishment hint: background AI is generating more
+            phrases now and the list poll will surface them shortly. Let the
             learner know so they come back instead of thinking the app is done. */}
         {!phrases.isLoading && showReplenishHint ? (
           <Animated.View
@@ -197,7 +199,7 @@ export default function CategoryScreen() {
           >
             <Feather name="clock" size={16} color={colors.primary} />
             <Text style={[styles.replenishHintText, { color: colors.primary }]}>
-              More phrases on the way — check back tomorrow.
+              More phrases are on their way. They will appear here in a moment.
             </Text>
           </Animated.View>
         ) : null}

@@ -24,9 +24,8 @@ export type SubscriptionStatus =
 // Free is limited to a single language: Hindi.
 export const FREE_LANGUAGE = "hi";
 
-// Free's modest daily ceiling on brand-new AI lesson generations (to cap AI
-// cost). Plus is unlimited.
-export const FREE_DAILY_NEW_LESSON_CAP = 3;
+// AI generation cost is bounded per topic (see phraseCeilings.ts), not per day:
+// there is no daily new-lesson meter on any tier.
 
 // Free's weekly ceiling on Bolo Parrot conversational chat audio, in seconds
 // (2 minutes). One Language and Plus are unlimited. Chat language access
@@ -270,16 +269,6 @@ export function allowedLanguagesForPlan(
   return [FREE_LANGUAGE];
 }
 
-// The daily new-lesson ceiling for a plan. `null` means unlimited. The Free
-// cap was retired (July 2026): every tier is now unlimited, delivered
-// additively via the existing limit-null contract clients already honor.
-// FREE_DAILY_NEW_LESSON_CAP, the denial helper, and the lesson_generations
-// tracking all stay intact so the cap could be reinstated by reverting this
-// one function.
-export function dailyNewLessonLimit(_plan: Plan): number | null {
-  return null;
-}
-
 // The weekly Bolo Parrot chat-time ceiling for a plan, in seconds. `null`
 // means unlimited (both paid tiers). Only Free is capped.
 export function weeklyChatSecondsLimit(plan: Plan): number | null {
@@ -302,9 +291,16 @@ export function isLanguageAllowed(
 
 export type UpgradeReason =
   | "language_locked"
+  // Retired: no tier has a daily new-lesson meter, so the server never sends
+  // this. Kept in the vocabulary because both clients still use the same string
+  // as a paywall deep-link param to lead with the free-trial CTA.
   | "daily_lesson_limit"
   | "feature_locked"
   | "chat_time_limit"
+  // The topic already holds as many phrases as this plan allows. Only
+  // All-Access lifts it (One Language shares Free's ceiling), and the top tier
+  // never receives this; it gets a plain 409 topic_full instead.
+  | "phrase_ceiling"
   // M1 teaser: the caller used up their 3 free teaser phrases in this locked
   // language. Distinguishable from a plain lock so clients can render "you
   // tried it — here is what you unlock" instead of a generic paywall.
@@ -401,8 +397,11 @@ export function buildEntitlements(
   usedChatSecondsThisWeek: number = 0,
 ): Entitlements {
   const { plan, chosenLanguage } = resolved;
-  const limit = dailyNewLessonLimit(plan);
-  const remaining = limit === null ? null : Math.max(0, limit - usedToday);
+  // No tier has a daily new-lesson ceiling: AI cost is bounded per topic by the
+  // phrase ceiling and per user by the manual-append burst bound. The wire
+  // field stays (installed builds read it) and always reports unlimited.
+  const limit: number | null = null;
+  const remaining: number | null = null;
   const chatLimit = weeklyChatSecondsLimit(plan);
   const chatRemaining =
     chatLimit === null

@@ -246,8 +246,8 @@ describe("Lesson load 402", () => {
   });
 });
 
-describe("Add-phrases 402", () => {
-  test("hitting the cap while adding phrases offers an upgrade link", () => {
+describe("Add-phrases refusals", () => {
+  test("hitting the topic ceiling while adding phrases offers an upgrade link", () => {
     // Rendered without a matching <Route>, so useParams() is empty and the page
     // parses categoryId as 0 — the fixture category must share that id.
     h.categories = [
@@ -271,19 +271,98 @@ describe("Add-phrases 402", () => {
       isPending: false,
       isError: true,
       error: upgradeRequiredError(
-        "daily_lesson_limit",
-        "You've used today's free lessons.",
+        "phrase_ceiling",
+        "This topic is full at 20 phrases on your plan.",
       ),
     };
     renderPage(<CategoryDetail />, "/learn/1");
 
-    const link = screen.getByText(/keep going with All-Access/i);
-    // Every denial lands on the All-Access card (One Language is mobile-only).
-    // The reason is forwarded so the paywall can show a contextual trial banner.
+    const link = screen.getByText(/Unlock with All-Access/i);
+    // Every denial lands on the All-Access card (One Language is mobile-only,
+    // and it shares Free's ceiling so it would not lift this anyway). The
+    // reason is forwarded so the paywall can stay contextual.
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "/upgrade?plan=plus&reason=daily_lesson_limit",
+      "/upgrade?plan=plus&reason=phrase_ceiling",
     );
+  });
+
+  test("a top-tier refusal shows the server's message and no upgrade prompt", () => {
+    h.categories = [
+      { id: 0, title: "Greetings", titleNative: null, accent: null },
+    ];
+    h.categoryPhrases = {
+      ...idleQuery,
+      data: [
+        {
+          id: 10,
+          nativeScript: "નમસ્તે",
+          romanized: "namaste",
+          english: "hello",
+          mastered: false,
+          bestScore: null,
+        },
+      ],
+    };
+    // 409 topic_full: the caller is on the top tier, so there is nothing to
+    // upgrade to and an upgrade prompt here would be a lie.
+    h.addPhrases = {
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: {
+        status: 409,
+        data: {
+          error: "This topic is full. It holds every phrase it can.",
+          reason: "topic_full",
+        },
+      },
+    };
+    renderPage(<CategoryDetail />, "/learn/1");
+
+    expect(
+      screen.getByText("This topic is full. It holds every phrase it can."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/All-Access/i)).not.toBeInTheDocument();
+    // Nor the generic failure copy: this is a refusal, not a breakage.
+    expect(
+      screen.queryByText("Couldn't add new phrases. Please try again."),
+    ).not.toBeInTheDocument();
+  });
+
+  test("at the ceiling the add button is replaced by the full-topic line", () => {
+    // One visible phrase against a ceiling of one: there is nothing left to
+    // add, so the control goes away instead of sitting there ready to fail.
+    h.categories = [
+      {
+        id: 0,
+        title: "Greetings",
+        titleNative: null,
+        accent: null,
+        phraseCount: 1,
+        masteredCount: 0,
+        lockedPhraseCount: 0,
+        phraseCeiling: 1,
+      },
+    ];
+    h.categoryPhrases = {
+      ...idleQuery,
+      data: [
+        {
+          id: 10,
+          nativeScript: "નમસ્તે",
+          romanized: "namaste",
+          english: "hello",
+          mastered: false,
+          bestScore: null,
+        },
+      ],
+    };
+    h.addPhrases = { mutateAsync: vi.fn(), isPending: false, isError: false };
+    renderPage(<CategoryDetail />, "/learn/1");
+
+    expect(screen.queryByText("Add more phrases")).not.toBeInTheDocument();
+    expect(screen.getByText("This topic is full at 1 phrases.")).toBeInTheDocument();
   });
 });
 

@@ -25,6 +25,7 @@ import type {
   AccountPreferencesResult,
   AccountProfileResult,
   AddPhrasesInput,
+  AppendRefused,
   Attempt,
   AttemptInput,
   AttemptResult,
@@ -1020,6 +1021,8 @@ export const getAddCategoryPhrasesUrl = (id: number,
 
 /**
  * Generates additional beginner phrases in the language's native script, avoiding phrases already in the lesson, and appends them to the existing lesson so they persist and count toward progress.
+ *
+ * Bounded three ways. Appends to one topic are serialized on a topic-keyed lock, so concurrent taps can never insert duplicates: a caller who loses the race gets 409 append_in_progress. The topic may not grow past the plan's phraseCeiling (see Category), counted in visible rows; a request near the boundary is clamped to the remaining headroom rather than refused, and only zero headroom refuses: 402 phrase_ceiling when an upgrade would lift it, 409 topic_full on All-Access and Family, where nothing would. Each learner may append ten times per rolling hour across all topics; beyond that, 429 append_rate_limited with retryAfterSeconds. Every refusal happens before any AI call, so a blocked tap costs nothing.
  * @summary Generate and append fresh AI phrases to a category's lesson
  */
 export const addCategoryPhrases = async (id: number,
@@ -1039,7 +1042,7 @@ export const addCategoryPhrases = async (id: number,
 
 
 
-export const getAddCategoryPhrasesMutationOptions = <TError = ErrorType<UpgradeRequired | Error>,
+export const getAddCategoryPhrasesMutationOptions = <TError = ErrorType<UpgradeRequired | Error | AppendRefused>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext> => {
 
@@ -1068,12 +1071,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type AddCategoryPhrasesMutationResult = NonNullable<Awaited<ReturnType<typeof addCategoryPhrases>>>
     export type AddCategoryPhrasesMutationBody = BodyType<AddPhrasesInput> | undefined
-    export type AddCategoryPhrasesMutationError = ErrorType<UpgradeRequired | Error>
+    export type AddCategoryPhrasesMutationError = ErrorType<UpgradeRequired | Error | AppendRefused>
 
     /**
  * @summary Generate and append fresh AI phrases to a category's lesson
  */
-export const useAddCategoryPhrases = <TError = ErrorType<UpgradeRequired | Error>,
+export const useAddCategoryPhrases = <TError = ErrorType<UpgradeRequired | Error | AppendRefused>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryPhrases>>, TError,{id: number;lang: string;data?: BodyType<AddPhrasesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof addCategoryPhrases>>,
@@ -1734,7 +1737,7 @@ export const getGetEntitlementsUrl = () => {
 }
 
 /**
- * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked, and today's remaining daily new-lesson allowance. Clients call this to know what is unlocked and how to render the paywall.
+ * Returns the authenticated user's effective plan (Free vs Bolo! Plus), subscription status, the languages they may access, the feature flags they have unlocked. The daily new-lesson meter is retired: dailyNewLessons reports null limits for every plan and is kept only for installed builds. Clients call this to know what is unlocked and how to render the paywall.
  * @summary The caller's plan, unlocked features, and daily limits
  */
 export const getEntitlements = async ( options?: RequestInit): Promise<Entitlements> => {

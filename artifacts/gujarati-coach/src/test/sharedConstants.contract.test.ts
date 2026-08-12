@@ -16,11 +16,12 @@ import { bandFromScore } from "@/components/ui/band-pill";
 // ── Server constants mirrored here for cross-platform contract testing ─────
 // These must match the values exported from:
 //   artifacts/api-server/src/lib/progressMetrics.ts  (MASTERY_THRESHOLD, REVIEW_PASS_THRESHOLD)
-//   artifacts/api-server/src/lib/entitlements.ts      (FREE_DAILY_NEW_LESSON_CAP, FREE_WEEKLY_CHAT_SECONDS_CAP)
+//   artifacts/api-server/src/lib/entitlements.ts      (FREE_WEEKLY_CHAT_SECONDS_CAP)
+// The topic phrase ceiling deliberately has NO mirror here: it varies by tier
+// and is read off the server's category listing, never hardcoded in a client.
 
 const MASTERY_THRESHOLD = 80;
 const REVIEW_PASS_THRESHOLD = 60;
-const FREE_DAILY_NEW_LESSON_CAP = 3;
 const FREE_WEEKLY_CHAT_SECONDS_CAP = 120;
 
 // Five-band thresholds — must match artifacts/api-server/src/lib/scoreBands.ts
@@ -35,10 +36,6 @@ describe("shared constants contract", () => {
 
   test("REVIEW_PASS_THRESHOLD = 60", () => {
     expect(REVIEW_PASS_THRESHOLD).toBe(60);
-  });
-
-  test("FREE_DAILY_NEW_LESSON_CAP = 3", () => {
-    expect(FREE_DAILY_NEW_LESSON_CAP).toBe(3);
   });
 
   test("FREE_WEEKLY_CHAT_SECONDS_CAP = 120", () => {

@@ -16,8 +16,11 @@ export interface Category {
   sortOrder: number;
   /** @nullable */
   titleNative: string | null;
+  /** How many phrase rows this caller can see in the topic. This is the number the topic's phrase ceiling is measured against. */
   phraseCount: number;
   masteredCount: number;
+  /** The most phrases this topic may grow to on the caller's plan (visible rows, phrase stage only). Server-authoritative: clients must not hardcode it. When phraseCount has reached it, "Add more phrases" is not offered. */
+  phraseCeiling?: number;
   /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
   lockedPhraseCount: number;
   /** How many full sentences the topic's Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language. */

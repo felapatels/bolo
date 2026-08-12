@@ -1,15 +1,15 @@
 import { db, lessonGenerationsTable } from "@workspace/db";
 import { and, eq, gte } from "drizzle-orm";
-import {
-  dailyNewLessonLimit,
-  upgradeRequired,
-  type ResolvedPlan,
-  type UpgradeRequiredPayload,
-} from "./entitlements";
+import { MANUAL_APPENDS_PER_HOUR } from "./phraseCeilings";
 
-// The Free daily new-lesson ceiling is counted over the UTC day, matching the
-// UTC day boundary already used for streaks, so "resets tomorrow" is consistent
-// across the app.
+// Generation kinds written to lesson_generations. 'manual' rows are learner
+// -initiated "Add more phrases" appends; keeping them distinct from 'initial'
+// is what makes append rate answerable and what lets the background
+// replenisher's cooldown ignore one learner's tap.
+export type GenerationKind = "initial" | "replenishment" | "manual";
+
+// Generation counts are bucketed over the UTC day, matching the UTC day
+// boundary already used for streaks.
 export function startOfUtcDay(now: Date = new Date()): Date {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
@@ -18,8 +18,8 @@ export function startOfUtcDay(now: Date = new Date()): Date {
 
 // How many brand-new AI lesson generations the user has triggered so far today.
 // Only 'initial' rows (a learner opening a fresh topic for the first time) are
-// counted — 'replenishment' top-ups are excluded so background phrase adds
-// never silently consume the Free daily cap.
+// counted: 'replenishment' top-ups and 'manual' appends are excluded. Reported
+// for cost visibility on the entitlements payload; no gate reads it.
 export async function countLessonGenerationsToday(
   userId: string,
   now: Date = new Date(),
@@ -37,37 +37,67 @@ export async function countLessonGenerationsToday(
   return rows.length;
 }
 
-// Logs a generation against the user's daily allowance. Called only when the
-// server actually invokes the AI (a real cost), never on a cache hit.
-// Pass kind='replenishment' for background phrase top-ups so they are never
-// counted toward the Free daily cap.
+// The rolling window the manual-append burst bound is measured over.
+export const MANUAL_APPEND_WINDOW_MS = 60 * 60 * 1000;
+
+// How many manual appends this learner has made in the last rolling hour,
+// across ALL topics and languages, because the burst bound is per user, so switching
+// topics does not reset it. Counted from generation rows the same way the daily
+// and weekly meters count theirs.
+export async function countManualAppendsInWindow(
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const since = new Date(now.getTime() - MANUAL_APPEND_WINDOW_MS);
+  const rows = await db
+    .select({ id: lessonGenerationsTable.id })
+    .from(lessonGenerationsTable)
+    .where(
+      and(
+        eq(lessonGenerationsTable.userId, userId),
+        eq(lessonGenerationsTable.kind, "manual"),
+        gte(lessonGenerationsTable.createdAt, since),
+      ),
+    );
+  return rows.length;
+}
+
+// Whether this learner has exhausted their hourly manual-append allowance, and
+// when the oldest append in the window ages out (so the refusal can say when
+// they may continue), or null when they are still under the bound.
+export async function manualAppendBurstDenial(
+  userId: string,
+  now: Date = new Date(),
+): Promise<{ retryAfterSeconds: number } | null> {
+  const since = new Date(now.getTime() - MANUAL_APPEND_WINDOW_MS);
+  const rows = await db
+    .select({ createdAt: lessonGenerationsTable.createdAt })
+    .from(lessonGenerationsTable)
+    .where(
+      and(
+        eq(lessonGenerationsTable.userId, userId),
+        eq(lessonGenerationsTable.kind, "manual"),
+        gte(lessonGenerationsTable.createdAt, since),
+      ),
+    );
+  if (rows.length < MANUAL_APPENDS_PER_HOUR) return null;
+  const oldest = rows.reduce(
+    (min, r) => (r.createdAt.getTime() < min ? r.createdAt.getTime() : min),
+    Number.POSITIVE_INFINITY,
+  );
+  const retryAfterMs = oldest + MANUAL_APPEND_WINDOW_MS - now.getTime();
+  return { retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)) };
+}
+
+// Logs a generation. Called only when the server actually invokes the AI (a
+// real cost), never on a cache hit.
 export async function recordLessonGeneration(
   userId: string,
   languageCode: string,
   categoryId: number,
-  kind: "initial" | "replenishment" = "initial",
+  kind: GenerationKind = "initial",
 ): Promise<void> {
   await db
     .insert(lessonGenerationsTable)
     .values({ userId, languageCode, categoryId, kind });
-}
-
-// Returns an upgrade-required payload when the caller has hit the Free daily
-// new-lesson cap, or null when generation is allowed (Plus is always unlimited).
-export async function dailyLessonCapDenial(
-  resolved: ResolvedPlan,
-  userId: string,
-  now: Date = new Date(),
-): Promise<UpgradeRequiredPayload | null> {
-  const limit = dailyNewLessonLimit(resolved.plan);
-  if (limit === null) return null; // Plus: unlimited.
-  const used = await countLessonGenerationsToday(userId, now);
-  if (used < limit) return null;
-  return upgradeRequired(
-    "daily_lesson_limit",
-    `Free includes ${limit} new lessons a day. Upgrade for unlimited lessons.`,
-    "unlimitedLessons",
-    // The cheapest tier that lifts the daily cap is the middle One Language tier.
-    "one_language",
-  );
 }

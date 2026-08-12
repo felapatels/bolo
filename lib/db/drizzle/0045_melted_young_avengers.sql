@@ -1,0 +1,1 @@
+ALTER TYPE "public"."lesson_generation_kind" ADD VALUE 'manual';

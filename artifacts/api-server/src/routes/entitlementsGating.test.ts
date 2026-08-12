@@ -21,8 +21,7 @@ import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
 import entitlementsRouter from "./entitlements";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
-import { FREE_DAILY_NEW_LESSON_CAP, FREE_LANGUAGE } from "../lib/entitlements";
-import { dailyLessonCapDenial } from "../lib/lessonLimits";
+import { FREE_LANGUAGE } from "../lib/entitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the real entitlement gates end to end through the actual Express
@@ -426,41 +425,22 @@ test("free can still read basic progress for Hindi", async () => {
   assert.equal(typeof json.totalAttempts, "number");
 });
 
-test("free is never denied generation by a daily cap (cap retired)", async () => {
-  // Exceed the old cap of 3 — with the cap retired the snapshot must still
-  // report unlimited (limit/remaining null) while `used` keeps counting, and
-  // the cap-denial helper must never fire for a Free caller.
-  for (let i = 0; i < FREE_DAILY_NEW_LESSON_CAP + 1; i++) await seedGeneration();
+test("no daily meter: heavy generation still reports unlimited", async () => {
+  // There is no daily new-lesson cap on any tier. Generations are still
+  // recorded (cost visibility) and the wire field still reports unlimited for
+  // installed builds that read it.
+  for (let i = 0; i < 4; i++) await seedGeneration();
 
   const snapshot = await get("/entitlements");
   assert.equal(snapshot.json.limits.dailyNewLessons.limit, null);
   assert.equal(snapshot.json.limits.dailyNewLessons.remaining, null);
-  assert.equal(
-    snapshot.json.limits.dailyNewLessons.used,
-    FREE_DAILY_NEW_LESSON_CAP + 1,
-  );
+  assert.equal(snapshot.json.limits.dailyNewLessons.used, 4);
 
-  // The denial helper (still wired into the generate/replenish paths) returns
-  // null for Free — the daily_lesson_limit 402 is documented but never emitted.
-  const denial = await dailyLessonCapDenial(
-    {
-      plan: "free",
-      status: "active",
-      trialEndsAt: null,
-      currentPeriodEnd: null,
-      chosenLanguage: null,
-      pauseUntil: null,
-    },
-    TEST_USER_ID,
-  );
-  assert.equal(denial, null);
-
-  // Generations are still recorded as before.
   const rows = await db
     .select()
     .from(lessonGenerationsTable)
     .where(eq(lessonGenerationsTable.userId, TEST_USER_ID));
-  assert.equal(rows.length, FREE_DAILY_NEW_LESSON_CAP + 1);
+  assert.equal(rows.length, 4);
 });
 
 test("plus unlocks every language, review, and advanced analytics", async () => {

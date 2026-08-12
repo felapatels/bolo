@@ -17,7 +17,7 @@ import {
   lessonGroupsTable,
   lessonGenerationsTable,
 } from "@workspace/db";
-import { and, asc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 import {
   generateAdditionalPhrases,
   type AdditionalPhrasesRequest,
@@ -25,6 +25,7 @@ import {
 } from "./lessonGenerator";
 import { recordLessonGeneration } from "./lessonLimits";
 import { featuresForPlan, type Plan } from "./entitlements";
+import { countVisiblePhrases, phraseCeilingForPlan } from "./phraseCeilings";
 import type { PhraseStats } from "./progressMetrics";
 
 // A topic is "approaching the end" once this share of its phrases has been
@@ -49,13 +50,31 @@ export const REPLENISH_COOLDOWN_MS = 10 * 60 * 1000;
 // slower cadence (once per day instead of every 10 minutes) and a hard ceiling
 // so the starter set grows modestly without ballooning.
 export const FREE_REPLENISH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
-export const FREE_PHRASE_CEILING = 20; // max phrases a Free topic may grow to
+// Max phrases a Free topic may grow to. Read from the shared ceiling resolver
+// so the background path and the manual append path can never disagree.
+export const FREE_PHRASE_CEILING = phraseCeilingForPlan("free");
 
 // D1a Slice 2: size cap for appending replenished phrases to the last
 // phrase-stage lesson group. 14 = the largest group Slice 1's partitioner
 // itself produces (target 10 + merged tail of up to 4). At or above the cap a
 // new phrase-stage group is created instead.
 export const GROUP_SIZE_CAP = 14;
+
+// The default advisory-lock prefix: the Plus background path and the manual
+// "Add more phrases" endpoint share it, so a tap and a background top-up for
+// the same topic can never generate against the same phrase snapshot at once.
+export const DEFAULT_REPLENISH_LOCK_PREFIX = "phrase-replenish";
+
+// The advisory-lock key for one (prefix, language, topic). Exported so the
+// manual append path locks on exactly the same string rather than reinventing
+// the key format.
+export function topicLockKey(
+  languageCode: string,
+  categoryId: number,
+  prefix: string = DEFAULT_REPLENISH_LOCK_PREFIX,
+): string {
+  return `${prefix}:${languageCode}:${categoryId}`;
+}
 
 // Postgres unique_violation, possibly wrapped by drizzle (err.cause).
 function isUniqueViolation(err: unknown): boolean {
@@ -129,6 +148,10 @@ export interface ReplenishOptions {
   // collide, allowing both to run independently for the same (lang, topic).
   // Defaults to "phrase-replenish".
   lockKeyPrefix?: string;
+  // The caller's plan. Required whenever `phraseCeiling` is set: the ceiling
+  // counts rows VISIBLE TO THAT PLAN, and counting raw rows instead is exactly
+  // the units mismatch that made Free top-ups dead on arrival.
+  plan?: Plan;
   // Generation kind written to lesson_generations. Use 'replenishment' for
   // background top-ups so they are never counted toward the Free daily cap.
   // Defaults to 'replenishment' (every replenishPhrases call is a top-up).
@@ -136,7 +159,8 @@ export interface ReplenishOptions {
 }
 
 // In-process dedup: one replenishment per (lock-key prefix + language + category)
-// at a time. Free and Plus use distinct prefixes so they dedup independently.
+// at a time. Callers share the default prefix, so the Free path, the Plus path
+// and the manual append path all dedup against each other.
 const inFlight = new Map<string, Promise<number>>();
 
 // Generates and appends fresh phrases to an existing lesson, in the
@@ -145,7 +169,7 @@ const inFlight = new Map<string, Promise<number>>();
 // only produced duplicates, or the topic is already at its ceiling).
 // Fire-and-forget: never blocks the HTTP response.
 export function replenishPhrases(opts: ReplenishOptions): Promise<number> {
-  const prefix = opts.lockKeyPrefix ?? "phrase-replenish";
+  const prefix = opts.lockKeyPrefix ?? DEFAULT_REPLENISH_LOCK_PREFIX;
   const key = `${prefix}:${opts.languageCode}:${opts.categoryId}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
@@ -162,12 +186,14 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
   const generate = opts.generate ?? generateAdditionalPhrases;
   const count = opts.count ?? REPLENISH_BATCH_SIZE;
   const cooldownMs = opts.cooldownMs ?? REPLENISH_COOLDOWN_MS;
-  const lockPrefix = opts.lockKeyPrefix ?? "phrase-replenish";
+  const lockPrefix = opts.lockKeyPrefix ?? DEFAULT_REPLENISH_LOCK_PREFIX;
 
   // Cross-process/device dedup: a session-level Postgres advisory lock keyed
-  // on the (prefix, language, category) triple. Free and Plus use distinct
-  // prefixes so they never block each other for the same topic.
-  const lockKey = `${lockPrefix}:${languageCode}:${categoryId}`;
+  // on the (prefix, language, category) triple. Every writer to a topic takes
+  // this same lock, so only one of them can generate against a snapshot at a
+  // time. The prefix stays overridable for tests, but production callers must
+  // not vary it: two prefixes on one topic is two writers on one snapshot.
+  const lockKey = topicLockKey(languageCode, categoryId, lockPrefix);
   const client = await pool.connect();
   let locked = false;
   try {
@@ -196,12 +222,18 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     // Replenishment only tops up an existing lesson — it never creates one.
     if (!language || !category || !lesson) return 0;
 
-    // Cooldown: if ANY generation for this (language, topic) happened recently
-    // — a previous replenishment (even one that only produced duplicates and
-    // inserted nothing), a manual "Add more phrases", or the initial lesson
-    // build — skip. This makes the trigger idempotent under the clients'
-    // routine poll/focus refetches instead of re-paying the AI every cycle.
-    // Free uses a 24-hour cooldown; Plus uses 10 minutes.
+    // Cooldown: if a background replenishment (even one that only produced
+    // duplicates and inserted nothing) or the initial lesson build happened
+    // recently for this (language, topic), skip. This makes the trigger
+    // idempotent under the clients' routine poll/focus refetches instead of
+    // re-paying the AI every cycle. Free uses a 24-hour cooldown; Plus uses 10
+    // minutes.
+    //
+    // Manual appends are deliberately EXCLUDED. Lessons are cached globally per
+    // (language, topic), so counting one learner's tap here suppressed
+    // background top-ups for every other learner on that topic, for a full day
+    // on the Free cadence. Manual appends are bounded by their own per-user
+    // burst bound instead.
     const since = new Date(Date.now() - cooldownMs);
     const recent = await db
       .select({ id: lessonGenerationsTable.id })
@@ -210,6 +242,7 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
         and(
           eq(lessonGenerationsTable.languageCode, languageCode),
           eq(lessonGenerationsTable.categoryId, categoryId),
+          ne(lessonGenerationsTable.kind, "manual"),
           gte(lessonGenerationsTable.createdAt, since),
         ),
       )
@@ -223,11 +256,28 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     });
     if (existing.length === 0) return 0;
 
-    // Ceiling check (Free only): if the topic already has as many phrases as
+    // Ceiling check (Free only): if the topic already holds as many phrases as
     // the tier allows, skip without calling the AI.
-    if (opts.phraseCeiling != null && existing.length >= opts.phraseCeiling) {
-      return 0;
+    //
+    // Counted on the VISIBLE-row basis, the same basis the trigger and the
+    // manual append path use. Counting every row (including the premium ones a
+    // Free learner cannot see) is what made this bail on every live Hindi
+    // topic: 40 rows against 8 visible.
+    //
+    // Zero headroom skips. Partial headroom CLAMPS: a topic two rows short of
+    // its ceiling gets two phrases, not a full batch that overshoots it. A
+    // ceiling the top-up path can bust is not a ceiling, and the clients now
+    // show the number.
+    let headroom: number | null = null;
+    if (opts.phraseCeiling != null) {
+      const countedForCeiling =
+        opts.plan != null
+          ? countVisiblePhrases(existing, opts.plan)
+          : existing.length;
+      headroom = Math.max(0, opts.phraseCeiling - countedForCeiling);
+      if (headroom === 0) return 0;
     }
+    const requested = headroom != null ? Math.min(count, headroom) : count;
 
     const generated = await generate({
       languageName: language.name,
@@ -240,7 +290,7 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
         romanized: p.romanized,
         english: p.english,
       })),
-      count,
+      count: requested,
     });
 
     // A real AI generation happened — record it in the existing generation
@@ -258,6 +308,9 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
       if (!k || seen.has(k)) continue;
       seen.add(k);
       fresh.push(g);
+      // The model can hand back more than it was asked for. The ceiling binds
+      // what is INSERTED, not what was requested.
+      if (headroom != null && fresh.length >= headroom) break;
     }
     if (fresh.length === 0) return 0;
 
@@ -276,9 +329,9 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     // is keyed by group ID, never position, so shifts cannot orphan it.
     // The whole operation also still runs under this topic's advisory lock.
     //
-    // Race hardening: the Free and Plus replenishers use DIFFERENT advisory
-    // locks for the same topic, and the startup regroup backfill uses a third
-    // — so two writers can, rarely, plan the same group positions. The unique
+    // Race hardening: the phrase writers now share one topic lock, but the
+    // startup regroup backfill still uses its own, so two writers can, rarely,
+    // plan the same group positions. The unique
     // constraints then roll back one transaction; we retry once against the
     // fresh state, and as a last resort insert the phrases UNASSIGNED
     // (legal — nullable, surfaces in unassignedCount) rather than crash a
