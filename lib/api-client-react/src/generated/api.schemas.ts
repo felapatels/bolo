@@ -1484,6 +1484,37 @@ export interface TokensSpendInput {
   refId?: string;
 }
 
+export type ChaiPackId = typeof ChaiPackId[keyof typeof ChaiPackId];
+
+
+export const ChaiPackId = {
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+} as const;
+
+export interface ChaiPack {
+  id: ChaiPackId;
+  /** The App Store consumable product id. The single mapping between an Apple SKU and a pack: the app is told it here and never carries its own copy. */
+  appleProductId: string;
+  /** How much Chai the ledger credits for this pack. */
+  chai: number;
+}
+
+export interface ChaiPackCatalog {
+  packs: ChaiPack[];
+}
+
+export interface ChaiPackCreditsInput {
+  /** Apple transaction ids, as the store reported them. Ids beyond the first 100 are ignored. */
+  transactionIds: string[];
+}
+
+export interface ChaiPackCreditsResult {
+  /** The subset of the given transaction ids that already have a ledger row. Anything absent from this list has not been credited. */
+  credited: string[];
+}
+
 export interface UnlockStopInput {
   /** The station to open. The server resolves its language from the row itself and mints the ledger refId as stop:<language>:<groupId>, so no client-supplied idempotency key is accepted here. */
   lessonGroupId: number;

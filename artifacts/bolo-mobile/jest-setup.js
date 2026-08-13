@@ -195,3 +195,27 @@ jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn(() => Promise.resolve(true)),
   getStringAsync: jest.fn(() => Promise.resolve('')),
 }));
+
+// RevenueCat's SDK is a native module; importing it under Jest explodes. The
+// wallet now renders the (dark) Chai pack shop, so any test that mounts the
+// wallet reaches it. Tests that actually exercise purchasing declare their own
+// jest.mock for this path, which takes precedence over this one.
+jest.mock('react-native-purchases', () => ({
+  __esModule: true,
+  default: {
+    setLogLevel: jest.fn(),
+    configure: jest.fn(),
+    logIn: jest.fn(async () => ({})),
+    getOfferings: jest.fn(async () => ({ current: null, all: {} })),
+    getCustomerInfo: jest.fn(async () => ({
+      entitlements: { active: {} },
+      nonSubscriptionTransactions: [],
+    })),
+    getProducts: jest.fn(async () => []),
+    purchaseStoreProduct: jest.fn(),
+    purchasePackage: jest.fn(),
+    restorePurchases: jest.fn(),
+    syncPurchases: jest.fn(async () => undefined),
+  },
+  LOG_LEVEL: { WARN: 'warn', ERROR: 'error' },
+}));

@@ -217,7 +217,19 @@ if (ids === null) return "plus";  // ← WRONG for consumables
 
 This means a consumable token purchase would currently be processed as a Plus subscription grant. This is a **critical bug that must be fixed in build 32 before consumable SKUs go live.** The fix: add `NON_SUBSCRIPTION_PURCHASE` to `IGNORED_EVENT_TYPES` as a temporary guard, then build the proper consumable handler branch.
 
+> **RESOLVED, August 13, 2026.** Both halves shipped, and the fallback itself was the defect: `concernedEntitlement` now returns `null` when an event names no entitlement, so no event can grant, extend or modify a subscription without saying which one. `NON_SUBSCRIPTION_PURCHASE` is ignored for subscription purposes as well, so the guard holds by event type AND by the absence of a product match. Pinned in `artifacts/api-server/src/lib/revenuecatSync.test.ts`.
+
 ### 3.2 Proposed Token SKUs
+
+> **SUPERSEDED, August 13, 2026 — do not build against this table.** The four proposed `bolo_tokens_*` SKUs at 15/40/85/200 were never created. What shipped is three App Store consumables mapped to the existing web Chai packs, in `artifacts/api-server/src/lib/chaiPacks.ts` — the single catalog both platforms read:
+>
+> | Apple product id | Pack | Chai | Price |
+> |---|---|---|---|
+> | `bolo_chai_cutting` | small | 25 | $1.99 |
+> | `bolo_chai_kulhad` | medium | 75 | $4.99 |
+> | `bolo_chai_kettle` | large | 200 | $9.99 |
+>
+> The paragraph below is wrong in its second half and is kept only for the record: quantities are NOT carried in the webhook payload and are NOT set in the RevenueCat dashboard. The webhook resolves the pack from the product id and reads the amount from the server catalog, so a store misconfiguration cannot change what a learner is credited.
 
 RevenueCat dashboard: create as consumable (non-subscription) products. Do NOT attach them to any entitlement.
 

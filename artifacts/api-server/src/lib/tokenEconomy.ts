@@ -105,6 +105,11 @@ export type TokenReason =
   | "station_pause_consumed"
   // Chai bought with money (web packs). Credited only by the Stripe webhook.
   | "purchase_chai_pack"
+  // The same packs bought as App Store consumables. Credited only by the
+  // RevenueCat webhook. A separate reason from the web one on purpose: the
+  // ledger's unique index is (userId, reason, refId), so the two stores'
+  // transaction-id spaces can never collide.
+  | "purchase_chai_pack_ios"
   // The owner's manual compensating row — the only sanctioned way to reverse
   // a credit, since a Stripe refund never claws back Chai automatically.
   | "adjust_manual";

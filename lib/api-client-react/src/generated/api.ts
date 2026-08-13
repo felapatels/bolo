@@ -35,6 +35,9 @@ import type {
   ChachaEncounterInput,
   ChachaEncounterResult,
   ChachaLinesResult,
+  ChaiPackCatalog,
+  ChaiPackCreditsInput,
+  ChaiPackCreditsResult,
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
@@ -5660,6 +5663,156 @@ export const useRepairStreak = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRepairStreakMutationOptions(options));
+    }
+
+export const getGetChaiPacksUrl = () => {
+
+
+
+
+  return `/api/chai-packs`
+}
+
+/**
+ * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all — on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
+ * @summary The Chai packs, their Apple product ids and what each grants
+ */
+export const getChaiPacks = async ( options?: RequestInit): Promise<ChaiPackCatalog> => {
+
+  return customFetch<ChaiPackCatalog>(getGetChaiPacksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChaiPacksQueryKey = () => {
+    return [
+    `/api/chai-packs`
+    ] as const;
+    }
+
+
+export const getGetChaiPacksQueryOptions = <TData = Awaited<ReturnType<typeof getChaiPacks>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChaiPacks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChaiPacksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChaiPacks>>> = ({ signal }) => getChaiPacks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChaiPacks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetChaiPacksQueryResult = NonNullable<Awaited<ReturnType<typeof getChaiPacks>>>
+export type GetChaiPacksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The Chai packs, their Apple product ids and what each grants
+ */
+
+export function useGetChaiPacks<TData = Awaited<ReturnType<typeof getChaiPacks>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChaiPacks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetChaiPacksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckChaiPackCreditsUrl = () => {
+
+
+
+
+  return `/api/chai-packs/credited`
+}
+
+/**
+ * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai — recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
+ * @summary Which of these App Store transactions has the ledger credited
+ */
+export const checkChaiPackCredits = async (chaiPackCreditsInput: ChaiPackCreditsInput, options?: RequestInit): Promise<ChaiPackCreditsResult> => {
+
+  return customFetch<ChaiPackCreditsResult>(getCheckChaiPackCreditsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chaiPackCreditsInput)
+  }
+);}
+
+
+
+
+
+export const getCheckChaiPackCreditsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkChaiPackCredits>>, TError,{data: BodyType<ChaiPackCreditsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkChaiPackCredits>>, TError,{data: BodyType<ChaiPackCreditsInput>}, TContext> => {
+
+const mutationKey = ['checkChaiPackCredits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkChaiPackCredits>>, {data: BodyType<ChaiPackCreditsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkChaiPackCredits(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckChaiPackCreditsMutationResult = NonNullable<Awaited<ReturnType<typeof checkChaiPackCredits>>>
+    export type CheckChaiPackCreditsMutationBody = BodyType<ChaiPackCreditsInput>
+    export type CheckChaiPackCreditsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Which of these App Store transactions has the ledger credited
+ */
+export const useCheckChaiPackCredits = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkChaiPackCredits>>, TError,{data: BodyType<ChaiPackCreditsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkChaiPackCredits>>,
+        TError,
+        {data: BodyType<ChaiPackCreditsInput>},
+        TContext
+      > => {
+      return useMutation(getCheckChaiPackCreditsMutationOptions(options));
     }
 
 export const getGetOutfitsUrl = () => {

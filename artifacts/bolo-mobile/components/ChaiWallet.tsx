@@ -21,6 +21,7 @@ import {
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { ChaiPackShop } from '@/components/ChaiPackShop';
 import { repairErrorMessage } from '@/lib/chai-errors';
 import {
   BazaarTile,
@@ -494,6 +495,12 @@ export function ChaiWalletSheet({
                 </Pressable>
               </View>
             )}
+
+            {/* Buying Chai with money, through Apple. Dark until
+                CHAI_PACKS_LIVE flips — exactly as the web shop is — while the
+                catalog, the StoreKit purchase, the webhook credit and the
+                launch recovery underneath it all stay live and tested. */}
+            <ChaiPackShop />
           </View>
         </Pressable>
 

@@ -10,6 +10,10 @@ import {
   applyRevenueCatState,
   reconcileFromRevenueCat,
 } from "../lib/revenuecatReconcile";
+import {
+  chaiPackCreditFromStoreEvent,
+  creditChaiPackFromStore,
+} from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -57,6 +61,28 @@ router.post(
     }
 
     try {
+      // Consumables (Chai packs) first, and they RETURN. A consumable is not a
+      // subscription: it grants Chai and must not reach any subscription write
+      // on any path. Recognition is by product id against the server catalog,
+      // so an event type alone can never move money.
+      const chaiCredit = chaiPackCreditFromStoreEvent(event);
+      if (chaiCredit) {
+        const { granted } = await creditChaiPackFromStore(chaiCredit);
+        logger.info(
+          {
+            userId: chaiCredit.userId,
+            packId: chaiCredit.pack.id,
+            refId: chaiCredit.refId,
+            granted,
+          },
+          granted
+            ? "Credited Chai pack from App Store purchase"
+            : "Chai pack purchase already credited (replay)",
+        );
+        res.status(200).json({ received: true });
+        return;
+      }
+
       if (event.type === "TRANSFER") {
         // Downgrade the ids that lost the subscription, and pull fresh state for
         // the ids that gained it (the event doesn't carry their entitlement).

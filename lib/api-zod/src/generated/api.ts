@@ -1681,6 +1681,32 @@ export const RepairStreakResponse = zod.object({
 
 
 /**
+ * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all — on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
+ * @summary The Chai packs, their Apple product ids and what each grants
+ */
+export const GetChaiPacksResponse = zod.object({
+  "packs": zod.array(zod.object({
+  "id": zod.enum(['small', 'medium', 'large']),
+  "appleProductId": zod.string().describe('The App Store consumable product id. The single mapping between an Apple SKU and a pack: the app is told it here and never carries its own copy.'),
+  "chai": zod.number().describe('How much Chai the ledger credits for this pack.')
+}))
+})
+
+
+/**
+ * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai — recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
+ * @summary Which of these App Store transactions has the ledger credited
+ */
+export const CheckChaiPackCreditsBody = zod.object({
+  "transactionIds": zod.array(zod.string()).describe('Apple transaction ids, as the store reported them. Ids beyond the first 100 are ignored.')
+})
+
+export const CheckChaiPackCreditsResponse = zod.object({
+  "credited": zod.array(zod.string()).describe('The subset of the given transaction ids that already have a ledger row. Anything absent from this list has not been credited.')
+})
+
+
+/**
  * @summary Outfit catalog with prices, ownership and the equipped choice
  */
 export const GetOutfitsResponse = zod.object({

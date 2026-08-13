@@ -15,6 +15,15 @@ import Purchases, {
   type PurchasesPackage,
 } from 'react-native-purchases';
 import { useAuth } from '@clerk/expo';
+import {
+  checkChaiPackCredits,
+  getChaiPacks,
+} from '@workspace/api-client-react';
+import {
+  recoverUncreditedPurchases,
+  waitForCredit,
+  type ChaiPackCatalogEntry,
+} from '@/lib/chaiPurchase';
 
 /**
  * The RevenueCat entitlement id that maps to all-access Bolo! Plus. Must match
@@ -74,6 +83,15 @@ export function isTestPurchaseRuntime(): boolean {
 
 export type PurchaseOutcome = 'success' | 'cancelled' | 'error';
 
+/**
+ * A Chai pack purchase has a fourth outcome the subscription flow does not.
+ * Apple can charge and the credit can still be in flight (or lost) when we
+ * stop waiting — the money is real, the Chai has not landed yet, and saying
+ * either "done" or "failed" would be a lie. `pending` is that state; launch
+ * recovery picks it up.
+ */
+export type ChaiPurchaseOutcome = PurchaseOutcome | 'pending';
+
 /** The two paid tiers the paywall can drive a purchase for. */
 export type PurchaseTier = 'one_language' | 'all_access';
 
@@ -118,6 +136,20 @@ type PurchasesContextValue = {
   purchase: (pkg: PurchasesPackage) => Promise<PurchaseOutcome>;
   /** Restores prior purchases. Resolves to whether a paid tier is active. */
   restore: () => Promise<boolean>;
+  /**
+   * The Chai packs, straight from the server catalog: pack id, Apple product
+   * id, and the Chai the ledger will credit. Empty until it loads (and if it
+   * never loads, the shop simply does not appear). The PRICE is not in here —
+   * that comes from the StoreKit product, so what the learner reads is what
+   * Apple charges.
+   */
+  chaiPacks: ChaiPackCatalogEntry[];
+  isBuyingChai: boolean;
+  /**
+   * Buys a Chai pack by its Apple product id. Resolves 'success' only once the
+   * SERVER reports the transaction credited.
+   */
+  purchaseChaiPack: (appleProductId: string) => Promise<ChaiPurchaseOutcome>;
 };
 
 const PurchasesContext = createContext<PurchasesContextValue | null>(null);
@@ -129,6 +161,9 @@ export function PurchasesProvider({
 }) {
   const { userId } = useAuth();
   const [isConfigured, setIsConfigured] = useState(sdkConfigured);
+  const [configuredFor, setConfiguredFor] = useState<string | null>(
+    sdkConfigured ? configuredUserId : null,
+  );
   const [isReady, setIsReady] = useState(false);
   const [allAccessOffering, setAllAccessOffering] =
     useState<PurchasesOffering | null>(null);
@@ -137,13 +172,22 @@ export function PurchasesProvider({
   const [, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [chaiPacks, setChaiPacks] = useState<ChaiPackCatalogEntry[]>([]);
+  const [isBuyingChai, setIsBuyingChai] = useState(false);
 
   // Configure RevenueCat with the Clerk user id as the app_user_id, so the
   // server webhook/reconcile can map a store purchase back to this account.
   useEffect(() => {
     const apiKey = resolveApiKey();
+    const alreadyBound = sdkConfigured && configuredUserId === userId;
+    // Which account the STORE is actually bound to right now. `isConfigured`
+    // is not that: it stays true across an account switch while the async
+    // `logIn` is still in flight, and every Chai path must refuse to act in
+    // that window — the store would answer for the previous customer while
+    // the server answers for the new one.
+    setConfiguredFor(alreadyBound ? userId : null);
     if (!apiKey || !userId) {
-      setIsConfigured(sdkConfigured && configuredUserId === userId);
+      setIsConfigured(alreadyBound);
       return;
     }
     let cancelled = false;
@@ -158,9 +202,15 @@ export function PurchasesProvider({
           await Purchases.logIn(userId);
           configuredUserId = userId;
         }
-        if (!cancelled) setIsConfigured(true);
+        if (!cancelled) {
+          setIsConfigured(true);
+          setConfiguredFor(userId);
+        }
       } catch {
-        if (!cancelled) setIsConfigured(false);
+        if (!cancelled) {
+          setIsConfigured(false);
+          setConfiguredFor(null);
+        }
       }
     })();
     return () => {
@@ -239,6 +289,140 @@ export function PurchasesProvider({
     [],
   );
 
+  // ── Chai packs (App Store consumables) ────────────────────────────────────
+  //
+  // Apple requires digital goods consumed in the app to be sold through IAP,
+  // so Chai cannot be bought on iOS through the web's Stripe path. What we
+  // sell is a consumable: money in, Chai in the ledger, no entitlement, no
+  // subscription touched at either end.
+
+  /**
+   * Asks the server which of these Apple transaction ids it has credited.
+   * A read, and the ONLY thing the client is allowed to know about crediting:
+   * it never asserts an amount and never mints Chai.
+   */
+  const isChaiCredited = useCallback(
+    async (transactionIds: string[]): Promise<string[]> => {
+      const { credited } = await checkChaiPackCredits({ transactionIds });
+      return credited;
+    },
+    [],
+  );
+
+  // The catalog. NOT read from the Stripe-priced /pricing endpoint: that one
+  // 503s when Stripe is unreachable, and the iOS shop must not depend on the
+  // web payment processor.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { packs } = await getChaiPacks();
+        if (!cancelled) setChaiPacks(packs);
+      } catch {
+        // No catalog → no shop. Better than a shop that cannot credit.
+        if (!cancelled) setChaiPacks([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const purchaseChaiPack = useCallback(
+    async (appleProductId: string): Promise<ChaiPurchaseOutcome> => {
+      // Never buy against a store customer that is not this learner. Between
+      // an account switch and `logIn` landing, the SDK still answers for the
+      // previous account, and a purchase made there would be credited to them.
+      if (!userId || configuredFor !== userId) return 'error';
+      setIsBuyingChai(true);
+      try {
+        const [product] = await Purchases.getProducts([appleProductId]);
+        if (!product) return 'error';
+        const { customerInfo: info } = await Purchases.purchaseStoreProduct(
+          product,
+        );
+        setCustomerInfo(info);
+
+        // The success signal. A consumable grants no entitlement, so the
+        // subscription flow's "did an entitlement appear?" check would call a
+        // good purchase a failure; what makes it good is the SERVER showing
+        // the transaction credited.
+        const transactionId = info.nonSubscriptionTransactions
+          ?.filter((tx) => tx.productIdentifier === appleProductId)
+          .at(-1)?.transactionIdentifier;
+        if (!transactionId) return 'pending';
+
+        const credited = await waitForCredit(transactionId, isChaiCredited);
+        // Not credited yet does NOT mean not bought. Launch recovery replays
+        // it; the copy the learner sees must not claim the Chai has landed.
+        return credited ? 'success' : 'pending';
+      } catch (err) {
+        if (
+          err &&
+          typeof err === 'object' &&
+          (err as { userCancelled?: boolean }).userCancelled
+        ) {
+          return 'cancelled';
+        }
+        return 'error';
+      } finally {
+        setIsBuyingChai(false);
+      }
+    },
+    [isChaiCredited, userId, configuredFor],
+  );
+
+  // Launch recovery. A purchase Apple charged for that we failed to credit is
+  // replayed here — read the customer's consumables, ask which are credited,
+  // re-deliver the rest. Double-crediting is stopped by the ledger's refId
+  // index, not by anything remembered on this device.
+  useEffect(() => {
+    // `configuredFor === userId` and not merely `isConfigured`: during an
+    // account switch the store still answers for the previous customer, and
+    // replaying THEIR transactions while the server answers for this account
+    // is how a purchase ends up on the wrong ledger.
+    if (!userId || configuredFor !== userId || chaiPacks.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      // Every leg re-checks: the learner can sign out mid-recovery, and an
+      // in-flight replay must stop rather than land on the next account.
+      const stopIfStale = () => {
+        if (cancelled) throw new Error('account changed');
+      };
+      const result = await recoverUncreditedPurchases({
+        getCustomerInfo: async () => {
+          stopIfStale();
+          return Purchases.getCustomerInfo();
+        },
+        // Re-posts the receipt so RevenueCat re-delivers the transaction to
+        // our webhook. Deliberately NOT the SDK-wide "purchases are completed
+        // by my app" mode, which would change how subscriptions — a money
+        // path that works — are finished.
+        replay: async () => {
+          stopIfStale();
+          await Purchases.syncPurchases();
+        },
+        isCredited: async (ids) => {
+          stopIfStale();
+          return isChaiCredited(ids);
+        },
+        packs: chaiPacks,
+      });
+      if (!cancelled && result.uncredited.length > result.stillUncredited.length) {
+        // Something landed; let balance readers pick it up on their next fetch.
+        try {
+          setCustomerInfo(await Purchases.getCustomerInfo());
+        } catch {
+          // Best effort.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configuredFor, userId, chaiPacks, isChaiCredited]);
+
   const restore = useCallback(async (): Promise<boolean> => {
     setIsRestoring(true);
     try {
@@ -266,6 +450,9 @@ export function PurchasesProvider({
       isRestoring,
       purchase,
       restore,
+      chaiPacks,
+      isBuyingChai,
+      purchaseChaiPack,
     }),
     [
       isConfigured,
@@ -280,6 +467,9 @@ export function PurchasesProvider({
       isRestoring,
       purchase,
       restore,
+      chaiPacks,
+      isBuyingChai,
+      purchaseChaiPack,
     ],
   );
 
@@ -288,6 +478,18 @@ export function PurchasesProvider({
       {children}
     </PurchasesContext.Provider>
   );
+}
+
+/**
+ * The context if a provider is above us, null otherwise.
+ *
+ * For surfaces that live inside the signed-in app but can also be rendered
+ * standalone (the wallet sheet, in tests and in isolation): a missing purchase
+ * provider means the shop simply does not appear, which is the right answer
+ * rather than a crash on a screen that has nothing to do with buying.
+ */
+export function usePurchasesOptional(): PurchasesContextValue | null {
+  return useContext(PurchasesContext);
 }
 
 export function usePurchases(): PurchasesContextValue {

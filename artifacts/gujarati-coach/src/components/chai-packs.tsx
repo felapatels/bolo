@@ -5,8 +5,10 @@
 // webhook credit are live and tested, so switching packs on is a display
 // change rather than the first run of untried code.
 //
-// iOS sells consumables through StoreKit later. Nothing here may be mentioned
-// in the mobile app.
+// iOS sells the SAME packs as StoreKit consumables (see
+// artifacts/bolo-mobile/components/ChaiPackShop.tsx), also dark, reading the
+// same server catalog. Nothing on THIS surface — the Stripe checkout, its
+// prices, this component — may be mentioned or linked in the mobile app.
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";

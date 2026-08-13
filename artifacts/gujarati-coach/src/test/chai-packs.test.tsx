@@ -30,9 +30,9 @@ vi.mock("@/lib/billing", () => ({ beginChaiPackCheckout }));
 const CATALOG_WITH_PACKS: PricingCatalog = {
   ...PRICING_CATALOG,
   packs: {
-    small: { amountCents: 199, currency: "usd", chai: 50 },
-    medium: { amountCents: 499, currency: "usd", chai: 150 },
-    large: { amountCents: 999, currency: "usd", chai: 400 },
+    small: { amountCents: 199, currency: "usd", chai: 25 },
+    medium: { amountCents: 499, currency: "usd", chai: 75 },
+    large: { amountCents: 999, currency: "usd", chai: 200 },
   },
 };
 
@@ -72,9 +72,9 @@ describe("the flag", () => {
     // What the shop would render is derived by a pure function on the server
     // catalog, and it is correct whether or not the surface is shown.
     expect(buildPackOffers(CATALOG_WITH_PACKS)).toEqual([
-      { id: "small", chai: 50, price: "$1.99" },
-      { id: "medium", chai: 150, price: "$4.99" },
-      { id: "large", chai: 400, price: "$9.99" },
+      { id: "small", chai: 25, price: "$1.99" },
+      { id: "medium", chai: 75, price: "$4.99" },
+      { id: "large", chai: 200, price: "$9.99" },
     ]);
   });
 });
@@ -85,9 +85,9 @@ describe("the shop, with the flag on", () => {
 
     expect(screen.getByTestId("chai-pack-shop")).toBeInTheDocument();
     for (const [id, chai, price] of [
-      ["small", "50", "$1.99"],
-      ["medium", "150", "$4.99"],
-      ["large", "400", "$9.99"],
+      ["small", "25", "$1.99"],
+      ["medium", "75", "$4.99"],
+      ["large", "200", "$9.99"],
     ] as const) {
       const card = screen.getByTestId(`chai-pack-${id}`);
       expect(card).toHaveTextContent(chai);

@@ -2178,6 +2178,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /chai-packs:
+    get:
+      operationId: getChaiPacks
+      tags: [tokens]
+      summary: The Chai packs, their Apple product ids and what each grants
+      description: >-
+        The mobile shop's catalog. Deliberately NOT part of GET /pricing: that
+        endpoint quotes live Stripe prices and fails when Stripe is
+        unreachable, and the iOS shop must not depend on the web payment
+        processor. It also carries no price at all — on iOS the price shown is
+        the StoreKit product's own, so no server number can drift from what
+        Apple charges. The Chai amount is the same catalog the credit path
+        grants from, so the shop cannot advertise a pack size the purchase does
+        not deliver.
+      responses:
+        "200":
+          description: The pack catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChaiPackCatalog"
+  /chai-packs/credited:
+    post:
+      operationId: checkChaiPackCredits
+      tags: [tokens]
+      summary: Which of these App Store transactions has the ledger credited
+      description: >-
+        A read, expressed as a POST because the input is a list. The app can
+        see which consumables Apple sold it but not whether the server credited
+        them; this answers that and nothing else. It never writes, never states
+        an amount, and can never mint Chai — recovery works by asking the store
+        to re-deliver an uncredited transaction, and double-crediting is
+        prevented by the ledger's refId index rather than by client
+        bookkeeping. Only the caller's own ledger is consulted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChaiPackCreditsInput"
+      responses:
+        "200":
+          description: The subset of the given transaction ids already credited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChaiPackCreditsResult"
+
   /outfits:
     get:
       operationId: getOutfits
@@ -4817,6 +4865,50 @@ components:
         refId:
           type: string
           description: optional client idempotency key
+    ChaiPack:
+      type: object
+      required: [id, appleProductId, chai]
+      properties:
+        id:
+          type: string
+          enum: [small, medium, large]
+        appleProductId:
+          type: string
+          description: >-
+            The App Store consumable product id. The single mapping between an
+            Apple SKU and a pack: the app is told it here and never carries its
+            own copy.
+        chai:
+          type: integer
+          description: How much Chai the ledger credits for this pack.
+    ChaiPackCatalog:
+      type: object
+      required: [packs]
+      properties:
+        packs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChaiPack"
+    ChaiPackCreditsInput:
+      type: object
+      required: [transactionIds]
+      properties:
+        transactionIds:
+          type: array
+          items: { type: string }
+          description: >-
+            Apple transaction ids, as the store reported them. Ids beyond the
+            first 100 are ignored.
+    ChaiPackCreditsResult:
+      type: object
+      required: [credited]
+      properties:
+        credited:
+          type: array
+          items: { type: string }
+          description: >-
+            The subset of the given transaction ids that already have a ledger
+            row. Anything absent from this list has not been credited.
     UnlockStopInput:
       type: object
       required: [lessonGroupId]

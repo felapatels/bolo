@@ -85,12 +85,64 @@ test("events for an unrelated entitlement are ignored", () => {
   assert.equal(apply, null);
 });
 
-test("events with no entitlement info apply (single-entitlement app)", () => {
+// --- no event may grant a subscription it does not name --------------------
+//
+// These four pin the guard that used to be a hole: an event carrying no
+// entitlement id used to be assumed to mean all-access, so ANY unfamiliar
+// event handed out a free Plus subscription. Nothing may grant, extend or
+// modify a subscription without saying which subscription it is about.
+
+test("an event naming no entitlement grants nothing", () => {
   const apply = applyFromEvent(
     event({ entitlement_ids: null, entitlement_id: null }),
     NOW,
   );
-  assert.equal(apply?.tier, "plus");
+  assert.equal(apply, null);
+});
+
+test("an event type we have never seen grants nothing", () => {
+  // A future RevenueCat event type, arriving with no entitlement info. It must
+  // fall through to "grants nothing" rather than to "assume all-access".
+  const apply = applyFromEvent(
+    event({
+      type: "SOME_FUTURE_EVENT_TYPE",
+      entitlement_ids: null,
+      entitlement_id: null,
+    }),
+    NOW,
+  );
+  assert.equal(apply, null);
+});
+
+test("a consumable purchase grants no subscription, even naming our entitlement", () => {
+  // The dashboard-misconfigured case: someone attaches the all-access
+  // entitlement to the Chai pack product, so the consumable event arrives
+  // naming it. The event TYPE is ignored for subscription purposes, so the
+  // guard still holds — belt (type) and braces (named entitlement).
+  const apply = applyFromEvent(
+    event({
+      type: "NON_SUBSCRIPTION_PURCHASE",
+      entitlement_ids: [PLUS_ENTITLEMENT_ID],
+      product_id: "bolo_chai_kettle",
+      transaction_id: "2000000999",
+    }),
+    NOW,
+  );
+  assert.equal(apply, null);
+});
+
+test("a consumable purchase naming no entitlement grants nothing", () => {
+  const apply = applyFromEvent(
+    event({
+      type: "NON_SUBSCRIPTION_PURCHASE",
+      entitlement_ids: null,
+      entitlement_id: null,
+      product_id: "bolo_chai_cutting",
+      transaction_id: "2000000998",
+    }),
+    NOW,
+  );
+  assert.equal(apply, null);
 });
 
 test("non-state and TRANSFER events return null from applyFromEvent", () => {

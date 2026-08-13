@@ -94,9 +94,9 @@ describe("buildPricingCatalog", () => {
     // the credit path grants from, so the shop cannot advertise a pack size
     // the purchase does not deliver.
     assert.deepEqual(catalog.packs, {
-      small: { amountCents: 199, currency: "usd", chai: 50 },
-      medium: { amountCents: 499, currency: "usd", chai: 150 },
-      large: { amountCents: 999, currency: "usd", chai: 400 },
+      small: { amountCents: 199, currency: "usd", chai: 25 },
+      medium: { amountCents: 499, currency: "usd", chai: 75 },
+      large: { amountCents: 999, currency: "usd", chai: 200 },
     });
   });
 
@@ -105,7 +105,7 @@ describe("buildPricingCatalog", () => {
 
     const catalog = await buildPricingCatalog(fetcherFor([]));
     assert.deepEqual(catalog.packs, {
-      small: { amountCents: 199, currency: "usd", chai: 50 },
+      small: { amountCents: 199, currency: "usd", chai: 25 },
     });
 
     // A deployment with packs but no plans is still misconfigured: the paywall

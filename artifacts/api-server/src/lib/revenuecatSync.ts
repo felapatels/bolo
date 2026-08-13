@@ -52,6 +52,13 @@ export interface RevenueCatEvent {
   // Present only on TRANSFER events (no app_user_id in that case).
   transferred_from?: string[] | null;
   transferred_to?: string[] | null;
+  // Present on store purchase events. Read ONLY by the consumable (Chai pack)
+  // credit path in lib/chaiPacks.ts — nothing in this module may use them to
+  // decide a subscription.
+  product_id?: string | null;
+  transaction_id?: string | null;
+  original_transaction_id?: string | null;
+  store?: string | null;
 }
 
 export interface RevenueCatWebhookBody {
@@ -61,19 +68,31 @@ export interface RevenueCatWebhookBody {
 
 // Event types that never change entitlement state — safely acknowledged as
 // no-ops so RevenueCat doesn't retry them.
+//
+// NON_SUBSCRIPTION_PURCHASE is a consumable (a Chai pack). It carries no
+// entitlement and must never touch a subscription column; the Chai credit is
+// handled entirely outside this module, in the webhook route, from the
+// catalog in lib/chaiPacks.ts.
 const IGNORED_EVENT_TYPES = new Set([
   "TEST",
   "SUBSCRIBER_ALIAS",
   "INVOICE_ISSUANCE",
   "VIRTUAL_CURRENCY_TRANSACTION",
   "TEMPORARY_ENTITLEMENT_GRANT",
+  "NON_SUBSCRIPTION_PURCHASE",
 ]);
 
 // Which of our entitlements the event pertains to, or null to ignore it.
-// All-access is preferred when both are listed. If the event carries no
-// entitlement info at all we assume all-access applies (backwards compatible
-// with the original single-entitlement app); if it lists entitlements and
-// neither of ours is among them we ignore it.
+// All-access is preferred when both are listed.
+//
+// An event that names NO entitlement grants nothing. This used to assume
+// all-access ("backwards compatible with the original single-entitlement
+// app"), which meant any entitlement-less event — a consumable purchase, a new
+// RevenueCat event type we have never seen, a misconfigured dashboard — handed
+// out a free Plus subscription. A subscription is now only ever granted by an
+// event that says, in so many words, which subscription it is about. The
+// consumable event type is ALSO ignored above, so the guard holds twice over:
+// by event type, and by the absence of a named entitlement.
 function concernedEntitlement(
   event: RevenueCatEvent,
 ): "plus" | "one_language" | null {
@@ -83,7 +102,7 @@ function concernedEntitlement(
       : typeof event.entitlement_id === "string" && event.entitlement_id
         ? [event.entitlement_id]
         : null;
-  if (ids === null) return "plus";
+  if (ids === null) return null;
   if (ids.includes(PLUS_ENTITLEMENT_ID)) return "plus";
   if (ids.includes(ONE_LANGUAGE_ENTITLEMENT_ID)) return "one_language";
   return null;

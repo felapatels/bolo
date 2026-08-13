@@ -19,6 +19,10 @@
  *     purchase still credits
  *   - Chai is credited server-side from the catalog, so a tampered pack
  *     amount in metadata cannot inflate the grant
+ *   - App Store consumables: recognition by product id, the refId is the
+ *     TRANSACTION id (never the original one), two distinct purchases of the
+ *     same pack credit twice, one replayed purchase credits once, and the iOS
+ *     and web idempotency domains cannot collide
  *   - the zero floor: a reversal larger than the balance lands on 0, records
  *     the delta the owner asked for, and is idempotent by refId
  *
@@ -36,10 +40,14 @@ import { eq, and } from "drizzle-orm";
 import {
   CHAI_PACKS,
   CHAI_PACK_REASON,
+  CHAI_PACK_IOS_REASON,
   CHAI_PACK_SESSION_KIND,
   getChaiPack,
+  getChaiPackByAppleProductId,
   chaiPackCreditFromSession,
+  chaiPackCreditFromStoreEvent,
   creditChaiPack,
+  creditChaiPackFromStore,
   chaiPacksConfigured,
 } from "../lib/chaiPacks.js";
 import { getChaiPackPriceId } from "../lib/stripePricing.js";
@@ -76,6 +84,20 @@ function session(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// A RevenueCat consumable event as the webhook receives it, trimmed to the
+// fields the mapping reads.
+function storeEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    type: "NON_SUBSCRIPTION_PURCHASE",
+    app_user_id: TEST_USER_ID,
+    product_id: "bolo_chai_cutting",
+    transaction_id: "2000000000001",
+    original_transaction_id: "2000000000001",
+    store: "APP_STORE",
+    ...overrides,
+  };
+}
+
 before(async () => {
   await db
     .insert(usersTable)
@@ -89,19 +111,34 @@ after(async () => {
 });
 
 describe("the pack catalog", () => {
-  it("is the ruled ladder: 50/$1.99, 150/$4.99, 400/$9.99", () => {
+  it("is the ruled ladder: 25/$1.99, 75/$4.99, 200/$9.99", () => {
     assert.deepStrictEqual(
       CHAI_PACKS.map((p) => [p.id, p.chai, p.cents]),
       [
-        ["small", 50, 199],
-        ["medium", 150, 499],
-        ["large", 400, 999],
+        ["small", 25, 199],
+        ["medium", 75, 499],
+        ["large", 200, 999],
       ],
     );
   });
 
+  it("says the same numbers to the buyer as it credits", () => {
+    // The product name is what Stripe's checkout page shows the learner. A
+    // name saying "50" over a credit of 25 is a lie to someone paying money.
+    for (const pack of CHAI_PACKS) {
+      assert.ok(
+        pack.productName.includes(String(pack.chai)),
+        `${pack.id}: product name "${pack.productName}" must state ${pack.chai}`,
+      );
+      assert.ok(
+        pack.description.includes(String(pack.chai)),
+        `${pack.id}: description "${pack.description}" must state ${pack.chai}`,
+      );
+    }
+  });
+
   it("resolves a pack by id and refuses anything else", () => {
-    assert.strictEqual(getChaiPack("medium")?.chai, 150);
+    assert.strictEqual(getChaiPack("medium")?.chai, 75);
     assert.strictEqual(getChaiPack("enormous"), null);
     assert.strictEqual(getChaiPack(undefined), null);
   });
@@ -246,7 +283,7 @@ describe("crediting a purchase", () => {
     assert.ok(credit);
     const { state, granted } = await creditChaiPack(credit);
     assert.strictEqual(granted, true);
-    assert.strictEqual(state.balance, 50);
+    assert.strictEqual(state.balance, 25);
   });
 
   it("credits nothing on a replay of the same Stripe transaction", async () => {
@@ -256,7 +293,7 @@ describe("crediting a purchase", () => {
     assert.ok(credit);
     const { state, granted } = await creditChaiPack(credit);
     assert.strictEqual(granted, false, "a replay must not credit again");
-    assert.strictEqual(state.balance, 50);
+    assert.strictEqual(state.balance, 25);
 
     const rows = await db
       .select()
@@ -287,7 +324,7 @@ describe("crediting a purchase", () => {
     assert.ok(credit);
     const { state, granted } = await creditChaiPack(credit);
     assert.strictEqual(granted, true);
-    assert.strictEqual(state.balance, 450, "50 from the first pack + 400");
+    assert.strictEqual(state.balance, 225, "25 from the first pack + 200");
   });
 
   it("grants the catalog's Chai, never an amount carried in metadata", async () => {
@@ -307,7 +344,149 @@ describe("crediting a purchase", () => {
     );
     assert.ok(credit);
     const { state } = await creditChaiPack(credit);
-    assert.strictEqual(state.balance, 500, "450 + the small pack's 50");
+    assert.strictEqual(state.balance, 250, "225 + the small pack's 25");
+  });
+});
+
+describe("mapping an App Store consumable purchase to a credit", () => {
+  it("gives every pack a distinct Apple product id and resolves it back", () => {
+    const ids = CHAI_PACKS.map((p) => p.appleProductId);
+    assert.strictEqual(new Set(ids).size, ids.length, "product ids are unique");
+    for (const pack of CHAI_PACKS) {
+      assert.strictEqual(
+        getChaiPackByAppleProductId(pack.appleProductId)?.id,
+        pack.id,
+      );
+    }
+    assert.strictEqual(getChaiPackByAppleProductId("bolo_plus_monthly"), null);
+    assert.strictEqual(getChaiPackByAppleProductId(undefined), null);
+  });
+
+  it("maps a consumable event to the user, pack and prefixed transaction id", () => {
+    assert.deepStrictEqual(chaiPackCreditFromStoreEvent(storeEvent()), {
+      userId: TEST_USER_ID,
+      pack: getChaiPack("small"),
+      refId: "apple_tx:2000000000001",
+    });
+  });
+
+  it("keys on the transaction id, NEVER the original transaction id", () => {
+    // Apple reuses original_transaction_id across every purchase of the same
+    // product. Keying on it would make a learner's second pack collide with
+    // their first and silently credit nothing.
+    const credit = chaiPackCreditFromStoreEvent(
+      storeEvent({
+        transaction_id: "2000000000009",
+        original_transaction_id: "2000000000001",
+      }),
+    );
+    assert.strictEqual(credit?.refId, "apple_tx:2000000000009");
+  });
+
+  it("recognises the purchase by product id, not by event type alone", () => {
+    // A consumable event for a product we do not sell is not a Chai pack.
+    assert.strictEqual(
+      chaiPackCreditFromStoreEvent(storeEvent({ product_id: "bolo_hats_01" })),
+      null,
+    );
+    // And a subscription event naming a Chai product is not one either.
+    assert.strictEqual(
+      chaiPackCreditFromStoreEvent(storeEvent({ type: "INITIAL_PURCHASE" })),
+      null,
+    );
+  });
+
+  it("refuses an event with no user or no transaction id", () => {
+    assert.strictEqual(
+      chaiPackCreditFromStoreEvent(storeEvent({ app_user_id: null })),
+      null,
+    );
+    assert.strictEqual(
+      chaiPackCreditFromStoreEvent(storeEvent({ transaction_id: null })),
+      null,
+    );
+    assert.strictEqual(
+      chaiPackCreditFromStoreEvent(storeEvent({ transaction_id: "" })),
+      null,
+    );
+  });
+});
+
+describe("crediting an App Store purchase", () => {
+  before(async () => {
+    await cleanup();
+  });
+
+  it("credits exactly the pack's Chai, from the catalog", async () => {
+    const credit = chaiPackCreditFromStoreEvent(storeEvent());
+    assert.ok(credit);
+    const { state, granted } = await creditChaiPackFromStore(credit);
+    assert.strictEqual(granted, true);
+    assert.strictEqual(state.balance, 25);
+  });
+
+  // The guard that stops a later refactor collapsing repeat purchases back
+  // into the subscription-shaped "a replay is free" assumption. Buying the
+  // same pack twice is two payments and must be two credits.
+  it("GUARD: two distinct purchases of the SAME pack credit twice", async () => {
+    const first = chaiPackCreditFromStoreEvent(
+      storeEvent({ transaction_id: "2000000000010" }),
+    );
+    const second = chaiPackCreditFromStoreEvent(
+      storeEvent({ transaction_id: "2000000000011" }),
+    );
+    assert.ok(first && second);
+    assert.notStrictEqual(first.refId, second.refId);
+
+    const a = await creditChaiPackFromStore(first);
+    const b = await creditChaiPackFromStore(second);
+    assert.strictEqual(a.granted, true);
+    assert.strictEqual(b.granted, true, "the second payment must credit too");
+    assert.strictEqual(b.state.balance, 75, "25 + 25 + 25");
+  });
+
+  it("credits nothing when ONE purchase is replayed", async () => {
+    // This is the recovery path arriving twice: the app asked the store to
+    // re-deliver a transaction that had, in fact, already been credited.
+    const credit = chaiPackCreditFromStoreEvent(
+      storeEvent({ transaction_id: "2000000000010" }),
+    );
+    assert.ok(credit);
+    const { state, granted } = await creditChaiPackFromStore(credit);
+    assert.strictEqual(granted, false);
+    assert.strictEqual(state.balance, 75, "a replay adds nothing");
+
+    const rows = await db
+      .select()
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, TEST_USER_ID),
+          eq(tokenLedgerTable.reason, CHAI_PACK_IOS_REASON),
+          eq(tokenLedgerTable.refId, "apple_tx:2000000000010"),
+        ),
+      );
+    assert.strictEqual(rows.length, 1, "exactly one ledger row per purchase");
+  });
+
+  it("keeps the iOS and web idempotency domains apart", async () => {
+    // Pathological but cheap to rule out: the same id string arriving from
+    // both stores must credit twice, because they are two payments. The
+    // ledger's unique index is (userId, reason, refId), and the two tills use
+    // different reasons.
+    const shared = "collide_1";
+    const web = await creditChaiPack({
+      userId: TEST_USER_ID,
+      pack: getChaiPack("small")!,
+      transactionId: shared,
+    });
+    const ios = await creditChaiPackFromStore({
+      userId: TEST_USER_ID,
+      pack: getChaiPack("small")!,
+      refId: shared,
+    });
+    assert.strictEqual(web.granted, true);
+    assert.strictEqual(ios.granted, true);
   });
 });
 

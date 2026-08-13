@@ -14,6 +14,7 @@ import familyRouter from "./family";
 import contactRouter from "./contact";
 import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
+import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import ttsAuditRouter from "./ttsAudit";
@@ -72,6 +73,10 @@ router.use(stripeRouter);
 // authenticated learner — joining must work for Free users.
 router.use(familyRouter);
 router.use(tokensRouter);
+// The Chai pack catalog the mobile app reads (pack id, Apple product id, Chai
+// amount) plus the recovery read that says which App Store transactions the
+// ledger already credited. No prices: iOS reads those from StoreKit.
+router.use(chaiPacksRouter);
 // Bolo's outfits: a Chai sink, so it sits with the other token surfaces and is
 // open to every authenticated learner (Free included — outfits are bought with
 // Chai, not with a plan).
