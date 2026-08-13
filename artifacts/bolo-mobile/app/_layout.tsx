@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useUser } from '@clerk/expo';
 import { initSentry, setSentryUser, Sentry } from '@/lib/sentry';
+import { installApiFailureBreadcrumbs } from '@/lib/apiErrors';
 import { initAnalytics, identifyUser, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -34,6 +35,11 @@ SplashScreen.preventAutoHideAsync();
 // errors are captured.
 initSentry();
 initAnalytics();
+// Every non-2xx API response leaves a breadcrumb (endpoint + status + Clerk's
+// auth reason), so a visible error arrives in Sentry with the request sequence
+// that led to it — the evidence that was missing when App Review rejected
+// build 34 over a Settings error nobody could attribute to a status code.
+installApiFailureBreadcrumbs();
 
 // Keeps PostHog + Sentry identity in sync with the Clerk session (user id
 // only, never email), and fires sign_up_completed exactly once for a freshly

@@ -34,6 +34,47 @@ export class RequestTimeoutError extends Error {
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _failedResponseObserver: FailedResponseObserver | null = null;
+
+/**
+ * Everything a caller needs to describe a non-2xx response without reading
+ * (and therefore consuming) its body. `headers` is the live response headers
+ * object — safe to read, e.g. Clerk's `x-clerk-auth-reason` on a 401.
+ */
+export interface FailedResponseInfo {
+  method: string;
+  /** Fully-qualified request URL, query string included. */
+  url: string;
+  status: number;
+  statusText: string;
+  headers: Headers;
+}
+
+export type FailedResponseObserver = (info: FailedResponseInfo) => void;
+
+/**
+ * Register a callback invoked for EVERY non-2xx response, just before the
+ * `ApiError` is thrown. Intended for breadcrumbing/telemetry: the mobile app
+ * records each failure in Sentry so the request sequence behind a visible
+ * error is reconstructable from the dashboard.
+ *
+ * The observer must not throw and must not read the response body (the caller
+ * still needs it); anything it throws is swallowed. Pass `null` to clear.
+ */
+export function setFailedResponseObserver(
+  observer: FailedResponseObserver | null,
+): void {
+  _failedResponseObserver = observer;
+}
+
+function notifyFailedResponse(info: FailedResponseInfo): void {
+  if (!_failedResponseObserver) return;
+  try {
+    _failedResponseObserver(info);
+  } catch {
+    // Telemetry must never break a request's own error handling.
+  }
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -431,6 +472,13 @@ export async function customFetch<T = unknown>(
   }
 
   if (!response.ok) {
+    notifyFailedResponse({
+      method,
+      url: requestInfo.url,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
     if (response.status === 401) {
       // Instrumentation: one line per 401, no token or cookie values logged.
       const path = requestInfo.url.split("?")[0];

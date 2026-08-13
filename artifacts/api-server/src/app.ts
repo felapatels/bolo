@@ -14,6 +14,7 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { guardUnreadableToken } from "./middlewares/unreadableTokenGuard";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { stripeWebhookHandler } from "./middlewares/stripeWebhook";
@@ -102,14 +103,17 @@ app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 // Resolve the publishable key from the incoming request host so the same
 // server can serve multiple Clerk custom domains. Falls back to
 // CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
+const clerk = clerkMiddleware((req) => ({
+  publishableKey: publishableKeyFromHost(
+    getClerkProxyHost(req) ?? "",
+    process.env.CLERK_PUBLISHABLE_KEY,
+  ),
+}));
+
+// A token the verifier cannot even read is an auth failure, not a server
+// fault: answered 401 with a reason header instead of the 500 it used to be.
+// See middlewares/unreadableTokenGuard.ts.
+app.use(guardUnreadableToken(clerk));
 
 // Dev-only deliberate error to verify Sentry reporting end to end.
 // Gated on NODE_ENV: this route does not exist in production.

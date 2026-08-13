@@ -45,6 +45,11 @@ import {
   saveSilentMode,
 } from '@/lib/settings';
 import { loadSoundPref, saveSoundPref } from '@/lib/soundPref';
+import {
+  apiFailureDetail,
+  apiFailureMessage,
+  reportApiFailure,
+} from '@/lib/apiErrors';
 import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
 import { hapticLight } from '@/lib/haptics';
 
@@ -160,6 +165,14 @@ export default function AccountScreen() {
       setThemePref(account.data.preferences.learning.theme as ThemePref);
     }
   }, [account.data, user?.firstName, setThemePref]);
+
+  // The settings load is the app's ONLY unmasked API failure (home and the
+  // tabs fall back silently), so when it fails the cause has to reach Sentry
+  // with its status, endpoint and Clerk auth reason — not just a friendly line
+  // on screen. Keyed on the error object so one failure reports once.
+  React.useEffect(() => {
+    if (account.isError) reportApiFailure('account.load', account.error);
+  }, [account.isError, account.error]);
 
   const applyAccount = (next: Account) => {
     qc.setQueryData(getGetAccountQueryKey(), next);
@@ -354,7 +367,15 @@ export default function AccountScreen() {
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
           <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-            Bolo couldn't load your settings right now 🥭 — check your connection and try again.
+            {apiFailureMessage(account.error)}
+          </Text>
+          {/* Deliberately visible: the failing endpoint + status (and Clerk's
+              reason on a 401). This screen is the only one that surfaces an API
+              failure instead of falling back silently, so its screenshot has to
+              be diagnostic on its own — App Review's build 34 rejection was
+              unactionable precisely because this line did not exist. */}
+          <Text style={[styles.stateDetail, { color: colors.mutedForeground }]}>
+            {apiFailureDetail(account.error)}
           </Text>
           <ChunkyButton
             title="Retry"
@@ -1103,5 +1124,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 260,
     lineHeight: 20,
+  },
+  stateDetail: {
+    fontFamily: AppFonts.regular,
+    fontSize: 11,
+    textAlign: 'center',
+    maxWidth: 280,
+    lineHeight: 16,
+    opacity: 0.75,
+    marginTop: -6,
   },
 });
