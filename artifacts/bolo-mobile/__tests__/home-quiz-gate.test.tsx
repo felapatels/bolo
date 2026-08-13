@@ -108,6 +108,8 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetAccount: () => ({ data: { preferences: { learning: { dailyGoal: 10 } } }, isLoading: false }),
   useListReviewPhrases: () => ({ data: [] }),
   useListIncomingFriendRequests: () => ({ data: [] }),
+  // HomeSocialStrip reads this; idle (no friends) hides the rank rows.
+  useGetFriendsLeaderboard: () => ({ data: [], isLoading: false, isError: false }),
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
 }));

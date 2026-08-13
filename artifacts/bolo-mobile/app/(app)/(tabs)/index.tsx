@@ -63,7 +63,7 @@ import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
-import { HomeReferralCard } from '@/components/HomeReferralCard';
+import { HomeSocialStrip } from '@/components/HomeSocialStrip';
 import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 
@@ -730,6 +730,13 @@ export default function HomeScreen() {
           balance={tokensQuery.data?.balance}
         />
 
+        {/* Social strip: rank + top friends, or single invite affordance when
+            the learner has no friends yet. Replaces HomeReferralCard so there
+            is exactly one invite affordance on home. Links to Friends tab. */}
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(150)}>
+          <HomeSocialStrip />
+        </Animated.View>
+
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
@@ -984,12 +991,6 @@ export default function HomeScreen() {
             })}
           </>
         ) : null}
-
-        {/* Task #1049: the referral entry point. Last content card, after
-            Recent plays and above the Privacy Policy link. Absent entirely
-            while the referral query is loading or failed, and when no web
-            domain is configured to point the link at. */}
-        <HomeReferralCard />
 
         {/* Privacy policy — App/Play review expects an in-app link learners can
             reach. Opens the hosted /privacy page in an in-app browser. */}

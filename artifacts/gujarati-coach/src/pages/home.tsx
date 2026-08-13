@@ -22,7 +22,7 @@ import { blessAudioPlayback } from "@/lib/iosAudio";
 import { LanguagePicker } from "@/components/language-picker";
 import { NamePromptCard } from "@/components/name-prompt-card";
 import { AddToHomeScreen } from "@/components/add-to-home-screen";
-import { HomeReferralCard } from "@/components/home-referral-card";
+import { HomeSocialStrip } from "@/components/home-social-strip";
 import { UpgradeCard } from "@/components/plus";
 import { Mascot } from "@/components/mascot";
 import { HomeSkeleton } from "@/components/home-skeleton";
@@ -897,6 +897,10 @@ export default function Home() {
       <ChaiPurchaseReturn />
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
+        {/* Social strip: rank + top friends, or single invite affordance when
+            the learner has no friends yet. Replaces the old referral card so
+            there is exactly one invite affordance on home. Links to /friends. */}
+        <HomeSocialStrip />
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left / main column — the learning surface */}
           {/* min-w-0: without it the grid track honors the ticket's intrinsic
@@ -1243,12 +1247,6 @@ export default function Home() {
             <div className="lg:hidden">{recentSection}</div>
           </aside>
         </div>
-
-        {/* Task #1049: the referral entry point. Last content card, outside
-            the two-column grid so it lands after Recent plays at every width,
-            and above the add-to-home chrome. Absent entirely while the
-            referral query is loading or failed. */}
-        <HomeReferralCard />
 
         {/* Secondary chrome: how to keep Bolo on the home screen, plus the
             App Store badge for iOS. Quiet, bottom of the page, never
