@@ -393,7 +393,7 @@ function FinePrint({
       <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
         By subscribing you agree to our{" "}
         <Link href="/terms" className="font-bold text-primary hover:underline">
-          Terms
+          Terms of Use
         </Link>{" "}
         and{" "}
         <Link href="/privacy" className="font-bold text-primary hover:underline">

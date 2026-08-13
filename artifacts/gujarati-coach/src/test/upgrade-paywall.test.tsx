@@ -118,6 +118,30 @@ describe("Paywall plan preselection", () => {
   });
 });
 
+// App Review, Guideline 3.1.2(c): the purchase flow must link the Terms of Use
+// (EULA) and the privacy policy. The rejection was against the iOS build, but
+// the web paywall carries the same obligation and the same wording.
+describe("Subscription disclosure links", () => {
+  test("links the Terms of Use and the Privacy Policy from the purchase flow", () => {
+    renderAt("/upgrade");
+
+    const terms = screen.getByRole("link", { name: "Terms of Use" });
+    const privacy = screen.getByRole("link", { name: "Privacy Policy" });
+
+    expect(terms).toHaveAttribute("href", "/terms");
+    expect(privacy).toHaveAttribute("href", "/privacy");
+  });
+
+  test("the links are present on the Family plan too", () => {
+    renderAt("/upgrade?plan=family");
+
+    expect(screen.getByRole("link", { name: "Terms of Use" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Privacy Policy" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Trial banner (daily cap arrival)", () => {
   test("shows the trial banner when reason=daily_lesson_limit", () => {
     renderAt("/upgrade?plan=plus&reason=daily_lesson_limit");

@@ -30,6 +30,12 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
+import {
+  openPrivacyPolicyAlways,
+  openTermsOfUse,
+  PRIVACY_POLICY_URL_ALWAYS,
+  TERMS_OF_USE_URL,
+} from '@/lib/legal';
 
 // Hindi is always free, so it is never a One-Language "chosen" language.
 const FREE_LANGUAGE = 'hi';
@@ -545,6 +551,12 @@ export default function PaywallScreen() {
               </Text>
             ) : null}
 
+            {/* App Review, Guideline 3.1.2(c): the purchase flow itself must
+                link the Terms of Use (EULA) and the privacy policy. Seated
+                with the trial disclosure, ABOVE the purchase button, so both
+                are on screen without scrolling past the CTA. */}
+            <LegalLinks />
+
             {status ? (
               <Text
                 style={[
@@ -610,6 +622,9 @@ export default function PaywallScreen() {
                 {isRestoring ? 'Restoring…' : 'Restore purchases'}
               </Text>
             </Pressable>
+            {/* The disclosure links belong to the whole subscription surface,
+                not just the branch that can transact today. */}
+            <LegalLinks />
           </View>
         )}
       </ScrollView>
@@ -877,7 +892,63 @@ function PlanOption({
   );
 }
 
+/**
+ * Terms of Use (EULA) and privacy policy, required inside the purchase flow by
+ * App Review Guideline 3.1.2(c). Both URLs are always defined (lib/legal.ts
+ * falls back to the production domain), so this renders unconditionally: a
+ * paywall that sometimes hides these links is the rejection we just took.
+ */
+function LegalLinks() {
+  const colors = useColors();
+  return (
+    <View style={styles.legalRow}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Terms of Use"
+        accessibilityHint={TERMS_OF_USE_URL}
+        hitSlop={10}
+        onPress={() => {
+          hapticLight();
+          void openTermsOfUse();
+        }}
+      >
+        <Text style={[styles.legalLink, { color: colors.primary }]}>
+          Terms of Use
+        </Text>
+      </Pressable>
+      <Text style={[styles.legalDot, { color: colors.mutedForeground }]}>·</Text>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Privacy Policy"
+        accessibilityHint={PRIVACY_POLICY_URL_ALWAYS}
+        hitSlop={10}
+        onPress={() => {
+          hapticLight();
+          void openPrivacyPolicyAlways();
+        }}
+      >
+        <Text style={[styles.legalLink, { color: colors.primary }]}>
+          Privacy Policy
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  legalLink: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  legalDot: { fontFamily: AppFonts.semibold, fontSize: 13 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
