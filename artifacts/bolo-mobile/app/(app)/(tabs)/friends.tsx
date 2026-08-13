@@ -754,7 +754,7 @@ function FriendsTab() {
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <Avatar user={friend} />
+              <MascotAvatar user={friend} />
               <View style={{ flex: 1 }}>
                 <Text
                   style={[styles.personName, { color: colors.foreground }]}
@@ -1039,7 +1039,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         </Text>
       </View>
 
-      <Avatar user={entry} onPrimary={isSelf} />
+      <MascotAvatar user={entry} onPrimary={isSelf} />
 
       <View style={{ flex: 1 }}>
         <Text
@@ -1105,6 +1105,88 @@ function EmptyLeaderboard() {
 // ---------------------------------------------------------------------------
 // Shared bits
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Row mascots
+//
+// An outfit costs 40 Chai and, until now, only the learner who bought it could
+// see it. Friend and leaderboard rows are the one place anybody else does, so
+// a row shows that learner's Bolo wearing what they have on — mobile rows used
+// to show initials and no mascot at all.
+//
+// The numbers were settled by LOOKING at rendered thumbnails, not by reasoning
+// about them. At the old 44px circle, with the whole 1024 frame contained
+// inside it, a kurta and a sherwani are two coloured smudges. Two changes fix
+// that: the circle grows to 56px, and the frame is cropped to the bird MINUS
+// HER FEET — a 745px window at (125, 55) of the 1024 frame — which magnifies
+// her ~1.37x inside the same circle. The crop deliberately stops short of the
+// "upper body": the garments hang on her belly and the hem and placket are
+// exactly what separate the two cream ones.
+//
+// Kept in step with the web row (gujarati-coach/src/pages/friends.tsx).
+// ---------------------------------------------------------------------------
+const ROW_AVATAR_PX = 56;
+const ROW_CROP = { frame: 1024, window: 745, x: 125, y: 55 } as const;
+const ROW_MASCOT_PX = Math.round(
+  (ROW_AVATAR_PX * ROW_CROP.frame) / ROW_CROP.window,
+);
+const ROW_MASCOT_LEFT = -Math.round(
+  (ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX,
+);
+const ROW_MASCOT_TOP = -Math.round(
+  (ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX,
+);
+
+// One pose on every row: "wave". Front-facing and friendly, and — unlike
+// thumbsup or thinking, where a wing crosses the chest — nothing covers the
+// garment. (tryagain is the most neutral stance but wears a worried face,
+// which is not what you want beside a friend's name.)
+const ROW_MASCOT_POSE = 'wave' as const;
+
+/**
+ * A row avatar: the learner's mascot, dressed, cropped into a circle.
+ *
+ * `outfit`/`accessory` are passed EXPLICITLY (null included). Left undefined,
+ * <Mascot> falls back to the *viewer's* equipped outfit, which would paint
+ * every friend in the reader's own clothes.
+ */
+function MascotAvatar({
+  user,
+  onPrimary,
+}: {
+  user: {
+    equippedOutfit?: string | null;
+    equippedAccessory?: string | null;
+  };
+  onPrimary?: boolean;
+}) {
+  const colors = useColors();
+  return (
+    <View
+      testID="row-mascot"
+      accessible={false}
+      style={[
+        styles.rowMascot,
+        {
+          backgroundColor: onPrimary
+            ? 'rgba(255,255,255,0.22)'
+            : `${colors.primary}1F`,
+        },
+      ]}
+    >
+      <View style={styles.rowMascotInner}>
+        <Mascot
+          pose={ROW_MASCOT_POSE}
+          size={ROW_MASCOT_PX}
+          motion="none"
+          entering={false}
+          outfit={user.equippedOutfit ?? null}
+          accessory={user.equippedAccessory ?? null}
+        />
+      </View>
+    </View>
+  );
+}
 
 function Avatar({
   user,
@@ -1299,6 +1381,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   pendingText: { fontFamily: AppFonts.bold, fontSize: 12 },
+  rowMascot: {
+    width: ROW_AVATAR_PX,
+    height: ROW_AVATAR_PX,
+    borderRadius: ROW_AVATAR_PX / 2,
+    overflow: 'hidden',
+  },
+  // Absolutely positioned so the oversized mascot is CROPPED by the circle
+  // above rather than laying out at its own size and shoving the row wider.
+  rowMascotInner: {
+    position: 'absolute',
+    left: ROW_MASCOT_LEFT,
+    top: ROW_MASCOT_TOP,
+  },
   avatar: {
     width: 44,
     height: 44,

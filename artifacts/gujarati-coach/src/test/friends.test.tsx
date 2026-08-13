@@ -218,6 +218,38 @@ describe("Leaderboard", () => {
     expect(screen.getByText("240")).toBeInTheDocument();
   });
 
+  test("every row wears that learner's own outfit, undressed when they have none", () => {
+    // An outfit costs 40 Chai and used to be visible only to its buyer. These
+    // rows are the audience. Three rows, three states: a dressed friend, the
+    // caller in something else, and a learner who owns nothing — who gets the
+    // canonical bird, never a blank or an initial.
+    h.leaderboard = successQuery([
+      { ...rival, equippedOutfit: "kurta", equippedAccessory: "pagdi" },
+      { ...me, equippedOutfit: "sherwani" },
+      third,
+    ]);
+    renderFriends(<Friends />);
+
+    const rows = screen.getAllByTestId("row-mascot");
+    expect(rows.map((r) => r.getAttribute("data-outfit"))).toEqual([
+      "kurta",
+      "sherwani",
+      "none",
+    ]);
+    // The head slot travels with the garment: shipping only the outfit would
+    // show a pagdi-wearing friend bare-headed.
+    expect(rows[0].getAttribute("data-accessory")).toBe("pagdi");
+
+    // And the outfit reaches the ART, not just the wrapper.
+    const srcs = rows.map((r) =>
+      Array.from(r.querySelectorAll("img")).map((i) => i.getAttribute("src")).join(" "),
+    );
+    expect(srcs[0]).toContain("outfits/kurta/mascot-wave.png");
+    expect(srcs[1]).toContain("outfits/sherwani/mascot-wave.png");
+    expect(srcs[2]).toContain("mascot-wave.png");
+    expect(srcs[2]).not.toContain("outfits/");
+  });
+
   test("renders a fun-fact loader while loading", () => {
     h.leaderboard = loadingQuery();
     renderFriends(<Friends />);
@@ -521,6 +553,30 @@ describe("Friends list", () => {
     await openFriendsTab(user);
 
     expect(screen.getByText("No friends yet")).toBeInTheDocument();
+  });
+
+  test("a friend row shows their mascot in their outfit, not their initials", async () => {
+    h.friends = successQuery([
+      { ...friend, equippedOutfit: "saree", equippedAccessory: null },
+      {
+        friendshipId: 12,
+        since: "2026-01-02T00:00:00.000Z",
+        id: "f2",
+        displayName: "Meera",
+        email: "meera@example.com",
+      },
+    ]);
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    const rows = screen.getAllByTestId("row-mascot");
+    expect(rows.map((r) => r.getAttribute("data-outfit"))).toEqual([
+      "saree",
+      "none",
+    ]);
+    // The initials avatar is gone from these rows: "K" for Kabir would be it.
+    expect(screen.queryByText("K")).not.toBeInTheDocument();
   });
 
   test("removing a friend calls the remove mutation", async () => {

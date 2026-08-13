@@ -6,7 +6,13 @@ process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example.com';
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
 import {
   ApiError,
   type Friend,
@@ -111,9 +117,27 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
-jest.mock('@/components/Mascot', () => ({
-  Mascot: () => null,
-}));
+// Stands in for the real mascot but REPORTS what it was asked to wear: row
+// avatars must render each learner's own outfit, and an undefined outfit prop
+// would silently fall back to the viewer's own clothes.
+jest.mock('@/components/Mascot', () => {
+  const { View } = require('react-native');
+  return {
+    Mascot: ({
+      outfit,
+      accessory,
+    }: {
+      outfit?: string | null;
+      accessory?: string | null;
+    }) => (
+      <View
+        testID={`mascot-outfit-${outfit === undefined ? 'inherited' : (outfit ?? 'none')}`}
+        // eslint-disable-next-line react-native/no-inline-styles
+        accessibilityLabel={`accessory-${accessory === undefined ? 'inherited' : (accessory ?? 'none')}`}
+      />
+    ),
+  };
+});
 
 jest.mock('@/components/KeyboardAwareScrollViewCompat', () => {
   const { View } = require('react-native');
@@ -273,6 +297,35 @@ describe('Leaderboard', () => {
     // XP is shown for the entries.
     expect(screen.getByText('500 XP')).toBeOnTheScreen();
     expect(screen.getByText('240 XP')).toBeOnTheScreen();
+  });
+
+  test("every row wears that learner's own outfit, undressed when they have none", () => {
+    // Mobile rows used to be initials and nothing else. An outfit costs 40
+    // Chai; these rows are the only place another learner ever sees it.
+    mockState.leaderboard = successQuery([
+      { ...rival, equippedOutfit: 'kurta', equippedAccessory: 'pagdi' },
+      { ...me, equippedOutfit: 'sherwani' },
+      third,
+    ]);
+    render(<FriendsScreen />);
+    openLeaderboard();
+
+    // Scoped to the ROWS: the screen's own header Bolo legitimately inherits
+    // the viewer's outfit, and asserting screen-wide would catch that instead.
+    const rows = screen.getAllByTestId('row-mascot');
+    expect(rows).toHaveLength(3);
+    expect(
+      rows.map((r) => within(r).getByTestId(/^mascot-outfit-/).props.testID),
+    ).toEqual([
+      'mascot-outfit-kurta',
+      'mascot-outfit-sherwani',
+      // The learner who owns nothing gets canonical Bolo — an EXPLICIT null,
+      // not an inherited fallback that would paint them in the viewer's
+      // clothes ('mascot-outfit-inherited' is what that failure looks like).
+      'mascot-outfit-none',
+    ]);
+    // The head slot rides along with the garment.
+    expect(within(rows[0]).getByLabelText('accessory-pagdi')).toBeOnTheScreen();
   });
 
   test('renders skeleton placeholders while loading', () => {
@@ -568,6 +621,28 @@ describe('Friends list', () => {
     render(<FriendsScreen />);
 
     expect(screen.getByText('No friends yet')).toBeOnTheScreen();
+  });
+
+  test('a friend row shows their mascot in their outfit, not their initials', () => {
+    mockState.friends = successQuery([
+      { ...friend, equippedOutfit: 'saree', equippedAccessory: null },
+      {
+        friendshipId: 12,
+        since: '2026-01-02T00:00:00.000Z',
+        id: 'f2',
+        displayName: 'Meera',
+        email: 'meera@example.com',
+      },
+    ]);
+    render(<FriendsScreen />);
+
+    const rows = screen.getAllByTestId('row-mascot');
+    expect(rows).toHaveLength(2);
+    expect(
+      rows.map((r) => within(r).getByTestId(/^mascot-outfit-/).props.testID),
+    ).toEqual(['mascot-outfit-saree', 'mascot-outfit-none']);
+    // The initials avatar is gone from these rows ("K" for Kabir would be it).
+    expect(screen.queryByText('K')).not.toBeOnTheScreen();
   });
 
   test('removing a friend confirms then calls the remove mutation', () => {

@@ -85,6 +85,84 @@ function initialsFor(u: {
   return (letters || source[0] || "?").toUpperCase();
 }
 
+/* ------------------------------ Row mascots ------------------------------ */
+
+// An outfit costs 40 Chai and, until now, only the learner who bought it could
+// see it. Friend and leaderboard rows are the one place anybody else does, so
+// a row shows that learner's Bolo wearing what they have on — never their
+// initials, and never a blank when they own nothing (canonical Bolo then).
+//
+// The numbers below were settled by LOOKING at rendered thumbnails, not by
+// reasoning about them. At the old 40px circle, with the whole 1024 frame
+// contained inside it, a kurta and a sherwani are two coloured smudges. Two
+// changes fix that: the circle grows to 56px, and the frame is cropped to the
+// bird MINUS HER FEET — a 745px window at (125, 55) of the 1024 frame — which
+// magnifies her ~1.37x inside the same circle.
+//
+// The crop deliberately stops short of the "upper body" the brief suggested:
+// the garments hang on her belly, and the hem and placket are exactly what
+// separate the two cream ones, so a tighter crop would have thrown away the
+// distinguishing detail it was meant to reveal.
+const ROW_AVATAR_PX = 56;
+const ROW_CROP = { frame: 1024, window: 745, x: 125, y: 55 } as const;
+const ROW_MASCOT_PX = Math.round(
+  (ROW_AVATAR_PX * ROW_CROP.frame) / ROW_CROP.window,
+);
+const ROW_MASCOT_LEFT = -Math.round((ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX);
+const ROW_MASCOT_TOP = -Math.round((ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX);
+
+// One pose on every row: "wave". Front-facing and friendly, and — unlike
+// thumbsup or thinking, where a wing crosses the chest — nothing covers the
+// garment. (tryagain is the most neutral stance but wears a worried face,
+// which is not what you want beside a friend's name.)
+const ROW_MASCOT_POSE = "wave" as const;
+
+/**
+ * A row avatar: the learner's mascot, dressed, cropped into a circle.
+ *
+ * `outfit`/`accessory` are passed EXPLICITLY (null included). Left undefined,
+ * <Mascot> falls back to the *viewer's* equipped outfit, which would paint
+ * every friend in the reader's own clothes.
+ */
+function MascotAvatar({
+  user,
+  className,
+}: {
+  user: {
+    displayName: string | null;
+    equippedOutfit?: string | null;
+    equippedAccessory?: string | null;
+  };
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden rounded-full bg-primary/15",
+        className,
+      )}
+      style={{ width: ROW_AVATAR_PX, height: ROW_AVATAR_PX }}
+      data-testid="row-mascot"
+      data-outfit={user.equippedOutfit ?? "none"}
+      data-accessory={user.equippedAccessory ?? "none"}
+    >
+      <div
+        className="absolute"
+        style={{ left: ROW_MASCOT_LEFT, top: ROW_MASCOT_TOP }}
+      >
+        <Mascot
+          pose={ROW_MASCOT_POSE}
+          size={ROW_MASCOT_PX}
+          idle="none"
+          ambient="calm"
+          outfit={user.equippedOutfit ?? null}
+          accessory={user.equippedAccessory ?? null}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Avatar({
   user,
   className,
@@ -260,12 +338,9 @@ function LeaderboardRow({
         )}
       </div>
 
-      <Avatar
+      <MascotAvatar
         user={entry}
-        className={cn(
-          "h-10 w-10 text-sm",
-          entry.isSelf && "bg-white/20 text-primary-foreground",
-        )}
+        className={cn(entry.isSelf && "bg-white/20")}
       />
 
       <div className="min-w-0 flex-1">
@@ -723,7 +798,7 @@ function FriendsList() {
               key={friend.friendshipId}
               className="flex items-center gap-3 rounded-2xl bg-card p-3 border border-card-border shadow-sm card-lift"
             >
-              <Avatar user={friend} className="h-11 w-11" />
+              <MascotAvatar user={friend} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold text-foreground leading-tight">
                   {displayNameFor(friend)}

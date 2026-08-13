@@ -8,6 +8,7 @@ import {
   friendInvitesTable,
   friendCodeAttemptsTable,
   gameSessionsTable,
+  userTokenStateTable,
 } from "@workspace/db";
 import { and, asc, eq, gte, or, inArray, sql, sum } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -41,17 +42,40 @@ interface UserSummary {
   id: string;
   displayName: string | null;
   email: string | null;
+  // What this learner's Bolo is wearing, so a friend row can render their
+  // mascot dressed. An outfit is bought with Chai and was previously visible
+  // only to its owner (the self-only GET /tokens); friend and leaderboard rows
+  // are the one place anybody else sees it. Null in either slot means the
+  // canonical undressed bird — never a blank or a fallback initial.
+  equippedOutfit: string | null;
+  equippedAccessory: string | null;
 }
 
+// The equipped slots are optional here so callers that already hold a plain
+// users row (the code lookup, which answers with a just-created *pending*
+// request) can build a summary without a second query. A pending request row
+// shows no mascot, so undressed is the honest answer there.
 function toSummary(u: {
   id: string;
   displayName: string | null;
   email: string | null;
+  equippedOutfit?: string | null;
+  equippedAccessory?: string | null;
 }): UserSummary {
-  return { id: u.id, displayName: u.displayName, email: u.email };
+  return {
+    id: u.id,
+    displayName: u.displayName,
+    email: u.email,
+    equippedOutfit: u.equippedOutfit ?? null,
+    equippedAccessory: u.equippedAccessory ?? null,
+  };
 }
 
-// Loads the id/displayName/email for a set of user ids in one query, keyed by id.
+// Loads the identity + equipped mascot state for a set of user ids in ONE
+// query, keyed by id. The outfit joins here rather than being fetched per row:
+// a leaderboard of twenty friends must still cost one round trip, and a
+// learner who has never opened the Chai stall has no user_token_state row at
+// all, so the join is a LEFT join and both slots come back null for them.
 async function loadUserSummaries(
   ids: string[],
 ): Promise<Map<string, UserSummary>> {
@@ -61,10 +85,24 @@ async function loadUserSummaries(
       id: usersTable.id,
       displayName: usersTable.displayName,
       email: usersTable.email,
+      equippedOutfit: userTokenStateTable.equippedOutfit,
+      equippedAccessory: userTokenStateTable.equippedAccessory,
     })
     .from(usersTable)
+    .leftJoin(userTokenStateTable, eq(userTokenStateTable.userId, usersTable.id))
     .where(inArray(usersTable.id, ids));
   return new Map(rows.map((r) => [r.id, toSummary(r)]));
+}
+
+/** The summary for a user we could not load — identity unknown, bird undressed. */
+function unknownSummary(id: string): UserSummary {
+  return {
+    id,
+    displayName: null,
+    email: null,
+    equippedOutfit: null,
+    equippedAccessory: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -278,11 +316,7 @@ router.get(
         id: r.id,
         status: r.status,
         createdAt: r.createdAt,
-        user: summaries.get(r.requesterId) ?? {
-          id: r.requesterId,
-          displayName: null,
-          email: null,
-        },
+        user: summaries.get(r.requesterId) ?? unknownSummary(r.requesterId),
       })),
     );
   },
@@ -309,11 +343,7 @@ router.get(
         id: r.id,
         status: r.status,
         createdAt: r.createdAt,
-        user: summaries.get(r.addresseeId) ?? {
-          id: r.addresseeId,
-          displayName: null,
-          email: null,
-        },
+        user: summaries.get(r.addresseeId) ?? unknownSummary(r.addresseeId),
       })),
     );
   },
@@ -371,11 +401,8 @@ router.post(
     res.json({
       id: updated.id,
       status: updated.status,
-      friend: summaries.get(updated.requesterId) ?? {
-        id: updated.requesterId,
-        displayName: null,
-        email: null,
-      },
+      friend:
+        summaries.get(updated.requesterId) ?? unknownSummary(updated.requesterId),
     });
   },
 );
@@ -420,11 +447,7 @@ router.get("/friends", async (req: Request, res: Response): Promise<void> => {
   res.json(
     rows.map((r) => {
       const friendId = r.requesterId === userId ? r.addresseeId : r.requesterId;
-      const summary = summaries.get(friendId) ?? {
-        id: friendId,
-        displayName: null,
-        email: null,
-      };
+      const summary = summaries.get(friendId) ?? unknownSummary(friendId);
       return { friendshipId: r.id, since: r.respondedAt, ...summary };
     }),
   );
@@ -624,17 +647,17 @@ router.get(
     }
 
     const entries = ids.map((id) => {
-      const summary = summaries.get(id) ?? {
-        id,
-        displayName: null,
-        email: null,
-      };
+      const summary = summaries.get(id) ?? unknownSummary(id);
       const practiceXp = sumAttemptXp(byUser.get(id) ?? []);
       const xp = practiceXp + (gameXpByUser.get(id) ?? 0);
       return {
         userId: id,
         displayName: summary.displayName,
         email: summary.email,
+        // The row's mascot, carried by the leaderboard payload itself so no
+        // row has to fetch anything of its own.
+        equippedOutfit: summary.equippedOutfit,
+        equippedAccessory: summary.equippedAccessory,
         xp,
         isSelf: id === userId,
       };

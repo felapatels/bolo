@@ -13,6 +13,7 @@ import {
   friendInvitesTable,
   friendCodeAttemptsTable,
   gameSessionsTable,
+  userTokenStateTable,
 } from "@workspace/db";
 import { eq, inArray, or, and } from "drizzle-orm";
 import friendsRouter from "./friends";
@@ -96,6 +97,22 @@ async function seedGameSession(userId: string, xpAwarded: number): Promise<void>
   });
 }
 
+// Dresses a learner's Bolo. Equipping is a column write, not a ledger row —
+// see api-server/src/lib/outfits.ts — so the test does not need to buy first.
+async function equipMascot(
+  userId: string,
+  outfit: string | null,
+  accessory: string | null,
+): Promise<void> {
+  await db
+    .insert(userTokenStateTable)
+    .values({ userId, equippedOutfit: outfit, equippedAccessory: accessory })
+    .onConflictDoUpdate({
+      target: userTokenStateTable.userId,
+      set: { equippedOutfit: outfit, equippedAccessory: accessory },
+    });
+}
+
 // Makes USER_A and the given learner accepted friends directly (bypassing the
 // request lifecycle) for leaderboard/remove setup.
 async function makeFriends(a: string, b: string): Promise<void> {
@@ -127,6 +144,9 @@ async function clearSocialRows(): Promise<void> {
     );
   await db.delete(attemptsTable).where(inArray(attemptsTable.userId, ALL_USERS));
   await db.delete(gameSessionsTable).where(inArray(gameSessionsTable.userId, ALL_USERS));
+  await db
+    .delete(userTokenStateTable)
+    .where(inArray(userTokenStateTable.userId, ALL_USERS));
 }
 
 before(async () => {
@@ -209,6 +229,22 @@ before(async () => {
       fontFamily: "sans-serif",
     })
     .onConflictDoNothing();
+
+  // Rows carry each learner's equipped mascot, so the friends/leaderboard
+  // payloads can dress the row without a per-row fetch.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_token_state (
+      user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      balance integer NOT NULL DEFAULT 0,
+      station_pauses_equipped integer NOT NULL DEFAULT 0,
+      express_multiplier_expires_at timestamptz,
+      last_allowance_month text,
+      equipped_outfit text,
+      equipped_accessory text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS friend_code_attempts (
@@ -557,6 +593,54 @@ test("leaderboard shows a friendless learner alone at rank 1", async () => {
   assert.equal(json[0].xp, 42);
   assert.equal(json[0].rank, 1);
   assert.equal(json[0].isSelf, true);
+});
+
+// ---------------------------------------------------------------------------
+// Equipped mascot on rows
+//
+// An outfit is bought with Chai and was, until now, visible only to its owner
+// (the self-only GET /tokens). Friend rows and leaderboard rows are the one
+// place anybody else sees it, so both payloads must carry it — and carry it
+// themselves, because a row that fetched its own outfit would turn a
+// twenty-friend list into twenty-one requests.
+// ---------------------------------------------------------------------------
+
+test("the friends list carries each friend's equipped outfit and accessory", async () => {
+  await equipMascot(USER_B, "kurta", "pagdi");
+  // USER_C has no user_token_state row at all — the learner who never opened
+  // the Chai stall. They must come back undressed, not missing.
+  await makeFriends(USER_A, USER_B);
+  await makeFriends(USER_A, USER_C);
+
+  actAs(USER_A);
+  const { status, json } = await api("GET", "/friends");
+  assert.equal(status, 200);
+
+  const byId = new Map<string, any>(json.map((f: any) => [f.id, f]));
+  assert.equal(byId.get(USER_B).equippedOutfit, "kurta");
+  assert.equal(byId.get(USER_B).equippedAccessory, "pagdi");
+  assert.equal(byId.get(USER_C).equippedOutfit, null);
+  assert.equal(byId.get(USER_C).equippedAccessory, null);
+});
+
+test("the leaderboard carries every entry's equipped outfit, the caller's included", async () => {
+  await equipMascot(USER_A, "saree", null);
+  await equipMascot(USER_B, "sherwani", "station-cap");
+  await seedAttempt(USER_A, 50);
+  await seedAttempt(USER_B, 90);
+  await makeFriends(USER_A, USER_B);
+  await makeFriends(USER_A, USER_C);
+
+  actAs(USER_A);
+  const { status, json } = await api("GET", "/friends/leaderboard");
+  assert.equal(status, 200);
+
+  const byId = new Map<string, any>(json.map((e: any) => [e.userId, e]));
+  assert.equal(byId.get(USER_A).equippedOutfit, "saree");
+  assert.equal(byId.get(USER_A).equippedAccessory, null);
+  assert.equal(byId.get(USER_B).equippedOutfit, "sherwani");
+  assert.equal(byId.get(USER_B).equippedAccessory, "station-cap");
+  assert.equal(byId.get(USER_C).equippedOutfit, null);
 });
 
 // ---------------------------------------------------------------------------
