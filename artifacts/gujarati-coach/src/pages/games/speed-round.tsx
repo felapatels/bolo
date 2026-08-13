@@ -714,10 +714,6 @@ export default function SpeedRoundPage() {
   const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
   const [gameKey, setGameKey] = useState(0); // reset key
 
-  if (!isLoading && !isPlus) {
-    return <Redirect to="/upgrade" />;
-  }
-
   const handleStart = (catId: number, hard: boolean) => {
     setCategoryId(catId);
     setHardMode(hard);
@@ -730,6 +726,14 @@ export default function SpeedRoundPage() {
     setFinalMisses(misses);
     setPhase("done");
   }, []);
+
+  // Plus gate. This MUST sit below every hook call in this component: the
+  // first render (entitlements still loading) runs the full hook list, so
+  // returning early once isPlus resolves false would render fewer hooks than
+  // the previous pass and React throws instead of showing the paywall.
+  if (!isLoading && !isPlus) {
+    return <Redirect to="/upgrade" />;
+  }
 
   const handlePlayAgain = () => {
     setGameKey((k) => k + 1);
