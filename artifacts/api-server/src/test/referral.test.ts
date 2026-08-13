@@ -24,10 +24,15 @@ import {
   pool,
   usersTable,
   referralRedemptionsTable,
+  friendshipsTable,
   tokenLedgerTable,
   userTokenStateTable,
 } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
+import {
+  ensureAcceptedFriendship,
+  findFriendshipBetween,
+} from "../lib/friendship.js";
 import {
   REFERRAL_CODE_ALPHABET,
   REFERRAL_CODE_LENGTH,
@@ -49,6 +54,16 @@ const OTHER_ID = "test-referral-r1-other";
 const ALL_IDS = [REFERRER_ID, REFEREE_ID, OTHER_ID];
 
 async function cleanup() {
+  // Redemption now leaves a friendship behind, so the suite has to clear the
+  // social graph too or a rerun starts with the pair already connected.
+  await db
+    .delete(friendshipsTable)
+    .where(
+      or(
+        inArray(friendshipsTable.requesterId, ALL_IDS),
+        inArray(friendshipsTable.addresseeId, ALL_IDS),
+      ),
+    );
   await db
     .delete(referralRedemptionsTable)
     .where(inArray(referralRedemptionsTable.refereeUserId, ALL_IDS));
@@ -127,6 +142,81 @@ describe("redeem attribution", () => {
       .from(tokenLedgerTable)
       .where(inArray(tokenLedgerTable.userId, [REFERRER_ID, REFEREE_ID]));
     assert.strictEqual(ledger.length, 0, "redeem grants no Chai to either side");
+
+    // Task #1111: redeeming a link ALSO makes the two learners friends, with no
+    // accept step. This is the single exception to the accept gate — redeeming
+    // someone's link is already an explicit act by both parties.
+    const friendship = await findFriendshipBetween(REFERRER_ID, REFEREE_ID);
+    assert.ok(friendship, "redemption leaves the two learners connected");
+    assert.strictEqual(friendship!.status, "accepted", "friends immediately, no request");
+  });
+
+  it("auto-friend is idempotent and does not duplicate a reverse row", async () => {
+    // The friendships unique index only covers ONE ordered pair, so a reverse
+    // row would slip straight past it. ensureAcceptedFriendship has to check
+    // both directions itself; this pins that it does.
+    const before = await db
+      .select()
+      .from(friendshipsTable)
+      .where(
+        or(
+          and(
+            eq(friendshipsTable.requesterId, REFERRER_ID),
+            eq(friendshipsTable.addresseeId, REFEREE_ID),
+          ),
+          and(
+            eq(friendshipsTable.requesterId, REFEREE_ID),
+            eq(friendshipsTable.addresseeId, REFERRER_ID),
+          ),
+        ),
+      );
+    assert.strictEqual(before.length, 1, "precondition: exactly one row");
+
+    // Calling in the OPPOSITE order must find the existing row, not insert.
+    const again = await ensureAcceptedFriendship(REFEREE_ID, REFERRER_ID);
+    assert.strictEqual(again, "already", "reverse-order call is a no-op");
+
+    const after = await db
+      .select()
+      .from(friendshipsTable)
+      .where(
+        or(
+          and(
+            eq(friendshipsTable.requesterId, REFERRER_ID),
+            eq(friendshipsTable.addresseeId, REFEREE_ID),
+          ),
+          and(
+            eq(friendshipsTable.requesterId, REFEREE_ID),
+            eq(friendshipsTable.addresseeId, REFERRER_ID),
+          ),
+        ),
+      );
+    assert.strictEqual(after.length, 1, "still exactly one row");
+  });
+
+  it("a pending request between the pair is promoted, not left waiting", async () => {
+    // Someone can send a friend request by code and THEN redeem the same
+    // person's link. Leaving the pending row alone would leave them "redeemed
+    // but still waiting", which reads as a bug to both learners.
+    await db
+      .delete(friendshipsTable)
+      .where(
+        or(
+          inArray(friendshipsTable.requesterId, ALL_IDS),
+          inArray(friendshipsTable.addresseeId, ALL_IDS),
+        ),
+      );
+    await db.insert(friendshipsTable).values({
+      requesterId: OTHER_ID,
+      addresseeId: REFERRER_ID,
+      status: "pending",
+    });
+
+    const outcome = await ensureAcceptedFriendship(REFERRER_ID, OTHER_ID);
+    assert.strictEqual(outcome, "promoted", "the pending row is accepted");
+
+    const link = await findFriendshipBetween(REFERRER_ID, OTHER_ID);
+    assert.strictEqual(link!.status, "accepted");
   });
 
   it("double redeem is rejected even with a different valid code", async () => {

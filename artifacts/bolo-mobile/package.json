@@ -26,6 +26,7 @@
     "@expo/ngrok": "^4.1.0",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@sentry/cli": "2.55.0",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "catalog:",
     "@testing-library/react-native": "^13.3.3",
@@ -67,8 +68,7 @@
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2",
     "zod": "catalog:",
-    "zod-validation-error": "^3.4.0",
-    "@sentry/cli": "2.55.0"
+    "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
     "@clerk/expo": "^3.7.4",
@@ -91,6 +91,8 @@
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-auth-session": "~7.0.11",
+    "expo-camera": "~17.0.10",
+    "expo-clipboard": "~8.0.8",
     "expo-crypto": "~15.0.9",
     "expo-file-system": "~19.0.23",
     "expo-linear-gradient": "~15.0.8",
@@ -98,6 +100,7 @@
     "expo-secure-store": "~15.0.8",
     "posthog-react-native": "^4.61.0",
     "react-native-purchases": "9.15.2",
+    "react-native-qrcode-svg": "^6.3.21",
     "react-native-svg": "15.12.1"
   }
 }

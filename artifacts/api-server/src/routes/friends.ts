@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db,
@@ -5,13 +6,16 @@ import {
   attemptsTable,
   friendshipsTable,
   friendInvitesTable,
+  friendCodeAttemptsTable,
   gameSessionsTable,
 } from "@workspace/db";
-import { and, eq, or, inArray, sql, sum } from "drizzle-orm";
+import { and, asc, eq, gte, or, inArray, sql, sum } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { sumAttemptXp } from "../lib/progressMetrics";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendFriendInviteEmail } from "../lib/inviteEmail";
+import { findFriendshipBetween } from "../lib/friendship";
+import { normalizeReferralCode, REFERRAL_COPY } from "../lib/referral";
 
 const router: IRouter = Router();
 
@@ -63,116 +67,195 @@ async function loadUserSummaries(
   return new Map(rows.map((r) => [r.id, toSummary(r)]));
 }
 
-// GET /friends/search?email=... — find a single learner by their exact email so
-// the caller can send them a friend request. Emails are matched
-// case-insensitively. Never returns the caller themselves.
-router.get("/friends/search", async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
-  const email = String(req.query.email ?? "").trim();
-  if (!email) {
-    res.status(400).json({ error: "Missing email" });
-    return;
-  }
+// ---------------------------------------------------------------------------
+// Add a friend by their friend code
+//
+// There is deliberately NO lookup by email, name, or partial match anywhere in
+// this router any more. The only way to find another learner is to already hold
+// their exact friend code, which is their referral code (see the safety note on
+// REFERRAL_CODE_ALPHABET in lib/referral.ts).
+// ---------------------------------------------------------------------------
 
-  const rows = await db
-    .select({
-      id: usersTable.id,
-      displayName: usersTable.displayName,
-      email: usersTable.email,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.email, email));
+// Friend-code guessing budget. The code space is 32^6 ≈ 1.07e9, so these caps
+// keep a brute-force search astronomically out of reach while leaving a
+// hand-typing learner (and their typos) far more room than they will ever use.
+//
+// Two axes, because a per-account cap alone bounds nothing: an attacker who can
+// mint accounts simply spreads their guesses. The per-IP cap is the one that
+// actually bounds them, and it is set at 3× the per-account cap so a NAT'd
+// household, classroom or café can all add each other on the same evening.
+//
+// DB-backed on purpose (the friend_code_attempts log), not the in-memory
+// middleware in middlewares/rateLimit.ts: an in-memory window resets on every
+// deploy and is per-instance, which is far too weak for a guessing surface.
+const FRIEND_CODE_WINDOW_MS = 60 * 60 * 1000;
+const FRIEND_CODE_MAX_PER_USER = 10;
+const FRIEND_CODE_MAX_PER_IP = 30;
 
-  // Fall back to a case-insensitive match if an exact one wasn't found.
-  const match =
-    rows.find((r) => r.email === email) ??
-    rows.find((r) => (r.email ?? "").toLowerCase() === email.toLowerCase());
-
-  if (!match || match.id === userId) {
-    res.status(404).json({ error: "No learner found with that email" });
-    return;
-  }
-
-  res.json(toSummary(match));
-});
-
-// Finds any friendship row (either direction) between two learners.
-async function findFriendship(a: string, b: string) {
-  const [row] = await db
-    .select()
-    .from(friendshipsTable)
-    .where(
-      or(
-        and(
-          eq(friendshipsTable.requesterId, a),
-          eq(friendshipsTable.addresseeId, b),
-        ),
-        and(
-          eq(friendshipsTable.requesterId, b),
-          eq(friendshipsTable.addresseeId, a),
-        ),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
+// Salted hash of the caller's IP. Only equality between two requests matters,
+// so the raw address is never stored. Keyed with SESSION_SECRET when present so
+// the digests are not reversible from a stolen table alone.
+function hashIp(ip: string): string {
+  return createHmac("sha256", process.env.SESSION_SECRET ?? "bolo-friend-code")
+    .update(ip)
+    .digest("hex")
+    .slice(0, 32);
 }
 
-// POST /friends/requests — send a friend request to the learner with the given
-// email. Guards against friending yourself, an unknown email, or a duplicate
-// request/friendship in either direction.
-router.post("/friends/requests", async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
-  const email = String(req.body?.email ?? "").trim();
-  if (!email) {
-    res.status(400).json({ error: "Missing email" });
-    return;
-  }
+function retryAfterSeconds(oldest: Date): number {
+  return Math.max(
+    1,
+    Math.ceil((oldest.getTime() + FRIEND_CODE_WINDOW_MS - Date.now()) / 1000),
+  );
+}
 
-  const candidates = await db
-    .select({ id: usersTable.id, email: usersTable.email })
-    .from(usersTable)
-    .where(eq(usersTable.email, email));
-  const target =
-    candidates.find((r) => r.email === email) ??
-    candidates.find((r) => (r.email ?? "").toLowerCase() === email.toLowerCase());
+const FRIEND_CODE_RATE_LIMIT_MESSAGE =
+  "Too many code attempts. Please try again later.";
 
-  if (!target) {
-    res.status(404).json({ error: "No learner found with that email" });
-    return;
-  }
-  if (target.id === userId) {
-    res.status(400).json({ error: "You can't add yourself as a friend" });
-    return;
-  }
+// POST /friends/requests/by-code — send a friend request to the learner who
+// owns the given friend code.
+//
+// This ALWAYS creates a *pending* request, never an instant friendship, and
+// that is the property the whole design rests on: friend codes are referral
+// codes, and referral codes are broadcast on flyers and in group chats. The
+// accept step is what stops a broadcast code from becoming an open friend list.
+//
+// Rejection wording is uniform on purpose. An unknown code, a near-miss of a
+// real code, and a code belonging to someone the caller already has a
+// relationship with all return the SAME 404 and the SAME sentence, so probing
+// the endpoint reveals nothing about which codes exist. Only the self-add case
+// answers differently, since the caller already knows their own code.
+router.post(
+  "/friends/requests/by-code",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = getUserId(req);
+    const code = normalizeReferralCode(String(req.body?.code ?? ""));
+    const ipHash = hashIp(req.ip ?? "unknown");
 
-  const existing = await findFriendship(userId, target.id);
-  if (existing) {
-    res.status(409).json({
-      error:
-        existing.status === "accepted"
-          ? "You're already friends with this learner"
-          : "There's already a pending request between you two",
+    if (!code || code.length > 32) {
+      res.status(400).json({ error: "Enter a friend code." });
+      return;
+    }
+
+    const windowStart = new Date(Date.now() - FRIEND_CODE_WINDOW_MS);
+
+    // Cheap non-authoritative fast path (same shape as the zone test-out
+    // throttle): reject an obviously over-budget caller before doing any work.
+    const priorAttempts = await db
+      .select({
+        createdAt: friendCodeAttemptsTable.createdAt,
+        mine: sql<boolean>`${friendCodeAttemptsTable.userId} = ${userId}`,
+      })
+      .from(friendCodeAttemptsTable)
+      .where(
+        and(
+          gte(friendCodeAttemptsTable.createdAt, windowStart),
+          or(
+            eq(friendCodeAttemptsTable.userId, userId),
+            eq(friendCodeAttemptsTable.ipHash, ipHash),
+          ),
+        ),
+      )
+      .orderBy(asc(friendCodeAttemptsTable.createdAt));
+    const overBudget = (rows: { createdAt: Date; mine: boolean }[]) => {
+      const mine = rows.filter((r) => r.mine);
+      if (mine.length >= FRIEND_CODE_MAX_PER_USER) return mine[0]!.createdAt;
+      if (rows.length >= FRIEND_CODE_MAX_PER_IP) return rows[0]!.createdAt;
+      return null;
+    };
+    const fastOldest = overBudget(priorAttempts);
+    if (fastOldest) {
+      const seconds = retryAfterSeconds(fastOldest);
+      res.status(429).set("Retry-After", String(seconds)).json({
+        error: FRIEND_CODE_RATE_LIMIT_MESSAGE,
+        retryAfterSeconds: seconds,
+      });
+      return;
+    }
+
+    // Authoritative recheck + log insert inside a transaction, serialised by
+    // two advisory locks (account axis, then IP axis — always in that order, so
+    // concurrent callers can never deadlock against each other). Without this,
+    // a burst of parallel guesses would all pass the SELECT above.
+    let limited: number | null = null;
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('friend_code:user'), hashtext(${userId}))`,
+      );
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('friend_code:ip'), hashtext(${ipHash}))`,
+      );
+      const fresh = await tx
+        .select({
+          createdAt: friendCodeAttemptsTable.createdAt,
+          mine: sql<boolean>`${friendCodeAttemptsTable.userId} = ${userId}`,
+        })
+        .from(friendCodeAttemptsTable)
+        .where(
+          and(
+            gte(friendCodeAttemptsTable.createdAt, windowStart),
+            or(
+              eq(friendCodeAttemptsTable.userId, userId),
+              eq(friendCodeAttemptsTable.ipHash, ipHash),
+            ),
+          ),
+        )
+        .orderBy(asc(friendCodeAttemptsTable.createdAt));
+      const oldest = overBudget(fresh);
+      if (oldest) {
+        limited = retryAfterSeconds(oldest);
+        return; // commit releases the locks; nothing logged
+      }
+      // Logged before the lookup, and logged whether the code hits or misses.
+      // Counting only misses would let a guesser refill their budget by
+      // interleaving a code they already know is good.
+      await tx.insert(friendCodeAttemptsTable).values({ userId, ipHash });
     });
-    return;
-  }
+    if (limited !== null) {
+      res.status(429).set("Retry-After", String(limited)).json({
+        error: FRIEND_CODE_RATE_LIMIT_MESSAGE,
+        retryAfterSeconds: limited,
+      });
+      return;
+    }
 
-  const [created] = await db
-    .insert(friendshipsTable)
-    .values({ requesterId: userId, addresseeId: target.id, status: "pending" })
-    .returning();
+    // Exact match only — no prefix, fuzzy or "did you mean" matching, ever.
+    const [owner] = await db
+      .select({
+        id: usersTable.id,
+        displayName: usersTable.displayName,
+        email: usersTable.email,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.referralCode, code))
+      .limit(1);
 
-  const summaries = await loadUserSummaries([target.id]);
-  res.status(201).json({
-    id: created.id,
-    status: created.status,
-    createdAt: created.createdAt,
-    user: summaries.get(target.id) ?? {
-      id: target.id,
-      displayName: null,
-      email: target.email,
-    },
-  });
-});
+    if (owner && owner.id === userId) {
+      res.status(400).json({ error: "That's your own friend code." });
+      return;
+    }
+
+    // Unknown code and existing-relationship share one response. Splitting them
+    // would turn this endpoint into an oracle for "is this code real?".
+    const existing = owner ? await findFriendshipBetween(userId, owner.id) : null;
+    if (!owner || existing) {
+      res.status(404).json({ error: REFERRAL_COPY.unknownCode });
+      return;
+    }
+
+    const [created] = await db
+      .insert(friendshipsTable)
+      .values({ requesterId: userId, addresseeId: owner.id, status: "pending" })
+      .returning();
+
+    res.status(201).json({
+      id: created.id,
+      status: created.status,
+      createdAt: created.createdAt,
+      user: toSummary(owner),
+    });
+  },
+);
 
 // GET /friends/requests/incoming — pending requests awaiting the caller's
 // response, each annotated with the requester's identity.
@@ -256,6 +339,19 @@ async function loadIncomingPending(requestId: number, userId: string) {
 
 // POST /friends/requests/:id/accept — the addressee accepts a pending request,
 // turning it into a mutual accepted friendship.
+//
+// LOAD-BEARING. Do not remove this step, and do not add a path that creates an
+// "accepted" friendship straight from a code. A learner's friend code IS their
+// referral code, and referral codes are designed to be broadcast — printed on
+// flyers, pasted into WhatsApp groups, read out at events. Reusing one code for
+// both jobs is only safe because everything a code can do on its own is put a
+// *pending* request in front of the recipient, who decides. Delete this gate
+// and every place anyone has ever posted their code silently becomes an open
+// friend list.
+//
+// The single exception is referral redemption (lib/referral.ts →
+// ensureAcceptedFriendship), which friends both sides instantly because
+// redeeming someone's link is already an explicit act by both parties.
 router.post(
   "/friends/requests/:id/accept",
   async (req: Request, res: Response): Promise<void> => {
@@ -338,7 +434,7 @@ router.get("/friends", async (req: Request, res: Response): Promise<void> => {
 router.delete("/friends/:userId", async (req: Request, res: Response): Promise<void> => {
   const userId = getUserId(req);
   const friendId = String(req.params.userId);
-  const existing = await findFriendship(userId, friendId);
+  const existing = await findFriendshipBetween(userId, friendId);
   if (!existing || existing.status !== "accepted") {
     res.status(404).json({ error: "Friendship not found" });
     return;
@@ -378,7 +474,8 @@ router.post(
     }
 
     // If the email already belongs to a learner, redirect the caller to the
-    // regular "add friend" flow instead.
+    // regular "add friend" flow instead. There is no email lookup any more, so
+    // the only way to add them is with their friend code.
     const [existing] = await db
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -387,7 +484,7 @@ router.post(
     if (existing) {
       res.status(400).json({
         error:
-          "That email already has a Bolo! account. Use the search above to add them as a friend.",
+          "That email already has a Bolo! account. Ask them for their friend code to add them.",
       });
       return;
     }

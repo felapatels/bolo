@@ -73,6 +73,7 @@ export function createDbMockExports(
     dailyQuizzesTable: {},
     familyPlansTable: {},
     familySeatsTable: {},
+    friendCodeAttemptsTable: {},
     friendInvitesTable: {},
     friendshipsTable: {},
     gameSessionsTable: {},

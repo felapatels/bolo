@@ -4,19 +4,20 @@ import {
   Alert,
   Keyboard,
   RefreshControl,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useAppearSkip } from '@/lib/entrance';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  useSearchFriendByEmail,
-  getSearchFriendByEmailQueryKey,
-  useSendFriendRequest,
+  useSendFriendRequestByCode,
+  useGetReferral,
   useSendFriendInvite,
   useListIncomingFriendRequests,
   getListIncomingFriendRequestsQueryKey,
@@ -30,11 +31,14 @@ import {
   useGetFriendsLeaderboard,
   getGetFriendsLeaderboardQueryKey,
   ApiError,
-  type UserSummary,
   type FriendRequest,
   type Friend,
   type LeaderboardEntry,
 } from '@workspace/api-client-react';
+import { normalizeReferralCode } from '@workspace/referral-link';
+import { referralLinkFor } from '@/lib/referral';
+import { FriendQr } from '@/components/FriendQr';
+import { QrScannerSheet } from '@/components/QrScannerSheet';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
@@ -71,8 +75,16 @@ function initialsFor(u: {
 /** Pull a friendly message out of an ApiError, else a sensible default. */
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
-    const data = err.data as { detail?: string; message?: string } | null;
-    const detail = data?.detail || data?.message;
+    // `error` is the shape the friends router answers with (the by-code
+    // endpoint included); `detail`/`message` cover the older handlers. Without
+    // `error` here, server copy like "That's your own friend code." would be
+    // silently replaced by the generic fallback.
+    const data = err.data as {
+      detail?: string;
+      message?: string;
+      error?: string;
+    } | null;
+    const detail = data?.detail || data?.message || data?.error;
     if (detail && detail.trim()) return detail.trim();
   }
   return fallback;
@@ -173,27 +185,18 @@ function FriendsTab() {
   const colors = useColors();
   const queryClient = useQueryClient();
 
-  const [email, setEmail] = React.useState('');
-  const [searchedEmail, setSearchedEmail] = React.useState('');
+  const [code, setCode] = React.useState('');
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = React.useState(false);
+  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [email, setEmail] = React.useState('');
   const [invitedEmail, setInvitedEmail] = React.useState<string | null>(null);
 
   const incoming = useListIncomingFriendRequests();
   const outgoing = useListOutgoingFriendRequests();
   const friends = useListFriends();
 
-  const search = useSearchFriendByEmail(
-    { email: searchedEmail },
-    {
-      query: {
-        enabled: !!searchedEmail,
-        queryKey: getSearchFriendByEmailQueryKey({ email: searchedEmail }),
-        retry: false,
-      },
-    },
-  );
-
-  const sendRequest = useSendFriendRequest();
+  const sendRequest = useSendFriendRequestByCode();
   const sendInvite = useSendFriendInvite();
   const accept = useAcceptFriendRequest();
   const decline = useDeclineFriendRequest();
@@ -211,22 +214,45 @@ function FriendsTab() {
   const trimmed = email.trim().toLowerCase();
   const emailValid = EMAIL_RE.test(trimmed);
 
-  const runSearch = () => {
-    if (!emailValid) return;
+  const normalizedCode = normalizeReferralCode(code);
+  const alreadyInvited = invitedEmail === trimmed;
+
+  // Adding a friend is code-only: there is no lookup by email, name or partial
+  // match on this screen any more. The code someone types is their friend's
+  // REFERRAL code — one code, two jobs — and that reuse is only safe because
+  // this lands as a *pending* request the other learner has to accept. See the
+  // note at the accept handler on the server before changing anything here.
+  const submitCode = (raw: string) => {
+    const value = normalizeReferralCode(raw);
+    if (!value || sendRequest.isPending) return;
     Keyboard.dismiss();
     setNotice(null);
-    setSearchedEmail(trimmed);
-  };
-
-  const clearSearch = () => {
-    setEmail('');
-    setSearchedEmail('');
-    setNotice(null);
-    setInvitedEmail(null);
-    queryClient.removeQueries({
-      queryKey: ['/api/friends/search'],
-      exact: false,
-    });
+    sendRequest.mutate(
+      { data: { code: value } },
+      {
+        onSuccess: (created) => {
+          setCode('');
+          setNotice(`Request sent to ${displayFor(created.user)}.`);
+          queryClient.invalidateQueries({
+            queryKey: getListOutgoingFriendRequestsQueryKey(),
+          });
+        },
+        onError: (err) => {
+          // The 404 wording is deliberately uniform with the server's: an
+          // unknown code, a near-miss and a code you already share a friendship
+          // with all read the same, so the box can't be used to probe which
+          // codes exist.
+          setNotice(
+            errorMessage(
+              err,
+              err instanceof ApiError && err.status === 429
+                ? 'Too many code attempts. Please try again later.'
+                : "That code didn't match. Check it and try again.",
+            ),
+          );
+        },
+      },
+    );
   };
 
   const onInvite = (toEmail: string) => {
@@ -241,7 +267,6 @@ function FriendsTab() {
               : `Invite sent to ${toEmail}! They'll get an email with a download link.`,
           );
           setEmail('');
-          setSearchedEmail('');
         },
         onError: (err) => {
           if (err instanceof ApiError && err.status === 429) {
@@ -252,37 +277,17 @@ function FriendsTab() {
               ),
             );
           } else if (err instanceof ApiError && err.status === 400) {
-            // Email found a real user — nudge to the regular search flow.
+            // Email belongs to a real learner. There is no lookup by email any
+            // more, so the only way forward is their friend code.
             setNotice(
               errorMessage(
                 err,
-                "That email already has an account. Use the search to add them.",
+                'That email already has an account. Ask them for their friend code to add them.',
               ),
             );
           } else {
             setNotice(errorMessage(err, "Couldn't send the invite. Please try again."));
           }
-        },
-      },
-    );
-  };
-
-  const onSend = (target: UserSummary) => {
-    sendRequest.mutate(
-      { data: { email: target.email ?? searchedEmail } },
-      {
-        onSuccess: () => {
-          setNotice(`Request sent to ${displayFor(target)}.`);
-          setEmail('');
-          setSearchedEmail('');
-          queryClient.invalidateQueries({
-            queryKey: getListOutgoingFriendRequestsQueryKey(),
-          });
-        },
-        onError: (err) => {
-          setNotice(
-            errorMessage(err, "Couldn't send the request. Please try again."),
-          );
         },
       },
     );
@@ -364,11 +369,6 @@ function FriendsTab() {
     );
   };
 
-  const searchNotFound =
-    search.error instanceof ApiError && search.error.status === 404;
-  const searchOtherError = search.isError && !searchNotFound;
-  const alreadyInvited = invitedEmail === searchedEmail;
-
   const incomingList = incoming.data ?? [];
   const outgoingList = outgoing.data ?? [];
   const friendsList = friends.data ?? [];
@@ -392,7 +392,7 @@ function FriendsTab() {
         />
       }
     >
-      {/* Add a friend by email */}
+      {/* Add a friend by their code — typed, or scanned off their QR. */}
       <View
         style={[
           styles.card,
@@ -409,26 +409,34 @@ function FriendsTab() {
               { backgroundColor: colors.muted, borderColor: colors.border },
             ]}
           >
-            <Feather name="mail" size={18} color={colors.mutedForeground} />
+            <Feather name="hash" size={18} color={colors.mutedForeground} />
             <TextInput
-              value={email}
+              value={code}
               onChangeText={(t) => {
-                setEmail(t);
+                setCode(t.toUpperCase());
                 if (notice) setNotice(null);
               }}
-              placeholder="Friend's email"
+              placeholder="Friend code"
               placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
+              accessibilityLabel="Friend code"
+              autoCapitalize="characters"
               autoCorrect={false}
-              keyboardType="email-address"
-              returnKeyType="search"
-              onSubmitEditing={runSearch}
-              style={[styles.inputText, { color: colors.foreground }]}
+              autoComplete="off"
+              maxLength={12}
+              returnKeyType="done"
+              onSubmitEditing={() => submitCode(code)}
+              style={[
+                styles.inputText,
+                { color: colors.foreground, letterSpacing: 2 },
+              ]}
             />
-            {email.length > 0 ? (
+            {code.length > 0 ? (
               <PressableScale
                 accessibilityLabel="Clear"
-                onPress={clearSearch}
+                onPress={() => {
+                  setCode('');
+                  setNotice(null);
+                }}
                 hitSlop={8}
               >
                 <Feather name="x" size={18} color={colors.mutedForeground} />
@@ -437,23 +445,47 @@ function FriendsTab() {
           </View>
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="Search"
-            disabled={!emailValid}
-            onPress={runSearch}
+            accessibilityLabel="Send friend request"
+            disabled={!normalizedCode || sendRequest.isPending}
+            onPress={() => submitCode(code)}
             style={[
               styles.searchBtn,
               {
-                backgroundColor: emailValid ? colors.primary : colors.muted,
+                backgroundColor: normalizedCode ? colors.primary : colors.muted,
               },
             ]}
           >
-            <Feather
-              name="search"
-              size={20}
-              color={emailValid ? colors.primaryForeground : colors.mutedForeground}
-            />
+            {sendRequest.isPending ? (
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+            ) : (
+              <Feather
+                name="user-plus"
+                size={20}
+                color={
+                  normalizedCode ? colors.primaryForeground : colors.mutedForeground
+                }
+              />
+            )}
           </PressableScale>
         </View>
+
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel="Scan a friend code"
+          onPress={() => {
+            setNotice(null);
+            setScannerOpen(true);
+          }}
+          style={[
+            styles.secondaryBtn,
+            { borderColor: colors.border, backgroundColor: colors.muted },
+          ]}
+        >
+          <Feather name="maximize" size={17} color={colors.foreground} />
+          <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
+            Scan their QR
+          </Text>
+        </PressableScale>
 
         {notice ? (
           <Text style={[styles.notice, { color: colors.foreground }]}>
@@ -461,120 +493,122 @@ function FriendsTab() {
           </Text>
         ) : null}
 
-        {searchedEmail ? (
-          search.isLoading ? (
-            <ActivityIndicator
-              color={colors.primary}
-              style={{ marginTop: 16 }}
-            />
-          ) : searchNotFound ? (
-            // No Bolo! account found — offer to send a referral invite.
-            <View
-              style={[styles.inviteBox, { borderColor: colors.border, backgroundColor: `${colors.primary}0D` }]}
-            >
-              <Feather name="mail" size={20} color={colors.primary} style={{ marginBottom: 6 }} />
-              <Text style={[styles.inviteTitle, { color: colors.foreground }]}>
-                {searchedEmail} isn't on Bolo! yet
-              </Text>
-              <Text style={[styles.inviteText, { color: colors.mutedForeground }]}>
-                Send them an invite with a link to download the app. When they
-                join, you'll automatically get a friend request.
-              </Text>
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={`Invite ${searchedEmail} to Bolo!`}
-                disabled={sendInvite.isPending || alreadyInvited}
-                onPress={() => onInvite(searchedEmail)}
-                style={[
-                  styles.inviteBtn,
-                  {
-                    backgroundColor:
-                      alreadyInvited ? colors.muted : colors.primary,
-                  },
-                ]}
-              >
-                {sendInvite.isPending ? (
-                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                ) : (
-                  <>
-                    <Feather
-                      name={alreadyInvited ? 'check' : 'send'}
-                      size={15}
-                      color={alreadyInvited ? colors.mutedForeground : colors.primaryForeground}
-                    />
-                    <Text
-                      style={[
-                        styles.inviteBtnText,
-                        {
-                          color: alreadyInvited
-                            ? colors.mutedForeground
-                            : colors.primaryForeground,
-                        },
-                      ]}
-                    >
-                      {alreadyInvited ? 'Invite sent!' : 'Send invite'}
-                    </Text>
-                  </>
-                )}
-              </PressableScale>
-            </View>
-          ) : searchOtherError ? (
-            <Text style={[styles.searchMsg, { color: colors.destructive }]}>
-              Couldn&apos;t search right now. Please try again.
+        {/* Someone who isn't on Bolo! yet can't have a code, so the email
+            invite stays — it mails a download link and turns into a pending
+            request when they sign up. It is NOT a lookup: nothing here reveals
+            whether an address belongs to a learner beyond what the invite
+            endpoint already refuses to do. */}
+        {inviteOpen ? (
+          <View
+            style={[
+              styles.inviteBox,
+              { borderColor: colors.border, backgroundColor: `${colors.primary}0D` },
+            ]}
+          >
+            <Text style={[styles.inviteTitle, { color: colors.foreground }]}>
+              Not on Bolo! yet?
             </Text>
-          ) : search.data ? (
-            <View style={[styles.resultRow, { borderColor: colors.border }]}>
-              <Avatar user={search.data} />
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.resultName, { color: colors.foreground }]}
-                  numberOfLines={1}
-                >
-                  {displayFor(search.data)}
-                </Text>
-                {search.data.email ? (
-                  <Text
-                    style={[styles.resultSub, { color: colors.mutedForeground }]}
-                    numberOfLines={1}
-                  >
-                    {search.data.email}
-                  </Text>
-                ) : null}
-              </View>
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={`Send friend request to ${displayFor(search.data)}`}
-                disabled={sendRequest.isPending}
-                onPress={() => onSend(search.data!)}
-                style={[styles.addBtn, { backgroundColor: colors.primary }]}
-              >
-                {sendRequest.isPending ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primaryForeground}
-                  />
-                ) : (
-                  <>
-                    <Feather
-                      name="user-plus"
-                      size={16}
-                      color={colors.primaryForeground}
-                    />
-                    <Text
-                      style={[
-                        styles.addBtnText,
-                        { color: colors.primaryForeground },
-                      ]}
-                    >
-                      Add
-                    </Text>
-                  </>
-                )}
-              </PressableScale>
+            <Text style={[styles.inviteText, { color: colors.mutedForeground }]}>
+              Send them an invite with a link to download the app. When they
+              join, you&apos;ll automatically get a friend request.
+            </Text>
+            <View
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  alignSelf: 'stretch',
+                },
+              ]}
+            >
+              <Feather name="mail" size={18} color={colors.mutedForeground} />
+              <TextInput
+                value={email}
+                onChangeText={(t) => {
+                  setEmail(t);
+                  if (notice) setNotice(null);
+                }}
+                placeholder="Their email"
+                placeholderTextColor={colors.mutedForeground}
+                accessibilityLabel="Their email"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                returnKeyType="send"
+                onSubmitEditing={() => emailValid && onInvite(trimmed)}
+                style={[styles.inputText, { color: colors.foreground }]}
+              />
             </View>
-          ) : null
-        ) : null}
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Send invite"
+              disabled={!emailValid || sendInvite.isPending || alreadyInvited}
+              onPress={() => onInvite(trimmed)}
+              style={[
+                styles.inviteBtn,
+                {
+                  backgroundColor:
+                    emailValid && !alreadyInvited ? colors.primary : colors.muted,
+                },
+              ]}
+            >
+              {sendInvite.isPending ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <>
+                  <Feather
+                    name={alreadyInvited ? 'check' : 'send'}
+                    size={15}
+                    color={
+                      emailValid && !alreadyInvited
+                        ? colors.primaryForeground
+                        : colors.mutedForeground
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.inviteBtnText,
+                      {
+                        color:
+                          emailValid && !alreadyInvited
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {alreadyInvited ? 'Invite sent!' : 'Send invite'}
+                  </Text>
+                </>
+              )}
+            </PressableScale>
+          </View>
+        ) : (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Invite someone who is not on Bolo yet"
+            onPress={() => setInviteOpen(true)}
+            hitSlop={6}
+            style={{ marginTop: 14, alignSelf: 'flex-start' }}
+          >
+            <Text style={[styles.linkText, { color: colors.primary }]}>
+              Not on Bolo! yet? Invite by email
+            </Text>
+          </PressableScale>
+        )}
       </View>
+
+      <YourFriendCode />
+
+      <QrScannerSheet
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={(scanned) => {
+          setScannerOpen(false);
+          setCode(scanned);
+          submitCode(scanned);
+        }}
+      />
 
       {/* Incoming requests */}
       {incomingList.length > 0 ? (
@@ -762,6 +796,113 @@ function FriendsTab() {
   );
 }
 
+/**
+ * The other half of adding a friend: the code the learner hands out.
+ *
+ * This is the learner's REFERRAL code — one code, two jobs. Someone who scans
+ * the square (or taps the shared link) also lands on the referral flow, so the
+ * Chai reward and the friendship both follow from a single act.
+ */
+function YourFriendCode() {
+  const colors = useColors();
+  const referral = useGetReferral();
+  const [copied, setCopied] = React.useState(false);
+
+  const code = referral.data?.code;
+  const link = referralLinkFor(code);
+  if (!code) return null;
+
+  const onCopy = async () => {
+    await Clipboard.setStringAsync(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const onShare = () => {
+    if (!link) return;
+    void Share.share({
+      message: `Learn your family's language with me on Bolo! ${link}`,
+    });
+  };
+
+  return (
+    <View
+      testID="your-friend-code"
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <Text style={[styles.cardHeading, { color: colors.mutedForeground }]}>
+        YOUR FRIEND CODE
+      </Text>
+
+      <View style={{ alignItems: 'center', gap: 12 }}>
+        {/* Only render the square when there is a link to encode — a QR of a
+            bare code would not open the app for whoever scans it. */}
+        {link ? <FriendQr value={link} size={148} /> : null}
+        <Text
+          testID="friend-code"
+          selectable
+          style={[styles.codeText, { color: colors.foreground }]}
+        >
+          {code}
+        </Text>
+        <Text style={[styles.inviteText, { color: colors.mutedForeground }]}>
+          Share it or let a friend scan the square. They&apos;ll send you a
+          request to accept.
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Copy friend code"
+            onPress={() => void onCopy()}
+            style={[
+              styles.secondaryBtn,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.muted,
+                marginTop: 0,
+              },
+            ]}
+          >
+            <Feather
+              name={copied ? 'check' : 'copy'}
+              size={16}
+              color={colors.foreground}
+            />
+            <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
+              {copied ? 'Copied!' : 'Copy code'}
+            </Text>
+          </PressableScale>
+
+          {link ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Share friend code"
+              onPress={onShare}
+              style={[
+                styles.secondaryBtn,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: `${colors.primary}14`,
+                  marginTop: 0,
+                },
+              ]}
+            >
+              <Feather name="share-2" size={16} color={colors.primary} />
+              <Text style={[styles.secondaryBtnText, { color: colors.primary }]}>
+                Share link
+              </Text>
+            </PressableScale>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function EmptyFriends() {
   const colors = useColors();
   // Gentle entrance (mount-only, so it never replays on re-renders); the
@@ -784,8 +925,7 @@ function EmptyFriends() {
         entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
-        Add a friend by their email above to practice together and see who tops
-        the leaderboard.
+        Add a friend by their code above — or share yours and let them add you.
       </Animated.Text>
     </View>
   );
@@ -1079,6 +1219,24 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.semibold,
     fontSize: 14,
     marginTop: 14,
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  secondaryBtnText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  linkText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  codeText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 28,
+    letterSpacing: 6,
   },
   searchMsg: {
     fontFamily: AppFonts.regular,

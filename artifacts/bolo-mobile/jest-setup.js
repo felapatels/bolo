@@ -159,3 +159,39 @@ jest.mock('posthog-react-native', () => {
     })),
   };
 });
+
+// expo-camera is a NATIVE module (added for friend-code QR scanning) — under
+// Jest it has no bridge, so the viewfinder renders as an inert View and the
+// permission hook reports granted. Tests that care about the denied state
+// override this per-file.
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    CameraView: ({ children, ...props }) =>
+      React.createElement(View, props, children),
+    useCameraPermissions: () => [
+      { granted: true, canAskAgain: true, status: 'granted' },
+      jest.fn(),
+    ],
+  };
+});
+
+// react-native-qrcode-svg draws through react-native-svg's native views. The
+// square's *payload* is what matters to a test, not its geometry, so the mock
+// keeps the value on a prop the tests can read back.
+jest.mock('react-native-qrcode-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ value, size }) =>
+      React.createElement(View, { testID: 'qr-payload', accessibilityValue: { text: value }, style: { width: size, height: size } }),
+  };
+});
+
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn(() => Promise.resolve(true)),
+  getStringAsync: jest.fn(() => Promise.resolve('')),
+}));

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import {
-  useSearchFriendByEmail,
-  useSendFriendRequest,
+  useSendFriendRequestByCode,
+  useGetReferral,
   useListIncomingFriendRequests,
   useListOutgoingFriendRequests,
   useAcceptFriendRequest,
@@ -11,12 +11,10 @@ import {
   useListFriends,
   useRemoveFriend,
   useGetFriendsLeaderboard,
-  getSearchFriendByEmailQueryKey,
   getListIncomingFriendRequestsQueryKey,
   getListOutgoingFriendRequestsQueryKey,
   getListFriendsQueryKey,
   getGetFriendsLeaderboardQueryKey,
-  type UserSummary,
   type FriendRequest,
   type Friend,
   type LeaderboardEntry,
@@ -26,8 +24,10 @@ import { ApiError } from "@workspace/api-client-react";
 import {
   Users,
   UserPlus,
-  Search,
+  Hash,
   Check,
+  Copy,
+  Share2,
   X,
   Trash2,
   Loader2,
@@ -36,8 +36,10 @@ import {
   Trophy,
   AlertCircle,
   Clock,
-  Mail,
 } from "lucide-react";
+import { FriendQr } from "@/components/friend-qr";
+import { normalizeReferralCode, referralLink } from "@/lib/referral-code";
+import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
 import { EmptyState } from "@/components/ui/empty-state";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,8 +58,11 @@ function errorMessage(err: unknown, fallback: string): string {
     const data = err.data as { message?: string; error?: string } | null;
     if (data?.message) return data.message;
     if (data?.error) return data.error;
-    if (err.status === 404) return "We couldn't find a learner with that email.";
-    if (err.status === 409) return "You're already connected with that learner.";
+    // 404 wording is deliberately uniform with the server's: an unknown code, a
+    // near-miss and a code you're already connected to must all read the same,
+    // or the box becomes a way to probe which codes exist.
+    if (err.status === 404) return "That code didn't match. Check it and try again.";
+    if (err.status === 429) return "Too many code attempts. Please try again later.";
   }
   if (err instanceof Error && err.message) return err.message;
   return fallback;
@@ -304,49 +309,39 @@ function LeaderboardRow({
 
 /* ------------------------------ Add friend ------------------------------ */
 
+// Adding a friend is code-only. There is no lookup by email, name or partial
+// match anywhere on this page any more: you add someone by holding the exact
+// friend code they chose to give you.
+//
+// The code shown here IS the learner's referral code — one code, two jobs. That
+// reuse is only safe because typing a code produces a *pending* request the
+// other learner has to accept; see the note at the accept handler on the
+// server. Nothing on this page may ever create an accepted friendship directly.
 function AddFriend() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
-  const [submitted, setSubmitted] = useState<string | null>(null);
 
-  const search = useSearchFriendByEmail(
-    { email: submitted ?? "" },
-    {
-      query: {
-        enabled: !!submitted,
-        queryKey: getSearchFriendByEmailQueryKey({ email: submitted ?? "" }),
-        retry: false,
-      },
-    },
-  );
+  const sendRequest = useSendFriendRequestByCode();
 
-  const sendRequest = useSendFriendRequest();
+  const code = normalizeReferralCode(input);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = input.trim().toLowerCase();
-    if (!email) return;
-    setSubmitted(email);
-  };
-
-  const handleSend = async (user: UserSummary) => {
+    if (!code || sendRequest.isPending) return;
     try {
-      await sendRequest.mutateAsync({ data: { email: user.email ?? submitted! } });
+      const created = await sendRequest.mutateAsync({ data: { code } });
       toast({
         title: "Request sent!",
-        description: `We let ${displayNameFor(user)} know you'd like to be friends.`,
+        description: `We let ${displayNameFor(created.user)} know you'd like to be friends.`,
       });
       setInput("");
-      setSubmitted(null);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: getListOutgoingFriendRequestsQueryKey(),
-        }),
-      ]);
+      await queryClient.invalidateQueries({
+        queryKey: getListOutgoingFriendRequestsQueryKey(),
+      });
     } catch (err) {
       toast({
-        title: "Couldn't send request",
+        title: "Couldn't add that code",
         description: errorMessage(err, "Please try again in a moment."),
         variant: "destructive",
       });
@@ -359,86 +354,145 @@ function AddFriend() {
         <UserPlus className="w-5 h-5 text-primary" /> Add a friend
       </h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Find another learner by their exact email address.
+        Enter another learner's friend code. They'll get a request to accept.
       </p>
 
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={handleSubmit} className="flex gap-2">
         <div className="relative flex-1">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            type="email"
-            inputMode="email"
+            type="text"
+            inputMode="text"
             autoComplete="off"
-            placeholder="friend@email.com"
+            autoCapitalize="characters"
+            spellCheck={false}
+            maxLength={12}
+            aria-label="Friend code"
+            placeholder="Friend code"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="h-11 rounded-xl pl-9"
+            onChange={(e) => setInput(e.target.value.toUpperCase())}
+            className="h-11 rounded-xl pl-9 font-mono tracking-[0.2em] uppercase"
           />
         </div>
         <Button
           type="submit"
           className="h-11 rounded-xl px-4"
-          disabled={!input.trim() || search.isFetching}
+          disabled={!code || sendRequest.isPending}
         >
-          {search.isFetching && !!submitted ? (
+          {sendRequest.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Search className="w-4 h-4" />
+            <>
+              <UserPlus className="w-4 h-4" /> Add
+            </>
           )}
         </Button>
       </form>
 
       <AnimatePresence mode="wait">
-        {submitted && search.isSuccess && search.data && (
+        {sendRequest.isError && (
           <motion.div
-            key="result"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="mt-4 flex items-center gap-3 rounded-2xl bg-card p-3 border border-card-border shadow-sm"
-          >
-            <Avatar user={search.data} className="h-11 w-11" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold text-foreground leading-tight">
-                {displayNameFor(search.data)}
-              </p>
-              {search.data.email && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {search.data.email}
-                </p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              className="rounded-xl shrink-0"
-              onClick={() => handleSend(search.data!)}
-              disabled={sendRequest.isPending}
-            >
-              {sendRequest.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" /> Add
-                </>
-              )}
-            </Button>
-          </motion.div>
-        )}
-
-        {submitted && search.isError && (
-          <motion.div
-            key="notfound"
+            key="error"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             className="mt-4 flex items-center gap-2 rounded-2xl bg-muted/60 p-4 text-sm font-medium text-muted-foreground"
           >
             <AlertCircle className="w-4 h-4 shrink-0" />
-            {errorMessage(search.error, "We couldn't find that learner.")}
+            {errorMessage(
+              sendRequest.error,
+              "That code didn't match. Check it and try again.",
+            )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      <YourFriendCode />
     </section>
+  );
+}
+
+/* --------------------------- Your friend code --------------------------- */
+
+// The other half of adding a friend: the code the learner hands out. Shown as
+// text (readable down a phone line), as a QR (scannable by the Bolo! app or any
+// camera), copyable, and shareable through the same link builder the referral
+// card uses — so a scan or a tap of the link also earns both sides their Chai.
+function YourFriendCode() {
+  const { data, isLoading, isError } = useGetReferral();
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
+
+  if (isLoading || isError || !data) return null;
+
+  const link = referralLink(data.code);
+
+  const copy = async (what: "code" | "link", text: string) => {
+    if (await copyReferralLink(text)) {
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
+    }
+  };
+
+  return (
+    <div
+      data-testid="your-friend-code"
+      className="mt-6 rounded-3xl border border-card-border bg-card p-5"
+    >
+      <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+        Your friend code
+      </h3>
+
+      <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+        <div className="rounded-2xl bg-white p-2 shadow-sm">
+          <FriendQr value={link} size={132} />
+        </div>
+
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <p
+            data-testid="friend-code"
+            className="font-mono text-2xl font-black tracking-[0.25em] text-foreground"
+          >
+            {data.code}
+          </p>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
+            Share it or let a friend scan the square. They'll send you a request
+            to accept.
+          </p>
+
+          <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => void copy("code", data.code)}
+              data-testid="copy-friend-code"
+            >
+              {copied === "code" ? (
+                <>
+                  <Check className="h-4 w-4" /> Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" /> Copy code
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => void shareReferralLink(link, () => copy("link", link))}
+              data-testid="share-friend-code"
+            >
+              <Share2 className="h-4 w-4" />
+              {copied === "link" ? "Link copied!" : "Share link"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -660,7 +714,7 @@ function FriendsList() {
         <EmptyState
           pose="wave"
           title="No friends yet"
-          body="Search for a learner by email above to send your first friend request."
+          body="Ask a friend for their friend code and add them above — or share yours and let them add you."
         />
       ) : (
         <div className="space-y-3">

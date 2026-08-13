@@ -29,6 +29,8 @@ const USERS_COLUMNS = [
   `tts_voice text`,
   `has_completed_tour boolean NOT NULL DEFAULT false`,
   `has_chosen_language boolean NOT NULL DEFAULT false`,
+  `referral_code text`,
+  `referred_by_user_id text`,
 ];
 
 export async function ensureUsersColumns(): Promise<void> {

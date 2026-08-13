@@ -44,7 +44,7 @@ const { ApiError } = vi.hoisted(() => {
 // Mutable query/mutation snapshots the module mock reads from, so each test can
 // shape the exact server response the page receives before rendering.
 const h = vi.hoisted(() => ({
-  search: undefined as unknown,
+  referral: undefined as unknown,
   incoming: undefined as unknown,
   outgoing: undefined as unknown,
   friends: undefined as unknown,
@@ -68,8 +68,8 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
   ApiError,
-  useSearchFriendByEmail: () => h.search,
-  useSendFriendRequest: () => h.sendRequest,
+  useSendFriendRequestByCode: () => h.sendRequest,
+  useGetReferral: () => h.referral,
   useListIncomingFriendRequests: () => h.incoming,
   useListOutgoingFriendRequests: () => h.outgoing,
   useAcceptFriendRequest: () => h.accept,
@@ -79,7 +79,7 @@ vi.mock("@workspace/api-client-react", async () => ({
   useGetFriendsLeaderboard: () => h.leaderboard,
     useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
     getGetProgressSummaryQueryKey: vi.fn(() => ['progress-summary']),
-  getSearchFriendByEmailQueryKey: () => ["search-friend"],
+  getGetReferralQueryKey: () => ["referral"],
   getListIncomingFriendRequestsQueryKey: () => ["incoming"],
   getListOutgoingFriendRequestsQueryKey: () => ["outgoing"],
   getListFriendsQueryKey: () => ["friends"],
@@ -166,7 +166,7 @@ const third: LeaderboardEntry = {
 
 beforeEach(() => {
   // Sensible defaults: everything loaded and empty. Individual tests override.
-  h.search = { ...successQuery(undefined), isSuccess: false };
+  h.referral = successQuery({ code: "AB7K2M", redeemed: false });
   h.incoming = successQuery([]);
   h.outgoing = successQuery([]);
   h.friends = successQuery([]);
@@ -246,101 +246,171 @@ describe("Leaderboard", () => {
 
 /* ------------------------------- Add friend ----------------------------- */
 
-describe("Add friend (search)", () => {
-  const found: UserSummary = {
+describe("Add friend (by code)", () => {
+  const meera: UserSummary = {
     id: "u1",
     displayName: "Meera",
     email: "meera@example.com",
   };
 
-  test("a search hit shows the learner with an Add button", async () => {
-    h.search = successQuery(found);
+  test("there is no way to look a learner up by email", async () => {
+    // Task #1111 retired email search from the product. If a field that takes
+    // an address ever comes back to this page, this fails.
     const user = userEvent.setup();
     renderFriends(<Friends />);
     await openFriendsTab(user);
-
-    await user.type(
-      screen.getByPlaceholderText("friend@email.com"),
-      "meera@example.com",
-    );
-    // The submit button is icon-only; submit the form via Enter instead.
-    await user.keyboard("{Enter}");
-
-    expect(await screen.findByText("Meera")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add/i })).toBeInTheDocument();
-  });
-
-  test("a search miss shows a friendly not-found message", async () => {
-    h.search = errorQuery(
-      new ApiError(404, { message: "We couldn't find a learner with that email." }),
-    );
-    const user = userEvent.setup();
-    renderFriends(<Friends />);
-    await openFriendsTab(user);
-
-    await user.type(
-      screen.getByPlaceholderText("friend@email.com"),
-      "ghost@example.com",
-    );
-    await user.keyboard("{Enter}");
 
     expect(
-      await screen.findByText("We couldn't find a learner with that email."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Add$/i })).not.toBeInTheDocument();
+      screen.queryByPlaceholderText("friend@email.com"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Friend's email/i)).not.toBeInTheDocument();
   });
 
-  test("clicking Add sends a friend request for the found learner", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue(undefined);
-    h.search = successQuery(found);
+  test("submitting a code sends a request with the normalized code", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      id: 3,
+      status: "pending",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      user: meera,
+    });
     h.sendRequest = idleMutation({ mutateAsync });
     const user = userEvent.setup();
     renderFriends(<Friends />);
     await openFriendsTab(user);
 
-    await user.type(
-      screen.getByPlaceholderText("friend@email.com"),
-      "meera@example.com",
-    );
-    await user.keyboard("{Enter}");
-
-    await user.click(await screen.findByRole("button", { name: /Add/i }));
+    // Typed sloppily on purpose: the client normalizes before sending.
+    await user.type(screen.getByLabelText("Friend code"), " k7m2p9 ");
+    await user.click(screen.getByRole("button", { name: /^Add$/i }));
 
     await waitFor(() =>
-      expect(mutateAsync).toHaveBeenCalledWith({
-        data: { email: "meera@example.com" },
-      }),
+      expect(mutateAsync).toHaveBeenCalledWith({ data: { code: "K7M2P9" } }),
     );
     expect(h.toast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Request sent!" }),
     );
   });
 
-  test("a failed send surfaces a destructive toast", async () => {
-    const mutateAsync = vi
-      .fn()
-      .mockRejectedValue(new ApiError(409, { message: "Already connected." }));
-    h.search = successQuery(found);
+  test("the request lands pending — the page never claims an instant friendship", async () => {
+    // Load-bearing. Referral codes get broadcast on flyers and in group chats;
+    // the accept step is the only thing standing between that and an open
+    // friend list, so the success copy must not read as "you are now friends".
+    const mutateAsync = vi.fn().mockResolvedValue({
+      id: 3,
+      status: "pending",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      user: meera,
+    });
     h.sendRequest = idleMutation({ mutateAsync });
     const user = userEvent.setup();
     renderFriends(<Friends />);
     await openFriendsTab(user);
 
-    await user.type(
-      screen.getByPlaceholderText("friend@email.com"),
-      "meera@example.com",
-    );
-    await user.keyboard("{Enter}");
-    await user.click(await screen.findByRole("button", { name: /Add/i }));
+    await user.type(screen.getByLabelText("Friend code"), "K7M2P9");
+    await user.click(screen.getByRole("button", { name: /^Add$/i }));
+
+    await waitFor(() => expect(h.toast).toHaveBeenCalled());
+    const [[toastArg]] = h.toast.mock.calls as [[Record<string, string>]];
+    expect(toastArg.title).toBe("Request sent!");
+    expect(toastArg.description).toMatch(/like to be friends/i);
+    expect(toastArg.description).not.toMatch(/you are now friends/i);
+  });
+
+  test("an unknown code shows the uniform rejection, revealing nothing", async () => {
+    // The server answers unknown codes, near-misses and already-friended codes
+    // identically. The client must not invent a more specific story.
+    h.sendRequest = idleMutation({
+      isError: true,
+      error: new ApiError(404, {
+        error: "That code didn't match. Check it and try again.",
+      }),
+    });
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    expect(
+      await screen.findByText("That code didn't match. Check it and try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/already/i)).not.toBeInTheDocument();
+  });
+
+  test("a rate-limited attempt surfaces the server's wait message", async () => {
+    h.sendRequest = idleMutation({
+      isError: true,
+      error: new ApiError(429, {
+        error: "Too many code attempts. Try again in a little while.",
+      }),
+    });
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    expect(
+      await screen.findByText(
+        "Too many code attempts. Try again in a little while.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("a failed send surfaces a destructive toast", async () => {
+    const mutateAsync = vi
+      .fn()
+      .mockRejectedValue(new ApiError(400, { error: "That's your own friend code." }));
+    h.sendRequest = idleMutation({ mutateAsync });
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    await user.type(screen.getByLabelText("Friend code"), "K7M2P9");
+    await user.click(screen.getByRole("button", { name: /^Add$/i }));
 
     await waitFor(() =>
       expect(h.toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Couldn't send request",
+          title: "Couldn't add that code",
           variant: "destructive",
         }),
       ),
     );
+  });
+});
+
+/* ---------------------------- Your friend code -------------------------- */
+
+describe("Your friend code", () => {
+  test("shows the learner's own code, a QR, and copy/share actions", async () => {
+    h.referral = successQuery({ code: "AB7K2M", redeemed: false });
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    const panel = await screen.findByTestId("your-friend-code");
+    expect(within(panel).getByTestId("friend-code")).toHaveTextContent("AB7K2M");
+    expect(within(panel).getByTestId("friend-qr")).toBeInTheDocument();
+    expect(within(panel).getByTestId("copy-friend-code")).toBeInTheDocument();
+    expect(within(panel).getByTestId("share-friend-code")).toBeInTheDocument();
+  });
+
+  test("the QR encodes the join LINK, not the bare code", async () => {
+    // A bare code in a QR does nothing for whoever scans it with an ordinary
+    // camera app. Encoding the join link means any camera opens Bolo!.
+    h.referral = successQuery({ code: "AB7K2M", redeemed: false });
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    const qr = await screen.findByTestId("friend-qr");
+    const encoded = qr.getAttribute("data-value") ?? "";
+    expect(encoded).toMatch(/\/join\/AB7K2M$/);
+  });
+
+  test("stays hidden until the code has loaded", async () => {
+    h.referral = loadingQuery();
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    expect(screen.queryByTestId("your-friend-code")).not.toBeInTheDocument();
   });
 });
 

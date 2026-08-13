@@ -11,6 +11,7 @@ import {
   languagesTable,
   friendshipsTable,
   friendInvitesTable,
+  friendCodeAttemptsTable,
   gameSessionsTable,
 } from "@workspace/db";
 import { eq, inArray, or, and } from "drizzle-orm";
@@ -26,11 +27,23 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 const USER_A = "test_friends_a";
 const USER_B = "test_friends_b";
 const USER_C = "test_friends_c";
-const ALL_USERS = [USER_A, USER_B, USER_C];
+// A fourth learner who never joins the social graph: they exist only to prove
+// the per-IP guessing cap bites even for an account with an untouched budget.
+const USER_D = "test_friends_d";
+const ALL_USERS = [USER_A, USER_B, USER_C, USER_D];
 const EMAIL: Record<string, string> = {
   [USER_A]: "friends-a@example.test",
   [USER_B]: "friends-b@example.test",
   [USER_C]: "friends-c@example.test",
+  [USER_D]: "friends-d@example.test",
+};
+// The friend code IS the referral code (Task #1111). Fixed, obviously-fake
+// codes so the suite can address a learner the only way the product now allows.
+const CODE: Record<string, string> = {
+  [USER_A]: "TSTAAA",
+  [USER_B]: "TSTBBB",
+  [USER_C]: "TSTCCC",
+  [USER_D]: "TSTDDD",
 };
 const LANG = "__test_lang_friends";
 
@@ -95,6 +108,12 @@ async function makeFriends(a: string, b: string): Promise<void> {
 }
 
 async function clearSocialRows(): Promise<void> {
+  // Every code attempt in this suite is made by one of the test users, so
+  // clearing by user id resets BOTH rate-limit axes (per account and per IP)
+  // between tests — otherwise the tenth test inherits the ninth's budget.
+  await db
+    .delete(friendCodeAttemptsTable)
+    .where(inArray(friendCodeAttemptsTable.userId, ALL_USERS));
   await db
     .delete(friendInvitesTable)
     .where(inArray(friendInvitesTable.inviterId, ALL_USERS));
@@ -191,13 +210,27 @@ before(async () => {
     })
     .onConflictDoNothing();
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS friend_code_attempts (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ip_hash text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+
   for (const id of ALL_USERS) {
     await db
       .insert(usersTable)
-      .values({ id, email: EMAIL[id], displayName: id })
+      .values({
+        id,
+        email: EMAIL[id],
+        displayName: id,
+        referralCode: CODE[id],
+      })
       .onConflictDoUpdate({
         target: usersTable.id,
-        set: { email: EMAIL[id], displayName: id },
+        set: { email: EMAIL[id], displayName: id, referralCode: CODE[id] },
       });
   }
 
@@ -231,28 +264,37 @@ after(async () => {
   await pool.end();
 });
 
-test("search finds another learner by exact email, but not yourself", async () => {
+test("there is no way to look a learner up by email", async () => {
+  // Task #1111 retired the email-search endpoint and the email-addressed
+  // request. Nothing in the product may find a learner by address again — if
+  // either route comes back, this fails.
   actAs(USER_A);
-  const found = await api("GET", `/friends/search?email=${EMAIL[USER_B]}`);
-  assert.equal(found.status, 200);
-  assert.equal(found.json.id, USER_B);
-  assert.equal(found.json.email, EMAIL[USER_B]);
-  assert.equal(found.json.displayName, USER_B);
+  const search = await api("GET", `/friends/search?email=${EMAIL[USER_B]}`);
+  assert.equal(search.status, 404);
 
-  // Searching your own email finds nothing (you can't friend yourself).
-  const self = await api("GET", `/friends/search?email=${EMAIL[USER_A]}`);
-  assert.equal(self.status, 404);
-
-  const unknown = await api("GET", `/friends/search?email=nobody@example.test`);
-  assert.equal(unknown.status, 404);
+  const byEmail = await api("POST", "/friends/requests", {
+    email: EMAIL[USER_B],
+  });
+  assert.equal(byEmail.status, 404);
 });
 
-test("send request surfaces on both learners' pending lists", async () => {
+test("a friend code creates a PENDING request on both learners' lists", async () => {
   actAs(USER_A);
-  const sent = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
+  const sent = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_B],
+  });
   assert.equal(sent.status, 201);
+  // Load-bearing: a code NEVER produces an accepted friendship. Referral codes
+  // are broadcast on flyers and in group chats; accept is what stops a flyer
+  // from becoming an open friend list.
   assert.equal(sent.json.status, "pending");
   assert.equal(sent.json.user.id, USER_B);
+
+  const [row] = await db
+    .select()
+    .from(friendshipsTable)
+    .where(eq(friendshipsTable.id, sent.json.id));
+  assert.equal(row.status, "pending");
 
   // A sees it as outgoing...
   const outgoing = await api("GET", "/friends/requests/outgoing");
@@ -272,35 +314,115 @@ test("send request surfaces on both learners' pending lists", async () => {
   );
 });
 
-test("guards against self, unknown, and duplicate requests", async () => {
+test("friend codes are matched exactly, after normalization", async () => {
+  actAs(USER_A);
+  // Lowercase and surrounding whitespace are the same code.
+  const sloppy = await api("POST", "/friends/requests/by-code", {
+    code: `  ${CODE[USER_B].toLowerCase()} `,
+  });
+  assert.equal(sloppy.status, 201);
+  assert.equal(sloppy.json.user.id, USER_B);
+});
+
+test("unknown codes, near-misses and existing friendships all answer identically", async () => {
   actAs(USER_A);
 
-  const self = await api("POST", "/friends/requests", { email: EMAIL[USER_A] });
-  assert.equal(self.status, 400);
-
-  const unknown = await api("POST", "/friends/requests", {
-    email: "nobody@example.test",
+  // A code that cannot exist.
+  const unknown = await api("POST", "/friends/requests/by-code", {
+    code: "ZZZZZZ",
   });
   assert.equal(unknown.status, 404);
 
-  const first = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
-  assert.equal(first.status, 201);
-
-  // A duplicate in the same direction is rejected...
-  const dup = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
-  assert.equal(dup.status, 409);
-
-  // ...and so is a request in the reverse direction while one is pending.
-  actAs(USER_B);
-  const reverse = await api("POST", "/friends/requests", {
-    email: EMAIL[USER_A],
+  // One character off a real code. Must be indistinguishable from the above,
+  // or the endpoint becomes an oracle for which codes are real.
+  const nearMiss = await api("POST", "/friends/requests/by-code", {
+    code: `${CODE[USER_B].slice(0, 5)}${CODE[USER_B][5] === "2" ? "3" : "2"}`,
   });
-  assert.equal(reverse.status, 409);
+  assert.equal(nearMiss.status, 404);
+  assert.deepEqual(nearMiss.json, unknown.json);
+
+  // A real code you already have a pending request with.
+  const first = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_B],
+  });
+  assert.equal(first.status, 201);
+  const dup = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_B],
+  });
+  assert.equal(dup.status, 404);
+  assert.deepEqual(dup.json, unknown.json);
+
+  // ...and the same in the reverse direction: the unique index only covers one
+  // ordered pair, so this is checked in code, not by the database.
+  actAs(USER_B);
+  const reverse = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_A],
+  });
+  assert.equal(reverse.status, 404);
+  assert.deepEqual(reverse.json, unknown.json);
+});
+
+test("you cannot friend yourself with your own code", async () => {
+  actAs(USER_A);
+  const self = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_A],
+  });
+  // Deliberately NOT the uniform 404: telling someone they pasted their own
+  // code leaks nothing they don't already know, and the alternative is a
+  // baffling "that code didn't match" for their own code.
+  assert.equal(self.status, 400);
+});
+
+test("code entry is rate limited per account", async () => {
+  actAs(USER_A);
+  // Ten attempts an hour per account; the eleventh is refused whether or not
+  // the codes were real.
+  for (let i = 0; i < 10; i++) {
+    const attempt = await api("POST", "/friends/requests/by-code", {
+      code: `MISS${String(i).padStart(2, "0")}`,
+    });
+    assert.equal(attempt.status, 404, `attempt ${i} should be a plain miss`);
+  }
+  const limited = await api("POST", "/friends/requests/by-code", {
+    code: "MISS99",
+  });
+  assert.equal(limited.status, 429);
+  assert.ok(limited.json.retryAfterSeconds > 0);
+
+  // The budget is spent even on a code that WOULD have worked — otherwise a
+  // guesser refills it by interleaving a known-good code.
+  const real = await api("POST", "/friends/requests/by-code", {
+    code: CODE[USER_B],
+  });
+  assert.equal(real.status, 429);
+});
+
+test("code entry is also rate limited per IP, across accounts", async () => {
+  // A per-account cap bounds nothing on its own: an attacker who can mint
+  // accounts just spreads the guesses. Three learners burn the shared 30/hour
+  // IP budget...
+  for (const user of [USER_A, USER_B, USER_C]) {
+    actAs(user);
+    for (let i = 0; i < 10; i++) {
+      const attempt = await api("POST", "/friends/requests/by-code", {
+        code: `MS${user.slice(-1).toUpperCase()}${String(i).padStart(3, "0")}`,
+      });
+      assert.equal(attempt.status, 404);
+    }
+  }
+
+  // ...and a fourth account with a completely untouched budget is refused on
+  // its very first attempt, because it is guessing from the same address.
+  actAs(USER_D);
+  const limited = await api("POST", "/friends/requests/by-code", {
+    code: "MISSED",
+  });
+  assert.equal(limited.status, 429);
 });
 
 test("accepting a request makes a mutual friendship and clears the request", async () => {
   actAs(USER_A);
-  const sent = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
+  const sent = await api("POST", "/friends/requests/by-code", { code: CODE[USER_B] });
   const requestId = sent.json.id;
 
   actAs(USER_B);
@@ -331,7 +453,7 @@ test("accepting a request makes a mutual friendship and clears the request", asy
 
 test("only the addressee can accept, and a bogus id 404s", async () => {
   actAs(USER_A);
-  const sent = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
+  const sent = await api("POST", "/friends/requests/by-code", { code: CODE[USER_B] });
   const requestId = sent.json.id;
 
   // The requester (A) cannot accept their own outgoing request.
@@ -345,7 +467,7 @@ test("only the addressee can accept, and a bogus id 404s", async () => {
 
 test("declining a request removes it without creating a friendship", async () => {
   actAs(USER_A);
-  const sent = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
+  const sent = await api("POST", "/friends/requests/by-code", { code: CODE[USER_B] });
   const requestId = sent.json.id;
 
   actAs(USER_B);
@@ -359,7 +481,7 @@ test("declining a request removes it without creating a friendship", async () =>
 
   // Declining frees the pair to be requested again later.
   actAs(USER_A);
-  const resent = await api("POST", "/friends/requests", { email: EMAIL[USER_B] });
+  const resent = await api("POST", "/friends/requests/by-code", { code: CODE[USER_B] });
   assert.equal(resent.status, 201);
 });
 

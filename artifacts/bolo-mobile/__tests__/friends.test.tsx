@@ -1,3 +1,9 @@
+// The learner's own friend code is shown as a shareable /join/<code> link and
+// QR, built by @workspace/referral-link from EXPO_PUBLIC_DOMAIN — which
+// lib/referral reads ONCE at module load. Hence the assignment before any
+// import that reaches it (same pattern as home-referral-card.test.tsx).
+process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example.com';
+
 import React from 'react';
 import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
@@ -25,7 +31,7 @@ import {
 // shape the exact response the page receives before rendering. Prefixed `mock*`
 // so the hoisted jest.mock factory may reference it.
 const mockState: Record<string, any> = {
-  search: undefined,
+  referral: undefined,
   incoming: undefined,
   outgoing: undefined,
   friends: undefined,
@@ -65,8 +71,8 @@ jest.mock('@workspace/api-client-react', () => ({
       this.data = data;
     }
   },
-  useSearchFriendByEmail: () => mockState.search,
-  useSendFriendRequest: () => mockState.sendRequest,
+  useSendFriendRequestByCode: () => mockState.sendRequest,
+  useGetReferral: () => mockState.referral,
   useSendFriendInvite: () => mockState.sendInvite ?? { mutate: jest.fn(), isPending: false },
   useListIncomingFriendRequests: () => mockState.incoming,
   useListOutgoingFriendRequests: () => mockState.outgoing,
@@ -77,7 +83,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetFriendsLeaderboard: () => mockState.leaderboard,
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
-  getSearchFriendByEmailQueryKey: () => ['search-friend'],
+  getGetReferralQueryKey: () => ['referral'],
   getListIncomingFriendRequestsQueryKey: () => ['incoming'],
   getListOutgoingFriendRequestsQueryKey: () => ['outgoing'],
   getListFriendsQueryKey: () => ['friends'],
@@ -120,8 +126,11 @@ jest.mock('@/components/KeyboardAwareScrollViewCompat', () => {
   };
 });
 
-// Imported after the mocks are declared.
-import FriendsScreen from '@/app/(app)/(tabs)/friends';
+// Required (not imported) after the mocks and the env assignment above: static
+// imports are hoisted, and lib/referral reads EXPO_PUBLIC_DOMAIN once at module
+// load, so an import here would see no domain and hide the share/QR surface.
+/* eslint-disable @typescript-eslint/no-require-imports */
+const FriendsScreen = require('@/app/(app)/(tabs)/friends').default;
 
 // -------------------------------- fixtures --------------------------------
 
@@ -202,7 +211,7 @@ const third: LeaderboardEntry = {
 
 beforeEach(() => {
   // Sensible defaults: everything loaded and empty. Individual tests override.
-  mockState.search = { ...successQuery(undefined), isSuccess: false };
+  mockState.referral = successQuery({ code: 'AB7K2M', redeemed: false });
   mockState.incoming = successQuery([]);
   mockState.outgoing = successQuery([]);
   mockState.friends = successQuery([]);
@@ -220,10 +229,11 @@ function openLeaderboard() {
   fireEvent.press(screen.getByRole('button', { name: 'Leaderboard' }));
 }
 
-// Type an email and run the search (the button enables once the email is valid).
-function runSearch(email: string) {
-  fireEvent.changeText(screen.getByPlaceholderText("Friend's email"), email);
-  fireEvent.press(screen.getByRole('button', { name: 'Search' }));
+// Type a friend code and submit it. Adding a friend is code-only now — there is
+// no lookup by email, name or partial match anywhere on this screen.
+function submitCode(code: string) {
+  fireEvent.changeText(screen.getByLabelText('Friend code'), code);
+  fireEvent.press(screen.getByLabelText('Send friend request'));
 }
 
 /* ------------------------------ Leaderboard ----------------------------- */
@@ -291,65 +301,33 @@ describe('Leaderboard', () => {
 
 /* ------------------------------- Add friend ----------------------------- */
 
-describe('Add friend (search)', () => {
-  const found: UserSummary = {
+describe('Add friend (by code)', () => {
+  const meera: UserSummary = {
     id: 'u1',
     displayName: 'Meera',
     email: 'meera@example.com',
   };
 
-  test('a search hit shows the learner with an Add button', () => {
-    mockState.search = successQuery(found);
+  test('there is no way to look a learner up by email', () => {
+    // Task #1111 retired email search from the product. The invite box (which
+    // mails a download link to someone who has no account) is deliberately kept
+    // behind a link and is not a lookup.
     render(<FriendsScreen />);
-    runSearch('meera@example.com');
 
-    expect(screen.getByText('Meera')).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: /Send friend request to Meera/i }),
-    ).toBeOnTheScreen();
+    expect(screen.queryByPlaceholderText("Friend's email")).toBeNull();
+    expect(screen.queryByLabelText('Search')).toBeNull();
   });
 
-  test('a search miss shows an invite prompt instead of a dead end', () => {
-    mockState.search = errorQuery(
-      new ApiError(404, { detail: 'not found' }),
-    );
+  test('submitting a code sends a request with the normalized code', async () => {
+    mockState.sendRequest = mutation({
+      result: { id: 3, status: 'pending', createdAt: 'x', user: meera },
+    });
     render(<FriendsScreen />);
-    runSearch('ghost@example.com');
-
-    // New invite UI: shows the email address and a "Send invite" button.
-    expect(
-      screen.getByText(/ghost@example\.com isn't on Bolo! yet/i),
-    ).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: /Invite ghost@example\.com to Bolo!/i }),
-    ).toBeOnTheScreen();
-    // The regular "Add" friend-request button must not be shown.
-    expect(
-      screen.queryByRole('button', { name: /Send friend request/i }),
-    ).not.toBeOnTheScreen();
-  });
-
-  test('a non-404 search error surfaces a generic message', () => {
-    mockState.search = errorQuery(new ApiError(500, {}));
-    render(<FriendsScreen />);
-    runSearch('meera@example.com');
-
-    expect(
-      screen.getByText(/Couldn't search right now/i),
-    ).toBeOnTheScreen();
-  });
-
-  test('tapping Add sends a friend request for the found learner', async () => {
-    mockState.search = successQuery(found);
-    render(<FriendsScreen />);
-    runSearch('meera@example.com');
-
-    fireEvent.press(
-      screen.getByRole('button', { name: /Send friend request to Meera/i }),
-    );
+    // Typed sloppily on purpose: the client normalizes before sending.
+    submitCode(' k7m2p9 ');
 
     expect(mockState.sendRequest.mutate).toHaveBeenCalledWith(
-      { data: { email: 'meera@example.com' } },
+      { data: { code: 'K7M2P9' } },
       expect.anything(),
     );
     await waitFor(() =>
@@ -357,21 +335,157 @@ describe('Add friend (search)', () => {
     );
   });
 
-  test('a failed send surfaces the error as a notice', async () => {
-    mockState.search = successQuery(found);
+  test('the notice says a request was SENT, never that they are now friends', async () => {
+    // Load-bearing. Referral codes get broadcast on flyers and in group chats;
+    // the accept step is the only thing between that and an open friend list,
+    // so the confirmation must not read as an instant friendship.
     mockState.sendRequest = mutation({
-      error: new ApiError(409, { detail: 'Already connected.' }),
+      result: { id: 3, status: 'pending', createdAt: 'x', user: meera },
     });
     render(<FriendsScreen />);
-    runSearch('meera@example.com');
-
-    fireEvent.press(
-      screen.getByRole('button', { name: /Send friend request to Meera/i }),
-    );
+    submitCode('K7M2P9');
 
     await waitFor(() =>
-      expect(screen.getByText('Already connected.')).toBeOnTheScreen(),
+      expect(screen.getByText('Request sent to Meera.')).toBeOnTheScreen(),
     );
+    expect(screen.queryByText(/now friends/i)).toBeNull();
+  });
+
+  test('an unknown code shows the uniform rejection, revealing nothing', async () => {
+    // The server answers unknown codes, near-misses and already-friended codes
+    // identically; the screen must not invent a more specific story.
+    mockState.sendRequest = mutation({ error: new ApiError(404, {}) });
+    render(<FriendsScreen />);
+    submitCode('ZZZZZZ');
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("That code didn't match. Check it and try again."),
+      ).toBeOnTheScreen(),
+    );
+  });
+
+  test('a rate-limited attempt tells the learner to wait', async () => {
+    mockState.sendRequest = mutation({ error: new ApiError(429, {}) });
+    render(<FriendsScreen />);
+    submitCode('ZZZZZZ');
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Too many code attempts. Please try again later.'),
+      ).toBeOnTheScreen(),
+    );
+  });
+
+  test('a server message is preferred over the fallback copy', async () => {
+    mockState.sendRequest = mutation({
+      error: new ApiError(400, { error: "That's your own friend code." }),
+    });
+    render(<FriendsScreen />);
+    submitCode('AB7K2M');
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("That's your own friend code."),
+      ).toBeOnTheScreen(),
+    );
+  });
+
+  test('an empty code does not fire a request', () => {
+    render(<FriendsScreen />);
+    fireEvent.press(screen.getByLabelText('Send friend request'));
+
+    expect(mockState.sendRequest.mutate).not.toHaveBeenCalled();
+  });
+});
+
+/* ------------------------------- QR scanning ---------------------------- */
+
+describe('Scanning a friend QR', () => {
+  test('the scanner stays closed until the learner asks for it', () => {
+    render(<FriendsScreen />);
+
+    expect(screen.queryByTestId('qr-camera')).toBeNull();
+    expect(screen.getByLabelText('Scan a friend code')).toBeOnTheScreen();
+  });
+
+  test('opening the scanner shows the camera', () => {
+    render(<FriendsScreen />);
+    fireEvent.press(screen.getByLabelText('Scan a friend code'));
+
+    expect(screen.getByTestId('qr-camera')).toBeOnTheScreen();
+  });
+
+  test('a scanned join link submits the code it carries', async () => {
+    mockState.sendRequest = mutation({
+      result: {
+        id: 4,
+        status: 'pending',
+        createdAt: 'x',
+        user: { id: 'u9', displayName: 'Meera', email: null },
+      },
+    });
+    render(<FriendsScreen />);
+    fireEvent.press(screen.getByLabelText('Scan a friend code'));
+
+    // The QR encodes the join link, not the bare code, so an ordinary camera
+    // app opens Bolo!. The in-app scanner has to pull the code back out.
+    fireEvent(screen.getByTestId('qr-camera'), 'barcodeScanned', {
+      data: 'https://bolo.example/join/K7M2P9',
+    });
+
+    expect(mockState.sendRequest.mutate).toHaveBeenCalledWith(
+      { data: { code: 'K7M2P9' } },
+      expect.anything(),
+    );
+    // A scan is a faster way to ENTER a code, never a shortcut past accept.
+    await waitFor(() =>
+      expect(screen.getByText('Request sent to Meera.')).toBeOnTheScreen(),
+    );
+  });
+
+  test('a QR that is not ours is ignored rather than burning an attempt', () => {
+    render(<FriendsScreen />);
+    fireEvent.press(screen.getByLabelText('Scan a friend code'));
+
+    fireEvent(screen.getByTestId('qr-camera'), 'barcodeScanned', {
+      data: 'WIFI:S=CafeGuest;T=WPA;P=hunter2;;',
+    });
+
+    expect(mockState.sendRequest.mutate).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("That doesn't look like a Bolo! friend code."),
+    ).toBeOnTheScreen();
+  });
+});
+
+/* ---------------------------- Your friend code -------------------------- */
+
+describe('Your friend code', () => {
+  test('shows the code, a QR and copy/share actions', () => {
+    render(<FriendsScreen />);
+
+    expect(screen.getByTestId('your-friend-code')).toBeOnTheScreen();
+    expect(screen.getByTestId('friend-code')).toHaveTextContent('AB7K2M');
+    expect(screen.getByTestId('friend-qr')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Copy friend code')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Share friend code')).toBeOnTheScreen();
+  });
+
+  test('the QR encodes the join LINK, not the bare code', () => {
+    // A bare code in a QR does nothing for whoever scans it with an ordinary
+    // camera app; the link opens Bolo! for them.
+    render(<FriendsScreen />);
+
+    const payload = screen.getByTestId('qr-payload');
+    expect(payload.props.accessibilityValue.text).toMatch(/\/join\/AB7K2M$/);
+  });
+
+  test('stays hidden until the code has loaded', () => {
+    mockState.referral = loadingQuery();
+    render(<FriendsScreen />);
+
+    expect(screen.queryByTestId('your-friend-code')).toBeNull();
   });
 });
 

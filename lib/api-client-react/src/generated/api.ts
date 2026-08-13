@@ -95,9 +95,8 @@ import type {
   ScenarioPublic,
   ScriptTraceCharacterProgress,
   ScriptTraceProgressInput,
-  SearchFriendByEmailParams,
   SendFriendInviteInput,
-  SendFriendRequestInput,
+  SendFriendRequestByCodeInput,
   SetChosenLanguageInput,
   SignalWaveInput,
   SignalWaveResult,
@@ -114,7 +113,6 @@ import type {
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
-  UserSummary,
   VoiceListResult,
   ZoneStamp,
   ZoneTestoutInput
@@ -2613,110 +2611,26 @@ export const useAcceptRetentionOffer = <TError = ErrorType<Error>,
       return useMutation(getAcceptRetentionOfferMutationOptions(options));
     }
 
-export const getSearchFriendByEmailUrl = (params: SearchFriendByEmailParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getSendFriendRequestByCodeUrl = () => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/friends/search?${stringifiedParams}` : `/api/friends/search`
+  return `/api/friends/requests/by-code`
 }
 
 /**
- * Looks up a single learner by their exact email address so the caller can send them a friend request. The caller is never returned. Available to all authenticated learners.
- * @summary Find a learner by their exact email
+ * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept — never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
+ * @summary Send a friend request to the learner who owns a friend code
  */
-export const searchFriendByEmail = async (params: SearchFriendByEmailParams, options?: RequestInit): Promise<UserSummary> => {
+export const sendFriendRequestByCode = async (sendFriendRequestByCodeInput: SendFriendRequestByCodeInput, options?: RequestInit): Promise<FriendRequest> => {
 
-  return customFetch<UserSummary>(getSearchFriendByEmailUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getSearchFriendByEmailQueryKey = (params?: SearchFriendByEmailParams,) => {
-    return [
-    `/api/friends/search`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getSearchFriendByEmailQueryOptions = <TData = Awaited<ReturnType<typeof searchFriendByEmail>>, TError = ErrorType<Error>>(params: SearchFriendByEmailParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchFriendByEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getSearchFriendByEmailQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchFriendByEmail>>> = ({ signal }) => searchFriendByEmail(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchFriendByEmail>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type SearchFriendByEmailQueryResult = NonNullable<Awaited<ReturnType<typeof searchFriendByEmail>>>
-export type SearchFriendByEmailQueryError = ErrorType<Error>
-
-
-/**
- * @summary Find a learner by their exact email
- */
-
-export function useSearchFriendByEmail<TData = Awaited<ReturnType<typeof searchFriendByEmail>>, TError = ErrorType<Error>>(
- params: SearchFriendByEmailParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchFriendByEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getSearchFriendByEmailQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getSendFriendRequestUrl = () => {
-
-
-
-
-  return `/api/friends/requests`
-}
-
-/**
- * @summary Send a friend request to a learner by email
- */
-export const sendFriendRequest = async (sendFriendRequestInput: SendFriendRequestInput, options?: RequestInit): Promise<FriendRequest> => {
-
-  return customFetch<FriendRequest>(getSendFriendRequestUrl(),
+  return customFetch<FriendRequest>(getSendFriendRequestByCodeUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(sendFriendRequestInput)
+    body: JSON.stringify(sendFriendRequestByCodeInput)
   }
 );}
 
@@ -2724,11 +2638,11 @@ export const sendFriendRequest = async (sendFriendRequestInput: SendFriendReques
 
 
 
-export const getSendFriendRequestMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequest>>, TError,{data: BodyType<SendFriendRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequest>>, TError,{data: BodyType<SendFriendRequestInput>}, TContext> => {
+export const getSendFriendRequestByCodeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequestByCode>>, TError,{data: BodyType<SendFriendRequestByCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequestByCode>>, TError,{data: BodyType<SendFriendRequestByCodeInput>}, TContext> => {
 
-const mutationKey = ['sendFriendRequest'];
+const mutationKey = ['sendFriendRequestByCode'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2738,10 +2652,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendFriendRequest>>, {data: BodyType<SendFriendRequestInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendFriendRequestByCode>>, {data: BodyType<SendFriendRequestByCodeInput>}> = (props) => {
           const {data} = props ?? {};
 
-          return  sendFriendRequest(data,requestOptions)
+          return  sendFriendRequestByCode(data,requestOptions)
         }
 
 
@@ -2751,22 +2665,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SendFriendRequestMutationResult = NonNullable<Awaited<ReturnType<typeof sendFriendRequest>>>
-    export type SendFriendRequestMutationBody = BodyType<SendFriendRequestInput>
-    export type SendFriendRequestMutationError = ErrorType<Error>
+    export type SendFriendRequestByCodeMutationResult = NonNullable<Awaited<ReturnType<typeof sendFriendRequestByCode>>>
+    export type SendFriendRequestByCodeMutationBody = BodyType<SendFriendRequestByCodeInput>
+    export type SendFriendRequestByCodeMutationError = ErrorType<Error>
 
     /**
- * @summary Send a friend request to a learner by email
+ * @summary Send a friend request to the learner who owns a friend code
  */
-export const useSendFriendRequest = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequest>>, TError,{data: BodyType<SendFriendRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useSendFriendRequestByCode = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendFriendRequestByCode>>, TError,{data: BodyType<SendFriendRequestByCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof sendFriendRequest>>,
+        Awaited<ReturnType<typeof sendFriendRequestByCode>>,
         TError,
-        {data: BodyType<SendFriendRequestInput>},
+        {data: BodyType<SendFriendRequestByCodeInput>},
         TContext
       > => {
-      return useMutation(getSendFriendRequestMutationOptions(options));
+      return useMutation(getSendFriendRequestByCodeMutationOptions(options));
     }
 
 export const getListIncomingFriendRequestsUrl = () => {

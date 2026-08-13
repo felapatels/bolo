@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { grantTokens } from "./tokenService";
+import { ensureAcceptedFriendship } from "./friendship";
 import {
   REFERRAL_REWARD_REFERRER_CHAI,
   REFERRAL_REWARD_REFEREE_CHAI,
@@ -16,6 +17,18 @@ import {
 // "total Chai earned from referrals" is derived from token_ledger rows.
 
 // Unambiguous alphabet per owner spec: uppercase, no 0/O/1/I.
+// 32 symbols × 6 places = 32^6 ≈ 1.07e9 codes.
+//
+// SAFETY NOTE — this same code is the learner's FRIEND code. It is deliberately
+// reused rather than minting a second one, and that reuse is only safe because
+// every code-initiated add lands as a *pending* friend request the recipient
+// must accept (POST /friends/requests/by-code → status "pending"; see the
+// accept handler in routes/friends.ts). Referral codes are meant to be
+// broadcast — flyers, WhatsApp groups, events — so if the accept step is ever
+// removed, every place a learner has posted their code silently becomes an
+// open friend list. The ONE exception is referral redemption below, which
+// auto-friends with no accept step because redeeming someone's link is already
+// an explicit act by both parties.
 export const REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const REFERRAL_CODE_LENGTH = 6;
 
@@ -121,6 +134,22 @@ export async function redeemReferralCode(
     .returning({ id: referralRedemptionsTable.id });
   // Zero rows means a concurrent redeem won the unique index race.
   if (inserted.length === 0) return { kind: "already_redeemed" };
+
+  // Auto-friend: redeeming a link makes the two learners friends immediately,
+  // with no accept step (the single exception to the accept gate — see the
+  // note on REFERRAL_CODE_ALPHABET above). Idempotent and direction-safe via
+  // ensureAcceptedFriendship, because the friendships unique index only covers
+  // one ordered pair and would not stop a reverse duplicate.
+  //
+  // Best-effort on purpose: attribution is already committed at this point and
+  // the Chai grant/timing must not change, so a social-graph failure is logged
+  // rather than turned into a failed redemption.
+  try {
+    await ensureAcceptedFriendship(owner.id, refereeUserId);
+  } catch (err) {
+    console.error("[referral] auto-friend after redeem failed", err);
+  }
+
   return { kind: "ok" };
 }
 

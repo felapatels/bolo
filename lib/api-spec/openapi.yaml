@@ -1035,52 +1035,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /friends/search:
-    get:
-      operationId: searchFriendByEmail
-      tags: [friends]
-      summary: Find a learner by their exact email
-      description: >-
-        Looks up a single learner by their exact email address so the caller can
-        send them a friend request. The caller is never returned. Available to
-        all authenticated learners.
-      parameters:
-        - name: email
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The matching learner
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserSummary"
-        "400":
-          description: Missing email
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: No learner found with that email
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /friends/requests:
+  /friends/requests/by-code:
     post:
-      operationId: sendFriendRequest
+      operationId: sendFriendRequestByCode
       tags: [friends]
-      summary: Send a friend request to a learner by email
+      summary: Send a friend request to the learner who owns a friend code
+      description: >-
+        Matches the code exactly (after uppercase/trim normalization) and creates
+        a PENDING friend request the recipient must accept — never an instant
+        friendship. A learner's friend code is their referral code, which is
+        meant to be broadcast, so the accept step is what keeps a published code
+        from becoming an open friend list. Rejection wording is deliberately
+        uniform: an unknown code, a near-miss, and a code belonging to someone
+        the caller already has a relationship with all return the same 404 and
+        the same message, so the endpoint cannot be probed for which codes are
+        real. Rate limited per account and per IP.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SendFriendRequestInput"
+              $ref: "#/components/schemas/SendFriendRequestByCodeInput"
       responses:
         "201":
           description: The created pending request
@@ -1089,19 +1064,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/FriendRequest"
         "400":
-          description: Missing email or an attempt to friend yourself
+          description: Missing code, or the caller's own code
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: No learner found with that email
+          description: >-
+            The code did not match anyone the caller can add. Returned for an
+            unknown code and for an existing friendship or pending request
+            alike, with identical wording.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "409":
-          description: A request or friendship already exists between the two learners
+        "429":
+          description: Too many code attempts from this account or IP
           content:
             application/json:
               schema:
@@ -4323,14 +4301,16 @@ components:
         - displayName
         - email
 
-    SendFriendRequestInput:
+    SendFriendRequestByCodeInput:
       type: object
       properties:
-        email:
+        code:
           type: string
-          description: The exact email of the learner to send a request to.
+          description: >-
+            The friend code of the learner to send a request to (their referral
+            code). Normalized by trim + uppercase, then matched exactly.
       required:
-        - email
+        - code
 
     FriendRequest:
       type: object

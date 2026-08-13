@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Copy, Loader2, Share2 } from "lucide-react";
 import { useGetReferral } from "@workspace/api-client-react";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { FriendQr } from "@/components/friend-qr";
 import { REFERRAL_REWARD_CHAI, referralLink } from "@/lib/referral-code";
 import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,17 @@ export function ReferralCard() {
           className="mt-1 font-mono text-2xl font-black tracking-[0.25em] text-foreground"
         >
           {data.code}
+        </p>
+        {/* The same code as a scannable square. This code doubles as the
+            learner's friend code, so a scan is also how someone adds them —
+            the request still has to be accepted. */}
+        <div className="mt-3 flex justify-center">
+          <div className="rounded-2xl bg-white p-2 shadow-sm">
+            <FriendQr value={link} size={132} />
+          </div>
+        </div>
+        <p className="mt-2 text-xs font-medium text-muted-foreground">
+          Also your friend code — scan or type it to send a friend request.
         </p>
       </div>
 

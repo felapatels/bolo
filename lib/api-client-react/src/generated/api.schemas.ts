@@ -1124,9 +1124,9 @@ export interface UserSummary {
   email: string | null;
 }
 
-export interface SendFriendRequestInput {
-  /** The exact email of the learner to send a request to. */
-  email: string;
+export interface SendFriendRequestByCodeInput {
+  /** The friend code of the learner to send a request to (their referral code). Normalized by trim + uppercase, then matched exactly. */
+  code: string;
 }
 
 /**
@@ -1566,10 +1566,6 @@ lang: string;
 
 export type GetProgressAnalyticsParams = {
 lang: string;
-};
-
-export type SearchFriendByEmailParams = {
-email: string;
 };
 
 export type GetScriptTraceProgressParams = {

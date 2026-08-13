@@ -942,28 +942,14 @@ export const AcceptRetentionOfferResponse = zod.object({
 
 
 /**
- * Looks up a single learner by their exact email address so the caller can send them a friend request. The caller is never returned. Available to all authenticated learners.
- * @summary Find a learner by their exact email
+ * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept — never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
+ * @summary Send a friend request to the learner who owns a friend code
  */
-export const SearchFriendByEmailQueryParams = zod.object({
-  "email": zod.coerce.string()
+export const SendFriendRequestByCodeBody = zod.object({
+  "code": zod.string().describe('The friend code of the learner to send a request to (their referral code). Normalized by trim + uppercase, then matched exactly.')
 })
 
-export const SearchFriendByEmailResponse = zod.object({
-  "id": zod.string(),
-  "displayName": zod.string().nullable(),
-  "email": zod.string().nullable()
-}).describe('A learner\'s public identity for friends features.')
-
-
-/**
- * @summary Send a friend request to a learner by email
- */
-export const SendFriendRequestBody = zod.object({
-  "email": zod.string().describe('The exact email of the learner to send a request to.')
-})
-
-export const SendFriendRequestResponse = zod.object({
+export const SendFriendRequestByCodeResponse = zod.object({
   "id": zod.number(),
   "status": zod.string().describe('Always \"pending\" for a request.'),
   "createdAt": zod.coerce.date(),

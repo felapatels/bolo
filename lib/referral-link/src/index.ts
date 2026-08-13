@@ -41,6 +41,42 @@ export function referralJoinPath(code: string): string {
 }
 
 /**
+ * Pulls a code out of whatever a QR scan produced.
+ *
+ * The squares Bolo! renders encode the full `/join/<code>` link so an ordinary
+ * phone camera opens the app rather than showing six letters to retype, but a
+ * scanner should also cope with a hand-made QR that holds only the code. So:
+ * take the last path segment of anything that parses as a join link, otherwise
+ * treat the payload as a bare code — and in both cases require it to look like
+ * a code before handing it on, so a scan of an unrelated QR fails here rather
+ * than becoming a wasted (and rate-limited) friend-request attempt.
+ *
+ * Returns null when the payload is not a Bolo! code.
+ */
+export function parseReferralScan(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  let candidate = text;
+  const joinMatch = text.match(/\/join\/([^/?#]+)/i);
+  if (joinMatch) {
+    try {
+      candidate = decodeURIComponent(joinMatch[1]!);
+    } catch {
+      candidate = joinMatch[1]!;
+    }
+  } else if (/[/:?#]/.test(text)) {
+    // A URL that is not a join link — someone else's QR, not ours.
+    return null;
+  }
+
+  const code = normalizeReferralCode(candidate);
+  // Deliberately loose on length: the server decides what exists. This only
+  // rejects payloads that cannot be a code at all.
+  return /^[A-Z0-9]{4,16}$/.test(code) ? code : null;
+}
+
+/**
  * The shareable absolute link for a code.
  *
  * @param origin  Scheme + host of the web app, no trailing slash

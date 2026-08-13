@@ -99,6 +99,16 @@ export const usersTable = pgTable("users", {
   // from an unambiguous alphabet (no 0/O/1/I), generated lazily on the first
   // GET /referral (JIT, like the users row itself). Null until first fetched;
   // Postgres unique indexes ignore NULLs, so unminted users coexist fine.
+  //
+  // SAFETY NOTE — this column is ALSO the learner's friend code (Task "Add
+  // friends by code and QR"). One code, two uses. That reuse is only safe
+  // because every code-initiated add lands as a *pending* friend request the
+  // recipient must accept: referral codes are designed to be broadcast (flyers,
+  // WhatsApp groups, events), so if the accept step is ever removed, every
+  // place a learner has ever posted their code silently becomes an open friend
+  // list. See the accept handler in api-server/src/routes/friends.ts. The one
+  // exception is referral redemption, which auto-friends instantly because
+  // redeeming someone's link is already an explicit act by both parties.
   referralCode: text("referral_code"),
 }, (t) => [
   uniqueIndex("users_referral_code_idx").on(t.referralCode),
