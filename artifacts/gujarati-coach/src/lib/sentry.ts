@@ -35,17 +35,38 @@ const SENSITIVE_KEYS = new Set([
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 
-function scrubValue(value: unknown, depth = 0): unknown {
-  if (depth > 6) return "[depth-limit]";
+// Depth guard. This is a runaway/cycle backstop ONLY — it must never be
+// shallow enough to reach the parts of a Sentry event we need to read.
+//
+// Trap (cost a full debugging session, Aug 2026): the guard used to be
+// `depth > 6`, and a stack frame sits at depth 7:
+//   event(0) → exception(1) → values(2) → values[0](3) → stacktrace(4)
+//   → frames(5) → frames[n](6) → filename/function/lineno(7)
+// so EVERY frame field shipped as the literal string "[depth-limit]" and
+// every trace in Sentry was unreadable. The frames were being destroyed
+// here, in our own beforeSend — not lost to missing source maps.
+//
+// Cycles are handled by `seen` (Sentry events can hold repeated references),
+// so the depth number no longer has to be small to be safe.
+const MAX_DEPTH = 24;
+
+function scrubValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+  if (depth > MAX_DEPTH) return "[depth-limit]";
   if (typeof value === "string") return value.replace(EMAIL_RE, "[email]");
-  if (Array.isArray(value)) return value.map((v) => scrubValue(v, depth + 1));
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return "[circular]";
+    seen.add(value);
+    return value.map((v) => scrubValue(v, depth + 1, seen));
+  }
   if (value && typeof value === "object") {
+    if (seen.has(value)) return "[circular]";
+    seen.add(value);
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (SENSITIVE_KEYS.has(k.toLowerCase().replace(/[^a-z0-9]/g, ""))) {
         out[k] = "[redacted]";
       } else {
-        out[k] = scrubValue(v, depth + 1);
+        out[k] = scrubValue(v, depth + 1, seen);
       }
     }
     return out;
