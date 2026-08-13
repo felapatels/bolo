@@ -117,7 +117,23 @@ function TornEdge({ color, side }: { color: string; side: 'left' | 'right' }) {
   );
 }
 
-export function JourneyPassCard({ onPress }: { onPress: () => void }) {
+/** Four colour roles for a gold engine. Defined once (ChaiWallet) and passed
+ *  through from parents that already hold the tokens query. */
+export type TrainGoldPalette = {
+  chassis: string;
+  body: string;
+  trim: string;
+  steam: string;
+};
+
+export function JourneyPassCard({
+  onPress,
+  goldPalette,
+}: {
+  onPress: () => void;
+  /** If non-null, the boarding-pass engine renders in First Class gold. */
+  goldPalette?: TrainGoldPalette;
+}) {
   const colors = useColors();
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
@@ -386,7 +402,13 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
                     : `${line.zones[0]} to ${line.zones[5]}, station by station`}
                 </Text>
               </View>
-              <TrainEngine tint="#ffffff" width={56} height={37} motion="drive" />
+              <TrainEngine
+                tint="#ffffff"
+                width={56}
+                height={37}
+                motion="drive"
+                palette={goldPalette}
+              />
             </View>
             {journey.current && journey.current.phraseCount > 0 && (
               <View style={styles.progressRow}>

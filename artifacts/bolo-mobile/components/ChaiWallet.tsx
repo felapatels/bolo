@@ -17,9 +17,11 @@ import {
   getGetTokensQueryKey,
   useGetStreakRepair,
   useGetTokens,
+  useBuyFirstClass,
   useRepairStreak,
   useSpendTokens,
 } from '@workspace/api-client-react';
+import { TrainEngine } from '@/components/journey/TrainEngine';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { ChaiPackShop } from '@/components/ChaiPackShop';
 import { repairErrorMessage } from '@/lib/chai-errors';
@@ -103,6 +105,57 @@ export function useExpressCountdown(
   return `${mm}:${ss}`;
 }
 
+/**
+ * Human-readable countdown until firstClassActiveUntil, or null when inactive.
+ * For sub-hour: "mm:ss". For longer: "Xhr Ymin" or "Xd Xhr".
+ * Exactly mirrors web's useFirstClassCountdown (chai-wallet.tsx).
+ */
+export function useFirstClassCountdown(
+  activeUntil: string | null | undefined,
+): string | null {
+  const target = activeUntil ? new Date(activeUntil).getTime() : null;
+  const queryClient = useQueryClient();
+  const [now, setNow] = React.useState(() => Date.now());
+  const active = target !== null && Number.isFinite(target) && target > now;
+
+  React.useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  React.useEffect(() => {
+    if (target === null || !Number.isFinite(target)) return;
+    const delay = target - Date.now();
+    if (delay <= 0) return;
+    const id = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+    }, delay + 250);
+    return () => clearTimeout(id);
+  }, [queryClient, target]);
+
+  if (!active || target === null) return null;
+  const totalSeconds = Math.max(0, Math.floor((target - now) / 1000));
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  if (days >= 1) {
+    const hrs = totalHours % 24;
+    return hrs > 0 ? `${days}d ${hrs}hr` : `${days}d`;
+  }
+  if (totalHours >= 1) {
+    const mins = totalMinutes % 60;
+    return mins > 0 ? `${totalHours}hr ${mins}min` : `${totalHours}hr`;
+  }
+  if (totalMinutes >= 1) {
+    const secs = totalSeconds % 60;
+    return `${totalMinutes}min ${String(secs).padStart(2, '0')}s`;
+  }
+  const mm = String(totalMinutes).padStart(2, '0');
+  const ss = String(totalSeconds % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
 /** Exact 409 copy per spend rejection; rejections are never paywall moments. */
 function spendErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -118,8 +171,35 @@ function spendErrorMessage(error: unknown): string {
     if (data?.error === 'multiplier_active') {
       return 'An Express Multiplier is already running.';
     }
+    if (data?.error === 'first_class_horizon') {
+      return 'Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit — come back before it closes up.';
+    }
   }
   return 'That spend did not go through. Try again in a moment.';
+}
+
+function useFirstClassBuy(onNotice: (msg: string) => void) {
+  const queryClient = useQueryClient();
+  // UUID generated on hook mount; reused on retry, fresh on remount (the key
+  // prop flips the row when the status changes, guaranteeing a new key for a
+  // genuinely new purchase).
+  const [refId] = React.useState(() => {
+    // Expo/RN doesn't ship crypto.randomUUID() reliably on all RN versions;
+    // use a simple UUID-shaped string from Math.random instead.
+    const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+    return `${s4()}${s4()}-${s4()}-4${s4().slice(1)}-${s4()}-${s4()}${s4()}${s4()}`;
+  });
+  const mutation = useBuyFirstClass({
+    mutation: {
+      onError: (error: unknown) => {
+        onNotice(spendErrorMessage(error));
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+      },
+    },
+  });
+  return { mutation, refId };
 }
 
 /**
@@ -208,6 +288,93 @@ function StreakRepairRow({ onNotice }: { onNotice: (message: string) => void }) 
   );
 }
 
+// Mirror of tokenEconomy.ts — server is authoritative.
+const FIRST_CLASS_COST = 25;
+
+/** Gold palette applied when the learner holds First Class. Approved Aug 2026. */
+const GOLD_PALETTE = { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
+
+/**
+ * First Class wallet row (mobile twin of the web FirstClassRow in chai-wallet.tsx).
+ *
+ * When ACTIVE: shows remaining time badge, no buy button.
+ * When INACTIVE: shows price and buy button armed with a fresh UUID.
+ *
+ * key prop on the parent remounts this on status flip, generating a new UUID.
+ * The boost line is clearly complimentary + immediate, not 24 hours long.
+ */
+function FirstClassRow({
+  countdown,
+  onNotice,
+}: {
+  countdown: string | null;
+  onNotice: (msg: string) => void;
+}) {
+  const colors = useColors();
+  const { mutation, refId } = useFirstClassBuy(onNotice);
+  const isActive = countdown !== null;
+
+  return (
+    <View
+      testID="wallet-first-class-row"
+      style={[
+        styles.itemRow,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
+    >
+      <RowWash color={`${INDIA.gold}2E`} />
+      {/* Gold tile: the canonical engine wearing the First Class palette. */}
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.goldTile}
+      >
+        <TrainEngine tint={GOLD_PALETTE.chassis} width={42} height={28} palette={GOLD_PALETTE} />
+      </View>
+      <View style={styles.itemInfo}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>First Class</Text>
+        {isActive ? (
+          <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+            Your train goes gold for {countdown} more.
+          </Text>
+        ) : (
+          <>
+            <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+              24 hours of gold-train status.
+            </Text>
+            <Text style={[styles.itemMeta, { color: colors.mutedForeground }]}>
+              Complimentary Express boost on boarding.
+            </Text>
+          </>
+        )}
+      </View>
+      {isActive ? (
+        <Text
+          testID="wallet-first-class-active"
+          style={[styles.countdownText, { color: '#92650A' }]}
+        >
+          ✦ {countdown}
+        </Text>
+      ) : (
+        <Pressable
+          testID="wallet-buy-first-class"
+          accessibilityRole="button"
+          disabled={mutation.isPending}
+          onPress={() => mutation.mutate({ data: { refId } })}
+          style={({ pressed }) => [
+            styles.spendBtn,
+            (pressed || mutation.isPending) && styles.spendBtnPressed,
+          ]}
+        >
+          <SpendFace />
+          <Text style={styles.spendBtnText}>Board · {FIRST_CLASS_COST}</Text>
+          <ChaiCoin />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 /**
  * Spend mutation with the web refresh contract: errors surface a notice,
  * success stays silent, and settle (success and rejection both) refreshes
@@ -282,6 +449,9 @@ export function ChaiWalletSheet({
   });
   const tokens = tokensQuery.data;
   const countdown = useExpressCountdown(tokens?.expressMultiplierActiveUntil);
+  const firstClassCountdown = useFirstClassCountdown(tokens?.firstClassActiveUntil);
+  // key forces a fresh UUID when First Class row remounts after status change.
+  const firstClassBuyKey = firstClassCountdown ?? 'inactive';
   // The language row is a free-tier row only: a paid plan already owns the
   // stops it would explain how to buy.
   const { isPlus, isOneLanguage, isLoading: entitlementsLoading } =
@@ -461,6 +631,18 @@ export function ChaiWalletSheet({
               )}
             </View>
 
+            {/* First Class: 24 hours of gold-train status + complimentary Express
+                boost on boarding. Repeatable — repurchase adds 24 hours.
+                key flips the row when status changes, generating a fresh UUID. */}
+            <FirstClassRow
+              key={firstClassBuyKey}
+              countdown={firstClassCountdown}
+              onNotice={(msg) => {
+                setNotice(msg);
+                setNoticeKey((k) => k + 1);
+              }}
+            />
+
             {!entitlementsLoading && !isPaid && (
               <View
                 testID="wallet-language-row"
@@ -610,6 +792,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
+  },
+  goldTile: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#FBF1DF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    overflow: 'hidden',
   },
   itemInfo: {
     flex: 1,

@@ -48,12 +48,15 @@ export function SignalEncounterDialog({
   onPlay,
   onWave,
   onClose,
+  goldPalette,
 }: {
   encounter: SignalEncounter | null;
   colors: Colors;
   onPlay: (e: SignalEncounter & { game: QuickGameDef }) => void;
   onWave: (e: SignalEncounter) => void;
   onClose: () => void;
+  /** If non-null, the signal-scene engine renders in First Class gold. */
+  goldPalette?: { chassis: string; body: string; trim: string; steam: string };
 }) {
   const cleared = encounter?.state === 'cleared';
   const waved = encounter?.state === 'waved';
@@ -103,7 +106,7 @@ export function SignalEncounterDialog({
                 importantForAccessibility="no-hide-descendants"
                 style={[styles.scene, { backgroundColor: colors.muted }]}
               >
-                <TrainEngine width={64} tint={colors.primary} />
+                <TrainEngine width={64} tint={colors.primary} palette={goldPalette} />
                 <View style={[styles.sceneRule, { borderColor: colors.border }]} />
                 {/* The Signalman himself steps out beside his crossing, in
                     web's scene order: engine, rule, signalman, signal. */}

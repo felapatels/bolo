@@ -2092,6 +2092,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /tokens/first-class:
+    post:
+      operationId: buyFirstClass
+      tags: [tokens]
+      summary: Spend Chai on 24 hours of First Class
+      description: >-
+        Buys 24 hours of First Class — a cosmetic status that renders the
+        learner's own train in gold — plus one complimentary 20-minute Express
+        boost thrown in on boarding. The caller supplies ONLY an idempotency
+        key: the price, the 24 hours and the bundled boost are all server-side.
+        Unlike every other Chai spend this purchase is repeatable, so a repeat
+        call with the SAME key is a free replay (200, charged=false) while a
+        new key is a genuine second purchase that adds another 24 hours to an
+        active expiry. The bundled boost takes the max of its current value and
+        20 minutes from now, so it never shortens a longer running window and
+        never accumulates. Money and clock conflicts (insufficient_tokens,
+        first_class_horizon) answer 409, matching the other Chai spends; never
+        402, which is the plan-upgrade envelope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FirstClassInput"
+      responses:
+        "200":
+          description: Bought, or a replay of the same key — charged=false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FirstClassResult"
+        "409":
+          description: insufficient_tokens or first_class_horizon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /tokens/unlock-stop:
     post:
       operationId: unlockStop
@@ -4768,6 +4805,15 @@ components:
           type: string
           format: date-time
           nullable: true
+        firstClassActiveUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the caller's First Class status runs out, or null when it is
+            not active. Mirrors expressMultiplierActiveUntil: an absolute
+            deadline written at spend time, so clients derive active/inactive
+            and any countdown from the wall clock rather than holding a timer.
         equippedOutfit:
           type: string
           nullable: true
@@ -4895,6 +4941,42 @@ components:
         refId:
           type: string
           description: optional client idempotency key
+    FirstClassInput:
+      type: object
+      required: [refId]
+      properties:
+        refId:
+          type: string
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          description: >-
+            The client idempotency key, a UUID generated when the purchase
+            button is armed and reused verbatim on retry. The same key charges
+            at most once; a new key is a new purchase. Grammar-pinned to a UUID
+            deliberately: this is the only ledger refId a client chooses, and
+            other reasons' refIds are bare date keys that a covered-day scan
+            reads, so an unconstrained string here would let a caller mint a
+            row that scan mistakes for a paid streak cover.
+    FirstClassResult:
+      type: object
+      required: [balance, charged, cost]
+      properties:
+        balance: { type: integer }
+        charged:
+          type: boolean
+          description: >-
+            False when this call replayed an idempotency key already spent —
+            nothing was deducted and no time was added.
+        cost: { type: integer }
+        firstClassActiveUntil:
+          type: string
+          format: date-time
+          nullable: true
+        expressMultiplierActiveUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            The bundled boost's new deadline: max(existing, now + 20 minutes).
     ChaiPack:
       type: object
       required: [id, appleProductId, chai]

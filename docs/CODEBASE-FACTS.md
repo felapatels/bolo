@@ -2565,3 +2565,25 @@ Web suite after the change: 88 files / 750 tests, all passing — `src/test/bott
 **Rows must pass an EXPLICIT `null`.** Both `Mascot` components fall back to the *viewer's* equipped outfit when `outfit` is `undefined` (that is what every other surface wants). A row that omits the prop therefore paints every undressed friend in the viewer's own clothes, which no test would catch unless it distinguishes "null" from "not passed" — the mobile test's Mascot stub encodes exactly that difference in its testID (`mascot-outfit-none` vs `mascot-outfit-inherited`).
 
 **Evidence.** `qa/task1112-row-mascot-shots.mjs` (web, 1280×900 and 402×874) and `qa/task1112-mobile-shots.mjs` (Expo web, 412×824 @2x) sign in as a seeded learner whose four friends wear kurta, sherwani, nothing, and anarkali + pagdi, and read each row's `data-outfit` and resolved `<img>` src off the DOM as well as shooting it. Shots in `qa/shots/task1112/` (gitignored). The web probe signs in with a Clerk `sign_in_tokens` ticket; the Expo probe uses email + password and must then clear the **Client Trust** "new device" code, which for a `+clerk_test` address is always `424242`.
+
+## 10ay. First Class sells 24h of gold-train status (August 13, 2026, db + api + web + mobile)
+
+**Why it is cosmetic-only.** The friends leaderboard ranks on XP. A purchasable XP advantage would be buying leaderboard position on the exact surface this status is designed to flex on. The single complimentary 20-minute Express boost is the whole of the XP story, and that boost is already purchasable standalone for 10 Chai, so no new advantage exists.
+
+**Cost and duration.** 25 Chai for 24 hours. Repurchase **adds** 24 hours to an active expiry — it never refuses with a conflict. The 15 Chai above the 10 Chai standalone boost is the price of the status itself. A horizon ceiling refuses extension beyond 30 days out (`FIRST_CLASS_HORIZON_DAYS = 30`) with a distinct 409 code (`first_class_horizon`).
+
+**Idempotency.** The client generates a UUID when the purchase button is armed and reuses it on retry. The ledger unique index on `(userId, reason, refId)` makes a double-tap a free replay. A genuinely new purchase re-arms the button (via the `key` prop on the wallet row) and gets a new UUID. The refId is grammar-pinned to a UUID regex in the OpenAPI spec so it cannot collide with the `YYYY-MM-DD` shape that `listCoveredDayKeys` scans.
+
+**Status extends by addition; boost extends by max — deliberately, for different reasons.** Adding 24 hours to an active First Class expiry lets repurchase extend a running window predictably. Setting the boost to `max(existing, now+20min)` prevents a running boost from being shortened if a learner boards 19 minutes into one: they always get at least 20 minutes from the instant of purchase, but never more than 20 minutes from any instant.
+
+**The boost is not charged.** It is a direct write of the `expressMultiplierExpiresAt` column inside the First Class transaction. Routing it through `spendTokens` would charge a second 10 Chai and throw `multiplier_active`. The standalone express multiplier's own constants, cost, and 409 guard are untouched.
+
+**Storage mirrors the express precedent.** One nullable `timestamptz` column (`first_class_expires_at`) on `user_token_state`. Migration `0049_whole_celestials.sql`. No generic status table.
+
+**Gold palette (approved August 13, 2026).** chassis `#6B4A0F`, body `#E8B93C`, trim `#FFE39A`, steam `#FFF6E0`. Distinct from `INDIA.gold` (`#F0A32B`) used by ExpressTile: that tile has a navy chassis and teal trim; this palette is all-gold so the two read as different objects on the same screen.
+
+**Three gold sites per platform, not five.** Journey rail marker, home boarding pass, signal encounter. StationPauseTile and ExpressTile are product icons representing items for sale — turning a product icon gold because the learner bought something else is wrong. On web, a `display:contents` wrapper pins the four CSS vars without affecting layout; on mobile, the `palette` prop on `TrainEngine` is threaded from the parents that already hold the tokens query.
+
+**Naming.** "First Class" is a coach class. The daily XP ladder uses train *types* (Local/Superfast/Rajdhani/Shatabdi) — deliberately different vocabularies that must not be conflated in code or copy. Bare "tier" is avoided; it already means subscription plan.
+
+**Mobile 2× indicator gap.** A mobile learner who boards First Class may never see that the complimentary Express boost started — mobile has only the wallet row today, with no 2× indicator anywhere on the session screens. The minimum honest indication would be a brief banner or a 2× badge on the session XP chip at the moment of purchase.

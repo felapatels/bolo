@@ -52,6 +52,8 @@ import type {
   EquipOutfitInput,
   Error,
   FamilyStatus,
+  FirstClassInput,
+  FirstClassResult,
   Friend,
   FriendInviteResult,
   FriendRequest,
@@ -5441,6 +5443,78 @@ export const useSpendTokens = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSpendTokensMutationOptions(options));
+    }
+
+export const getBuyFirstClassUrl = () => {
+
+
+
+
+  return `/api/tokens/first-class`
+}
+
+/**
+ * Buys 24 hours of First Class — a cosmetic status that renders the learner's own train in gold — plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * @summary Spend Chai on 24 hours of First Class
+ */
+export const buyFirstClass = async (firstClassInput: FirstClassInput, options?: RequestInit): Promise<FirstClassResult> => {
+
+  return customFetch<FirstClassResult>(getBuyFirstClassUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(firstClassInput)
+  }
+);}
+
+
+
+
+
+export const getBuyFirstClassMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyFirstClass>>, TError,{data: BodyType<FirstClassInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buyFirstClass>>, TError,{data: BodyType<FirstClassInput>}, TContext> => {
+
+const mutationKey = ['buyFirstClass'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buyFirstClass>>, {data: BodyType<FirstClassInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  buyFirstClass(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BuyFirstClassMutationResult = NonNullable<Awaited<ReturnType<typeof buyFirstClass>>>
+    export type BuyFirstClassMutationBody = BodyType<FirstClassInput>
+    export type BuyFirstClassMutationError = ErrorType<Error>
+
+    /**
+ * @summary Spend Chai on 24 hours of First Class
+ */
+export const useBuyFirstClass = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyFirstClass>>, TError,{data: BodyType<FirstClassInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof buyFirstClass>>,
+        TError,
+        {data: BodyType<FirstClassInput>},
+        TContext
+      > => {
+      return useMutation(getBuyFirstClassMutationOptions(options));
     }
 
 export const getUnlockStopUrl = () => {

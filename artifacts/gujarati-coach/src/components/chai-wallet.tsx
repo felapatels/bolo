@@ -14,7 +14,8 @@ import {
   StationPauseTile,
   StreakMendTile,
 } from "@/components/wallet-art";
-import { INDIA } from "@/lib/india-palette";
+import { INDIA, FIRST_CLASS_GOLD_VARS } from "@/lib/india-palette";
+import { TrainEngine } from "@/components/train-svg";
 import { useEntitlements } from "@/lib/entitlements";
 import { repairErrorMessage } from "@/lib/chai-errors";
 import { ChaiPackShop } from "@/components/chai-packs";
@@ -25,6 +26,7 @@ import {
   getGetTokensQueryKey,
   useGetStreakRepair,
   useGetTokens,
+  useBuyFirstClass,
   useRepairStreak,
   useSpendTokens,
 } from "@workspace/api-client-react";
@@ -49,6 +51,8 @@ import { cn } from "@/lib/utils";
 const STATION_PAUSE_COST = 10;
 const EXPRESS_MULTIPLIER_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
+// Mirror of tokenEconomy.ts — server is authoritative.
+const FIRST_CLASS_COST = 25;
 
 // The wallet opens on Chacha-ji's stall itself — the painted scene, with the
 // balance struck across it. (The home band still composites the layered art;
@@ -149,6 +153,58 @@ export function useExpressCountdown(
   return `${mm}:${ss}`;
 }
 
+/**
+ * Live human-readable countdown until a deadline, or null when inactive.
+ * For sub-hour deadlines: "mm:ss". For longer: "Xhr Ymin" or "Xd Xhr".
+ * Recomputes from the wall clock so a returning tab reads immediately correctly.
+ * Schedules one cache invalidation at expiry — same pattern as Express.
+ */
+export function useFirstClassCountdown(
+  activeUntil: string | null | undefined,
+): string | null {
+  const target = activeUntil ? new Date(activeUntil).getTime() : null;
+  const queryClient = useQueryClient();
+  const [now, setNow] = useState(() => Date.now());
+  const active = target !== null && Number.isFinite(target) && target > now;
+
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  useEffect(() => {
+    if (target === null || !Number.isFinite(target)) return;
+    const delay = target - Date.now();
+    if (delay <= 0) return;
+    const id = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+    }, delay + 250);
+    return () => clearTimeout(id);
+  }, [queryClient, target]);
+
+  if (!active || target === null) return null;
+  const totalSeconds = Math.max(0, Math.floor((target - now) / 1000));
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  if (days >= 1) {
+    const hrs = totalHours % 24;
+    return hrs > 0 ? `${days}d ${hrs}hr` : `${days}d`;
+  }
+  if (totalHours >= 1) {
+    const mins = totalMinutes % 60;
+    return mins > 0 ? `${totalHours}hr ${mins}min` : `${totalHours}hr`;
+  }
+  if (totalMinutes >= 1) {
+    const secs = totalSeconds % 60;
+    return `${totalMinutes}min ${String(secs).padStart(2, "0")}s`;
+  }
+  const mm = String(totalMinutes).padStart(2, "0");
+  const ss = String(totalSeconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
 /** Exact 409 copy per spend rejection; rejections are never paywall moments. */
 function spendErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -164,8 +220,116 @@ function spendErrorMessage(error: unknown): string {
     if (data?.error === "multiplier_active") {
       return "An Express Multiplier is already running.";
     }
+    if (data?.error === "first_class_horizon") {
+      return "Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit — come back before it closes up.";
+    }
   }
   return "That spend did not go through. Try again in a moment.";
+}
+
+function useFirstClassBuy() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  // The idempotency key is generated once per hook mount and holds for the
+  // lifetime of the button being armed. A deliberate second purchase will
+  // unmount and remount this hook (via key prop on the wallet row), which
+  // generates a new UUID.
+  const [refId] = useState(() => crypto.randomUUID());
+  const mutation = useBuyFirstClass({
+    mutation: {
+      onError: (error: unknown) => {
+        toast({ description: spendErrorMessage(error) });
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+      },
+    },
+  });
+  return { mutation, refId };
+}
+
+/**
+ * First Class wallet row.
+ *
+ * When ACTIVE: shows remaining time and "running" badge, no buy button. The
+ * key prop on the parent flips this component out when the status becomes
+ * inactive, which remounts useFirstClassBuy and generates a fresh UUID for
+ * the next purchase — the same UUID on a second tap is the free replay,
+ * not a second charge.
+ *
+ * When INACTIVE: shows price + buy button. The boost line makes clear it is
+ * complimentary and immediate, NOT that the boost lasts 24 hours.
+ *
+ * Gold tile: a TrainEngine with FIRST_CLASS_GOLD_VARS pinned on its wrapper.
+ * Same 64×64 Tile frame the other art tiles use. No new art.
+ */
+function FirstClassRow({ countdown }: { countdown: string | null }) {
+  const { mutation, refId } = useFirstClassBuy();
+  const isActive = countdown !== null;
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+      style={{
+        backgroundImage: `linear-gradient(90deg, ${INDIA.gold}2E 0%, transparent 55%)`,
+      }}
+      data-testid="wallet-first-class-row"
+    >
+      {/* Gold tile: TrainEngine with FIRST_CLASS_GOLD_VARS pinned.
+          Same 64×64 frame as the other art tiles. */}
+      <div
+        aria-hidden="true"
+        className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl"
+        style={{ background: "#FBF1DF" }}
+      >
+        <div className="contents" style={FIRST_CLASS_GOLD_VARS}>
+          <TrainEngine
+            className="absolute inset-0 h-full w-auto m-auto"
+            style={{ color: "#6B4A0F" }}
+          />
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="font-black text-foreground">First Class</p>
+        {isActive ? (
+          <p className="text-xs leading-snug text-muted-foreground">
+            Your train goes gold for {countdown} more.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs leading-snug text-muted-foreground">
+              24 hours of gold-train status.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Complimentary Express boost on boarding.
+            </p>
+          </>
+        )}
+      </div>
+
+      {isActive ? (
+        <span
+          className="shrink-0 rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-black text-amber-800"
+          data-testid="wallet-first-class-active"
+        >
+          ✦ {countdown}
+        </span>
+      ) : (
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate({ data: { refId } })}
+          data-testid="wallet-buy-first-class"
+          className={SPEND_BTN_CLASS}
+          style={SPEND_BTN_STYLE}
+        >
+          <span>Board · {FIRST_CLASS_COST}</span>
+          <ChaiCoin />
+        </button>
+      )}
+    </div>
+  );
 }
 
 function useSpendWithRefresh() {
@@ -264,7 +428,7 @@ function StreakRepairRow() {
   );
 }
 
-/** Bottom sheet: balance, Station Pause row, Express Multiplier row. */
+/** Bottom sheet: balance, Station Pause row, Express Multiplier row. First Class row. */
 export function ChaiWalletSheet({
   open,
   onOpenChange,
@@ -276,6 +440,10 @@ export function ChaiWalletSheet({
   const spend = useSpendWithRefresh();
   const tokens = tokensQuery.data;
   const countdown = useExpressCountdown(tokens?.expressMultiplierActiveUntil);
+  const firstClassCountdown = useFirstClassCountdown(tokens?.firstClassActiveUntil);
+  // key forces a fresh UUID when the First Class row remounts after a purchase,
+  // so the next tap is a genuinely new idempotency key.
+  const firstClassBuyKey = firstClassCountdown ?? "inactive";
   const [, navigate] = useLocation();
   // The language row is a free-tier row only: a paid plan already owns the
   // stops it would explain how to buy.
@@ -429,6 +597,17 @@ export function ChaiWalletSheet({
               </button>
             )}
           </div>
+
+          {/* First Class: 24 hours of gold-train status + one complimentary
+              Express boost on boarding. Repeatable — buying again adds another
+              24 hours instead of being refused. The key prop forces a fresh
+              UUID whenever the status flips inactive→active (a new purchase
+              must carry a new idempotency key; the same UUID on a second tap
+              is the free-replay path, not a second charge). */}
+          <FirstClassRow
+            key={firstClassBuyKey}
+            countdown={firstClassCountdown}
+          />
 
           {!entitlementsLoading && !isPaid && (
             <div

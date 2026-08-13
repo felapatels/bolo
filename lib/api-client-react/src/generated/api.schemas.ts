@@ -1388,6 +1388,8 @@ export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierActiveUntil?: string | null;
+  /** When the caller's First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active/inactive and any countdown from the wall clock rather than holding a timer. */
+  firstClassActiveUntil?: string | null;
   /** The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy. */
   equippedOutfit?: string | null;
   /** The accessory id Bolo is wearing, or null for none. A separate slot from equippedOutfit because she wears both at once: clients stack the accessory's overlay art on top of whichever base the garment selects. */
@@ -1490,6 +1492,24 @@ export interface TokensSpendInput {
   item: TokensSpendInputItem;
   /** optional client idempotency key */
   refId?: string;
+}
+
+export interface FirstClassInput {
+  /**
+     * The client idempotency key, a UUID generated when the purchase button is armed and reused verbatim on retry. The same key charges at most once; a new key is a new purchase. Grammar-pinned to a UUID deliberately: this is the only ledger refId a client chooses, and other reasons' refIds are bare date keys that a covered-day scan reads, so an unconstrained string here would let a caller mint a row that scan mistakes for a paid streak cover.
+     * @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+     */
+  refId: string;
+}
+
+export interface FirstClassResult {
+  balance: number;
+  /** False when this call replayed an idempotency key already spent — nothing was deducted and no time was added. */
+  charged: boolean;
+  cost: number;
+  firstClassActiveUntil?: string | null;
+  /** The bundled boost's new deadline: max(existing, now + 20 minutes). */
+  expressMultiplierActiveUntil?: string | null;
 }
 
 export type ChaiPackId = typeof ChaiPackId[keyof typeof ChaiPackId];
@@ -1655,3 +1675,4 @@ export type ListZoneStampsParams = {
  */
 lang: string;
 };
+

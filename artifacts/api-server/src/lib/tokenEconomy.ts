@@ -75,6 +75,25 @@ export const EXPRESS_MULTIPLIER_COST = 10;
 export const EXPRESS_MULTIPLIER_MINUTES = 20;
 export const EXPRESS_MULTIPLIER_FACTOR = 2;
 
+// First Class (owner ruling, Aug 13 2026): 24 hours of gold-train status, the
+// first repeatable cosmetic sink — outfits stop at their catalog ceiling and
+// then the economy ends, while this one has none.
+//
+// COSMETIC OR NOTHING. The friends leaderboard ranks on XP, so a purchasable
+// XP advantage would be buying position on the exact surface this status
+// exists to flex on. The one bundled Express boost below is the whole of the
+// XP story and it is already purchasable standalone for EXPRESS_MULTIPLIER_COST,
+// so it adds no advantage that Chai could not already buy.
+//
+// 25 = 15 for the status itself + the 10 the bundled boost costs standalone.
+// Anything cheaper and nobody buys the standalone multiplier again.
+export const FIRST_CLASS_COST = 25;
+export const FIRST_CLASS_HOURS = 24;
+// Bug fence, not a limit on a learner: a retry loop that got past the
+// idempotency key must not be able to drain a balance into the next decade.
+// There is no cap on purchase count and no cap on accumulated hours below it.
+export const FIRST_CLASS_HORIZON_DAYS = 30;
+
 // Slice 2 sink, ruled Aug 2 but NOT wired in this build. Exported so the
 // number lives here from day one; nothing may reference it yet.
 export const TESTOUT_RETRY_COST = 15;
@@ -102,6 +121,10 @@ export type TokenReason =
   | "spend_stop_unlock"
   | "spend_outfit"
   | "spend_streak_repair"
+  // First Class, 24 hours of gold-train status. Repeatable, so unlike every
+  // other spend the refId is a client-generated idempotency key rather than a
+  // server-composed identity of the thing bought.
+  | "spend_first_class"
   | "station_pause_consumed"
   // Chai bought with money (web packs). Credited only by the Stripe webhook.
   | "purchase_chai_pack"
@@ -115,3 +138,6 @@ export type TokenReason =
   | "adjust_manual";
 
 export type SpendItem = "station_pause" | "express_multiplier";
+
+/** The ledger reason First Class spends are written under, named once. */
+export const FIRST_CLASS_REASON: TokenReason = "spend_first_class";

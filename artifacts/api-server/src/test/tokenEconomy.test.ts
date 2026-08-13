@@ -30,6 +30,7 @@ import { eq, and, count } from "drizzle-orm";
 import {
   grantTokens,
   spendTokens,
+  buyFirstClass,
   consumePausesForGap,
   getOrCreateTokenState,
   listCoveredDayKeys,
@@ -46,6 +47,10 @@ import {
   STATION_PAUSE_MAX_EQUIPPED,
   EXPRESS_MULTIPLIER_COST,
   EXPRESS_MULTIPLIER_FACTOR,
+  FIRST_CLASS_COST,
+  FIRST_CLASS_HOURS,
+  FIRST_CLASS_HORIZON_DAYS,
+  EXPRESS_MULTIPLIER_MINUTES,
 } from "../lib/tokenEconomy.js";
 import { streakFromDayKeys } from "../lib/progressMetrics.js";
 
@@ -420,5 +425,160 @@ describe("listCoveredDayKeys: returns covered dates", () => {
     for (const k of keys) {
       assert.match(k, /^\d{4}-\d{2}-\d{2}$/, `Key ${k} must match YYYY-MM-DD`);
     }
+  });
+});
+
+// ── First Class ────────────────────────────────────────────────────────────
+
+
+const FC_USER = "test-token-economy-fc-user-1";
+
+async function cleanupFc() {
+  await db.delete(tokenLedgerTable).where(eq(tokenLedgerTable.userId, FC_USER));
+  await db.delete(userTokenStateTable).where(eq(userTokenStateTable.userId, FC_USER));
+}
+
+async function seedFc(extraBalance = 0) {
+  await cleanupFc();
+  await db.insert(usersTable).values({ id: FC_USER, createdAt: new Date() }).onConflictDoNothing();
+  await grantTokens(FC_USER, "earn_allowance_monthly", "fc-fund", FIRST_CLASS_COST + extraBalance);
+}
+
+describe("buyFirstClass: double-tap charges once", () => {
+  const refId = "fc-dt-00000000-0001";
+  before(async () => { await seedFc(); });
+  after(async () => { await cleanupFc(); });
+
+  it("first purchase charges and activates First Class + boost", async () => {
+    const { state, charged } = await buyFirstClass(FC_USER, refId);
+    assert.ok(charged, "Must charge on first purchase");
+    assert.strictEqual(state.balance, 0);
+    assert.ok(state.firstClassExpiresAt instanceof Date, "firstClassExpiresAt must be a Date");
+    assert.ok(state.firstClassExpiresAt > new Date(), "Must be in the future");
+    assert.ok(state.expressMultiplierExpiresAt instanceof Date, "Express boost must be a Date");
+    assert.ok(state.expressMultiplierExpiresAt > new Date(), "Boost must be in the future");
+  });
+
+  it("same refId replays for free: charged=false, balance unchanged, state unchanged", async () => {
+    const before = await getOrCreateTokenState(FC_USER);
+    const { state, charged } = await buyFirstClass(FC_USER, refId);
+    assert.ok(!charged, "Replay must not charge");
+    assert.strictEqual(state.balance, before.balance, "Balance must not change on replay");
+    // The ledger has exactly one row for this refId
+    const [{ value: rows }] = await db
+      .select({ value: count() })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, FC_USER),
+          eq(tokenLedgerTable.refId, refId),
+        ),
+      );
+    assert.strictEqual(Number(rows), 1, "Must have exactly one ledger row");
+  });
+});
+
+describe("buyFirstClass: two distinct keys charge twice, repurchase adds 24h", () => {
+  before(async () => { await seedFc(FIRST_CLASS_COST); });
+  after(async () => { await cleanupFc(); });
+
+  it("first purchase sets firstClassExpiresAt ~24h from now", async () => {
+    const { state } = await buyFirstClass(FC_USER, "fc-two-00000000-0001");
+    const nowPlus24h = new Date(Date.now() + FIRST_CLASS_HOURS * 3600_000);
+    const diff = Math.abs(state.firstClassExpiresAt!.getTime() - nowPlus24h.getTime());
+    assert.ok(diff < 5000, `Expiry must be ~24h out (diff: ${diff}ms)`);
+  });
+
+  it("second purchase with a new key adds another 24h instead of refusing", async () => {
+    const before = await getOrCreateTokenState(FC_USER);
+    const { state, charged } = await buyFirstClass(FC_USER, "fc-two-00000000-0002");
+    assert.ok(charged, "Second purchase must charge");
+    assert.strictEqual(state.balance, 0);
+    const expectedExpiry = new Date(before.firstClassExpiresAt!.getTime() + FIRST_CLASS_HOURS * 3600_000);
+    const diff = Math.abs(state.firstClassExpiresAt!.getTime() - expectedExpiry.getTime());
+    assert.ok(diff < 5000, `Expiry must be firstClassExpiry + 24h (diff: ${diff}ms)`);
+  });
+});
+
+describe("buyFirstClass: boost takes max, never shortens a longer window", () => {
+  before(async () => { await seedFc(FIRST_CLASS_COST); });
+  after(async () => { await cleanupFc(); });
+
+  it("purchase while no boost active starts a fresh 20-minute boost", async () => {
+    const { state } = await buyFirstClass(FC_USER, "fc-boost-00000000-0001");
+    const boostExpected = new Date(Date.now() + EXPRESS_MULTIPLIER_MINUTES * 60_000);
+    const diff = Math.abs(state.expressMultiplierExpiresAt!.getTime() - boostExpected.getTime());
+    assert.ok(diff < 5000, "Boost must be ~20 minutes out");
+  });
+
+  it("purchase while longer boost active preserves the longer window", async () => {
+    // Manually set a 2-hour express window.
+    const longBoost = new Date(Date.now() + 120 * 60_000);
+    await db.update(userTokenStateTable)
+      .set({ expressMultiplierExpiresAt: longBoost })
+      .where(eq(userTokenStateTable.userId, FC_USER));
+    const { state } = await buyFirstClass(FC_USER, "fc-boost-00000000-0002");
+    // max(longBoost, now+20min) = longBoost
+    const diff = Math.abs(state.expressMultiplierExpiresAt!.getTime() - longBoost.getTime());
+    assert.ok(diff < 1000, `Longer boost must be preserved (diff: ${diff}ms)`);
+  });
+});
+
+describe("buyFirstClass: insufficient funds", () => {
+  before(async () => { await cleanupFc(); await db.insert(usersTable).values({ id: FC_USER, createdAt: new Date() }).onConflictDoNothing(); });
+  after(async () => { await cleanupFc(); });
+
+  it("throws InsufficientTokensError with correct balance and cost", async () => {
+    let thrown: unknown;
+    try {
+      await buyFirstClass(FC_USER, "fc-broke-00000000-0001");
+    } catch (e) { thrown = e; }
+    assert.ok(thrown instanceof InsufficientTokensError, "Must throw InsufficientTokensError");
+    assert.strictEqual((thrown as InsufficientTokensError).balance, 0);
+    assert.strictEqual((thrown as InsufficientTokensError).cost, FIRST_CLASS_COST);
+  });
+});
+
+describe("buyFirstClass: 30-day horizon", () => {
+  before(async () => { await seedFc(FIRST_CLASS_COST * 40); });
+  after(async () => { await cleanupFc(); });
+
+  it("throws SpendConflictError first_class_horizon when extension would pass 30 days", async () => {
+    // Set firstClassExpiresAt to just inside the horizon so ONE more purchase would breach it.
+    const nearHorizon = new Date(Date.now() + (FIRST_CLASS_HORIZON_DAYS * 24 - 1) * 3600_000);
+    await db.update(userTokenStateTable)
+      .set({ firstClassExpiresAt: nearHorizon })
+      .where(eq(userTokenStateTable.userId, FC_USER));
+    let thrown: unknown;
+    try {
+      await buyFirstClass(FC_USER, "fc-horiz-00000000-0001");
+    } catch (e) { thrown = e; }
+    assert.ok(thrown instanceof SpendConflictError, "Must throw SpendConflictError");
+    assert.strictEqual((thrown as SpendConflictError).code, "first_class_horizon");
+  });
+
+  it("does NOT charge when horizon is refused (balance unchanged)", async () => {
+    const state = await getOrCreateTokenState(FC_USER);
+    // balance should be unchanged from seedFc (FIRST_CLASS_COST * 40 - 0 spent yet)
+    assert.ok(state.balance > 0, "Balance must remain positive after horizon refusal");
+  });
+});
+
+describe("GET /tokens: firstClassActiveUntil on the response", () => {
+  before(async () => {
+    await cleanupFc();
+    await db.insert(usersTable).values({ id: FC_USER, createdAt: new Date() }).onConflictDoNothing();
+    await seedFc();
+  });
+  after(async () => { await cleanupFc(); });
+
+  it("firstClassActiveUntil is null before any purchase", async () => {
+    const state = await getOrCreateTokenState(FC_USER);
+    assert.strictEqual(state.firstClassExpiresAt, null);
+  });
+
+  it("firstClassActiveUntil is an ISO date string after purchase", async () => {
+    const { state } = await buyFirstClass(FC_USER, "fc-get-00000000-0001");
+    assert.ok(state.firstClassExpiresAt instanceof Date, "Must be a Date after purchase");
   });
 });

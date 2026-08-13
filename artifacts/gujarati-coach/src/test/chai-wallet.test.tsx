@@ -47,6 +47,7 @@ vi.mock("@workspace/api-client-react", () => {
     getGetProgressSummaryQueryKey: () => ["/api/progress/summary"],
     useGetTokens: () => h.tokens,
     useSpendTokens: () => ({ mutate: h.spend, isPending: false }),
+    useBuyFirstClass: () => ({ mutate: vi.fn(), isPending: false }),
     useGetStreakRepair: () => h.repairOffer,
     useRepairStreak: (opts?: {
       mutation?: {

@@ -55,6 +55,7 @@ import { useUser } from "@clerk/react";
 // journey CTA idle motion"; these two cover the framer press spring only.
 // Low damping is what produces the overshoot spring-back on release.
 import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, ChevronRight, HelpCircle } from "lucide-react";
+import { FIRST_CLASS_GOLD_VARS as firstClassGoldVars } from "@/lib/india-palette";
 const PASS_PRESS_SCALE = 0.94;
 const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
 
@@ -1010,12 +1011,28 @@ export default function Home() {
                               : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
                           </p>
                         </div>
-                        <TrainEngine
-                          className={cn(
-                            "mt-1 h-[var(--train-ticket-h)] w-auto shrink-0 text-white drop-shadow-sm lg:h-[var(--train-ticket-h-lg)]",
-                            !reduceMotion && "animate-train-drive",
-                          )}
-                        />
+                        {/* First Class: pin the four gold palette CSS vars on a
+                            display:contents wrapper so the layout box belongs to
+                            TrainEngine, not the wrapper — the vars cascade into
+                            the SVG fills while the surrounding white heading text
+                            (a sibling, not a descendant) reads default tokens. */}
+                        <div
+                          className="contents"
+                          data-testid="boarding-pass-train-gold-wrapper"
+                          style={
+                            tokensQuery.data?.firstClassActiveUntil &&
+                            new Date(tokensQuery.data.firstClassActiveUntil) > new Date()
+                              ? firstClassGoldVars
+                              : undefined
+                          }
+                        >
+                          <TrainEngine
+                            className={cn(
+                              "mt-1 h-[var(--train-ticket-h)] w-auto shrink-0 text-white drop-shadow-sm lg:h-[var(--train-ticket-h-lg)]",
+                              !reduceMotion && "animate-train-drive",
+                            )}
+                          />
+                        </div>
                       </div>
                       {journey.current && journey.current.phraseCount > 0 && (
                         <div className="mt-3 flex items-center gap-2">

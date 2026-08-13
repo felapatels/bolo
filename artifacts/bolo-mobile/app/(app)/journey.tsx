@@ -320,6 +320,7 @@ function StationMarker({
   accessible,
   background,
   border,
+  goldPalette,
 }: {
   station: Station;
   color: string;
@@ -327,6 +328,7 @@ function StationMarker({
   accessible: boolean;
   background: string;
   border: string;
+  goldPalette?: { chassis: string; body: string; trim: string; steam: string };
 }) {
   if (isCurrent) {
     // White pill + accent ring + soft outer ring (web: box-shadow rings).
@@ -334,7 +336,7 @@ function StationMarker({
       <View style={[styles.markerCurrentOuter, { backgroundColor: `${color}33` }]}>
         <View style={[styles.markerCurrentRing, { backgroundColor: color }]}>
           <View style={styles.markerCurrentPill}>
-            <TrainEngine tint={color} width={32} height={22} motion="bob" />
+            <TrainEngine tint={color} width={32} height={22} motion="bob" palette={goldPalette} />
           </View>
         </View>
       </View>
@@ -535,6 +537,15 @@ export default function JourneyScreen() {
   // refetches the zones (the bought stop returns status "unlocked") and the
   // wallet. Ownership is a ledger row, so it survives a reinstall.
   const tokensQuery = useGetTokens();
+  // First Class gold: derive at the source of the tokens query and pass down to
+  // every train render site rather than running a second query. The three sites
+  // (marker pill, boarding pass, signal encounter) are all reachable from here.
+  const goldPalette = (() => {
+    const until = tokensQuery.data?.firstClassActiveUntil;
+    if (!until) return undefined;
+    if (new Date(until) <= new Date()) return undefined;
+    return { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
+  })();
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const unlockStop = useUnlockStop({
     mutation: {
@@ -1467,6 +1478,7 @@ export default function JourneyScreen() {
                     accessible={accessible}
                     background={colors.background}
                     border={colors.border}
+                    goldPalette={goldPalette}
                   />
                 </View>
                 {/* stop card */}
@@ -1928,6 +1940,7 @@ export default function JourneyScreen() {
         onPlay={playSignalGame}
         onWave={waveSignal}
         onClose={() => setSignalDlg(null)}
+        goldPalette={goldPalette}
       />
       {/* Chacha-ji's stall, under the same soft-stop discipline as the signal:
           it waits for a lock, a signal or an owed closeout to clear, and opens

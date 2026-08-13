@@ -322,6 +322,14 @@ export default function HomeScreen() {
   // a fourth cell; tapping it opens the wallet sheet. Token state is
   // language-independent, so it loads even when the summary 402s.
   const tokensQuery = useGetTokens();
+  // First Class gold: derive here (tokens are already loaded for the balance
+  // banner) and pass down to JourneyPassCard rather than fetching again.
+  const goldPalette = (() => {
+    const until = tokensQuery.data?.firstClassActiveUntil;
+    if (!until) return undefined;
+    if (new Date(until) <= new Date()) return undefined;
+    return { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
+  })();
   const [walletOpen, setWalletOpen] = useState(false);
   // The streak-repair offer is read HERE, not inside the popup, because the
   // Day Streak cell has to know whether there is anything to open before it is
@@ -747,6 +755,7 @@ export default function HomeScreen() {
               inside this one entrance wrapper. */}
           <JourneyPassCard
             onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
+            goldPalette={goldPalette}
           />
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
               at its natural aspect, directly below the pass — the platform the

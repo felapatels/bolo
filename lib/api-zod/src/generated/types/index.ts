@@ -63,6 +63,8 @@ export * from './familySeat';
 export * from './familySeatStatus';
 export * from './familyStatus';
 export * from './familyStatusRole';
+export * from './firstClassInput';
+export * from './firstClassResult';
 export * from './friend';
 export * from './friendInviteResult';
 export * from './friendRequest';

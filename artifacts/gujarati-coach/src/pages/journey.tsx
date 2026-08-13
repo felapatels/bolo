@@ -74,6 +74,7 @@ import {
   STALL_PLACEMENT,
 } from "@/components/journey-scenery";
 import { factForZone, factRotationForZone } from "@/lib/india-facts";
+import { FIRST_CLASS_GOLD_VARS as firstClassGoldVars } from "@/lib/india-palette";
 import { toast } from "@/hooks/use-toast";
 import {
   closeoutStateUnseeded,
@@ -230,11 +231,14 @@ function StationMarker({
   color,
   isCurrent,
   accessible,
+  firstClassActive,
 }: {
   station: Station;
   color: string;
   isCurrent: boolean;
   accessible: boolean;
+  /** When true, the current-stop train renders in First Class gold. */
+  firstClassActive?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   if (isCurrent) {
@@ -248,10 +252,16 @@ function StationMarker({
         title="Your current stop"
       >
         {/* Soft idle bob on the parked train, whole-element transform only.
-            Width routed through the :root tuning constants (task 899 bump). */}
-        <TrainEngine
-          className={cn("w-[var(--train-marker-w)] h-full", !reduceMotion && "animate-train-bob")}
-        />
+            Width routed through the :root tuning constants (task 899 bump).
+            First Class: gold vars on a contents wrapper (no layout impact). */}
+        <div
+          className="contents"
+          style={firstClassActive ? firstClassGoldVars : undefined}
+        >
+          <TrainEngine
+            className={cn("w-[var(--train-marker-w)] h-full", !reduceMotion && "animate-train-bob")}
+          />
+        </div>
       </div>
     );
   }
@@ -1715,6 +1725,10 @@ export default function Journey() {
                         color={zoneColor}
                         isCurrent={s.id === currentId}
                         accessible={accessible}
+                        firstClassActive={
+                          tokensQuery.data?.firstClassActiveUntil != null &&
+                          new Date(tokensQuery.data.firstClassActiveUntil) > new Date()
+                        }
                       />
                     </div>
                     <div
@@ -2090,7 +2104,18 @@ export default function Journey() {
                 data-testid="signal-scene"
                 className="flex items-end gap-2 rounded-2xl bg-muted/60 px-4 pb-2 pt-4"
               >
-                <TrainEngine className="w-16 shrink-0" />
+                {/* First Class: gold vars on a contents wrapper (no layout impact). */}
+                <div
+                  className="contents"
+                  style={
+                    tokensQuery.data?.firstClassActiveUntil &&
+                    new Date(tokensQuery.data.firstClassActiveUntil) > new Date()
+                      ? firstClassGoldVars
+                      : undefined
+                  }
+                >
+                  <TrainEngine className="w-16 shrink-0" />
+                </div>
                 <div className="mb-1 flex-1 border-b-2 border-dashed border-border" />
                 {/* Hotfix 3S Item 5: the Signalman himself steps out beside
                     his crossing. Decorative; the scene is aria-hidden. */}

@@ -1,0 +1,1 @@
+ALTER TABLE "user_token_state" ADD COLUMN "first_class_expires_at" timestamp with time zone;

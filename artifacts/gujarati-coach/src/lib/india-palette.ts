@@ -7,6 +7,23 @@
 // stall's art, they are a painted scene and must read the same in light and
 // dark mode. Controls, text and chrome around them stay on the design tokens,
 // which is what keeps contrast and dark mode working.
+import type { CSSProperties } from "react";
+
+/**
+ * First Class gold engine: four CSS-var pins, applied on a wrapper around the
+ * TrainEngine only. Distinct from INDIA.gold / ExpressTile which uses #F0A32B
+ * with navy chassis + teal trim. This palette is all-gold — a monochrome
+ * burnished engine — so it reads as a different object on a screen showing both.
+ *
+ * Apply with `className="contents"` so the wrapper is invisible to layout.
+ */
+export const FIRST_CLASS_GOLD_VARS = {
+  "--color-foreground": "#6B4A0F", // chassis: burnished bronze ironwork
+  "--color-primary": "#E8B93C",   // body: old gold
+  "--color-secondary": "#FFE39A", // trim: gold leaf
+  "--color-card-border": "#FFF6E0", // steam: warm cream
+} as CSSProperties;
+
 export const INDIA = {
   /** Sun-bleached plaster a storefront is painted on. */
   wall: "#FBF1DF",

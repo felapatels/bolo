@@ -13,6 +13,10 @@ import {
   EXPRESS_MULTIPLIER_MINUTES,
   STOP_UNLOCK_COST,
   STREAK_REPAIR_COST,
+  FIRST_CLASS_COST,
+  FIRST_CLASS_HOURS,
+  FIRST_CLASS_HORIZON_DAYS,
+  FIRST_CLASS_REASON,
 } from "./tokenEconomy";
 import { stopUnlockRefId } from "./stopUnlock";
 import {
@@ -39,6 +43,7 @@ export interface TokenStateRow {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
+  firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
   equippedAccessory: string | null;
 }
@@ -66,7 +71,15 @@ export class InsufficientTokensError extends Error {
   }
 }
 export class SpendConflictError extends Error {
-  constructor(public code: "pause_max_equipped" | "multiplier_active") {
+  constructor(
+    public code:
+      | "pause_max_equipped"
+      | "multiplier_active"
+      // First Class already reaches past the horizon fence. Distinct from
+      // every other conflict code because it is NOT "you already have this":
+      // the purchase is repeatable and the refusal is about the clock.
+      | "first_class_horizon",
+  ) {
     super(code);
   }
 }
@@ -340,6 +353,117 @@ export async function buyOutfit(
         balance: sql`${userTokenStateTable.balance} - ${cost}`,
         ...slotSet(kind, outfitId),
         updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), charged: true };
+  });
+}
+
+/**
+ * Buy 24 hours of First Class: a gold train on the learner's own surfaces,
+ * plus a complimentary Express boost thrown in on boarding.
+ *
+ * IDEMPOTENCY. This is the only spend whose refId is CLIENT-SUPPLIED, and it
+ * has to be: every other sink is identified by the thing it buys (an outfit
+ * id, a day key, a lesson group), so a repeat is by definition the same
+ * purchase. First Class is repeatable, so the identity of a purchase is the
+ * key the client armed its button with — the same key on a double-tap or a
+ * retry, a fresh key on a deliberate second buy. The ledger's unique
+ * (user, reason, ref) index is what actually enforces "charge at most once
+ * per key"; the pre-read below is only a fast path. NOTE the absence of a
+ * `${item}:${userId}:${Date.now()}` fallback: a per-tap key would make every
+ * double-tap a second charge, which is the exact defect this shape prevents.
+ *
+ * TWO CLOCKS, TWO RULES, DELIBERATELY.
+ *  - The STATUS extends by ADDITION: buying again while it runs adds another
+ *    24 hours rather than being refused. It is time bought, so it accrues.
+ *  - The BOOST extends by MAX: the multiplier is always exactly 20 minutes,
+ *    so max() never shortens a longer running window, never accumulates, and
+ *    removes the edge where buying 19 minutes into a boost pays 25 Chai for a
+ *    60-second one.
+ *
+ * The boost is written directly here rather than routed through spendTokens:
+ * that path would charge a second EXPRESS_MULTIPLIER_COST and throw the very
+ * `multiplier_active` 409 this purchase is meant to be free of. The standalone
+ * multiplier's cost and its own repurchase guard are untouched.
+ *
+ * Lock ordering follows buyOutfit and repairStreak: the money row is taken
+ * FIRST and every decision is made against the view it serialises.
+ */
+export async function buyFirstClass(
+  userId: string,
+  refId: string,
+): Promise<{ state: TokenStateRow; charged: boolean }> {
+  return db.transaction(async (tx) => {
+    const created = await ensureState(tx, userId);
+    const [locked] = await tx
+      .select()
+      .from(userTokenStateTable)
+      .where(eq(userTokenStateTable.userId, userId))
+      .for("update");
+    const state = locked ? toState(locked) : created;
+
+    const [already] = await tx
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, userId),
+          eq(tokenLedgerTable.reason, FIRST_CLASS_REASON),
+          eq(tokenLedgerTable.refId, refId),
+        ),
+      )
+      .limit(1);
+    if (already) return { state, charged: false };
+
+    if (state.balance < FIRST_CLASS_COST)
+      throw new InsufficientTokensError(state.balance, FIRST_CLASS_COST);
+
+    const now = new Date();
+    const active =
+      state.firstClassExpiresAt != null && state.firstClassExpiresAt > now
+        ? state.firstClassExpiresAt
+        : now;
+    const nextExpiry = new Date(
+      active.getTime() + FIRST_CLASS_HOURS * 60 * 60_000,
+    );
+    // Refused BEFORE the ledger row, so a fenced attempt costs nothing.
+    if (
+      nextExpiry.getTime() >
+      now.getTime() + FIRST_CLASS_HORIZON_DAYS * 24 * 60 * 60_000
+    )
+      throw new SpendConflictError("first_class_horizon");
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: -FIRST_CLASS_COST,
+        balanceAfter: state.balance - FIRST_CLASS_COST,
+        reason: FIRST_CLASS_REASON,
+        refId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    // Zero rows means a concurrent request carrying the same key won the
+    // index: a free replay, not a failure.
+    if (inserted.length === 0) return { state, charged: false };
+
+    const boostUntil = new Date(
+      now.getTime() + EXPRESS_MULTIPLIER_MINUTES * 60_000,
+    );
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        balance: sql`${userTokenStateTable.balance} - ${FIRST_CLASS_COST}`,
+        firstClassExpiresAt: nextExpiry,
+        expressMultiplierExpiresAt:
+          state.expressMultiplierExpiresAt != null &&
+          state.expressMultiplierExpiresAt > boostUntil
+            ? state.expressMultiplierExpiresAt
+            : boostUntil,
+        updatedAt: now,
       })
       .where(eq(userTokenStateTable.userId, userId))
       .returning();
@@ -642,12 +766,14 @@ const toState = (r: {
   balance: number;
   stationPausesEquipped: number;
   expressMultiplierExpiresAt: Date | null;
+  firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
   equippedAccessory: string | null;
 }): TokenStateRow => ({
   balance: r.balance,
   stationPausesEquipped: r.stationPausesEquipped,
   expressMultiplierExpiresAt: r.expressMultiplierExpiresAt ?? null,
+  firstClassExpiresAt: r.firstClassExpiresAt ?? null,
   equippedOutfit: r.equippedOutfit ?? null,
   equippedAccessory: r.equippedAccessory ?? null,
 });

@@ -17,6 +17,16 @@ export const userTokenStateTable = pgTable("user_token_state", {
   expressMultiplierExpiresAt: timestamp("express_multiplier_expires_at", {
     withTimezone: true,
   }),
+  // First Class (Chai sink, Aug 13 2026): an absolute deadline, exactly like
+  // express_multiplier_expires_at above and for the same reasons — the status
+  // is a wall-clock window written at spend time, so nothing has to expire it
+  // and a stale client cannot extend it. Deliberately a second column rather
+  // than a generic status table: the express precedent is the shape this
+  // service is being built against, and one more nullable timestamp is
+  // cheaper than a join every token read would have to pay.
+  firstClassExpiresAt: timestamp("first_class_expires_at", {
+    withTimezone: true,
+  }),
   lastAllowanceMonth: text("last_allowance_month"),
   // Outfits (Chai sink, Aug 6 2026): the outfit this learner's Bolo is
   // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here —

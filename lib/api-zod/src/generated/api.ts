@@ -145,6 +145,7 @@ export const SubmitLessonGroupTestoutParams = zod.object({
 export const submitLessonGroupTestoutBodyAttemptsMax = 5;
 
 
+
 export const SubmitLessonGroupTestoutBody = zod.object({
   "attempts": zod.array(zod.object({
   "phraseId": zod.number(),
@@ -202,7 +203,9 @@ export const SubmitZoneTestoutParams = zod.object({
 })
 
 
+
 export const submitZoneTestoutBodyAttemptsMax = 10;
+
 
 
 export const SubmitZoneTestoutBody = zod.object({
@@ -327,6 +330,7 @@ export const addCategoryPhrasesBodyCountDefault = 3;
 export const addCategoryPhrasesBodyCountMax = 5;
 
 
+
 export const AddCategoryPhrasesBody = zod.object({
   "count": zod.number().min(1).max(addCategoryPhrasesBodyCountMax).default(addCategoryPhrasesBodyCountDefault).describe('How many new phrases to generate and append.')
 })
@@ -414,6 +418,7 @@ export const GetPhraseResponse = zod.object({
 /**
  * @summary Record a pronunciation practice attempt
  */
+
 
 
 export const CreateAttemptBody = zod.object({
@@ -819,6 +824,7 @@ export const CancelAccountSubscriptionResponse = zod.object({
 export const pauseAccountSubscriptionBodyMonthsMax = 3;
 
 
+
 export const PauseAccountSubscriptionBody = zod.object({
   "months": zod.number().min(1).max(pauseAccountSubscriptionBodyMonthsMax).optional().describe('Number of months to pause (1–3). Defaults to 1 if omitted.')
 }).describe('How long to pause the subscription for.')
@@ -1107,6 +1113,7 @@ export const recordScriptTraceProgressBodyScoreMin = 0;
 export const recordScriptTraceProgressBodyScoreMax = 100;
 
 
+
 export const RecordScriptTraceProgressBody = zod.object({
   "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants']),
   "characterId": zod.string().min(1).max(recordScriptTraceProgressBodyCharacterIdMax),
@@ -1174,6 +1181,7 @@ export const completeDailyQuizBodyAnswersMin = 5;
 export const completeDailyQuizBodyAnswersMax = 5;
 
 
+
 export const CompleteDailyQuizBody = zod.object({
   "lang": zod.string().describe('Language code (e.g. \"gu\")'),
   "answers": zod.array(zod.string().nullable()).min(completeDailyQuizBodyAnswersMin).max(completeDailyQuizBodyAnswersMax).describe('Array of 5 selected answers (one per question). For mcq_translation supply the chosen English string; for listen_identify supply the chosen nativeScript string; for order_words supply the tiles joined by spaces. null means the question was skipped or unanswered.')
@@ -1197,6 +1205,7 @@ export const submitContactFormBodyNameMax = 200;
 export const submitContactFormBodyMessageMax = 2000;
 
 
+
 export const SubmitContactFormBody = zod.object({
   "name": zod.string().min(1).max(submitContactFormBodyNameMax),
   "email": zod.string().describe('The submitter\'s email address (validated as a valid email format).'),
@@ -1218,6 +1227,7 @@ export const ReportPhraseParams = zod.object({
 })
 
 export const reportPhraseBodyNoteMax = 280;
+
 
 
 export const ReportPhraseBody = zod.object({
@@ -1250,6 +1260,7 @@ export const ListTtsVoicesResponse = zod.object({
  */
 
 
+
 export const SynthesizeSpeechBody = zod.object({
   "text": zod.string().min(1),
   "voice": zod.string().optional(),
@@ -1270,6 +1281,7 @@ export const SynthesizeSpeechResponse = zod.object({
 
 
 export const evaluatePronunciationBodyCaptureAttemptOfFourMax = 4;
+
 
 
 export const EvaluatePronunciationBody = zod.object({
@@ -1338,6 +1350,7 @@ export const GetChachaLinesResponse = zod.object({
 export const generatePhraseBodyDifficultyMax = 3;
 
 
+
 export const GeneratePhraseBody = zod.object({
   "languageName": zod.string().optional(),
   "categoryTitle": zod.string().optional(),
@@ -1355,6 +1368,8 @@ export const GeneratePhraseResponse = zod.object({
  * Given a learner's recorded speech and a target language, transcribes the audio, has Bolo the parrot reply in character and in-language (naturally answering "how do you say X" / translation-style meta questions), synthesizes the reply to speech, and returns all three plus the caller's remaining weekly chat-time allowance. Validates the requested language against the caller's plan and, for Free, the 2-minutes-per-week chat cap before doing any AI work. One Language and Plus subscribers are never time-capped (still subject to the plan-based language allowlist). Accepts a short recent-turn history so replies stay contextual without server-side chat storage.
  * @summary One turn of a live conversation with Bolo the parrot
  */
+
+
 
 
 export const ChatTurnBody = zod.object({
@@ -1538,6 +1553,7 @@ export const GetReferralResponse = zod.object({
 export const redeemReferralBodyCodeMax = 32;
 
 
+
 export const RedeemReferralBody = zod.object({
   "code": zod.string().min(1).max(redeemReferralBodyCodeMax).describe('The referral code to redeem. Case-insensitive; normalized server-side.')
 })
@@ -1554,6 +1570,7 @@ export const RedeemReferralResponse = zod.object({
 export const recordSignalWaveBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$');
 
 export const recordSignalWaveBodyGapMax = 999;
+
 
 
 export const RecordSignalWaveBody = zod.object({
@@ -1573,6 +1590,7 @@ export const RecordSignalWaveResponse = zod.object({
  */
 export const recordChachaEncounterBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$');
 export const recordChachaEncounterBodyStationMax = 999;
+
 
 
 export const RecordChachaEncounterBody = zod.object({
@@ -1609,6 +1627,7 @@ export const GetTokensResponse = zod.object({
   "balance": zod.number(),
   "stationPausesEquipped": zod.number(),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish(),
+  "firstClassActiveUntil": zod.coerce.date().nullish().describe('When the caller\'s First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active\/inactive and any countdown from the wall clock rather than holding a timer.'),
   "equippedOutfit": zod.string().nullish().describe('The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.'),
   "equippedAccessory": zod.string().nullish().describe('The accessory id Bolo is wearing, or null for none. A separate slot from equippedOutfit because she wears both at once: clients stack the accessory\'s overlay art on top of whichever base the garment selects.')
 })
@@ -1627,6 +1646,26 @@ export const SpendTokensResponse = zod.object({
   "granted": zod.string(),
   "stationPausesEquipped": zod.number(),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish()
+})
+
+
+/**
+ * Buys 24 hours of First Class — a cosmetic status that renders the learner's own train in gold — plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * @summary Spend Chai on 24 hours of First Class
+ */
+export const buyFirstClassBodyRefIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+
+export const BuyFirstClassBody = zod.object({
+  "refId": zod.string().regex(buyFirstClassBodyRefIdRegExp).describe('The client idempotency key, a UUID generated when the purchase button is armed and reused verbatim on retry. The same key charges at most once; a new key is a new purchase. Grammar-pinned to a UUID deliberately: this is the only ledger refId a client chooses, and other reasons\' refIds are bare date keys that a covered-day scan reads, so an unconstrained string here would let a caller mint a row that scan mistakes for a paid streak cover.')
+})
+
+export const BuyFirstClassResponse = zod.object({
+  "balance": zod.number(),
+  "charged": zod.boolean().describe('False when this call replayed an idempotency key already spent — nothing was deducted and no time was added.'),
+  "cost": zod.number(),
+  "firstClassActiveUntil": zod.coerce.date().nullish(),
+  "expressMultiplierActiveUntil": zod.coerce.date().nullish().describe('The bundled boost\'s new deadline: max(existing, now + 20 minutes).')
 })
 
 
@@ -1751,4 +1790,5 @@ export const EquipOutfitResponse = zod.object({
   "equipped": zod.string().nullable(),
   "equippedAccessory": zod.string().nullish()
 })
+
 

@@ -1,5 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { SpendTokensBody, UnlockStopBody } from "@workspace/api-zod";
+import {
+  BuyFirstClassBody,
+  SpendTokensBody,
+  UnlockStopBody,
+} from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -7,6 +11,7 @@ import {
   getOrCreateTokenState,
   grantTokens,
   spendTokens,
+  buyFirstClass,
   unlockStop,
   repairStreak,
   listCoveredDayKeys,
@@ -14,6 +19,7 @@ import {
   SpendConflictError,
 } from "../lib/tokenService";
 import {
+  FIRST_CLASS_COST,
   STOP_UNLOCK_COST,
   STREAK_REPAIR_COST,
   TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
@@ -56,6 +62,10 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
     stationPausesEquipped: state.stationPausesEquipped,
     expressMultiplierActiveUntil:
       state.expressMultiplierExpiresAt?.toISOString() ?? null,
+    // First Class: an absolute deadline, same shape and same reasons as the
+    // express field above. Every train that goes gold reads it from here, so
+    // the status rides the wallet query clients already run.
+    firstClassActiveUntil: state.firstClassExpiresAt?.toISOString() ?? null,
     // Every mascot surface resolves its art from these, so they ride the
     // wallet query clients already run rather than needing a fetch of their
     // own. Two slots: a garment on her belly and an accessory on her head,
@@ -89,6 +99,66 @@ router.post(
     } catch (e) {
       // NEVER 402 here: 402 is the UpgradeRequired envelope codebase-wide
       // and clients render it as the Plus upsell. All spend rejections 409.
+      if (e instanceof InsufficientTokensError) {
+        res.status(409).json({
+          error: "insufficient_tokens",
+          balance: e.balance,
+          cost: e.cost,
+        });
+        return;
+      }
+      if (e instanceof SpendConflictError) {
+        res.status(409).json({ error: e.code });
+        return;
+      }
+      throw e;
+    }
+  },
+);
+
+// POST /tokens/first-class — buy 24 hours of gold-train status.
+//
+// The one Chai spend whose refId comes from the client, because it is the one
+// that is REPEATABLE: every other sink is identified by the thing it buys, so
+// a repeat is by construction the same purchase. Here the purchase's identity
+// is the key the client armed its button with, so a double-tap or a retry
+// replays for free and a deliberate second buy carries a new key and charges
+// again. There is deliberately NO Date.now() fallback: a per-tap key would
+// make a double-tap two charges, which is exactly the defect being prevented.
+// The zod grammar pins the key to a UUID (see FirstClassInput in the spec for
+// why an unconstrained refId here would be a real hole, not just untidy).
+//
+// Nothing else comes from the client: the price, the 24 hours and the bundled
+// boost are all server-side.
+//
+// Status register:
+//   200 — bought, or a replay of a spent key (`charged: false`, nothing
+//         deducted and no time added).
+//   409 — money and clock conflicts only (insufficient_tokens,
+//         first_class_horizon). NEVER 402: that is the UpgradeRequired
+//         envelope codebase-wide and clients render it as the Plus paywall.
+router.post(
+  "/tokens/first-class",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = BuyFirstClassBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid First Class payload" });
+      return;
+    }
+    try {
+      const { state, charged } = await buyFirstClass(
+        getUserId(req),
+        parsed.data.refId,
+      );
+      res.json({
+        balance: state.balance,
+        charged,
+        cost: FIRST_CLASS_COST,
+        firstClassActiveUntil: state.firstClassExpiresAt?.toISOString() ?? null,
+        expressMultiplierActiveUntil:
+          state.expressMultiplierExpiresAt?.toISOString() ?? null,
+      });
+    } catch (e) {
       if (e instanceof InsufficientTokensError) {
         res.status(409).json({
           error: "insufficient_tokens",
