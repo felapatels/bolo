@@ -154,7 +154,7 @@ describe('paywall subscription disclosure links', () => {
 
     fireEvent.press(terms);
     expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
-    expect(mockOpenBrowserAsync.mock.calls[0][0]).toMatch(/^https:\/\/[^/]+\/terms$/);
+    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe('https://bolo-india.app/terms');
   });
 
   test('shows a tappable Privacy Policy link that opens the hosted policy', () => {
@@ -165,12 +165,12 @@ describe('paywall subscription disclosure links', () => {
 
     fireEvent.press(privacy);
     expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
-    expect(mockOpenBrowserAsync.mock.calls[0][0]).toMatch(/^https:\/\/[^/]+\/privacy$/);
+    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe('https://bolo-india.app/privacy');
   });
 
   test('both links render without a domain injected at build time', () => {
     // EXPO_PUBLIC_DOMAIN is absent in this environment, which is exactly the
-    // build that shipped dead links. The fallback keeps them real.
+    // build that shipped dead links. The pinned domain keeps them real.
     expect(process.env.EXPO_PUBLIC_DOMAIN).toBeUndefined();
     render(<PaywallScreen />);
 
@@ -202,5 +202,49 @@ describe('paywall subscription disclosure links', () => {
     expect(screen.getByText('per year')).toBeOnTheScreen();
     expect(screen.getByText('$9.99')).toBeOnTheScreen();
     expect(screen.getByText('per month')).toBeOnTheScreen();
+  });
+});
+
+// The two disclosure URLs are filed with App Store Connect, so they must be
+// the published ones no matter what host the build environment resolved.
+// scripts/build.js injects REPLIT_INTERNAL_APP_DOMAIN / REPLIT_DEV_DOMAIN /
+// EXPO_PUBLIC_DOMAIN, which in this workspace is a *.replit.dev domain.
+describe('legal URLs are pinned to the published domain', () => {
+  const original = process.env.EXPO_PUBLIC_DOMAIN;
+  afterEach(() => {
+    if (original === undefined) delete process.env.EXPO_PUBLIC_DOMAIN;
+    else process.env.EXPO_PUBLIC_DOMAIN = original;
+  });
+
+  const loadLegal = () => {
+    let mod: typeof import('@/lib/legal');
+    jest.isolateModules(() => {
+      mod = require('@/lib/legal');
+    });
+    return mod!;
+  };
+
+  test('with no domain injected', () => {
+    delete process.env.EXPO_PUBLIC_DOMAIN;
+    const legal = loadLegal();
+    expect(legal.TERMS_OF_USE_URL).toBe('https://bolo-india.app/terms');
+    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe('https://bolo-india.app/privacy');
+  });
+
+  test('with a different domain injected', () => {
+    process.env.EXPO_PUBLIC_DOMAIN = 'some-build-host.replit.dev';
+    const legal = loadLegal();
+    expect(legal.TERMS_OF_USE_URL).toBe('https://bolo-india.app/terms');
+    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe('https://bolo-india.app/privacy');
+  });
+
+  test('the other uses of the injected domain are left alone', () => {
+    process.env.EXPO_PUBLIC_DOMAIN = 'some-build-host.replit.dev';
+    const legal = loadLegal();
+    // The home screen's privacy link still follows the build environment and
+    // still disappears when nothing was injected.
+    expect(legal.PRIVACY_POLICY_URL).toBe('https://some-build-host.replit.dev/privacy');
+    delete process.env.EXPO_PUBLIC_DOMAIN;
+    expect(loadLegal().PRIVACY_POLICY_URL).toBeUndefined();
   });
 });
