@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
@@ -13,6 +13,20 @@ import type { ReactElement } from "react";
 // (3) the id joins stay authoritative (titles resolve by id, not position).
 const h = vi.hoisted(() => ({
   cats: undefined as unknown[] | undefined,
+  reduceMotion: false,
+  // Task 1082: per-zone payloads, so the header derivation, the current-stop
+  // card and the scroll-on-open can be exercised on a real six-zone line.
+  // Left undefined, every zone serves the single default group these title
+  // tests were written against.
+  zones: undefined as (unknown[] | undefined)[] | undefined,
+}));
+
+// framer-motion caches the prefers-reduced-motion media query globally on its
+// first subscription, so a per-test matchMedia swap only works in the first
+// test of a file. Drive the hook directly instead.
+vi.mock("framer-motion", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useReducedMotion: () => h.reduceMotion,
 }));
 
 vi.mock("@/lib/language-context", () => ({
@@ -53,8 +67,12 @@ vi.mock("@workspace/api-client-react", async () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
-  useListCategoryLessonGroups: () => ({
-    data: { lessonGroups: GROUPS },
+  useListCategoryLessonGroups: (zoneId: number) => ({
+    data: {
+      lessonGroups: h.zones
+        ? h.zones[JOURNEY_ZONE_IDS.indexOf(zoneId)] ?? []
+        : GROUPS,
+    },
     isLoading: false,
     isError: false,
     error: null,
@@ -66,6 +84,9 @@ vi.mock("@workspace/api-client-react", async () => ({
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
 
+// Read at call time (inside the mocked hook's body), never at factory time.
+const JOURNEY_ZONE_IDS = JOURNEY_ZONES.map((z) => z.id);
+
 function renderJourney() {
   const { hook } = memoryLocation({ path: "/journey", record: true });
   return render(
@@ -75,6 +96,8 @@ function renderJourney() {
 
 beforeEach(() => {
   h.cats = undefined;
+  h.zones = undefined;
+  h.reduceMotion = false;
 });
 
 const cat = (id: number, title: string) => ({
@@ -112,5 +135,232 @@ describe("journey zone titles from categories (task 906)", () => {
     renderJourney();
     expect(screen.getAllByText(/Live Greetings & Manners/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Live Feelings/).length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 1082 — journey map UX polish.
+// ---------------------------------------------------------------------------
+
+/** A lesson group as the zone endpoint serves it. */
+const grp = (
+  id: number,
+  status: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  id,
+  title: `Stop ${id}`,
+  stage: "phrase",
+  position: id,
+  status,
+  phraseCount: 8,
+  masteredCount: 0,
+  attemptedCount: 0,
+  ...extra,
+});
+
+const zonesOf = (...counts: Array<unknown[]>) => counts;
+
+describe("boarding-pass header numbers (task 1082 item 1)", () => {
+  test("reads the learner's current station, not the count of finished ones", () => {
+    // Seven stations: two finished, the learner standing on the third. The
+    // header used to render "{doneCount}/{totalCount} stations", so the slot a
+    // learner reads as "the stop I am on" carried the number 2 while the map
+    // lit up stop 3. Both numbers now come off the one flattened station list
+    // the map, the payload and the Chacha encounter logic already share.
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 }), grp(2, "tested_out")],
+      [grp(3, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
+      [grp(4, "unlocked")],
+      [grp(5, "locked")],
+      [grp(6, "locked")],
+      [grp(7, "locked")],
+    );
+    renderJourney();
+    expect(screen.getByText(/· Stop 3 of 7 stations/)).toBeInTheDocument();
+    expect(screen.queryByText(/2\/7 stations/)).toBeNull();
+  });
+
+  test("counts every station the six zones serve, with no second source", () => {
+    // The total is the length of that same list: 11 + 10 + 8 + 10 + 10 + 10,
+    // the real Gujarati shape in the development library. Nothing in the
+    // client caps or filters it.
+    const zone = (n: number, from: number) =>
+      Array.from({ length: n }, (_, i) => grp(from + i, "locked"));
+    h.zones = zonesOf(
+      [grp(1, "in_progress", { masteredCount: 1, attemptedCount: 2 }), ...zone(10, 2)],
+      zone(10, 12),
+      zone(8, 22),
+      zone(10, 30),
+      zone(10, 40),
+      zone(10, 50),
+    );
+    renderJourney();
+    expect(screen.getByText(/· Stop 1 of 59 stations/)).toBeInTheDocument();
+  });
+
+  test("a finished line reads as complete rather than borrowing a stop number", () => {
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(2, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [], [], [], [],
+    );
+    renderJourney();
+    expect(screen.getByText(/· All 2 stations complete/)).toBeInTheDocument();
+  });
+});
+
+describe("current-stop card (task 1082 item 2)", () => {
+  test('carries no "Bolo is waiting here", in either current state', () => {
+    // Bolo herself stands beside the card, so the fragment only ever said in
+    // words what the mascot says in the art — and it was what wrapped the
+    // status line at narrow widths.
+    for (const [status, copy] of [
+      ["unlocked", /Now boarding/],
+      ["in_progress", /In progress/],
+    ] as const) {
+      h.zones = zonesOf(
+        [grp(1, status, status === "in_progress" ? { masteredCount: 3, attemptedCount: 5 } : {})],
+        [], [], [], [],
+        [],
+      );
+      const { unmount } = renderJourney();
+      expect(screen.queryByText(/Bolo is waiting/)).toBeNull();
+      // The status copy itself is untouched.
+      expect(screen.getAllByText(copy).length).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
+  test("keeps the stop title, the progress bar and the mastered count", () => {
+    h.zones = zonesOf(
+      [grp(1, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
+      [], [], [], [], [],
+    );
+    const { container } = renderJourney();
+    expect(screen.getAllByText("Stop 1 of 1").length).toBeGreaterThan(0);
+    expect(screen.getByText("3/8 mastered")).toBeInTheDocument();
+    expect(container.querySelector(".h-1\\.5")).not.toBeNull();
+  });
+});
+
+describe("journey-map copy (task 1082 item 3)", () => {
+  test("uses no em dash anywhere on the map, in text or in labels", () => {
+    h.zones = zonesOf(
+      [grp(1, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
+      [grp(2, "locked", { stage: "sentence", planLocked: true })],
+      [], [], [], [],
+    );
+    const { container } = renderJourney();
+    expect(container.textContent).not.toContain("\u2014");
+    for (const el of Array.from(container.querySelectorAll("[aria-label],[title]"))) {
+      expect(el.getAttribute("aria-label") ?? "").not.toContain("\u2014");
+      expect(el.getAttribute("title") ?? "").not.toContain("\u2014");
+    }
+    // The replacements are on screen, not merely absent.
+    expect(
+      screen.getByText(/Terminus: Dwarka, the festival finale awaits/),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop 1 of 1: In progress")).toBeInTheDocument();
+  });
+
+  test("centres the terminus label below the dot, clear of the bunting", () => {
+    // It used to flank the dot on whichever side the serpentine ended, which
+    // put it under the bunting and right-aligned a wrapped second line.
+    h.zones = zonesOf([grp(1, "unlocked")], [], [], [], [], []);
+    const { container } = renderJourney();
+    const label = Array.from(container.querySelectorAll("div")).find((d) =>
+      /^Terminus: /.test(d.textContent ?? ""),
+    )!;
+    expect(label.className).toContain("text-center");
+    expect(label.className).not.toContain("text-right");
+    // Spans the full column rather than being squeezed beside the dot.
+    expect(label.style.left).toBe("12px");
+    expect(label.style.right).toBe("12px");
+  });
+});
+
+describe("scroll to the current stop on open (task 1082 item 4)", () => {
+  /** Learner deep into the line: eleven finished stops, then the current one. */
+  const deepIntoTheLine = () => {
+    h.zones = zonesOf(
+      Array.from({ length: 11 }, (_, i) =>
+        grp(i + 1, "completed", { masteredCount: 8, attemptedCount: 8 }),
+      ),
+      [grp(12, "unlocked")],
+      [], [], [], [],
+    );
+  };
+
+  let scrollTo: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    // jsdom has no scrollTo at all; the component feature-detects it, so the
+    // spy is what makes the behaviour observable here.
+    scrollTo = vi.fn();
+    Object.defineProperty(window, "scrollTo", {
+      writable: true,
+      configurable: true,
+      value: scrollTo,
+    });
+  });
+
+  test("lands on the current stop, comfortably clear of the top edge", async () => {
+    deepIntoTheLine();
+    renderJourney();
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    const arg = scrollTo.mock.calls[0]![0] as ScrollToOptions;
+    // Past the top of the line: this learner's stop is the twelfth, so the map
+    // does not leave them staring at stop 1.
+    expect(arg.top).toBeGreaterThan(0);
+    expect(arg.behavior).toBe("smooth");
+  });
+
+  test("leaves an early learner at the top rather than scrolling their stop up", async () => {
+    // Comfortable framing, checked at the edge where it bites: stop 1 is
+    // already in view, so the lead clamps the target to the top of the line.
+    h.zones = zonesOf([grp(1, "unlocked")], [], [], [], [], []);
+    renderJourney();
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    // Effectively the top of the line: the lead is larger than the distance to
+    // stop 1, so the clamp keeps the whole head of the map on screen.
+    expect((scrollTo.mock.calls[0]![0] as ScrollToOptions).top).toBeLessThan(20);
+  });
+
+  test("never scrolls twice in one visit", async () => {
+    deepIntoTheLine();
+    const { rerender } = renderJourney();
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    // A refetch or any other re-render inside the same visit must leave the
+    // learner exactly where they are.
+    const { hook } = memoryLocation({ path: "/journey", record: true });
+    rerender((<Router hook={hook}>{(<Journey />) as ReactElement}</Router>) as ReactElement);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  test("yields to a learner who starts scrolling first", async () => {
+    deepIntoTheLine();
+    renderJourney();
+    window.dispatchEvent(new Event("wheel"));
+    await new Promise((r) => setTimeout(r, 40));
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  test("jumps instead of animating under reduced motion", async () => {
+    h.reduceMotion = true;
+    deepIntoTheLine();
+    renderJourney();
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    expect((scrollTo.mock.calls[0]![0] as ScrollToOptions).behavior).toBe("auto");
+  });
+
+  test("stays put when there is no current stop to land on", async () => {
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [], [], [], [], [],
+    );
+    renderJourney();
+    await new Promise((r) => setTimeout(r, 40));
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });

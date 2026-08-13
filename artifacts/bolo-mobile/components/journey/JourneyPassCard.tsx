@@ -316,7 +316,7 @@ export function JourneyPassCard({ onPress }: { onPress: () => void }) {
       )}
       <PressableScale
         accessibilityRole="button"
-        accessibilityLabel={`Ride the ${line.lineName} — open the journey map`}
+        accessibilityLabel={`Ride the ${line.lineName}: open the journey map`}
         onPress={handleActivate}
         scaleTo={PASS_PRESS_SCALE}
         testID="journey-pass-card"

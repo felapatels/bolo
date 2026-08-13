@@ -6,6 +6,7 @@
 // navigating. Drives the REAL journey screen with the API hooks mocked.
 
 import React from 'react';
+import { ScrollView } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -257,10 +258,14 @@ describe('journey map — station state rendering', () => {
     ]);
     render(<JourneyScreen />);
 
-    // Boarding-pass header: line identity + progress fraction.
+    // Boarding-pass header: line identity + the learner's position on it.
+    // Task 1082 item 1: this used to read "2/7 stations", where the 2 was the
+    // number of FINISHED stops sitting in the slot a learner reads as "the
+    // stop I am on" — and the map highlights stop 3 here, not stop 2. Both
+    // numbers now come off the one flattened station list.
     expect(screen.getByText('Gujarat Express')).toBeOnTheScreen();
     expect(
-      screen.getByText(/Ahmedabad Junction → Dwarka · 2\/7 stations/),
+      screen.getByText(/Ahmedabad Junction → Dwarka · Stop 3 of 7 stations/),
     ).toBeOnTheScreen();
 
     // Per-state copy and adornments. Build 31 moved the mastered fraction
@@ -270,7 +275,6 @@ describe('journey map — station state rendering', () => {
     expect(screen.getByText('EXPRESS')).toBeOnTheScreen(); // tested_out stamp
     expect(screen.getByText(/In progress/)).toBeOnTheScreen();
     expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
-    expect(screen.getByText(/Bolo is waiting here/)).toBeOnTheScreen(); // current stop
     // The ALL-ACCESS chip renders ONLY where the server serves the stop
     // plan-locked; a served-unlocked sentence stop (Plus caller, or the Hindi
     // Zone 1 carve-out) shows no entitlement chip. Exactly one chip here: the
@@ -291,9 +295,169 @@ describe('journey map — station state rendering', () => {
     ]);
     render(<JourneyScreen />);
     expect(
-      screen.getByLabelText('Stop 1 of 2 — Now boarding'),
+      screen.getByLabelText('Stop 1 of 2: Now boarding'),
     ).toBeOnTheScreen();
-    expect(screen.getAllByText(/Bolo is waiting here/).length).toBe(1);
+    // The header agrees with the stop the map lights up: four stations, one
+    // finished, the learner standing on the second.
+    expect(
+      screen.getByText(/Ahmedabad Junction → Dwarka · Stop 2 of 4 stations/),
+    ).toBeOnTheScreen();
+  });
+
+  it('carries no "Bolo is waiting here" on the current stop, in any state', () => {
+    // Task 1082 item 2. Bolo herself stands beside the current stop's card, so
+    // the fragment only ever said in words what the mascot says in the art,
+    // and it was what wrapped the status line at narrow widths. Both current
+    // states are covered: a fresh stop ("Now boarding") and a resumed one
+    // ("In progress"), because the fragment used to be appended to each.
+    for (const status of ['unlocked', 'in_progress'] as const) {
+      setZones([
+        [grp({ status, masteredCount: status === 'in_progress' ? 3 : 0, attemptedCount: status === 'in_progress' ? 5 : 0 })],
+        [], [], [], [], [],
+      ]);
+      render(<JourneyScreen />);
+      expect(screen.queryByText(/Bolo is waiting/)).toBeNull();
+      // The status copy itself is untouched.
+      expect(
+        screen.getByText(status === 'in_progress' ? /In progress/ : /Now boarding/),
+      ).toBeOnTheScreen();
+      screen.unmount();
+    }
+  });
+
+  it('keeps every em dash out of journey-map copy', () => {
+    // Task 1082 item 3. The terminus line, the station accessibility label and
+    // the sentence-stop dialog each used an em dash; each now reads with a
+    // colon or a comma. Sweeping the whole rendered tree is what stops a new
+    // one creeping back in beside the three that were fixed.
+    setZones([
+      [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 })],
+      [grp({ status: 'locked', planLocked: true, stage: 'sentence' })],
+      [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    const texts: string[] = [];
+    const walk = (node: any) => {
+      if (node == null) return;
+      if (typeof node === 'string') return void texts.push(node);
+      if (Array.isArray(node)) return void node.forEach(walk);
+      if (node.props?.children !== undefined) walk(node.props.children);
+      if (typeof node.props?.accessibilityLabel === 'string') {
+        texts.push(node.props.accessibilityLabel);
+      }
+    };
+    walk(screen.toJSON());
+    const offenders = texts.filter((t) => t.includes('—'));
+    expect(offenders).toEqual([]);
+    // The replacements are actually on screen, not merely absent.
+    expect(screen.getByText(/Terminus: Dwarka, the festival finale awaits/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Stop 1 of 1: In progress')).toBeOnTheScreen();
+  });
+
+});
+
+describe('journey map — scroll to the current stop on open (Task 1082 item 4)', () => {
+  // The scroll is issued from the map's layout pass; the test renderer never
+  // lays anything out, so the test plays that pass itself.
+  const layOutMap = (y = 0) =>
+    fireEvent(screen.getByTestId('journey-map'), 'layout', {
+      nativeEvent: { layout: { x: 0, y, width: 390, height: 4000 } },
+    });
+
+  /** Learner deep into the line: 11 finished stops, then the current one. */
+  const deepIntoTheLine = () =>
+    setZones([
+      Array.from({ length: 11 }, () =>
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+      ),
+      [grp({ status: 'unlocked' })],
+      [], [], [], [],
+    ]);
+
+  let scrollTo: jest.SpyInstance;
+  beforeEach(() => {
+    scrollTo = jest
+      .spyOn(ScrollView.prototype, 'scrollTo')
+      .mockImplementation(() => {});
+  });
+  afterEach(() => scrollTo.mockRestore());
+
+  it('lands on the current stop, comfortably clear of the top edge', () => {
+    deepIntoTheLine();
+    render(<JourneyScreen />);
+    layOutMap();
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    const { y, animated } = scrollTo.mock.calls[0]![0] as {
+      y: number;
+      animated: boolean;
+    };
+    // Past the top of the line: this learner's stop is the twelfth, so the map
+    // does not leave them staring at stop 1.
+    expect(y).toBeGreaterThan(0);
+    expect(animated).toBe(true);
+    scrollTo.mockClear();
+    screen.unmount();
+
+    // Comfortable framing, checked at the edge where it bites: a learner on
+    // stop 1 is ALREADY in view, so the lead clamps the target to the top of
+    // the line instead of scrolling their stop up to the viewport edge.
+    setZones([[grp({ status: 'unlocked' })], [], [], [], [], []]);
+    render(<JourneyScreen />);
+    layOutMap();
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ y: 0 });
+  });
+
+  it('never scrolls twice in one visit', () => {
+    deepIntoTheLine();
+    render(<JourneyScreen />);
+    layOutMap();
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    // A refetch, an orientation change or any other re-layout inside the same
+    // visit must leave the learner exactly where they are.
+    layOutMap();
+    layOutMap(40);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('yields to a learner who is already scrolling', () => {
+    deepIntoTheLine();
+    render(<JourneyScreen />);
+    fireEvent.scroll(screen.UNSAFE_getAllByType(ScrollView)[0]!, {
+      nativeEvent: { contentOffset: { y: 120 } },
+    });
+    // A drag beats the pending scroll outright: no hijack mid-gesture.
+    fireEvent(screen.UNSAFE_getAllByType(ScrollView)[0]!, 'scrollBeginDrag', {
+      nativeEvent: { contentOffset: { y: 120 } },
+    });
+    layOutMap();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('jumps instead of animating under reduced motion', () => {
+    const reanimated = require('react-native-reanimated');
+    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    try {
+      deepIntoTheLine();
+      render(<JourneyScreen />);
+      layOutMap();
+      expect(scrollTo).toHaveBeenCalledTimes(1);
+      expect(scrollTo.mock.calls[0]![0]).toMatchObject({ animated: false });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('stays put when there is no current stop to land on', () => {
+    setZones([
+      Array.from({ length: 3 }, () =>
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+      ),
+      [], [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    layOutMap();
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });
 
@@ -310,7 +474,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 1 of 1 — In progress'));
+    fireEvent.press(screen.getByLabelText('Stop 1 of 1: In progress'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '2', group: String(target.id) },
@@ -328,7 +492,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2: Locked'));
     expect(screen.getByText('This stop is still locked')).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
@@ -355,7 +519,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2: Locked'));
     const zoneLink = screen.getByTestId('link-test-out-zone');
     expect(screen.getByText('Test out of this whole zone')).toBeOnTheScreen();
     expect(
@@ -444,7 +608,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 2 of 2 — Locked (sentence stop)'),
+      screen.getByLabelText('Stop 2 of 2: Locked (sentence stop)'),
     );
     expect(
       screen.getByText('First-class coach: full sentences'),
@@ -476,7 +640,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 2 of 2 — Now boarding (sentence stop)'),
+      screen.getByLabelText('Stop 2 of 2: Now boarding (sentence stop)'),
     );
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
@@ -502,7 +666,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2: Locked'));
     expect(screen.getByText('This stop is All-Access territory')).toBeOnTheScreen();
     // Not the progression dialog: no test-out escape hatch for plan gating.
     expect(screen.queryByText('This stop is still locked')).toBeNull();
@@ -864,10 +1028,11 @@ describe('journey map — Chacha-ji stall landmark', () => {
     // Right of the rail, which the halt row holds at the left flank marker x
     // (92 on both platforms).
     for (const s of seats) expect(s.x).toBe(92 + STALL_PLACEMENT.laneDx);
-    // One zone, so the interval is a clean four station rows plus the one
-    // halt row those four rows contain (74 tall, web parity).
-    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 100 + 74);
-    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 100 + 74);
+    // One zone, so the interval is a clean four station rows plus the one halt
+    // row those four rows contain (74 tall, web parity). STATION_H is 88 since
+    // the current-stop card was slimmed; the halt row itself is unchanged.
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88 + 74);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88 + 74);
   });
 
   it('adds no stop, no number and nothing tappable with the halt row', () => {

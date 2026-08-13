@@ -24,6 +24,7 @@ import {
   useColorScheme,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ import Svg, { Circle, Path, G, Rect } from 'react-native-svg';
 import Animated, {
   interpolate,
   useAnimatedProps,
+  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -99,7 +101,12 @@ const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
 // Serpentine layout rhythm — identical to the web map (which is itself
 // mobile-width, max 390px).
 const MAP_MAX_W = 390;
-const STATION_H = 100; // vertical rhythm per station row
+// Task 1082 item 2: web parity. The station card was slimmed (tighter padding
+// and line spacing, and no "Bolo is waiting here" fragment, which used to wrap
+// the current stop's status onto a second line), so the slot holding it comes
+// down with it. Chacha-ji's stall is unaffected: it is seated in its own halt
+// row off the halt point, not off a station row.
+const STATION_H = 88; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
@@ -109,6 +116,10 @@ const TERM_H = 92; // terminus row
 // enters the station list, so stop numbering and the station count are
 // untouched. It only lengthens the map.
 const HALT_H = 74;
+// Item 3: drop of the terminus label below the terminus dot's center. The dot
+// is 28px across, so its lowest ink is termY+14; the bunting hangs ABOVE it.
+// 18 clears both and keeps the label inside the terminus row.
+const TERM_LABEL_DY = 18;
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
 
@@ -446,7 +457,7 @@ function ChachaSoftStop({
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { width: windowW } = useWindowDimensions();
+  const { width: windowW, height: windowH } = useWindowDimensions();
   // The main render opts out of Screen's top padding (padTop={false}) so the
   // header hugs the top edge, which shoved it under the status bar/notch on
   // native. Pad the header itself with the same inset Screen would apply
@@ -472,6 +483,13 @@ export default function JourneyScreen() {
   const onMapScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
   });
+  // Task 1082 item 4: bring the learner's current stop into view when the map
+  // opens. The latch fires once per visit (this screen mounts once), never
+  // again on refetch or state change, and a learner who starts dragging first
+  // owns the scroll view outright.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const autoScrolledRef = useRef(false);
+  const userScrolledRef = useRef(false);
   const sceneryParallaxStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: reduceMotion ? 0 : scrollY.value * DEPTH_2_5D.parallaxFactor },
@@ -877,6 +895,39 @@ export default function JourneyScreen() {
   void signalMemory.version; // re-derive after any local mark
   const currentGlobalIdx =
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
+  // Task 1082 item 1: the boarding pass used to read "{doneCount}/{totalCount}
+  // stations", so the number in the current-station slot was actually the
+  // COUNT OF FINISHED STOPS — it said 2 while the map highlighted stop 1. Both
+  // numbers now come off `allStations`, the one flattened list the map, the
+  // server payload and the Chacha encounter logic already share: the total is
+  // its length and the stop number is the very index the encounter check uses,
+  // so the header can never disagree with the stop the map lights up.
+  const headerStations =
+    currentGlobalIdx >= 0
+      ? `Stop ${currentGlobalIdx + 1} of ${totalCount} stations`
+      : allDone
+        ? `All ${totalCount} stations complete`
+        : `${totalCount} stations`;
+  // Item 4: y of the current stop inside the map column, off the same
+  // serpentine points the markers are drawn from. The map's own offset inside
+  // the scroll content is only known once it has been laid out, which is also
+  // the earliest moment the scroll view can be told to move — so the jump
+  // rides that layout pass rather than an effect that would fire too early.
+  const currentStopY =
+    currentGlobalIdx >= 0 ? stationPts[currentGlobalIdx]?.y ?? null : null;
+  const onMapLayout = (e: LayoutChangeEvent) => {
+    if (autoScrolledRef.current || userScrolledRef.current) return;
+    if (currentStopY == null) return;
+    autoScrolledRef.current = true;
+    // Comfortable framing: the stop lands about a third of the way down the
+    // viewport, clear of the boarding-pass header and never at the bottom
+    // edge. Reduced motion jumps instead of animating.
+    const lead = Math.min(260, Math.max(140, Math.round(windowH * 0.3)));
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, e.nativeEvent.layout.y + currentStopY - lead),
+      animated: !reduceMotion,
+    });
+  };
 
   // Chacha-ji counts stations 1-based off the same flattened list. The
   // showroom has no live progress, so he never turns up there.
@@ -1079,8 +1130,12 @@ export default function JourneyScreen() {
               <Text numberOfLines={1} style={[styles.ticketLine, { color: colors.foreground }]}>
                 {line.lineName}
               </Text>
-              <Text numberOfLines={1} style={[styles.ticketRoute, { color: colors.mutedForeground }]}>
-                {line.zones[0]} → {line.zones[5]} · {doneCount}/{totalCount} stations
+              {/* Item 1: this line carries the number the whole item is about,
+                  so it wraps instead of clipping to one line. On a 320pt
+                  screen the route alone fills the ticket, and numberOfLines=1
+                  cut the stop count off the end entirely. */}
+              <Text numberOfLines={2} style={[styles.ticketRoute, { color: colors.mutedForeground }]}>
+                {line.zones[0]} → {line.zones[5]} · {headerStations}
               </Text>
               {access === 'teaser' && teaserProgress && (
                 <Text style={[styles.ticketTeaser, { color: line.accent }]}>
@@ -1113,9 +1168,13 @@ export default function JourneyScreen() {
       </View>
 
       <Animated.ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
+        onScrollBeginDrag={() => {
+          userScrolledRef.current = true;
+        }}
         scrollEventThrottle={16}
       >
         {access === 'exhausted' && (
@@ -1141,7 +1200,11 @@ export default function JourneyScreen() {
         )}
 
         {/* Serpentine railway: track + zone postcards + stations. */}
-        <View style={[styles.map, { width: mapW, height: totalH }]}>
+        <View
+          testID="journey-map"
+          style={[styles.map, { width: mapW, height: totalH }]}
+          onLayout={onMapLayout}
+        >
           {/* India-flavored trackside scenery (Task 985 port): zone-themed
               dimensional flat scenes in the free strip beside station rows,
               anchored to the same serpentine geometry the stations use.
@@ -1366,7 +1429,9 @@ export default function JourneyScreen() {
                     : accessible
                       ? 'Now boarding'
                       : 'Locked';
-            const aria = `${stopLabel} — ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
+            // Item 3: journey-map copy carries no em dashes; a colon reads the
+            // same and announces cleanly in a screen reader.
+            const aria = `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
             const onPress = () => {
               hapticLight();
               if (accessible) {
@@ -1430,7 +1495,9 @@ export default function JourneyScreen() {
                           backgroundColor: stationSurface,
                           borderWidth: 1,
                           borderColor: zoneColor,
-                          paddingTop: 14,
+                          // Item 2: roof-bar clearance, trimmed with the rest
+                          // of the card (web: pt-3 -> pt-2.5).
+                          paddingTop: 10,
                         },
                       ]}
                     >
@@ -1498,7 +1565,10 @@ export default function JourneyScreen() {
                       >
                         {statusCopy}
                         {!s.attemptedCount ? ` · ${s.phraseCount} phrases` : ''}
-                        {isCurrent && ' · Bolo is waiting here'}
+                        {/* Item 2: no "Bolo is waiting here" fragment. Bolo
+                            already stands beside this card, and the words were
+                            what pushed the current stop's status onto a second
+                            line at narrow widths. */}
                       </Text>
                       {/* Started stops trade the text fraction for a real
                           progress track (web parity). */}
@@ -1563,21 +1633,26 @@ export default function JourneyScreen() {
               ]}
             />
           </View>
+          {/* Item 3: the label used to flank the terminus dot on whichever
+              side the serpentine ended, which put it under the festival
+              bunting (strung at termY-34, flags hanging to termY+3) and
+              right-aligned it half the time, so a wrapped second line drifted
+              to the wrong edge. It now sits below the dot, across the full
+              column, always centered: clear of the bunting above and of every
+              scenery object, which is anchored to station rows further up. */}
           <View
             style={[
               styles.terminusLabelWrap,
-              termX > mapW / 2
-                ? { left: 12, width: termX - 36, top: termY - 20, alignItems: 'flex-end' }
-                : { left: termX + 24, right: 12, top: termY - 20 },
+              { left: 12, right: 12, top: termY + TERM_LABEL_DY },
             ]}
           >
             <Text
               style={[
                 styles.terminusLabel,
-                { color: colors.mutedForeground, textAlign: termX > mapW / 2 ? 'right' : 'left' },
+                { color: colors.mutedForeground, textAlign: 'center' },
               ]}
             >
-              Terminus: {line.zones[5]} —{' '}
+              Terminus: {line.zones[5]},{' '}
               {allDone ? 'journey complete!' : 'the festival finale awaits'}
             </Text>
           </View>
@@ -1708,7 +1783,7 @@ export default function JourneyScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.dialogBody, { color: colors.mutedForeground }]}>
-                  {lock.stopLabel} is a sentence stop — graduate from phrases to
+                  {lock.stopLabel} is a sentence stop: graduate from phrases to
                   real, natural sentences. First-class seats are an All-Access perk.
                 </Text>
                 <Pressable
@@ -2134,7 +2209,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    // Item 2: same type scale, tighter box (web: py-2 -> py-1.5).
+    paddingVertical: 6,
     position: 'relative',
   },
   // Full-width zone-color roof bar across the current stop's card (the
@@ -2177,7 +2253,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 4,
+    // Item 2: web parity (mt-1 -> mt-0.5).
+    marginTop: 2,
   },
   cardProgressTrack: {
     width: CARD_PROGRESS_W,
@@ -2193,7 +2270,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
-  cardTitle: { fontFamily: AppFonts.semibold, fontSize: 14 },
+  // Item 2: lineHeight trims the line box, not the type scale; flexShrink 0
+  // keeps "Stop 11 of 11" on one line down to 320px (chips wrap instead).
+  cardTitle: { fontFamily: AppFonts.semibold, fontSize: 14, lineHeight: 18, flexShrink: 0 },
   allAccessChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2218,7 +2297,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   teaserChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
-  cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, marginTop: 2 },
+  cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
   terminusOuter: {
     position: 'absolute',
     width: 28,

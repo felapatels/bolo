@@ -62,7 +62,11 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: () => ({}),
     useReducedMotion: () => false,
-    useAnimatedRef: () => ({ current: null }),
+    // A real ref, not a fresh throwaway object: the journey map's
+    // scroll-to-current-stop drives the scroll view through this ref, and a
+    // stand-in that never attaches would leave that behaviour untestable and
+    // silently green.
+    useAnimatedRef: () => React.useRef(null),
     withTiming: (v) => v,
     withSpring: (v) => v,
     withRepeat: (v) => v,

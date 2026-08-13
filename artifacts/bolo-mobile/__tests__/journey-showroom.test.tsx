@@ -250,7 +250,7 @@ describe('journey map — showroom mode (locked language)', () => {
     expect(screen.getByText('Free taste 1/3')).toBeOnTheScreen();
 
     // The teaser station is the ONLY stop that routes into practice.
-    fireEvent.press(screen.getByLabelText('Stop 1 of 2 — Now boarding'));
+    fireEvent.press(screen.getByLabelText('Stop 1 of 2: Now boarding'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '1', group: String(teaserStop.id) },
@@ -261,7 +261,7 @@ describe('journey map — showroom mode (locked language)', () => {
     setShowroom('teaser', { consumed: 0, limit: 3 });
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 2 of 2 — Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 2 of 2: Locked'));
     expect(screen.getByText('This line needs a ticket')).toBeOnTheScreen();
     expect(screen.getByText(/0\/3 tried/)).toBeOnTheScreen();
     // Showroom is read-only: nothing navigated, nothing written.
@@ -285,7 +285,7 @@ describe('journey map — showroom mode (locked language)', () => {
 
     // Locked-stop dialog switches to the exhausted copy.
     // Several later zones each render a locked "Stop 1 of 1" — take the first.
-    fireEvent.press(screen.getAllByLabelText('Stop 1 of 1 — Locked')[0]);
+    fireEvent.press(screen.getAllByLabelText('Stop 1 of 1: Locked')[0]);
     expect(screen.getByText("You've tried this line!")).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 

@@ -110,7 +110,12 @@ function scenarioIdForZone(zoneIndex: number): string | undefined {
 // is mobile-width (max 390px) and centers inside the page's max-w-2xl on
 // desktop — no separate desktop composition.
 const MAP_MAX_W = 390;
-const STATION_H = 100; // vertical rhythm per station row
+// Task 1082 item 2: the station card was slimmed (tighter padding and line
+// spacing, and the "Bolo is waiting here" fragment gone, which used to wrap
+// the current stop's status onto a second line), so the slot that holds it
+// comes down with it. Chacha-ji's stall is unaffected: it is seated in its own
+// halt row off the halt point, not off a station row.
+const STATION_H = 88; // vertical rhythm per station row
 const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side + fact strip)
 const TERM_H = 92; // terminus row
 // Chacha-ji's halt: a scenery-only row inserted after every encounter station
@@ -119,6 +124,11 @@ const TERM_H = 92; // terminus row
 // station list, so stop numbering and the station count are untouched. It
 // only lengthens the map.
 const HALT_H = 74;
+// Item 3: drop of the terminus label below the terminus dot's center. The dot
+// is 24px (border-box) with a 2px ring, so its lowest ink is termY+14; the
+// bunting hangs ABOVE the dot. 18 clears both and still leaves the label's two
+// possible lines inside the terminus row (which runs to termY + TERM_H/2 + 8).
+const TERM_LABEL_DY = 18;
 const TOP_PAD = 10;
 const LEFT_X = 92; // marker x for even-index stations
 const RIGHT_INSET = 94; // mirror inset of LEFT_X for odd-index stations
@@ -536,8 +546,10 @@ function StationCard({
   const card = (
     <div
       className={cn(
-        "relative min-w-0 rounded-lg px-3 py-2 transition-colors",
-        isCurrent ? "border pt-3 depth-shadow" : "group-hover:bg-accent",
+        // Item 2: same type scale, tighter box — py-2 -> py-1.5 and the
+        // current stop's roof clearance pt-3 -> pt-2.5.
+        "relative min-w-0 rounded-lg px-3 py-1.5 transition-colors",
+        isCurrent ? "border pt-2.5 depth-shadow" : "group-hover:bg-accent",
       )}
       style={
         isCurrent
@@ -577,7 +589,10 @@ function StationCard({
         {isCurrent && <StationSignGlyph color={color} />}
         <span
           className={cn(
-            "text-sm font-semibold",
+            // Item 2: leading-tight trims the line box, not the type scale;
+            // whitespace-nowrap keeps "Stop 11 of 11" on one line down to
+            // 320px (the card is ~180px wide there, the label ~90px).
+            "text-sm font-semibold leading-tight whitespace-nowrap",
             accessible ? "text-foreground" : "text-muted-foreground",
           )}
         >
@@ -589,7 +604,7 @@ function StationCard({
         {station.stage === "sentence" && station.planLocked === true && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
-            title="First-class sentence stop — All-Access"
+            title="First-class sentence stop: All-Access"
           >
             <Sparkles className="w-2.5 h-2.5" />
             All-Access
@@ -614,7 +629,10 @@ function StationCard({
         {!accessible && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
       </div>
       <div
-        className={cn("text-[11px]", isCurrent ? "font-semibold" : "text-muted-foreground")}
+        className={cn(
+          "text-[11px] leading-tight",
+          isCurrent ? "font-semibold" : "text-muted-foreground",
+        )}
         style={isCurrent ? { color } : undefined}
       >
         {statusCopy}
@@ -624,12 +642,15 @@ function StationCard({
         {!station.attemptedCount &&
           station.planLocked !== true &&
           ` · ${station.phraseCount} phrases`}
-        {isCurrent && " · Bolo is waiting here"}
+        {/* Item 2: no "Bolo is waiting here" fragment. Bolo herself already
+            stands beside this card, so the line only ever said in words what
+            the mascot says in the art — and it was what pushed the current
+            stop's status onto a second line at narrow widths. */}
       </div>
       {/* Progress as a small filled track once the stop has attempts; the
           fraction stays as a label. Quiet palette off the active card. */}
       {station.attemptedCount ? (
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-0.5 flex items-center gap-1.5">
           <div
             className="h-1.5 w-20 max-w-full overflow-hidden rounded-full"
             style={{ background: accessible ? `${color}26` : "hsl(var(--muted))" }}
@@ -687,7 +708,9 @@ function StationCard({
       )}
     </>
   );
-  const aria = `${stopLabel} — ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
+  // Item 3: journey-map copy carries no em dashes; a colon reads the same and
+  // announces cleanly in a screen reader.
+  const aria = `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
   const rowClass = cn(
     "flex w-full items-center gap-1 text-left group",
     side === "left" ? "justify-end" : "justify-start",
@@ -833,6 +856,77 @@ function ChachaSoftStop({
     asked.current = key;
     onOpen(station);
   }, [station, dialogOpen, closeoutPending, lang]);
+  return null;
+}
+
+/** Events that mean the learner has taken the viewport for themselves. */
+const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"] as const;
+
+/**
+ * Task 1082 item 4: bring the learner's current stop into view when the map
+ * opens.
+ *
+ * Mounted WITH the map rather than with the page, so it runs once the zone
+ * payloads have landed instead of firing against the "Laying the tracks…"
+ * screen, and so "once per visit" needs no extra bookkeeping: the map mounts
+ * once, and the internal latch closes the door on refetches and re-renders
+ * inside that visit.
+ *
+ * It never fights the learner. Any wheel, touch or key before the frame the
+ * scroll would run on cancels it outright, and it is skipped entirely when the
+ * page is not at the top (something already moved the viewport). Under reduced
+ * motion it jumps instead of animating.
+ */
+function AutoScrollToCurrentStop({
+  mapRef,
+  targetY,
+  reduceMotion,
+}: {
+  mapRef: React.RefObject<HTMLDivElement | null>;
+  targetY: number | null;
+  /** framer-motion's hook reports null until it has read the media query. */
+  reduceMotion: boolean | null;
+}) {
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current || targetY == null) return;
+    done.current = true;
+    const map = mapRef.current;
+    if (!map || typeof window === "undefined" || typeof window.scrollTo !== "function") {
+      return;
+    }
+    // Already scrolled before we got here: the learner is driving.
+    if (window.scrollY > 0) return;
+    let cancelled = false;
+    const bail = () => {
+      cancelled = true;
+    };
+    for (const ev of USER_SCROLL_EVENTS) {
+      window.addEventListener(ev, bail, { passive: true });
+    }
+    const cleanup = () => {
+      for (const ev of USER_SCROLL_EVENTS) window.removeEventListener(ev, bail);
+    };
+    // One frame of grace so the map has been laid out (and so an immediate
+    // learner gesture wins the race).
+    const raf = requestAnimationFrame(() => {
+      cleanup();
+      if (cancelled) return;
+      // Comfortable framing: the stop lands about a third of the way down the
+      // viewport, clear of the sticky boarding-pass header at the top and
+      // never pinned to the bottom edge.
+      const lead = Math.min(260, Math.max(140, Math.round(window.innerHeight * 0.3)));
+      const top = map.getBoundingClientRect().top + window.scrollY + targetY - lead;
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      cleanup();
+    };
+  }, [mapRef, targetY, reduceMotion]);
   return null;
 }
 
@@ -1163,6 +1257,23 @@ export default function Journey() {
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
   // Chacha-ji counts stations 1-based off that same flattened list.
   const currentStationNumber = currentGlobalIdx >= 0 ? currentGlobalIdx + 1 : -1;
+  // Task 1082 item 1: the boarding pass used to read "{doneCount}/{totalCount}
+  // stations", so the number in the current-station slot was actually the
+  // COUNT OF FINISHED STOPS — it said 2 while the map highlighted stop 1. Both
+  // numbers now come off `allStations`, the one flattened list the map, the
+  // server payload and the Chacha encounter logic all already share: the total
+  // is its length and the stop number is the very index the encounter check
+  // uses, so the header can never disagree with the stop the map lights up.
+  const headerStations =
+    currentStationNumber > 0
+      ? `Stop ${currentStationNumber} of ${totalCount} stations`
+      : allDone
+        ? `All ${totalCount} stations complete`
+        : `${totalCount} stations`;
+  // Item 4: y of the current stop inside the map column, off the same
+  // serpentine points the markers are drawn from.
+  const currentStopY =
+    currentGlobalIdx >= 0 ? stationPts[currentGlobalIdx]?.y ?? null : null;
   // His stall is a permanent map LANDMARK at every encounter station, ahead of
   // the learner and behind, so the stop that pays is visible before it is
   // reached. Pure client geometry off the same predicate the arrival check
@@ -1316,8 +1427,13 @@ export default function Journey() {
                 <div className="text-base font-extrabold text-foreground leading-tight truncate">
                   {line.lineName}
                 </div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {line.zones[0]} → {line.zones[5]} · {doneCount}/{totalCount} stations
+                {/* Item 1: this line carries the number the whole item is
+                    about, so it wraps instead of truncating. At 320px the
+                    route alone fills the ticket, and `truncate` cut the stop
+                    count off the end entirely. Wrapping shows both at every
+                    width and still sits on one line once there is room. */}
+                <div className="text-[11px] leading-tight text-muted-foreground">
+                  {line.zones[0]} → {line.zones[5]} · {headerStations}
                 </div>
                 {access === "teaser" && teaserProgress && (
                   <div className="text-[10px] font-bold" style={{ color: line.accent }}>
@@ -1375,6 +1491,11 @@ export default function Journey() {
         {/* Serpentine railway: track + zone postcards + stations. The map is
             mobile-width and centers in the column on desktop. */}
         <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px]">
+          <AutoScrollToCurrentStop
+            mapRef={mapRef}
+            targetY={currentStopY}
+            reduceMotion={reduceMotion}
+          />
           <div className="relative" style={{ height: totalH }}>
             <svg
               className="absolute inset-0 pointer-events-none"
@@ -1730,26 +1851,19 @@ export default function Journey() {
               }}
               aria-hidden
             />
+            {/* Item 3: the label used to sit BESIDE the terminus dot, flanking
+                it on whichever side the serpentine ended, which put it under
+                the festival bunting (strung at termY-34, its flags hanging to
+                termY+3) and right-aligned it whenever the last stop landed on
+                the right, so a wrapped second line drifted to the wrong edge.
+                It now sits below the dot, across the full column, always
+                centered: clear of the bunting above and of every scenery
+                object, which is anchored to station rows further up. */}
             <div
-              className="absolute text-xs font-bold text-muted-foreground"
-              style={
-                termX > mapW / 2
-                  ? {
-                      left: 12,
-                      width: termX - 36,
-                      top: termY,
-                      transform: "translateY(-50%)",
-                      textAlign: "right",
-                    }
-                  : {
-                      left: termX + 24,
-                      right: 12,
-                      top: termY,
-                      transform: "translateY(-50%)",
-                    }
-              }
+              className="absolute text-xs font-bold text-muted-foreground text-center"
+              style={{ left: 12, right: 12, top: termY + TERM_LABEL_DY }}
             >
-              Terminus: {line.zones[5]} —{" "}
+              Terminus: {line.zones[5]},{" "}
               {allDone ? "journey complete!" : "the festival finale awaits"}
             </div>
           </div>
@@ -1822,7 +1936,7 @@ export default function Journey() {
                   First-class coach: full sentences
                 </DialogTitle>
                 <DialogDescription>
-                  {lock.stopLabel} is a sentence stop — graduate from phrases to
+                  {lock.stopLabel} is a sentence stop: graduate from phrases to
                   real, natural sentences. First-class seats are an All-Access perk.
                 </DialogDescription>
               </DialogHeader>
