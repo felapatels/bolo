@@ -322,14 +322,24 @@ function BoloTabButton({
         <BoloNavParrot focused={focused} />
       </Animated.View>
 
-      {/* Label at the bottom of the tab bar slot */}
+      {/* Label at the bottom of the tab bar slot. Reads "Bolo Chat" in the
+          brand colour whether or not the tab is focused, matching web's
+          centre tab. ONE line, not web's two: the bar is 74 tall with the
+          circle anchored at bottom 32 and the label block bottom-anchored
+          10 above the slot floor, so a label may only occupy 22px before it
+          runs into the circle — two 11px lines need ~26.6 (natural leading)
+          and cannot be made to fit without moving the circle, the shared
+          label baseline, or the bar height. One line does fit: "Bolo Chat"
+          measures 51.3px in Inter SemiBold 11 against the centre slot's full
+          58px at the narrowest supported 320pt width (see boloOuter's
+          paddingHorizontal note). numberOfLines pins it to one line so it can
+          never wrap onto the circle. The accessible name stays "Bolo" (see
+          above), so VoiceOver announces the tab exactly as it does today. */}
       <Text
-        style={[
-          styles.boloLabel,
-          { color: focused ? colors.primary : colors.mutedForeground },
-        ]}
+        numberOfLines={1}
+        style={[styles.boloLabel, { color: colors.primary }]}
       >
-        Bolo
+        Bolo Chat
       </Text>
     </Pressable>
   );
@@ -414,6 +424,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: 10,
+    // The tab bar forwards 5px of side padding to every slot, which clamps a
+    // 58px slot's label to 48px — enough for one word, not for "Bolo Chat"
+    // (51.3px at 11px) on a 320pt phone, where it ellipsised to "Bolo C…".
+    // The centre slot has no icon row to protect, so it gives the padding
+    // back to the label and uses its full 58px. This is a content-box change
+    // only: the Pressable, its hit slop and every other slot are untouched.
+    paddingHorizontal: 0,
     // overflow visible so the circle can poke above the tab bar
     overflow: 'visible',
   },
@@ -441,7 +458,12 @@ const styles = StyleSheet.create({
   },
   boloLabel: {
     fontFamily: AppFonts.semibold,
-    fontSize: 12,
+    // 11 (web's centre-tab size, and the floor agreed for this bar) so the
+    // two-word label clears the 58px slot at 320pt. Line height is left to
+    // the font's own metrics: the block is bottom-anchored, so the baseline
+    // moves by only the descender delta (~0.25px) versus the old 12px label
+    // and stays level with the other four tab labels.
+    fontSize: 11,
   },
 });
 

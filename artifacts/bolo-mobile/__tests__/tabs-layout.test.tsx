@@ -253,10 +253,11 @@ describe('Orientation changes', () => {
     mockState.slotWidth = 72;
     render(<TabsLayout />);
 
-    // BoloTabButton renders an accessible Pressable labelled "Bolo" and a
-    // sibling Text element with the same label text — both must be present.
+    // BoloTabButton renders an accessible Pressable whose name stays "Bolo"
+    // (VoiceOver is unchanged) and a visible label reading "Bolo Chat",
+    // matching web's centre tab — both must be present.
     expect(screen.getByLabelText('Bolo')).toBeTruthy();
-    expect(screen.getByText('Bolo')).toBeTruthy();
+    expect(screen.getByText('Bolo Chat')).toBeTruthy();
   });
 
   test('all visible tabs remain present after rotating to landscape', () => {
@@ -282,7 +283,7 @@ describe('Orientation changes', () => {
     rerender(<TabsLayout />);
 
     expect(screen.getByLabelText('Bolo')).toBeTruthy();
-    expect(screen.getByText('Bolo')).toBeTruthy();
+    expect(screen.getByText('Bolo Chat')).toBeTruthy();
   });
 
   test('all visible tabs remain present after rotating back to portrait', () => {
@@ -313,7 +314,42 @@ describe('Orientation changes', () => {
     rerender(<TabsLayout />);
 
     expect(screen.getByLabelText('Bolo')).toBeTruthy();
-    expect(screen.getByText('Bolo')).toBeTruthy();
+    expect(screen.getByText('Bolo Chat')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Centre-tab label treatment (matched to web)
+//
+// Web's centre tab reads "Bolo Chat" in the brand colour in BOTH states. The
+// mobile bar is 74 tall with the circle anchored at bottom 32, which leaves
+// only 22px of label room, so mobile carries the same words on ONE line at
+// 11px instead of web's two. These pin the parts that must not drift: the
+// wording, the always-brand colour, the single line, and the 11px floor.
+// ---------------------------------------------------------------------------
+
+describe('Centre tab label', () => {
+  function boloLabel() {
+    return screen.getByText('Bolo Chat');
+  }
+
+  test('reads "Bolo Chat" in the brand colour when unfocused', () => {
+    render(<TabsLayout />);
+    // The mocked tab bar renderer passes accessibilityState.selected = false.
+    expect(boloLabel()).toHaveStyle({ color: '#6C3FC5' });
+  });
+
+  test('is a single line at 11px — never wraps onto the circle', () => {
+    render(<TabsLayout />);
+    const label = boloLabel();
+    expect(label.props.numberOfLines).toBe(1);
+    expect(label).toHaveStyle({ fontSize: 11 });
+  });
+
+  test('the accessible name stays "Bolo" so VoiceOver is unchanged', () => {
+    render(<TabsLayout />);
+    expect(screen.getByLabelText('Bolo')).toBeTruthy();
+    expect(screen.queryByLabelText('Bolo Chat')).toBeNull();
   });
 });
 
