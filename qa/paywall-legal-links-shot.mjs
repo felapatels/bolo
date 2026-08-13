@@ -15,7 +15,12 @@ import { chromium } from "playwright-core";
 const EMAIL = process.env.E2E_EMAIL || "bolo-stall-probe+clerk_test@example.com";
 const EXPO = `https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`;
 const WEB = process.env.WEB_ORIGIN || `https://${process.env.REPLIT_DEV_DOMAIN}`;
-const LEGAL_ORIGIN = process.env.LEGAL_ORIGIN || "https://bolo-india.app";
+// The two exact, owner-verified URLs both paywalls must carry. Pinned here as
+// literals so the probe checks the real thing, not a domain-derived guess.
+const LEGAL_URLS = [
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+  "https://bolo-india.app/privacy",
+];
 const CLERK_SECRET = process.env.CLERK_SECRET_KEY;
 if (!CLERK_SECRET) throw new Error("CLERK_SECRET_KEY is required");
 
@@ -97,9 +102,9 @@ for (const name of ["Terms of Use", "Privacy Policy"]) {
 await page.screenshot({ path: "shots/paywall-web-legal-links.png", fullPage: true });
 
 // --- the URLs themselves ----------------------------------------------------
-for (const path of ["/terms", "/privacy"]) {
-  const res = await fetch(`${LEGAL_ORIGIN}${path}`, { redirect: "follow" });
-  console.log(`  ${LEGAL_ORIGIN}${path} -> ${res.status} (final ${res.url})`);
+for (const url of LEGAL_URLS) {
+  const res = await fetch(url, { redirect: "follow" });
+  console.log(`  ${url} -> ${res.status} (final ${res.url})`);
 }
 
 await browser.close();

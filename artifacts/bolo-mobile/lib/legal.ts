@@ -1,9 +1,8 @@
 import * as WebBrowser from 'expo-web-browser';
 
-// The legal pages are hosted by the Bolo! web app at its public `/privacy` and
-// `/terms` routes. Most links into the web app are built from the domain the
-// build script injects (see scripts/build.js), which is the Replit dev domain
-// in development and whatever host the build environment resolved otherwise.
+// Most links into the web app are built from the domain the build script
+// injects (see scripts/build.js), which is the Replit dev domain in
+// development and whatever host the build environment resolved otherwise.
 const WEB_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
 
 // The two subscription-disclosure links are the exception, and they are NOT
@@ -17,13 +16,23 @@ const WEB_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
 // (in this workspace it resolves to the *.replit.dev dev domain). A build that
 // picked up the wrong host, or none at all, would ship links that disagree
 // with the filed URLs or lead nowhere. That is the rejection we are answering,
-// so these two are a hardcoded constant on purpose: no env var can move them.
-const LEGAL_DOMAIN = 'bolo-india.app';
+// so these two are hardcoded literals on purpose: no env var can move them.
+// They are the exact, owner-verified URLs — do not shorten them, redirect
+// them, or rebuild them from a domain constant.
 
-/** Pinned to the published domain. Never derived from the build environment. */
-export const TERMS_OF_USE_URL = `https://${LEGAL_DOMAIN}/terms`;
-/** Pinned to the published domain. Never derived from the build environment. */
-export const PRIVACY_POLICY_URL_ALWAYS = `https://${LEGAL_DOMAIN}/privacy`;
+/**
+ * Apple's Standard EULA — the Terms of Use this app actually subscribes under,
+ * which is why this is not the app's own `/terms` marketing page.
+ * Literal by design; must not depend on any build-time env var.
+ */
+export const TERMS_OF_USE_URL =
+  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+/**
+ * The published privacy policy. Literal by design; must not depend on any
+ * build-time env var. Safe to render unconditionally on the paywall.
+ */
+export const PRIVACY_POLICY_URL_ALWAYS = 'https://bolo-india.app/privacy';
 
 // Unchanged: the home screen only offers a privacy link when a domain was
 // injected, and a test pins that behaviour.
@@ -37,12 +46,12 @@ export async function openPrivacyPolicy(): Promise<void> {
   await WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
 }
 
-/** Opens the Terms of Use (EULA) filed with the store. */
+/** Opens Apple's Standard EULA (the Terms of Use) in an in-app browser. */
 export async function openTermsOfUse(): Promise<void> {
   await WebBrowser.openBrowserAsync(TERMS_OF_USE_URL);
 }
 
-/** Opens the privacy policy filed with the store. */
+/** Opens the published privacy policy in an in-app browser. */
 export async function openPrivacyPolicyAlways(): Promise<void> {
   await WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL_ALWAYS);
 }

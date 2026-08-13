@@ -145,8 +145,15 @@ beforeEach(() => {
   mockOpenBrowserAsync.mockClear();
 });
 
+// The two exact, owner-verified URLs. Pinned whole-string: a substitution (the
+// app's own /terms page, a shortener, a redirect, a dev domain) is the
+// rejection, so a pattern match would not be pinning anything that matters.
+const APPLE_STANDARD_EULA_URL =
+  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const PRIVACY_POLICY_URL = 'https://bolo-india.app/privacy';
+
 describe('paywall subscription disclosure links', () => {
-  test('shows a tappable Terms of Use link that opens the hosted terms', () => {
+  test("shows a tappable Terms of Use link that opens Apple's Standard EULA", () => {
     render(<PaywallScreen />);
 
     const terms = screen.getByLabelText('Terms of Use');
@@ -154,10 +161,10 @@ describe('paywall subscription disclosure links', () => {
 
     fireEvent.press(terms);
     expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
-    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe('https://bolo-india.app/terms');
+    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe(APPLE_STANDARD_EULA_URL);
   });
 
-  test('shows a tappable Privacy Policy link that opens the hosted policy', () => {
+  test('shows a tappable Privacy Policy link that opens the published policy', () => {
     render(<PaywallScreen />);
 
     const privacy = screen.getByLabelText('Privacy Policy');
@@ -165,17 +172,25 @@ describe('paywall subscription disclosure links', () => {
 
     fireEvent.press(privacy);
     expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
-    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe('https://bolo-india.app/privacy');
+    expect(mockOpenBrowserAsync.mock.calls[0][0]).toBe(PRIVACY_POLICY_URL);
   });
 
-  test('both links render without a domain injected at build time', () => {
+  test('both links use the exact URLs with no domain injected at build time', () => {
     // EXPO_PUBLIC_DOMAIN is absent in this environment, which is exactly the
-    // build that shipped dead links. The pinned domain keeps them real.
+    // build that shipped unreliable links. Both URLs are hardcoded literals,
+    // so they are byte-identical in every build.
     expect(process.env.EXPO_PUBLIC_DOMAIN).toBeUndefined();
     render(<PaywallScreen />);
 
     expect(screen.getByText('Terms of Use')).toBeOnTheScreen();
     expect(screen.getByText('Privacy Policy')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByLabelText('Terms of Use'));
+    fireEvent.press(screen.getByLabelText('Privacy Policy'));
+    expect(mockOpenBrowserAsync.mock.calls.map((c) => c[0])).toEqual([
+      APPLE_STANDARD_EULA_URL,
+      PRIVACY_POLICY_URL,
+    ]);
   });
 
   test('the links sit above the purchase button, not below it', () => {
@@ -205,11 +220,11 @@ describe('paywall subscription disclosure links', () => {
   });
 });
 
-// The two disclosure URLs are filed with App Store Connect, so they must be
-// the published ones no matter what host the build environment resolved.
-// scripts/build.js injects REPLIT_INTERNAL_APP_DOMAIN / REPLIT_DEV_DOMAIN /
-// EXPO_PUBLIC_DOMAIN, which in this workspace is a *.replit.dev domain.
-describe('legal URLs are pinned to the published domain', () => {
+// The two disclosure URLs are the exact ones App Review checks, so they must
+// survive whatever host the build environment resolved. scripts/build.js
+// injects REPLIT_INTERNAL_APP_DOMAIN / REPLIT_DEV_DOMAIN / EXPO_PUBLIC_DOMAIN,
+// which in this workspace is a *.replit.dev domain.
+describe('legal URLs are pinned literals, not build-time domains', () => {
   const original = process.env.EXPO_PUBLIC_DOMAIN;
   afterEach(() => {
     if (original === undefined) delete process.env.EXPO_PUBLIC_DOMAIN;
@@ -227,15 +242,15 @@ describe('legal URLs are pinned to the published domain', () => {
   test('with no domain injected', () => {
     delete process.env.EXPO_PUBLIC_DOMAIN;
     const legal = loadLegal();
-    expect(legal.TERMS_OF_USE_URL).toBe('https://bolo-india.app/terms');
-    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe('https://bolo-india.app/privacy');
+    expect(legal.TERMS_OF_USE_URL).toBe(APPLE_STANDARD_EULA_URL);
+    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe(PRIVACY_POLICY_URL);
   });
 
-  test('with a different domain injected', () => {
+  test('with a build host injected', () => {
     process.env.EXPO_PUBLIC_DOMAIN = 'some-build-host.replit.dev';
     const legal = loadLegal();
-    expect(legal.TERMS_OF_USE_URL).toBe('https://bolo-india.app/terms');
-    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe('https://bolo-india.app/privacy');
+    expect(legal.TERMS_OF_USE_URL).toBe(APPLE_STANDARD_EULA_URL);
+    expect(legal.PRIVACY_POLICY_URL_ALWAYS).toBe(PRIVACY_POLICY_URL);
   });
 
   test('the other uses of the injected domain are left alone', () => {

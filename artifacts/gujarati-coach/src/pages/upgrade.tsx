@@ -34,6 +34,22 @@ import {
 // checkout charges, so this paywall can never quote a stale amount.
 import { usePricing, type SelectableTier, type TierPrice } from "@/lib/pricing";
 
+// App Review, Guideline 3.1.2(c): the purchase flow must link the Terms of Use
+// (EULA) and the privacy policy. These are the two exact, owner-verified URLs,
+// identical to the pair the mobile paywall hardcodes in lib/legal.ts. They are
+// absolute literals on purpose: the internal /terms and /privacy routes are not
+// the EULA this app subscribes under, and a domain-derived URL is what made the
+// earlier links unreliable. Do not shorten, redirect or re-derive them.
+// App Review, Guideline 3.1.2(c): the purchase flow must link the Terms of Use
+// (EULA) and the privacy policy. These are the two exact, owner-verified URLs,
+// identical to the pair the mobile paywall hardcodes in lib/legal.ts. They are
+// absolute literals on purpose: the internal /terms and /privacy routes are not
+// the EULA this app subscribes under, and a domain-derived URL is what made the
+// earlier links unreliable. Do not shorten, redirect or re-derive them.
+const TERMS_OF_USE_URL =
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+const PRIVACY_POLICY_URL = "https://bolo-india.app/privacy";
+
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
 const ALL_ACCESS_BENEFITS = [
@@ -390,15 +406,29 @@ function FinePrint({
           Cancel anytime before the trial ends and you won't be charged.
         </p>
       )}
+      {/* App Review, Guideline 3.1.2(c): the purchase flow must link the Terms
+          of Use (EULA) and the privacy policy. These are the two exact,
+          owner-verified absolute URLs — the same pair the mobile paywall
+          hardcodes — never internal routes, shorteners or redirects. */}
       <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
         By subscribing you agree to our{" "}
-        <Link href="/terms" className="font-bold text-primary hover:underline">
+        <a
+          href={TERMS_OF_USE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold text-primary underline hover:underline"
+        >
           Terms of Use
-        </Link>{" "}
+        </a>{" "}
         and{" "}
-        <Link href="/privacy" className="font-bold text-primary hover:underline">
+        <a
+          href={PRIVACY_POLICY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold text-primary underline hover:underline"
+        >
           Privacy Policy
-        </Link>
+        </a>
         .
       </p>
     </>

@@ -121,6 +121,13 @@ describe("Paywall plan preselection", () => {
 // App Review, Guideline 3.1.2(c): the purchase flow must link the Terms of Use
 // (EULA) and the privacy policy. The rejection was against the iOS build, but
 // the web paywall carries the same obligation and the same wording.
+// Both hrefs are pinned whole-string: these are the two exact, owner-verified
+// URLs, and a substitution (an internal route, a shortener, a redirect) is the
+// rejection.
+const APPLE_STANDARD_EULA_URL =
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+const PRIVACY_POLICY_URL = "https://bolo-india.app/privacy";
+
 describe("Subscription disclosure links", () => {
   test("links the Terms of Use and the Privacy Policy from the purchase flow", () => {
     renderAt("/upgrade");
@@ -128,8 +135,13 @@ describe("Subscription disclosure links", () => {
     const terms = screen.getByRole("link", { name: "Terms of Use" });
     const privacy = screen.getByRole("link", { name: "Privacy Policy" });
 
-    expect(terms).toHaveAttribute("href", "/terms");
-    expect(privacy).toHaveAttribute("href", "/privacy");
+    expect(terms).toHaveAttribute("href", APPLE_STANDARD_EULA_URL);
+    expect(privacy).toHaveAttribute("href", PRIVACY_POLICY_URL);
+    // External, and opened without handing the opener to the target page.
+    expect(terms).toHaveAttribute("target", "_blank");
+    expect(privacy).toHaveAttribute("target", "_blank");
+    expect(terms).toHaveAttribute("rel", "noopener noreferrer");
+    expect(privacy).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   test("the links are present on the Family plan too", () => {
