@@ -30,7 +30,7 @@ export default function Progress() {
   if (!summary) return null;
 
   return (
-    <div className="min-h-[100dvh] pb-28 lg:pb-12 bg-background animate-content-enter">
+    <div className="min-h-[100dvh] pb-nav lg:pb-12 bg-background animate-content-enter">
       <header className="mx-auto w-full max-w-6xl pt-6 px-6 pb-6 text-center flex flex-col items-center lg:pt-6">
         <Mascot pose="cheer" size={104} idle="cheer" className="mb-2" />
         <h1 className="text-3xl font-extrabold text-foreground mb-1 lg:text-4xl">Your Progress</h1>

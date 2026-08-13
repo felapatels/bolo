@@ -162,7 +162,7 @@ export default function OutfitsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6" data-testid="outfit-shop">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-6 lg:pb-12" data-testid="outfit-shop">
       <Link
         href="/app"
         className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"

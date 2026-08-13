@@ -13,11 +13,12 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      // Bottom-center on mobile, sitting above the fixed BottomNav (XP strip
-      // + h-14 icon row, about 5.5rem) plus the device safe area; bottom-right
-      // on desktop (lg:, where the BottomNav hides). z-[100] keeps toasts
-      // above the wallet sheet overlay (z-50).
-      'fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[100] flex max-h-screen w-full max-w-[420px] -translate-x-1/2 flex-col gap-3 p-4 lg:bottom-0 lg:left-auto lg:right-0 lg:translate-x-0',
+      // Bottom-center on mobile, sitting above the floating BottomNav pill
+      // (14px bottom gap + 106px pill = 120px, rounded up to 8.25rem for a
+      // breathing gap) plus the device safe area; bottom-right on desktop
+      // (lg:, where the BottomNav hides). z-[100] keeps toasts above the
+      // wallet sheet overlay (z-50).
+      'fixed bottom-[calc(8.25rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[100] flex max-h-screen w-full max-w-[420px] -translate-x-1/2 flex-col gap-3 p-4 lg:bottom-0 lg:left-auto lg:right-0 lg:translate-x-0',
       className,
     )}
     {...props}

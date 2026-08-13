@@ -77,7 +77,7 @@ function SetupScreen({
   const chosen = selectedId ?? categories[0]?.id ?? null;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background pb-28 lg:pb-8">
+    <div className="flex min-h-[100dvh] flex-col bg-background pb-nav lg:pb-8">
       <div className="flex items-center gap-3 border-b border-border px-4 py-4">
         <Link
           href="/games"

@@ -76,7 +76,7 @@ export default function Phrasebook() {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-28 lg:pb-12">
+    <div className="min-h-[100dvh] bg-background pb-nav lg:pb-12">
       <header className="mx-auto w-full max-w-6xl px-6 pt-8 lg:px-10">
         <Link
           href="/app"

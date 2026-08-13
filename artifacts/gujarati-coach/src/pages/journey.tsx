@@ -1466,8 +1466,8 @@ export default function Journey() {
         </div>
       </header>
 
-      {/* pb-28 below lg clears the fixed BottomNav now mounted by AppShell */}
-      <main className="mx-auto w-full max-w-2xl flex-1 pb-28 lg:pb-14">
+      {/* pb-nav below lg clears the floating BottomNav pill mounted by AppShell */}
+      <main className="mx-auto w-full max-w-2xl flex-1 pb-nav lg:pb-14">
         {access === "exhausted" && (
           <div className="mx-3 mt-4 rounded-2xl border-2 p-4" style={{ borderColor: line.accent }}>
             <p className="text-sm font-bold text-foreground">

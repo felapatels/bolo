@@ -102,7 +102,7 @@ function Avatar({
 export default function Friends() {
   const isDesktop = useIsDesktop();
   return (
-    <div className="min-h-[100dvh] pb-28 lg:pb-12 bg-background">
+    <div className="min-h-[100dvh] pb-nav lg:pb-12 bg-background">
       <header className="relative mx-auto w-full max-w-5xl pt-6 px-6 pb-4 text-center flex flex-col items-center lg:pt-6">
         {/* Standard back affordance — same treatment as Account/Subscription. */}
         <Link

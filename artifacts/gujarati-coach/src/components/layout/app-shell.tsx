@@ -33,8 +33,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           forwards) becomes a containing block and turns the nav's
           `position: fixed` into container-relative, which made it scroll with
           page content. Pages under this shell must NOT mount their own
-          BottomNav, and need enough bottom padding (~pb-28) so the last
-          element clears it. */}
+          BottomNav, and need the shared `pb-nav` clearance (bottom gap + the
+          floating pill + breathing room) so the last element clears it. */}
       <BottomNav />
     </div>
   );

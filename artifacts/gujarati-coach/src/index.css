@@ -212,6 +212,31 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Floating bottom-nav pill (below lg only — the nav itself is lg:hidden).
+     Mirrors the mobile app's tab bar exactly: 14px side insets, 32px corner
+     radius, and a lift off the bottom edge equal to the device safe-area
+     inset with mobile's 14px minimum gap as the floor, so the pill clears the
+     iOS home indicator instead of being clipped by it. Shadow matches
+     mobile's (#0F172A at 16%, 20 blur, 10 down). */
+  .nav-float {
+    left: 14px;
+    right: 14px;
+    bottom: max(env(safe-area-inset-bottom, 0px), 14px);
+    border-radius: 32px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
+  }
+
+  /* Bottom clearance for the pages that mount the floating nav (the AppShell
+     routes). Web's single equivalent of mobile's TAB_BAR_CLEARANCE: bottom
+     gap (14) + pill height (32px XP strip + 74px icon row) + breathing room
+     (18) = 138px, on top of the safe-area inset. Scoped below lg so pages can
+     keep their own `lg:pb-*` desktop padding without a specificity fight. */
+  @media (max-width: 1023.98px) {
+    .pb-nav {
+      padding-bottom: calc(138px + env(safe-area-inset-bottom, 0px));
+    }
+  }
 }
 
 @keyframes content-enter {

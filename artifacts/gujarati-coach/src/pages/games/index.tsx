@@ -298,7 +298,7 @@ export default function GamesPage() {
   const featuredGame = resolveFeaturedGame();
 
   return (
-    <div className="min-h-[100dvh] bg-background pb-28 lg:pb-8">
+    <div className="min-h-[100dvh] bg-background pb-nav lg:pb-8">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b-2 border-border bg-background/85 backdrop-blur-md dark:bg-background/80">
         <div className="mx-auto flex max-w-2xl items-center gap-4 px-4 py-4 lg:px-6">

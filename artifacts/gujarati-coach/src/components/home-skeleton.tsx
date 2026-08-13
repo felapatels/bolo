@@ -23,7 +23,7 @@ export function HomeSkeleton() {
       data-testid="home-skeleton"
       role="status"
       aria-label="Loading your home"
-      className="min-h-[100dvh] pb-28 lg:pb-12"
+      className="min-h-[100dvh] pb-nav lg:pb-12"
     >
       <header className="mx-auto w-full max-w-6xl px-6 pt-6 pb-2 lg:px-10 lg:pt-6">
         {/* Greeting row: mascot circle + two text lines. */}
