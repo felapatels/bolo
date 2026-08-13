@@ -13,8 +13,16 @@
  *    distinct voice ID in the map.  Asserts:
  *      - No 402 / 400 error (voice is available on the current plan)
  *      - Returned buffer is non-empty (synthesis actually produced audio)
- *    Skipped automatically when ELEVENLABS_API_KEY is absent (CI without the
- *    key is fine; the key is expected on the dev repl where this matters).
+ *
+ *    These live-network tests are OPT-IN: they are always registered (so the
+ *    suite's test count never changes) but skip with a reason unless
+ *    RUN_ELEVENLABS_LIVE_TESTS is set to a truthy value.  They stay off by
+ *    default because the ElevenLabs provider is dormant here
+ *    (USE_ELEVENLABS_TTS=false) and the stored credential is a key ID rather
+ *    than an `sk_` key, so a live call fails with status 400 for reasons that
+ *    have nothing to do with this code.  Run them deliberately with:
+ *
+ *      RUN_ELEVENLABS_LIVE_TESTS=1 pnpm --filter @workspace/api-server run test
  *
  *    Character cost per run: ≤ 10 chars × 6 voices = ≤ 60 characters total.
  */
@@ -252,8 +260,8 @@ test("getLanguageIdForCode: every mapped code returns a non-undefined language_i
 // usage low.  The test calls the real ElevenLabs API and asserts a non-empty
 // MP3 buffer is returned with no 402/400 error.
 //
-// This block is skipped when ELEVENLABS_API_KEY is not set so CI without the
-// key stays green.
+// These live tests are opt-in (RUN_ELEVENLABS_LIVE_TESTS) and are reported as
+// skipped-with-a-reason rather than dropped, so the suite tally is stable.
 
 // Post-#643 all languages use Laura (DEFAULT_MULTILINGUAL_VOICE_ID).
 // A single smoke case is enough to verify the voice is available on the plan.
@@ -312,12 +320,27 @@ test("smoke test coverage: every mapped language code is represented in a smoke 
   );
 });
 
-if (!process.env.ELEVENLABS_API_KEY) {
-  // eslint-disable-next-line no-console
-  console.log(
-    "⚠  ELEVENLABS_API_KEY not set — skipping ElevenLabs voice smoke tests.",
-  );
-} else {
+// ─── Live-network opt-in gate ────────────────────────────────────────────────
+//
+// The two live tests below are ALWAYS registered so they keep their place in
+// the node:test tally; they carry a per-test `skip` reason instead of being
+// wrapped in a conditional block (a test that silently disappears from the
+// count is a worse failure mode than a visible skip).
+//
+// Two separately worded reasons so "you did not opt in" is distinguishable
+// from "you opted in but there is no key to call with".
+const RUN_ELEVENLABS_LIVE_TESTS = Boolean(
+  process.env.RUN_ELEVENLABS_LIVE_TESTS &&
+    !/^(0|false|no|off)$/i.test(process.env.RUN_ELEVENLABS_LIVE_TESTS.trim()),
+);
+
+const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
+  ? "live ElevenLabs network test — opt in with RUN_ELEVENLABS_LIVE_TESTS=1"
+  : !process.env.ELEVENLABS_API_KEY
+    ? "RUN_ELEVENLABS_LIVE_TESTS is set but ELEVENLABS_API_KEY is absent — nothing to authenticate with"
+    : false;
+
+{
   // ─── Integration: textToSpeechElevenLabsStream language_id smoke test ──────
   //
   // Verifies that the streaming synthesis path passes language_id correctly to
@@ -333,6 +356,7 @@ if (!process.env.ELEVENLABS_API_KEY) {
 
   test(
     "textToSpeechElevenLabsStream: Hindi (hi) with language_id streams a valid MP3",
+    { skip: liveSkipReason },
     async () => {
       const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // Laura — universal Auto voice
       const hiPhrase = "नमस्ते"; // "Namaste" — 6 chars
@@ -420,6 +444,7 @@ if (!process.env.ELEVENLABS_API_KEY) {
 
     test(
       `ElevenLabs voice smoke: "${voiceName}" (${voiceId}) synthesises real audio`,
+      { skip: liveSkipReason },
       async () => {
         let buffer: Buffer;
         try {

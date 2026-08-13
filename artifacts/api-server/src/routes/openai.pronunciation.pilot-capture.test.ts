@@ -2,9 +2,14 @@
 //
 // Three tests exercise teeAudioToPilot directly (no HTTP server needed):
 //
-//  1. PILOT_CAPTURE_USER_IDS unset (empty set) → unlisted userId → S3 send
-//     is never called.  This is the safety property: the feature is fully
-//     inert when the env var is absent.
+//  1. A userId that is NOT in the allowlist → S3 send is never called.  This
+//     is the safety property: the tee is inert for everyone who is not listed.
+//     NOTE: deliberately does NOT assert pilotCaptureUserIds.size === 0 — in
+//     this workspace PILOT_CAPTURE_USER_IDS is set via .replit, so the set may
+//     be pre-populated at module init and a size assertion would test the
+//     ambient environment rather than the behaviour. The test guarantees the
+//     fixture id is absent from the set instead (same reasoning as the header
+//     of src/lib/nocatchDiagnostics.test.ts).
 //
 //  2. userId present in PILOT_CAPTURE_USER_IDS → S3 send called exactly twice
 //     (clip upload + sidecar upload), with the correct key prefixes and sidecar
@@ -94,13 +99,21 @@ test("pilot-capture: unlisted userId → S3 PutObjectCommand never called", asyn
   // Import AFTER mock.module registration so the mock is picked up.
   const { teeAudioToPilot, pilotCaptureUserIds } = await import("../lib/pilotCapture");
 
-  // Confirm the set is empty (PILOT_CAPTURE_USER_IDS not set at module init).
-  assert.equal(pilotCaptureUserIds.size, 0, "set must be empty when env var is absent");
+  // The property under test is "an id that is NOT allowlisted writes nothing",
+  // which holds whether or not the set is pre-populated from the environment.
+  // Guarantee the fixture id is absent rather than asserting the set is empty
+  // (see the header note: PILOT_CAPTURE_USER_IDS is set via .replit here).
+  const unlistedUserId = "user_unlisted";
+  pilotCaptureUserIds.delete(unlistedUserId);
+  assert.ok(
+    !pilotCaptureUserIds.has(unlistedUserId),
+    "fixture id must not be in the allowlist for this test to mean anything",
+  );
 
   resetSendState();
 
   await teeAudioToPilot(Buffer.from("fake-audio"), {
-    userId: "user_unlisted",
+    userId: unlistedUserId,
     languageCode: "gu",
     phraseId: 42,
     targetNative: "કેમ છો",
