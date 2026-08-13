@@ -119,13 +119,19 @@ export function reportAuthIncompleteState(
   context: string,
   status: string,
   factorStrategies: string[],
+  /**
+   * Non-PII detail about WHERE the flow stopped: which phase of an SSO
+   * transfer, the verification statuses, the sign-up fields still missing.
+   * The reviewer's rejected session was unreadable without these.
+   */
+  extra?: Record<string, unknown>,
 ): void {
   if (!sentryEnabled) return;
   Sentry.captureException(
     new AuthIncompleteStateError(context, status, factorStrategies),
     {
       tags: { authContext: context, signInStatus: status },
-      extra: { authContext: context, status, factorStrategies },
+      extra: { authContext: context, status, factorStrategies, ...extra },
     },
   );
 }

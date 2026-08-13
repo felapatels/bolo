@@ -9,13 +9,10 @@ import {
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
-import { useSSO } from '@clerk/expo';
+import { useClerk, useSSO } from '@clerk/expo';
 import { useRouter } from 'expo-router';
-import {
-  authErrorMessage,
-  reportAuthError,
-  reportAuthIncompleteState,
-} from '@/lib/authErrors';
+import { authErrorMessage } from '@/lib/authErrors';
+import { completeSsoFlow, reportSsoError } from '@/lib/ssoAuth';
 import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -25,6 +22,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 export function GoogleAuthButton() {
   const { startSSOFlow } = useSSO();
+  const { setActive, client } = useClerk();
   const router = useRouter();
   const colors = useColors();
   const [loading, setLoading] = useState(false);
@@ -44,48 +42,32 @@ export function GoogleAuthButton() {
     setLoading(true);
     setError(null);
     try {
-      const { createdSessionId, setActive, signIn, signUp } =
-        await startSSOFlow({
-          strategy: 'oauth_google',
-          redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
-        });
+      // Every outcome is decided in lib/ssoAuth: an active session (including
+      // a first-time user transferred into a sign-up, and a session the
+      // handshake left on the Clerk client), a dismissal, or a described stop.
+      const outcome = await completeSsoFlow({
+        strategy: 'oauth_google',
+        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
+        startSSOFlow,
+        clerkSetActive: setActive,
+        client,
+        navigate: async () => {
+          router.replace('/(app)/(tabs)');
+        },
+      });
 
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async () => {
-            router.replace('/(app)/(tabs)');
-          },
-        });
-      } else {
-        // OAuth returned without a session. If Clerk progressed to a
-        // resource with a status, surface + report that status; a bare
-        // return with no resources is most likely the user dismissing the
-        // browser (visible message, no Sentry noise).
-        const status = signIn?.status ?? signUp?.status ?? null;
-        if (status) {
-          const strategies = (signIn?.supportedFirstFactors ?? []).map(
-            (f) => f.strategy,
-          );
-          setError(
-            `Google sign-in did not complete (status: ${status}${
-              strategies.length > 0
-                ? `; available sign-in methods: ${strategies.join(', ')}`
-                : ''
-            }). Please try again.`,
-          );
-          reportAuthIncompleteState('sso.oauth_google', status, strategies);
-        } else {
-          setError('Google sign-in did not finish. Please try again.');
-        }
+      if (outcome.kind === 'incomplete') {
+        setError(outcome.message);
+      } else if (outcome.kind === 'dismissed') {
+        setError('Google sign-in did not finish. Please try again.');
       }
     } catch (err) {
-      reportAuthError('sso.oauth_google', err);
+      reportSsoError('oauth_google', err);
       setError(`Google sign-in failed: ${authErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow, router]);
+  }, [startSSOFlow, setActive, client, router]);
 
   return (
     <>
