@@ -26,6 +26,7 @@ import {
   type EarnedBadge
 } from "@workspace/api-client-react";
 import { ApiError } from "@workspace/api-client-react";
+import { applyOptimisticTodayXp } from "@workspace/train-class";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Volume2, ArrowRight, Check, ChevronLeft, ChevronRight, RefreshCcw, Headphones, Settings, Sparkles } from "lucide-react";
@@ -1362,12 +1363,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           setSessionChai((c) => c + attemptRes.chaiEarned!);
         }
 
-        // Optimistic: increment todayXp immediately so the XpCounter reacts
-        // before the background refetch resolves.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        queryClient.setQueryData(getGetProgressSummaryQueryKey({ lang: activeLang }), (old: any) =>
-          old ? { ...old, todayXp: (old.todayXp ?? 0) + evalRes.xpAwarded } : old,
-        );
+        // Optimistic: increment todayXp immediately so the XP strip (and the
+        // train class derived from it) reacts before the background refetch
+        // resolves. THE one writer, shared with both mobile call sites — see
+        // applyOptimisticTodayXp in @workspace/train-class.
+        applyOptimisticTodayXp(queryClient, activeLang, evalRes.xpAwarded);
         // Invalidate queries so progress updates
         queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListRecentAttemptsQueryKey({ lang: activeLang, limit: 12 }) });

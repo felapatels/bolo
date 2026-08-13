@@ -26,6 +26,17 @@ type LanguageContextValue = {
   languages: Language[];
   activeLang: string;
   activeLanguage: Language | undefined;
+  /**
+   * The learner's STORED IANA time zone, as the account carries it — null
+   * until the account loads, or when it has never been recorded.
+   *
+   * Exposed here because this provider already holds the account query, so
+   * day-boundary consumers (the XP strip's midnight reset) get it without a
+   * second `useGetAccount` call. Consumers must treat absence as "fall back to
+   * the device zone" (see `resolveLearnerTimeZone` in @workspace/train-class),
+   * never as "no zone".
+   */
+  timezone: string | null;
   setActiveLang: (code: string) => void;
   isLoading: boolean;
 };
@@ -146,6 +157,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     languages,
     activeLang,
     activeLanguage,
+    timezone: account.data?.preferences.learning.timezone ?? null,
     setActiveLang,
     isLoading,
   };

@@ -27,6 +27,9 @@
     },
     {
       "path": "../../lib/referral-link"
+    },
+    {
+      "path": "../../lib/train-class"
     }
   ]
 }

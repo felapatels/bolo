@@ -16,6 +16,9 @@
       "path": "./lib/referral-link"
     },
     {
+      "path": "./lib/train-class"
+    },
+    {
       "path": "./lib/integrations-openai-ai-server"
     },
     {

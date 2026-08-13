@@ -73,6 +73,7 @@ import {
   type EarnedBadge,
 } from '@workspace/api-client-react';
 import { ApiError } from '@workspace/api-client-react';
+import { applyOptimisticTodayXp } from '@workspace/train-class';
 import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -1656,12 +1657,11 @@ export default function PracticeScreen() {
         const attempt = await createAttempt.mutateAsync({
           data: { evaluationToken: res.evaluationToken },
         });
-        // Optimistic: increment todayXp immediately so the XpCounter reacts
-        // before the background refetch resolves.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        queryClient.setQueryData(getGetProgressSummaryQueryKey({ lang: activeLang }), (old: any) =>
-          old ? { ...old, todayXp: (old.todayXp ?? 0) + res.xpAwarded } : old,
-        );
+        // Optimistic: increment todayXp immediately so the XP strip (and the
+        // train class derived from it) reacts before the background refetch
+        // resolves. THE one writer, shared with web practice and review —
+        // see applyOptimisticTodayXp in @workspace/train-class.
+        applyOptimisticTodayXp(queryClient, activeLang, res.xpAwarded);
         queryClient.invalidateQueries({
           queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
         });
