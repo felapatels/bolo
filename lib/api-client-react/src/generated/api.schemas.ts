@@ -770,6 +770,34 @@ export interface SpeechResult {
 }
 
 /**
+ * Which moment of the encounter this line belongs to: greeting on open, gift only when the arrival actually granted Chai, farewell on every close path.
+ */
+export type ChachaLineKey = typeof ChachaLineKey[keyof typeof ChachaLineKey];
+
+
+export const ChachaLineKey = {
+  greeting: 'greeting',
+  gift: 'gift',
+  farewell: 'farewell',
+} as const;
+
+export interface ChachaLine {
+  /** Which moment of the encounter this line belongs to: greeting on open, gift only when the arrival actually granted Chai, farewell on every close path. */
+  key: ChachaLineKey;
+  /** What he says, fixed romanized Hindi, identical for every learner. */
+  text: string;
+  /** The on-screen English gloss shown while the line plays. */
+  english: string;
+  audioBase64: string;
+  format: string;
+}
+
+export interface ChachaLinesResult {
+  /** His lines in encounter order. A line whose synthesis failed is omitted, so callers must look lines up by key rather than index. */
+  lines: ChachaLine[];
+}
+
+/**
  * TEMPORARY (pilot capture mode): the capture protocol label for this attempt. Recorded in the R2 tee sidecar for allowlisted capture users; ignored for everyone else. Remove with capture mode once the calibration corpus is complete.
  */
 export type PronunciationInputCaptureLabel = typeof PronunciationInputCaptureLabel[keyof typeof PronunciationInputCaptureLabel];

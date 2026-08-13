@@ -1332,6 +1332,21 @@ export const DiscardLastPilotCaptureResponse = zod.object({
 
 
 /**
+ * Returns the greeting, gift and farewell lines Chacha-ji speaks at his roadside stall, each with its text, English gloss and pre-synthesized audio in his own voice. The text is fixed romanized Hindi for every learner regardless of journey language -- he is the character speaking, not content to learn -- so this endpoint takes no parameters. Read-only and deliberately separate from POST /journey/chacha-encounters: nothing about the Chai grant, the balance or the celebration may be delayed or failed by audio. Clips are pre-warmed at server startup; a cache miss synthesizes on demand. A line whose synthesis fails is omitted rather than failing the response.
+ * @summary Chacha-ji's three fixed spoken lines
+ */
+export const GetChachaLinesResponse = zod.object({
+  "lines": zod.array(zod.object({
+  "key": zod.enum(['greeting', 'gift', 'farewell']).describe('Which moment of the encounter this line belongs to: greeting on open, gift only when the arrival actually granted Chai, farewell on every close path.'),
+  "text": zod.string().describe('What he says, fixed romanized Hindi, identical for every learner.'),
+  "english": zod.string().describe('The on-screen English gloss shown while the line plays.'),
+  "audioBase64": zod.string(),
+  "format": zod.string()
+})).describe('His lines in encounter order. A line whose synthesis failed is omitted, so callers must look lines up by key rather than index.')
+})
+
+
+/**
  * @summary Generate a fresh practice phrase with AI
  */
 export const generatePhraseBodyDifficultyMax = 3;

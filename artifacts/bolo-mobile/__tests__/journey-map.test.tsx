@@ -174,6 +174,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useRecordChachaEncounter: () => ({ mutate: mockRecordChachaEncounter, isPending: false }),
   useBuyOutfit: () => ({ mutate: jest.fn(), isPending: false }),
   useSynthesizeSpeech: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  // Chacha-ji's own spoken lines (Task #1095). His dialog lives in the
+  // journey tree, so this full-replacement factory has to declare them.
+  useGetChachaLines: () => ({ data: undefined }),
+  getGetChachaLinesQueryKey: () => ['/openai/chacha-lines'],
   ApiError: class ApiError extends Error {
     status: number;
     data: unknown;

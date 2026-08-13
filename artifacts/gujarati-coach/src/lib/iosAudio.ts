@@ -35,6 +35,7 @@ let coachEl: HTMLAudioElement | null = null;
 let meaningEl: HTMLAudioElement | null = null;
 let bandEl: HTMLAudioElement | null = null;
 let feedbackEl: HTMLAudioElement | null = null;
+let chachaEl: HTMLAudioElement | null = null;
 
 export function getCoachAudioElement(): HTMLAudioElement {
   if (!coachEl) coachEl = new Audio();
@@ -56,6 +57,21 @@ export function getFeedbackAudioElement(): HTMLAudioElement {
   return feedbackEl;
 }
 
+/**
+ * Chacha-ji's own spoken lines at the roadside stall (greeting, gift,
+ * farewell). His own element, not the coach one: the two can be in flight in
+ * the same modal (his greeting while the learner taps the phrase card), and
+ * sharing an element would cut one off mid-word.
+ *
+ * Module scope is also what lets his farewell finish after the dialog has
+ * closed and the route has changed — an element owned by the dialog would be
+ * torn down with it.
+ */
+export function getChachaAudioElement(): HTMLAudioElement {
+  if (!chachaEl) chachaEl = new Audio();
+  return chachaEl;
+}
+
 // Test-only: the singletons otherwise persist across tests within a file,
 // which would leak instances across each test's Audio mock.
 export function __resetBlessedAudioElementsForTests(): void {
@@ -63,6 +79,7 @@ export function __resetBlessedAudioElementsForTests(): void {
   meaningEl = null;
   bandEl = null;
   feedbackEl = null;
+  chachaEl = null;
 }
 
 export function blessAudioPlayback(): void {
@@ -71,6 +88,7 @@ export function blessAudioPlayback(): void {
     getMeaningAudioElement(),
     getBandAudioElement(),
     getFeedbackAudioElement(),
+    getChachaAudioElement(),
   ];
   for (const el of targets) {
     try {

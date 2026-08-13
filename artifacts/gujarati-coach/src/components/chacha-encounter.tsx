@@ -10,7 +10,10 @@ import {
 import {
   useRecordChachaEncounter,
   useBuyOutfit,
+  useGetChachaLines,
+  getGetChachaLinesQueryKey,
   getGetTokensQueryKey,
+  type ChachaLine,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChaiGlyph, STALL_ASSETS, STALL_TITLE } from "@/components/chai-stall";
@@ -19,6 +22,8 @@ import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { markChachaStopSeen } from "@/lib/quick-games";
 import { getCoachAudioElement, blessAudioPlayback } from "@/lib/iosAudio";
+import { speakChachaLine } from "@/lib/chachaVoice";
+import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { useSynthesizeSpeech } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Volume2 } from "lucide-react";
@@ -50,6 +55,60 @@ export function ChachaEncounterDialog({
   const [playing, setPlaying] = useState(false);
   const [playError, setPlayError] = useState(false);
 
+  // Chacha's own voice, gated by the master "does Bolo speak at all" switch —
+  // NOT by "Autoplay phrase" (bolo.silentMode). His lines are flavour dialogue,
+  // not a pronunciation reference: there is no recording to get out of the way
+  // of and no replay affordance, so a control labelled "Autoplay phrase" has no
+  // business silencing them. A learner who switched Bolo's voice off entirely
+  // must not suddenly hear a new one, so that gate does apply, and it suppresses
+  // the request as well as the playback. Read once per open so a mid-encounter
+  // toggle cannot cut him off mid-word.
+  const [voiceOn] = useState(() => loadCoachVoicePref());
+
+  // His three lines. Fired as the dialog opens, in PARALLEL with the arrival
+  // request and never chained behind it: nothing about the Chai grant, the
+  // balance or the celebration may wait on audio.
+  const chachaLines = useGetChachaLines({
+    query: {
+      queryKey: getGetChachaLinesQueryKey(),
+      enabled: open && voiceOn,
+      // Fixed text, fixed voice, server-cached: refetching buys nothing.
+      staleTime: Infinity,
+      retry: false,
+    },
+  });
+
+  const lineFor = (key: ChachaLine["key"]): ChachaLine | undefined =>
+    chachaLines.data?.lines.find((l) => l.key === key);
+
+  // The line currently being spoken, shown on screen while it plays.
+  const [spokenLine, setSpokenLine] = useState<{
+    text: string;
+    english: string;
+  } | null>(null);
+
+  // Each beat speaks at most once per encounter.
+  const saidRef = useRef<Record<string, boolean>>({});
+
+  const say = (key: ChachaLine["key"]) => {
+    if (!voiceOn || saidRef.current[key]) return;
+    const line = lineFor(key);
+    if (!line) return;
+    saidRef.current[key] = true;
+    speakChachaLine(
+      { audioBase64: line.audioBase64, format: line.format },
+      {
+        onStart: () => setSpokenLine({ text: line.text, english: line.english }),
+        // Only clear the caption if this line is still the one on screen; a
+        // later line may already have claimed it.
+        onEnd: () =>
+          setSpokenLine((cur) =>
+            cur && cur.text === line.text ? null : cur,
+          ),
+      },
+    );
+  };
+
   useEffect(() => {
     if (open && stationIndex != null && calledStationRef.current !== stationIndex) {
       calledStationRef.current = stationIndex;
@@ -75,16 +134,40 @@ export function ChachaEncounterDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stationIndex, activeLang]);
 
+  // Beat one: he greets on open, the moment his lines land. If they land
+  // late he still greets — the queue keeps the order, so the gift waits.
+  useEffect(() => {
+    if (!open) return;
+    say("greeting");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, chachaLines.data]);
+
+  // Beat two: the gift line ONLY when this arrival actually poured the Chai.
+  // A revisit to a station that has already paid gets greeting and farewell
+  // and nothing in between.
+  useEffect(() => {
+    if (!open || recordEncounter.data?.granted !== true) return;
+    say("gift");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, recordEncounter.data?.granted, chachaLines.data]);
+
   // Reset dialog state when closed
   useEffect(() => {
     if (!open) {
       setToastKey(null);
       calledStationRef.current = null;
+      saidRef.current = {};
+      setSpokenLine(null);
     }
   }, [open]);
 
+  // Beat three: he sees the learner off on every close path — the Thanks
+  // button, the Not today button, and dismissing the dialog. Queued before the
+  // close so it finishes over the closing dialog and the route change; the
+  // player is a module-scope singleton precisely so it survives both.
   const handleClose = () => {
     blessAudioPlayback();
+    say("farewell");
     onOpenChange(false);
     setLocation(firstItemHref);
   };
@@ -171,6 +254,22 @@ export function ChachaEncounterDialog({
             }}
           />
         </div>
+
+        {/* What he is saying right now, in step with his voice. Sits outside
+            the loaded/pending branches so his greeting is on screen while the
+            arrival is still in flight. */}
+        {spokenLine && (
+          <div
+            data-testid="chacha-spoken-line"
+            aria-live="polite"
+            className="flex flex-col gap-1 items-center text-center"
+          >
+            <p className="text-base font-semibold text-foreground italic">
+              {spokenLine.text}
+            </p>
+            <p className="text-sm text-muted-foreground">{spokenLine.english}</p>
+          </div>
+        )}
 
         {/* Content */}
         {isPending && (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { ChaiGlyph, ChaiStallVignette, STALL_TITLE } from '@/components/ChaiStall';
@@ -7,11 +7,16 @@ import { MilestoneToast } from '@/components/MilestoneToast';
 import { Confetti } from '@/components/Confetti';
 import {
   useBuyOutfit,
+  useGetChachaLines,
+  getGetChachaLinesQueryKey,
   useGetTokens,
   useSynthesizeSpeech,
   type ChachaEncounterResult,
+  type ChachaLine,
 } from '@workspace/api-client-react';
 import { playBase64Audio } from '@/lib/audio';
+import { speakChachaLine } from '@/lib/chachaVoice';
+import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -61,6 +66,97 @@ export function ChachaEncounterDialog({
     };
   }, [playbackStop]);
 
+  // Chacha's own voice, gated by the master "does Bolo speak at all" switch —
+  // NOT by "Autoplay phrase" (bolo.silentMode). His lines are flavour dialogue,
+  // not a pronunciation reference: there is no recording to get out of the way
+  // of and no replay affordance, so a control labelled "Autoplay phrase" has no
+  // business silencing them. A learner who switched Bolo's voice off entirely
+  // must not suddenly hear a new one, so that gate does apply, and it suppresses
+  // the request as well as the playback. Null until AsyncStorage answers; the
+  // request waits rather than firing against a guess.
+  const [voiceOn, setVoiceOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadCoachVoicePref().then((on) => {
+      if (alive) setVoiceOn(on);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // His three lines. Requested off the encounter, never in front of it: the
+  // Chai grant, the balance and the celebration have all already landed by the
+  // time this dialog exists, and nothing here can hold them up.
+  const chachaLines = useGetChachaLines({
+    query: {
+      queryKey: getGetChachaLinesQueryKey(),
+      enabled: encounter != null && voiceOn === true,
+      // Fixed text, fixed voice, server-cached: refetching buys nothing.
+      staleTime: Infinity,
+      retry: false,
+    },
+  });
+
+  // The line currently being spoken, shown on screen while it plays.
+  const [spokenLine, setSpokenLine] = useState<{ text: string; english: string } | null>(
+    null,
+  );
+
+  // Each beat speaks at most once per encounter.
+  const saidRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    if (encounter == null) {
+      saidRef.current = {};
+      setSpokenLine(null);
+    }
+  }, [encounter]);
+
+  const linesData = chachaLines.data;
+  const say = useCallback(
+    (key: ChachaLine['key']) => {
+      if (voiceOn !== true || saidRef.current[key]) return;
+      const line = linesData?.lines.find((l) => l.key === key);
+      if (!line) return;
+      saidRef.current[key] = true;
+      speakChachaLine(
+        { audioBase64: line.audioBase64, format: line.format },
+        {
+          onStart: () => setSpokenLine({ text: line.text, english: line.english }),
+          // Only clear the caption if this line is still the one on screen; a
+          // later line may already have claimed it.
+          onEnd: () => setSpokenLine((cur) => (cur && cur.text === line.text ? null : cur)),
+        },
+      );
+    },
+    [voiceOn, linesData],
+  );
+
+  // Beat one: he greets on open, the moment his lines land.
+  useEffect(() => {
+    if (encounter == null) return;
+    say('greeting');
+  }, [encounter, say]);
+
+  // Beat two: the gift line ONLY when this arrival actually poured the Chai.
+  // A revisit to a station that has already paid gets greeting and farewell
+  // and nothing in between.
+  useEffect(() => {
+    if (encounter?.granted !== true) return;
+    say('gift');
+  }, [encounter?.granted, say]);
+
+  // Beat three: he sees the learner off on every close path — Thanks,
+  // Chacha-ji, Not today, Chacha-ji, and a hardware-back dismissal. Queued
+  // before the close so it finishes over the closing modal; the queue is
+  // module-scope precisely so it outlives this component's unmount cleanup.
+  const leaveWith = (go: () => void) => () => {
+    say('farewell');
+    go();
+  };
+  const dismissWithFarewell = leaveWith(onDismiss);
+  const declineWithFarewell = leaveWith(onDecline);
+
   const handleBuy = () => {
     if (!encounter?.offer) return;
     hapticLight();
@@ -70,7 +166,7 @@ export function ChachaEncounterDialog({
         onSuccess: () => {
           // The tin is read all over the app, so refresh it before we leave.
           void tokensQuery.refetch();
-          onDismiss();
+          dismissWithFarewell();
         },
       },
     );
@@ -112,7 +208,7 @@ export function ChachaEncounterDialog({
   const nativeStyle = nativeTextStyle(activeLanguage, { bold: true });
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
+    <Modal visible transparent animationType="fade" onRequestClose={dismissWithFarewell}>
       <View style={styles.backdrop}>
         {encounter.granted && (
           <>
@@ -129,6 +225,24 @@ export function ChachaEncounterDialog({
 
           <View style={styles.contentArea}>
             <Text style={[styles.stallTitle, { color: colors.foreground }]}>{STALL_TITLE}</Text>
+
+            {/* What he is saying right now, in step with his voice. */}
+            {spokenLine && (
+              <View testID="chacha-spoken-line" style={styles.spokenLine}>
+                <Text
+                  testID="chacha-spoken-line-text"
+                  style={[styles.spokenLineText, { color: colors.foreground }]}
+                >
+                  {spokenLine.text}
+                </Text>
+                <Text
+                  testID="chacha-spoken-line-english"
+                  style={[styles.spokenLineEnglish, { color: colors.mutedForeground }]}
+                >
+                  {spokenLine.english}
+                </Text>
+              </View>
+            )}
 
             <Text style={[styles.giftLine, { color: colors.foreground }]}>
               Chacha-ji pours you a chai.
@@ -241,7 +355,7 @@ export function ChachaEncounterDialog({
                   testID="chacha-decline-btn"
                   accessibilityRole="button"
                   style={styles.declineBtn}
-                  onPress={onDecline}
+                  onPress={declineWithFarewell}
                 >
                   <Text style={[styles.declineBtnText, { color: colors.mutedForeground }]}>
                     Not today, Chacha-ji
@@ -262,7 +376,7 @@ export function ChachaEncounterDialog({
                   testID="chacha-dismiss-btn"
                   accessibilityRole="button"
                   style={[styles.dismissBtn, { backgroundColor: colors.primary }]}
-                  onPress={onDismiss}
+                  onPress={dismissWithFarewell}
                 >
                   <Text style={[styles.dismissBtnText, { color: colors.primaryForeground }]}>
                     Thanks, Chacha-ji
@@ -304,6 +418,21 @@ const styles = StyleSheet.create({
   giftLine: {
     fontFamily: AppFonts.semibold,
     fontSize: 16,
+    textAlign: 'center',
+  },
+  spokenLine: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  spokenLineText: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  spokenLineEnglish: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
     textAlign: 'center',
   },
   grantedRow: {

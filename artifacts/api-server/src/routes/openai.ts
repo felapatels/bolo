@@ -67,6 +67,16 @@ import {
   buildGreetingTexts,
   GREETING_SQUAWK_VARIANT,
 } from "../lib/greetingStrings";
+import {
+  CHACHA_AUDIO_FORMAT,
+  CHACHA_LINE_KEYS,
+  CHACHA_LINES,
+  CHACHA_TTS_MODEL,
+  CHACHA_TTS_VOICE,
+  chachaLineCacheKey,
+  type ChachaLineKey,
+} from "../lib/chachaStrings";
+import { synthesizeChachaLine } from "../lib/ttsPrewarm";
 
 // Module-level constant: placed before the request handler so the full rubric
 // text is a single, byte-identical string on every call, enabling OpenAI
@@ -2244,6 +2254,123 @@ router.get(
         res.status(502).json({ error: "Could not generate greeting audio" });
       }
     }
+  },
+);
+
+// GET /openai/chacha-lines — Chacha-ji's three fixed spoken lines, in his own
+// voice, as one response.
+//
+// Read-only and completely separate from POST /journey/chacha-encounters on
+// purpose: the Chai grant, the balance and the celebration must never be
+// delayed or failed by audio, so the client fires both in parallel and this
+// one is allowed to be slow, to fail, or never to be called at all (a learner
+// with Bolo's voice switched off never requests it).
+//
+// The clips are pre-warmed by warmChachaLines() at startup; a miss synthesizes
+// on demand so a fresh deploy still speaks. Requires auth, same as the other
+// audio endpoints, so the clips cannot be scraped anonymously.
+router.get(
+  "/openai/chacha-lines",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const t0 = Date.now();
+    const keys = CHACHA_LINE_KEYS.map((key) => ({
+      key,
+      cacheKey: chachaLineCacheKey(key),
+    }));
+
+    // One read for all three.
+    let cached = new Map<string, { audioBase64: string; format: string }>();
+    try {
+      const rows = await db
+        .select({
+          cacheKey: ttsCacheTable.cacheKey,
+          audioBase64: ttsCacheTable.audioBase64,
+          format: ttsCacheTable.format,
+        })
+        .from(ttsCacheTable)
+        .where(
+          inArray(
+            ttsCacheTable.cacheKey,
+            keys.map((k) => k.cacheKey),
+          ),
+        );
+      cached = new Map(
+        rows.map((r) => [
+          r.cacheKey,
+          { audioBase64: r.audioBase64, format: r.format },
+        ]),
+      );
+    } catch (err) {
+      req.log.warn({ err }, "Chacha line cache read failed, synthesizing fresh");
+    }
+
+    const lines: {
+      key: ChachaLineKey;
+      text: string;
+      english: string;
+      audioBase64: string;
+      format: string;
+    }[] = [];
+    let misses = 0;
+
+    for (const { key, cacheKey } of keys) {
+      const copy = CHACHA_LINES[key];
+      const hit = cached.get(cacheKey);
+      if (hit) {
+        lines.push({
+          key,
+          text: copy.text,
+          english: copy.english,
+          audioBase64: hit.audioBase64,
+          format: hit.format,
+        });
+        continue;
+      }
+
+      misses++;
+      try {
+        const buffer = await synthesizeChachaLine(copy.text);
+        if (buffer.length === 0)
+          throw new Error("gpt-4o-mini-tts returned empty Chacha audio");
+        const audioBase64 = buffer.toString("base64");
+        db.insert(ttsCacheTable)
+          .values({ cacheKey, audioBase64, format: CHACHA_AUDIO_FORMAT })
+          .onConflictDoNothing()
+          .execute()
+          .catch((err) => req.log.warn({ err }, "Chacha cache write failed"));
+        lines.push({
+          key,
+          text: copy.text,
+          english: copy.english,
+          audioBase64,
+          format: CHACHA_AUDIO_FORMAT,
+        });
+      } catch (err) {
+        // Flavour dialogue: one line that will not synthesize costs that line
+        // its voice, not the other two and not the encounter. The client shows
+        // the text and plays nothing.
+        req.log.warn({ err, line: key }, "Chacha line synthesis failed");
+      }
+    }
+
+    req.log.info(
+      {
+        voice: CHACHA_TTS_VOICE,
+        model: CHACHA_TTS_MODEL,
+        returned: lines.length,
+        misses,
+        ms: Date.now() - t0,
+      },
+      "[chacha-tts]",
+    );
+
+    res.json({ lines });
   },
 );
 

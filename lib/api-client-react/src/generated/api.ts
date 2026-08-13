@@ -34,6 +34,7 @@ import type {
   Category,
   ChachaEncounterInput,
   ChachaEncounterResult,
+  ChachaLinesResult,
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
@@ -4190,6 +4191,84 @@ export const useDiscardLastPilotCapture = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDiscardLastPilotCaptureMutationOptions(options));
     }
+
+export const getGetChachaLinesUrl = () => {
+
+
+
+
+  return `/api/openai/chacha-lines`
+}
+
+/**
+ * Returns the greeting, gift and farewell lines Chacha-ji speaks at his roadside stall, each with its text, English gloss and pre-synthesized audio in his own voice. The text is fixed romanized Hindi for every learner regardless of journey language -- he is the character speaking, not content to learn -- so this endpoint takes no parameters. Read-only and deliberately separate from POST /journey/chacha-encounters: nothing about the Chai grant, the balance or the celebration may be delayed or failed by audio. Clips are pre-warmed at server startup; a cache miss synthesizes on demand. A line whose synthesis fails is omitted rather than failing the response.
+ * @summary Chacha-ji's three fixed spoken lines
+ */
+export const getChachaLines = async ( options?: RequestInit): Promise<ChachaLinesResult> => {
+
+  return customFetch<ChachaLinesResult>(getGetChachaLinesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChachaLinesQueryKey = () => {
+    return [
+    `/api/openai/chacha-lines`
+    ] as const;
+    }
+
+
+export const getGetChachaLinesQueryOptions = <TData = Awaited<ReturnType<typeof getChachaLines>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChachaLines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChachaLinesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChachaLines>>> = ({ signal }) => getChachaLines({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChachaLines>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetChachaLinesQueryResult = NonNullable<Awaited<ReturnType<typeof getChachaLines>>>
+export type GetChachaLinesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Chacha-ji's three fixed spoken lines
+ */
+
+export function useGetChachaLines<TData = Awaited<ReturnType<typeof getChachaLines>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChachaLines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetChachaLinesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGeneratePhraseUrl = () => {
 

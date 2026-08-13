@@ -1607,6 +1607,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/PilotCaptureDiscardResult"
 
+  /openai/chacha-lines:
+    get:
+      operationId: getChachaLines
+      tags: [openai]
+      summary: Chacha-ji's three fixed spoken lines
+      description: >-
+        Returns the greeting, gift and farewell lines Chacha-ji speaks at his
+        roadside stall, each with its text, English gloss and pre-synthesized
+        audio in his own voice. The text is fixed romanized Hindi for every
+        learner regardless of journey language -- he is the character speaking,
+        not content to learn -- so this endpoint takes no parameters. Read-only
+        and deliberately separate from POST /journey/chacha-encounters: nothing
+        about the Chai grant, the balance or the celebration may be delayed or
+        failed by audio. Clips are pre-warmed at server startup; a cache miss
+        synthesizes on demand. A line whose synthesis fails is omitted rather
+        than failing the response.
+      responses:
+        "200":
+          description: His lines, in encounter order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaLinesResult"
+
   /openai/generate-phrase:
     post:
       operationId: generatePhrase
@@ -3598,6 +3622,47 @@ components:
       required:
         - audioBase64
         - format
+
+    ChachaLine:
+      type: object
+      properties:
+        key:
+          type: string
+          enum: [greeting, gift, farewell]
+          description: >-
+            Which moment of the encounter this line belongs to: greeting on
+            open, gift only when the arrival actually granted Chai, farewell on
+            every close path.
+        text:
+          type: string
+          description: >-
+            What he says, fixed romanized Hindi, identical for every learner.
+        english:
+          type: string
+          description: The on-screen English gloss shown while the line plays.
+        audioBase64:
+          type: string
+        format:
+          type: string
+      required:
+        - key
+        - text
+        - english
+        - audioBase64
+        - format
+
+    ChachaLinesResult:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChachaLine"
+          description: >-
+            His lines in encounter order. A line whose synthesis failed is
+            omitted, so callers must look lines up by key rather than index.
+      required:
+        - lines
 
     PronunciationInput:
       type: object

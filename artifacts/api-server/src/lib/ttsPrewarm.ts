@@ -17,6 +17,16 @@ import {
   buildGreetingTexts,
 } from "./greetingStrings";
 import {
+  CHACHA_AUDIO_FORMAT,
+  CHACHA_CACHE_KEY_VERSION,
+  CHACHA_LINE_KEYS,
+  CHACHA_LINES,
+  CHACHA_TTS_INSTRUCTIONS,
+  CHACHA_TTS_MODEL,
+  CHACHA_TTS_VOICE,
+  chachaLineCacheKey,
+} from "./chachaStrings";
+import {
   pool,
   CONCURRENCY,
   PACING_MS,
@@ -347,6 +357,11 @@ export function scheduleTtsPrewarm(): void {
       // After phrase prewarm, synthesize greeting audio for whichever provider
       // is configured. Greeting prewarm is no longer gated on ElevenLabs.
       await warmGreetings();
+
+      // Chacha-ji's three fixed lines. Own voice, own key namespace, and no
+      // verifier: they are flavour dialogue, not a pronunciation reference,
+      // so a retake ladder would only burn calls on audio nobody grades.
+      await warmChachaLines();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
       // Log and swallow — pre-warm is best-effort, never critical.
@@ -507,5 +522,114 @@ export async function warmGreetings(
     );
   } catch (err) {
     logger.warn({ err }, "TTS pre-warm: greeting warm-up error (non-fatal)");
+  }
+}
+
+/** Injectable dependencies for warmChachaLines — real implementations are the defaults. */
+export type WarmChachaLinesDeps = {
+  /** Returns a cached row if this line is already stored, or undefined. */
+  findCached: (cacheKey: string) => Promise<{ cacheKey: string } | undefined>;
+  /** Persists a synthesized line to the TTS cache. */
+  insertCache: (row: {
+    cacheKey: string;
+    audioBase64: string;
+    format: string;
+  }) => Promise<void>;
+  /** Synthesizes one of Chacha's lines in his own voice. */
+  synthesize: (text: string) => Promise<Buffer>;
+};
+
+/**
+ * Synthesizes Chacha's line with HIS identity — never the phrase or chat one.
+ * Kept beside the deps rather than inline so the route and the prewarm cannot
+ * drift on model, voice, instructions or format.
+ */
+export async function synthesizeChachaLine(text: string): Promise<Buffer> {
+  const response = await openai.audio.speech.create({
+    model: CHACHA_TTS_MODEL,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    voice: CHACHA_TTS_VOICE as any,
+    input: text,
+    instructions: CHACHA_TTS_INSTRUCTIONS,
+    response_format: "mp3",
+  });
+  return Buffer.from(await response.arrayBuffer());
+}
+
+const defaultWarmChachaLinesDeps: WarmChachaLinesDeps = {
+  findCached: (cacheKey) =>
+    db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+      columns: { cacheKey: true },
+    }),
+  insertCache: (row) =>
+    db
+      .insert(ttsCacheTable)
+      .values(row)
+      .onConflictDoNothing()
+      .execute()
+      .then(() => undefined),
+  synthesize: synthesizeChachaLine,
+};
+
+/**
+ * Pre-synthesizes Chacha-ji's three fixed lines so the stall never waits on
+ * synthesis. Runs after the greeting prewarm, on the same background
+ * fire-and-forget path — a failure here (or a missing API key) is logged and
+ * swallowed, never propagated to boot.
+ *
+ * Deliberately does NOT run through synthesizeVerifiedPhraseAudio: the
+ * verifier's transcribe-and-retake ladder exists for pronunciation reference
+ * audio, and these lines are character flavour that nothing is graded against.
+ *
+ * A no-op on every start once all three clips are cached.
+ *
+ * Exported with injectable deps so unit tests can drive it without a real DB
+ * or OpenAI account (same injectable-deps pattern as warmGreetings).
+ */
+export async function warmChachaLines(
+  deps: WarmChachaLinesDeps = defaultWarmChachaLinesDeps,
+): Promise<void> {
+  try {
+    let synthesized = 0;
+    let alreadyCached = 0;
+    let failed = 0;
+
+    for (const key of CHACHA_LINE_KEYS) {
+      const cacheKey = chachaLineCacheKey(key);
+      try {
+        const existing = await deps.findCached(cacheKey);
+        if (existing) {
+          alreadyCached++;
+          continue;
+        }
+        const buffer = await deps.synthesize(CHACHA_LINES[key].text);
+        await deps.insertCache({
+          cacheKey,
+          audioBase64: buffer.toString("base64"),
+          format: CHACHA_AUDIO_FORMAT,
+        });
+        synthesized++;
+      } catch (err) {
+        // One line failing must not cost the other two: the stall degrades to
+        // silence for that beat and the next start retries it.
+        failed++;
+        logger.warn({ err, line: key }, "TTS pre-warm: Chacha line synthesis failed");
+      }
+    }
+
+    logger.info(
+      {
+        voice: CHACHA_TTS_VOICE,
+        model: CHACHA_TTS_MODEL,
+        version: CHACHA_CACHE_KEY_VERSION,
+        alreadyCached,
+        synthesized,
+        failed,
+      },
+      "[chacha-tts] prewarm complete",
+    );
+  } catch (err) {
+    logger.warn({ err }, "TTS pre-warm: Chacha warm-up error (non-fatal)");
   }
 }

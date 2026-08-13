@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import {
   blessAudioPlayback,
   getBandAudioElement,
+  getChachaAudioElement,
   getCoachAudioElement,
   getFeedbackAudioElement,
   getMeaningAudioElement,
@@ -14,10 +15,10 @@ import {
 // WebKit blesses playback PER ELEMENT: only an element whose own play() ran
 // inside a user gesture may later play programmatically. So every
 // programmatic voice surface (coach phrase, meaning segment, band call-out,
-// spoken feedback) must route through persistent singletons, and every entry
-// gesture must replay a silent clip through ALL of them (re-entry included; a
-// once-flag or a WebAudio primer are both regressions, the latter proven
-// on-device Aug 2, 2026).
+// spoken feedback, Chacha-ji's stall lines) must route through persistent
+// singletons, and every entry gesture must replay a silent clip through ALL
+// of them (re-entry included; a once-flag or a WebAudio primer are both
+// regressions, the latter proven on-device Aug 2, 2026).
 // ---------------------------------------------------------------------------
 
 class MockAudio {
@@ -38,6 +39,7 @@ const allGetters = [
   getMeaningAudioElement,
   getBandAudioElement,
   getFeedbackAudioElement,
+  getChachaAudioElement,
 ];
 
 beforeEach(() => {
@@ -47,25 +49,31 @@ beforeEach(() => {
 });
 
 describe("blessed audio singletons", () => {
-  test("all four voice surfaces are distinct persistent singletons", () => {
+  test("all five voice surfaces are distinct persistent singletons", () => {
     const els = allGetters.map((get) => get());
     for (const [i, get] of allGetters.entries()) {
       expect(get()).toBe(els[i]);
     }
-    expect(new Set(els).size).toBe(4);
-    expect(MockAudio.instances).toHaveLength(4);
+    expect(new Set(els).size).toBe(5);
+    expect(MockAudio.instances).toHaveLength(5);
+  });
+
+  test("Chacha-ji speaks through his own element, never the coach's", () => {
+    // His lines and the phrase card's coach audio can be in flight in the same
+    // modal; one element would cut the other off mid-word.
+    expect(getChachaAudioElement()).not.toBe(getCoachAudioElement());
   });
 
   test("blessAudioPlayback plays a silent wav through ALL singletons on every call", () => {
     blessAudioPlayback();
-    expect(MockAudio.instances).toHaveLength(4);
+    expect(MockAudio.instances).toHaveLength(5);
     for (const el of MockAudio.instances) {
       expect(el.play).toHaveBeenCalledTimes(1);
       expect(el.src.startsWith("data:audio/wav;base64,")).toBe(true);
     }
     // A re-entry gesture blesses again on the SAME elements (no once-flag).
     blessAudioPlayback();
-    expect(MockAudio.instances).toHaveLength(4);
+    expect(MockAudio.instances).toHaveLength(5);
     for (const el of MockAudio.instances) {
       expect(el.play).toHaveBeenCalledTimes(2);
     }
