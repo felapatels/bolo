@@ -56,10 +56,20 @@ const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 
 /**
- * Picks the public SDK key for the current runtime. Expo Go and web run against
- * the Test Store; production iOS/Android builds use their store key. Returns null
- * when keys aren't configured yet (the payments/provider task wires them), so the
- * app degrades gracefully instead of crashing.
+ * Picks the public SDK key for the current runtime.
+ *
+ * Expo Go, web and local dev run against the Test Store. A real store build
+ * uses ONLY its own platform key and never falls back to the Test Store key:
+ * a Test Store key handed to a shipped app is not a degraded configuration,
+ * it is a fatal one. The native Android SDK answers it with a blocking "wrong
+ * API key" dialog and kills the process on launch, so the fallback that looks
+ * like resilience is the crash.
+ *
+ * Returns null when the platform's own key is missing, and the provider then
+ * skips `Purchases.configure` entirely. Every purchase surface already handles
+ * that state: no offerings load, the paywall shows no packages, restore
+ * reports nothing found, and the Chai paths refuse to act. Entitlements are
+ * unaffected either way, since they come from the server, not this SDK.
  */
 function resolveApiKey(): string | null {
   const inTestRuntime =
@@ -67,8 +77,8 @@ function resolveApiKey(): string | null {
     Platform.OS === 'web' ||
     Constants.executionEnvironment === 'storeClient';
   if (inTestRuntime) return TEST_API_KEY ?? null;
-  if (Platform.OS === 'ios') return IOS_API_KEY ?? TEST_API_KEY ?? null;
-  if (Platform.OS === 'android') return ANDROID_API_KEY ?? TEST_API_KEY ?? null;
+  if (Platform.OS === 'ios') return IOS_API_KEY ?? null;
+  if (Platform.OS === 'android') return ANDROID_API_KEY ?? null;
   return TEST_API_KEY ?? null;
 }
 
