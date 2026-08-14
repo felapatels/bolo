@@ -1310,6 +1310,9 @@ export default function PracticeScreen() {
       } catch (err) {
         // Bound, not swallowed. Which half threw is readable from the flag:
         // the session step sets it before the recorder step runs.
+        // TEMPORARY DEV DIAGNOSTIC - not shipping. Sentry is inert in Expo Go,
+        // so this is the only way to see the raw native error on device.
+        console.error('[BOLO audio] prepareRecorder caught', err);
         reportAudioSessionFailure(
           sessionReadyRef.current ? 'prepare_recorder' : 'prepare_session',
           err,
