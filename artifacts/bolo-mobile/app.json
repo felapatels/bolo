@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.bolo.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#fffdf0"
@@ -77,7 +77,9 @@
         {
           "android": {
             "packagingOptions": {
-              "exclude": ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"]
+              "exclude": [
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+              ]
             }
           }
         }
