@@ -170,11 +170,17 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText(/Scroll down the list and tap Add to Home Screen/)).toBeInTheDocument();
 
     // Pre-release badge: present, unlinked, captioned, from the shared component.
+    expect(screen.getByTestId("home-appstore-badge")).toBeInTheDocument();
     expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to the App Store")).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /Download on the App Store/i }),
     ).not.toBeInTheDocument();
+
+    // Never both stores at once.
+    expect(screen.queryByTestId("home-playstore-badge")).toBeNull();
+    expect(screen.queryByAltText("Get it on Google Play")).toBeNull();
+    expect(screen.queryByText("Coming soon to Google Play")).toBeNull();
 
     // No cross-contamination.
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
@@ -191,7 +197,7 @@ describe("home add-to-home-screen block", () => {
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
   });
 
-  test("Android: Chrome steps, no Safari copy, no App Store badge", () => {
+  test("Android: Chrome steps, the Play badge in its coming-soon state, no Safari copy, no Apple badge", () => {
     setNavigator({ ua: ANDROID_UA, platform: "Linux armv8l", maxTouchPoints: 5 });
     renderHome();
 
@@ -199,13 +205,21 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText(/Tap the three dot menu in Chrome/)).toBeInTheDocument();
     expect(screen.getByText(/Tap Add to Home screen, then tap Add/)).toBeInTheDocument();
 
+    // Pre-release badge: present, unlinked, captioned, from the shared component.
+    expect(screen.getByTestId("home-playstore-badge")).toBeInTheDocument();
+    expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Get it on Google Play/i })).toBeNull();
+
+    // Never both stores at once.
     expect(screen.queryByTestId("add-to-home-ios")).toBeNull();
     expect(screen.queryByText(/Safari/)).toBeNull();
+    expect(screen.queryByTestId("home-appstore-badge")).toBeNull();
     expect(screen.queryByAltText("Download on the App Store")).toBeNull();
     expect(screen.queryByText("Coming soon to the App Store")).toBeNull();
   });
 
-  test("unknown platform: neutral steps, neither platform's wording", () => {
+  test("unknown platform: neutral steps, neither platform's wording, neither store badge", () => {
     setNavigator({ ua: MAC_DESKTOP_UA, platform: "MacIntel", maxTouchPoints: 0 });
     renderHome();
 
@@ -213,6 +227,8 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText(/Open your browser's share or menu button/)).toBeInTheDocument();
     expect(screen.queryByText(/Safari/)).toBeNull();
     expect(screen.queryByText(/Chrome/)).toBeNull();
+    expect(screen.queryByAltText("Download on the App Store")).toBeNull();
+    expect(screen.queryByAltText("Get it on Google Play")).toBeNull();
   });
 
   test("the copy never promises an installed app", () => {

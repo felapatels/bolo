@@ -52,9 +52,11 @@ beforeEach(() => {
   h.track.mockClear();
 });
 
-// The hero App Store badge is iOS-only: iPhone visitors get the official
-// Apple badge linking to the native listing, everyone else renders nothing.
-describe("App Store badge (iOS only)", () => {
+// The hero store badge follows the visitor's platform: an iPhone or iPad gets
+// Apple's badge, an Android phone gets Google Play's, and desktop or anything
+// unrecognized gets neither. Nobody ever gets both, so every case below
+// asserts the absence of the other store as well.
+describe("store badges (platform-following)", () => {
   const originalUserAgent = navigator.userAgent;
 
   function setUserAgent(value: string) {
@@ -70,6 +72,9 @@ describe("App Store badge (iOS only)", () => {
 
   const IPHONE_UA =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+  // The same Android user agent home-add-to-home.test.tsx pins.
+  const ANDROID_UA =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
 
   test("pre-release default: iOS user agents see a muted unlinked badge with the coming-soon caption, nothing tracked", () => {
     setUserAgent(IPHONE_UA);
@@ -84,6 +89,10 @@ describe("App Store badge (iOS only)", () => {
       ANALYTICS_EVENTS.CTA_CLICK,
       expect.objectContaining({ placement: "hero-appstore-badge" }),
     );
+
+    // Never both stores at once.
+    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
   });
 
   test("live state: iOS user agents see the badge linking to the App Store listing, and clicks are tracked", () => {
@@ -93,6 +102,7 @@ describe("App Store badge (iOS only)", () => {
     const badge = screen.getByRole("link", { name: /Download on the App Store/i });
     expect(badge).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
     expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
 
     fireEvent.click(badge);
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
@@ -100,10 +110,49 @@ describe("App Store badge (iOS only)", () => {
     });
   });
 
-  test("non-iOS user agents see no App Store badge or caption in either state", () => {
+  test("pre-release default: Android user agents see a muted unlinked Play badge with the coming-soon caption, nothing tracked", () => {
+    setUserAgent(ANDROID_UA);
+    renderAt(<Landing />);
+
+    expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Get it on Google Play/i }),
+    ).not.toBeInTheDocument();
+    expect(h.track).not.toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.CTA_CLICK,
+      expect.objectContaining({ placement: "hero-playstore-badge" }),
+    );
+
+    // Never both stores at once.
+    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
+  });
+
+  test("live state: Android user agents see the badge linking to the Play listing, and clicks are tracked", () => {
+    setUserAgent(ANDROID_UA);
+    renderAt(<Landing playStoreLive />);
+
+    const badge = screen.getByRole("link", { name: /Get it on Google Play/i });
+    expect(badge).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.bolo.mobile",
+    );
+    expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+
+    fireEvent.click(badge);
+    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
+      placement: "hero-playstore-badge",
+    });
+  });
+
+  test("desktop and unrecognized user agents see neither store badge in either state", () => {
     renderAt(<Landing />);
     expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
     expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
   });
 });
 

@@ -70,11 +70,17 @@ export function AddToHomeScreen() {
         <p className="mt-3 text-xs text-muted-foreground/80">{note}</p>
       </div>
 
-      {/* The badge is for the iOS app, so it shows where that app will exist,
-          matching the signed-out hero. Everyone else just gets the steps. */}
+      {/* The badge shows where the visitor's own platform will get the app:
+          Apple on iOS, Google Play on Android, never both. An unrecognized
+          platform has no store to point at, so it just gets the steps. */}
       {platform === "ios" && (
         <div className="flex flex-col items-start sm:items-end" data-testid="home-appstore-badge">
           <AppStoreBadge placement="home-appstore-badge" />
+        </div>
+      )}
+      {platform === "android" && (
+        <div className="flex flex-col items-start sm:items-end" data-testid="home-playstore-badge">
+          <AppStoreBadge store="play" placement="home-playstore-badge" />
         </div>
       )}
     </section>

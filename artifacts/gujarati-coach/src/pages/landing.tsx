@@ -21,14 +21,18 @@ import { diasporaOrdered, LANGUAGE_PAGES } from '@/lib/languagePages';
 import { usePricing, FAMILY_SEATS } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
-import { isIosSafariWeb } from '@/lib/iosAudio';
-// The badge (and the listing URL and APP_STORE_LIVE flag behind it) now lives
-// in one shared component so the signed-in home page shows the same one. The
-// hero still owns its own gate and entrance animation, below. Until the flag
-// flips, the badge is muted and unlinked with a coming-soon caption; the Smart
-// App Banner meta stays in the shell because Safari will not render it for an
-// unpublished listing anyway.
-import { AppStoreBadge, APP_STORE_LIVE } from '@/components/app-store-badge';
+import { detectShortcutPlatform } from '@/lib/platform';
+// The badges (and the listing URLs and LIVE flags behind them) now live in one
+// shared component so the signed-in home page shows the same ones. The hero
+// still owns its own gate and entrance animation, below. Until a flag flips,
+// that store's badge is muted and unlinked with a coming-soon caption; the
+// Smart App Banner meta stays in the shell because Safari will not render it
+// for an unpublished listing anyway.
+import {
+  AppStoreBadge,
+  APP_STORE_LIVE,
+  PLAY_STORE_LIVE,
+} from '@/components/app-store-badge';
 
 const CHIP_COLORS = ['#4F46E5', '#0D9488', '#6366F1'];
 
@@ -166,11 +170,13 @@ function SignUpCta({
 const PRIMARY_CTA_CLASS =
   'w-full sm:w-auto bg-primary text-primary-foreground font-black text-lg py-4 px-8 rounded-2xl inline-flex items-center justify-center gap-3 shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all';
 
-// appStoreLive defaults to the module const; tests inject the live state
-// through the prop because a same-module const cannot be vi.mocked.
+// appStoreLive and playStoreLive default to the module consts; tests inject
+// the live state through the props because a same-module const cannot be
+// vi.mocked.
 export default function Landing({
   appStoreLive = APP_STORE_LIVE,
-}: { appStoreLive?: boolean } = {}) {
+  playStoreLive = PLAY_STORE_LIVE,
+}: { appStoreLive?: boolean; playStoreLive?: boolean } = {}) {
   const reduceMotion = useReducedMotion();
   const { data: languages } = useListLanguages();
   const langs = languages ?? [];
@@ -212,6 +218,18 @@ export default function Landing({
   const plusAnnual = pricing?.plus.annual;
   const familyMonthly = pricing?.family.monthly;
   const familyAnnual = pricing?.family.annual;
+
+  // Which store badge the hero offers, if any. detectShortcutPlatform() is
+  // wider than the isIosSafariWeb() gate it replaces, which is deliberate: it
+  // also recognizes an iPad reporting a Macintosh user agent. What it does not
+  // carry is that helper's standalone check, and losing that would be a
+  // regression, so the check lives here rather than inside either helper (the
+  // audio path depends on isIosSafariWeb() unchanged). A visitor who already
+  // added Bolo to their home screen is not pitched a native app on top of it.
+  const isStandalone =
+    typeof navigator !== 'undefined' &&
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const badgePlatform = isStandalone ? 'unknown' : detectShortcutPlatform();
 
   return (
     <div className="app-surface min-h-[100dvh] bg-background overflow-x-hidden">
@@ -283,15 +301,25 @@ export default function Landing({
               </Link>
             </motion.div>
 
-            {/* Official Apple badge, iOS visitors only. Android and desktop
-                render nothing here; Safari additionally shows the Smart App
-                Banner from the apple-itunes-app meta in index.html. */}
-            {isIosSafariWeb() && (
+            {/* The official badge for the store the visitor's platform will
+                get the app from: Apple on iOS, Google Play on Android, and
+                nothing on desktop or an unrecognized platform. Never both.
+                Safari additionally shows the Smart App Banner from the
+                apple-itunes-app meta in index.html. */}
+            {badgePlatform !== 'unknown' && (
               <motion.div
                 {...heroItem(0.25)}
                 className="mt-6 flex flex-col items-center lg:items-start"
               >
-                <AppStoreBadge live={appStoreLive} placement="hero-appstore-badge" />
+                {badgePlatform === 'ios' ? (
+                  <AppStoreBadge live={appStoreLive} placement="hero-appstore-badge" />
+                ) : (
+                  <AppStoreBadge
+                    store="play"
+                    live={playStoreLive}
+                    placement="hero-playstore-badge"
+                  />
+                )}
               </motion.div>
             )}
           </div>
