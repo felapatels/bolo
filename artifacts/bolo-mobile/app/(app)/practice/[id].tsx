@@ -101,11 +101,6 @@ import {
   SILENCE_DROP_DB,
   meteringToAmplitude,
   reportAudioSessionFailure,
-  // TEMPORARY DEV DIAGNOSTIC (not shipping): read by the console.error calls
-  // in startRecording. Remove with them.
-  isRecordingModeApplied,
-  isRecordingSessionActive,
-  currentPlaybackModeToken,
   type PlaybackHandle,
 } from '@/lib/audio';
 import { Waveform } from '@/components/Waveform';
@@ -1310,9 +1305,6 @@ export default function PracticeScreen() {
       } catch (err) {
         // Bound, not swallowed. Which half threw is readable from the flag:
         // the session step sets it before the recorder step runs.
-        // TEMPORARY DEV DIAGNOSTIC - not shipping. Sentry is inert in Expo Go,
-        // so this is the only way to see the raw native error on device.
-        console.error('[BOLO audio] prepareRecorder caught', err);
         reportAudioSessionFailure(
           sessionReadyRef.current ? 'prepare_recorder' : 'prepare_session',
           err,
@@ -1460,14 +1452,11 @@ export default function PracticeScreen() {
         } else {
           // Same copy as the catch below, deliberately. The tag is what
           // separates them: prepare came back false without throwing.
-          const err = new Error('prepareRecorder returned false');
-          // TEMPORARY DEV DIAGNOSTIC - not shipping. Remove with the import.
-          console.error('[BOLO audio] prepare_failed', err, {
-            isRecordingModeApplied: isRecordingModeApplied(),
-            isRecordingSessionActive: isRecordingSessionActive(),
-            currentPlaybackModeToken: currentPlaybackModeToken(),
-          });
-          reportAudioSessionFailure('prepare_recorder', err, 'prepare_failed');
+          reportAudioSessionFailure(
+            'prepare_recorder',
+            new Error('prepareRecorder returned false'),
+            'prepare_failed',
+          );
           Alert.alert(
             'Recording failed',
             'Could not start recording. Try again.',
@@ -1495,12 +1484,6 @@ export default function PracticeScreen() {
       }
     } catch (err) {
       recorderPreparedRef.current = false;
-      // TEMPORARY DEV DIAGNOSTIC - not shipping. Remove with the import.
-      console.error('[BOLO audio] record_threw', err, {
-        isRecordingModeApplied: isRecordingModeApplied(),
-        isRecordingSessionActive: isRecordingSessionActive(),
-        currentPlaybackModeToken: currentPlaybackModeToken(),
-      });
       reportAudioSessionFailure('start_record', err, 'record_threw');
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }

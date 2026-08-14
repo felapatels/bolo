@@ -38,7 +38,7 @@ export const RECORDING_PRESET = {
   ...RecordingPresets.HIGH_QUALITY,
   sampleRate: 16000,
   numberOfChannels: 1,
-  bitRate: 96000,
+  bitRate: 32000,
   ios: {
     ...RecordingPresets.HIGH_QUALITY.ios,
     sampleRate: 16000,
