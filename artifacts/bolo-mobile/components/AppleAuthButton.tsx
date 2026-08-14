@@ -60,7 +60,7 @@ export function AppleAuthButton() {
       // handshake left on the Clerk client), a dismissal, or a described stop.
       const outcome = await completeSsoFlow({
         strategy: 'oauth_apple',
-        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
+        redirectUrl: AuthSession.makeRedirectUri({ path: 'sso-callback' }),
         startSSOFlow,
         clerkSetActive: setActive,
         client,

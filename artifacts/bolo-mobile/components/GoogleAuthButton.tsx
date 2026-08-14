@@ -47,7 +47,7 @@ export function GoogleAuthButton() {
       // handshake left on the Clerk client), a dismissal, or a described stop.
       const outcome = await completeSsoFlow({
         strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'bolo-mobile' }),
+        redirectUrl: AuthSession.makeRedirectUri({ path: 'sso-callback' }),
         startSSOFlow,
         clerkSetActive: setActive,
         client,
