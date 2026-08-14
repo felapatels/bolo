@@ -11,13 +11,21 @@ import { render, screen, waitFor } from '@testing-library/react-native';
 
 const mockState: Record<string, any> = {};
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({
-    replace: mockState.replace,
-    back: jest.fn(),
-    push: jest.fn(),
-  }),
-}));
+jest.mock('expo-router', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    useRouter: () => ({
+      replace: mockState.replace,
+      back: jest.fn(),
+      push: jest.fn(),
+    }),
+    // The gate is a render-time <Redirect>, not a router call, so the stub has
+    // to surface the destination for the test to assert on.
+    Redirect: ({ href }: { href: string }) =>
+      React.createElement(Text, { testID: 'redirect' }, String(href)),
+  };
+});
 
 jest.mock('@workspace/api-client-react', () => ({
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
@@ -123,13 +131,25 @@ describe('Bolo Quiz Plus gate (fail closed while loading)', () => {
     await waitFor(() => expect(mockState.replace).not.toHaveBeenCalled());
   });
 
-  it('redirects a loaded Free learner to the paywall', async () => {
+  it('renders nothing and fires no redirect while entitlements are loading', () => {
+    mockState.entitlementsLoading = true;
+    render(<BoloQuizScreen />);
+    // The gate returns null in the one window where the answer is unknown: no
+    // quiz chrome, and crucially no redirect, so a Plus learner deep-linking
+    // straight here is not bounced before their entitlements arrive.
+    expect(screen.queryByTestId('game-exit-btn')).toBeNull();
+    expect(screen.queryByTestId('redirect')).toBeNull();
+    expect(mockState.replace).not.toHaveBeenCalled();
+  });
+
+  it('redirects a loaded Free learner to the paywall', () => {
     mockState.isPlus = false;
     mockState.entitlementsLoading = false;
     render(<BoloQuizScreen />);
-    await waitFor(() =>
-      expect(mockState.replace).toHaveBeenCalledWith('/(app)/paywall'),
-    );
+    // Render-time gate: the redirect IS the render, so it is on screen
+    // synchronously and no quiz content is behind it.
+    expect(screen.getByTestId('redirect')).toHaveTextContent('/(app)/paywall');
+    expect(screen.queryByTestId('game-exit-btn')).toBeNull();
   });
 
   it('leaves a loaded Plus learner on the quiz', async () => {

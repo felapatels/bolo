@@ -151,15 +151,33 @@ describe('Phrase Builder setup screen — plan label (mobile)', () => {
     expect(screen.queryByText('Free')).not.toBeOnTheScreen();
   });
 
-  test('shows "Free" during the loading window before entitlements resolve', () => {
-    // isLoading=true keeps the root component from routing to the paywall,
-    // which is the flash window the task guards against.
+  // Phrase Builder gates at render time, not in an effect: the loading window
+  // paints nothing at all, and a non-Plus learner never reaches the setup
+  // screen. That makes the "Free" plan pill unreachable on this screen — the
+  // two cases below assert the gate instead of the pill.
+  test('renders nothing while entitlements are still loading', () => {
     mockState.isPlus = false;
     mockState.isLoading = true;
     render(<PhraseBuilderScreen />);
 
-    expect(screen.getByText('Free')).toBeOnTheScreen();
+    // No setup screen, no plan pill of either value, and no redirect yet — a
+    // paying subscriber must not be bounced before the server has answered.
+    expect(screen.queryByText('Build the phrase')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Start Game')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Free')).not.toBeOnTheScreen();
     expect(screen.queryByText('Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('redirect')).not.toBeOnTheScreen();
+  });
+
+  test('sends a non-Plus learner to the paywall without rendering the setup screen', () => {
+    mockState.isPlus = false;
+    mockState.isLoading = false;
+    render(<PhraseBuilderScreen />);
+
+    expect(screen.getByTestId('redirect')).toHaveTextContent('/(app)/paywall');
+    expect(screen.queryByText('Build the phrase')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Start Game')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Free')).not.toBeOnTheScreen();
   });
 });
 
