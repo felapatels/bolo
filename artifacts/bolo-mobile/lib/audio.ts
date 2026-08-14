@@ -7,6 +7,7 @@ import {
   type AudioRecorder,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Sentry } from '@/lib/sentry';
 
 // Speech-optimised recording preset: 16 kHz mono at 96 kbps.
 // Whisper resamples to 16 kHz internally regardless of input sample rate, so
@@ -131,6 +132,103 @@ let recordingSessionActive = false;
 let modeIsRecording = false;
 
 /**
+ * Observing the audio session from the outside.
+ *
+ * Build 37 shipped the applied-mode fix and "Recording failed" reproduced
+ * unchanged on iOS, so the mode-flag theory is NOT confirmed and this path
+ * stops guessing. Every session op now leaves a breadcrumb (including the ops
+ * that deliberately do nothing, which are the ones that used to leave no
+ * trace at all), and every failure this path used to swallow is bound and
+ * sent with the session state as it stood at that moment.
+ *
+ * PII: stage name, platform and the three session flags only. No phrase text,
+ * no transcripts, no audio, no file URIs. lib/sentry.ts scrubbing is the
+ * backstop, not the primary defense.
+ */
+export type AudioSessionStage =
+  | 'prepare_session'
+  | 'prepare_recorder'
+  | 'start_record'
+  | 'flip_playback'
+  | 'restore_recording';
+
+/** Which alert line the learner is looking at, when a report follows one. */
+export type AudioAlertSite = 'prepare_failed' | 'record_threw';
+
+/** Read-only view of the applied-mode flag. Diagnostics only. */
+export function isRecordingModeApplied(): boolean {
+  return modeIsRecording;
+}
+
+/** Read-only view of the session-configured flag. Diagnostics only. */
+export function isRecordingSessionActive(): boolean {
+  return recordingSessionActive;
+}
+
+/** Read-only view of the playback-mode token. Diagnostics only. */
+export function currentPlaybackModeToken(): number {
+  return playbackModeToken;
+}
+
+/** The session state carried by every breadcrumb and every report. */
+function sessionState() {
+  return {
+    platform: Platform.OS,
+    modeIsRecording,
+    recordingSessionActive,
+    playbackModeToken,
+  };
+}
+
+/**
+ * Breadcrumb for one session op. Ops that decide to do NOTHING breadcrumb
+ * too: a skipped restore is invisible in the result, but it is exactly the
+ * state that ends in a dead microphone one tap later.
+ */
+function noteAudioSessionOp(op: string): void {
+  Sentry.addBreadcrumb({
+    category: 'audio',
+    type: 'default',
+    level: 'info',
+    message: op,
+    data: sessionState(),
+  });
+}
+
+/**
+ * Report a session failure that used to be swallowed. Mirrors
+ * `reportApiFailure` in lib/apiErrors.ts: never anonymous, always tagged with
+ * the stage that failed and the session state at the moment it failed.
+ *
+ * `alert` names which of the two identical "Recording failed" lines the
+ * learner is looking at, so the copy can stay the same for them while the
+ * two sites stay distinguishable for us.
+ */
+export function reportAudioSessionFailure(
+  stage: AudioSessionStage,
+  err: unknown,
+  alert?: AudioAlertSite,
+): void {
+  const state = sessionState();
+  const exception =
+    err instanceof Error
+      ? err
+      : new Error(`audio ${stage} failed: ${String(err)}`);
+  Sentry.captureException(exception, {
+    tags: {
+      audioStage: stage,
+      platform: state.platform,
+      ...(alert ? { audioAlert: alert } : {}),
+    },
+    extra: {
+      audioStage: stage,
+      ...(alert ? { audioAlert: alert } : {}),
+      ...state,
+    },
+  });
+}
+
+/**
  * Switch the native session to recording mode, then record that fact.
  *
  * MUST already be running inside the session queue: it calls
@@ -144,9 +242,11 @@ async function applyRecordingMode(): Promise<void> {
     // The set failed, so the native mode is unknown — the flag must not claim
     // recording. False is the recoverable value: the next prepare re-asserts.
     modeIsRecording = false;
+    noteAudioSessionOp('mode:recording failed');
     throw err;
   }
   modeIsRecording = true;
+  noteAudioSessionOp('mode:recording');
 }
 
 /**
@@ -184,6 +284,9 @@ export function prepareRecorderInSession(
   recorder: AudioRecorder,
 ): Promise<void> {
   return enqueueSessionOp(async () => {
+    // Breadcrumb at ENTRY, not on success: a prepare that hangs or throws is
+    // the interesting one, and it would leave no trace from the far side.
+    noteAudioSessionOp('prepare');
     // Assert the mode rather than claim it. This used to be a bare
     // `modeIsRecording = true`, which made a prepare landing AFTER a playback
     // flip claim recording mode while the native session stayed playback-only;
@@ -212,8 +315,12 @@ export function prepareRecorderInSession(
  * restoreMode is, and it is unchanged.
  */
 export function ensureRecordingMode(): Promise<void> {
+  noteAudioSessionOp('record');
   if (!recordingSessionActive) {
     // Still wait for any in-flight session op so record() never races one.
+    // Breadcrumbed because this returns WITHOUT asserting any mode: a
+    // record() that follows it runs on whatever the session happens to be.
+    noteAudioSessionOp('record skipped session cold');
     return sessionChain.then(() => undefined);
   }
   return enqueueSessionOp(applyRecordingMode);
@@ -222,9 +329,9 @@ export function ensureRecordingMode(): Promise<void> {
 /** Flip to playback-only mode so iOS routes audio to the speaker. */
 function activatePlaybackMode(): Promise<void> {
   modeIsRecording = false;
-  return enqueueSessionOp(() => setAudioModeAsync(PLAYBACK_MODE)).then(
-    () => undefined,
-  );
+  return enqueueSessionOp(() => setAudioModeAsync(PLAYBACK_MODE)).then(() => {
+    noteAudioSessionOp('mode:playback');
+  });
 }
 
 /**
@@ -251,6 +358,7 @@ export function activateSfxPlaybackRoute(): Promise<void> {
   // land mid-clip and re-route the SFX to the earpiece.
   ++playbackModeToken;
   if (!modeIsRecording) {
+    noteAudioSessionOp('flip skipped already playback');
     return sessionChain.then(() => undefined);
   }
   return activatePlaybackMode();
@@ -316,15 +424,29 @@ export async function playStreamingAudio(
   if (needsModeFlip) {
     try {
       await activatePlaybackMode();
-    } catch {
-      // If the flip fails, still play — quiet audio beats no audio.
+    } catch (err) {
+      // If the flip fails, still play — quiet audio beats no audio. The
+      // failure is no longer silent: a session left in recording mode is a
+      // candidate cause of the record() that fails after the clip.
+      reportAudioSessionFailure('flip_playback', err);
     }
   }
   const restoreMode = () => {
     // Skip the restore if a newer playback has claimed the mode since —
-    // otherwise this stale restore re-routes it to the earpiece.
-    if (needsModeFlip && playbackModeToken === myToken)
-      void ensureRecordingMode().catch(() => {});
+    // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // breadcrumb: a restore that never runs leaves the session in playback
+    // mode, and nothing downstream says so until record() fails.
+    if (!needsModeFlip) {
+      noteAudioSessionOp('restore skipped no flip');
+      return;
+    }
+    if (playbackModeToken !== myToken) {
+      noteAudioSessionOp('restore skipped stale token');
+      return;
+    }
+    void ensureRecordingMode().catch((err) => {
+      reportAudioSessionFailure('restore_recording', err);
+    });
   };
 
   // keepAudioSessionActive: by default expo-audio schedules an AVAudioSession
@@ -387,13 +509,26 @@ export async function playAssetAudio(
   if (needsModeFlip) {
     try {
       await activatePlaybackMode();
-    } catch {
-      // If the flip fails, still play — quiet audio beats no audio.
+    } catch (err) {
+      // If the flip fails, still play — quiet audio beats no audio. The
+      // failure is no longer silent: a session left in recording mode is a
+      // candidate cause of the record() that fails after the clip.
+      reportAudioSessionFailure('flip_playback', err);
     }
   }
   const restoreMode = () => {
-    if (needsModeFlip && playbackModeToken === myToken)
-      void ensureRecordingMode().catch(() => {});
+    // Same two skips as playStreamingAudio, breadcrumbed for the same reason.
+    if (!needsModeFlip) {
+      noteAudioSessionOp('restore skipped no flip');
+      return;
+    }
+    if (playbackModeToken !== myToken) {
+      noteAudioSessionOp('restore skipped stale token');
+      return;
+    }
+    void ensureRecordingMode().catch((err) => {
+      reportAudioSessionFailure('restore_recording', err);
+    });
   };
 
   // keepAudioSessionActive: see playStreamingAudio for the deactivation seam.
@@ -454,15 +589,29 @@ export async function playBase64Audio(
   if (needsModeFlip) {
     try {
       await activatePlaybackMode();
-    } catch {
-      // If the flip fails, still play — quiet audio beats no audio.
+    } catch (err) {
+      // If the flip fails, still play — quiet audio beats no audio. The
+      // failure is no longer silent: a session left in recording mode is a
+      // candidate cause of the record() that fails after the clip.
+      reportAudioSessionFailure('flip_playback', err);
     }
   }
   const restoreMode = () => {
     // Skip the restore if a newer playback has claimed the mode since —
-    // otherwise this stale restore re-routes it to the earpiece.
-    if (needsModeFlip && playbackModeToken === myToken)
-      void ensureRecordingMode().catch(() => {});
+    // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // breadcrumb: a restore that never runs leaves the session in playback
+    // mode, and nothing downstream says so until record() fails.
+    if (!needsModeFlip) {
+      noteAudioSessionOp('restore skipped no flip');
+      return;
+    }
+    if (playbackModeToken !== myToken) {
+      noteAudioSessionOp('restore skipped stale token');
+      return;
+    }
+    void ensureRecordingMode().catch((err) => {
+      reportAudioSessionFailure('restore_recording', err);
+    });
   };
 
   // keepAudioSessionActive: prevent expo-audio's automatic session

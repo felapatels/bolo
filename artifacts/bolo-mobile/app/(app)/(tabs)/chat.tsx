@@ -46,6 +46,7 @@ import {
   RECORDING_PRESET,
   SILENCE_THRESHOLD_DB,
   SILENCE_DURATION_MS,
+  reportAudioSessionFailure,
   type PlaybackHandle,
 } from '@/lib/audio';
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
@@ -326,7 +327,13 @@ export default function ChatScreen() {
           recorderPreparedRef.current = true;
         }
         return true;
-      } catch {
+      } catch (err) {
+        // Bound, not swallowed. Which half threw is readable from the flag:
+        // the session step sets it before the recorder step runs.
+        reportAudioSessionFailure(
+          sessionReadyRef.current ? 'prepare_recorder' : 'prepare_session',
+          err,
+        );
         return false;
       } finally {
         preparePromiseRef.current = null;
@@ -518,6 +525,13 @@ export default function ChatScreen() {
             'Please allow microphone access to chat with Bolo.',
           );
         } else {
+          // Same copy as the catch below, deliberately. The tag is what
+          // separates them: prepare came back false without throwing.
+          reportAudioSessionFailure(
+            'prepare_recorder',
+            new Error('prepareRecorder returned false'),
+            'prepare_failed',
+          );
           Alert.alert('Recording failed', 'Could not start recording. Try again.');
         }
         return;
@@ -553,8 +567,9 @@ export default function ChatScreen() {
       if (!isPressingRef.current) {
         void abortRecording();
       }
-    } catch {
+    } catch (err) {
       recorderPreparedRef.current = false;
+      reportAudioSessionFailure('start_record', err, 'record_threw');
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };

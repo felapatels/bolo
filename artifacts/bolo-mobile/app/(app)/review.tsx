@@ -90,6 +90,7 @@ import {
   SPEECH_MIN_DB,
   SILENCE_DROP_DB,
   meteringToAmplitude,
+  reportAudioSessionFailure,
   type PlaybackHandle,
 } from '@/lib/audio';
 import { Waveform } from '@/components/Waveform';
@@ -1015,7 +1016,13 @@ export default function ReviewScreen() {
           recorderPreparedRef.current = true;
         }
         return true;
-      } catch {
+      } catch (err) {
+        // Bound, not swallowed. Which half threw is readable from the flag:
+        // the session step sets it before the recorder step runs.
+        reportAudioSessionFailure(
+          sessionReadyRef.current ? 'prepare_recorder' : 'prepare_session',
+          err,
+        );
         return false;
       } finally {
         preparePromiseRef.current = null;
@@ -1120,6 +1127,13 @@ export default function ReviewScreen() {
         if (!sessionReadyRef.current) {
           Alert.alert('Microphone needed', 'Please allow microphone access to practice speaking.');
         } else {
+          // Same copy as the catch below, deliberately. The tag is what
+          // separates them: prepare came back false without throwing.
+          reportAudioSessionFailure(
+            'prepare_recorder',
+            new Error('prepareRecorder returned false'),
+            'prepare_failed',
+          );
           Alert.alert('Recording failed', 'Could not start recording. Try again.');
         }
         return;
@@ -1134,8 +1148,9 @@ export default function ReviewScreen() {
       if (!isPressingRef.current) {
         void stopRecording();
       }
-    } catch {
+    } catch (err) {
       recorderPreparedRef.current = false;
+      reportAudioSessionFailure('start_record', err, 'record_threw');
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };
