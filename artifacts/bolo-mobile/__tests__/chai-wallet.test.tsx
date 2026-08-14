@@ -61,6 +61,7 @@ jest.mock('@workspace/api-client-react', () => {
         mutate: (vars: unknown) => mockState.spendCalls.push(vars),
       };
     },
+    useBuyFirstClass: () => ({ mutate: jest.fn(), isPending: false }),
   };
 });
 

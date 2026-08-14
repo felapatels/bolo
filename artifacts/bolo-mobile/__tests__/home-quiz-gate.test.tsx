@@ -91,6 +91,7 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
   getGetTokensQueryKey: () => ['tokens'],
   useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
+  useBuyFirstClass: () => ({ mutate: jest.fn(), isPending: false }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
