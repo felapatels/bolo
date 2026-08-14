@@ -107,8 +107,47 @@ function enqueueSessionOp<T>(fn: () => Promise<T>): Promise<T> {
 
 /** True once the recording session has been configured (mic permission granted). */
 let recordingSessionActive = false;
-/** Tracks which mode the last enqueued flip targets, to skip redundant sets. */
+/**
+ * The mode the native session was last successfully switched TO — a record of
+ * what has been APPLIED, never of what is merely intended.
+ *
+ * It used to track "which mode the last enqueued flip targets", written
+ * synchronously ahead of the op. Two ways that diverged from the device, both
+ * ending in a dead microphone behind "Could not start recording":
+ *   1. `prepareRecorderInSession` set it true while enqueueing only a
+ *      prepare — no mode set at all — so a prepare landing after a playback
+ *      flip left the flag claiming recording mode over a playback-only
+ *      session, and the deferred restore then skipped its re-assert.
+ *   2. A `setAudioModeAsync` that REJECTED left the optimistic true behind
+ *      it, and every later caller skipped the re-assert for the rest of the
+ *      process. Callers swallow those rejections, so it was silent.
+ * So it is now written only after a resolved set, and cleared on failure.
+ *
+ * The one deliberate exception is `activatePlaybackMode`, which still writes
+ * `false` ahead of its op: false is the recoverable direction (a stale false
+ * costs one redundant category switch), and the synchronous read in
+ * `activateSfxPlaybackRoute` depends on it to skip a redundant flip.
+ */
 let modeIsRecording = false;
+
+/**
+ * Switch the native session to recording mode, then record that fact.
+ *
+ * MUST already be running inside the session queue: it calls
+ * `setAudioModeAsync` directly rather than enqueueing, because enqueueing
+ * from within a queued op would park it behind the op that is awaiting it.
+ */
+async function applyRecordingMode(): Promise<void> {
+  try {
+    await setAudioModeAsync(RECORDING_MODE);
+  } catch (err) {
+    // The set failed, so the native mode is unknown — the flag must not claim
+    // recording. False is the recoverable value: the next prepare re-asserts.
+    modeIsRecording = false;
+    throw err;
+  }
+  modeIsRecording = true;
+}
 
 /**
  * True if mic permission is already granted. Never prompts - use this to
@@ -128,8 +167,10 @@ export async function hasRecordingPermission(): Promise<boolean> {
 export async function prepareRecordingSession(): Promise<boolean> {
   const status = await AudioModule.requestRecordingPermissionsAsync();
   if (!status.granted) return false;
-  modeIsRecording = true;
-  await enqueueSessionOp(() => setAudioModeAsync(RECORDING_MODE));
+  // The flag is set inside applyRecordingMode, after the set resolves: a
+  // rejection here propagates to the caller with the flag left false, instead
+  // of leaving a stale "already recording" claim nothing would ever re-assert.
+  await enqueueSessionOp(applyRecordingMode);
   recordingSessionActive = true;
   return true;
 }
@@ -142,25 +183,40 @@ export async function prepareRecordingSession(): Promise<boolean> {
 export function prepareRecorderInSession(
   recorder: AudioRecorder,
 ): Promise<void> {
-  modeIsRecording = true;
-  // Pass the preset explicitly: metering must be enabled at prepare time or
-  // recorder state never reports levels and silence auto-stop can't work.
-  return enqueueSessionOp(() => recorder.prepareToRecordAsync(RECORDING_PRESET));
+  return enqueueSessionOp(async () => {
+    // Assert the mode rather than claim it. This used to be a bare
+    // `modeIsRecording = true`, which made a prepare landing AFTER a playback
+    // flip claim recording mode while the native session stayed playback-only;
+    // the clip's deferred restore then saw "already recording" and skipped the
+    // re-assert, and record() ran against a playback-only session. The check
+    // runs inside the queued unit, so it reads the mode actually applied
+    // rather than one still sitting in the queue.
+    if (!modeIsRecording) await applyRecordingMode();
+    // Pass the preset explicitly: metering must be enabled at prepare time or
+    // recorder state never reports levels and silence auto-stop can't work.
+    await recorder.prepareToRecordAsync(RECORDING_PRESET);
+  });
 }
 
 /**
- * Re-assert recording mode (fast category switch) if coach playback flipped
- * the session to playback-only. Await this before `recorder.record()`.
+ * Re-assert recording mode (fast category switch) before `recorder.record()`.
+ * Await this on every record path.
+ *
+ * The re-assert is UNCONDITIONAL for a warm session. It used to be skipped
+ * when `modeIsRecording` was already true, which meant any stale true — a
+ * failed set, or a prepare that claimed the mode without setting it — made
+ * this a no-op forever and record() ran against a playback-only session. The
+ * skip saved one category switch on a path that already awaits the queue; it
+ * cost the microphone. Note this is not what protects a newer playback's mode
+ * claim from a stale restore — the playbackModeToken check in each
+ * restoreMode is, and it is unchanged.
  */
 export function ensureRecordingMode(): Promise<void> {
-  if (!recordingSessionActive || modeIsRecording) {
+  if (!recordingSessionActive) {
     // Still wait for any in-flight session op so record() never races one.
     return sessionChain.then(() => undefined);
   }
-  modeIsRecording = true;
-  return enqueueSessionOp(() => setAudioModeAsync(RECORDING_MODE)).then(
-    () => undefined,
-  );
+  return enqueueSessionOp(applyRecordingMode);
 }
 
 /** Flip to playback-only mode so iOS routes audio to the speaker. */

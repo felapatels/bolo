@@ -74,6 +74,7 @@ import {
   ensureRecordingMode,
   playBase64Audio,
   playStreamingAudio,
+  prepareRecorderInSession,
   prepareRecordingSession,
 } from '@/lib/audio';
 
@@ -124,12 +125,22 @@ describe('playbackModeToken race', () => {
     handle.stop();
     await flush();
 
-    // The stop's restore IS the new recording's mode: after it lands,
-    // ensureRecordingMode must be a no-op (no duplicate set, no clobber).
+    // The stop's restore IS the new recording's mode.
     expect(mockOpLog).toEqual(['mode:playback', 'play', 'mode:recording']);
 
+    // A further ensureRecordingMode re-asserts rather than deduping: the
+    // early-return on modeIsRecording was removed because any stale true (a
+    // rejected set, or a prepare that claimed the mode without setting it)
+    // silently disabled the re-assert for the rest of the process. A repeat
+    // set is idempotent; what protects a newer playback's claim from a stale
+    // restore is the playbackModeToken check, covered by the two tests below.
     await ensureRecordingMode();
-    expect(mockOpLog).toEqual(['mode:playback', 'play', 'mode:recording']);
+    expect(mockOpLog).toEqual([
+      'mode:playback',
+      'play',
+      'mode:recording',
+      'mode:recording',
+    ]);
   });
 
   test('a stale finish event must not override a newer playback claim', async () => {
@@ -155,6 +166,56 @@ describe('playbackModeToken race', () => {
 
     // No mode:recording may appear after the newer playback's claim.
     expect(mockOpLog).toEqual(['mode:playback', 'play', 'mode:playback', 'play']);
+  });
+});
+
+describe('prepare during playback (builds 35/36 "Could not start recording")', () => {
+  test('a prepare enqueued DURING playback applies recording mode before record', async () => {
+    const recorder = {
+      prepareToRecordAsync: jest.fn(async () => {
+        mockOpLog.push('prepare');
+      }),
+      record: jest.fn(() => {
+        mockOpLog.push('record');
+      }),
+    };
+
+    // Coach phrase audio autoplays: the session flips to playback-only.
+    await playBase64Audio('QUJD', 'mp3');
+    expect(mockOpLog).toEqual(['mode:playback', 'play']);
+
+    // The idle-phase warm-up prepares the recorder while that clip is STILL
+    // PLAYING. The old code set modeIsRecording = true here without setting
+    // any mode, so everything downstream believed the session was already
+    // recording-capable while it sat in playback-only.
+    await prepareRecorderInSession(
+      recorder as unknown as Parameters<typeof prepareRecorderInSession>[0],
+    );
+
+    // The clip finishes; its deferred restore must still re-assert.
+    mockPlayers[0].emitFinish();
+    await flush();
+
+    // The record path asserts the mode one last time, unconditionally.
+    await ensureRecordingMode();
+    recorder.record();
+
+    expect(mockOpLog).toEqual([
+      'mode:playback',
+      'play',
+      'mode:recording', // prepare asserts the mode instead of claiming it
+      'prepare',
+      'mode:recording', // the deferred restore is no longer skipped
+      'mode:recording', // the record path's own unconditional re-assert
+      'record',
+    ]);
+
+    // The witness: under the old code this log was
+    // ['mode:playback', 'play', 'prepare', 'record'] — record() against a
+    // playback-only session, which is the device-reported failure.
+    expect(mockOpLog.indexOf('record')).toBeGreaterThan(
+      mockOpLog.lastIndexOf('mode:recording'),
+    );
   });
 });
 
