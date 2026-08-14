@@ -210,7 +210,7 @@ describe('instant band audio on results', () => {
   test('the band clip for the result band plays when the result lands, then feedback follows', async () => {
     await renderReady();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
 
     // Band call-out fired immediately with the result's band.
     await waitFor(() => expect(playBandClip).toHaveBeenCalledWith('great'));
@@ -244,7 +244,7 @@ describe('instant band audio on results', () => {
     await AsyncStorage.setItem('bolo.spokenFeedback', 'off');
     await renderReady();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
 
     await act(async () => {
       await Promise.resolve();
@@ -266,7 +266,7 @@ describe('instant band audio on results', () => {
     await recordAndRelease();
 
     // Result card renders normally — never blocked on audio.
-    await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
     await waitFor(() => expect(playBandClip).toHaveBeenCalledWith('great'));
 
     await act(async () => {
@@ -275,6 +275,6 @@ describe('instant band audio on results', () => {
     // The failed synthesis must not reach playback (coach playback at mount
     // was the only playBase64Audio call).
     expect(playBase64Audio).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Amazing!')).toBeOnTheScreen();
+    expect(screen.getByText('Goated 🐐')).toBeOnTheScreen();
   });
 });

@@ -222,6 +222,9 @@ describe('score flash band treatment', () => {
       evalResult({ band: 'nocatch', score: 0, transcript: '' }),
     );
     await recordThrough(/Didn't catch that/);
+    // The bare else on the headline is the nocatch arm: a system miss keeps
+    // the encouraging wording and is never called "Mid 😐".
+    expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen();
     // setFlashColor was skipped, so the overlay keeps its initial mount
     // color instead of the destructive red the old else-branch assigned.
     expect(overlayBackground()).not.toBe(COLORS.destructive);

@@ -183,7 +183,7 @@ async function recordAndScore() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
 }
 
 describe('spoken feedback after scoring', () => {

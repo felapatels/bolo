@@ -247,6 +247,11 @@ describe("instant band audio on results", () => {
 
     await waitFor(() => expect(playedBandClips()).toHaveLength(1));
     expect(playedBandClips()[0].src).toContain("sounds/bands/nocatch.mp3");
+    // The bare else on the headline is the nocatch arm: a system miss keeps
+    // the encouraging wording and is never called "Mid 😐".
+    await waitFor(() =>
+      expect(screen.getByText("Good try, keep going!")).toBeInTheDocument(),
+    );
   });
 
   test("spoken-feedback mute suppresses the band clip and the feedback audio", async () => {

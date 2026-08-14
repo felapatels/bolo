@@ -154,7 +154,15 @@ async function reachIdle(phraseList = phrases.slice(0, 3)) {
 type Band = "great" | "good" | "retry" | "nocatch";
 
 function bandLabel(band: Band): string {
-  return band === "great" ? "Goated 🐐" : band === "good" ? "Fire 🔥" : "Mid 😐";
+  // nocatch is NOT "Mid 😐": the bare else on the result card keeps the
+  // encouraging wording for a system miss.
+  return band === "great"
+    ? "Goated 🐐"
+    : band === "good"
+      ? "Fire 🔥"
+      : band === "retry"
+        ? "Mid 😐"
+        : "Good try, keep going!";
 }
 
 /**

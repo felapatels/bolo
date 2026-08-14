@@ -215,7 +215,7 @@ async function recordAndRelease() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Amazing!')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
 }
 
 describe('toggle confirmation toasts', () => {
